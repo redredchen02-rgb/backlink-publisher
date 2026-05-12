@@ -28,3 +28,12 @@ client_secret = "your-client-secret"
 # Optional: path to the Chrome/Chromium user-data-dir containing your Medium login.
 # Defaults to: ~/.config/backlink-publisher/chrome-profile-default/
 # user_data_dir = "/path/to/your/chrome/profile"
+
+# ────────────────────────────────────────────────────────────
+# Medium OAuth 2.0 (推荐)
+# ────────────────────────────────────────────────────────────
+# 通过 WebUI Settings 页面授权，无需手动填写
+# OAuth Token 会自动保存到: ~/.config/backlink-publisher/medium-token.json
+# [medium.oauth]
+# client_id     = "your-medium-client-id"
+# client_secret = "your-medium-client-secret"

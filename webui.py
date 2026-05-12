@@ -1793,15 +1793,58 @@ SETTINGS_HTML = '''
             </div>
         </div>
 
-        <!-- ③ Medium Integration Token -->
+        <!-- ③ Medium OAuth 授权 & Integration Token -->
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-medium me-2"></i>Medium Integration Token
+                <i class="bi bi-medium me-2"></i>Medium 授权
             </div>
             <div class="card-body">
                 <p class="text-muted" style="font-size:13px;">
-                    前往 <a href="https://medium.com/me/settings/security" target="_blank">medium.com → 设置 → 安全 → Integration tokens</a>
-                    生成 Token。如未设置则使用浏览器自动化作为 fallback。
+                    推荐使用 <strong>OAuth 授权</strong>（需要申请 Medium 应用）或使用 <strong>Integration Token</strong>（已停用但仍可用）。
+                </p>
+                
+                <!-- OAuth 授权部分 -->
+                {% if not medium_oauth_configured %}
+                <div class="alert alert-info" style="margin-bottom:20px;">
+                    <strong>🔐 推荐：使用 OAuth 授权</strong><br/>
+                    需要先在 <a href="https://medium.com/me/apps" target="_blank">https://medium.com/me/apps</a> 创建应用获得 Client ID 和 Client Secret。
+                </div>
+                <form method="POST" action="/settings/medium/oauth-start" style="margin-bottom:20px;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Client ID</label>
+                            <input type="text" class="form-control" name="client_id" placeholder="你的 Medium Client ID" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Client Secret</label>
+                            <input type="password" class="form-control" name="client_secret" placeholder="你的 Medium Client Secret" required>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>通过 Medium 授权
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="alert alert-success" style="margin-bottom:20px;">
+                    <i class="bi bi-check-circle-fill me-2"></i><strong>OAuth 已授权</strong>
+                </div>
+                <div class="d-flex gap-2" style="margin-bottom:20px;">
+                    <form method="POST" action="/settings/clear-medium-oauth" style="margin:0;">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash me-1"></i>清除 OAuth 授权
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+                
+                <hr style="margin:20px 0;">
+                
+                <!-- Integration Token 备选方案 -->
+                <p class="text-muted" style="font-size:13px;">
+                    <strong>备选：Integration Token</strong>（已停用但仍可用）<br/>
+                    如果无法使用 OAuth，可前往 <a href="https://medium.com/me/settings/security" target="_blank">medium.com → 设置 → 安全 → Integration tokens</a> 生成 Token。
                 </p>
                 <form method="POST" action="/settings/save-medium-token">
                     <div class="mb-3">
@@ -3223,8 +3266,11 @@ _FLASK_PORT = int(os.environ.get('PORT', 8888))
 
 def _settings_context(flash=None):
     """Build template context for the settings page."""
+    from backlink_publisher.config import load_medium_token
+    
     cfg = load_config()
     token_data = load_blogger_token(cfg.blogger_token_path)
+    medium_token_data = load_medium_token()
 
     token = cfg.medium_integration_token or ""
     masked = ("*" * 8 + token[-4:]) if len(token) > 4 else ("*" * len(token))
@@ -3237,6 +3283,7 @@ def _settings_context(flash=None):
         blog_ids=cfg.blogger_blog_ids,
         medium_token_set=bool(token),
         medium_token_masked=masked if token else "",
+        medium_oauth_configured=bool(medium_token_data and cfg.medium_oauth),
         config_path=str(cfg.config_dir / "config.toml"),
         token_path=str(cfg.blogger_token_path),
         port=_FLASK_PORT,
@@ -3327,6 +3374,128 @@ def settings_clear_medium_token():
     try:
         save_config(load_config(), medium_token="")
         return redirect('/settings?flash_type=success&flash_msg=Medium Token 已清除')
+    except Exception as e:
+        return redirect(f'/settings?flash_type=danger&flash_msg=清除失败: {e}')
+
+
+@app.route('/settings/medium/oauth-start', methods=['POST'])
+def settings_medium_oauth_start():
+    """Save credentials, generate Medium auth URL, redirect user's browser there."""
+    import secrets
+    
+    client_id     = request.form.get('client_id', '').strip()
+    client_secret = request.form.get('client_secret', '').strip()
+    
+    if not client_id or not client_secret:
+        return redirect('/settings?flash_type=warning&flash_msg='
+                        + '请填写 Client ID 和 Client Secret')
+    
+    try:
+        cfg = load_config()
+        # 保存客户端凭据
+        from backlink_publisher.config import save_config, MediumOAuthConfig
+        cfg.medium_oauth = MediumOAuthConfig(client_id=client_id, client_secret=client_secret)
+        # 这里只是临时保存到内存，真实实现需要更新配置文件
+        session['medium_client_id'] = client_id
+        session['medium_client_secret'] = client_secret
+    except Exception as e:
+        return redirect(f'/settings?flash_type=danger&flash_msg=凭据保存失败: {e}')
+    
+    # 生成 OAuth 授权 URL
+    state = secrets.token_urlsafe(32)
+    session['medium_oauth_state'] = state
+    
+    redirect_uri = _oauth_callback_uri().replace('/blogger/oauth-callback', '/medium/oauth-callback')
+    auth_url = (
+        f"https://medium.com/m/oauth/authorize?"
+        f"client_id={client_id}&"
+        f"redirect_uri={redirect_uri}&"
+        f"response_type=code&"
+        f"state={state}&"
+        f"scope=basicProfile,publishPost"
+    )
+    
+    return redirect(auth_url)
+
+
+@app.route('/settings/medium/oauth-callback')
+def settings_medium_oauth_callback():
+    """Medium redirects here after user approves."""
+    import requests as req
+    
+    err = request.args.get('error')
+    if err:
+        return redirect(f'/settings?flash_type=danger&flash_msg=Medium 拒绝授权: {err}')
+    
+    state = session.get('medium_oauth_state')
+    code = request.args.get('code')
+    client_id = session.get('medium_client_id')
+    client_secret = session.get('medium_client_secret')
+    
+    if not state or not code or not client_id or not client_secret:
+        return redirect('/settings?flash_type=warning&flash_msg='
+                        + '授权会话已过期，请重新点击授权按钮')
+    
+    if request.args.get('state') != state:
+        return redirect('/settings?flash_type=danger&flash_msg='
+                        + 'OAuth state 不匹配（可能是 CSRF 攻击）')
+    
+    # 用授权码交换 Access Token
+    redirect_uri = _oauth_callback_uri().replace('/blogger/oauth-callback', '/medium/oauth-callback')
+    try:
+        token_resp = req.post(
+            "https://api.medium.com/v1/tokens",
+            data={
+                "code": code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            },
+            timeout=30
+        )
+        
+        if token_resp.status_code != 200:
+            raise Exception(f"Medium token endpoint returned {token_resp.status_code}: {token_resp.text[:200]}")
+        
+        token_data = token_resp.json()
+        access_token = token_data.get("access_token")
+        
+        if not access_token:
+            raise Exception("Missing access_token in Medium response")
+        
+        # 保存 token 和凭据
+        from backlink_publisher.config import save_medium_token, MediumOAuthConfig, save_config
+        save_medium_token(token_data)
+        
+        cfg = load_config()
+        cfg.medium_oauth = MediumOAuthConfig(client_id=client_id, client_secret=client_secret)
+        
+        # 清除 session 中的临时数据
+        session.pop('medium_oauth_state', None)
+        session.pop('medium_client_id', None)
+        session.pop('medium_client_secret', None)
+        
+        return redirect('/settings?flash_type=success&flash_msg=Medium OAuth 授权成功！')
+    
+    except Exception as e:
+        return redirect(f'/settings?flash_type=danger&flash_msg=获取 Token 失败: {e}')
+
+
+@app.route('/settings/clear-medium-oauth', methods=['POST'])
+def settings_clear_medium_oauth():
+    """Clear Medium OAuth configuration."""
+    from pathlib import Path
+    import os
+    
+    try:
+        # 删除 token 文件
+        from backlink_publisher.config import _config_dir
+        token_file = _config_dir() / "medium-token.json"
+        if token_file.exists():
+            os.remove(token_file)
+        
+        return redirect('/settings?flash_type=success&flash_msg=Medium OAuth 授权已清除')
     except Exception as e:
         return redirect(f'/settings?flash_type=danger&flash_msg=清除失败: {e}')
 

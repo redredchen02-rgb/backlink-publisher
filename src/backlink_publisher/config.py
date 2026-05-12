@@ -45,9 +45,16 @@ class BloggerOAuthConfig:
 
 
 @dataclass
+class MediumOAuthConfig:
+    client_id: str
+    client_secret: str
+
+
+@dataclass
 class Config:
     blogger_blog_ids: dict[str, str] = field(default_factory=dict)
     blogger_oauth: BloggerOAuthConfig | None = None
+    medium_oauth: MediumOAuthConfig | None = None
     medium_integration_token: str | None = None
     medium_user_data_dir: Path | None = None
 
@@ -94,6 +101,14 @@ def load_config(path: Path | None = None) -> Config:
             client_secret=oauth_section["client_secret"],
         )
 
+    medium_oauth_section = medium_section.get("oauth", {})
+    medium_oauth: MediumOAuthConfig | None = None
+    if medium_oauth_section.get("client_id") and medium_oauth_section.get("client_secret"):
+        medium_oauth = MediumOAuthConfig(
+            client_id=medium_oauth_section["client_id"],
+            client_secret=medium_oauth_section["client_secret"],
+        )
+
     user_data_dir: Path | None = None
     if medium_browser_section.get("user_data_dir"):
         user_data_dir = Path(medium_browser_section["user_data_dir"])
@@ -106,6 +121,7 @@ def load_config(path: Path | None = None) -> Config:
     return Config(
         blogger_blog_ids=blog_ids,
         blogger_oauth=blogger_oauth,
+        medium_oauth=medium_oauth,
         medium_integration_token=medium_section.get("integration_token") or None,
         medium_user_data_dir=user_data_dir,
     )
@@ -214,6 +230,30 @@ def save_blogger_token(data: dict[str, Any], path: Path | None = None) -> None:
     with open(token_path, "w", encoding="utf-8") as f:
         json.dump(data, f)
     # Restrict permissions (no-op on Windows)
+    try:
+        os.chmod(token_path, stat.S_IRUSR | stat.S_IWUSR)
+    except OSError:
+        pass
+
+
+def load_medium_token(path: Path | None = None) -> dict[str, Any] | None:
+    """Load Medium OAuth token dict from JSON file. Returns None if file missing."""
+    token_path = path or (_config_dir() / "medium-token.json")
+    if not token_path.exists():
+        return None
+    try:
+        with open(token_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def save_medium_token(data: dict[str, Any], path: Path | None = None) -> None:
+    """Save Medium OAuth token dict to JSON file with mode 0600."""
+    token_path = path or (_config_dir() / "medium-token.json")
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(token_path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
     try:
         os.chmod(token_path, stat.S_IRUSR | stat.S_IWUSR)
     except OSError:

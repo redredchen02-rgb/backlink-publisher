@@ -24,7 +24,7 @@ Currently, any `ExternalServiceError` from an adapter — including recoverable 
 - R1. Three total attempts (1 initial + 2 retries) per adapter call.
 - R2. Backoff before retry 1: 2s; before retry 2: 4s; each ± 15% jitter.
 - R3a. Structured retry progress to stderr — status code, adapter name, attempt count, wait duration only. No response bodies or credentials.
-- R4. Retryable: HTTP 429, HTTP 5xx, `ConnectionError`, `ReadTimeout`, Playwright `TimeoutError`.
+- R4. Retryable: HTTP 429 only (rate limit). NOT 5xx (see Risk mitigation below). `ConnectionError`, `ReadTimeout`, Playwright `TimeoutError`.
 - R5. Non-retryable: HTTP 401, 403, 422, `DependencyError`, CAPTCHA/2FA.
 - R6. On exhaustion, last caught exception wraps as `ExternalServiceError`; no HTTP response headers or body propagated.
 - R9. Retry constants defined as named constants in `retry.py`, not inline per adapter.
@@ -35,7 +35,7 @@ Currently, any `ExternalServiceError` from an adapter — including recoverable 
 - No retry at the plan → validate → publish CLI pipeline level.
 - No user-configurable retry parameters in V1.
 - No retry for CAPTCHA, 2FA, or login expiry on Playwright. These already raise `ExternalServiceError` inside the adapter; the retry helper does not catch `ExternalServiceError`.
-- HTTP 5xx retry assumes the API did not partially commit. Verify against Blogger API v3 and Medium API docs before shipping.
+- No retry for HTTP 5xx — idempotency not guaranteed by Blogger API v3 or Medium API. Only HTTP 429 (rate limit) is retried, along with connection timeouts.
 - Medium throttle (60–300s between articles) is unchanged.
 - `--dry-run` mode is unchanged (no live network calls).
 
@@ -387,7 +387,7 @@ Unit 5 is independent and can be implemented in parallel with Unit 1.
 
 | Risk | Mitigation |
 |------|------------|
-| **[BLOCKING PRE-CONDITION]** Blogger or Medium POST commits server-side before returning 5xx — retry creates duplicate article | Verify Blogger API v3 and Medium API /posts idempotency against official docs **before** shipping HTTP 5xx retry. If either is non-idempotent, remove 5xx from `RETRYABLE_HTTP_STATUSES` and keep only 429 + connection errors. This verification is required before merge — not a post-ship follow-up. |
+| **[RESOLVED]** HTTP 5xx idempotency not guaranteed — retry creates duplicate articles | Research confirms: Blogger API v3 and Medium API do NOT document idempotency guarantees for POST. A 5xx response could mean the post was already created server-side (load balancer timeout after server already processed request). **HTTP 5xx has been REMOVED from RETRYABLE_HTTP_STATUSES.** Only HTTP 429 (rate limit) is retried. Connection timeouts and rate limits are safe to retry without deduplication. See: https://sophiabits.com/blog/you-cant-always-retry-a-5xx |
 | HTTP 429 responses carry `Retry-After` header; fixed exponential backoff may retry before server-mandated window | In `retry_transient_call`, parse `Retry-After` from the response when available (pass response as optional context). Use `max(computed_wait, retry_after_seconds)` for 429. If parsing is out of scope for V1, document it as a known limitation. |
 | Playwright `TimeoutError` import path wrong | Verify exact class name during Unit 4 implementation; add an import guard |
 | Medium Browser Chrome profile lock between retry attempts | `try/finally` in `_run_browser_publish` guarantees context.close() before retry (Unit 4). If OS doesn't release lock fast enough, add `time.sleep(1)` before each retry attempt |

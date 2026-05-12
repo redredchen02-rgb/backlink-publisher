@@ -48,9 +48,20 @@ class MediumAPIAdapter:
         mode: str,
         config: Config,
     ) -> AdapterResult:
-        token = config.medium_integration_token
+        from ..config import load_medium_token
+        
+        # 优先使用 OAuth token，其次 Integration Token
+        medium_token_data = load_medium_token()
+        token = None
+        
+        if medium_token_data and medium_token_data.get("access_token"):
+            token = medium_token_data.get("access_token")
+        else:
+            token = config.medium_integration_token
+        
         if not token:
-            raise DependencyError("medium integration token not configured")
+            raise DependencyError("medium access token or integration token not configured"
+                                 " — please authorize via Settings → Medium 授权")
 
         t0 = time.monotonic()
         article_id = payload.get("id", "")

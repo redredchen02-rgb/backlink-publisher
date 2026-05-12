@@ -120,24 +120,22 @@ def test_429_retried_and_recovers(mock_build, mock_creds, mock_sleep):
     mock_sleep.assert_called_once()
 
 
-@patch("backlink_publisher.adapters.retry.time.sleep")
 @patch("backlink_publisher.adapters.blogger_api._build_credentials")
 @patch("googleapiclient.discovery.build")
-def test_5xx_retried_and_recovers(mock_build, mock_creds, mock_sleep):
-    """HTTP 503 on first attempt triggers retry; success on second returns result."""
+def test_5xx_not_retried(mock_build, mock_creds):
+    """HTTP 503 is NOT retried (no idempotency guarantee from Blogger API)."""
     from googleapiclient.errors import HttpError
     resp_503 = MagicMock()
     resp_503.status = 503
 
     mock_service = MagicMock()
     execute = mock_service.posts.return_value.insert.return_value.execute
-    execute.side_effect = [HttpError(resp=resp_503, content=b"server error"), {"url": "https://myblog.blogspot.com/post"}]
+    execute.side_effect = HttpError(resp=resp_503, content=b"server error")
     mock_build.return_value = mock_service
 
     adapter = BloggerAPIAdapter()
-    result = adapter.publish(PAYLOAD, mode="draft", config=CONFIG)
-    assert result.status == "drafted"
-    mock_sleep.assert_called_once()
+    with pytest.raises(ExternalServiceError, match="503"):
+        adapter.publish(PAYLOAD, mode="draft", config=CONFIG)
 
 
 @patch("backlink_publisher.adapters.retry.time.sleep")

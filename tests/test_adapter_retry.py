@@ -288,11 +288,14 @@ def test_stderr_not_emitted_on_non_retryable(mock_sleep, capsys):
 # ---------------------------------------------------------------------------
 
 def test_retryable_http_statuses_contains_expected_codes():
+    # Only HTTP 429 (rate limit) is retried. 5xx codes are not retried because
+    # neither Blogger API v3 nor Medium API document idempotency guarantees.
+    # A 5xx response could mean the resource was already created server-side.
     assert 429 in RETRYABLE_HTTP_STATUSES
-    assert 500 in RETRYABLE_HTTP_STATUSES
-    assert 502 in RETRYABLE_HTTP_STATUSES
-    assert 503 in RETRYABLE_HTTP_STATUSES
-    assert 504 in RETRYABLE_HTTP_STATUSES
+    assert 500 not in RETRYABLE_HTTP_STATUSES
+    assert 502 not in RETRYABLE_HTTP_STATUSES
+    assert 503 not in RETRYABLE_HTTP_STATUSES
+    assert 504 not in RETRYABLE_HTTP_STATUSES
     assert 401 not in RETRYABLE_HTTP_STATUSES
     assert 403 not in RETRYABLE_HTTP_STATUSES
     assert 422 not in RETRYABLE_HTTP_STATUSES

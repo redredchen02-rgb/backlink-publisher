@@ -18,7 +18,12 @@ JITTER_FACTOR: float = 0.15
 
 # HTTP status codes that indicate a transient server-side failure worth retrying.
 # Only used by call-site is_retryable predicates — not enforced here.
-RETRYABLE_HTTP_STATUSES: frozenset[int] = frozenset({429, 500, 502, 503, 504})
+# NOTE: 5xx errors are NOT retried because neither Blogger API v3 nor Medium API
+# document idempotency guarantees. A 5xx response could mean the resource was
+# already created server-side (e.g., server timeout after POST succeeded but before
+# sending response). Retrying without deduplication risks duplicate posts.
+# See: https://sophiabits.com/blog/you-cant-always-retry-a-5xx
+RETRYABLE_HTTP_STATUSES: frozenset[int] = frozenset({429})
 
 
 def retry_transient_call(

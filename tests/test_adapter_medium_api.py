@@ -113,18 +113,16 @@ def test_posts_429_retried_and_recovers(mock_post, mock_get, mock_sleep):
     mock_sleep.assert_called_once()
 
 
-@patch("backlink_publisher.adapters.retry.time.sleep")
-@patch("backlink_publisher.adapters.medium_api.requests.get")
 @patch("backlink_publisher.adapters.medium_api.requests.post")
-def test_posts_503_retried_and_recovers(mock_post, mock_get, mock_sleep):
-    """/posts 503 on first call triggers retry; second call succeeds."""
+@patch("backlink_publisher.adapters.medium_api.requests.get")
+def test_posts_503_not_retried(mock_get, mock_post):
+    """/posts 503 is NOT retried (no idempotency guarantee from Medium API)."""
     mock_get.return_value = make_mock_get()
-    mock_post.side_effect = [make_mock_post(status=503), make_mock_post()]
+    mock_post.return_value = make_mock_post(status=503)
 
     adapter = MediumAPIAdapter()
-    result = adapter.publish(PAYLOAD, mode="draft", config=CONFIG_WITH_TOKEN)
-    assert result.status == "drafted"
-    mock_sleep.assert_called_once()
+    with pytest.raises(ExternalServiceError, match="503"):
+        adapter.publish(PAYLOAD, mode="draft", config=CONFIG_WITH_TOKEN)
 
 
 @patch("backlink_publisher.adapters.retry.time.sleep")
