@@ -8,6 +8,29 @@ from typing import Any
 from .errors import InternalError
 
 
+_mdit_instance = None
+
+
+def _get_mdit():
+    global _mdit_instance
+    if _mdit_instance is None:
+        from markdown_it import MarkdownIt
+        mdit = MarkdownIt("commonmark").enable(["table", "strikethrough"])
+        default_link_open = mdit.renderer.rules.get("link_open")
+
+        def _link_open(tokens, idx, options, env):
+            token = tokens[idx]
+            token.attrSet("target", "_blank")
+            token.attrSet("rel", "noopener")
+            if default_link_open is not None:
+                return default_link_open(tokens, idx, options, env)
+            return mdit.renderer.renderToken(tokens, idx, options, env)
+
+        mdit.renderer.rules["link_open"] = _link_open
+        _mdit_instance = mdit
+    return _mdit_instance
+
+
 def render_to_html(md: str) -> str:
     """Render markdown to HTML using markdown-it-py (CommonMark + GFM extras).
 
@@ -18,21 +41,7 @@ def render_to_html(md: str) -> str:
     """
     if not md:
         return ""
-    from markdown_it import MarkdownIt
-    mdit = MarkdownIt("commonmark").enable(["table", "strikethrough"])
-
-    default_link_open = mdit.renderer.rules.get("link_open")
-
-    def _link_open(tokens, idx, options, env):
-        token = tokens[idx]
-        token.attrSet("target", "_blank")
-        token.attrSet("rel", "noopener")
-        if default_link_open is not None:
-            return default_link_open(tokens, idx, options, env)
-        return mdit.renderer.renderToken(tokens, idx, options, env)
-
-    mdit.renderer.rules["link_open"] = _link_open
-    return mdit.render(md)
+    return _get_mdit().render(md)
 
 
 _URL_MODE_OFFSETS = {"A": 0, "B": 1, "C": 2}

@@ -19,10 +19,11 @@ RETRY_DELAY = 1  # seconds
 
 
 def _ssl_context() -> ssl.SSLContext:
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
+    return _SSL_CTX
+
+_SSL_CTX: ssl.SSLContext = ssl.create_default_context()
+_SSL_CTX.check_hostname = False
+_SSL_CTX.verify_mode = ssl.CERT_NONE
 
 
 def _check_url_once(url: str) -> tuple[bool, str | None]:

@@ -97,14 +97,11 @@ def validate_input_payload(row: dict[str, Any], line_num: int) -> list[str]:
             if not re.match(r"^https?://", url_val):
                 errors.append(f"line {line_num}: field '{url_field}' is not a valid URL: {url_val}")
 
-    # Validate seed_keywords if present
-    if "seed_keywords" in row:
-        if not isinstance(row["seed_keywords"], list):
-            errors.append(f"line {line_num}: 'seed_keywords' must be a list")
-        else:
-            for kw in row["seed_keywords"]:
-                if not isinstance(kw, str):
-                    errors.append(f"line {line_num}: 'seed_keywords' items must be strings")
+    # Validate seed_keywords item types (list type already checked above)
+    if "seed_keywords" in row and isinstance(row["seed_keywords"], list):
+        for kw in row["seed_keywords"]:
+            if not isinstance(kw, str):
+                errors.append(f"line {line_num}: 'seed_keywords' items must be strings")
 
     return errors
 
