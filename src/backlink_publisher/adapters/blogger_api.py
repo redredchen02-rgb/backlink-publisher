@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from ..config import Config, BloggerOAuthConfig, resolve_blog_id, load_blogger_token, save_blogger_token
@@ -13,6 +14,21 @@ from .base import AdapterResult
 from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 _SCOPES = ["https://www.googleapis.com/auth/blogger"]
+
+
+def _near_expiry(creds, window_secs: int) -> bool:
+    """Return True when creds are already expired or expire within window_secs.
+
+    Uses datetime.now(timezone.utc).replace(tzinfo=None) to produce a naive UTC
+    datetime that is safe to subtract from google-auth's naive creds.expiry.
+    Returns False when creds.expiry is None (no expiry info → no proactive refresh).
+    """
+    if creds.expired:
+        return True
+    if creds.expiry is None:
+        return False
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    return (creds.expiry - now_naive).total_seconds() <= window_secs
 
 
 def _build_credentials(config: Config):
@@ -30,13 +46,13 @@ def _build_credentials(config: Config):
         except Exception:
             creds = None
 
-    if creds and creds.expired and creds.refresh_token:
+    if creds and _near_expiry(creds, 300) and creds.refresh_token:
         try:
             creds.refresh(Request())
             save_blogger_token(json_from_creds(creds), config.blogger_token_path)
             return creds
         except Exception as exc:
-            log.warning(f"Token refresh failed: {exc}. Re-authenticating.")
+            log.warn(f"Token refresh failed: {exc}. Re-authenticating.")
             creds = None
 
     if not creds or not creds.valid:
