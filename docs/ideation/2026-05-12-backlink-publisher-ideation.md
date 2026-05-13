@@ -40,7 +40,7 @@ focus: open-ended
 **Downsides:** Splitting badge out means users still discover expiry via failures *between batches* (just not *during*). Acceptable tradeoff for V1.
 **Confidence:** 92% (refresh path); badge demoted to V2 polish
 **Complexity:** Low
-**Status:** Unexplored
+**Status:** Explored — brainstorm started 2026-05-13
 
 ---
 
@@ -121,3 +121,4 @@ focus: open-ended
 - 2026-05-12: Idea #1 (Auto-Retry with Exponential Backoff) selected for brainstorm
 - 2026-05-12: **Raise-the-bar refinement (Phase 3 second pass).** Two adversarial reviewers (product critic + engineering pragmatist) re-attacked the 7 survivors. Result: 7 → 5 strict survivors. Cut: #6 Config Wizard (replaced with `config check` validator). Demoted: #3 Profiles (Medium-High, multi-client ICP only), #7 Inline Editor (speculative, defer as textarea-only V2). **Added:** Real-Publish Verification (defends against documented fake-publish failure class from prior opencli adapter). Sequencing chain made explicit: **#1 Retry → #4 Checkpoint → #5 Bulk Input**; #2 OAuth Pre-flight is independent (badge split to V2); #3 Verification is independent.
 - 2026-05-12: Idea #3 (Real-Publish Verification) selected for brainstorm.
+- 2026-05-13: Idea #2 (Proactive OAuth Pre-Flight Refresh) selected for brainstorm.

@@ -37,6 +37,12 @@ from ..schema import (
 
 ARTICLE_LENGTH_WORDS = (100, 200)
 
+_TDK_TITLE_TMPL: dict[str, str] = {
+    "zh-CN": "深入了解{tdk}: {domain} 完整指南",
+    "ru": "Подробнее о {tdk}: полный гид по {domain}",
+    "en": "Deep Dive into {tdk}: The Complete {domain} Guide",
+}
+
 # ---------------------------------------------------------------------------
 # Template registry
 # ---------------------------------------------------------------------------
@@ -221,20 +227,6 @@ def _build_links(
             "kind": "supporting",
             "required": False,
         })
-    
-    # If still below minimum, add more from supporting
-    if len(links) < target_min:
-        for surl, sanchor in supporting:
-            if len(links) >= target_min:
-                break
-            if any(l["url"] == surl for l in links):
-                continue
-            links.append({
-                "url": surl,
-                "anchor": sanchor,
-                "kind": "supporting",
-                "required": False,
-            })
 
     return links
 
@@ -362,7 +354,8 @@ def _generate_payload(row: dict[str, Any], config: Config | None = None) -> dict
     title = row.get("custom_title", "")
     if not title:
         if tdk_title and url_mode == 'C':
-            title = f"深入了解{tdk_title}: {domain_label} 完整指南"
+            lang_key = target_language if target_language in _TDK_TITLE_TMPL else "en"
+            title = _TDK_TITLE_TMPL[lang_key].format(tdk=tdk_title, domain=domain_label)
         else:
             title = title_tmpl.format(domain=domain_label, topic=topic_val)
     
