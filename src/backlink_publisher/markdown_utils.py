@@ -112,7 +112,7 @@ def normalize_text(text: str) -> str:
 # Enhanced template content — more natural, varied, and SEO-friendly
 # ---------------------------------------------------------------------------
 
-# Each body function takes (domain, main_domain) and returns a paragraph string.
+# Each body function takes (domain, main_domain, anchors) and returns a paragraph string.
 # Templates vary by url_mode (A/B/C) and language.
 
 def _en_body_a(domain: str, main_domain: str, anchors: list[str]) -> str:

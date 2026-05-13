@@ -541,13 +541,10 @@ def main(argv: list[str] | None = None) -> None:
     plan_logger.info(f"read {len(rows)} seed rows")
 
     # Load user config so SEO anchor_keywords are available to payload generation.
-    # If the file is missing or malformed, fall back to an empty Config (each
-    # article will then WARN once and use the bare-domain anchor).
-    try:
-        cfg: Config | None = load_config()
-    except Exception as exc:  # pragma: no cover — never fail planning over config
-        plan_logger.warn(f"failed to load config, anchors will fall back: {exc}")
-        cfg = None
+    # Missing config file returns an empty Config (no error).
+    # Malformed TOML is a DependencyError and is surfaced to the operator — a syntax
+    # mistake in config.toml should not silently degrade SEO across the whole batch.
+    cfg = load_config()
 
     outputs: list[dict[str, Any]] = []
     all_errors: list[str] = []

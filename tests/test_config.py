@@ -188,3 +188,46 @@ anchor_keywords = []
     # Empty list is preserved verbatim — caller (selector) treats as "no pool"
     assert cfg.target_anchor_keywords["https://empty.com"] == []
     assert get_anchor_keywords(cfg, "https://empty.com") == []
+
+
+def test_anchor_keyword_unsafe_chars_stripped(tmp_path):
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_bytes(b"""
+[targets."https://example.com"]
+anchor_keywords = ["legit keyword", "bad](link", "has<tag>here"]
+""")
+    cfg = load_config(cfg_path)
+    kws = cfg.target_anchor_keywords["https://example.com"]
+    assert "legit keyword" in kws
+    # Dangerous chars stripped — ]( and < must not appear in any keyword
+    assert all("](" not in k and "<" not in k for k in kws)
+
+
+def test_save_config_preserves_targets_section(tmp_path):
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_bytes(b"""
+[blogger]
+"https://site.com" = "111"
+
+[targets."https://site.com"]
+anchor_keywords = ["brand", "head term"]
+""")
+    from backlink_publisher.config import save_config
+    cfg = load_config(cfg_path)
+    # Saving blogger token should NOT wipe [targets]
+    save_config(cfg, path=cfg_path, medium_token="tok123")
+    cfg2 = load_config(cfg_path)
+    assert get_anchor_keywords(cfg2, "https://site.com") == ["brand", "head term"]
+
+
+def test_get_anchor_keywords_tolerates_scheme_mismatch(tmp_path):
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_bytes(b"""
+[targets."https://example.com"]
+anchor_keywords = ["kw1", "kw2"]
+""")
+    cfg = load_config(cfg_path)
+    # http:// lookup against https:// config entry should succeed
+    assert get_anchor_keywords(cfg, "http://example.com") == ["kw1", "kw2"]
+    # Bare domain lookup should also succeed
+    assert get_anchor_keywords(cfg, "https://example.com/") == ["kw1", "kw2"]

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import stat
 import sys
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ from typing import Any
 from .errors import DependencyError
 
 _log = logging.getLogger(__name__)
+_UNSAFE_IN_ANCHOR = re.compile(r'[\]\[()><"\'\n\r]')
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -165,19 +167,40 @@ def _parse_target_anchor_keywords(targets_section: Any) -> dict[str, list[str]]:
                 raw_domain,
             )
             continue
+        # Strip characters that would break Markdown link syntax or inject HTML.
+        # Brackets, parens, angle-brackets, newlines can corrupt [anchor](url) output.
+        cleaned = [_UNSAFE_IN_ANCHOR.sub("", k).strip() for k in keywords]
+        cleaned = [k for k in cleaned if k]  # drop any that became empty after cleaning
         key = raw_domain.rstrip("/")
-        result[key] = list(keywords)
+        result[key] = cleaned
     return result
+
+
+def _normalize_domain_key(domain: str) -> str:
+    """Strip scheme and trailing slashes for config key comparison."""
+    return domain.rstrip("/").removeprefix("https://").removeprefix("http://")
 
 
 def get_anchor_keywords(config: Config, main_domain: str) -> list[str]:
     """Return the configured anchor keyword pool for ``main_domain``.
 
+    Tolerates scheme mismatches between config keys and seed rows — both
+    ``https://example.com`` and ``http://example.com`` will match a config
+    entry for either form, as well as a bare ``example.com`` key.
+
     Returns an empty list when no pool is configured — callers are expected to
     detect that condition and fall back to bare-domain anchor text.
     """
-    key = main_domain.rstrip("/")
-    return config.target_anchor_keywords.get(key, [])
+    bare = _normalize_domain_key(main_domain)
+    for candidate in (
+        main_domain.rstrip("/"),          # exact match first (most common)
+        "https://" + bare,
+        "http://" + bare,
+        bare,                              # bare domain (no scheme)
+    ):
+        if candidate in config.target_anchor_keywords:
+            return config.target_anchor_keywords[candidate]
+    return []
 
 
 def resolve_blog_id(config: Config, main_domain: str) -> str:
@@ -272,6 +295,15 @@ def save_config(
     else:
         lines.append("# integration_token = \"your-medium-integration-token\"")
     lines.append("")
+
+    # [targets] — merge from disk so hand-edited anchor_keywords are never lost
+    targets = dict(existing.target_anchor_keywords)
+    if targets:
+        for domain, keywords in targets.items():
+            quoted_kws = ", ".join(f'"{k}"' for k in keywords)
+            lines.append(f'[targets."{domain}"]')
+            lines.append(f"anchor_keywords = [{quoted_kws}]")
+            lines.append("")
 
     config_path.write_text("\n".join(lines), encoding="utf-8")
 

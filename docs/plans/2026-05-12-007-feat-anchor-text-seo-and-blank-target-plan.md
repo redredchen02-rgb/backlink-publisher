@@ -135,7 +135,7 @@ def _link_open(self, tokens, idx, options, env):
 
 ## Implementation Units
 
-- [ ] **Unit 1: 扩展 Config schema 与 loader 支持 `[targets]` 段**
+- [x] **Unit 1: 扩展 Config schema 与 loader 支持 `[targets]` 段**
 
 **Goal:** 让 `load_config` 解析 `[targets."<main_domain>"].anchor_keywords` 并暴露为 `Config.target_anchor_keywords`。
 
@@ -169,7 +169,7 @@ def _link_open(self, tokens, idx, options, env):
 - `pytest tests/test_config.py` 全绿
 - `Config.target_anchor_keywords` 字段可被 `plan_backlinks` 后续单元直接读取
 
-- [ ] **Unit 2: 选取函数 `select_anchor_keywords` + 渲染层 `target="_blank"` 定制**
+- [x] **Unit 2: 选取函数 `select_anchor_keywords` + 渲染层 `target="_blank"` 定制**
 
 **Goal:** 提供确定性选取函数；定制 markdown-it-py 的 `link_open` 规则给所有 `<a>` 加 `target="_blank" rel="noopener"`。
 
@@ -210,7 +210,7 @@ def _link_open(self, tokens, idx, options, env):
 - `pytest tests/test_markdown_render.py` 全绿
 - `select_anchor_keywords` 确定性可复现（同入参输出严格相等）
 
-- [ ] **Unit 3: Body 模板重构 + plan_backlinks 串联 anchor 选取与回退**
+- [x] **Unit 3: Body 模板重构 + plan_backlinks 串联 anchor 选取与回退**
 
 **Goal:** 让 `plan_backlinks` 从 `Config.target_anchor_keywords` 取出关键词、选 2 个，传给 body 模板和 `_build_links`；keywords 为空时回退到原裸域名行为并 WARN 一次。
 
@@ -249,7 +249,7 @@ def _link_open(self, tokens, idx, options, env):
 - `pytest tests/test_plan_backlinks.py` 全绿
 - 手工抽检 1 篇生成文章：所有 `[xxx]({main_domain})` 中 `xxx` 为关键词字串而非裸域名
 
-- [ ] **Unit 4: 文档与示例更新**
+- [x] **Unit 4: 文档与示例更新**
 
 **Goal:** 补齐 README/示例配置，让用户知道如何配置 `anchor_keywords`。
 
