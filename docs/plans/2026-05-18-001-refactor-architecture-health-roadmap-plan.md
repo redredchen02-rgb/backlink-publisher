@@ -249,7 +249,7 @@ def __getattr__(name: str):  # PEP 562
 
 ### Phase 1 — P0：WebUI 拆解
 
-- [ ] **Unit 1: WebUI 行为基线 smoke 测试**
+- [x] **Unit 1: WebUI 行为基线 smoke 测试** — landed via [#39](https://github.com/redredchen01/backlink-publisher/pull/39) (`4fa081c`, 2026-05-18)
 
 **Goal:** 在拆 `webui.py` 之前，为 39 个路由建立"端点契约"回归网，确保后续重构改动可以被 CI 立刻发现。
 
@@ -287,7 +287,7 @@ def __getattr__(name: str):  # PEP 562
 
 ---
 
-- [ ] **Unit 2: 抽出 `JsonStore` + 状态持久化层**
+- [x] **Unit 2: 抽出 `JsonStore` + 状态持久化层** — landed via [#41](https://github.com/redredchen01/backlink-publisher/pull/41) (`e0affc0`, 2026-05-18)
 
 **Goal:** 把 webui.py 中 8 个 `_load_* / _save_*` 函数 + 4 个 `_*_FILE` 常量 + `_draft_lock` 统一到 `webui/store/` 包。
 
@@ -329,7 +329,7 @@ def __getattr__(name: str):  # PEP 562
 
 ---
 
-- [ ] **Unit 3: 抽业务 services + 路由分组到 Blueprint**
+- [x] **Unit 3: 抽业务 services + 路由分组到 Blueprint** — landed via [#45](https://github.com/redredchen01/backlink-publisher/pull/45) (`a52eacc`, 2026-05-18; bundled with Unit 4)
 
 **Goal:** 把 webui.py 的路由处理逻辑分成 services（业务）+ routes（HTTP 薄壳），按区域注册 Blueprint。
 
@@ -377,7 +377,7 @@ def __getattr__(name: str):  # PEP 562
 
 ---
 
-- [ ] **Unit 4: 内联 HTML → Jinja2 模板文件**
+- [x] **Unit 4: 内联 HTML → Jinja2 模板文件** — landed via [#45](https://github.com/redredchen01/backlink-publisher/pull/45) (`a52eacc`, 2026-05-18; bundled with Unit 3)
 
 **Goal:** 把 5 块 `'''...'''` 三引号 HTML（共 ~117KB）抽成 `webui/templates/*.html` 文件，使内联 HTML 字节占比降到 ≤5%。
 
