@@ -131,7 +131,7 @@ flowchart TB
 
 ---
 
-- [ ] **Unit 1: PR #37 (Unit 3) 合入 main**
+- [~] **Unit 1: PR #37 (Unit 3) 合入 main** _(prep done 2026-05-18: 29 tests 本地全绿,CI Python 3.11/3.12 SUCCESS,mergeable CLEAN;等运营/工程方触发 merge)_
 
 **Goal:** 把 telegraph_node 转换器合入 main，成为 etalon 实现，让 Unit 4 本地预演分支可直接 import。
 
@@ -160,7 +160,7 @@ flowchart TB
 
 ---
 
-- [ ] **Unit 2: baseline 对照文催办 + Phase 0 §4 数据补录**
+- [~] **Unit 2: baseline 对照文催办 + Phase 0 §4 数据补录** _(催办文案 2026-05-18 起草完毕,见 chat;等运营回复后填 Phase 0 §4)_
 
 **Goal:** 在 5/25 T+7 routine 触发前，运营发布 1 篇 dev.to **或** hashnode 对照文（3 个外链，与 telegraph B 组等量），填入 Phase 0 报告 §4。
 
@@ -192,7 +192,7 @@ flowchart TB
 
 ---
 
-- [ ] **Unit 3: Unit 2/4/5/6 本地预演（worktree 隔离）**
+- [~] **Unit 3: Unit 2/4/5/6 本地预演（worktree 隔离）** _(2026-05-18: 4 个 worktree 骨架已创建 ../bp-local-unit{2,4,5,6} on `local/telegraph-unit*-staged` based on `feat/telegraph-adapter-unit3`@49030ec;pre-push hook 已部署拦 local/* push;Unit 2/4/5/6 完整代码预演 pending —— 待 PR #37 merge 后 rebase 到 main HEAD 再实施)_
 
 **Goal:** 在 §194 "本地探索不限" 豁免下，把 Unit 2/4/5/6 的完整 dev + 测试在隔离 worktree 中预演到 ready-to-push 状态，6/01 Pass 当日即可批量 push。
 
@@ -259,7 +259,7 @@ git worktree add ../bp-local-unit2 -b local/telegraph-unit2-staged main
 
 ---
 
-- [ ] **Unit 4: 6/01 G1 判决日双分支预案 runbook**
+- [x] **Unit 4: 6/01 G1 判决日双分支预案 runbook** _(done 2026-05-18: runbook 嵌入本 plan,Pass/Fail/Pass-with-warning 三档时序表 ready)_
 
 **Goal:** 6/01 `telegraph-phase0-t14-verdict` routine 输出 G1 判决后，工程方按 runbook 立即执行对应分支动作，避免临场决策延迟。
 
@@ -325,7 +325,7 @@ git worktree add ../bp-local-unit2 -b local/telegraph-unit2-staged main
 
 ---
 
-- [ ] **Unit 5: Fail 路径 brainstorm followup 模板预起草**
+- [x] **Unit 5: Fail 路径 brainstorm followup 模板预起草** _(done 2026-05-18: docs/brainstorms/_drafts/ 含 dofollow-regression + platform-switch-evaluation + indexation-failure 三份模板,c47d87e)_
 
 **Goal:** Phase 0 报告 §7 列出的 3 份 fallback brainstorm 起草模板存 `docs/brainstorms/_drafts/`，6/08 Fail 时 `mv` 启用，节省 1-2 天起草时间。
 
@@ -364,7 +364,7 @@ git worktree add ../bp-local-unit2 -b local/telegraph-unit2-staged main
 
 ---
 
-- [ ] **Unit 6: velog (PR #38) 决策保留 + dev.to/hashnode 启动开关**
+- [x] **Unit 6: velog (PR #38) 决策保留 + dev.to/hashnode 启动开关** _(done 2026-05-18: 决策表嵌入本 plan,绑定 Unit 5 platform-switch-evaluation-followup.md 作为开关)_
 
 **Goal:** 显式记录 velog spike 联动逻辑，并把 dev.to/hashnode brainstorm 的启动开关绑定到 Unit 5 已起草的 `platform-switch-evaluation-followup.md`，不在等待期内提前启动正式 brainstorm（用户约束）。
 
