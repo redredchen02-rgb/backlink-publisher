@@ -8,6 +8,21 @@ origin: docs/brainstorms/2026-05-18-event-substrate-corpus-requirements.md
 
 # feat: Event substrate + published corpus (read-side projection)
 
+> ⚠️ **Prerequisites & Codebase Reality（document-review pass-1 揭示）**：
+>
+> 本 plan 撰写时基于 `refactor/webui-contract-tests` 分支的代码状态。在 **main 分支当前实际状态**：
+> - `webui_store/` 目录、`JsonStore` / `DraftsStore` 抽象 **不存在**——webui 仍是单体 `webui.py`（4904 行）含 `_load_history` / `_append_history` / `_load_draft_queue` / `_save_draft_queue` 模块级函数 + 单 `_draft_lock`
+> - `webui_app/routes/*.py`、`webui_app/scheduler.py` **不存在**——这些都是 architecture-refactor 重构产物
+> - 引用的 aligned-plan `2026-05-18-001-refactor-architecture-health-roadmap-plan.md` 在 main 上**不存在**（位于 refactor 分支）
+>
+> **必须由实施者在 `/ce:work` 前决定**（详见末尾 "Present Findings — P0 sequencing")：
+> 1. **方案 A（推荐）**：等 architecture-refactor R1–R4（webui.py 拆分 + JsonStore 抽象）合并到 main 后再实施本 plan——D6 "解耦" 退为 "顺序依赖"。
+> 2. **方案 B**：重写 U5 直接在 monolithic `webui.py` 的模块级函数（`_append_history`、`_save_draft_queue` 等）末尾插 `events.flush_for(path)` 调用——失去 JsonStore "统一 seam" 红利但 v1 即可独立交付。
+>
+> 选 A 还是 B 直接决定 U5 的实现细节、文件路径、整个 Phase 2 的依赖图。本 banner 之外的 plan body 仍以方案 A 假设（JsonStore 存在）撰写，方案 B 路径需 plan 修订。
+>
+> 此外，行号引用（如 `_generate_payload at line 707`）来自 refactor 分支；main 实际行号不同（实际是 line 527）。实施时以 `grep -n "<symbol>"` 重新定位为准。
+
 ## Overview
 
 新增 `events.db`（SQLite）作为现有 JSON 状态文件（`checkpoints/*.json` / `publish-history.json` / `draft-queue.json`）的派生**读侧投影**。写侧不变动；projector 以 inline `flush()` 函数调用挂在每个 JSON write helper 后面（RBP-4），实时将状态变化转换为 typed events + articles 行。两个新独立 console script (`bp-events-rebuild` / `bp-events-doctor`) 负责 bootstrap 与 anti-drift 对账。`report-anchors` / `footprint` 新增 `--from-events` 输入源（保留现有 stdin/--input/--from-profile 契约）。FTS5 默认关、schema slot 预留（RBP-2）。
@@ -99,7 +114,9 @@ origin: docs/brainstorms/2026-05-18-event-substrate-corpus-requirements.md
   - 每个 articles.live_url 都能在 checkpoint 或 publish-history 中找到 source
   - quarantine_log 行数 / events 行数 ≤ 5%
 - **WAL 副文件 0600**：sqlite3 默认 WAL 副文件继承主文件权限——验证；如未继承则手动 chmod。
-- **Backup-exclude xattr**：macOS 首次创建 events.db 时通过 `xattr -w com.apple.metadata:com_apple_backup_excludeItem '<bplist01>' events.db`（用 `xattr` 命令或 `subprocess`）。Linux 无对应 op。
+- **Backup-exclude xattr 覆盖面**（security-lens 收紧）：macOS 首次创建时不仅给 `events.db` 设 `com.apple.metadata:com_apple_backup_excludeItem`，同时给 `events.db-wal`、`events.db-shm`（创建后）、`persona.salt`、整个 `token/` 目录都设。Linux 无对应 op。WAL/SHM 文件 lazy create，xattr 在首次 commit/checkpoint 触发后立即 set。
+- **Doctor invariant 2 时钟比较**（adversarial 修正）：不比较 `events.ts_utc`（来自 checkpoint.started_at，发布开始时间）vs `source mtime`（最后写时间）——这两个钟差可达小时。改为：比较 **per-source `projection_cursor.updated_at`** vs `source mtime` — 容忍 5s（projector 投影后 cursor 立即更新）。
+- **U4 dedup 必须覆盖 url 摆动**（adversarial 修正）：当一个 item 经历 succeeded(url=A) → 重置 → succeeded(url=B) 时（合法跨平台重发），二者都应被记录为不同的 `publish.confirmed` 事件 + 不同 articles 行。Dedup 仅以 `(canonicalize_url(host), canonicalize_url(live_url))` 为键——不同 live_url 不应被吃掉。U4 测试必须覆盖此场景。
 
 ## Open Questions
 
