@@ -1,0 +1,11 @@
+# _drafts/ — Phase 0 Fail 路径 brainstorm 预起草
+
+存放条件式 brainstorm 模板，触发条件未满足前留在此目录，**不被 ce:brainstorm skill 扫描**。
+
+启用方式（6/08 Phase 0 判决 Fail 时）:
+```
+mv docs/brainstorms/_drafts/<template>.md docs/brainstorms/2026-06-08-<template>.md
+# 编辑文件: 补 Pre-planning Inputs 实测数值 + 改 status: ready-for-planning
+```
+
+来源：plan `2026-05-18-002-refactor-phase0-unblock-actions-plan.md` Unit 5
