@@ -8,16 +8,15 @@ origin: docs/brainstorms/2026-05-18-event-substrate-corpus-requirements.md
 
 # feat: Event substrate + published corpus (read-side projection)
 
-> ⚠️ **Prerequisites & Codebase Reality（document-review pass-1 揭示）**：
+> ✅ **Prerequisites resolved（2026-05-18 16:00 update）**：
 >
-> 本 plan 撰写时基于 `refactor/webui-contract-tests` 分支的代码状态。在 **main 分支当前实际状态**：
-> - `webui_store/` 目录、`JsonStore` / `DraftsStore` 抽象 **不存在**——webui 仍是单体 `webui.py`（4904 行）含 `_load_history` / `_append_history` / `_load_draft_queue` / `_save_draft_queue` 模块级函数 + 单 `_draft_lock`
-> - `webui_app/routes/*.py`、`webui_app/scheduler.py` **不存在**——这些都是 architecture-refactor 重构产物
-> - 引用的 aligned-plan `2026-05-18-001-refactor-architecture-health-roadmap-plan.md` 在 main 上**不存在**（位于 refactor 分支）
+> Pass-1 document-review 揭示的 P0（webui_store/JsonStore 不存在）已在 merge commit `9408aa5` 解决——`refactor/webui-contract-tests` 已合并到 main，`webui_store/` + `webui_app/` 目录与 JsonStore 抽象都已上 main。
 >
-> **已选方案 A（2026-05-18 用户决策）**：本 plan 等 architecture-refactor R1–R4（webui.py 拆分 + JsonStore 抽象）合并到 main 后再 `/ce:work`。**D6 "解耦" 升级为 "顺序依赖"**：本 plan 的 Phase 2（U5/U7/U8）被 architecture-refactor R1–R4 gated；Phase 1（U1/U2/U3/U6/U4）可独立先行（不依赖 JsonStore）。Phase 3（U9/U10）部分独立。
+> **顺序依赖（D6 升级）满足**：Phase 2 的 U5 inline flush seam 不再被阻塞，可与 Phase 1 并行实施。
 >
-> 行号引用（如 `_generate_payload at line 707`）来自 refactor 分支；main 实际行号不同（实际是 line 527）。实施时以 `grep -n "<symbol>"` 重新定位为准。
+> 行号引用仍以实施时 `grep -n "<symbol>"` 重新定位为准（merge 后所有路径与符号已在 main 可见）。
+>
+> Pass-1 doc-review 应用的其他修订（threshold split、cursor sentinel、scrubber 覆盖面、p99 contention benchmark）保留有效，不受 merger 影响。
 
 ## Overview
 
