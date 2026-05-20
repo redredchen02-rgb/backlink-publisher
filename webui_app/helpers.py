@@ -1124,6 +1124,18 @@ def run_pipe(cmd, stdin):
     )
     if result.returncode != 0:
         raise Exception(result.stderr or f"Exit code: {result.returncode}")
+    # Detect silent-failure: exit 0 with empty stdout AND empty stderr is
+    # almost always a broken entry-point (e.g. `python -m <package>` against
+    # an empty __main__.py, or a module that defines main() without a
+    # `if __name__ == "__main__":` guard). Surface a real diagnostic instead
+    # of letting callers fall back to misleading hardcoded error strings.
+    if stdin and not result.stdout.strip() and not result.stderr.strip():
+        invoked = ' '.join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        raise Exception(
+            f"CLI '{invoked}' produced no output (exit 0, stdout/stderr empty). "
+            f"Likely a missing __main__.py or `if __name__ == \"__main__\":` "
+            f"guard. Rewritten command: {new_cmd}"
+        )
     return {'stdout': result.stdout, 'stderr': result.stderr}
 
 
