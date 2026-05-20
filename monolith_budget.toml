@@ -18,16 +18,16 @@ ceiling = 870
 rationale = "Post-P1-decomposition: core.py holds the main generation orchestrator after splitting work_themed + zh_short into sub-modules. SLOC 835 at split. Ceiling 870 provides 30-SLOC headroom for minor additions; lower when F5 ThrottleClock or further sub-module extraction lands."
 
 [files."src/backlink_publisher/cli/publish_backlinks.py"]
-ceiling = 780
-rationale = "Pipeline stage 3 (SLOC 741 after plan 2026-05-19-001 Unit 6 — adds two AuthExpiredError catch handlers calling mark_expired + checkpoint write before the existing DependencyError handler at the resume + main dispatch sites). F5 ThrottleClock + AuthExpiredError-handler extraction will drop ~70 SLOC; lower ceiling then."
+ceiling = 820
+rationale = "Pipeline stage 3 (SLOC 784 after concurrency lease extraction + atexit handlers). F5 ThrottleClock + AuthExpiredError-handler extraction will drop ~70 SLOC; lower ceiling then."
 
 [files."src/backlink_publisher/content/fetch.py"]
 ceiling = 290
 rationale = "SSRF defence extracted to _util/net_safety.py in 2026-05-19 — SLOC dropped from 340 to 253. Ceiling 290 provides 30-SLOC headroom for minor accretion."
 
 [files."src/backlink_publisher/config/writer.py"]
-ceiling = 360
-rationale = "Extension of save_config preservation pass to depth-2 subsection granularity under managed roots (Plan 2026-05-19-010 — closes the symmetric subsection drop after Plan 2026-05-13-004 Unit 3 closed the root-level case). Adds _toml_heading_path + _canon_subsection_key helpers (~20 SLOC) and known_subsections threading + emit-set + clear-intent computation inside save_config (~10 SLOC) + parent-dir 0o700 chmod. New SLOC 350. R5 F3 safe_write carve will still lift atomic-write + snapshot into a shared persistence module and lower this ceiling."
+ceiling = 340
+rationale = "Extension of save_config preservation pass to depth-2 subsection granularity under managed roots. New SLOC 308 after safe_write extraction."
 
 [files."src/backlink_publisher/_util/markdown.py"]
 ceiling = 240

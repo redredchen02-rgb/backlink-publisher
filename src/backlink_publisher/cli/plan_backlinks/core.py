@@ -529,6 +529,7 @@ def _generate_payload(
         body = body + tdk_section
 
     cover_image_url = None
+    cover_image_warning: str | None = None
     if config and config.llm_anchor_provider and config.llm_anchor_provider.use_image_gen and config.llm_anchor_provider.image_gen_api_key:
         try:
             llm_p = OpenAICompatibleProvider(
@@ -544,6 +545,7 @@ def _generate_payload(
                 body = f"![{title}]({cover_image_url})\n\n" + body
                 plan_logger.info(f"AI cover image generated for {main_domain}")
         except Exception as e:
+            cover_image_warning = repr(e)[:120]
             plan_logger.warn(f"AI cover image generation failed: {e}")
 
     if extra_urls:
@@ -643,6 +645,8 @@ def _generate_payload(
         "tags": tags,
         "content_markdown": content_markdown,
         "links": links,
+        "cover_image_url": cover_image_url,
+        "cover_image_warning": cover_image_warning,
         "seo": {
             "title": seo_title,
             "description": seo_desc,

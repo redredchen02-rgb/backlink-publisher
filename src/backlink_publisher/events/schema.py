@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 
 #: Current schema version. Bump when adding a migration step.
-SCHEMA_VERSION: int = 1
+SCHEMA_VERSION: int = 2
 
 
 class SchemaTooNewError(RuntimeError):
@@ -81,6 +81,14 @@ _DDL_STATEMENTS: tuple[str, ...] = (
         raw_payload_json TEXT
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS publish_leases (
+        target_host TEXT PRIMARY KEY,
+        owner_pid INTEGER NOT NULL,
+        started_at TEXT NOT NULL,
+        expire_at TEXT NOT NULL
+    )
+    """,
 )
 
 
@@ -137,7 +145,8 @@ def maybe_upgrade_schema(conn: sqlite3.Connection) -> None:
         )
     if version < SCHEMA_VERSION:
         initialize_schema(conn)
-        # Future: if version < 2: apply v1→v2 migration, INSERT (2), etc.
+        if version == 1:
+            conn.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
 
 
 def maybe_create_fts5(conn: sqlite3.Connection) -> None:  # pragma: no cover - v1 stub

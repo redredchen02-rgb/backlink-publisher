@@ -30,6 +30,42 @@ from backlink_publisher._util.logger import publish_logger
 from backlink_publisher.publishing.registry import registered_platforms
 from ..schema import reject_unsupported_platform, supported_platforms, validate_publish_payload
 from backlink_publisher.linkcheck.verify import verify_published
+from contextlib import contextmanager
+
+
+def _release_acquired_leases(store: Any, acquired: list[str], pid: int) -> None:
+    for plat in acquired:
+        try:
+            store.release_lease(plat, pid)
+        except Exception as e:
+            publish_logger.warning(f"Failed to release lease on {plat!r}: {e}")
+
+
+def _acquire_publish_leases(platforms: set[str], dry_run: bool) -> None:
+    if dry_run or not platforms:
+        return
+
+    import atexit
+    from backlink_publisher.events.store import EventStore
+    store = EventStore()
+    pid = os.getpid()
+    acquired = []
+
+    for plat in sorted(platforms):
+        if store.acquire_lease(plat, pid, ttl_seconds=3600):
+            acquired.append(plat)
+        else:
+            _release_acquired_leases(store, acquired, pid)
+            lease_details = store.get_lease(plat)
+            owner_info = f"PID {lease_details['owner_pid']}" if lease_details else "unknown"
+            emit_error(
+                f"error: another publish process ({owner_info}) is currently active for platform {plat!r}. "
+                "Aborting to prevent concurrent publishing conflicts.",
+                exit_code=3
+            )
+
+    atexit.register(_release_acquired_leases, store, acquired, pid)
+
 
 #: First-run banner sentinel — written after the banner fires so subsequent
 #: runs stay quiet. Bumping the version-tag forces a re-warn on future flag
@@ -101,12 +137,20 @@ def _check_row_reachability(row: dict[str, Any]) -> tuple[bool, str | None]:
 
 
 def _error_class(exc: Exception) -> str:
-    msg = str(exc)
-    if _HTTP_5XX_RE.search(msg):
-        return "http_5xx"
-    if isinstance(exc, ExternalServiceError):
-        return "transient"
-    return "unexpected"
+    from backlink_publisher.publishing.adapters.retry import classify_exception
+    return classify_exception(exc).value
+
+
+def _check_token_drift(initial_revs: dict[str, int]) -> None:
+    from backlink_publisher.config import snapshot_token_revs
+    current = snapshot_token_revs()
+    for plat, init_rev in initial_revs.items():
+        if current.get(plat, 0) != init_rev:
+            emit_error(
+                f"error: configuration for platform {plat!r} was updated mid-run. "
+                "Aborting to prevent using revoked credentials.",
+                exit_code=45
+            )
 
 
 def _do_verify(
@@ -277,6 +321,7 @@ def _run_resume(args: Any) -> None:
 
     # verify adapter setup for platforms in checkpoint
     platforms_in_ckpt = {item["platform"] for item in ckpt["items"] if item.get("platform")}
+    _acquire_publish_leases(platforms_in_ckpt, getattr(args, "dry_run", False))
     for plat in platforms_in_ckpt:
         if plat in supported_platforms():
             try:
@@ -386,6 +431,9 @@ def _run_resume(args: Any) -> None:
     last_medium_success_idx = -1
     unverified_ids: set[str] = set()
 
+    from backlink_publisher.config import snapshot_token_revs
+    initial_token_revs = snapshot_token_revs()
+
     for item_idx, item in enumerate(to_process):
         row = item["payload"]
         platform = ckpt.get("platform") or row.get("platform", "")
@@ -405,6 +453,7 @@ def _run_resume(args: Any) -> None:
         )
 
         try:
+            _check_token_drift(initial_token_revs)
             result = adapter_publish(
                 payload={**row, "platform": platform},
                 mode=mode,
@@ -684,6 +733,7 @@ def main(argv: list[str] | None = None) -> None:
         platforms_in_use = {
             args.platform or row.get("platform", "") for row in rows
         }
+        _acquire_publish_leases(platforms_in_use, False)
         for plat in platforms_in_use:
             if plat not in supported_platforms():
                 continue
@@ -719,6 +769,9 @@ def main(argv: list[str] | None = None) -> None:
     last_medium_success_idx: int = -1
 
     throttle_min, throttle_max = _load_throttle_config()
+
+    from backlink_publisher.config import snapshot_token_revs
+    initial_token_revs = snapshot_token_revs()
 
     for row_idx, row in enumerate(rows):
         _medium_throttle_sleep(
@@ -798,6 +851,7 @@ def main(argv: list[str] | None = None) -> None:
         )
 
         try:
+            _check_token_drift(initial_token_revs)
             result = adapter_publish(
                 payload={**row, "platform": platform},
                 mode=mode,

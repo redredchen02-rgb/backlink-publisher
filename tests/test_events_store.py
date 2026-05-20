@@ -147,20 +147,20 @@ def test_connect_rebuilds_schema_after_db_deletion(tmp_path):
     event_id = store.append(kind="publish.intent", payload={"after": "reset"})
     assert event_id == 1, "fresh DB should restart AUTOINCREMENT at 1"
     rows = store.query("SELECT version FROM schema_version")
-    assert rows[0]["version"] == 1
+    assert rows[0]["version"] == 2
 
 
-def test_schema_version_zero_upgrades_to_one(tmp_path):
+def test_schema_version_zero_upgrades_to_two(tmp_path):
     # Simulate an operator who provisioned the file with the table but
     # without the version row.
     store = EventStore()
     with store.connect() as conn:
         conn.execute("DELETE FROM schema_version")
 
-    # Next connect should bring it back to v1.
+    # Next connect should bring it back to v2.
     with store.connect() as conn:
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-    assert version == 1
+    assert version == 2
 
 
 def test_wal_mode_is_enabled(tmp_path):

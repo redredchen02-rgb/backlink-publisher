@@ -380,6 +380,69 @@ class EventStore:
 
         return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
 
+    def acquire_lease(self, target_host: str, owner_pid: int, ttl_seconds: int = 3600) -> bool:
+        """Atomically acquire a lease on target_host.
+
+        Returns True if acquired, False otherwise.
+        """
+        now = _now_iso_utc()
+        from datetime import datetime, timedelta, timezone
+        expire = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
+
+        def _op() -> bool:
+            with self.connect() as conn:
+                cursor = conn.execute(
+                    "SELECT owner_pid, expire_at FROM publish_leases WHERE target_host = ?",
+                    (target_host,)
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    conn.execute(
+                        "INSERT INTO publish_leases (target_host, owner_pid, started_at, expire_at) VALUES (?, ?, ?, ?)",
+                        (target_host, owner_pid, now, expire)
+                    )
+                    return True
+
+                curr_owner, curr_expire = row
+                if curr_expire < now or curr_owner == owner_pid:
+                    conn.execute(
+                        "UPDATE publish_leases SET owner_pid = ?, started_at = ?, expire_at = ? WHERE target_host = ?",
+                        (owner_pid, now, expire, target_host)
+                    )
+                    return True
+                return False
+
+        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+
+    def release_lease(self, target_host: str, owner_pid: int) -> None:
+        """Release the lease on target_host if owned by owner_pid."""
+        def _op() -> None:
+            with self.connect() as conn:
+                conn.execute(
+                    "DELETE FROM publish_leases WHERE target_host = ? AND owner_pid = ?",
+                    (target_host, owner_pid)
+                )
+        _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+
+    def get_lease(self, target_host: str) -> dict[str, Any] | None:
+        """Get lease details for target_host."""
+        def _op() -> dict[str, Any] | None:
+            with self.connect() as conn:
+                cursor = conn.execute(
+                    "SELECT target_host, owner_pid, started_at, expire_at FROM publish_leases WHERE target_host = ?",
+                    (target_host,)
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "target_host": row[0],
+                    "owner_pid": row[1],
+                    "started_at": row[2],
+                    "expire_at": row[3],
+                }
+        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+
 
 def _now_iso_utc() -> str:
     """ISO-8601 UTC timestamp, e.g. ``2026-05-18T12:00:00+00:00``."""
