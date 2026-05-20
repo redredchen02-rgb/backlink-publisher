@@ -633,6 +633,8 @@ def _generate_payload(
         "tags": tags,
         "content_markdown": content_markdown,
         "links": links,
+        "cover_image_url": cover_image_url,
+        "cover_image_warning": cover_image_warning,
         "seo": {
             "title": seo_title,
             "description": seo_desc,

@@ -55,6 +55,7 @@ def test_all_business_tables_created(tmp_path):
         "projection_cursor",
         "quarantine_log",
         "schema_version",
+        "publish_leases",
     }
 
 
@@ -135,11 +136,11 @@ def test_quarantine_log_columns_match_plan(tmp_path):
     ]
 
 
-def test_schema_version_initialized_to_one(tmp_path):
+def test_schema_version_initialized_to_two(tmp_path):
     store = EventStore()
     with store.connect() as conn:
         rows = list(conn.execute("SELECT version FROM schema_version"))
-    assert rows == [(1,)]
+    assert rows == [(2,)]
 
 
 def test_events_kind_is_not_null(tmp_path):
