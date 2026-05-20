@@ -9,3 +9,12 @@ docs/spikes/velog_cookies_frozen_*.txt
 docs/spikes/velog_storage_dump.json
 docs/spikes/velog_p0_1b_responses.jsonl
 GEMINI.md
+
+# pytest benchmark artifacts
+.benchmarks/
+
+# egg-info metadata
+*.egg-info/
+
+# test artifacts
+test_payload.jsonl
