@@ -22,6 +22,7 @@ from google.oauth2.credentials import Credentials
 from backlink_publisher import checkpoint as _checkpoint_mod
 from backlink_publisher.content import fetch as content_fetch
 from backlink_publisher.config import (
+    _config_dir,
     _domain_label,
     load_blogger_token,
     load_config,
@@ -40,7 +41,11 @@ from webui_store import (
     schedule_store as _schedule_store,
 )
 
-_LLM_SETTINGS_FILE = Path.home() / '.config' / 'backlink-publisher' / 'llm-settings.json'
+def _llm_settings_file() -> Path:
+    # Lazy so BACKLINK_PUBLISHER_CONFIG_DIR rebinds are honored per-call.
+    return _config_dir() / 'llm-settings.json'
+
+
 _FLASK_PORT = int(os.environ.get('PORT', 8888))
 _RUN_ID_RE = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{8}$")
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
@@ -101,9 +106,10 @@ def _load_llm_settings() -> dict:
         'image_gen_api_key': '',
         'use_image_gen': False
     }
-    if _LLM_SETTINGS_FILE.exists():
+    path = _llm_settings_file()
+    if path.exists():
         try:
-            data = json.loads(_LLM_SETTINGS_FILE.read_text(encoding='utf-8'))
+            data = json.loads(path.read_text(encoding='utf-8'))
             defaults.update(data)
         except Exception:
             plan_logger.warning("failed to parse llm-settings.json, using defaults")
@@ -1027,7 +1033,10 @@ def _settings_context(flash=None):
         medium_browser_status=_get_medium_browser_status(cfg, session=_flask_session),
         blogger_token=bool(token_data),
         blogger_client_id=cfg.blogger_oauth.client_id if cfg.blogger_oauth else "",
-        blogger_client_secret=cfg.blogger_oauth.client_secret if cfg.blogger_oauth else "",
+        # Boolean only — raw secret stays out of the template render context
+        # so a future regression like value="{{ blogger_client_secret }}" can't
+        # accidentally leak it (P3 defence-in-depth).
+        blogger_client_secret_set=bool(cfg.blogger_oauth and cfg.blogger_oauth.client_secret),
         blog_ids=cfg.blogger_blog_ids,
         medium_token_set=bool(token),
         medium_token_masked=masked if token else "",
