@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- All three `urllib.request` fetch sites now normalize non-ASCII URLs before
+  opening a connection, preventing `'ascii' codec can't encode characters`
+  crashes across the full pipeline: `linkcheck.verify.verify_published`
+  (post-publish verifier — the original crash site), `linkcheck.http.check_url`
+  (pre-publish reachability), and `content.fetch.verify_url_has_content`
+  (planning-phase URL gate). A shared `_util.url.normalize_url_for_fetch`
+  helper IDNA-encodes the host and percent-encodes path/query; ASCII URLs
+  pass through byte-identical and idempotent. Previously Velog Korean
+  `@username` / CJK `url_slug` URLs demoted legitimately-published posts to
+  `published_unverified`. Plan 2026-05-21-005.
+
 ### Added
 
 - `medium-login` CLI: thin alias for `bind-channel --channel medium`, matching
