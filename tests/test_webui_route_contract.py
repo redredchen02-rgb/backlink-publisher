@@ -215,6 +215,66 @@ class TestGetRoutes:
         assert "webui_mode_default" in contents
         assert "__batchTabHint" in contents
 
+    def test_mode_toggle_js_u1_behaviors(self):
+        """Plan 013 U1 — mode_toggle.js contains all 4 new polish behaviors."""
+        from pathlib import Path
+        js_path = (
+            Path(__file__).resolve().parents[1]
+            / "webui_app" / "static" / "js" / "mode_toggle.js"
+        )
+        contents = js_path.read_text(encoding="utf-8")
+
+        # Behavior 1: URL stash key present
+        assert "webui_url_stash" in contents, "URL stash key missing"
+
+        # Behavior 2: Mid-pipeline confirm uses _plansData
+        assert "_plansData" in contents, "mid-pipeline confirm missing"
+        assert "confirm(" in contents, "confirm dialog missing"
+
+        # Behavior 3: ?tab=batch deep-link via URLSearchParams
+        assert "URLSearchParams" in contents, "URLSearchParams deep-link missing"
+        assert "tab" in contents, "tab param check missing"
+
+        # Behavior 4: body class toggle for CSS scoping
+        assert "mode-single" in contents, "mode-single body class missing"
+        assert "mode-batch" in contents, "mode-batch body class missing"
+        assert "applyBodyModeClass" in contents, "applyBodyModeClass helper missing"
+
+    def test_mode_toggle_tab_deep_link_route_accessible(self, client):
+        """Plan 013 U1 — GET /?tab=batch returns 200 (server-side hint injected)."""
+        resp = client.get("/?tab=batch")
+        assert resp.status_code == 200
+        body = resp.data.decode("utf-8", errors="ignore")
+        # The page still renders; JS handles the deep-link client-side
+        assert "batchPanel" in body
+
+    def test_sticky_step_bar_css_scoped_to_single_mode(self, client):
+        """Plan 013 U3 — step-bar sticky rule scoped to body.mode-single only."""
+        resp = client.get("/")
+        body = resp.data.decode("utf-8", errors="ignore")
+        # Scoped sticky rules must appear in the inlined CSS
+        assert "mode-single" in body, "mode-single CSS scope missing from rendered page"
+        assert "step-bar" in body, "step-bar CSS missing from rendered page"
+        assert "mode-batch" in body, "mode-batch CSS scope missing"
+
+    def test_sticky_step_bar_css_in_template_source(self):
+        """Plan 013 U3 — index.html source contains scoped step-bar rules."""
+        from pathlib import Path
+        src = (
+            Path(__file__).resolve().parents[1]
+            / "webui_app" / "templates" / "index.html"
+        ).read_text(encoding="utf-8")
+        # Both mode-scoped rules must be present
+        assert "body.mode-single .step-bar" in src, (
+            "mode-single step-bar sticky rule missing from template"
+        )
+        assert "body.mode-batch .step-bar" in src, (
+            "mode-batch step-bar static rule missing from template"
+        )
+        assert "hide-history-nav" in src, (
+            "hide-history-nav CSS rule missing from template"
+        )
+
     def test_root_does_not_crash_with_missing_state_files(self, client, tmp_path):
         """Edge case: first-time startup, none of the JSON state files exist
         yet. The autouse fixture points stores at a fresh tmp_path so they're
@@ -522,6 +582,70 @@ class TestPipelineRoutes:
             },
         )
         assert resp.status_code == 200
+
+    def test_ce_batch_accepts_target_language(self, client):
+        """Plan 013 U2 — batch route must accept `target_language` field."""
+        resp = client.post(
+            "/ce:batch",
+            data={
+                "batch_urls": "https://example.com/",
+                "platform": "medium",
+                "target_language": "zh-CN",
+                "publish_mode": "draft",
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_ce_batch_language_fallback_still_works(self, client):
+        """Plan 013 U2 — legacy `language` field still accepted (backwards compat)."""
+        resp = client.post(
+            "/ce:batch",
+            data={
+                "batch_urls": "https://example.com/",
+                "platform": "medium",
+                "language": "en",
+                "publish_mode": "draft",
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_shared_config_selects_included_in_both_forms(self, client):
+        """Plan 013 U2 — shared select partial used in both configForm and batchForm.
+
+        The configForm is guarded by {% if config %} so it only renders when
+        pipeline state is present.  We verify:
+        - The batch form always renders target_language (always visible on GET /).
+        - The index.html template source contains the include in both locations.
+        - _shared_config_selects.html is present on disk.
+        """
+        from pathlib import Path
+
+        # 1. Batch form always renders target_language
+        resp = client.get("/")
+        body = resp.data.decode("utf-8", errors="ignore")
+        assert 'name="target_language"' in body, "batch form missing target_language"
+
+        # 2. Template source uses the shared include in both form contexts
+        template_path = (
+            Path(__file__).resolve().parents[1]
+            / "webui_app" / "templates" / "index.html"
+        )
+        src = template_path.read_text(encoding="utf-8")
+        # count include statements — must appear exactly twice
+        assert src.count("_shared_config_selects.html") == 2, (
+            "expected 2 includes of _shared_config_selects.html, got "
+            + str(src.count("_shared_config_selects.html"))
+        )
+
+        # 3. The partial itself is on disk
+        partial_path = (
+            Path(__file__).resolve().parents[1]
+            / "webui_app" / "templates" / "_shared_config_selects.html"
+        )
+        assert partial_path.exists(), "_shared_config_selects.html missing"
+        partial_src = partial_path.read_text(encoding="utf-8")
+        assert 'name="target_language"' in partial_src
+        assert 'name="publish_mode"' in partial_src
 
     def test_ce_publish_real_with_no_data_returns_200(self, client):
         resp = client.post(
