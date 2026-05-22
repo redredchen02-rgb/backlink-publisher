@@ -672,6 +672,7 @@ def _verify_velog_live(config: Config) -> VerifyResult:
         → ``never``
     """
     import requests
+    from backlink_publisher.http import post as http_post
     from .velog_graphql import (
         _VELOG_GRAPHQL_ENDPOINT,
         _VELOG_REQUIRED_HEADERS,
@@ -694,7 +695,7 @@ def _verify_velog_live(config: Config) -> VerifyResult:
         )
 
     try:
-        resp = requests.post(
+        resp = http_post(
             _VELOG_GRAPHQL_ENDPOINT,
             json={"query": _VELOG_CURRENT_USER_QUERY},
             cookies=cookies,
