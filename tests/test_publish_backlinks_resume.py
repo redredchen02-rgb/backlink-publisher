@@ -22,7 +22,7 @@ from backlink_publisher.linkcheck.verify import VerificationResult
 def _mock_verify_pass(mocker):
     """Default: verification always passes so tests stay fast and network-free."""
     mocker.patch(
-        "backlink_publisher.linkcheck.verify.verify_published",
+        "backlink_publisher.cli._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     )
 
