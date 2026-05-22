@@ -354,6 +354,7 @@ def _verify_telegraph_live(config: Config) -> VerifyResult:
     to the publish path; live verify must not write token files.
     """
     import requests
+    from backlink_publisher.http import post as http_post
     from .telegraph_api import (
         TELEGRAPH_API,
         _HTTP_TIMEOUT_S,
@@ -383,7 +384,7 @@ def _verify_telegraph_live(config: Config) -> VerifyResult:
     verify_timeout = min(5, _HTTP_TIMEOUT_S)
 
     try:
-        resp = requests.post(
+        resp = http_post(
             f"{TELEGRAPH_API}/getAccountInfo",
             data={
                 "access_token": access_token,
@@ -460,6 +461,7 @@ def _verify_ghpages_live(config: Config) -> VerifyResult:
       - other (5xx / connection / parse) → ``never``
     """
     import requests as _r
+    from backlink_publisher.http import get as http_get
     from .ghpages import GITHUB_API, _load_token, _required_headers
 
     try:
@@ -472,7 +474,7 @@ def _verify_ghpages_live(config: Config) -> VerifyResult:
         )
 
     try:
-        resp = _r.get(
+        resp = http_get(
             f"{GITHUB_API}/user",
             headers=_required_headers(token),
             timeout=_GHPAGES_VERIFY_TIMEOUT_S,
@@ -565,6 +567,7 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
       - everything else (403/5xx/connection/parse) → ``never``
     """
     import requests
+    from backlink_publisher.http import get as http_get
     from backlink_publisher.config import load_blogger_token
 
     try:
@@ -587,7 +590,7 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
         )
 
     try:
-        resp = requests.get(
+        resp = http_get(
             _BLOGGER_USERS_SELF,
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=_BLOGGER_VERIFY_TIMEOUT_S,
@@ -777,6 +780,7 @@ def _verify_hashnode_live(config: Config) -> VerifyResult:
       - other (4xx/5xx/connection/parse) → ``never`` with blocker text
     """
     import requests
+    from backlink_publisher.http import post as http_post
     from .hashnode import HASHNODE_API, ME_QUERY, _required_headers, _load_token
 
     try:
@@ -789,7 +793,7 @@ def _verify_hashnode_live(config: Config) -> VerifyResult:
         )
 
     try:
-        resp = requests.post(
+        resp = http_post(
             HASHNODE_API,
             headers=_required_headers(token),
             json={"query": ME_QUERY},

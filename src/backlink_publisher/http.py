@@ -39,3 +39,8 @@ def get(url: str, **kwargs: Any) -> requests.Response:
 def post(url: str, data: Any = None, json: Any = None, **kwargs: Any) -> requests.Response:
     timeout = kwargs.pop("timeout", DEFAULT_TIMEOUT)
     return get_session().post(url, data=data, json=json, timeout=timeout, **kwargs)
+
+
+def put(url: str, data: Any = None, json: Any = None, **kwargs: Any) -> requests.Response:
+    timeout = kwargs.pop("timeout", DEFAULT_TIMEOUT)
+    return get_session().put(url, data=data, json=json, timeout=timeout, **kwargs)
