@@ -110,7 +110,7 @@ claims:
 
 ### Deferred to Implementation
 
-- **[Phase 0 go/no-go]** livejournal XML-RPC 活否+接受新帳號+正文 dofollow；匿名三平台 raw POST 是否撞 Cloudflare；bloglovin 是否退役+archetype；jkforum 外鏈 ToS+刪帖後存活率+IP ban 連帶。
+- ~~**[Phase 0 go/no-go]** livejournal XML-RPC 活否+接受新帳號+正文 dofollow；匿名三平台 raw POST 是否撞 Cloudflare；bloglovin 是否退役+archetype；jkforum 外鏈 ToS+刪帖後存活率+IP ban 連帶。~~ **已解決 2026-05-25**（見 `docs/spike-notes/2026-05-25-dofollow-tiering-phase0-probes/findings.md`）：**livejournal GO**（XML-RPC 200/nginx 無 CF；正文 `noopener noreferrer` 無 nofollow=dofollow；**僅 challenge-response 無 OAuth/app-password → 強制拋棄帳號**）。**txt.fyi GO**（純 form `POST edit.php`，`url`+`txt`+`nonce`+`form_time`，無 captcha → 驗證 Unit 4 helper）。**justpaste.it/teletype.in 條件**（JS SPA，raw POST 不足，待 XHR/API 逆向；teletype 若帶 token 走 Unit 6 憑證路徑）。**jkforum HOLD/NO-GO**（CF 對正常 UA 不挑戰但 ToS 禁廣告 + 「壞鄰居」聲譽風險〔涉色情媒合、負責人遭逮捕〕+ Discuz nofollow + 刪帖）。**bloglovin NO-GO 實質退役**（2018 轉 Activate→2021 棄置，首頁 403 封爬 → **6 平台降為 5**）。**operator 拍板 build set = livejournal + txt.fyi**（Unit 4/6/7-txtfyi 本輪建；Unit 5/8/justpaste/teletype 此輪不建）。
 - ~~匿名平台是否抑制 canonical~~ **已定（deepening）：匿名平台 canonical 硬預設關閉**（fail-safe，升為 R12/R14 requirement）；operator 可 per-platform opt-in。
 - `verify_link_attributes` 對 SPA（teletype.in）`total_anchors=0` 誤判——是否需 headless 渲染後測。
 - Phase 2 分層配額旋鈕形態（config vs CLI flag）。
