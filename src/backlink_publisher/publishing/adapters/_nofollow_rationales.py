@@ -40,4 +40,31 @@ NOFOLLOW_RATIONALES: dict[str, str] = {
         "instance_url; security policy: use a throwaway account only, "
         "never a personal Mastodon identity."
     ),
+    "livejournal": (
+        "Registered dofollow=\"uncertain\" pending the R4 canary loop "
+        "(Plan 2026-05-25-001 Unit 6): Phase 0 probe found post-body links "
+        "render rel=\"noopener noreferrer\" with NO nofollow token (= dofollow), "
+        "but the definitive status is confirmed only by publishing a canary and "
+        "reading verify_link_attributes on the live page, then amending this "
+        "register() to dofollow=True. referral_value=\"high\" reflects "
+        "LiveJournal's established DA + referral traffic should it turn out "
+        "nofollow. Security: XML-RPC challenge-response only (no OAuth/app "
+        "password), so credentials are password-equivalent at rest — use a "
+        "throwaway account; the secret cannot be revoked except by changing "
+        "the password."
+    ),
+    "txtfyi": (
+        "Registered dofollow=\"uncertain\" pending the R4 canary loop "
+        "(Plan 2026-05-25-001 Unit 7): Phase 0 probe confirmed txt.fyi serves "
+        "raw static HTML with no server-side link rewriting, so outbound <a> "
+        "elements are expected to carry no rel=\"nofollow\" server-side, but "
+        "the definitive status is confirmed only by publishing a canary and "
+        "reading verify_link_attributes on the live page, then amending this "
+        "register() to dofollow=True. referral_value=\"low\" reflects "
+        "txt.fyi's anonymous-pastebin character: the site has modest DA and "
+        "is not indexed aggressively (robots.txt disallow), but links on "
+        "dofollow static pages still pass equity to any crawler that reaches "
+        "them. No credentials needed; the form-POST adapter composes the "
+        "Unit 4 http_form_post helpers for a zero-dependency publish path."
+    ),
 }

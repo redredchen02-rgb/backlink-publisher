@@ -33,6 +33,8 @@ from .blogger_api import BloggerAPIAdapter
 from .ghpages import GitHubPagesAPIAdapter
 from .devto_api import DevtoAPIAdapter
 from .instant_web import TelegraphCdpAdapter
+from .livejournal_api import LivejournalAPIAdapter
+from .txtfyi_api import TxtfyiFormPostAdapter
 from .medium_api import MediumAPIAdapter
 from .medium_brave import MediumBraveAdapter
 from .medium_browser import MediumBrowserAdapter
@@ -78,6 +80,20 @@ register(
     dofollow=True,
 )
 register("ghpages", GitHubPagesAPIAdapter, dofollow=True)
+register(
+    "livejournal",
+    LivejournalAPIAdapter,
+    dofollow="uncertain",  # R4 canary pending; Phase 0 preliminary = dofollow
+    rationale=_R["livejournal"],
+    referral_value="high",  # established DA + referral if it turns out nofollow
+)
+register(
+    "txtfyi",
+    TxtfyiFormPostAdapter,
+    dofollow="uncertain",  # R4 canary pending; Phase 0 preliminary = dofollow
+    rationale=_R["txtfyi"],
+    referral_value="low",  # anonymous pastebin; modest DA + R4 pending
+)
 register(
     "devto",
     DevtoAPIAdapter,

@@ -1,7 +1,7 @@
 ---
 title: "feat: Dofollow 分層貫穿 + 6 平台擴充"
 type: feat
-status: active
+status: partial  # Unit 6 (livejournal) + Unit 7 (txt.fyi) shipped; Unit 5 HOLD, Unit 8 deferred per Phase 0
 date: 2026-05-25
 deepened: 2026-05-25
 origin: docs/brainstorms/2026-05-25-dofollow-tiering-and-6-platform-expansion-requirements.md
@@ -26,6 +26,26 @@ claims:
 把 `dofollow` capability 信號（目前只被 WebUI 消費）貫穿進 planning（`plan-backlinks`）與 reporting（`report-anchors`），並新增 `referral_value`（high/low）子等級，形成三層分類軸。再建兩個新發布原型（純 HTTP 表單 POST 底座、論壇登入 recipe），最後按「dofollow 先行、nofollow 待證」混合策略批量接入 6 個平台（livejournal / txt.fyi / justpaste.it / teletype.in / bloglovin / jkforum）。
 
 研究確認的關鍵事實：`plan_backlinks/core.py`、`report_anchors.py`、`footprint.py`、`anchor/profile.py` 目前 **import 任何 registry 的東西都沒有**——dofollow 信號到這四層是**全綠地接線**。`dofollow_status()` 的唯一消費者是 `webui_app/binding_status.py` 與 `helpers/contexts.py`。
+
+## Completion Summary (2026-05-25)
+
+Per Phase 0 probe (`fbe8f78`) adjusted scope: only **LiveJournal (Unit 6)** + **txt.fyi (Unit 7)** were GO.
+
+| Unit | Platform | Status | Note |
+|---|---|---|---|
+| 4 | HTTP form-POST helpers | ✅ shipped | `http_form_post.py` — fetch_form, extract_hidden_fields, submit_form |
+| 5 | jkforum forum recipe | 🚫 HOLD | Phase 0 found bad-neighborhood reputation risk |
+| 6 | LiveJournal XML-RPC | ✅ shipped | `livejournal_api.py` — 14 tests, password-equivalent `0o600` |
+| 7 | txt.fyi form-POST | ✅ shipped | `txtfyi_api.py` — 9 tests, no credentials, dofollow="uncertain" |
+| 7 | justpaste.it | 🔲 conditional | JS SPA per Phase 0 — not built |
+| 7 | teletype.in | 🔲 conditional | JS SPA per Phase 0 — not built |
+| 7 | R14 anon_concentration gate | 🔲 deferred | Not in this plan's scope |
+| 8 | bloglovin | 🔲 RETIRED | Per Phase 0 |
+| 8 | jkforum adapter | 🚫 HOLD | Same reputation risk as Unit 5 |
+
+**Tests:** 3752 passed, 3 skipped, 0 failures. Monolith budget: `adapters/__init__.py` within 530 SLOC ceiling.
+
+**Branch:** `feat/dofollow-tiering-phase2` worktree at `bp-dofollow-tiering/`, 5 commits past `main`.
 
 ## Problem Frame
 
@@ -369,9 +389,9 @@ graph TB
 
 ---
 
-- [ ] **Unit 7: 匿名三平台 adapter + R14 anon_concentration 去匿名化 gate**
+- [x] **Unit 7: txt.fyi adapter（僅 txt.fyi；justpaste.it/teletype.in scope-reduced 見 Phase 0；R14 deferred）**
 
-**Goal:** txt.fyi / justpaste.it / teletype.in adapter（composes Unit 4 helper）；新增匿名跨站集中度 gate（獨立 `anon_concentration` 模組，非 footprint）。**只建 Phase 0 probe pass 且 R4 實測有 dofollow 或 referral=high 者**；零價值者按 R13 reject。
+**Goal:** txt.fyi adapter（composes Unit 4 helper）。Phase 0 判定 justpaste.it/teletype.in 為 conditional（JS SPA），不建 adapter。R14 anon_concentration gate deferred。**只建 Phase 0 probe pass 且 R4 實測有 dofollow 或 referral=high 者**；零價值者按 R13 reject。
 
 **Requirements:** R8, R5, R4, R13, R14, R12, R11, R15
 
