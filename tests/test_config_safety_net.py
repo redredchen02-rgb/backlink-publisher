@@ -376,8 +376,8 @@ def test_rename_failure_leaves_original_untouched(tmp_path):
     original = '[blogger]\n"x.com" = "preserve-me"\n'
     cfg_path.write_text(original, encoding="utf-8")
 
-    # Make Path.replace raise — original must survive
-    with patch.object(Path, "replace", side_effect=OSError("simulated rename fail")):
+    # Make os.replace raise — original must survive
+    with patch("os.replace", side_effect=OSError("simulated rename fail")):
         with pytest.raises(OSError):
             save_config(load_config(cfg_path), path=cfg_path, medium_token="newtok")
 
