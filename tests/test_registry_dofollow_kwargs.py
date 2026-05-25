@@ -18,8 +18,10 @@ from backlink_publisher.publishing.registry import (
     _REJECTED_PLATFORMS,
     _DOFOLLOW_BY_PLATFORM,
     _RATIONALE_BY_PLATFORM,
+    _REFERRAL_VALUE_BY_PLATFORM,
     dofollow_rationale,
     dofollow_status,
+    referral_value,
     register,
 )
 
@@ -54,6 +56,7 @@ def _snapshot_registry():
     reg_snap = {k: list(v) for k, v in _REGISTRY.items()}
     df_snap = dict(_DOFOLLOW_BY_PLATFORM)
     rat_snap = dict(_RATIONALE_BY_PLATFORM)
+    ref_snap = dict(_REFERRAL_VALUE_BY_PLATFORM)
     rej_snap = dict(_REJECTED_PLATFORMS)
     try:
         yield
@@ -64,6 +67,8 @@ def _snapshot_registry():
         _DOFOLLOW_BY_PLATFORM.update(df_snap)
         _RATIONALE_BY_PLATFORM.clear()
         _RATIONALE_BY_PLATFORM.update(rat_snap)
+        _REFERRAL_VALUE_BY_PLATFORM.clear()
+        _REFERRAL_VALUE_BY_PLATFORM.update(ref_snap)
         _REJECTED_PLATFORMS.clear()
         _REJECTED_PLATFORMS.update(rej_snap)
 
@@ -84,7 +89,13 @@ class TestDofollowTrue:
 
 class TestDofollowFalseRequiresRationale:
     def test_register_with_dofollow_false_and_long_rationale_succeeds(self) -> None:
-        register("foo_false", FakeAdapter, dofollow=False, rationale=RATIONALE_PAD)
+        register(
+            "foo_false",
+            FakeAdapter,
+            dofollow=False,
+            rationale=RATIONALE_PAD,
+            referral_value="low",
+        )
         assert dofollow_status("foo_false") is False
         assert dofollow_rationale("foo_false") == RATIONALE_PAD
 
@@ -99,7 +110,13 @@ class TestDofollowFalseRequiresRationale:
 
 class TestDofollowUncertainRequiresRationale:
     def test_register_with_uncertain_and_long_rationale_succeeds(self) -> None:
-        register("foo_unc", FakeAdapter, dofollow="uncertain", rationale=RATIONALE_PAD)
+        register(
+            "foo_unc",
+            FakeAdapter,
+            dofollow="uncertain",
+            rationale=RATIONALE_PAD,
+            referral_value="low",
+        )
         assert dofollow_status("foo_unc") == "uncertain"
 
     def test_register_with_uncertain_and_no_rationale_raises(self) -> None:
@@ -142,7 +159,13 @@ class TestRejectedPlatform:
         # register() succeeds with normal R3 validation. wordpresscom
         # is the canonical example post Unit 4b.
         _REJECTED_PLATFORMS.pop("wordpresscom")
-        register("wordpresscom", FakeAdapter, dofollow=False, rationale=RATIONALE_PAD)
+        register(
+            "wordpresscom",
+            FakeAdapter,
+            dofollow=False,
+            rationale=RATIONALE_PAD,
+            referral_value="low",
+        )
         assert dofollow_status("wordpresscom") is False
         assert "wordpresscom" not in _REJECTED_PLATFORMS
 
@@ -164,14 +187,17 @@ class TestDofollowKwargRequired:
             FakeAdapter,
             dofollow=False,
             rationale=RATIONALE_PAD,
+            referral_value="low",
         )
         assert dofollow_status("foo_recycle") is False
         register("foo_recycle", FakeAdapter, dofollow=True)
         assert dofollow_status("foo_recycle") is True
         # The old False-state rationale must NOT leak into the new
         # True-state registration (R4: True does not validate rationale,
-        # so a stale string would be confusing).
+        # so a stale string would be confusing). Same for referral_value
+        # (Plan 2026-05-25-001 last-call-wins across all parallel dicts).
         assert dofollow_rationale("foo_recycle") is None
+        assert referral_value("foo_recycle") is None
 
 
 class TestAccessors:
