@@ -191,6 +191,7 @@ from backlink_publisher.publishing.registry import (  # noqa: E402
     _REGISTRY as __REGISTRY,
     _DOFOLLOW_BY_PLATFORM as __DOFOLLOW_BY_PLATFORM,
     _RATIONALE_BY_PLATFORM as __RATIONALE_BY_PLATFORM,
+    _REFERRAL_VALUE_BY_PLATFORM as __REFERRAL_VALUE_BY_PLATFORM,
 )
 
 
@@ -224,6 +225,7 @@ def fake_platform_registered():
     previous = __REGISTRY.get("fake")
     previous_dofollow = __DOFOLLOW_BY_PLATFORM.get("fake")
     previous_rationale = __RATIONALE_BY_PLATFORM.get("fake")
+    previous_referral = __REFERRAL_VALUE_BY_PLATFORM.get("fake")
     _register("fake", FakeAdapter, dofollow=True)
     try:
         yield
@@ -240,3 +242,7 @@ def fake_platform_registered():
             __RATIONALE_BY_PLATFORM.pop("fake", None)
         else:
             __RATIONALE_BY_PLATFORM["fake"] = previous_rationale
+        if previous_referral is None:
+            __REFERRAL_VALUE_BY_PLATFORM.pop("fake", None)
+        else:
+            __REFERRAL_VALUE_BY_PLATFORM["fake"] = previous_referral

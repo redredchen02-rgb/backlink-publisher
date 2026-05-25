@@ -288,11 +288,11 @@ class TestReapOrphan:
 class TestBrowserPublishRecipe:
     def test_frozen_dataclass(self):
         recipe = BrowserPublishRecipe(
-            channel="hashnode",
-            compose_url="https://hashnode.com/new",
-            publish_flow=lambda page, payload: "https://hashnode.com/p/123",
+            channel="devto",
+            compose_url="https://dev.to/new",
+            publish_flow=lambda page, payload: "https://dev.to/p/123",
         )
-        assert recipe.channel == "hashnode"
+        assert recipe.channel == "devto"
         with pytest.raises(Exception):  # FrozenInstanceError or dataclass error
             recipe.channel = "other"  # type: ignore[misc]
 
@@ -343,7 +343,7 @@ class TestChromeAttachSession:
         factory, pw_cm, browser = _stub_playwright_factory(stub_page)
 
         session = ChromeAttachSession(
-            "hashnode",
+            "devto",
             port=9999,
             profile_dir=profile,
             chrome_bin=chrome_bin,
@@ -377,7 +377,7 @@ class TestChromeAttachSession:
         version_probe = MagicMock(return_value={"webSocketDebuggerUrl": "ws://x"})
 
         session = ChromeAttachSession(
-            "hashnode",
+            "devto",
             port=9999,
             profile_dir=profile,
             chrome_bin=chrome_bin,
@@ -396,7 +396,7 @@ class TestChromeAttachSession:
         verifier = MagicMock(return_value=(False, "cmdline_missing_chrome_bin"))
 
         session = ChromeAttachSession(
-            "hashnode",
+            "devto",
             port=9999,
             profile_dir=profile,
             chrome_bin=chrome_bin,
@@ -418,7 +418,7 @@ class TestChromeAttachSession:
         popen = MagicMock()
 
         session = ChromeAttachSession(
-            "hashnode",
+            "devto",
             port=9999,
             profile_dir=profile,
             chrome_bin=chrome_bin,
@@ -441,7 +441,7 @@ class TestChromeAttachSession:
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         monkeypatch.setenv("BACKLINK_PUBLISHER_REAL_CHROME_BIN", "/nonexistent/chrome")
         session = ChromeAttachSession(
-            "hashnode",
+            "devto",
             port=9999,
             profile_dir=profile,
             chrome_bin=None,  # force binary discovery
@@ -462,7 +462,7 @@ class TestChromeAttachSession:
         version_probe = MagicMock(return_value=None)  # never ready
 
         session = ChromeAttachSession(
-            "hashnode",
+            "devto",
             port=9999,
             profile_dir=profile,
             chrome_bin=chrome_bin,
@@ -488,7 +488,7 @@ class TestChromeAttachSession:
 
         with patch.object(cs.os, "killpg") as killpg_spy:
             session = ChromeAttachSession(
-                "hashnode",
+                "devto",
                 port=9999,
                 profile_dir=profile,
                 chrome_bin=chrome_bin,
@@ -513,7 +513,7 @@ class TestChromeAttachSession:
         factory, _, _ = _stub_playwright_factory(stub_page)
 
         session = ChromeAttachSession(
-            "hashnode",
+            "devto",
             port=9999,
             profile_dir=profile,
             chrome_bin=chrome_bin,

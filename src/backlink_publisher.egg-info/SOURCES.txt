@@ -6,7 +6,6 @@ src/backlink_publisher/checkpoint.py
 src/backlink_publisher/config_echo.py
 src/backlink_publisher/footprint.py
 src/backlink_publisher/footprint_corpus.py
-src/backlink_publisher/http.py
 src/backlink_publisher/schema.py
 src/backlink_publisher.egg-info/PKG-INFO
 src/backlink_publisher.egg-info/SOURCES.txt
@@ -35,8 +34,10 @@ src/backlink_publisher/anchor/resolver.py
 src/backlink_publisher/anchor/scheduler.py
 src/backlink_publisher/cli/__init__.py
 src/backlink_publisher/cli/_publish_helpers.py
+src/backlink_publisher/cli/_report_format.py
 src/backlink_publisher/cli/_resume.py
 src/backlink_publisher/cli/_seal_init.py
+src/backlink_publisher/cli/_validate_payload.py
 src/backlink_publisher/cli/bind_channel.py
 src/backlink_publisher/cli/footprint.py
 src/backlink_publisher/cli/frw_login.py
@@ -48,7 +49,6 @@ src/backlink_publisher/cli/report_anchors.py
 src/backlink_publisher/cli/validate_backlinks.py
 src/backlink_publisher/cli/velog_login.py
 src/backlink_publisher/cli/_bind/__init__.py
-src/backlink_publisher/cli/_bind/_driver_impl.py
 src/backlink_publisher/cli/_bind/chrome_backend.py
 src/backlink_publisher/cli/_bind/driver.py
 src/backlink_publisher/cli/_bind/channels/__init__.py
@@ -82,7 +82,6 @@ src/backlink_publisher/config/parsers/llm.py
 src/backlink_publisher/config/parsers/target.py
 src/backlink_publisher/config/parsers/three_url.py
 src/backlink_publisher/content/__init__.py
-src/backlink_publisher/content/_http.py
 src/backlink_publisher/content/fetch.py
 src/backlink_publisher/content/scraper.py
 src/backlink_publisher/content/themed_gen.py
@@ -105,18 +104,11 @@ src/backlink_publisher/publishing/_verify.py
 src/backlink_publisher/publishing/banner_dispatcher.py
 src/backlink_publisher/publishing/content_negotiation.py
 src/backlink_publisher/publishing/registry.py
-src/backlink_publisher/publishing/session_manager.py
-src/backlink_publisher/publishing/throttle.py
 src/backlink_publisher/publishing/adapters/__init__.py
-src/backlink_publisher/publishing/adapters/_ghpages_impl.py
 src/backlink_publisher/publishing/adapters/_medium_selectors.py
 src/backlink_publisher/publishing/adapters/_nofollow_rationales.py
-src/backlink_publisher/publishing/adapters/_telegraph_api_impl.py
-src/backlink_publisher/publishing/adapters/_velog_graphql_impl.py
 src/backlink_publisher/publishing/adapters/base.py
 src/backlink_publisher/publishing/adapters/blogger_api.py
-src/backlink_publisher/publishing/adapters/debug_artifacts.py
-src/backlink_publisher/publishing/adapters/dev_api.py
 src/backlink_publisher/publishing/adapters/devto_api.py
 src/backlink_publisher/publishing/adapters/ghpages.py
 src/backlink_publisher/publishing/adapters/hashnode.py
@@ -130,17 +122,13 @@ src/backlink_publisher/publishing/adapters/notion_api.py
 src/backlink_publisher/publishing/adapters/retry.py
 src/backlink_publisher/publishing/adapters/telegraph_api.py
 src/backlink_publisher/publishing/adapters/telegraph_node.py
-src/backlink_publisher/publishing/adapters/tumblr_api.py
 src/backlink_publisher/publishing/adapters/velog_graphql.py
-src/backlink_publisher/publishing/adapters/wordpress_api.py
-src/backlink_publisher/publishing/adapters/writeas.py
 src/backlink_publisher/publishing/adapters/image_gen/__init__.py
 src/backlink_publisher/publishing/adapters/image_gen/adapter.py
 src/backlink_publisher/publishing/adapters/image_gen/caps.py
 src/backlink_publisher/publishing/adapters/image_gen/storage.py
 src/backlink_publisher/publishing/adapters/image_gen/types.py
 src/backlink_publisher/publishing/browser_publish/__init__.py
-src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py
 src/backlink_publisher/publishing/browser_publish/chrome_session.py
 src/backlink_publisher/publishing/browser_publish/dispatcher.py
 src/backlink_publisher/publishing/browser_publish/recipes/__init__.py
@@ -165,7 +153,6 @@ tests/test_adapter_retry.py
 tests/test_adapter_telegraph_api.py
 tests/test_adapter_telegraph_api_self_heal.py
 tests/test_adapter_velog_graphql.py
-tests/test_adapter_writeas.py
 tests/test_agents_md_has_binding_section.py
 tests/test_anchor_lang.py
 tests/test_anchor_metrics.py
@@ -323,8 +310,8 @@ tests/test_webui_inject_platforms_non_empty.py
 tests/test_webui_platforms_context.py
 tests/test_webui_publish_backend_pill.py
 tests/test_webui_publish_route.py
+tests/test_webui_request_cache.py
 tests/test_webui_route_contract.py
-tests/test_webui_scheduler.py
 tests/test_webui_settings_template_split.py
 tests/test_webui_static_css_served.py
 tests/test_webui_store.py
@@ -336,4 +323,3 @@ tests/test_webui_unit3_security.py
 tests/test_webui_url_verify_routes.py
 tests/test_work_scraper.py
 tests/test_work_themed_generator.py
-tests/test_writeas_banner.py
