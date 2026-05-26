@@ -1,0 +1,31 @@
+[run]
+source = src/backlink_publisher
+omit = 
+    */tests/*
+    */__pycache__/*
+    */.venv/*
+    */site-packages/*
+branch = True
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+ignore_errors = True
+omit =
+    */tests/*
+    */__pycache__/*
+    */.venv/*
+    */site-packages/*
+show_missing = True
+fail_under = 85
+
+[html]
+directory = htmlcov
+title = Backlink Publisher Coverage
+
+[xml]
+output = coverage.xml
