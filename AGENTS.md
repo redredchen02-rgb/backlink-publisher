@@ -148,7 +148,7 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 The project keeps lessons in two places:
 
 - **Private auto-memory** — Claude Code automatically writes `feedback_*.md` files at `~/.claude/projects/<project-memory-slug>/memory/` during sessions. These are fast-capture, operator-private, and never committed.
-- **Public `docs/solutions/`** — High-value or recurring lessons get *promoted* into committed markdown entries under `docs/solutions/<category>/` (categories: `best-practices/`, `logic-errors/`, `test-failures/`, `ui-bugs/`). The promotion tool is `/ce:compound`.
+- **Public `docs/solutions/`** — High-value or recurring lessons get *promoted* into committed markdown entries under `docs/solutions/<category>/` (categories: `best-practices/`, `developer-experience/`, `integration-issues/`, `logic-errors/`, `test-failures/`, `ui-bugs/`, `workflow-issues/`). Searchable by YAML frontmatter fields (`module`, `tags`, `problem_type`). The promotion tool is `/ce:compound`.
 
 **Promotion = rewriting, not copy-paste. Strip UUIDs, domains, absolute paths, user-identifying quotes.** The grep gates check against patterns in `~/.local/share/backlink-publisher/private-tokens.txt` — populate this file before first use of `/ce:compound` or gates pass vacuously.
 
