@@ -92,6 +92,16 @@ def add_dedup_arguments(parser: Any) -> None:
         metavar="TEXT",
         help="Operator reason recorded in the dedup audit log (--forget/--adjudicate).",
     )
+    parser.add_argument(
+        "--backfill-dedup",
+        action="store_true",
+        default=False,
+        help=(
+            "Seed the dedup store from publish-success events (best-effort, "
+            "decision-preserving, idempotent) and exit 0. Run before flipping "
+            "enforce so the back-catalogue is not re-published."
+        ),
+    )
 
 
 #: ``--to`` outcome → dedup terminal state. Closed set validated post-parse with
@@ -117,6 +127,11 @@ def _handle_dedup_ops(args: Any) -> None:
 
     if getattr(args, "adjudicate_bulk", False):
         _do_adjudicate_bulk(args)
+        raise SystemExit(0)
+
+    if getattr(args, "backfill_dedup", False):
+        from backlink_publisher.idempotency.backfill import run_backfill_cli
+        run_backfill_cli()
         raise SystemExit(0)
 
 

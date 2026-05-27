@@ -433,6 +433,39 @@ class DedupStore:
 
         _retry_sqlite(_op)
 
+    def seed(
+        self,
+        key: DedupKey,
+        state: State,
+        *,
+        live_url: str | None = None,
+        verify_ok: bool | None = None,
+    ) -> bool:
+        """INSERT a backfill row in ``state``; **no-op if the key already exists**
+        (``INSERT OR IGNORE`` — decision-preserving / INSERT-only). Returns True
+        iff a row was inserted. Used by U6 backfill to seed already-live posts
+        without ever overwriting a live run's record or an operator decision."""
+
+        def _op() -> bool:
+            with self.connect_immediate() as conn:
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO dedup_keys "
+                    "(platform, account, target_url, state, verify_ok, live_url, "
+                    " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        key.platform,
+                        key.account,
+                        key.target_url,
+                        state,
+                        None if verify_ok is None else int(verify_ok),
+                        live_url,
+                        _now(),
+                    ),
+                )
+                return cur.rowcount > 0
+
+        return _retry_sqlite(_op)
+
     def set_verify_ok(self, key: DedupKey, ok: bool) -> None:
         """Record post-flight verification outcome on a ``done`` row WITHOUT
         changing its state — verify is orthogonal to dedup identity (a verify

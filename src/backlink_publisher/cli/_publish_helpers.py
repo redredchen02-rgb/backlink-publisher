@@ -449,12 +449,14 @@ def _handle_checkpoint_ops(args: Any) -> None:
         getattr(args, "forget", None), getattr(args, "list_uncertain", False),
         getattr(args, "adjudicate_uncertain", None),
         getattr(args, "adjudicate_bulk", False),
+        getattr(args, "backfill_dedup", False),
     ]
     if sum(bool(x) for x in exclusive) > 1:
         emit_error(
             "error: --resume, --list-runs, --cleanup, --cleanup-all, "
             "--preview-manifest, --forget, --list-uncertain, "
-            "--adjudicate-uncertain, and --adjudicate-bulk are mutually exclusive",
+            "--adjudicate-uncertain, --adjudicate-bulk, and --backfill-dedup are "
+            "mutually exclusive",
             exit_code=2,
         )
 
