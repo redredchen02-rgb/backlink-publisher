@@ -57,6 +57,15 @@ cat seeds.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --mode
 | `cull-channels` | `cli/cull_channels.py` | Read-only channel-quality cull advisory (Blast-radius R9) |
 | `canary-targets` | `cli/canary_targets.py` | Read-only adapter-contract canary: re-fetch dofollow-tier canary posts, assert target backlink still dofollow (advisory; config-driven; exit 0). Runbook: `docs/runbooks/2026-05-27-canary-targets-operations.md` |
 
+### Publish-path forward-path drift (Plan 2026-05-27-006)
+
+After each publish (fresh **and** `--resume`), `publish-backlinks` records a per-platform forward-path verdict in `canary-health.json` under the `_publish_path` sibling key (disjoint from the `canary-targets` evergreen records). This is a **distinct signal** from the evergreen decay detected by `canary-targets`:
+
+- **Evergreen decay** (`canary-targets`): the *old* seeded canary post is re-fetched to check whether its links are still dofollow. Detects that a platform *retroactively changed* live posts.
+- **Forward-path drift** (publish-path canary): checks whether *newly published* posts carry the required backlinks as dofollow anchors. Detects that the current publish adapter is *already injecting nofollow* or stripping links on new posts.
+
+In v1 both are **advisory-only** — never gate publishing, never change exit codes. The forward-path verdict is visible as a distinct "Publish-path drift monitor" card on `/ce:health`. Gating (suppress nofollow posts) and coverage for blogger/ghpages/telegraph (which need extra fetch/SSRF handling) are deferred to a follow-up plan.
+
 ### Output contract
 
 stdout = clean JSONL; stderr = diagnostics; exit code 0 on success. No human-readable output.

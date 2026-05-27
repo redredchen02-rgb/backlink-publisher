@@ -288,6 +288,28 @@ def is_publish_path_degraded(platform: str) -> bool:
     return bool(get_publish_path_health(platform).get("degraded", False))
 
 
+def list_publish_path_all() -> dict[str, dict[str, Any]]:
+    """Return all per-platform forward-path records for ``/ce:health``.
+
+    Returns a ``{platform: health_dict}`` mapping of every platform that has
+    *ever* had a forward-path verdict recorded (i.e., the inner
+    ``_publish_path`` mapping). Platforms with no data yet are absent (the
+    caller renders them as neutral/n-a). Fills each record with
+    :data:`_PUBLISH_PATH_DEFAULT` back-compat defaults so the template can
+    read all keys without guards.
+
+    Used by :py:mod:`webui_app.routes.health` — never raises (fail-open)."""
+    data = canary_health_store.load() or {}
+    ppath = data.get(_PUBLISH_PATH_KEY)
+    if not isinstance(ppath, dict):
+        return {}
+    return {
+        platform: {**_PUBLISH_PATH_DEFAULT, **rec}
+        for platform, rec in ppath.items()
+        if isinstance(rec, dict)
+    }
+
+
 def _load_canary_section(config_path: Path | None = None) -> dict[str, Any]:
     """Read the raw ``[canary]`` table straight off the parsed TOML.
 
@@ -352,5 +374,6 @@ __all__ = [
     "get_publish_path_health",
     "record_publish_path_verdict",
     "is_publish_path_degraded",
+    "list_publish_path_all",
     "_load_canary_section",
 ]

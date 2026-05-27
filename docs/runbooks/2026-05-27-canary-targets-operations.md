@@ -168,3 +168,50 @@ The three terminal actions are exactly: **(a) investigate the adapter**, **(b) r
 - [`docs/plans/2026-05-18-007-feat-footprint-regression-gate-plan.md`](../plans/2026-05-18-007-feat-footprint-regression-gate-plan.md) — footprint dimensions (`attr_order/rel/target/preceding_char`), 95% alarm threshold, `OVERRIDE.md` break-glass.
 - Telegraph Phase 0 remote routines — the external-scheduling precedent (read-only recheck on a fixed cron, results written back).
 - [`docs/solutions/integration-issues/dofollow-canary-verdict-dropped-at-publish-output-seam-2026-05-25.md`](../solutions/integration-issues/dofollow-canary-verdict-dropped-at-publish-output-seam-2026-05-25.md) — "inspect the target anchor's rel, not the page-wide flag."
+
+---
+
+## 8. Forward-path drift vs evergreen decay (Plan 2026-05-27-006)
+
+`canary-targets` is an **evergreen** monitor: it re-fetches the *old* seeded canary
+posts on each run and checks whether they are still dofollow. It answers:
+"did the platform silently retroactively nofollow our live posts?"
+
+The **publish-path canary** (Plan 2026-05-27-006) is a complementary **forward-path**
+monitor: it inspects the `link_attr_verification` signal already computed by each
+publish adapter on *newly published* posts (no extra fetch). It answers:
+"is the publish pipeline currently producing nofollow/stripped links on new posts?"
+
+### Signal differences
+
+| | Evergreen (`canary-targets`) | Forward-path (publish-path canary) |
+|---|---|---|
+| Data source | Fresh HTTP re-fetch of old seeded post | Adapter-computed `link_attr_verification` on new publish |
+| What it detects | Old posts retroactively degraded | New posts being published with nofollow/stripped links |
+| Timing | On each `canary-targets` run | Inline with every `publish-backlinks` fresh or `--resume` |
+| Storage key | `canary-health.json` root-level `<platform>` | `canary-health.json` `_publish_path.<platform>` |
+| Dashboard | "Canary contract health" card | "Publish-path drift monitor" card |
+| Gate | Optional `hard_skip=true` quarantine | **Advisory-only in v1** — no gate |
+| Coverage | Adapter-specific (blogger/ghpages/telegraph deferred) | Adapters that already compute `link_attr_verification` |
+
+### v1 limitations (advisory-only)
+
+- **No gating**: drift is a WARN only. A `publish_path_hard_skip` knob (run-start batch
+  admission suppression) is a planned follow-up requiring operator validation of the
+  signal first.
+- **Coverage gaps**: blogger, ghpages, and telegraph adapters do not yet compute
+  `link_attr_verification` (their HTML is raw markdown or requires an extra fetch with
+  SSRF/false-drift risks). They are explicitly deferred.
+- **Single-publish granularity**: one verdict per publish, not per link. If a platform
+  alternates between nofollow and dofollow across posts, the debounce smooths it.
+
+### Monitoring
+
+Watch `publish-backlinks` / `--resume` stderr for:
+
+```
+[publish-path-canary] id=... platform=... verdict=drift nofollow=[...] ...
+```
+
+The `/ce:health` "Publish-path drift monitor" card shows per-platform status.
+A "degraded" badge (2 consecutive drifts) is the advisory signal to investigate.
