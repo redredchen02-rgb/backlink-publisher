@@ -102,6 +102,16 @@ def add_dedup_arguments(parser: Any) -> None:
             "enforce so the back-catalogue is not re-published."
         ),
     )
+    parser.add_argument(
+        "--check-enforce-readiness",
+        action="store_true",
+        default=False,
+        help=(
+            "Read-only pre-flip check: is the dedup store ready for enforce "
+            "(back-catalogue covered, quarantine zero/acknowledged)? Exit 0 if "
+            "ready, 1 if not. Counts only on stderr — no campaign URLs."
+        ),
+    )
 
 
 #: ``--to`` outcome → dedup terminal state. Closed set validated post-parse with
@@ -133,6 +143,40 @@ def _handle_dedup_ops(args: Any) -> None:
         from backlink_publisher.idempotency.backfill import run_backfill_cli
         run_backfill_cli()
         raise SystemExit(0)
+
+    if getattr(args, "check_enforce_readiness", False):
+        _do_check_enforce_readiness()
+
+
+def _do_check_enforce_readiness() -> None:
+    """Read-only R19b readiness report. Exit 0 if ready, 1 if not. Counts +
+    HMAC key digests only on stderr — never campaign URLs."""
+    from backlink_publisher.idempotency.reconcile import check_enforce_readiness
+
+    r = check_enforce_readiness()
+    print(
+        "enforce-readiness: "
+        f"covered={r.covered_count}/{r.event_key_count} published key(s), "
+        f"missing={r.missing_count}, "
+        f"quarantine={r.quarantine_count} "
+        f"(acknowledged={r.quarantine_acknowledged}).",
+        file=sys.stderr,
+    )
+    if r.missing_digests:
+        print(
+            "  missing key digests (run --backfill-dedup): "
+            + ", ".join(r.missing_digests),
+            file=sys.stderr,
+        )
+    if r.ok:
+        print("enforce-readiness: READY.", file=sys.stderr)
+        raise SystemExit(0)
+    print(
+        "enforce-readiness: NOT READY — see --backfill-dedup / "
+        "BACKLINK_PUBLISHER_DEDUP_ENFORCE_ACK_QUARANTINE.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 
 def _resolve_to_state(args: Any) -> str:

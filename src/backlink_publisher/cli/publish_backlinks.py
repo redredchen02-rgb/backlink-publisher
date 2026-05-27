@@ -7,7 +7,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ._resume import _run_resume  # noqa: F401
-from ._dedup_gate import gate, record_done, record_failure
+from ._dedup_gate import (
+    enforce_precondition_or_exit,
+    gate,
+    record_done,
+    record_failure,
+)
 from ._dedup_ops import _handle_dedup_ops
 
 from backlink_publisher.config import load_config
@@ -102,6 +107,10 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(0)
 
     if not args.dry_run:
+        # R19b: enforce refuses to run until the dedup store covers the
+        # back-catalogue (no-op in observe). Checked before acquiring leases so a
+        # not-ready run fails fast without holding a platform lease.
+        enforce_precondition_or_exit()
         platforms_in_use = {
             args.platform or row.get("platform", "") for row in rows
         }

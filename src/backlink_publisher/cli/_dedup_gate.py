@@ -43,6 +43,40 @@ def enforce_enabled() -> bool:
     return os.environ.get(ENFORCE_ENV) == "1"
 
 
+def enforce_precondition_or_exit() -> None:
+    """R19b: when enforce is on, refuse to publish until the dedup store covers
+    the back-catalogue (else an already-live, unrecognized post would re-publish).
+    No-op in observe mode. Exits 3 (operator action required) with counts only —
+    never campaign URLs. Read the readiness with ``--check-enforce-readiness``."""
+    if not enforce_enabled():
+        return
+    from ..idempotency.reconcile import ACK_QUARANTINE_ENV, check_enforce_readiness
+    from .._util.errors import emit_error
+
+    r = check_enforce_readiness()
+    if r.ok:
+        _log.info(
+            f"enforce precondition OK: {r.covered_count}/{r.event_key_count} "
+            f"published key(s) covered; quarantine={r.quarantine_count}"
+        )
+        return
+    parts: list[str] = []
+    if r.missing_count:
+        parts.append(
+            f"{r.missing_count} published key(s) absent from the dedup store "
+            "— run `publish-backlinks --backfill-dedup`"
+        )
+    if r.quarantine_count and not r.quarantine_acknowledged:
+        parts.append(
+            f"{r.quarantine_count} event(s) have unmappable/retired adapter "
+            f"strings — set {ACK_QUARANTINE_ENV}=1 to acknowledge"
+        )
+    emit_error(
+        "enforce blocked — dedup store not ready: " + "; ".join(parts),
+        exit_code=3,
+    )
+
+
 def _key_for_row(row: dict[str, Any], platform: str) -> DedupKey | None:
     target = (row or {}).get("target_url")
     if not target or not platform:

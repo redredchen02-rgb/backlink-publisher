@@ -100,6 +100,11 @@ def _run_resume(args: Any) -> None:
     config = load_config()
     banner_emit = _make_banner_emit()
 
+    # R19b: enforce refuses to resume until the dedup store covers the
+    # back-catalogue (no-op in observe). Before acquiring any lease.
+    from ._dedup_gate import enforce_precondition_or_exit
+    enforce_precondition_or_exit()
+
     platforms_in_ckpt = {item["platform"] for item in ckpt["items"] if item.get("platform")}
     _acquire_publish_leases(platforms_in_ckpt, getattr(args, "dry_run", False))
     for plat in platforms_in_ckpt:
