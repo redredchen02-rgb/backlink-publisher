@@ -945,6 +945,500 @@ def test_run_generate_external_service_error_produces_rejected(monkeypatch):
     assert "ok" in statuses
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Unit 5: Orchestration + dry-run + redaction + docs
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ── _make_correction_hint ─────────────────────────────────────────────────────
+
+
+def test_make_correction_hint_known_reasons_not_none():
+    """Known failure reasons return a non-empty correction hint string."""
+    from backlink_publisher.cli.generate_backlink_text import _make_correction_hint
+
+    for reason in ("missing_link", "missing_anchor", "length_out_of_bounds", "unsafe_chars"):
+        hint = _make_correction_hint(reason)
+        assert hint is not None and len(hint) > 10, (
+            f"_make_correction_hint({reason!r}) returned empty/None"
+        )
+
+
+def test_make_correction_hint_refusal_returns_none():
+    """llm_refusal returns None — no re-prompt is attempted for refusals."""
+    from backlink_publisher.cli.generate_backlink_text import _make_correction_hint
+
+    assert _make_correction_hint("llm_refusal") is None
+
+
+def test_make_correction_hint_unknown_reason_returns_none():
+    """Unknown reason returns None (no re-prompt for novel failure categories)."""
+    from backlink_publisher.cli.generate_backlink_text import _make_correction_hint
+
+    assert _make_correction_hint("bogus_reason") is None
+
+
+# ── Corrective re-prompt: success on second attempt ───────────────────────────
+
+
+def test_corrective_reprompt_succeeds_on_second_attempt(monkeypatch):
+    """First LLM response fails validation; corrective re-prompt succeeds."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
+
+    validated = [
+        {
+            "target_url": "https://example.com/",
+            "anchor_text": "example anchor",
+            "mode": "comment",
+        }
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+
+    # First call returns bare text (no Markdown link → missing_link).
+    # Second call (corrective re-prompt) returns valid text.
+    call_count = 0
+    ok_text = _make_comment_text("https://example.com/", "example anchor")
+
+    def fake_post(url, headers, payload, timeout=10):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return 200, {"choices": [{"message": {"content": "bare text without link"}}]}
+        return 200, {"choices": [{"message": {"content": ok_text}}]}
+
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch("backlink_publisher.llm.client.safe_post_json", side_effect=fake_post):
+            result = _run_generate(validated, args)
+
+    assert call_count == 2, "Expected exactly two LLM calls (initial + re-prompt)"
+    assert result[0]["status"] == "ok"
+    assert result[0]["generated_text"] == ok_text
+
+
+def test_corrective_reprompt_hint_appended_to_payload(monkeypatch):
+    """Corrective re-prompt payload contains the correction_hint text."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
+
+    validated = [
+        {
+            "target_url": "https://example.com/",
+            "anchor_text": "example anchor",
+            "mode": "comment",
+        }
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+
+    call_count = 0
+    payloads: list[dict] = []
+    ok_text = _make_comment_text("https://example.com/", "example anchor")
+
+    def fake_post(url, headers, payload, timeout=10):
+        nonlocal call_count
+        call_count += 1
+        payloads.append(payload)
+        if call_count == 1:
+            return 200, {"choices": [{"message": {"content": "bare text without link"}}]}
+        return 200, {"choices": [{"message": {"content": ok_text}}]}
+
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch("backlink_publisher.llm.client.safe_post_json", side_effect=fake_post):
+            _run_generate(validated, args)
+
+    assert len(payloads) == 2
+    # Second (corrective) call must carry the correction_hint in the user message.
+    corrective_user_msg = payloads[1]["messages"][1]["content"]
+    assert "correction" in corrective_user_msg.lower() or "link" in corrective_user_msg.lower()
+
+
+# ── Corrective re-prompt: both attempts fail → rejected ───────────────────────
+
+
+def test_corrective_reprompt_both_fail_produces_rejected(monkeypatch):
+    """Both LLM attempts return invalid text → record is rejected."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
+
+    validated = [
+        {
+            "target_url": "https://example.com/",
+            "anchor_text": "example anchor",
+            "mode": "comment",
+        }
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+
+    # Both calls return text without a Markdown link.
+    def fake_post(url, headers, payload, timeout=10):
+        return 200, {"choices": [{"message": {"content": "bare text without link"}}]}
+
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch("backlink_publisher.llm.client.safe_post_json", side_effect=fake_post):
+            result = _run_generate(validated, args)
+
+    assert result[0]["status"] == "rejected"
+    assert result[0]["rejection_reason"] == "missing_link"
+
+
+# ── Corrective re-prompt skipped for llm_refusal ─────────────────────────────
+
+
+def test_corrective_reprompt_skipped_for_refusal(monkeypatch):
+    """llm_refusal → no re-prompt attempted (refusals are not retried)."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
+
+    validated = [
+        {
+            "target_url": "https://example.com/",
+            "anchor_text": "example anchor",
+            "mode": "comment",
+        }
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+
+    call_count = 0
+
+    def fake_post(url, headers, payload, timeout=10):
+        nonlocal call_count
+        call_count += 1
+        return 200, {"choices": [{"message": {"content": "I cannot help with this request."}}]}
+
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch("backlink_publisher.llm.client.safe_post_json", side_effect=fake_post):
+            result = _run_generate(validated, args)
+
+    assert call_count == 1, "Refusals must not trigger a corrective re-prompt"
+    assert result[0]["status"] == "rejected"
+    assert result[0]["rejection_reason"] == "llm_refusal"
+
+
+# ── Transport error → rejected transport_error, no bearer in stderr ───────────
+
+
+def test_transport_error_produces_rejected_and_no_bearer_in_stderr(
+    monkeypatch, capsys
+):
+    """ExternalServiceError → rejected transport_error; bearer token not in stderr."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher._util.errors import ExternalServiceError
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    sentinel = "test-bearer-sentinel-do-not-log"
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", sentinel)
+
+    validated = [
+        {
+            "target_url": "https://example.com/",
+            "anchor_text": "anchor",
+            "mode": "comment",
+        }
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=0,
+    )
+
+    def fake_post(url, headers, payload, timeout=10):
+        return 500, {"error": "internal error"}
+
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch("backlink_publisher.llm.client.safe_post_json", side_effect=fake_post):
+            result = _run_generate(validated, args)
+
+    captured = capsys.readouterr()
+    assert result[0]["status"] == "rejected"
+    assert result[0]["rejection_reason"] == "transport_error"
+    assert sentinel not in captured.err, (
+        "Bearer sentinel appeared in stderr — CLI-level redaction failed"
+    )
+
+
+# ── Output field allowlist: no endpoint/key/env-var-name in ok records ────────
+
+
+def test_output_records_contain_no_credentials(monkeypatch):
+    """ok records must not contain endpoint, key, or env-var-name (R16)."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "super-secret-key-value")
+
+    validated = [
+        {
+            "target_url": "https://example.com/",
+            "anchor_text": "example anchor",
+            "mode": "comment",
+        }
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+
+    ok_text = _make_comment_text("https://example.com/", "example anchor")
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch(
+            "backlink_publisher.llm.client.safe_post_json",
+            return_value=(200, {"choices": [{"message": {"content": ok_text}}]}),
+        ):
+            result = _run_generate(validated, args)
+
+    assert result[0]["status"] == "ok"
+    rec_text = json.dumps(result[0])
+    # None of endpoint, key, or env-var-name should appear in the emitted record.
+    assert "super-secret-key-value" not in rec_text
+    assert "https://api.openai.com/v1" not in rec_text
+    assert "BACKLINK_LLM_API_KEY" not in rec_text
+
+
+# ── All records rejected → exit 0 ────────────────────────────────────────────
+
+
+def test_all_records_rejected_exit_0(monkeypatch, capsys):
+    """All records rejected (invalid_record) → still exit 0 (R14b)."""
+    import sys, io
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key")
+
+    from backlink_publisher.cli.generate_backlink_text import main
+
+    # Records with missing required fields → invalid_record rejection at validation.
+    stdin_text = json.dumps([
+        {"mode": "comment"},                      # missing target_url, anchor_text
+        {"target_url": "https://x.com/", "mode": "comment"},  # missing anchor_text
+    ])
+
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO(stdin_text)
+    try:
+        exit_code = None
+        try:
+            main([])
+        except SystemExit as exc:
+            exit_code = exc.code
+    finally:
+        sys.stdin = old_stdin
+
+    if exit_code is None:
+        exit_code = 0  # clean return
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    records = [json.loads(line) for line in captured.out.strip().splitlines()]
+    assert all(r["status"] == "rejected" for r in records)
+
+
+# ── Happy path (mock): mixed ok/rejected → exit 0 ────────────────────────────
+
+
+def test_main_happy_path_mixed_output(monkeypatch, capsys):
+    """main(): valid + invalid records produce mixed ok/rejected output, exit 0."""
+    import sys, io
+    import unittest.mock as mock
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
+
+    from backlink_publisher.cli.generate_backlink_text import main
+
+    ok_text = _make_comment_text("https://example.com/", "good anchor")
+    stdin_text = "\n".join([
+        json.dumps({
+            "target_url": "https://example.com/",
+            "anchor_text": "good anchor",
+            "mode": "comment",
+        }),
+        json.dumps({
+            "target_url": "not-https://bad/",
+            "anchor_text": "anchor",
+            "mode": "comment",
+        }),
+    ])
+
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO(stdin_text)
+    try:
+        with mock.patch(
+            "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+            return_value=(None, None),
+        ):
+            with mock.patch(
+                "backlink_publisher.llm.client.safe_post_json",
+                return_value=(200, {"choices": [{"message": {"content": ok_text}}]}),
+            ):
+                try:
+                    main(["--endpoint", "https://api.openai.com/v1", "--model", "gpt-4"])
+                except SystemExit as exc:
+                    assert exc.code == 0
+    finally:
+        sys.stdin = old_stdin
+
+    captured = capsys.readouterr()
+    lines = [l for l in captured.out.strip().splitlines() if l.strip()]
+    records = [json.loads(line) for line in lines]
+    statuses = {r["status"] for r in records}
+    assert "ok" in statuses
+    assert "rejected" in statuses
+
+
+# ── Integration: no config write during full run ───────────────────────────────
+
+
+def test_no_config_write_during_generate(monkeypatch, tmp_path):
+    """generate-backlink-text must not call save_config (R16 / stateless)."""
+    import sys, io
+    import unittest.mock as mock
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+
+    from backlink_publisher.cli.generate_backlink_text import main
+
+    ok_text = _make_comment_text("https://example.com/", "anchor")
+    stdin_text = json.dumps({
+        "target_url": "https://example.com/",
+        "anchor_text": "anchor",
+        "mode": "comment",
+    })
+
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO(stdin_text)
+
+    save_config_calls: list = []
+    with mock.patch(
+        "backlink_publisher.config.save_config",
+        side_effect=lambda *a, **kw: save_config_calls.append((a, kw)),
+    ) as mock_save:
+        with mock.patch(
+            "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+            return_value=(None, None),
+        ):
+            with mock.patch(
+                "backlink_publisher.llm.client.safe_post_json",
+                return_value=(200, {"choices": [{"message": {"content": ok_text}}]}),
+            ):
+                try:
+                    main(["--endpoint", "https://api.openai.com/v1", "--model", "gpt-4"])
+                except SystemExit:
+                    pass
+                finally:
+                    sys.stdin = old_stdin
+
+    assert save_config_calls == [], (
+        "generate-backlink-text must not call save_config — it is a read-only tool"
+    )
+
+
+# ── Security: endpoint userinfo → secret not in any stderr line ───────────────
+
+
+def test_userinfo_endpoint_secret_not_in_stderr(monkeypatch, capsys):
+    """--endpoint with user:secret@host → DependencyError; secret not in stderr."""
+    import sys, io
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key")
+
+    from backlink_publisher.cli.generate_backlink_text import main
+
+    secret = "mysecretpassword"
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO(json.dumps({
+        "target_url": "https://example.com/",
+        "anchor_text": "anchor",
+        "mode": "comment",
+    }))
+    try:
+        with pytest.raises(SystemExit) as exc_info:
+            main([
+                "--endpoint", f"https://user:{secret}@api.openai.com/v1",
+                "--model", "gpt-4",
+            ])
+    finally:
+        sys.stdin = old_stdin
+
+    # Exit code 3 (DependencyError).
+    assert exc_info.value.code == 3
+    captured = capsys.readouterr()
+    assert secret not in captured.err, (
+        "userinfo secret leaked into stderr — must be redacted/excluded"
+    )
+
+
 def test_cli_help_banner_subprocess():
     """python -m backlink_publisher.cli.generate_backlink_text --help emits usage."""
     env = os.environ.copy()

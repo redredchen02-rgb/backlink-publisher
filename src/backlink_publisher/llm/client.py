@@ -215,6 +215,7 @@ def generate_link_text(
     anchor_text: str,
     language: str,
     cfg: LLMClientConfig,
+    correction_hint: str | None = None,
 ) -> str:
     """Call the LLM and return the raw generated text string.
 
@@ -226,6 +227,10 @@ def generate_link_text(
     Returns the raw ``choices[0].message.content`` string.  Content validation
     (link presence, length bounds, extra-link stripping, language flagging) is
     the caller's responsibility (Unit 4).
+
+    ``correction_hint`` is an optional clarifying note appended to the user
+    message when the orchestrator (Unit 5) does a corrective re-prompt after a
+    validation failure.  It must not contain untrusted content.
 
     R8: ``cfg.retries`` bounds **transient transport retries only**.  Corrective
     re-prompts on *validation* failure are the orchestrator's concern (Unit 5),
@@ -253,6 +258,8 @@ def generate_link_text(
     safe_lang = _sanitize_input(language)
 
     system_msg, user_msg = build_prompt(safe_url, safe_anchor, safe_lang)  # type: ignore[operator]
+    if correction_hint:
+        user_msg = f"{user_msg}\n\nCorrection needed: {correction_hint}"
 
     payload: dict = {
         "model": cfg.model,

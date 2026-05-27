@@ -331,6 +331,41 @@ def _emit_records(
         write_jsonl(records, dest)
 
 
+# ── Corrective re-prompt ──────────────────────────────────────────────────────
+
+
+#: Human-readable correction hints keyed by validation failure reason.
+#: Appended to the re-prompt so the model knows exactly what to fix.
+_CORRECTION_HINTS: dict[str, str] = {
+    "missing_link": (
+        "Your previous response did not include a Markdown hyperlink to the "
+        "target URL. Add exactly one link formatted as [anchor text](URL)."
+    ),
+    "missing_anchor": (
+        "Your previous response did not use the required anchor text as the "
+        "link text. The link must be formatted as [anchor text](URL) where "
+        "'anchor text' is the exact anchor text provided."
+    ),
+    "length_out_of_bounds": (
+        "Your previous response was outside the required word count. "
+        "Adjust the length to fit within the specified bounds."
+    ),
+    "unsafe_chars": (
+        "Your previous response contained disallowed control or bidirectional "
+        "override characters. Please use only standard printable text."
+    ),
+}
+
+
+def _make_correction_hint(reason: str) -> str | None:
+    """Return a corrective instruction for the LLM based on validation failure reason.
+
+    Returns ``None`` for reasons where re-prompting is unlikely to help
+    (``llm_refusal``) so the orchestrator can skip the re-prompt.
+    """
+    return _CORRECTION_HINTS.get(reason)
+
+
 # ── Main entry ────────────────────────────────────────────────────────────────
 
 
@@ -671,10 +706,17 @@ def _run_generate(validated: list[dict], args) -> list[dict]:
     Per-record errors (ExternalServiceError, unsupported mode, validation failure)
     produce a ``rejected`` row — the batch continues (R4b).
 
-    Unit 5 will add the corrective re-prompt loop before validation rejection.
+    On first-pass validation failure, a corrective re-prompt is attempted once
+    (R8).  Only if that also fails does the record become ``rejected``.
     """
     from backlink_publisher._util.errors import ExternalServiceError
     from backlink_publisher.llm.client import SUPPORTED_MODES, generate_link_text
+    from backlink_publisher.llm.client import _redact_for_log
+
+    # Short-circuit: if every record is already rejected (e.g. all invalid_record),
+    # skip client resolution entirely so no DependencyError fires for an unused LLM.
+    if all(rec.get("status") == "rejected" for rec in validated):
+        return list(validated)
 
     # Resolve + guard once; DependencyError (exit 3) surfaces before any HTTP.
     client_cfg = _resolve_client(args)
@@ -690,42 +732,80 @@ def _run_generate(validated: list[dict], args) -> list[dict]:
             output.append(_make_rejected(rec, f"unsupported_mode:{mode}"))
             continue
 
+        target_url = rec["target_url"]
+        anchor_text = rec["anchor_text"]
+        language = rec.get("language", "")
+
+        # ── First generation attempt ──────────────────────────────────────────
         try:
             generated_text = generate_link_text(
                 mode=mode,
-                target_url=rec["target_url"],
-                anchor_text=rec["anchor_text"],
-                language=rec.get("language", ""),
+                target_url=target_url,
+                anchor_text=anchor_text,
+                language=language,
                 cfg=client_cfg,
             )
         except ValueError:
             # generate_link_text raises ValueError for unsupported mode (safety).
             output.append(_make_rejected(rec, f"unsupported_mode:{mode}"))
             continue
-        except ExternalServiceError:
-            output.append(_make_rejected(rec, "llm_error"))
+        except ExternalServiceError as exc:
+            generate_logger.warn(
+                "generate_transport_error",
+                detail=_redact_for_log(str(exc)),
+            )
+            output.append(_make_rejected(rec, "transport_error"))
             continue
 
-        # Unit 4: deterministic validation of generated text.
+        # ── First-pass validation ─────────────────────────────────────────────
         vresult = _validate_generated_text(
             generated_text,
-            target_url=rec["target_url"],
-            anchor_text=rec["anchor_text"],
+            target_url=target_url,
+            anchor_text=anchor_text,
             mode=mode,
-            language=rec.get("language", ""),
+            language=language,
         )
 
         if not vresult["ok"]:
-            # Unit 5 will add a corrective re-prompt before this final rejection.
-            output.append(_make_rejected(rec, vresult["reason"]))
-            continue
+            # R8: one corrective re-prompt on structural validation failure.
+            hint = _make_correction_hint(vresult["reason"])
+            if hint is not None:
+                try:
+                    generated_text = generate_link_text(
+                        mode=mode,
+                        target_url=target_url,
+                        anchor_text=anchor_text,
+                        language=language,
+                        cfg=client_cfg,
+                        correction_hint=hint,
+                    )
+                except (ValueError, ExternalServiceError) as exc:
+                    if isinstance(exc, ExternalServiceError):
+                        generate_logger.warn(
+                            "generate_corrective_transport_error",
+                            detail=_redact_for_log(str(exc)),
+                        )
+                    output.append(_make_rejected(rec, vresult["reason"]))
+                    continue
+                # Re-validate the corrected response.
+                vresult = _validate_generated_text(
+                    generated_text,
+                    target_url=target_url,
+                    anchor_text=anchor_text,
+                    mode=mode,
+                    language=language,
+                )
+
+            if not vresult["ok"]:
+                output.append(_make_rejected(rec, vresult["reason"]))
+                continue
 
         # Assemble ok record.  Only candidate fields are emitted — never
         # endpoint / key / env-var-name (R16, no-credentials-in-output).
         ok_rec: dict[str, Any] = {
             "status": "ok",
-            "target_url": rec["target_url"],    # full validated URL, not truncated
-            "anchor_text": rec["anchor_text"],
+            "target_url": target_url,
+            "anchor_text": anchor_text,
             "mode": mode,
             "generated_text": vresult["text"],  # extra-link-stripped text
         }
