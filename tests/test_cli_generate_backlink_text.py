@@ -402,6 +402,308 @@ def test_cli_dry_run_unsupported_mode_produces_rejected(capsys):
     assert "unsupported_mode" in row["rejection_reason"]
 
 
+# ── _resolve_client unit tests (Unit 3) ──────────────────────────────────────
+
+
+def _make_args(**kwargs):
+    """Build an argparse.Namespace suitable for _resolve_client."""
+    import argparse
+
+    defaults = dict(
+        endpoint=None,
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model=None,
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+def test_resolve_client_happy_path(monkeypatch):
+    """Allowlisted https endpoint + key → LLMClientConfig with resolved values."""
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    args = _make_args(endpoint="https://api.openai.com/v1", model="gpt-4")
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        cfg = _resolve_client(args)
+
+    assert cfg.base == "https://api.openai.com/v1"
+    assert cfg.api_key == "test-api-key-value"
+    assert cfg.model == "gpt-4"
+    assert cfg.temperature == pytest.approx(0.4)
+    assert cfg.timeout == 60
+
+
+def test_resolve_client_endpoint_not_allowlisted(monkeypatch):
+    """Non-allowlisted host → DependencyError raised before any HTTP call."""
+    import unittest.mock as mock
+
+    from backlink_publisher._util.errors import DependencyError
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    args = _make_args(endpoint="https://evil.notallowed.example/v1", model="gpt-4")
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=("host_not_allowlisted", "host not in LLM allowlist"),
+    ):
+        with pytest.raises(DependencyError, match="host_not_allowlisted"):
+            _resolve_client(args)
+
+
+def test_resolve_client_private_ip_rejected(monkeypatch):
+    """Private IP endpoint → DependencyError (SSRF gate, no ALLOW_LOOPBACK)."""
+    import unittest.mock as mock
+
+    from backlink_publisher._util.errors import DependencyError
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+    monkeypatch.delenv("BACKLINK_PUBLISHER_LLM_ALLOW_LOOPBACK", raising=False)
+
+    args = _make_args(endpoint="https://10.0.0.5/v1", model="gpt-4")
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=("url_rejected", "private/reserved IP"),
+    ):
+        with pytest.raises(DependencyError, match="url_rejected"):
+            _resolve_client(args)
+
+
+def test_resolve_client_userinfo_rejected(monkeypatch):
+    """Endpoint with user:secret@host → DependencyError; secret never in error text."""
+    from backlink_publisher._util.errors import DependencyError
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    secret_fragment = "supersecret-xyz"
+    args = _make_args(
+        endpoint=f"https://user:{secret_fragment}@api.openai.com/v1",
+        model="gpt-4",
+    )
+    with pytest.raises(DependencyError) as exc_info:
+        _resolve_client(args)
+
+    error_text = str(exc_info.value)
+    assert secret_fragment not in error_text, (
+        f"Secret fragment leaked in DependencyError: {error_text!r}"
+    )
+
+
+def test_resolve_client_strips_chat_completions_suffix(monkeypatch):
+    """Endpoint ending in /chat/completions → normalized base; guard sees same string."""
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    guarded_urls: list[str] = []
+
+    def capture_guard(url):
+        guarded_urls.append(url)
+        return None, None
+
+    args = _make_args(
+        endpoint="https://api.openai.com/v1/chat/completions",
+        model="gpt-4",
+    )
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        side_effect=capture_guard,
+    ):
+        cfg = _resolve_client(args)
+
+    assert not cfg.base.endswith("/chat/completions"), (
+        f"base should not end with /chat/completions, got {cfg.base!r}"
+    )
+    assert cfg.base == "https://api.openai.com/v1"
+    # Guarded string must equal connected base (no re-normalization after check).
+    assert guarded_urls == ["https://api.openai.com/v1"]
+
+
+def test_resolve_client_no_key_raises_dependency_error(monkeypatch):
+    """No API key in named env var → DependencyError exit 3 mentioning 'not configured'."""
+    import unittest.mock as mock
+
+    from backlink_publisher._util.errors import DependencyError
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.delenv("MY_MISSING_LLM_KEY", raising=False)
+
+    # Ensure config also has no llm_anchor_provider.
+    with mock.patch("backlink_publisher.config.load_config") as mock_load:
+        mock_load.return_value.llm_anchor_provider = None
+
+        args = _make_args(
+            endpoint="https://api.openai.com/v1",
+            api_key_env="MY_MISSING_LLM_KEY",
+            model="gpt-4",
+        )
+        with pytest.raises(DependencyError, match="not configured"):
+            _resolve_client(args)
+
+
+def test_resolve_client_custom_api_key_env(monkeypatch):
+    """--api-key-env=CUSTOM_KEY reads from the CUSTOM_KEY env var."""
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("CUSTOM_LLM_KEY", "my-custom-api-key")
+    monkeypatch.delenv("BACKLINK_LLM_API_KEY", raising=False)
+
+    args = _make_args(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="CUSTOM_LLM_KEY",
+        model="gpt-4",
+    )
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        cfg = _resolve_client(args)
+
+    assert cfg.api_key == "my-custom-api-key"
+
+
+def test_resolve_client_malformed_endpoint_raises_dependency_error(monkeypatch):
+    """Malformed endpoint (http://[invalid) → DependencyError; no uncaught ValueError."""
+    from backlink_publisher._util.errors import DependencyError
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    args = _make_args(endpoint="http://[invalid", model="gpt-4")
+    with pytest.raises(DependencyError):
+        _resolve_client(args)
+
+
+def test_resolve_client_uses_cli_defaults_not_provider_defaults(monkeypatch):
+    """temperature/timeout come from CLI args (0.4/60), not provider defaults (0.7/30)."""
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    args = _make_args(
+        endpoint="https://api.openai.com/v1",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+    )
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        cfg = _resolve_client(args)
+
+    assert cfg.temperature == pytest.approx(0.4)
+    assert cfg.timeout == 60
+
+
+def test_run_generate_calls_generate_link_text(monkeypatch):
+    """_run_generate calls generate_link_text and emits ok record with generated_text."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    validated = [
+        {
+            "target_url": "https://example.com/",
+            "anchor_text": "example anchor",
+            "mode": "comment",
+        }
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch(
+            "backlink_publisher.llm.client.safe_post_json",
+            return_value=(200, {"choices": [{"message": {"content": "generated comment"}}]}),
+        ):
+            result = _run_generate(validated, args)
+
+    assert len(result) == 1
+    assert result[0]["status"] == "ok"
+    assert result[0]["generated_text"] == "generated comment"
+    assert "target_url" in result[0]
+    assert "anchor_text" in result[0]
+
+
+def test_run_generate_external_service_error_produces_rejected(monkeypatch):
+    """ExternalServiceError per record → rejected row; batch continues."""
+    import argparse
+    import unittest.mock as mock
+
+    from backlink_publisher._util.errors import ExternalServiceError
+    from backlink_publisher.cli.generate_backlink_text import _run_generate
+
+    monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
+
+    validated = [
+        {"target_url": "https://example.com/", "anchor_text": "a", "mode": "comment"},
+        {"target_url": "https://example.org/", "anchor_text": "b", "mode": "article"},
+    ]
+    args = argparse.Namespace(
+        endpoint="https://api.openai.com/v1",
+        api_key_env="BACKLINK_LLM_API_KEY",
+        model="gpt-4",
+        temperature=0.4,
+        timeout=60,
+        retries=1,
+    )
+
+    call_count = 0
+
+    def fake_post(url, headers, payload, timeout=10):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise ExternalServiceError("LLM request failed")
+        return 200, {"choices": [{"message": {"content": "ok content"}}]}
+
+    with mock.patch(
+        "backlink_publisher.llm.http_guard.guard_llm_endpoint",
+        return_value=(None, None),
+    ):
+        with mock.patch(
+            "backlink_publisher.llm.client.safe_post_json",
+            side_effect=fake_post,
+        ):
+            result = _run_generate(validated, args)
+
+    assert len(result) == 2
+    statuses = [r["status"] for r in result]
+    assert "rejected" in statuses
+    assert "ok" in statuses
+
+
 def test_cli_help_banner_subprocess():
     """python -m backlink_publisher.cli.generate_backlink_text --help emits usage."""
     env = os.environ.copy()

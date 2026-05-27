@@ -324,6 +324,130 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901
         handle_error(exc)
 
 
+# ── Endpoint resolution + guard ───────────────────────────────────────────────
+
+
+def _resolve_client(args) -> "LLMClientConfig":  # type: ignore[name-defined]
+    """Resolve LLM endpoint/key/model from CLI flags → env → config.
+
+    Resolution order for each field:
+    - **API key**: env var named by ``--api-key-env`` (e.g. ``BACKLINK_LLM_API_KEY``),
+      then ``llm.anchor_provider.api_key`` from config.  Never a CLI flag.
+    - **Endpoint**: ``--endpoint`` flag, then ``llm.anchor_provider.base_url`` from
+      config (which itself reads ``BACKLINK_LLM_BASE_URL``).
+    - **Model**: ``--model`` flag, then ``llm.anchor_provider.model`` from config
+      (which itself reads ``BACKLINK_LLM_MODEL``).
+
+    Security guarantees (R15, R16):
+    - Rejects endpoints containing URL userinfo (``user:secret@host``) — redaction
+      does not cover userinfo and such secrets appear in process listings.
+    - Normalises endpoint *before* gating so the guarded host equals the connected
+      host (no silent re-normalisation after the check).
+    - Calls ``guard_llm_endpoint`` (scheme → allowlist → SSRF) before constructing
+      the ``LLMClientConfig`` — the key is never passed to a non-gated host.
+    - Malformed endpoints (e.g. ``http://[invalid``) → ``DependencyError``;
+      ``ValueError`` from ``urlparse`` is never uncaught.
+
+    Raises:
+        DependencyError: missing key/endpoint/model, or endpoint rejected by
+            the userinfo / allowlist / SSRF guard.
+    """
+    import os
+    from urllib.parse import urlparse
+
+    from backlink_publisher.llm.client import LLMClientConfig
+    from backlink_publisher.llm.http_guard import guard_llm_endpoint
+
+    # ── API key from user-specified env var ────────────────────────────────
+    api_key_env_var: str = args.api_key_env  # e.g. "BACKLINK_LLM_API_KEY"
+    api_key: str | None = os.environ.get(api_key_env_var) or None
+
+    # ── CLI flags take priority for endpoint + model ───────────────────────
+    endpoint: str | None = args.endpoint or None
+    model: str | None = args.model or None
+
+    # ── Fall back to config for any missing values ─────────────────────────
+    if not api_key or not endpoint or not model:
+        from backlink_publisher.config import load_config
+
+        cfg = load_config()
+        llm_cfg = cfg.llm_anchor_provider  # LLMProviderConfig | None
+        if llm_cfg is not None:
+            if not api_key:
+                api_key = llm_cfg.api_key or None
+            if not endpoint:
+                endpoint = llm_cfg.base_url or None
+            if not model:
+                model = llm_cfg.model or None
+
+    # ── Validate resolved values ───────────────────────────────────────────
+    if not api_key:
+        raise DependencyError(
+            f"generate-backlink-text: LLM not configured — "
+            f"no API key found in ${api_key_env_var}. "
+            f"Set the env var or add [llm.anchor_provider].api_key to config.toml. "
+            f"Use --dry-run to preview prompts without a key."
+        )
+    if not endpoint:
+        raise DependencyError(
+            "generate-backlink-text: LLM not configured — "
+            "no endpoint (try --endpoint or BACKLINK_LLM_BASE_URL). "
+            "Use --dry-run to preview prompts without an endpoint."
+        )
+    if not model:
+        raise DependencyError(
+            "generate-backlink-text: LLM not configured — "
+            "no model (try --model or BACKLINK_LLM_MODEL). "
+            "Use --dry-run to preview prompts without a model."
+        )
+
+    # ── Userinfo guard: reject user:secret@host ────────────────────────────
+    # URL userinfo bypasses _redact_for_log and exposes credentials in `ps`.
+    try:
+        parsed_ep = urlparse(endpoint)
+    except ValueError as exc:
+        raise DependencyError(
+            f"generate-backlink-text: malformed --endpoint: {exc}"
+        ) from exc
+    if parsed_ep.username or parsed_ep.password:
+        raise DependencyError(
+            "generate-backlink-text: --endpoint must not contain userinfo "
+            "(user:password@host leaks credentials in process listings and logs). "
+            "Provide the bare base URL, e.g. https://api.openai.com/v1"
+        )
+
+    # ── Endpoint normalization ─────────────────────────────────────────────
+    # Strip trailing "/chat/completions" (with optional slash) so a full URL
+    # supplied by the operator does not double-append the suffix.
+    # The string that is *gated* must equal the string the client connects to.
+    base = endpoint.rstrip("/")
+    if base.endswith("/chat/completions"):
+        base = base[: -len("/chat/completions")].rstrip("/")
+
+    # ── SSRF + allowlist guard (scheme → is_allowlisted → _check_url_for_ssrf)
+    try:
+        rejection_reason, detail = guard_llm_endpoint(base)
+    except ValueError as exc:
+        # Guard urlparse ValueError on malformed IPv6 inside guard_llm_endpoint.
+        raise DependencyError(
+            f"generate-backlink-text: endpoint rejected (malformed): {exc}"
+        ) from exc
+    if rejection_reason is not None:
+        raise DependencyError(
+            f"generate-backlink-text: endpoint rejected ({rejection_reason}): {detail}"
+        )
+
+    # ── Build client (R2 CLI defaults — not provider defaults) ────────────
+    return LLMClientConfig(
+        base=base,
+        api_key=api_key,
+        model=model,
+        temperature=args.temperature,   # CLI default 0.4; provider default is 0.7
+        timeout=args.timeout,           # CLI default 60;  provider default is 30
+        retries=args.retries,
+    )
+
+
 def _run_dry_run(validated: list[dict], args) -> list[dict]:
     """Emit prompt previews without making any LLM call (R3).
 
@@ -373,19 +497,62 @@ def _run_dry_run(validated: list[dict], args) -> list[dict]:
 
 
 def _run_generate(validated: list[dict], args) -> list[dict]:
-    """Resolve LLM config and generate text for each valid candidate.
+    """Resolve config, guard endpoint, and generate text for each candidate.
 
-    Unit 3 will fill in the endpoint resolution and guard.
+    Endpoint resolution + SSRF/allowlist guard run once before any HTTP call
+    (Unit 3).  DependencyError from the guard propagates to ``main()`` → exit 3.
+
+    Per-record errors (ExternalServiceError, unsupported mode) produce a
+    ``rejected`` row — the batch continues (R4b).
+
     Unit 4 will add deterministic validation + record assembly.
     Unit 5 will add the corrective re-prompt loop.
-
-    For now (Unit 1): raises DependencyError so integration tests can see the
-    scaffold is wired.  Units 3-5 replace this stub.
     """
-    raise DependencyError(
-        "generate-backlink-text: LLM generation not yet configured "
-        "(use --dry-run to preview prompts, or configure LLM endpoint/key)"
-    )
+    from backlink_publisher._util.errors import ExternalServiceError
+    from backlink_publisher.llm.client import SUPPORTED_MODES, generate_link_text
+
+    # Resolve + guard once; DependencyError (exit 3) surfaces before any HTTP.
+    client_cfg = _resolve_client(args)
+
+    output: list[dict] = []
+    for rec in validated:
+        if rec.get("status") == "rejected":
+            output.append(rec)
+            continue
+
+        mode = rec.get("mode", "")
+        if mode not in SUPPORTED_MODES:
+            output.append(_make_rejected(rec, f"unsupported_mode:{mode}"))
+            continue
+
+        try:
+            generated_text = generate_link_text(
+                mode=mode,
+                target_url=rec["target_url"],
+                anchor_text=rec["anchor_text"],
+                language=rec.get("language", ""),
+                cfg=client_cfg,
+            )
+        except ValueError:
+            # generate_link_text raises ValueError for unsupported mode (safety).
+            output.append(_make_rejected(rec, f"unsupported_mode:{mode}"))
+            continue
+        except ExternalServiceError:
+            output.append(_make_rejected(rec, "llm_error"))
+            continue
+
+        # Unit 4 will add deterministic validation + richer record assembly.
+        # Unit 3: emit minimal ok record with raw generated text.
+        output.append(
+            {
+                "status": "ok",
+                "target_url": rec["target_url"],
+                "anchor_text": rec["anchor_text"],
+                "mode": mode,
+                "generated_text": generated_text,
+            }
+        )
+    return output
 
 
 if __name__ == "__main__":
