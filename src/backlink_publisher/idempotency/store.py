@@ -279,6 +279,25 @@ class DedupStore:
 
         return _retry_sqlite(_op)
 
+    def list_by_state(
+        self, state: State, *, platform: str | None = None
+    ) -> list[DedupRecord]:
+        """All rows in ``state`` (optionally one ``platform``), newest-first.
+        Used by ``--list-uncertain`` and the bulk ``--adjudicate`` selectors."""
+
+        def _op() -> list[DedupRecord]:
+            sql = f"SELECT {_COLS} FROM dedup_keys WHERE state = ?"
+            params: list[object] = [state]
+            if platform:
+                sql += " AND platform = ?"
+                params.append(platform)
+            sql += " ORDER BY updated_at DESC"
+            with self.connect() as conn:
+                rows = conn.execute(sql, params).fetchall()
+            return [_row_to_record(r) for r in rows]
+
+        return _retry_sqlite(_op)
+
     def is_stale_attempting(
         self, record: DedupRecord, *, now: float | None = None, ttl_s: int = _STALE_TTL_S
     ) -> bool:

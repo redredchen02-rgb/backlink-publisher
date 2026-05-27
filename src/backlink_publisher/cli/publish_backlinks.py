@@ -8,6 +8,7 @@ from typing import Any
 
 from ._resume import _run_resume  # noqa: F401
 from ._dedup_gate import record_done, record_failure, record_intent
+from ._dedup_ops import _handle_dedup_ops
 
 from backlink_publisher.config import load_config
 from backlink_publisher._util.errors import (
@@ -54,6 +55,7 @@ def main(argv: list[str] | None = None) -> None:
     set_log_level(args.log_level)
 
     _handle_checkpoint_ops(args)
+    _handle_dedup_ops(args)
 
     if args.resume:
         _run_resume(args)
