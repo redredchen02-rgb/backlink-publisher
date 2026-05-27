@@ -57,6 +57,7 @@ def emit_manifest(rows: list[dict[str, Any]], platform_override: str | None = No
     Read-only — never writes the dedup store (``key_digest`` may lazily create the
     HMAC secret file, but no dedup row is touched). Caller exits 0 afterward."""
     store = DedupStore()
+    store_token = store.store_token()  # binds the manifest to this store (U7c force)
     counts = {VERDICT_NEW: 0, VERDICT_SKIP: 0, VERDICT_HOLD: 0}
     summary_lines: list[str] = []
 
@@ -77,6 +78,7 @@ def emit_manifest(rows: list[dict[str, Any]], platform_override: str | None = No
                 "live_url": None,
                 "run_id": None,
                 "force": False,
+                "store_token": store_token,
             }
             counts[VERDICT_NEW] += 1
             print(json.dumps(entry), flush=True)
@@ -98,6 +100,7 @@ def emit_manifest(rows: list[dict[str, Any]], platform_override: str | None = No
             "live_url": rec.live_url if rec is not None else None,
             "run_id": rec.run_id if rec is not None else None,
             "force": False,
+            "store_token": store_token,
         }
         counts[verdict] += 1
         print(json.dumps(entry), flush=True)

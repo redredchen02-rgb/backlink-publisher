@@ -112,6 +112,17 @@ def add_dedup_arguments(parser: Any) -> None:
             "ready, 1 if not. Counts only on stderr — no campaign URLs."
         ),
     )
+    parser.add_argument(
+        "--force-manifest",
+        default=None,
+        metavar="FILE",
+        help=(
+            "Honor force-flagged rows from a preview manifest (JSONL from "
+            "--preview-manifest with force:true) on this enforce run: re-publish "
+            "held/uncertain keys. Requires --confirm N (count of force rows) and "
+            "--reason; a force on a done key is rejected as a conflict (R11)."
+        ),
+    )
 
 
 #: ``--to`` outcome → dedup terminal state. Closed set validated post-parse with
@@ -146,6 +157,58 @@ def _handle_dedup_ops(args: Any) -> None:
 
     if getattr(args, "check_enforce_readiness", False):
         _do_check_enforce_readiness()
+
+
+def load_force_manifest(path: str, *, confirm: int | None, reason: str | None):
+    """Validate a preview manifest's force-flags and return the set of forced key
+    tuples ``(platform, account, target_url)`` (U7c). Exits 1 on any guard
+    failure: missing --reason, store-token mismatch (foreign/stale manifest), or
+    a --confirm count that doesn't match the number of force:true rows."""
+    import json
+
+    from backlink_publisher._util.errors import emit_error
+    from backlink_publisher.idempotency import DedupKey, DedupStore
+
+    if not reason:
+        emit_error("error: --force-manifest requires --reason <text>", exit_code=1)
+
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError as exc:
+        emit_error(f"error: cannot read --force-manifest {path!r}: {exc}", exit_code=1)
+
+    forced: set[tuple[str, str, str]] = set()
+    current_token = DedupStore().store_token()
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict) or not entry.get("force"):
+            continue
+        if entry.get("store_token") != current_token:
+            emit_error(
+                "error: --force-manifest is bound to a different dedup store "
+                "(store_token mismatch) — regenerate it with --preview-manifest "
+                "against the current store",
+                exit_code=1,
+            )
+        platform, target_url = entry.get("platform"), entry.get("target_url")
+        if not platform or not target_url:
+            continue
+        key = DedupKey(platform=str(platform), target_url=str(target_url))
+        forced.add(key.as_tuple())
+
+    if confirm != len(forced):
+        emit_error(
+            f"error: --force-manifest has {len(forced)} force-flagged row(s); "
+            f"re-run with --confirm {len(forced)} to proceed (blast-radius guard)",
+            exit_code=1,
+        )
+    return forced
 
 
 def _do_check_enforce_readiness() -> None:

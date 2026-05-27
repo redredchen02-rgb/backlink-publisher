@@ -149,8 +149,9 @@ class IntentOutcome:
 
 
 #: Enforce-gate verdict (R4): dispatch (claimed), skip (already done), hold
-#: (uncertain / live-attempting — surface, do not publish).
-GateVerdict = Literal["dispatch", "skip", "hold"]
+#: (uncertain / live-attempting — surface, do not publish), conflict (a manifest
+#: force-flag targeting a ``done`` key — R11; rejected, never republished).
+GateVerdict = Literal["dispatch", "skip", "hold", "conflict"]
 
 
 @dataclass(frozen=True)
@@ -279,6 +280,17 @@ class DedupStore:
         msg = "\x1f".join(key.as_tuple()).encode("utf-8")
         return hmac.new(secret, msg, hashlib.sha256).hexdigest()[:_DIGEST_LEN]
 
+    def store_token(self) -> str:
+        """Per-store identity token embedded in the preview manifest and rechecked
+        when force-flags are consumed (U7c). Derived from the per-store HMAC
+        secret, so a manifest generated against a *different* store (campaign /
+        config dir) is rejected — within-store staleness is caught separately by
+        the gate's live-state recheck (a key that advanced to ``done`` conflicts)."""
+        secret = self._load_or_create_secret()
+        return hmac.new(
+            secret, b"dedup-store-generation-v1", hashlib.sha256
+        ).hexdigest()[:_DIGEST_LEN]
+
     # ------------------------------------------------------------------ #
     # Reads
     # ------------------------------------------------------------------ #
@@ -342,6 +354,7 @@ class DedupStore:
         owner_started_at: float | None = None,
         now: float | None = None,
         ttl_s: int = _STALE_TTL_S,
+        force: bool = False,
     ) -> GateDecision:
         """Atomic **enforce-mode** gate (R4): read the current state, decide, and
         CLAIM in one ``BEGIN IMMEDIATE`` transaction so the read-decide-write is
@@ -391,8 +404,14 @@ class DedupStore:
                     return GateDecision("dispatch", None)
                 rec = _row_to_record(row)
                 if rec.state == "done":
-                    return GateDecision("skip", rec)
+                    # R11: a manifest force-flag on an already-live key is a
+                    # conflict (forcing would double-post) — reject, never claim.
+                    return GateDecision("conflict" if force else "skip", rec)
                 if rec.state == "uncertain":
+                    # Force overrides the hold: reclaim the held key and dispatch.
+                    if force:
+                        _claim(conn, exists=True)
+                        return GateDecision("dispatch", rec)
                     return GateDecision("hold", rec)
                 if rec.state == "failed":
                     _claim(conn, exists=True)

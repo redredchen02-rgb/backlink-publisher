@@ -108,10 +108,10 @@ def record_intent(row: dict[str, Any], platform: str, *, run_id: str | None) -> 
 
 
 def gate(
-    row: dict[str, Any], platform: str, *, run_id: str | None
+    row: dict[str, Any], platform: str, *, run_id: str | None, force: bool = False
 ) -> tuple[str, DedupRecord | None]:
     """Single pre-dispatch funnel for BOTH seams. Returns ``(verdict, record)``
-    where verdict is ``dispatch``/``skip``/``hold``.
+    where verdict is ``dispatch``/``skip``/``hold``/``conflict``.
 
     **Observe** (default): records intent (``absent -> attempting``, best-effort)
     and always returns ``dispatch`` — publish behavior is unchanged.
@@ -120,6 +120,10 @@ def gate(
     :meth:`DedupStore.gate_and_claim` decides — ``done`` skips, ``uncertain`` /
     live-``attempting`` holds, ``absent`` / ``failed`` / stale-``attempting`` is
     claimed and dispatched.
+
+    ``force=True`` (an honored manifest force-flag, U7c) overrides a ``uncertain``
+    hold (reclaim + dispatch) but turns a live ``done`` into a ``conflict`` verdict
+    (R11: forcing an already-live key would double-post — rejected, not claimed).
 
     Fail-closed: if the enforce gate cannot read/claim the store, it HOLDS the
     row (never dispatches) — the operator opted into strong dedup, so a store
@@ -136,12 +140,48 @@ def gate(
 
     try:
         decision = DedupStore().gate_and_claim(
-            key, run_id=run_id, owner_pid=os.getpid(), owner_run_id=run_id
+            key, run_id=run_id, owner_pid=os.getpid(), owner_run_id=run_id,
+            force=force,
         )
         return decision.verdict, decision.record
     except Exception as exc:  # enforce: fail-closed (hold), never silent double-post
         _log.error(f"dedup enforce gate error — holding row (fail-closed): {exc}")
         return "hold", None
+
+
+def gate_with_force(
+    row: dict[str, Any],
+    platform: str,
+    *,
+    run_id: str | None,
+    forced_keys: set | None,
+    reason: str | None,
+) -> tuple[str, DedupRecord | None]:
+    """Gate wrapper applying manifest force-flags (U7c). If this row's key is in
+    ``forced_keys``, force the gate (override a uncertain hold). A force on a live
+    ``done`` key surfaces a conflict and aborts the run (R11, exit 1). An honored
+    force writes a ``--forget``-parity audit entry. Returns ``(verdict, record)``;
+    in observe mode (``forced_keys`` empty) this is just :func:`gate`."""
+    key = _key_for_row(row, platform)
+    force = bool(forced_keys) and key is not None and key.as_tuple() in forced_keys
+    verdict, drec = gate(row, platform, run_id=run_id, force=force)
+    if verdict == "conflict":
+        from .._util.errors import emit_error
+
+        emit_error(
+            f"force-manifest conflict: {platform} key is already published "
+            "(done); refusing to re-publish — use --forget if truly intended",
+            exit_code=1,
+        )
+    if force and verdict == "dispatch" and key is not None:
+        from ..idempotency import audit_log
+
+        audit_log.append_entry(
+            action="force", platform=key.platform, target_url=key.target_url,
+            account=key.account, from_state=(drec.state if drec else "absent"),
+            to_state="attempting", reason=reason, run_id=run_id,
+        )
+    return verdict, drec
 
 
 def record_done(

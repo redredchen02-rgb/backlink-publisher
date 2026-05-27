@@ -8,12 +8,13 @@ from typing import Any
 
 from ._resume import _run_resume  # noqa: F401
 from ._dedup_gate import (
+    enforce_enabled,
     enforce_precondition_or_exit,
-    gate,
+    gate_with_force,
     record_done,
     record_failure,
 )
-from ._dedup_ops import _handle_dedup_ops
+from ._dedup_ops import _handle_dedup_ops, load_force_manifest
 
 from backlink_publisher.config import load_config
 from backlink_publisher._util.errors import (
@@ -106,11 +107,23 @@ def main(argv: list[str] | None = None) -> None:
         emit_manifest(rows, args.platform)
         raise SystemExit(0)
 
+    forced_keys: set = set()
     if not args.dry_run:
         # R19b: enforce refuses to run until the dedup store covers the
         # back-catalogue (no-op in observe). Checked before acquiring leases so a
         # not-ready run fails fast without holding a platform lease.
         enforce_precondition_or_exit()
+        if args.force_manifest:
+            # U7c: honor force-flags from a preview manifest (enforce only).
+            if not enforce_enabled():
+                emit_error(
+                    "error: --force-manifest requires "
+                    "BACKLINK_PUBLISHER_DEDUP_ENFORCE=1",
+                    exit_code=1,
+                )
+            forced_keys = load_force_manifest(
+                args.force_manifest, confirm=args.confirm, reason=args.reason
+            )
         platforms_in_use = {
             args.platform or row.get("platform", "") for row in rows
         }
@@ -251,8 +264,11 @@ def main(argv: list[str] | None = None) -> None:
 
         # Dedup gate (U2 observe / U7 enforce). Observe: records intent, always
         # dispatch. Enforce: done->skip, uncertain/live-attempting->hold,
-        # absent/failed/stale-attempting->claim+dispatch (fail-closed on store error).
-        verdict, drec = gate(row, platform, run_id=run_id)
+        # absent/failed/stale-attempting->claim+dispatch (fail-closed). A manifest
+        # force-flag (U7c) overrides a hold; a force on a done key conflicts (exit 1).
+        verdict, drec = gate_with_force(
+            row, platform, run_id=run_id, forced_keys=forced_keys, reason=args.reason
+        )
         if verdict == "skip":
             outputs.append(_build_skip_row(
                 row, platform, drec.live_url if drec else None, ts
