@@ -291,3 +291,120 @@ def test_read_canary_config_honors_env_config_dir(tmp_path, monkeypatch):
     entry = store.read_canary_config("ghpages")
     assert entry is not None
     assert entry["post_url"] == "https://gh.io/p"
+
+
+# ── Unit 2: sibling forward-path (publish-time) drift stream ──────────────
+
+
+def test_publish_path_first_drift_increments():
+    rec = store.record_publish_path_verdict("blogger", store.STATUS_DRIFT_CONFIRMED)
+    assert rec["status"] == store.STATUS_DRIFT_CONFIRMED
+    assert rec["consecutive_failures"] == 1
+    assert rec["last_drift_at"] is not None
+    # A single drift is below the debounce threshold → not yet degraded.
+    assert rec["degraded"] is False
+    assert store.is_publish_path_degraded("blogger") is False
+    # Stored under the sibling key, not as a top-level platform record.
+    on_disk = json.loads(_health_path().read_text(encoding="utf-8"))
+    assert set(on_disk) == {"_publish_path"}
+    assert on_disk["_publish_path"]["blogger"] == rec
+
+
+def test_publish_path_unknown_returns_minimal_default():
+    rec = store.get_publish_path_health("never-seen")
+    assert rec == {
+        "status": store.STATUS_NOT_CONFIGURED,
+        "consecutive_failures": 0,
+        "last_ok_at": None,
+        "last_drift_at": None,
+        "consecutive_oks": 0,
+        "degraded": False,
+    }
+    assert not _health_path().exists()
+
+
+def test_publish_path_degrades_at_n_then_rearms():
+    store.record_publish_path_verdict("velog", store.STATUS_DRIFT_CONFIRMED)
+    r2 = store.record_publish_path_verdict("velog", store.STATUS_DRIFT_CONFIRMED)
+    # Two consecutive confirmed drifts cross QUARANTINE_AFTER_N=2 → degraded.
+    assert r2["consecutive_failures"] == 2
+    assert r2["degraded"] is True
+    assert store.is_publish_path_degraded("velog") is True
+
+    # One green resets the failure counter but anti-flap keeps degraded set
+    # until REARM_AFTER_M consecutive OKs.
+    r3 = store.record_publish_path_verdict("velog", store.STATUS_LINK_ALIVE)
+    assert r3["consecutive_failures"] == 0
+    assert r3["consecutive_oks"] == 1
+    assert r3["degraded"] is True
+    r4 = store.record_publish_path_verdict("velog", store.STATUS_LINK_ALIVE)
+    assert r4["consecutive_oks"] == 2
+    assert r4["degraded"] is False  # re-armed
+    assert store.is_publish_path_degraded("velog") is False
+
+
+def test_publish_path_unmapped_status_is_noop():
+    store.record_publish_path_verdict("blogger", store.STATUS_DRIFT_CONFIRMED)
+    before = store.get_publish_path_health("blogger")
+    after = store.record_publish_path_verdict("blogger", store.STATUS_ADVISORY)
+    # advisory/not-configured never mutate the forward-path record.
+    assert after == before
+
+
+def test_publish_path_disjoint_from_evergreen_record():
+    """P0 regression: the evergreen ``record_verdict`` REPLACES ``data[blogger]``
+    wholesale; the forward-path stream must survive that and vice versa."""
+    # Seed forward-path drift, then write an evergreen verdict for the SAME
+    # platform — the forward-path record must be untouched.
+    store.record_publish_path_verdict("blogger", store.STATUS_DRIFT_CONFIRMED)
+    store.record_publish_path_verdict("blogger", store.STATUS_DRIFT_CONFIRMED)
+    store.record_verdict("blogger", store.STATUS_LINK_ALIVE)
+
+    fp = store.get_publish_path_health("blogger")
+    assert fp["consecutive_failures"] == 2
+    assert fp["degraded"] is True  # evergreen write did not wipe it
+
+    # And the evergreen record is independent of the forward-path stream.
+    ev = store.get_health("blogger")
+    assert ev["status"] == store.STATUS_LINK_ALIVE
+    assert ev["consecutive_failures"] == 0
+    assert "degraded" not in ev  # evergreen has quarantined, not degraded
+
+    # A subsequent forward-path green still re-arms independently.
+    store.record_publish_path_verdict("blogger", store.STATUS_LINK_ALIVE)
+    store.record_publish_path_verdict("blogger", store.STATUS_LINK_ALIVE)
+    assert store.is_publish_path_degraded("blogger") is False
+    # Evergreen untouched by the forward-path writes.
+    assert store.get_health("blogger")["status"] == store.STATUS_LINK_ALIVE
+
+
+def test_list_all_excludes_publish_path_sentinel():
+    """``list_all`` (consumed by the /ce:health evergreen canary card) must not
+    surface the sibling stream as a bogus platform."""
+    store.record_verdict("velog", store.STATUS_LINK_ALIVE)
+    store.record_publish_path_verdict("velog", store.STATUS_DRIFT_CONFIRMED)
+    allrecs = store.list_all()
+    assert "velog" in allrecs
+    assert "_publish_path" not in allrecs
+    # The sentinel is still on disk (only the read API filters it).
+    on_disk = json.loads(_health_path().read_text(encoding="utf-8"))
+    assert "_publish_path" in on_disk
+
+
+def test_publish_path_missing_key_loads_defaults_no_keyerror():
+    # Pre-seed a health file with only an evergreen record (no _publish_path).
+    store.record_verdict("blogger", store.STATUS_LINK_ALIVE)
+    assert "_publish_path" not in json.loads(
+        _health_path().read_text(encoding="utf-8")
+    )
+    # Reading the forward-path stream must not KeyError on the absent key.
+    assert store.get_publish_path_health("blogger") == dict(
+        store._PUBLISH_PATH_DEFAULT
+    )
+    assert store.is_publish_path_degraded("blogger") is False
+
+
+def test_publish_path_file_is_0600():
+    store.record_publish_path_verdict("blogger", store.STATUS_DRIFT_CONFIRMED)
+    mode = stat.S_IMODE(_health_path().stat().st_mode)
+    assert mode == 0o600

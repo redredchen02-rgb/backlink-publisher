@@ -72,6 +72,25 @@ _HEALTH_DEFAULT: dict[str, Any] = {
     "quarantined": False,
 }
 
+#: Sibling top-level key for the forward-path (publish-time) drift stream
+#: (Plan 2026-05-27-006 Unit 2). Disjoint from the evergreen per-platform
+#: records that :func:`record_verdict` *replaces* wholesale, so neither stream
+#: can ever overwrite the other. Registry platform names never collide with
+#: this leading-underscore sentinel.
+_PUBLISH_PATH_KEY = "_publish_path"
+
+#: Forward-path default record. No ``quarantined`` flag — v1 is advisory-only
+#: (no publishing gate); ``degraded`` is the debounced advisory analogue,
+#: surfaced as a WARNING + ``/ce:health`` badge.
+_PUBLISH_PATH_DEFAULT: dict[str, Any] = {
+    "status": STATUS_NOT_CONFIGURED,
+    "consecutive_failures": 0,
+    "last_ok_at": None,
+    "last_drift_at": None,
+    "consecutive_oks": 0,
+    "degraded": False,
+}
+
 
 canary_health_store: _LazyStore = _LazyStore(
     lambda: JsonStore(
@@ -96,8 +115,14 @@ def get_health(platform: str) -> dict[str, Any]:
 
 
 def list_all() -> dict[str, dict[str, Any]]:
-    """Read API. Returns the full health store as a dict."""
-    return dict(canary_health_store.load() or {})
+    """Read API. Returns the per-platform evergreen health records.
+
+    Excludes the sibling :data:`_PUBLISH_PATH_KEY` forward-path stream — it is a
+    nested ``{platform: record}`` mapping, not a platform record itself — so
+    evergreen consumers that iterate this mapping (e.g. the ``/ce:health``
+    canary card) never see the sentinel as a bogus platform."""
+    data = canary_health_store.load() or {}
+    return {k: v for k, v in data.items() if k != _PUBLISH_PATH_KEY}
 
 
 def record_verdict(platform: str, status: str) -> dict[str, Any]:
@@ -180,6 +205,89 @@ def is_degraded(platform: str) -> bool:
     )
 
 
+def get_publish_path_health(platform: str) -> dict[str, Any]:
+    """Read API for the forward-path (publish-time) drift stream (Unit 2).
+
+    Lives under the sibling :data:`_PUBLISH_PATH_KEY`, never nested under the
+    evergreen platform record. Unknown platforms return the minimal default so
+    callers need not branch on membership."""
+    data = canary_health_store.load() or {}
+    stream = data.get(_PUBLISH_PATH_KEY) or {}
+    rec = stream.get(platform)
+    if rec is None:
+        return dict(_PUBLISH_PATH_DEFAULT)
+    return rec
+
+
+def record_publish_path_verdict(platform: str, status: str) -> dict[str, Any]:
+    """Record a forward-path (publish-time) drift verdict for ``platform``.
+
+    Mirrors :func:`record_verdict`'s debounce/re-arm arithmetic (set degraded at
+    :data:`QUARANTINE_AFTER_N` consecutive drifts, re-arm after
+    :data:`REARM_AFTER_M` consecutive OKs) but writes to the **sibling
+    top-level** :data:`_PUBLISH_PATH_KEY` stream so the evergreen writer — which
+    *replaces* ``data[platform]`` wholesale — can never wipe it, and vice versa.
+
+    Advisory only: the ``degraded`` flag drives a WARNING + ``/ce:health``
+    badge, never a publishing gate (v1 has no forward-path hard-skip). Only
+    ``link-alive`` / ``drift-confirmed`` mutate the record; any other status is
+    a no-op (preserves the record), matching :func:`record_verdict`.
+
+    Read-modify-write runs through ``update(fn)`` under the store's per-instance
+    lock; the write is atomic 0o600 via ``JsonStore.save``.
+    """
+
+    def _apply(current: dict[str, Any]) -> dict[str, Any]:
+        current = dict(current)
+        stream = dict(current.get(_PUBLISH_PATH_KEY) or {})
+        existing = stream.get(platform) or {}
+        failures = int(existing.get("consecutive_failures", 0) or 0)
+        oks = int(existing.get("consecutive_oks", 0) or 0)
+        degraded = bool(existing.get("degraded", False))
+        last_ok_at = existing.get("last_ok_at")
+        last_drift_at = existing.get("last_drift_at")
+
+        if status == STATUS_LINK_ALIVE:
+            failures = 0
+            oks += 1
+            last_ok_at = _now_iso()
+            if degraded and oks >= REARM_AFTER_M:
+                degraded = False  # re-arm (anti-flap: one green is not enough)
+        elif status == STATUS_DRIFT_CONFIRMED:
+            failures += 1
+            oks = 0
+            last_drift_at = _now_iso()
+            if failures >= QUARANTINE_AFTER_N:
+                degraded = True
+        else:
+            # advisory / not-configured / unknown: never an OK nor a confirmed
+            # drift — preserve the record untouched (no-op).
+            return current
+
+        stream[platform] = {
+            "status": status,
+            "consecutive_failures": failures,
+            "last_ok_at": last_ok_at,
+            "last_drift_at": last_drift_at,
+            "consecutive_oks": oks,
+            "degraded": degraded,
+        }
+        current[_PUBLISH_PATH_KEY] = stream
+        return current
+
+    new = canary_health_store.update(_apply)
+    rec = (new.get(_PUBLISH_PATH_KEY) or {}).get(platform)
+    return rec if rec is not None else dict(_PUBLISH_PATH_DEFAULT)
+
+
+def is_publish_path_degraded(platform: str) -> bool:
+    """True iff ``platform``'s forward-path stream is in the debounced degraded
+    state (>= :data:`QUARANTINE_AFTER_N` consecutive confirmed drifts, not yet
+    re-armed). Advisory — never gates publishing. Fail-open: unknown / never-run
+    platforms return ``False`` (no spurious warning)."""
+    return bool(get_publish_path_health(platform).get("degraded", False))
+
+
 def _load_canary_section(config_path: Path | None = None) -> dict[str, Any]:
     """Read the raw ``[canary]`` table straight off the parsed TOML.
 
@@ -241,5 +349,8 @@ __all__ = [
     "read_canary_config",
     "is_quarantined",
     "is_degraded",
+    "get_publish_path_health",
+    "record_publish_path_verdict",
+    "is_publish_path_degraded",
     "_load_canary_section",
 ]
