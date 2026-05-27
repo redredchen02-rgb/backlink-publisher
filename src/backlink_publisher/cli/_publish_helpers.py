@@ -274,6 +274,26 @@ def _build_failure_row(
     return out
 
 
+def _build_skip_row(
+    row: dict[str, Any], platform: str, live_url: str | None, ts: str
+) -> dict[str, Any]:
+    """A SKIP-DUPLICATE output row (enforce gate, U7): the backlink is already
+    live, so it carries the recorded ``live_url`` and ``error=None`` — it counts
+    as a present backlink for downstream, distinguished by its status."""
+    return {
+        "id": row.get("id", ""),
+        "platform": platform,
+        "status": "skipped_duplicate",
+        "title": row.get("title", ""),
+        "draft_url": "",
+        "published_url": live_url or "",
+        "created_at": ts,
+        "adapter": platform,
+        "error": None,
+        "_dedup_verdict": "skip",
+    }
+
+
 def _try_update_ckpt_failed(
     run_id: str | None,
     row_id: str,
@@ -601,10 +621,25 @@ def _publish_epilogue(
     skipped_unreachable_count: int,
     skipped_quarantined_count: int = 0,
     publish_path_drift_count: int = 0,
+    dedup_skip_count: int = 0,
+    dedup_hold_count: int = 0,
 ) -> None:
     if run_id is not None:
         from ..events import project_run_safe as _project_run_safe
         _project_run_safe(run_id)
+
+    # R18/U7 dedup reconciliation line — counts only, no campaign URLs. Always
+    # emitted (zeros in observe) so the signal is uniform; RECON level per
+    # [[recon-log-level-for-always-on-signals]].
+    dispatched = sum(
+        1 for r in outputs if r.get("_dedup_verdict") != "skip"
+    )
+    publish_logger.recon(
+        "dedup_reconciliation",
+        skipped_already_published=dedup_skip_count,
+        held_uncertain=dedup_hold_count,
+        dispatched=dispatched,
+    )
 
     successful = [r for r in outputs if r.get("error") is None]
     failed = [r for r in outputs if r.get("error") is not None]

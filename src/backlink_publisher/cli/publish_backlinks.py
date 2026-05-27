@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ._resume import _run_resume  # noqa: F401
-from ._dedup_gate import record_done, record_failure, record_intent
+from ._dedup_gate import gate, record_done, record_failure
 from ._dedup_ops import _handle_dedup_ops
 
 from backlink_publisher.config import load_config
@@ -36,6 +36,7 @@ from ._publish_helpers import (
     _do_verify,
     _error_class,
     _handle_auth_expired,
+    _build_skip_row,
     _handle_checkpoint_ops,
     _load_throttle_config,
     _make_banner_emit,
@@ -140,6 +141,8 @@ def main(argv: list[str] | None = None) -> None:
     skipped_quarantined_count = 0
     publish_path_drift_count = 0
     canary_warned: set[str] = set()  # dedup advisory WARNINGs per platform per run
+    dedup_skip_count = 0
+    dedup_hold_count = 0
     last_medium_success_idx: int = -1
 
     throttle_min, throttle_max = _load_throttle_config()
@@ -237,9 +240,27 @@ def main(argv: list[str] | None = None) -> None:
             extra={"id": row.get("id"), "platform": platform, "mode": mode},
         )
 
-        # Observe-only dedup intent (U2): absent -> attempting before dispatch so a
-        # crash mid-publish leaves an attempting row. Never gates; failures swallowed.
-        record_intent(row, platform, run_id=run_id)
+        # Dedup gate (U2 observe / U7 enforce). Observe: records intent, always
+        # dispatch. Enforce: done->skip, uncertain/live-attempting->hold,
+        # absent/failed/stale-attempting->claim+dispatch (fail-closed on store error).
+        verdict, drec = gate(row, platform, run_id=run_id)
+        if verdict == "skip":
+            outputs.append(_build_skip_row(
+                row, platform, drec.live_url if drec else None, ts
+            ))
+            dedup_skip_count += 1
+            publish_logger.info(
+                f"dedup skip (already published): {platform} id={row.get('id', '')}",
+                extra={"id": row.get("id"), "platform": platform},
+            )
+            continue
+        if verdict == "hold":
+            dedup_hold_count += 1
+            publish_logger.warn(
+                f"dedup hold (uncertain/in-flight): {platform} id={row.get('id', '')}",
+                extra={"id": row.get("id"), "platform": platform},
+            )
+            continue
 
         try:
             _check_token_drift(initial_token_revs)
@@ -349,6 +370,8 @@ def main(argv: list[str] | None = None) -> None:
         skipped_unreachable_count,
         skipped_quarantined_count,
         publish_path_drift_count,
+        dedup_skip_count,
+        dedup_hold_count,
     )
 
 

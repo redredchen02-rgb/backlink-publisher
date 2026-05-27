@@ -18,8 +18,8 @@ ceiling = 400
 rationale = "Blast-radius Phase 1 (2026-05-27) added _cell_gate_drop + cell_gate_summary helpers for the opt-in cell admission gate (R7-minimal), growing core.py from 347 to 392 SLOC. Ceiling 400 = round_up_to_10(392+5)."
 
 [files."src/backlink_publisher/cli/publish_backlinks.py"]
-ceiling = 290
-rationale = "Post-loop epilogue (reconciliation stats, JSONL dump, exit-code dispatch) extracted to _publish_epilogue in _publish_helpers.py (2026-05-26). publish_backlinks.py dropped from 280 to 258 SLOC — holds main() and the per-row publish loop only. Ceiling 290 = round_up_to_10(258+30)."
+ceiling = 330
+rationale = "The cross-run idempotency enforce gate (Plan 2026-05-27-005 U7) added the per-row dedup verdict handling (skip-duplicate output row + held-uncertain branch + counters) to the publish loop — intrinsic per-row publish-loop logic that belongs here, not extractable without splitting the loop. Grew 273→297 SLOC. Ceiling 330 = round_up_to_10(297+30); the gate decision itself lives in cli/_dedup_gate.py + idempotency/store.py.gate_and_claim."
 
 [files."src/backlink_publisher/content/fetch.py"]
 ceiling = 250

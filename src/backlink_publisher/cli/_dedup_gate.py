@@ -22,14 +22,25 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from ..idempotency import DedupKey, DedupStore
+from ..idempotency import DedupKey, DedupRecord, DedupStore
 from .._util.logger import get_logger
 
 #: Single account per channel today; carried in the key so a future second
 #: account on the same platform is a distinct key (see plan Key Decisions).
 _ACCOUNT_DEFAULT = "default"
 
+#: Phase-B switch (R18). Unset/anything-but-"1" = observe (record only, dispatch
+#: everything). "1" = enforce (the gate decides skip/hold/dispatch). Strict "1"
+#: match mirrors BACKLINK_PUBLISHER_ALLOW_NETWORK — a behavior-changing switch
+#: should not flip on an accidental truthy-ish value.
+ENFORCE_ENV = "BACKLINK_PUBLISHER_DEDUP_ENFORCE"
+
 _log = get_logger("dedup")
+
+
+def enforce_enabled() -> bool:
+    """True iff the operator opted into Phase-B enforce."""
+    return os.environ.get(ENFORCE_ENV) == "1"
 
 
 def _key_for_row(row: dict[str, Any], platform: str) -> DedupKey | None:
@@ -60,6 +71,43 @@ def record_intent(row: dict[str, Any], platform: str, *, run_id: str | None) -> 
         )
     except Exception as exc:  # observe-only: never break the run
         _log.debug(f"dedup intent_write skipped: {exc}")
+
+
+def gate(
+    row: dict[str, Any], platform: str, *, run_id: str | None
+) -> tuple[str, DedupRecord | None]:
+    """Single pre-dispatch funnel for BOTH seams. Returns ``(verdict, record)``
+    where verdict is ``dispatch``/``skip``/``hold``.
+
+    **Observe** (default): records intent (``absent -> attempting``, best-effort)
+    and always returns ``dispatch`` — publish behavior is unchanged.
+
+    **Enforce** (``BACKLINK_PUBLISHER_DEDUP_ENFORCE=1``): the atomic
+    :meth:`DedupStore.gate_and_claim` decides — ``done`` skips, ``uncertain`` /
+    live-``attempting`` holds, ``absent`` / ``failed`` / stale-``attempting`` is
+    claimed and dispatched.
+
+    Fail-closed: if the enforce gate cannot read/claim the store, it HOLDS the
+    row (never dispatches) — the operator opted into strong dedup, so a store
+    fault must not silently degrade to a possible double-post. (Observe stays
+    fail-open: it swallows and dispatches.)"""
+    key = _key_for_row(row, platform)
+    if key is None:
+        # No usable key (missing platform/target) — cannot dedup; always dispatch.
+        return "dispatch", None
+
+    if not enforce_enabled():
+        record_intent(row, platform, run_id=run_id)
+        return "dispatch", None
+
+    try:
+        decision = DedupStore().gate_and_claim(
+            key, run_id=run_id, owner_pid=os.getpid(), owner_run_id=run_id
+        )
+        return decision.verdict, decision.record
+    except Exception as exc:  # enforce: fail-closed (hold), never silent double-post
+        _log.error(f"dedup enforce gate error — holding row (fail-closed): {exc}")
+        return "hold", None
 
 
 def record_done(

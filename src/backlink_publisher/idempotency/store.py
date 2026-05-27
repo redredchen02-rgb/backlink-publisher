@@ -148,6 +148,21 @@ class IntentOutcome:
     existing_state: State | None = None
 
 
+#: Enforce-gate verdict (R4): dispatch (claimed), skip (already done), hold
+#: (uncertain / live-attempting — surface, do not publish).
+GateVerdict = Literal["dispatch", "skip", "hold"]
+
+
+@dataclass(frozen=True)
+class GateDecision:
+    """Result of :meth:`DedupStore.gate_and_claim`. ``record`` is the pre-claim
+    row (``None`` for an absent key) — carried so the caller can emit the recorded
+    ``live_url`` on a SKIP and surface the held state on a HOLD."""
+
+    verdict: GateVerdict
+    record: DedupRecord | None = None
+
+
 class DedupStore:
     """SQLite-backed dedup record store.
 
@@ -317,6 +332,80 @@ class DedupStore:
     # ------------------------------------------------------------------ #
     # Writes
     # ------------------------------------------------------------------ #
+    def gate_and_claim(
+        self,
+        key: DedupKey,
+        *,
+        run_id: str | None = None,
+        owner_pid: int | None = None,
+        owner_run_id: str | None = None,
+        owner_started_at: float | None = None,
+        now: float | None = None,
+        ttl_s: int = _STALE_TTL_S,
+    ) -> GateDecision:
+        """Atomic **enforce-mode** gate (R4): read the current state, decide, and
+        CLAIM in one ``BEGIN IMMEDIATE`` transaction so the read-decide-write is
+        TOCTOU-safe against a concurrent run.
+
+        * ``done``                  -> ``skip``   (already published).
+        * ``uncertain``             -> ``hold``   (held; surface, do not publish).
+        * live ``attempting``       -> ``hold``   (another run owns the dispatch).
+        * stale ``attempting``      -> reclaim to ``attempting`` (new owner) -> ``dispatch``.
+        * ``failed`` (re-publishable)-> reclaim to ``attempting`` -> ``dispatch``.
+        * absent                    -> INSERT ``attempting`` -> ``dispatch``.
+
+        On ``dispatch`` the row is left ``attempting`` owned by this run, so the
+        terminal write (``record_done``/``record_failure``) settles it exactly as
+        on the fresh-intent path."""
+        owner_pid = os.getpid() if owner_pid is None else owner_pid
+
+        def _claim(conn: sqlite3.Connection, exists: bool) -> None:
+            if exists:
+                conn.execute(
+                    "UPDATE dedup_keys SET state = 'attempting', verify_ok = NULL, "
+                    "live_url = NULL, run_id = ?, owner_pid = ?, owner_run_id = ?, "
+                    "owner_started_at = ?, updated_at = ? "
+                    "WHERE platform = ? AND account = ? AND target_url = ?",
+                    (run_id, owner_pid, owner_run_id, owner_started_at, _now(),
+                     *key.as_tuple()),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO dedup_keys "
+                    "(platform, account, target_url, state, verify_ok, live_url, "
+                    " run_id, owner_pid, owner_run_id, owner_started_at, updated_at) "
+                    "VALUES (?, ?, ?, 'attempting', NULL, NULL, ?, ?, ?, ?, ?)",
+                    (key.platform, key.account, key.target_url, run_id, owner_pid,
+                     owner_run_id, owner_started_at, _now()),
+                )
+
+        def _op() -> GateDecision:
+            with self.connect_immediate() as conn:
+                row = conn.execute(
+                    f"SELECT {_COLS} FROM dedup_keys "
+                    "WHERE platform = ? AND account = ? AND target_url = ?",
+                    key.as_tuple(),
+                ).fetchone()
+                if row is None:
+                    _claim(conn, exists=False)
+                    return GateDecision("dispatch", None)
+                rec = _row_to_record(row)
+                if rec.state == "done":
+                    return GateDecision("skip", rec)
+                if rec.state == "uncertain":
+                    return GateDecision("hold", rec)
+                if rec.state == "failed":
+                    _claim(conn, exists=True)
+                    return GateDecision("dispatch", rec)
+                # attempting: reclaim only if the owning run is gone (R3 crash /
+                # lease-takeover topology); a live owner holds.
+                if self.is_stale_attempting(rec, now=now, ttl_s=ttl_s):
+                    _claim(conn, exists=True)
+                    return GateDecision("dispatch", rec)
+                return GateDecision("hold", rec)
+
+        return _retry_sqlite(_op)
+
     def intent_write(
         self,
         key: DedupKey,

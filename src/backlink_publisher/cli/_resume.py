@@ -34,7 +34,7 @@ from ._publish_helpers import (
     _record_publish_path,
     _sleep_with_throttle,
 )
-from ._dedup_gate import record_done, record_failure, record_intent
+from ._dedup_gate import gate, record_done, record_failure
 
 
 def item_to_publish_output(item: dict[str, Any]) -> dict[str, Any]:
@@ -196,6 +196,8 @@ def _run_resume(args: Any) -> None:
     first_medium_in_resume = True
     last_medium_success_idx = -1
     unverified_ids: set[str] = set()
+    dedup_skip_count = 0
+    dedup_hold_count = 0
 
     from backlink_publisher.config import snapshot_token_revs
     initial_token_revs = snapshot_token_revs()
@@ -218,8 +220,32 @@ def _run_resume(args: Any) -> None:
             extra={"id": item["id"], "platform": platform},
         )
 
-        # Observe-only dedup intent (U2): absent -> attempting before dispatch.
-        record_intent(row, platform, run_id=run_id)
+        # Dedup gate (U2 observe / U7 enforce) — R17: resume consults the dedup
+        # record like a fresh run. skip -> mark the item done from the recorded
+        # live_url; hold -> leave the item for adjudication; dispatch -> publish.
+        verdict, drec = gate(row, platform, run_id=run_id)
+        if verdict == "skip":
+            dedup_skip_count += 1
+            from .. import checkpoint as _ckpt
+            _ckpt.update_item(
+                run_id, item["id"], "done",
+                published_url=(drec.live_url if drec else None),
+                adapter=platform,
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                verified=True,
+            )
+            publish_logger.info(
+                f"dedup skip (already published): {platform} id={item['id']}",
+                extra={"id": item["id"], "platform": platform},
+            )
+            continue
+        if verdict == "hold":
+            dedup_hold_count += 1
+            publish_logger.warn(
+                f"dedup hold (uncertain/in-flight): {platform} id={item['id']}",
+                extra={"id": item["id"], "platform": platform},
+            )
+            continue
 
         try:
             _check_token_drift(initial_token_revs)
@@ -322,6 +348,15 @@ def _run_resume(args: Any) -> None:
             f"published: id={item['id']} status={result.status}",
             extra={"id": item["id"], "status": result.status},
         )
+
+    # R18/U7 dedup reconciliation line (resume seam) — counts only, no URLs.
+    dispatched = len(to_process) - dedup_skip_count - dedup_hold_count
+    publish_logger.recon(
+        "dedup_reconciliation",
+        skipped_already_published=dedup_skip_count,
+        held_uncertain=dedup_hold_count,
+        dispatched=dispatched,
+    )
 
     from .. import checkpoint as _ckpt
     updated_ckpt = _ckpt.load_checkpoint(run_id)

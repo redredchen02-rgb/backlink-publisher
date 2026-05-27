@@ -14,6 +14,7 @@ from .store import (
     DedupKey,
     DedupRecord,
     DedupStore,
+    GateDecision,
     IntentOutcome,
     State,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "DedupKey",
     "DedupRecord",
     "DedupStore",
+    "GateDecision",
     "IntentOutcome",
     "State",
 ]
