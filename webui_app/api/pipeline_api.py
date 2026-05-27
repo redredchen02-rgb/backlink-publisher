@@ -13,7 +13,14 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from ..helpers.cli_runner import run_pipe, strip_cli_diagnostic_banner
+from backlink_publisher._util.error_envelope import parse as _parse_envelope
+
+from ..helpers.cli_runner import (
+    _MAX_SURFACED_ERROR,
+    run_pipe,
+    strip_cli_diagnostic_banner,
+    surface_cli_error,
+)
 
 
 # ── structured result ──────────────────────────────────────────────────────
@@ -25,12 +32,21 @@ class PipeResult:
 
     Callers interact with ``.success`` / ``.error`` / ``.rows`` instead of
     raw stdout / stderr strings.
+
+    On failure, ``.error`` is the full operator-facing message (never the old
+    ``stderr[:200]`` truncation), and ``.error_class`` / ``.exit_code`` carry the
+    typed-error envelope's fields when the CLI emitted one (Unit 1/2). When no
+    envelope is present (argparse usage error, crash, uninstrumented exit), the
+    QUARANTINE branch sets ``error_class="unrecognized"`` and ``.error`` to the
+    full banner-stripped stderr — loud, never empty (silent-drop lesson).
     """
 
     stdout: str = ""
     stderr: str = ""
     success: bool = True
     error: str | None = None
+    error_class: str | None = None
+    exit_code: int | None = None
 
     # ── derived helpers ──────────────────────────────────────────────────
 
@@ -58,6 +74,39 @@ class PipeResult:
             except json.JSONDecodeError:
                 pass
         return result
+
+
+def _typed_error_result(stderr: str, fallback_label: str) -> PipeResult:
+    """Build a failed ``PipeResult``, parsing the typed-error envelope if present.
+
+    Envelope present → ``error_class``/``exit_code``/``error`` from the CLI's own
+    taxonomy (e.g. ``AuthExpiredError``/3). Envelope absent → QUARANTINE:
+    ``error_class="unrecognized"`` and ``error`` = the full banner-stripped stderr
+    (never truncated), so a usage error / crash / uninstrumented exit still
+    surfaces in full.
+    """
+    env = _parse_envelope(stderr)
+    if env is not None:
+        # Bound the message the same way surface_cli_error bounds QUARANTINE text:
+        # an envelope message can be large (validate aggregate) or carry untrusted
+        # content (a target URL / fetched snippet), and it flows verbatim into logs
+        # and the persisted history JSON. Cap it so it can't flood either.
+        message = env.message
+        if len(message) > _MAX_SURFACED_ERROR:
+            message = message[:_MAX_SURFACED_ERROR].rstrip() + " …(truncated)"
+        return PipeResult(
+            stderr=stderr,
+            success=False,
+            error=message,
+            error_class=env.error_class,
+            exit_code=env.exit_code,
+        )
+    return PipeResult(
+        stderr=stderr,
+        success=False,
+        error=surface_cli_error(stderr) or fallback_label,
+        error_class="unrecognized",
+    )
 
 
 # ── helpers used by both PipelineAPI and external callers (scheduler) ──────
@@ -130,24 +179,30 @@ class PipelineAPI:
             plans = result.rows
     """
 
-    # ── plan ─────────────────────────────────────────────────────────────
+    # ── shared invocation ──────────────────────────────────────────────────
 
-    def plan(self, seed_json: str) -> PipeResult:
-        """Run ``plan-backlinks`` with the given JSONL seed data."""
+    def _invoke(self, cmd: list[str], stdin: str, label: str) -> PipeResult:
+        """Run one pipeline CLI; success → rows, failure → typed error.
+
+        ``run_pipe`` raises with the CLI's full stderr (banner + envelope) on any
+        non-zero exit or silent failure; :func:`_typed_error_result` turns that
+        into a typed/QUARANTINE ``PipeResult``.
+        """
         try:
-            raw = run_pipe(["plan-backlinks"], seed_json)
+            raw = run_pipe(cmd, stdin)
             return PipeResult(
                 stdout=raw["stdout"],
                 stderr=raw.get("stderr", ""),
                 success=True,
             )
         except Exception as exc:
-            stderr = str(exc)
-            return PipeResult(
-                stderr=stderr,
-                success=False,
-                error=strip_cli_diagnostic_banner(stderr) or "plan-backlinks failed",
-            )
+            return _typed_error_result(str(exc), label)
+
+    # ── plan ─────────────────────────────────────────────────────────────
+
+    def plan(self, seed_json: str) -> PipeResult:
+        """Run ``plan-backlinks`` with the given JSONL seed data."""
+        return self._invoke(["plan-backlinks"], seed_json, "plan-backlinks failed")
 
     # ── validate ─────────────────────────────────────────────────────────
 
@@ -161,20 +216,7 @@ class PipelineAPI:
         cmd = ["validate-backlinks"]
         if no_check_urls:
             cmd.append("--no-check-urls")
-        try:
-            raw = run_pipe(cmd, plans_jsonl)
-            return PipeResult(
-                stdout=raw["stdout"],
-                stderr=raw.get("stderr", ""),
-                success=True,
-            )
-        except Exception as exc:
-            stderr = str(exc)
-            return PipeResult(
-                stderr=stderr,
-                success=False,
-                error=strip_cli_diagnostic_banner(stderr) or "validate-backlinks failed",
-            )
+        return self._invoke(cmd, plans_jsonl, "validate-backlinks failed")
 
     # ── publish ──────────────────────────────────────────────────────────
 
@@ -186,17 +228,4 @@ class PipelineAPI:
     ) -> PipeResult:
         """Run ``publish-backlinks --platform <p> --mode <m>``."""
         cmd = ["publish-backlinks", "--platform", platform, "--mode", mode]
-        try:
-            raw = run_pipe(cmd, plans_jsonl)
-            return PipeResult(
-                stdout=raw["stdout"],
-                stderr=raw.get("stderr", ""),
-                success=True,
-            )
-        except Exception as exc:
-            stderr = str(exc)
-            return PipeResult(
-                stderr=stderr,
-                success=False,
-                error=strip_cli_diagnostic_banner(stderr) or "publish-backlinks failed",
-            )
+        return self._invoke(cmd, plans_jsonl, "publish-backlinks failed")

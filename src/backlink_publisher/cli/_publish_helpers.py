@@ -478,7 +478,9 @@ def _handle_auth_expired(
         f"auth expired: {exc}",
         extra={"id": row.get("id"), "platform": row.get("platform", "")},
     )
-    emit_error(str(exc), exit_code=3)
+    # error_class = the real exception type so the operator sees "AuthExpiredError"
+    # (re-bind credentials), not the coarse "DependencyError" the exit-3 map yields.
+    emit_error(str(exc), exit_code=3, error_class=type(exc).__name__)
 
 
 def _medium_throttle_sleep(
@@ -534,13 +536,16 @@ def _publish_epilogue(
         from backlink_publisher._util.jsonl import write_jsonl
         write_jsonl(successful)
 
+    from backlink_publisher._util.errors import emit_envelope_and_exit, emit_error
+
     if failed:
         for f in failed:
             print(f"publish failed: {f['error']}", file=sys.stderr)
-        raise SystemExit(4)
+        emit_envelope_and_exit(
+            "ExternalServiceError", 4, f"{len(failed)} payload(s) failed to publish"
+        )
 
     if not args.dry_run and not successful:
-        from backlink_publisher._util.errors import emit_error
         emit_error("no payloads were published", exit_code=5)
 
     if unverified:
@@ -549,7 +554,9 @@ def _publish_epilogue(
                 f"verification failed: id={u.get('id', '')} status={u.get('status', '')}",
                 file=sys.stderr,
             )
-        raise SystemExit(5)
+        emit_envelope_and_exit(
+            "InternalError", 5, f"{len(unverified)} payload(s) failed verification"
+        )
 
     publish_logger.info(
         f"publish complete: {success_count} succeeded, {fail_count} failed, "

@@ -15,6 +15,7 @@ from backlink_publisher._util.errors import (
     BannerUploadError,
     DependencyError,
     ExternalServiceError,
+    emit_envelope_and_exit,
     emit_error,
 )
 from backlink_publisher._util.jsonl import write_jsonl
@@ -241,7 +242,8 @@ def _run_resume(args: Any) -> None:
                 f"auth expired: {exc}",
                 extra={"id": item["id"], "platform": platform},
             )
-            emit_error(str(exc), exit_code=3)
+            # Surface the real class (AuthExpiredError), not exit-3's "DependencyError".
+            emit_error(str(exc), exit_code=3, error_class=type(exc).__name__)
             return
         except BannerUploadError as exc:
             _record_resume_failure(
@@ -325,9 +327,15 @@ def _run_resume(args: Any) -> None:
         if unverified_ids:
             for uid in unverified_ids:
                 print(f"verification failed: id={uid}", file=sys.stderr)
-            raise SystemExit(5)
+            emit_envelope_and_exit(
+                "InternalError", 5, f"{len(unverified_ids)} payload(s) failed verification"
+            )
         raise SystemExit(0)
     else:
         for f in still_unfinished:
             print(f"publish failed: {f.get('error', 'unknown error')}", file=sys.stderr)
-        raise SystemExit(4)
+        emit_envelope_and_exit(
+            "ExternalServiceError",
+            4,
+            f"{len(still_unfinished)} payload(s) still unfinished after resume",
+        )

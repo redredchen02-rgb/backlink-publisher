@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 
 class PipelineError(Exception):
     """Base exception for pipeline errors."""
@@ -168,11 +170,78 @@ class InternalError(PipelineError):
     exit_code = 5
 
 
-def emit_error(message: str, exit_code: int = 5) -> None:
-    """Print diagnostic to stderr and exit."""
+# exit_code → canonical class name, for emit_error() which has no exception object.
+# Mirrors the PipelineError hierarchy above.
+_EXIT_CODE_CLASS_NAME = {
+    1: "UsageError",
+    2: "InputValidationError",
+    3: "DependencyError",
+    4: "ExternalServiceError",
+    5: "InternalError",
+}
+
+
+def _emit_error_envelope(error_class: str, exit_code: int, message: str) -> None:
+    """Emit the machine-readable typed-error line to stderr (Phase 1 contract).
+
+    Additive: callers print the human-readable text first, then this line. The
+    WebUI bridge parses it into a typed ``PipeResult.error`` instead of slicing
+    ``stderr[:200]``. Best-effort — a failure here must never mask the original
+    error (the human text + ``SystemExit`` already happened / will happen).
+    """
+    import sys
+
+    try:
+        from backlink_publisher._util.error_envelope import ErrorEnvelope
+
+        print(
+            ErrorEnvelope(
+                error_class=error_class, exit_code=exit_code, message=message
+            ).serialize(),
+            file=sys.stderr,
+            flush=True,
+        )
+    except Exception:  # pragma: no cover - envelope emission is best-effort
+        pass
+
+
+def emit_error(
+    message: str, exit_code: int = 5, *, error_class: str | None = None
+) -> None:
+    """Print diagnostic to stderr and exit.
+
+    ``error_class`` overrides the envelope's class name. Pass it when the caller
+    holds a specific exception whose type the operator must see (e.g.
+    ``AuthExpiredError``) — otherwise the class is derived from ``exit_code`` via
+    ``_EXIT_CODE_CLASS_NAME``, which would collapse it to the coarse family name
+    (``DependencyError`` for exit 3) and defeat the typed-error contract.
+    """
     import sys
 
     print(message, file=sys.stderr, flush=True)
+    _emit_error_envelope(
+        error_class or _EXIT_CODE_CLASS_NAME.get(exit_code, "PipelineError"),
+        exit_code,
+        message,
+    )
+    raise SystemExit(exit_code)
+
+
+def emit_envelope_and_exit(error_class: str, exit_code: int, message: str) -> NoReturn:
+    """Attach the typed-error envelope, then ``raise SystemExit(exit_code)``.
+
+    For fatal-exit sites that have ALREADY printed their own domain-specific
+    human-readable diagnostics (a per-row validation-error loop, a plan-check
+    schema-violation line, a publish-epilogue failure list) and now need only the
+    machine-readable envelope before exiting. Unlike :func:`emit_error` it prints
+    no human text of its own, so existing stderr stays byte-identical and the
+    additive sentinel line is the only new output. ``error_class`` is the
+    operator-facing type string — an exception class name when one is in hand, or
+    the canonical name for the exit code (see ``_EXIT_CODE_CLASS_NAME``) / a
+    descriptive name for domain exit codes outside the 1–5 taxonomy (e.g. the
+    anchor-distribution alarm's exit 6, plan-check drift's exit 7).
+    """
+    _emit_error_envelope(error_class, exit_code, message)
     raise SystemExit(exit_code)
 
 
@@ -181,6 +250,11 @@ def handle_error(exc: PipelineError) -> None:
     import sys
 
     print(str(exc.message), file=sys.stderr, flush=True)
+    # error_class = the specific exception type (e.g. "AuthExpiredError",
+    # "ContentRejectedError") so the operator sees the real error, not a coarse
+    # bucket. (classify_exception's 5-value ErrorClass would collapse
+    # ContentRejectedError → "unexpected", defeating the Phase 1 success criterion.)
+    _emit_error_envelope(type(exc).__name__, exc.exit_code, str(exc.message))
     raise SystemExit(exc.exit_code)
 
 
@@ -189,4 +263,5 @@ def handle_unexpected_error(exc: Exception) -> None:
     import sys
 
     print(f"unexpected error: {exc}", file=sys.stderr, flush=True)
+    _emit_error_envelope(type(exc).__name__, 5, f"unexpected error: {exc}")
     raise SystemExit(5)
