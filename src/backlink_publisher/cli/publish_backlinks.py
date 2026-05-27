@@ -27,6 +27,7 @@ from ._publish_helpers import (
     _acquire_publish_leases,
     _build_failure_row,
     _build_parser,
+    _canary_gate,
     _check_row_reachability,
     _check_token_drift,
     _do_verify,
@@ -122,6 +123,8 @@ def main(argv: list[str] | None = None) -> None:
     fail_count = 0
     banner_emit = _make_banner_emit()
     skipped_unreachable_count = 0
+    skipped_quarantined_count = 0
+    canary_warned: set[str] = set()  # dedup advisory WARNINGs per platform per run
     last_medium_success_idx: int = -1
 
     throttle_min, throttle_max = _load_throttle_config()
@@ -139,6 +142,27 @@ def main(argv: list[str] | None = None) -> None:
 
         platform = args.platform or row.get("platform", "")
         mode = args.mode or row.get("publish_mode", "draft")
+
+        # Canary health gate (Plan 2026-05-27-001 Unit 4): advisory WARNING is
+        # the dominant path; opt-in (hard_skip=true) + quarantined → filter the
+        # row out of the payload. Fail-open: no canary health → proceeds.
+        canary_skip, canary_reason = _canary_gate(
+            platform, warned=canary_warned
+        )
+        if canary_skip:
+            # Opt-in hard-skip is a deliberate advisory filter, NOT a publish
+            # failure: the row is dropped from the payload (never published) but
+            # must not be appended to ``outputs`` with an error — that would let
+            # ``_publish_epilogue`` count it as failed and exit 4 on every run
+            # for a platform the operator intentionally quarantined. Surface it
+            # as a stderr WARNING + recon count instead.
+            row_id = row.get("id", "")
+            publish_logger.warn(
+                f"[publish-backlinks] row_id={row_id} platform={platform} "
+                f"status=skipped_quarantined — {canary_reason}"
+            )
+            skipped_quarantined_count += 1
+            continue
 
         if not args.dry_run and not args.skip_publish_time_check:
             ok, failing_url = _check_row_reachability(row)
@@ -286,6 +310,7 @@ def main(argv: list[str] | None = None) -> None:
         success_count,
         fail_count,
         skipped_unreachable_count,
+        skipped_quarantined_count,
     )
 
 
