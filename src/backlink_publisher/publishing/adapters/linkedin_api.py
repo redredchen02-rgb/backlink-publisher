@@ -121,7 +121,7 @@ class LinkedInAPIAdapter(Publisher):
 
         api_url = f"{LINKEDIN_API_BASE}/posts"
 
-        def execute():
+        def execute() -> str:
             resp = requests.post(
                 api_url,
                 headers=headers,
