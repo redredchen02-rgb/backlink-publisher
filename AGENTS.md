@@ -155,6 +155,7 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 - `docs/plans/`, `docs/brainstorms/` contain real operator domain names — don't propagate to `docs/solutions/`
 - `develop` branch doesn't exist (locally or remote) despite CI triggering on `branches: [main, develop]`
 - `~/.config/backlink-publisher/llm-settings.json` holds the LLM `api_key`; PR #140 routed writes through `safe_write.atomic_write` so the file lands `0o600`. Files written by pre-#140 code may still be `0644` until the next save.
+- `docs/architecture/deterministic-planning-principle.md` defines the architecture boundary between deterministic planning (pure, testable) and non-deterministic publishing (platform-dependent). Advisory — not CI-enforced.
 
 ## Lessons capture (dual-track)
 
