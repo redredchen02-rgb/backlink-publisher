@@ -554,17 +554,28 @@ class VelogGraphQLAdapter(Publisher):
                     raise _TransientHTTPError(resp.status_code)
                 return resp
 
+            # The WritePost mutation is a NON-IDEMPOTENT create. A network error
+            # (Timeout/ConnectionError) after the request left the client is
+            # ambiguous — velog may have already created the post — so it is NOT
+            # retried (would duplicate). Only 429 (a pre-create rate-limit
+            # rejection, surfaced as _TransientHTTPError) is safe to retry.
+            # Mirrors medium_api / http_form_post "create exactly once".
             try:
                 resp = retry_transient_call(
                     _do_post,
-                    is_retryable=lambda exc: isinstance(
-                        exc, (requests.Timeout, requests.ConnectionError, _TransientHTTPError)
-                    ),
+                    is_retryable=lambda exc: isinstance(exc, _TransientHTTPError),
                     adapter="velog-graphql",
                 )
             except requests.RequestException:
                 raise ExternalServiceError(
                     "velog GraphQL endpoint unreachable"
+                ) from None
+            except _TransientHTTPError as exc:
+                # 429 retried to exhaustion. retry_transient_call re-raises the
+                # _TransientHTTPError (not a RequestException), so it would
+                # otherwise escape uncaught — mirror medium_api and convert it.
+                raise ExternalServiceError(
+                    f"velog writePost returned HTTP {exc.status_code} after retries"
                 ) from None
 
             if not resp.ok:
@@ -591,16 +602,21 @@ class VelogGraphQLAdapter(Publisher):
                     id=article_id,
                 ))
                 try:
+                    # Same non-idempotent-create rule as the first attempt: only
+                    # 429 is retryable; a network error is not (would duplicate).
                     resp2 = retry_transient_call(
                         _do_post,
-                        is_retryable=lambda exc: isinstance(
-                            exc, (requests.Timeout, requests.ConnectionError, _TransientHTTPError)
-                        ),
+                        is_retryable=lambda exc: isinstance(exc, _TransientHTTPError),
                         adapter="velog-graphql",
                     )
                 except requests.RequestException:
                     raise ExternalServiceError(
                         "velog GraphQL endpoint unreachable on retry"
+                    ) from None
+                except _TransientHTTPError as exc:
+                    raise ExternalServiceError(
+                        f"velog writePost returned HTTP {exc.status_code} "
+                        "after retries (on retry)"
                     ) from None
 
                 if not resp2.ok:
