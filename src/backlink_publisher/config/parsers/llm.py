@@ -142,6 +142,17 @@ def _parse_llm_anchor_provider(
 _LLM_SIDECAR_FILENAME = "llm-settings.json"
 
 
+def _opt_str_field(value: object) -> str | None:
+    """Return a non-empty stripped string, else ``None``.
+
+    Drops non-string values (a hand-edited sidecar could hold a list/number)
+    so a bad optional field degrades to "use the built-in default" rather than
+    propagating a non-string into the chat-message payload and failing at
+    publish time.
+    """
+    return value.strip() or None if isinstance(value, str) else None
+
+
 def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
     """Best-effort fallback: build ``LLMProviderConfig`` from the WebUI's
     ``llm-settings.json`` sidecar in ``config_dir``.
@@ -202,10 +213,11 @@ def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
         return None
 
     # temperature: coerce from JSON number; fall back to the parser's default on
-    # anything non-numeric (e.g. a stray string).
+    # anything non-numeric. ``bool`` is an ``int`` subclass, so exclude it
+    # explicitly — ``"temperature": true`` should fall back, not become 1.0.
     temperature = 0.7
     raw_temp = data.get("temperature")
-    if isinstance(raw_temp, (int, float)):
+    if isinstance(raw_temp, (int, float)) and not isinstance(raw_temp, bool):
         temperature = float(raw_temp)
 
     return LLMProviderConfig(
@@ -214,11 +226,11 @@ def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
         model=model.strip(),
         timeout_s=30.0,
         temperature=temperature,
-        # Empty strings (the WebUI defaults) collapse to None so the provider
-        # falls back to its built-in system prompts.
-        system_prompt=data.get("system_prompt") or None,
+        # Empty strings (the WebUI defaults) and non-strings collapse to None so
+        # the provider falls back to its built-in system prompts.
+        system_prompt=_opt_str_field(data.get("system_prompt")),
         use_article_gen=bool(data.get("use_article_gen", False)),
-        article_system_prompt=data.get("article_system_prompt") or None,
+        article_system_prompt=_opt_str_field(data.get("article_system_prompt")),
         use_image_gen=bool(data.get("use_image_gen", False)),
-        image_gen_api_key=data.get("image_gen_api_key") or None,
+        image_gen_api_key=_opt_str_field(data.get("image_gen_api_key")),
     )

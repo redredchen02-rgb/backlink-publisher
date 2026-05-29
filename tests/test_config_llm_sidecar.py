@@ -176,6 +176,35 @@ def test_sidecar_bad_temperature_falls_back_to_default(tmp_path):
     assert cfg.temperature == 0.7
 
 
+def test_sidecar_boolean_temperature_falls_back_to_default(tmp_path):
+    # bool is an int subclass — a JSON boolean must NOT become 1.0/0.0.
+    _write_sidecar(
+        tmp_path,
+        {
+            "endpoint": "https://x.test/v1",
+            "api_key": "k",
+            "model": "m",
+            "temperature": True,
+        },
+    )
+    cfg = _llm_provider_from_sidecar(tmp_path)
+    assert cfg is not None
+    assert cfg.temperature == 0.7
+
+
+@pytest.mark.parametrize("field", ["system_prompt", "article_system_prompt", "image_gen_api_key"])
+def test_sidecar_non_string_optional_field_collapses_to_none(tmp_path, field):
+    # A hand-edited sidecar with a non-string optional field must not propagate
+    # the bad value into the provider (it would fail at publish time); degrade
+    # to None so the built-in default is used.
+    payload = {"endpoint": "https://x.test/v1", "api_key": "k", "model": "m"}
+    payload[field] = ["not", "a", "string"]
+    _write_sidecar(tmp_path, payload)
+    cfg = _llm_provider_from_sidecar(tmp_path)
+    assert cfg is not None
+    assert getattr(cfg, field) is None
+
+
 def test_sidecar_loose_perms_still_read(tmp_path):
     path = _write_sidecar(tmp_path, _FULL_SETTINGS)
     os.chmod(path, 0o644)
