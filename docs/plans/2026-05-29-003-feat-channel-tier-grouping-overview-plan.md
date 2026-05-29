@@ -21,14 +21,14 @@ origin: docs/brainstorms/2026-05-29-channel-grouping-by-automation-requirements.
 ## Requirements Trace
 
 - R1. 总览面板按 3 个自动化分组渲染,每组为独立可折叠区块(Bootstrap collapse,**无** `data-bs-parent`)。
-- R2. 首次访问 Tier 1「开箱即用」默认展开,Tier 2/3 默认折叠;`show` class 与 `aria-expanded` 由同一条件派生。
-- R3. 每组标题显示该组渠道总数与已绑定数量(如「填凭证即自动 · 已绑定 3/9」)。
+- R2. Tier 1「开箱即用」默认展开,Tier 2/3 默认折叠;`show` class 与 `aria-expanded` 由同一条件派生。注:总览面板 `#overview-panel` 自身默认折叠(本次不改),故 R2 的「默认展开」指**用户展开总览面板后**,Tier 1 即处于展开态,非页面加载即可见。
+- R3. 每组标题显示该组渠道总数与就绪数量(如「填凭证即自动 · 就绪 3/9」;就绪=已绑定或免绑定 anon)。
 - R4. 自动化等级仅由 `auth_type(name)` 推导(anon→T1;token/token_fields/oauth/userpass→T2;paste_blob/live_browser→T3);单一集中纯函数,无 per-channel 覆盖、无新 manifest 字段。
 - R4a. `auth_type` 为 `None` 时归入 Tier 2,绝不从所有分组消失;需测试覆盖。
 - R5. 组内已绑定优先,未绑定在后,两段间轻量视觉分隔。
 - R6. 段内按 `active_platforms()` 返回序(字母序)稳定排列,避免刷新跳动。
 - R7. 现有每渠道徽章(auth/dofollow/publish-backend)、verify/dry-run/绑定按钮全部保留,仅改分组与排布。
-- R10. 折叠状态会话内跨重渲染/verify 保持(复用现有通用持久化,见下)。
+- R10. 折叠状态会话内跨重渲染/verify 保持(需 Unit 4 新增小量 JS,泛化现有 `#overview-panel` 持久化 pattern)。
 - R11. 每组标题附一行等级含义副文案。
 - R12. 零成员组隐藏;零绑定组正常显示「0/N」+完整未绑定列表。
 - R8/R9. 确认 CSDN/掘金不出现在任何分组(未注册,`active_platforms()` 从源头排除);保留 `_REJECTED_PLATFORMS` 条目与 `test_registry_rejected_platforms.py`,不物理删除。
@@ -49,10 +49,11 @@ origin: docs/brainstorms/2026-05-29-channel-grouping-by-automation-requirements.
 - **目标循环** `webui_app/templates/settings.html:75-78`(`#overview-panel` 内,调用 `dashboard_channel_card` 宏)。宏 `_channel_card_macro.html` 为纯展示,**分组/排序必须发生在宏调用之前**(模板循环或上下文层),保持宏可复用。
 - **auth_type 取值域** `registry.auth_type(name)`(`src/.../publishing/registry.py:427`)返回 `_AUTH_TYPE_VALUES`(anon/token/token_fields/paste_blob/userpass/oauth/live_browser)之一或 `None`。`platforms_by_auth_type()`(同文件 L439,「live from active_platforms(),never cached」)是「按 auth_type 反查」的既有先例,本次分层函数对齐其「不缓存、运行时计算」风格。
 - **active_platforms()** (`_registry_manifest.py:77-93`)返回 `sorted()` 且仅 `visibility=="active"`——`linkedin`(experimental)与 csdn/juejin 已被排除,故实际 16 渠道。
-- **独立折叠 + 持久化(关键复用)**:
+- **独立折叠 + 持久化**:
   - 折叠 HTML 惯例:`<button type="button" data-bs-toggle="collapse" data-bs-target="#<id>" aria-expanded=... aria-controls=...>` + `<div id="<id>" class="collapse">`(`settings.html:56-63` 总览面板、`:88-104` 渠道卡)。
-  - **collapse 状态持久化已是通用机制** `settings_main.js:_initCollapsePersistence`(`webui_app/static/js/settings_main.js:82-111`):对所有 `.collapse[id]` 按 id 读写 `localStorage('bp:settings:collapse')`,恢复 `show` class + 同步 `aria-expanded` + 监听 `show/hide.bs.collapse`。**只要分组面板有稳定 id + 标准 toggle 标记,R10 零新增 JS。**
-  - 深链 `_openCollapseForHash()` 同样对任意 `.collapse[id]` 生效。
+  - **持久化目前是单元素硬编码,不是通用机制**(`settings_main.js:386-402`):仅对 `#overview-panel` 读写 `localStorage('settings:overviewOpen')`,恢复 `show`/`aria-expanded` + 监听 `show/hide.bs.collapse`。**tier 面板要会话内持久化(R10)必须新增 JS(Unit 4),按此 pattern 泛化到 `#tier-1/2/3`。**
+  - 深链 `_openCollapseForHash()`(`settings_main.js:354-367`)对任意 `.collapse[id]` 生效(仅按 hash 展开,不持久化)——tier 面板有稳定 id 即免费获得深链。
+  - chevron 旋转:基础 `.chevron` 过渡 + `prefers-reduced-motion` 已存在(`settings.css:134-136`);每个 toggle 类需自己的 `[aria-expanded="true"] .chevron` 旋转选择器(现有 `.channel-toggle` L135、`.overview-collapse-toggle` L150、`.llm-pro-toggle` L151 为镜像样板)。
 
 ### Institutional Learnings
 
@@ -74,9 +75,9 @@ origin: docs/brainstorms/2026-05-29-channel-grouping-by-automation-requirements.
 ### Resolved During Planning
 
 - 分层落在哪个面? → 仅总览面板(用户确认)。配置卡栈留待后续。
-- R10 需要新 JS 吗? → 否,复用 `_initCollapsePersistence`(对所有 `.collapse[id]` 生效)。
+- R10 需要新 JS 吗? → **是**,需小量 JS:现有持久化仅硬编码 `#overview-panel`(`settings:overviewOpen`),非通用机制;Unit 4 按同 pattern 泛化到 tier 面板。
 - 分层映射放哪? → WebUI helper 纯函数(`webui_app/helpers/channel_tiers.py`)。
-- 「bound」计数与排序口径? → 统一 `_is_ready()`,anon 视为就绪。
+- 计数与排序口径? → 统一 `_is_ready()`(anon 视为就绪),由 helper 附 `ready` 标记;计数文案用「就绪 X/Y」。
 
 ### Deferred to Implementation
 
@@ -96,19 +97,20 @@ active_platforms()  ──sorted, 仅 active, 已排除 csdn/juejin/linkedin
    ▼
 group_channels_by_tier(dashboard_channels)        ← 新纯函数 (channel_tiers.py)
    │   按 TIER_BY_AUTH_TYPE 分桶(None→T2 兜底)
-   │   每桶内: _is_ready 优先, 段内保持入参(字母)序
+   │   每桶内: ready 优先, 段内保持入参(字母)序; 给每项附 ready 标记
    ▼
 dashboard_channel_tiers = [
    { key:'tier-1', label:'开箱即用', subtitle:'无需任何配置即可发布',
-     total:3, ready:3, open:True,  channels:[(name,status), ...] },
+     total:3, ready:3, open:True,  channels:[(name,status,ready), ...] },
    { key:'tier-2', label:'填凭证即自动', ..., open:False, ... },
    { key:'tier-3', label:'需浏览器登录态(半自动)', ..., open:False, ... },
 ]   ← 零成员组在此过滤掉 (R12)
    ▼
 settings.html #overview-panel: {% for g in dashboard_channel_tiers %}
-   折叠头(count + ready/total + 副文案 + chevron) → <div id="{{g.key}}"
-   class="collapse{% if g.open %} show{% endif %}"> 内: ready 段 → 分隔 → 未绑定段
+   折叠头(label + 就绪 ready/total + 副文案 + chevron) → <div id="{{g.key}}"
+   class="collapse{% if g.open %} show{% endif %}" aria-同源> 内: 就绪段 → 分隔 → 未就绪段
    → 每渠道仍调用 dashboard_channel_card(name, status, ...)
+   ※ tier 面板持久化由 Unit 4 JS 按 id 接管
 ```
 
 分层映射(权威):
@@ -137,7 +139,7 @@ settings.html #overview-panel: {% for g in dashboard_channel_tiers %}
 - `TIER_BY_AUTH_TYPE: dict[str|None, str]` 单一映射;含 `None: 'tier-2'` 兜底;未知 auth_type 同样落 tier-2。
 - 三个分组的有序元数据(key、label、subtitle、默认 open):`tier-1` open=True,其余 False。
 - `_is_ready(status)`:`status.get('auth_type')=='anon' or status.get('bound')`。
-- `group_channels_by_tier(dashboard_channels)`:遍历分桶 → 桶内 `sorted(key=lambda: not ready)`(stable,保持入参字母序)→ 计算 total/ready → 过滤 total==0 的组 → 返回有序 list[dict]。**不缓存**,每次计算(对齐 `platforms_by_auth_type` 风格)。
+- `group_channels_by_tier(dashboard_channels)`:遍历分桶 → 桶内 `sorted(key=lambda: not ready)`(stable,保持入参字母序)→ 给每项附 `ready` 标记(`(name, status, ready)` 或在 status 内打标),供模板分段不再二次推导 → 计算 total/ready 计数 → 过滤 total==0 的组 → 返回有序 list[dict]。**不缓存**,每次计算(对齐 `platforms_by_auth_type` 风格)。
 
 **Patterns to follow:** `registry.platforms_by_auth_type()`(运行时计算、不缓存);分桶数据形状参考 `dashboard_channels` 的 `(name, status)` 元组。
 
@@ -148,6 +150,7 @@ settings.html #overview-panel: {% for g in dashboard_channel_tiers %}
 - Edge case (R4a): `auth_type=None` 的渠道落入 tier-2(不丢失);未知/未来 auth_type 值同样落 tier-2。
 - Edge case (R12): 某 tier 无成员时该组被过滤,不出现在返回列表;某 tier 全未绑定时 `ready=0` 且成员完整保留。
 - Edge case: 空输入 → 返回空 list(不抛错)。
+- Happy path: 输出每项带正确 `ready` 标记(anon→True、bound→True、未绑定非 anon→False),模板可直接据此分段。
 
 **Verification:** `tests/test_channel_tiers.py` 全绿;函数对全渠道集合输出与 origin 分层表一一对应。
 
@@ -171,7 +174,7 @@ settings.html #overview-panel: {% for g in dashboard_channel_tiers %}
 
 **Test scenarios:**
 - Happy path: `_settings_context()` 返回含 `dashboard_channel_tiers`,3 组,成员并集 == `active_platforms()`,无重复、无遗漏。
-- Integration (R4a): 构造/模拟一个 `auth_type=None` 的活跃渠道,断言其出现在 tier-2 组内(不消失)——加在 `test_settings_dashboard_rendering.py`,沿用其「期望列表同步 active_platforms()」约定。
+- Integration (R4a): 该测试经真实 Flask client `GET /settings`(非手搓 context dict),故用 `monkeypatch` 打桩 `registry.auth_type`(或 `binding_status.get_channel_status`)使某活跃渠道 `auth_type=None`,断言其落入 tier-2(不消失)——沿用 `test_settings_dashboard_rendering.py` 中 `TestGracefulDegradation` 的 monkeypatch 套路(L166-173)与「期望列表同步 active_platforms()」约定。
 - Integration: csdn/juejin 不出现在任何组(`active_platforms()` 源头保证)。
 - Error path: `group_channels_by_tier` 抛错时 `dashboard_channel_tiers` 回退为 `[]`,`_settings_context()` 不抛。
 
@@ -191,11 +194,12 @@ settings.html #overview-panel: {% for g in dashboard_channel_tiers %}
 - Test: `tests/test_settings_dashboard_rendering.py` / `tests/test_webui_route_contract.py`(DOM 结构断言)
 
 **Approach:**
-- `{% for g in dashboard_channel_tiers %}`:折叠头用 `<button type="button" class="tier-toggle" data-bs-toggle="collapse" data-bs-target="#{{ g.key }}" aria-expanded="{{ 'true' if g.open else 'false' }}" aria-controls="{{ g.key }}">`,显示 `g.label · 已绑定 {{ g.ready }}/{{ g.total }}` + `g.subtitle` 副文案 + chevron。
+- **先把 `{% set _carded_channels = [...] %}` 上提到 tier 循环之外**(现状定义在总览块 L74,是模板局部 set;移入嵌套循环会未定义)。`binding_channels` 是上下文键,天然可用。
+- `{% for g in dashboard_channel_tiers %}`:折叠头用 `<button type="button" class="tier-toggle" data-bs-toggle="collapse" data-bs-target="#{{ g.key }}" aria-expanded="{{ 'true' if g.open else 'false' }}" aria-controls="{{ g.key }}">`,显示 `g.label · 就绪 {{ g.ready }}/{{ g.total }}` + `g.subtitle` 副文案 + chevron。
 - 面板:`<div id="{{ g.key }}" class="collapse{% if g.open %} show{% endif %}">`——`show` 与 `aria-expanded` 同源(规避首点反向坑)。
-- 组内:先渲染 ready 段(对 `g.channels` 中 `_is_ready` 为真者),插入轻量分隔(分隔线或「未配置」小标签),再渲染未绑定段;每渠道仍调用 `dashboard_channel_card(name, status, bindable=..., has_card=...)`,沿用现有 `binding_channels` / `_carded_channels` 判定。
+- 组内:用 helper 附的 `ready` 标记分段——先渲染就绪段,插入轻量分隔(分隔线或「未配置」小标签),再渲染未就绪段;**模板不再二次推导 ready**;每渠道仍调用 `dashboard_channel_card(name, status, bindable=(name in binding_channels), has_card=(name in _carded_channels or status.auth_type not in ('live_browser','oauth',None)))`——**verbatim 保留现有 `bindable` / `has_card` 表达式**。
 - toggle 是 `#overview-panel` 内、各自 `<form>` 外的独立 `<button>`(结构隔离,事件冒泡不影响 Loading Overlay)。
-- 稳定 id `tier-1/2/3` 不与现有 `overview-panel`/`channel-<name>`/`llm-pro-mode-collapse` 冲突 → 自动获得 `_initCollapsePersistence` 持久化(R10)与深链支持,无新 JS。
+- 稳定 id `tier-1/2/3` 不与现有 `overview-panel`/`channel-<name>`/`llm-pro-mode-collapse` 冲突 → 免费获得深链(`_openCollapseForHash`);**会话内持久化由 Unit 4 JS 接管**(现有持久化仅覆盖 `#overview-panel`)。
 
 **Execution note:** 改的是渲染聚合而非新行为,建议先跑 `test_webui_route_contract.py` 作为回归网,再调结构。
 
@@ -204,19 +208,46 @@ settings.html #overview-panel: {% for g in dashboard_channel_tiers %}
 **Test scenarios:**
 - Happy path: `/settings` 渲染出 3 个 `id="tier-1|2|3"` 的 `.collapse` 面板,各含正确渠道卡。
 - Happy path (R2): `tier-1` 元素带 `show` class 且其 toggle `aria-expanded="true"`;tier-2/3 无 `show` 且 `aria-expanded="false"`(同源断言)。
-- Happy path (R3): 每组折叠头文本含「已绑定 X/Y」计数。
-- Edge case (R5): 某组内已绑定渠道 DOM 顺序先于未绑定,且存在分隔元素。
-- Edge case (R12): 渠道卡总数仍等于 `active_platforms()` 数(分组不丢卡、不重复)。
+- Happy path (R3): 每组折叠头文本含「就绪 X/Y」计数(非「已绑定」)。
+- Edge case (R5): 某组内就绪渠道 DOM 顺序先于未就绪,且存在分隔元素。
+- Edge case (R12,**强制**): 三个 `id="tier-N"` 面板内 `dashboard-channel-card` 总数 == `len(active_platforms())`,且无渠道出现在两个 tier(并集恰好一次)。注:现有 `test_dashboard_card_count_equals_registered_platform_count`(L145-158)只数总量、不验分组结构,会平凡通过,故本条 DOM 结构断言为必需而非可选。
 - Integration (R7): 每张卡仍渲染 auth/dofollow/publish-backend 徽章与 verify/dry-run 按钮(宏未被破坏);现有 `dashboard_channel_card` 相关断言不回归。
-- Integration (R10): 给某 tier 面板写入 localStorage 展开态后重载,该面板恢复展开(由通用持久化覆盖;若 JS 难以单测,以「面板具备 id + 标准 toggle 标记」结构断言代替)。
+- Integration (R2 同源): `tier-1` 面板带 `show` 且 toggle `aria-expanded="true"`;tier-2/3 反之——同源断言,防首点反向。
 
-**Verification:** `/settings` GET 200;3 组折叠正常、可同时多开(无 `data-bs-parent`);Tier 1 首屏展开;现有渠道卡功能与回归清单不变。
+**Verification:** `/settings` GET 200;3 组折叠正常、可同时多开(无 `data-bs-parent`);展开总览面板后 Tier 1 即展开;现有渠道卡功能与回归清单不变。
+
+- [ ] **Unit 4: tier 折叠态会话内持久化(JS)**
+
+**Goal:** 把现有仅覆盖 `#overview-panel` 的硬编码持久化,泛化到 tier 面板,使 verify/dry-run 重渲染后用户的展开/折叠选择保持(R10)。
+
+**Requirements:** R10
+
+**Dependencies:** Unit 3(需 tier 面板已带稳定 id 与 toggle 标记)
+
+**Files:**
+- Modify: `webui_app/static/js/settings_main.js`(`settings:overviewOpen` 块 ~L386-402 邻近)
+- Test: `tests/test_settings_dashboard_rendering.py`(结构性断言:面板具 id + `data-bs-toggle` 标记,作为 JS 行为的可测代理)
+
+**Approach:**
+- 镜像现有 `#overview-panel` 持久化 pattern(`getItem/setItem/removeItem` + `show/hide.bs.collapse` 监听),泛化为遍历 `#tier-1/#tier-2/#tier-3`(或 `#overview-panel .collapse[id^="tier-"]`),按 id 用独立 key(如 `settings:collapse:<id>`)读写。
+- 恢复逻辑:有记录 → 按记录设 `show`/`aria-expanded`;无记录 → **不动**服务端渲染默认(Tier 1 展开、其余折叠),实现「默认态只在首次访问决定」。
+- 不改动现有 `settings:overviewOpen` 块行为(`#overview-panel` 自身持久化保持)。
+
+**Execution note:** JS 行为难以纯单测;以模板结构断言 + 手动冒烟(展开 Tier 2 → 点某渠道 verify 触发重渲染 → Tier 2 仍展开)为验证主力。
+
+**Patterns to follow:** `settings_main.js:386-402` 的 `#overview-panel` 持久化块;`localStorage` try/catch 包裹惯例。
+
+**Test scenarios:**
+- Happy path(结构代理): 渲染后 `#tier-1/2/3` 均为 `.collapse` 且有对应 `data-bs-toggle="collapse"` toggle —— 满足通用持久化所需的 DOM 契约。
+- 手动冒烟(记录于 PR): 展开 Tier 2 → 任一渠道 verify → 页面重渲染后 Tier 2 仍展开;清 localStorage 后重载 → 回到 Tier 1 展开、Tier 2/3 折叠的默认态。
+
+**Verification:** tier 面板展开态跨 verify/dry-run 重渲染保持;首次访问(无 localStorage)呈现服务端默认;`#overview-panel` 自身持久化不回归。
 
 ## System-Wide Impact
 
-- **Interaction graph:** 仅 `_settings_context()` 新增一个只读上下文键 + `settings.html` 总览面板内 DOM 重排;不改路由、宏签名、partial、JS 行为。Loading Overlay 全局 submit 监听因 toggle 结构隔离不受影响。
+- **Interaction graph:** `_settings_context()` 新增一个只读上下文键 + `settings.html` 总览面板内 DOM 重排 + Unit 4 新增 tier 持久化 JS;不改路由、宏签名、partial、其余 JS 行为。Loading Overlay 全局 submit 监听因 toggle 结构隔离不受影响。
 - **Error propagation:** 分组计算包在 `try/except`,失败回退空 list,`/settings` 仍可渲染(降级为无分组)。
-- **State lifecycle risks:** 折叠态走既有 `localStorage('bp:settings:collapse')`,新增 3 个 key(`tier-1/2/3`),与现有 key 命名空间不冲突。
+- **State lifecycle risks:** Unit 4 新增 3 个 localStorage key(如 `settings:collapse:tier-1/2/3`),与现有 `settings:overviewOpen` 命名空间不冲突;不影响任何服务端状态。
 - **API surface parity:** 不涉及 API/CLI;`#section-channels` 配置卡栈刻意保持原样(本次不追求两面一致)。
 - **Unchanged invariants:** `dashboard_channels` 键、`dashboard_channel_card` 宏签名、所有 settings 路由、csdn/juejin 拒绝护栏(`test_registry_rejected_platforms.py`)均不变。
 
