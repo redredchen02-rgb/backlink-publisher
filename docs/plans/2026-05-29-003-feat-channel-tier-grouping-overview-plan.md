@@ -123,7 +123,7 @@ settings.html #overview-panel: {% for g in dashboard_channel_tiers %}
 
 ## Implementation Units
 
-- [ ] **Unit 1: 分层纯函数 + 单测**
+- [x] **Unit 1: 分层纯函数 + 单测**
 
 **Goal:** 新增把 `dashboard_channels` 分组为有序分层结构的纯函数,含 None 兜底、已绑定优先、段内稳定序、零成员组过滤。
 

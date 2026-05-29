@@ -158,6 +158,85 @@ class TestDashboardDriftWithRegistry:
         )
 
 
+class TestChannelTierContext:
+    """Plan 2026-05-29-003 Unit 2 — _settings_context() exposes
+    ``dashboard_channel_tiers`` whose members are exactly active_platforms().
+    """
+
+    def _tiers(self):
+        """Build the real settings context via an app/request context."""
+        from webui_app import create_app
+        from webui_app.helpers.contexts import _settings_context
+
+        app = create_app()
+        app.config["TESTING"] = True
+        with app.test_request_context("/settings"):
+            return _settings_context()["dashboard_channel_tiers"]
+
+    def test_tiers_present_and_partition_active_platforms(self):
+        tiers = self._tiers()
+        assert tiers, "expected at least one tier group"
+        members = [name for g in tiers for name, _, _ in g["channels"]]
+        # No channel appears in more than one tier.
+        assert len(members) == len(set(members)), "channel duplicated across tiers"
+        # Union == active_platforms() (no channel lost, none invented).
+        assert set(members) == set(active_platforms())
+
+    def test_tier_keys_are_ordered_subset(self):
+        keys = [g["key"] for g in self._tiers()]
+        # Order preserved (tier-1 before tier-2 before tier-3), no duplicates.
+        assert keys == sorted(set(keys), key=["tier-1", "tier-2", "tier-3"].index)
+
+    def test_none_auth_type_channel_stays_in_tier_2(self, monkeypatch):
+        """R4a integration: a live channel with auth_type=None lands in tier-2,
+        never vanishing from every group. Patch the registry auth_type so the
+        first active platform reports None.
+        """
+        from backlink_publisher.publishing import registry
+
+        target = active_platforms()[0]
+        real_auth_type = registry.auth_type
+
+        def _fake_auth_type(name):
+            return None if name == target else real_auth_type(name)
+
+        # get_channel_status imports auth_type lazily from the registry module,
+        # so patching the module attribute is enough.
+        monkeypatch.setattr(registry, "auth_type", _fake_auth_type)
+
+        tiers = self._tiers()
+        members_by_tier = {g["key"]: {n for n, _, _ in g["channels"]} for g in tiers}
+        # target must still be present somewhere, specifically tier-2.
+        all_members = {n for s in members_by_tier.values() for n in s}
+        assert target in all_members, f"{target} vanished from all tiers"
+        assert target in members_by_tier.get("tier-2", set())
+
+    def test_csdn_juejin_absent_from_all_tiers(self):
+        members = {name for g in self._tiers() for name, _, _ in g["channels"]}
+        assert "csdn" not in members
+        assert "juejin" not in members
+
+    def test_grouping_failure_falls_back_to_empty(self, monkeypatch):
+        """Error path: if group_channels_by_tier raises, the key is [] and
+        _settings_context() does not propagate the error.
+        """
+        from webui_app.helpers import channel_tiers
+
+        def _boom(_channels):
+            raise RuntimeError("intentional grouping failure")
+
+        monkeypatch.setattr(channel_tiers, "group_channels_by_tier", _boom)
+
+        from webui_app import create_app
+        from webui_app.helpers.contexts import _settings_context
+
+        app = create_app()
+        app.config["TESTING"] = True
+        with app.test_request_context("/settings"):
+            ctx = _settings_context()
+        assert ctx["dashboard_channel_tiers"] == []
+
+
 class TestGracefulDegradation:
     """If status dispatch raises, /settings must still render (dashboard
     section omitted) — solution lesson: dashboard is summary, not load-bearing.
