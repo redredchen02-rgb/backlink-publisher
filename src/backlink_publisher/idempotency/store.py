@@ -38,6 +38,7 @@ import os
 import secrets as _secrets
 import sqlite3
 import time
+from collections.abc import Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -315,6 +316,48 @@ class DedupStore:
                     key.as_tuple(),
                 ).fetchone()
             return _row_to_record(row) if row is not None else None
+
+        return _retry_sqlite(_op)
+
+    def get_many(
+        self, keys: Iterable[DedupKey]
+    ) -> dict[tuple[str, str, str], DedupRecord]:
+        """Batch point-read: look up every key in ``keys`` over a SINGLE connection.
+
+        Semantically identical to calling :meth:`get` once per key, but opens one
+        connection for the whole batch instead of one per key. The read-time
+        reconciler cross-references every pending/failed checkpoint item (and every
+        published history URL) against the dedup store; a fresh connection per item
+        — each re-running the WAL/synchronous PRAGMAs, the ``CREATE TABLE IF NOT
+        EXISTS`` DDL, and the WAL/SHM sidecar re-chmod — dominated that pass.
+        Batching collapses N connect/teardown cycles into one.
+
+        Returns a dict keyed by ``key.as_tuple()`` — a ``(platform, account,
+        target_url)`` tuple; build lookups with ``key.as_tuple()`` rather than a
+        hand-rolled tuple so the field order can never drift. Keys with no row are
+        simply absent from the result (mirroring :meth:`get` returning ``None``).
+        Duplicate keys collapse to a single lookup. An empty ``keys`` opens no
+        connection and returns ``{}``. The input iterable is materialized into a
+        set BEFORE the ``_retry_sqlite`` wrapper, so a retried batch (on
+        ``database is locked``) re-reads from that set, never an exhausted
+        generator; reads are idempotent so re-running SELECTs is harmless.
+        """
+        wanted = {k.as_tuple() for k in keys}
+        if not wanted:
+            return {}
+
+        def _op() -> dict[tuple[str, str, str], DedupRecord]:
+            out: dict[tuple[str, str, str], DedupRecord] = {}
+            with self.connect() as conn:
+                for tup in wanted:
+                    row = conn.execute(
+                        f"SELECT {_COLS} FROM dedup_keys "
+                        "WHERE platform = ? AND account = ? AND target_url = ?",
+                        tup,
+                    ).fetchone()
+                    if row is not None:
+                        out[tup] = _row_to_record(row)
+            return out
 
         return _retry_sqlite(_op)
 
