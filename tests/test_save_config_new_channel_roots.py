@@ -184,7 +184,9 @@ def test_mixed_write_does_not_disturb_blogger_medium_or_targets(
     assert "new-id" in text and "new-sec" in text and "old-id" not in text
     assert "new/repo" in text
     # Other managed roots survived
-    assert "med-tok" in text
+    # SEC-3: integration token no longer in TOML — written to JSON file
+    assert "med-tok" not in text
+    assert "# integration_token = \"your-medium-integration-token\"" in text
     assert "alpha" in text and "beta" in text
     assert '[targets."https://example.com"]' in text
 

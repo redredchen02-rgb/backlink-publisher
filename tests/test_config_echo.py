@@ -205,7 +205,12 @@ class TestActivePlatforms:
         # installed. Explicitly set sync_playwright to None so this test covers
         # the true "no-credentials + no-library" baseline.
         from backlink_publisher.publishing.adapters import medium_browser
+        from backlink_publisher.config.tokens import load_medium_integration_token
         monkeypatch.setattr(medium_browser, "sync_playwright", None)
+        monkeypatch.setattr(
+            "backlink_publisher.config.tokens.load_medium_integration_token",
+            lambda: None,
+        )
         cfg = Config()
         assert active_platforms(cfg) == []
 
