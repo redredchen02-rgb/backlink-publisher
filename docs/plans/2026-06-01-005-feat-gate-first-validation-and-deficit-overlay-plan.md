@@ -386,7 +386,7 @@ flowchart TB
     U7 --> U8
 ```
 
-- [ ] **Unit 1: Gate verdict contract + ledger scaffold**
+- [x] **Unit 1: Gate verdict contract + ledger scaffold** — shipped (`feat/gate-first-validation`, commit eef86e0e)
 
 **Goal:** A shared four-state verdict envelope (`GO`/`KILL`/`INCONCLUSIVE`/`BLOCKED`, pure), with
 length-cap + escape for remote-derived evidence; the `docs/ideation/gate-verdicts.md` ledger scaffold;
@@ -433,7 +433,7 @@ shape); the existing `X-Robots-Tag` length-cap (`_X_ROBOTS_MAX_LEN`) untrusted-v
 `entropy-budget` KILL row present; constructor cannot emit GO without evidence, cannot emit BLOCKED for a
 Tier-1 gate, and never serializes an unescaped remote string.
 
-- [ ] **Unit 2: G2 — money-page decay baseline probe**
+- [x] **Unit 2: G2 — money-page decay baseline probe** — shipped (commit eef86e0e)
 
 **Goal:** `gate-probe --gate g2` samples the operator's own money pages, classifies each via the
 existing `fetch_target`/`classify_indexability`, and emits the silent-decay rate + a `GO`/`KILL`/
@@ -480,7 +480,7 @@ live run. One-shot, operator-triggered (IP-reputation caution).
 **Verification:** `… | gate-probe --gate g2` emits one verdict JSONL on stdout + a RECON line on stderr;
 exit 0 even when all pages are dead.
 
-- [ ] **Unit 3: G3 — referer render-path audit + GA4 referral intake**
+- [x] **Unit 3: G3 — referer render-path audit + GA4 referral intake** — shipped (commit fdb77e60)
 
 **Goal:** `gate-probe --gate g3` audits every operator render path for `referer` preservation
 (deterministic, in-repo) and accepts operator-supplied GA4 referral evidence to finalize the verdict.
@@ -534,7 +534,7 @@ BLOCKED/static-KILL) gates the final verdict.
 **Verification:** `gate-probe --gate g3` resolves to KILL/BLOCKED/GO without ever hanging on missing
 external evidence; the render-path audit table is on stdout; only parsed numeric referral fields persist.
 
-- [ ] **Unit 4: G5 — footprint survival audit**
+- [x] **Unit 4: G5 — footprint survival audit** — shipped (commit e9ccf789)
 
 **Goal:** `gate-probe --gate g5` re-fetches a sample of *published* pages and measures whether
 footprint's pre-publish fingerprint dimensions survive into the live DOM — answering whether the
@@ -588,7 +588,7 @@ UA-cloaking limitation); `footprint.py` dimension keys; `publishing/registry.py:
 **Verification:** `gate-probe --gate g5` emits survival % + verdict; KILL references the entropy-budget
 premise; an unfetchable-dominated sample terminates as INCONCLUSIVE-`unmeasurable` rather than looping.
 
-- [ ] **Unit 5: Phase 0 closeout — aggregate G1–G5 verdicts into the ledger**
+- [x] **Unit 5: Phase 0 closeout — aggregate G1–G5 verdicts into the ledger** — ledger + integrity test shipped; verdict rows filled by the operator after running each `gate-probe` with real data
 
 **Goal:** Write the G2/G3/G5 verdicts (and read G1/G4 verdicts from the already-planned 002/004 probes)
 into `docs/ideation/gate-verdicts.md`, apply the R10 protocol (KILL blocks the downstream stage;
@@ -626,7 +626,7 @@ INCONCLUSIVE → resample), and confirm no gated build-out is planned before its
 **Verification:** The ledger is a single readable decision surface; the R16 rule and entropy KILL are at
 the top; every GO carries evidence + a recorded threshold; no operator domain leaks into `docs/ideation/`.
 
-- [ ] **Unit 6: deficit-overlay read-only verb (FIRST SHIP)**
+- [x] **Unit 6: deficit-overlay read-only verb (FIRST SHIP)** — ⚠️ satisfied elsewhere: built independently as plan 006 (`recheck-overlay` verb on branch `feat/recheck-overlay`), NOT in this worktree. That implementation carries a known stale/unverified-liveness P0 (this plan's review caught it); a separate session is fixing it via the `--emit-stale` recipe. Not rebuilt here to avoid collision.
 
 **Goal:** A `deficit-overlay` read-only verb that resolves the latest `link.rechecked` verdict per link
 (re-joining `events.db articles ⨝ history_store` for per-link `live_url`/`platform`), discounts
@@ -703,7 +703,7 @@ result is recorded. Characterization-first.
 **Verification:** `equity-ledger | deficit-overlay` emits adjusted ledger JSONL on stdout, a RECON
 "N links discounted" line on stderr, exit 0; no store changed; count/set/liveness invariants hold.
 
-- [ ] **Unit 7: overlay → plan-gap end-to-end acceptance**
+- [x] **Unit 7: overlay → plan-gap end-to-end acceptance** — satisfied by plan 006 on `feat/recheck-overlay` (includes a replan-loop integration test); see Unit 6 note.
 
 **Goal:** Prove the closed loop: after a deterministic-dead recheck verdict, `equity-ledger |
 deficit-overlay | plan-gap` increases the target's deficit by one and emits a replacement seed **on
@@ -750,7 +750,7 @@ theater — R7).
 **Verification:** The end-to-end test goes red without the overlay and green with it, including the
 stale/unverified cases on default flags; `gap/engine.py` diff is empty.
 
-- [ ] **Unit 8: Docs / runbook / AGENTS + R16 governance**
+- [x] **Unit 8: Docs / runbook / AGENTS + R16 governance** — AGENTS.md CLI table + "Gate-first governance (R16)" section shipped. (No project `CLAUDE.md` on `main`; the canonical one lives on a separate tree and is intentionally not touched from here.)
 
 **Goal:** Document the two new verbs, record the R16 governance rule, the R6-writeback-integration deferred
 follow-up, and the `gate-verdicts.md` → `SYNTHESIS.md` fold ownership; update the runbook so re-planning
