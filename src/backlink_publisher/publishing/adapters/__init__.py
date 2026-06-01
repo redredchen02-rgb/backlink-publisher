@@ -56,6 +56,7 @@ from .blogger_api import BloggerAPIAdapter
 from .ghpages import GitHubPagesAPIAdapter
 from .devto_api import DevtoAPIAdapter
 from .hackmd_api import HackmdAPIAdapter
+from .mataroa_api import MataroaAPIAdapter
 from .instant_web import TelegraphCdpAdapter  # noqa: F401  kept for test import, not yet wired
 from .livejournal_api import LivejournalAPIAdapter
 from .txtfyi_api import TxtfyiFormPostAdapter
@@ -248,6 +249,14 @@ register(
     referral_value="high",
     **HACKMD_MANIFEST,
 )
+register(
+    "mataroa",
+    MataroaAPIAdapter,
+    dofollow="uncertain",  # 3rd-party check=dofollow (6/0, site: fresh); OUR canary pending
+    rationale=_R["mataroa"],
+    referral_value="high",
+    **MATAROA_MANIFEST,
+)
 
 
 def publish(
@@ -413,6 +422,14 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
             "HackMD API token not configured. "
             f"Write {{\"token\": \"<token>\"}} to {c.hackmd_token_path} "
             "(chmod 600). Generate at HackMD → Settings → API → Create token."
+        )
+    ),
+    "mataroa": lambda c: (
+        None if MataroaAPIAdapter.available(c)
+        else (
+            "Mataroa API token not configured. "
+            f"Write {{\"token\": \"<token>\"}} to {c.mataroa_token_path} "
+            "(chmod 600). Enable at mataroa.blog → account settings → API."
         )
     ),
     "hatena": lambda c: (
