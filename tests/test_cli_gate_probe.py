@@ -1,0 +1,73 @@
+"""Unit 2 — gate-probe dispatcher CLI (plan 2026-06-01-005).
+
+Exercises the dispatcher routing + exit posture. The autouse conftest fixtures
+sandbox the config dir (so no money pages are configured) and block sockets, so
+``--gate g2`` here resolves to an empty money-page set → INCONCLUSIVE, exit 0,
+without any network.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from backlink_publisher.cli import gate_probe
+from backlink_publisher.gates import verdict as gv
+
+
+def _run(argv, capsys):
+    gate_probe.main(argv)
+    out = capsys.readouterr()
+    return out
+
+
+def test_g2_empty_config_is_inconclusive_exit_zero(capsys):
+    # No SystemExit → exit 0 (read-only verb completes even with nothing to probe).
+    gate_probe.main(["--gate", "g2"])
+    out = capsys.readouterr()
+    rows = [json.loads(line) for line in out.out.splitlines() if line.strip()]
+    assert len(rows) == 1
+    assert rows[0]["gate"] == "g2"
+    assert rows[0]["verdict"] == gv.INCONCLUSIVE
+    assert rows[0]["sample_n"] == 0
+    assert "no money pages configured" in out.err
+
+
+def test_missing_gate_is_usage_error_exit_1():
+    with pytest.raises(SystemExit) as exc:
+        gate_probe.main([])
+    assert exc.value.code == 1
+
+
+def test_unknown_gate_is_usage_error():
+    with pytest.raises(SystemExit) as exc:
+        gate_probe.main(["--gate", "g9"])
+    assert exc.value.code == 1
+
+
+def test_unimplemented_gate_g3_is_flagged_not_crash():
+    with pytest.raises(SystemExit) as exc:
+        gate_probe.main(["--gate", "g3"])
+    assert exc.value.code == 1
+
+
+def test_unimplemented_gate_g5_is_flagged():
+    with pytest.raises(SystemExit) as exc:
+        gate_probe.main(["--gate", "g5"])
+    assert exc.value.code == 1
+
+
+def test_out_of_range_decay_threshold_rejected():
+    with pytest.raises(SystemExit) as exc:
+        gate_probe.main(["--gate", "g2", "--decay-threshold", "1.5"])
+    assert exc.value.code == 1
+
+
+def test_stdout_is_pure_jsonl(capsys):
+    gate_probe.main(["--gate", "g2"])
+    out = capsys.readouterr()
+    # Every stdout line must be valid JSON (the pipeline contract: stdout = data).
+    for line in out.out.splitlines():
+        if line.strip():
+            json.loads(line)
