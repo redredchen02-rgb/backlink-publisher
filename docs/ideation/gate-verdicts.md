@@ -47,10 +47,10 @@ plan: docs/plans/2026-06-01-005-feat-gate-first-validation-and-deficit-overlay-p
 
 | gate | tier | premise | verdict | rate / evidence | sample-n | date | downstream-blocked |
 |---|---|---|---|---|---|---|---|
-| G1 | T1 | source/host pages carrying our backlinks go noindex/blocked at a "false-success" rate | _pending_ | — | — | — | seo-indexability build-out (read from plan 002) |
+| G1 | T1 | source/host pages carrying our backlinks go noindex/blocked at a "false-success" rate | INCONCLUSIVE | detection shipped (plan 002 completed); verdict needs a live `recheck-backlinks` over a real corpus (writes events.db); current corpus test-dominated + saturated (cf. G5 5/14) → unmeasurable | — | 2026-06-02 | seo-indexability build-out — pending a non-test published corpus; not run here (avoids events.db mutation); resample when corpus is real |
 | G2 | T1 | the operator's own money pages silently decay (noindex/4xx/soft-404/off-host) at a build-justifying rate | INCONCLUSIVE | decay 1/3=0.33 (calib, no thr); readable 3/3; lone failure=transient http_503; n=3 too small | 3 | 2026-06-01 | destination-decay machine (D1/D2) — UNJUSTIFIED at n=3 (on-demand probe suffices); resample when universe grows OR a definitive noindex/404 decay appears |
 | G3 | T2 | any channel ever delivers a real referral session; render paths preserve `referer` | KILL | strip 1/2 = 0.50 (thr 0.50); preserving=work_themed; referral=absent | 2 | 2026-06-01 | Program B (GA4 referral attribution) PARKED |
-| G4 | T2 | adult-site channel articles are surfaced/cited by AI engines (RG-kill) | _pending_ | — | — | — | GEO machine (read from plan 004) |
+| G4 | T2 | adult-site channel articles are surfaced/cited by AI engines (RG-kill) | BLOCKED | probe-citations CLI deferred (geo-ai-citation plan status:parked, U5–U8); no AI-citation tooling/creds available | — | 2026-06-02 | GEO machine PARKED (cf. geo-ai-citation plan decision); resume trigger = AI-citation corpus volume non-trivial |
 | G5 | T1 | footprint's pre-publish fingerprint dimensions survive into the crawled live DOM | INCONCLUSIVE (terminal) | survival 0% terminal; readable 5/14=0.36 < 0.50 floor; rel_survived 0/5 (anchor_stripped=4, rel_rewritten=1) | 14 | 2026-06-01 | orchestrator footprint-gate (Phase 1b) — argues-against-build (premise unverifiable by re-fetch; cf. entropy-budget); terminal, do not resample |
 
 <!-- Rows are filled by hand-curating each `gate-probe` run's JSONL verdict
@@ -104,3 +104,28 @@ plan: docs/plans/2026-06-01-005-feat-gate-first-validation-and-deficit-overlay-p
 - **Build implication:** an unmeasurable premise **argues against building** the orchestrator
   footprint-gate (Phase 1b) — the same conclusion entropy-budget reached, by a different route. The signal
   that *did* come through (`rel_survived=0/5`) points the same way. Treat Phase-1b footprint-gate as parked.
+
+### G1 — source-page indexability → INCONCLUSIVE (2026-06-02)
+
+- **State:** the detection shipped — plan `2026-06-01-002-source-indexability-detection` is `completed`
+  (`recheck/indexability.py` adds `indexability ∈ ok|blocked|unknown` as orthogonal metadata on the
+  recheck probe, never changing the liveness verdict).
+- **Why INCONCLUSIVE (not run here):** producing the verdict requires a live `recheck-backlinks` pass
+  over a **real published corpus** — which **writes `link.rechecked` events to events.db** (not a pure
+  read-only probe like `gate-probe`). Mutating events.db while the recheck→deficit-overlay→re-plan loop
+  is live is a side effect not worth triggering for a gate calibration. At the current corpus (the same
+  test-data-dominated, ~5/14-readable set G5 saw) the `unknown` rate would be near-total → unmeasurable,
+  which plan 002's own Phase-0 GO/NO-GO criterion already flags as "do not build yet."
+- **Resample trigger:** a non-test published corpus of real channel pages exists; then run
+  `BACKLINK_PUBLISHER_CONFIG_DIR=<prod> recheck-backlinks …` and read the `blocked` / `unknown` rates.
+
+### G4 — GEO / AI-citation → BLOCKED (2026-06-02)
+
+- **State:** the `probe-citations` CLI that would emit G4's verdict is **deferred** — the
+  `2026-05-29-006-geo-ai-citation-closed-loop` plan is `status: parked` (U1–U4 shipped #331; U5–U8
+  deferred behind an internal credit-gate → `probe-citations` dependency).
+- **Why BLOCKED (not INCONCLUSIVE):** G4 is Tier-2 and its probe tooling/credentials do not exist yet, so
+  per the four-state protocol the gate is `BLOCKED` (parked), not a resample-able INCONCLUSIVE. The GEO
+  machine stays parked — this transcribes the geo plan's *existing* PARK decision, it is not a new kill.
+- **Resume trigger (from the geo plan):** backlink/AI-citation corpus volume becomes non-trivial
+  (attribution has no signal at current owned-target volume). Resumes at the geo plan, not a re-brainstorm.
