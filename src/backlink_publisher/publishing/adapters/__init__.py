@@ -31,11 +31,14 @@ from .._manifests import (
     BLOGGER_MANIFEST,
     DEVTO_MANIFEST,
     GHPAGES_MANIFEST,
+    GITLABPAGES_MANIFEST,
+    HACKMD_MANIFEST,
     HASHNODE_MANIFEST,
     HATENA_MANIFEST,
     LINKEDIN_MANIFEST,
     LIVEJOURNAL_MANIFEST,
     MASTODON_MANIFEST,
+    MATAROA_MANIFEST,
     MEDIUM_MANIFEST,
     NOTION_MANIFEST,
     RENTRY_MANIFEST,
@@ -52,6 +55,9 @@ from .base import AdapterResult
 from .blogger_api import BloggerAPIAdapter
 from .ghpages import GitHubPagesAPIAdapter
 from .devto_api import DevtoAPIAdapter
+from .gitlabpages import GitLabPagesAPIAdapter
+from .hackmd_api import HackmdAPIAdapter
+from .mataroa_api import MataroaAPIAdapter
 from .instant_web import TelegraphCdpAdapter  # noqa: F401  kept for test import, not yet wired
 from .livejournal_api import LivejournalAPIAdapter
 from .txtfyi_api import TxtfyiFormPostAdapter
@@ -233,6 +239,33 @@ register(
     **MASTODON_MANIFEST,
     referral_value="high",  # Fediverse referral traffic + topical signal
 )
+# Plan 2026-06-01-007 Wave 1 — three new channels, all dofollow="uncertain"
+# pending an OUR-pipeline canary (the hashnode/substack/hatena discipline; the
+# canary-pending tracking artifact + deadline gate live in docs/discovery/).
+register(
+    "hackmd",
+    HackmdAPIAdapter,
+    dofollow="uncertain",  # 3rd-party check=dofollow (188/0); OUR canary pending
+    rationale=_R["hackmd"],
+    referral_value="high",
+    **HACKMD_MANIFEST,
+)
+register(
+    "mataroa",
+    MataroaAPIAdapter,
+    dofollow="uncertain",  # 3rd-party check=dofollow (6/0, site: fresh); OUR canary pending
+    rationale=_R["mataroa"],
+    referral_value="high",
+    **MATAROA_MANIFEST,
+)
+register(
+    "gitlabpages",
+    GitLabPagesAPIAdapter,
+    dofollow="uncertain",  # rel operator-controlled, but *.gitlab.io index partial + async; OUR canary pending
+    rationale=_R["gitlabpages"],
+    referral_value="high",
+    **GITLABPAGES_MANIFEST,
+)
 
 
 def publish(
@@ -390,6 +423,32 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
             "Dev.to API key not configured. "
             f"Write {{\"api_key\": \"<key>\"}} to {c.devto_token_path} "
             "(chmod 600). Generate at https://dev.to/settings/extensions."
+        )
+    ),
+    "hackmd": lambda c: (
+        None if HackmdAPIAdapter.available(c)
+        else (
+            "HackMD API token not configured. "
+            f"Write {{\"token\": \"<token>\"}} to {c.hackmd_token_path} "
+            "(chmod 600). Generate at HackMD → Settings → API → Create token."
+        )
+    ),
+    "mataroa": lambda c: (
+        None if MataroaAPIAdapter.available(c)
+        else (
+            "Mataroa API token not configured. "
+            f"Write {{\"token\": \"<token>\"}} to {c.mataroa_token_path} "
+            "(chmod 600). Enable at mataroa.blog → account settings → API."
+        )
+    ),
+    "gitlabpages": lambda c: (
+        None if GitLabPagesAPIAdapter.available(c)
+        else (
+            "GitLab Pages not configured. Add [gitlabpages] project=\"namespace/name\" "
+            f"to config.toml and write {{\"token\": \"<pat>\"}} to {c.gitlabpages_token_path} "
+            "(chmod 600, `api` scope). PRECONDITION: the target project must already "
+            "have a `pages` CI job emitting public/ — committing a file does not "
+            "publish without it."
         )
     ),
     "hatena": lambda c: (

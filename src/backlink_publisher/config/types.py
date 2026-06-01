@@ -189,6 +189,31 @@ class GhpagesConfig:
 
 
 @dataclass(frozen=True)
+class GitlabPagesConfig:
+    """GitLab Pages adapter configuration (Plan 2026-06-01-007 Wave 1).
+
+    The PAT is stored in a separate 0600 JSON file (``gitlabpages-token.json``),
+    NOT in ``config.toml`` (same SEC-3 rationale as ghpages). This dataclass
+    holds only the non-secret routing fields.
+
+    ``project`` — ``"namespace/project"`` (or numeric id) of the Pages project;
+                  URL-encoded (``%2F``) at request time.
+    ``branch`` — the default branch commits land on (fires the ``pages`` pipeline).
+    ``path_template`` — where to place each post under ``public/`` (GitLab Pages
+                  serves the ``public/`` artifact verbatim — no auto-Jekyll), with
+                  ``{date}`` and ``{slug}`` placeholders.
+    ``pages_base_url`` — optional published-URL base. Empty = derive
+                  ``https://<namespace>.gitlab.io/<project>``; set this for the
+                  unique-domain case (the 6-char id is not derivable offline).
+    """
+
+    project: str = ""
+    branch: str = "main"
+    path_template: str = "public/{slug}/index.html"
+    pages_base_url: str = ""
+
+
+@dataclass(frozen=True)
 class MastodonConfig:
     """Mastodon adapter configuration — single Fediverse instance.
 
@@ -394,6 +419,13 @@ class Config:
     absent. The PAT lives in a separate 0600 file at
     ``~/.config/backlink-publisher/ghpages-token.json`` (per SEC-3)."""
 
+    gitlabpages: GitlabPagesConfig | None = None
+    """GitLab Pages adapter config (project / branch / path_template / pages_base_url).
+
+    Populated from ``[gitlabpages]`` in config.toml. ``None`` when section is
+    absent. The PAT lives in a separate 0600 file at
+    ``~/.config/backlink-publisher/gitlabpages-token.json`` (per SEC-3)."""
+
     mastodon: "MastodonConfig | None" = None
     """Mastodon adapter config (single Fediverse instance URL).
 
@@ -484,6 +516,21 @@ class Config:
     def devto_token_path(self) -> Path:
         from backlink_publisher import config as _cfg
         return _cfg._config_dir() / "devto-token.json"
+
+    @property
+    def hackmd_token_path(self) -> Path:
+        from backlink_publisher import config as _cfg
+        return _cfg._config_dir() / "hackmd-token.json"
+
+    @property
+    def mataroa_token_path(self) -> Path:
+        from backlink_publisher import config as _cfg
+        return _cfg._config_dir() / "mataroa-token.json"
+
+    @property
+    def gitlabpages_token_path(self) -> Path:
+        from backlink_publisher import config as _cfg
+        return _cfg._config_dir() / "gitlabpages-token.json"
 
     @property
     def linkedin_token_path(self) -> Path:
