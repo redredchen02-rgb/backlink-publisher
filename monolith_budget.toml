@@ -66,5 +66,5 @@ ceiling = 660
 rationale = "Plan 2026-05-28-004 reconciled hub integration added _run_reconciler / _write_reconciler_report (~50 SLOC), --reconcile / --reconcile-all argparse args, and _recon_reconcile_checkpoints. At 622 SLOC; ceiling 660 = round_up_to_10(622+30) per policy; lease/throttle cluster remains the extraction candidate."
 
 [files."src/backlink_publisher/cli/generate_backlink_text.py"]
-ceiling = 560
-rationale = "New opt-in content-drafting CLI (Plan 2026-05-27-006): _read_candidates, _validate_candidate, _make_rejected, _validate_generated_text (refusal/unsafe/link/anchor/wordcount/language), _count_words (CJK-aware), _make_correction_hint, _run_dry_run, _resolve_client (endpoint/key/model resolution + SSRF/allowlist guard + userinfo rejection), _run_generate (corrective re-prompt loop). 541 SLOC measured 2026-05-27. Ceiling 560 = round_up_to_10(541+10) — minimal headroom; extraction candidate if it grows."
+ceiling = 390
+rationale = "refactor 2026-06-01: extracted the input-parsing + deterministic-validation cluster (9 funcs + their constants) to cli/_candidates.py; this module now holds CLI/argparse + LLM orchestration (main/_resolve_client/_run_dry_run/_run_generate) and re-exports the moved names for the tests that import them. SLOC 541->357. Ceiling 390 = round_up_to_10(357+30)."
