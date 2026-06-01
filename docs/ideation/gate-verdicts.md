@@ -48,10 +48,59 @@ plan: docs/plans/2026-06-01-005-feat-gate-first-validation-and-deficit-overlay-p
 | gate | tier | premise | verdict | rate / evidence | sample-n | date | downstream-blocked |
 |---|---|---|---|---|---|---|---|
 | G1 | T1 | source/host pages carrying our backlinks go noindex/blocked at a "false-success" rate | _pending_ | — | — | — | seo-indexability build-out (read from plan 002) |
-| G2 | T1 | the operator's own money pages silently decay (noindex/4xx/soft-404/off-host) at a build-justifying rate | _pending — run `gate-probe --gate g2`_ | — | — | — | destination-decay machine (D1/D2) |
-| G3 | T2 | any channel ever delivers a real referral session; render paths preserve `referer` | _pending (Unit 3)_ | — | — | — | GA4 referral attribution + render-path fix (Program B) |
+| G2 | T1 | the operator's own money pages silently decay (noindex/4xx/soft-404/off-host) at a build-justifying rate | INCONCLUSIVE | decay 1/3=0.33 (calib, no thr); readable 3/3; lone failure=transient http_503; n=3 too small | 3 | 2026-06-01 | destination-decay machine (D1/D2) — UNJUSTIFIED at n=3 (on-demand probe suffices); resample when universe grows OR a definitive noindex/404 decay appears |
+| G3 | T2 | any channel ever delivers a real referral session; render paths preserve `referer` | KILL | strip 1/2 = 0.50 (thr 0.50); preserving=work_themed; referral=absent | 2 | 2026-06-01 | Program B (GA4 referral attribution) PARKED |
 | G4 | T2 | adult-site channel articles are surfaced/cited by AI engines (RG-kill) | _pending_ | — | — | — | GEO machine (read from plan 004) |
-| G5 | T1 | footprint's pre-publish fingerprint dimensions survive into the crawled live DOM | _pending (Unit 4)_ | — | — | — | orchestrator footprint-gate (Phase 1b) |
+| G5 | T1 | footprint's pre-publish fingerprint dimensions survive into the crawled live DOM | INCONCLUSIVE (terminal) | survival 0% terminal; readable 5/14=0.36 < 0.50 floor; rel_survived 0/5 (anchor_stripped=4, rel_rewritten=1) | 14 | 2026-06-01 | orchestrator footprint-gate (Phase 1b) — argues-against-build (premise unverifiable by re-fetch; cf. entropy-budget); terminal, do not resample |
 
 <!-- Rows are filled by hand-curating each `gate-probe` run's JSONL verdict
      (Unit 5). G1/G4 verdicts are transcribed from plans 002/004, not machine-read. -->
+
+## Recorded thresholds & rationale
+
+### G3 — `strip_threshold = 0.50` → KILL (2026-06-01)
+
+- **Measured (calibration pass):** `gate-probe --gate g3` → `strip_referer = 1/2` (0.50), `sample_n=2`.
+  The two render paths through `_format_anchor_html` are `render_zh_short_article`
+  (default `rel="noopener noreferrer"` → strips) and `themed_gen` main/list/work
+  (`rel="noopener"` → preserves). Verified against the live call sites: there is **no** separate
+  long-form `render_*` anchor path (the earlier plan note to that effect was stale).
+- **Threshold rationale (0.50):** the stripping path `render_zh_short_article` is the **primary
+  backlink-article renderer** (1 main + 1–2 secondary backlinks per article); the preserving path is
+  the secondary themed-content one. So GA4 channel→money-page **referral attribution is structurally
+  blind for the bulk of published backlinks**, regardless of any GA4/GSC setup — the static audit
+  alone is decisive (no Tier-2 credentials needed).
+- **Corroboration:** the owned money-page universe is tiny, so there is no referral-attribution corpus
+  to begin with (operator-side signal). Two independent reasons to park Program B.
+- **Scope of the KILL:** this kills the **GA4-referral-attribution build-out under the current render
+  paths**. It does **not** decide the separately-deferred question "change the render path to preserve
+  `referer` vs. degrade to `unattributable`". Adopting a referer-preserving `rel` on the backlink path
+  would re-open G3 → rerun `gate-probe --gate g3` to recalibrate.
+- **Reproduce:** `gate-probe --gate g3` then `gate-probe --gate g3 --strip-threshold 0.5`.
+
+### G2 — money-page decay calibration → INCONCLUSIVE (2026-06-01)
+
+- **Measured (calibration, no threshold):** `gate-probe --gate g2` → decay 1/3 (0.33), `sample_n=3`,
+  all 3 readable; the single failure is a **transient `http_503`** (not a definitive noindex/4xx/soft-404).
+- **Verdict rationale:** stays INCONCLUSIVE — `n=3` is below any meaningful sample floor and the lone
+  "decay" is a transient server error. Forcing GO/KILL on this calibration run would violate the
+  "partial/transient sample ≠ confident verdict" discipline (consol. R11).
+- **Build implication:** the destination-decay **machine** (persist receipts to an events.db KIND +
+  LedgerRow field + trend; former D1/D2) is **not justified at this scale** — the zero-cost on-demand
+  `gate-probe --gate g2` already covers a 3-URL owned universe. **Resample trigger:** the owned money-page
+  universe grows materially, **or** a definitive (noindex/404/soft-404/off-host) decay appears.
+- **Operational note (act now, separate from the gate):** one money page is currently returning
+  `http_503` — worth a manual check; backlinks pointing at it yield nothing while it is down.
+
+### G5 — footprint survival → INCONCLUSIVE-unmeasurable (terminal, 2026-06-01)
+
+- **Measured (calibration):** `gate-probe --gate g5` → re-fetch readable **5/14 (0.36) < 0.50 saturation
+  floor** → **terminal** INCONCLUSIVE-`unmeasurable`. Among the 5 readable, `rel_survived=0`
+  (`anchor_stripped=4`, `rel_rewritten=1`); failure reasons network_error=6, unreachable=2, invalid_url=1.
+  (events.db is test-data-dominated; only a few links are real channels.)
+- **Verdict rationale:** the footprint-gate premise — *do pre-publish fingerprint dimensions survive into
+  the crawled live DOM?* — is **unverifiable by canary re-fetch**: most published-page hosts are
+  anti-bot / unreachable to the verifier UA. Terminal (do **not** resample) by the saturation-floor protocol.
+- **Build implication:** an unmeasurable premise **argues against building** the orchestrator
+  footprint-gate (Phase 1b) — the same conclusion entropy-budget reached, by a different route. The signal
+  that *did* come through (`rel_survived=0/5`) points the same way. Treat Phase-1b footprint-gate as parked.
