@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `[anchor_alarm]` override parsing now rejects unknown keys in an
+  `[[anchor_alarm.override]]` row instead of silently ignoring them, mirroring
+  the global-scope unknown-key guard. Previously a misspelled threshold field
+  (e.g. `exact_ratio_ceil`) was dropped without error whenever the row also
+  carried a valid field, so the operator's intended override silently never
+  applied. The row now raises `InputValidationError` at config load.
 - txt.fyi adapter now clears the site's anti-spam dwell-time gate before
   submitting. `edit.php` rejects POSTs that arrive too soon after the form was
   served (keyed off the hidden `form_time` field): a sub-second GET→POST — what
