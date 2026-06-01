@@ -55,6 +55,7 @@ from .base import AdapterResult
 from .blogger_api import BloggerAPIAdapter
 from .ghpages import GitHubPagesAPIAdapter
 from .devto_api import DevtoAPIAdapter
+from .gitlabpages import GitLabPagesAPIAdapter
 from .hackmd_api import HackmdAPIAdapter
 from .mataroa_api import MataroaAPIAdapter
 from .instant_web import TelegraphCdpAdapter  # noqa: F401  kept for test import, not yet wired
@@ -257,6 +258,14 @@ register(
     referral_value="high",
     **MATAROA_MANIFEST,
 )
+register(
+    "gitlabpages",
+    GitLabPagesAPIAdapter,
+    dofollow="uncertain",  # rel operator-controlled, but *.gitlab.io index partial + async; OUR canary pending
+    rationale=_R["gitlabpages"],
+    referral_value="high",
+    **GITLABPAGES_MANIFEST,
+)
 
 
 def publish(
@@ -430,6 +439,16 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
             "Mataroa API token not configured. "
             f"Write {{\"token\": \"<token>\"}} to {c.mataroa_token_path} "
             "(chmod 600). Enable at mataroa.blog → account settings → API."
+        )
+    ),
+    "gitlabpages": lambda c: (
+        None if GitLabPagesAPIAdapter.available(c)
+        else (
+            "GitLab Pages not configured. Add [gitlabpages] project=\"namespace/name\" "
+            f"to config.toml and write {{\"token\": \"<pat>\"}} to {c.gitlabpages_token_path} "
+            "(chmod 600, `api` scope). PRECONDITION: the target project must already "
+            "have a `pages` CI job emitting public/ — committing a file does not "
+            "publish without it."
         )
     ),
     "hatena": lambda c: (

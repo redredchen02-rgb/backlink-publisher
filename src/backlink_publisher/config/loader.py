@@ -15,6 +15,7 @@ from .types import (
     MediumOAuthConfig,
     ThreeUrlConfig,
     GhpagesConfig,
+    GitlabPagesConfig,
     MastodonConfig,
     VelogConfig,
 )
@@ -246,6 +247,19 @@ def load_config(path: Path | None = None) -> Config:
             ),
         )
 
+    gitlabpages_section = data.get("gitlabpages")
+    gitlabpages: GitlabPagesConfig | None = None
+    if gitlabpages_section is not None:
+        # PAT lives in gitlabpages-token.json (SEC-3) — only routing fields here.
+        gitlabpages = GitlabPagesConfig(
+            project=str(gitlabpages_section.get("project", "")),
+            branch=str(gitlabpages_section.get("branch", "main")),
+            path_template=str(
+                gitlabpages_section.get("path_template", "public/{slug}/index.html")
+            ),
+            pages_base_url=str(gitlabpages_section.get("pages_base_url", "")),
+        )
+
     mastodon_section = data.get("mastodon")
     mastodon: MastodonConfig | None = None
     if mastodon_section is not None:
@@ -277,6 +291,7 @@ def load_config(path: Path | None = None) -> Config:
         anchor_alarm=anchor_alarm,
         velog=velog,
         ghpages=ghpages,
+        gitlabpages=gitlabpages,
         mastodon=mastodon,
         image_gen=image_gen,
         cell_assignments=cell_assignments,

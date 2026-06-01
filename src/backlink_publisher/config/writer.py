@@ -9,6 +9,7 @@ from backlink_publisher._util.logger import plan_logger
 from .types import (
     Config,
     GhpagesConfig,
+    GitlabPagesConfig,
     ImageGenConfig,
     MastodonConfig,
     ThreeUrlConfig,
@@ -35,6 +36,19 @@ def _emit_ghpages_section(lines: list[str], cfg: "GhpagesConfig | None") -> None
     lines.append(f"repo          = {_toml_str(cfg.repo)}")
     lines.append(f"branch        = {_toml_str(cfg.branch)}")
     lines.append(f"path_template = {_toml_str(cfg.path_template)}")
+    lines.append("")
+
+
+def _emit_gitlabpages_section(
+    lines: list[str], cfg: "GitlabPagesConfig | None"
+) -> None:
+    if cfg is None:
+        return
+    lines.append("[gitlabpages]")
+    lines.append(f"project        = {_toml_str(cfg.project)}")
+    lines.append(f"branch         = {_toml_str(cfg.branch)}")
+    lines.append(f"path_template  = {_toml_str(cfg.path_template)}")
+    lines.append(f"pages_base_url = {_toml_str(cfg.pages_base_url)}")
     lines.append("")
 
 
@@ -88,6 +102,7 @@ def save_config(
     target_anchor_keywords: dict[str, list[str]] | None = None,
     target_three_url: dict[str, ThreeUrlConfig] | None = None,
     ghpages_config: GhpagesConfig | None = None,
+    gitlabpages_config: GitlabPagesConfig | None = None,
     mastodon_config: MastodonConfig | None = None,
     target_probe_queries: dict[str, list[str]] | None = None,
     target_brand_aliases: dict[str, list[str]] | None = None,
@@ -144,6 +159,10 @@ def save_config(
         brand_aliases_by_domain = dict(target_brand_aliases)
 
     ghpages_cfg = ghpages_config if ghpages_config is not None else existing.ghpages
+    gitlabpages_cfg = (
+        gitlabpages_config if gitlabpages_config is not None
+        else existing.gitlabpages
+    )
     mastodon_cfg = mastodon_config if mastodon_config is not None else existing.mastodon
     image_gen_cfg = (
         image_gen_config if image_gen_config is not None else existing.image_gen
@@ -188,6 +207,7 @@ def save_config(
         lines.append("")
 
     _emit_ghpages_section(lines, ghpages_cfg)
+    _emit_gitlabpages_section(lines, gitlabpages_cfg)
     _emit_mastodon_section(lines, mastodon_cfg)
     _emit_image_gen_section(lines, image_gen_cfg)
 
