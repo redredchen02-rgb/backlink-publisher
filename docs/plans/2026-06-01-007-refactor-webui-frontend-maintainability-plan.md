@@ -600,7 +600,24 @@ rendering.py` server-render assertions as the regression net.
 **Verification:** settings renders identically (server output) under base layout and stays fully
 interactive on the legacy JS; the updated template-split suite passes; appearance unchanged.
 
-- [ ] **Unit 3: Settings pilot — JS ESM migration + CSRF 403 regression**
+- [x] **Unit 3: Settings pilot — JS ESM migration + CSRF 403 regression**
+
+> **Execution findings (2026-06-01):**
+> 1. **The 7 profile/editor fns were DEAD in `settings_main.js`** — never called by any settings template
+>    (they live in `_shared_config_selects.html` / `_tab_new.html`, both **index-only**). So the
+>    `cancelEdit` JSON.parse drift needed **no reconciliation** — settings' dead copies were simply
+>    dropped; `settings.js` defines none of them. `lib/profiles.js` is populated in **U6** from index's
+>    live copies (single consumer; the "shared dedup" framing was based on dead duplication here).
+> 2. **`bind_channel.js` uses `window.fetchJson`**, so `fetch_json.js` is **kept** on the settings page
+>    (and `bind_channel.js`/`channel-binding.js` stay classic — only the velog probe changed). Converting
+>    those two to lib-importing modules is deferred polish; the load-bearing goals (new ESM entry, zero
+>    inline `on*`, velog DOM-event, per-call CSRF, XSS-fixed sinks) are met.
+> Implemented: `settings.js` ESM entry (14 fns + 2 IIFEs + 4 lifecycle listeners, all via `data-action`
+> delegation); all ~19 inline `on*` → `data-action`/`data-confirm`; velog inline `<script>` removed +
+> `channel-binding.js` dispatches a `velog:login` CustomEvent; full XSS sink set rebuilt via
+> `createElement`/`textContent`/`esc()` (incl. the untrusted `/models` ids → `dataset`+`textContent`);
+> `readCsrf()` per-call. Deleted `settings_main.js`. Tests: zero-inline-handler metric + CSRF-403
+> regression + repointed the 3 settings_main-referencing tests. 67 frontend tests green.
 
 **Goal:** Split `settings_main.js` (509) into a `settings.js` ESM entry (≤~200 lines) + feature modules
 importing `lib/`; remove all settings-page inline `on*` handlers and the inline `<script>`
