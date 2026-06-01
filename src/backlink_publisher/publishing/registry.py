@@ -229,12 +229,15 @@ _AUTH_TYPE_BY_PLATFORM: dict[str, str] = {
     "telegraph": "anon", "txtfyi": "anon", "rentry": "anon",
     # TOKEN — single secret field
     "devto": "token", "writeas": "token",
+    "hackmd": "token", "mataroa": "token",
     # TOKEN+FIELDS — secret + extra config field(s)
     "ghpages": "token_fields", "notion": "token_fields",
     "wordpresscom": "token_fields", "hashnode": "token_fields",
     "tumblr": "token_fields",
     # hatena: api_key + hatena_id + blog_id (secret + 2 config fields)
     "hatena": "token_fields",
+    # gitlabpages: PAT + [gitlabpages] project/branch/path config (like ghpages)
+    "gitlabpages": "token_fields",
     # PASTE-BLOB — pasted {"cookies":[...]} JSON (cookie-export)
     "substack": "paste_blob",
     # USERPASS — username + password (stored server-side)
