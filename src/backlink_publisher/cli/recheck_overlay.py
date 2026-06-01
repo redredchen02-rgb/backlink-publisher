@@ -6,7 +6,14 @@ by the latest ``link.rechecked`` dead / ``dofollow_lost`` verdicts in events.db
 the discounted ledger JSONL on stdout. ``plan-gap``'s existing deficit math then
 proposes replacements that avoid the dead platform.
 
-    equity-ledger | recheck-overlay | plan-gap --desired N --language L | plan-backlinks
+    equity-ledger | recheck-overlay | plan-gap --emit-stale --desired N --language L | plan-backlinks
+
+``--emit-stale`` on plan-gap is REQUIRED in this recipe: a target discounted to
+``live_dofollow == 0`` is usually ``liveness=stale``/``unverified`` (publish-time
+clock, never re-verified), which plan-gap suppresses by default — so without it the
+re-plan emits zero seeds for exactly the aged links recheck targets. The overlay
+itself does not rewrite ``liveness`` (rewriting to ``failed`` would trip plan-gap's
+failed-target suppression; to ``live`` would be dishonest).
 
 stdout = data (discounted ledger JSONL); stderr = config banner + discount tally.
 Exit 0 advisory (default); absent events.db → 0 (ledger passed through); unreadable
@@ -91,6 +98,7 @@ def main(argv: list[str] | None = None) -> None:
             f"dofollow_lost={t.discounted - t.dead_seen} "
             f"unmatched_discount={transform.unmatched_discount} "
             f"null_target={t.null_or_blank_target} "
+            f"unkeyable={t.unkeyable} "
             f"unknown_verdict={t.unknown_verdict}",
             file=sys.stderr,
         )

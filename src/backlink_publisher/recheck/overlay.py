@@ -24,10 +24,13 @@ alone (``dofollow_lost`` also discounts here, while it is advisory there)::
                                                   (never default-to-alive — see
                                                   projector-silent-drop lesson)
 
-Latest-per-``article_id`` is resolved by ``ts_utc`` (primary) with ``events.id``
-as a same-``ts_utc`` tiebreaker, mirroring ``derive_decay_counts`` /
-``_recheck_cursors`` so the overlay agrees with the dashboard the operator
-already trusts.
+Latest-per-link is keyed on the canonical ``live_url`` (from the payload) — NOT
+``article_id``, which is NULL on stdin-sourced rechecks (a piped URL list); keying
+on article_id, or filtering it ``IS NOT NULL``, would silently drop exactly the
+headless verdicts this overlay exists to act on. ``article_id`` is the fallback key
+only when no ``live_url`` is present. Recency is resolved by ``ts_utc`` (primary)
+with ``events.id`` as a same-``ts_utc`` tiebreaker (a determinism addition over
+``derive_decay_counts`` / ``_recheck_cursors``, which keep first-seen on a tie).
 """
 
 from __future__ import annotations
@@ -76,8 +79,9 @@ class DiscountTally:
 
     discounted: int = 0  # links contributing a discount (dead + dofollow_lost)
     dead_seen: int = 0  # deterministic-dead verdicts (host_gone / link_stripped)
-    null_or_blank_target: int = 0  # discount verdict with no usable target_url
+    null_or_blank_target: int = 0  # discount verdict with no usable/recoverable target
     unknown_verdict: int = 0  # quarantined unrecognized verdict strings
+    unkeyable: int = 0  # verdict with neither live_url nor article_id to identify the link
 
 
 @dataclass
@@ -141,9 +145,36 @@ def _is_newer(
     return rid > prev_rid
 
 
+def _articles_targets(store: "EventStore", article_ids: set) -> dict:
+    """Best-effort ``article_id`` → canonical target_url, for recheck events whose
+    own ``target_url`` column is NULL but that carry an ``article_id`` (F3).
+
+    Read-only; returns ``{}`` when nothing matches. A dead link must not escape the
+    discount just because the recheck candidate omitted ``target_url``.
+    """
+    if not article_ids:
+        return {}
+    out: dict = {}
+    for row in store.query("SELECT article_id, target_urls_json FROM articles"):
+        aid = row["article_id"]
+        if aid not in article_ids:
+            continue
+        try:
+            targets = json.loads(row["target_urls_json"] or "[]")
+        except (ValueError, TypeError):
+            targets = []
+        canon = _canon_target(targets[0]) if targets else None
+        if canon is not None:
+            out[aid] = canon
+    return out
+
+
 def build_discount_map(store: "EventStore") -> DiscountResult:
-    """Read the latest ``link.rechecked`` verdict per ``article_id`` and build a
+    """Read the latest ``link.rechecked`` verdict per link and build a
     per-canonical-target discount map. Read-only; never creates events.db.
+
+    The link is keyed on its canonical ``live_url`` (article_id fallback) so
+    stdin-sourced rechecks (NULL ``article_id``) are not dropped.
 
     Raises ``DependencyError`` (exit 3) when an existing events.db is unreadable.
     """
@@ -156,7 +187,7 @@ def build_discount_map(store: "EventStore") -> DiscountResult:
     try:
         rows = store.query(
             "SELECT article_id, target_url, payload_json, ts_utc, id "
-            "FROM events WHERE kind = ? AND article_id IS NOT NULL",
+            "FROM events WHERE kind = ?",
             (LINK_RECHECKED,),
         )
     except sqlite3.Error as exc:
@@ -164,25 +195,45 @@ def build_discount_map(store: "EventStore") -> DiscountResult:
             f"recheck-overlay: events.db unreadable: {exc}"
         ) from exc
 
-    # Latest verdict per article_id (ts_utc primary, id tiebreak).
-    latest: dict[int, tuple[datetime | None, int, dict, object]] = {}
+    # Latest verdict per LINK, keyed on canonical live_url (article_id fallback).
+    # Value: (ts, rid, payload, target_col, article_id).
+    latest: dict = {}
     for row in rows:
         try:
             payload = json.loads(row["payload_json"] or "{}")
         except (ValueError, TypeError):
             payload = {}
+        live_url = payload.get("live_url")
+        key = _canon_target(live_url) if isinstance(live_url, str) else None
+        if key is None:
+            aid = row["article_id"]
+            key = f"aid:{aid}" if aid is not None else None
+        if key is None:
+            # No live_url AND no article_id — the link is unidentifiable. Loud, not
+            # a silent drop (projector-silent-drop lesson).
+            result.tally.unkeyable += 1
+            continue
         ts = _parse_ts(row["ts_utc"])
         rid = row["id"]
-        aid = row["article_id"]
-        prev = latest.get(aid)
+        prev = latest.get(key)
         if prev is None or _is_newer(ts, rid, prev[0], prev[1]):
-            latest[aid] = (ts, rid, payload, row["target_url"])
+            latest[key] = (ts, rid, payload, row["target_url"], row["article_id"])
 
-    for _ts, _rid, payload, target_col in latest.values():
+    # Recover NULL-target latest verdicts that still carry an article_id (F3).
+    need_recovery = {
+        aid
+        for (_t, _r, _p, target_col, aid) in latest.values()
+        if _canon_target(target_col) is None and aid is not None
+    }
+    recovered = _articles_targets(store, need_recovery)
+
+    for _ts, _rid, payload, target_col, aid in latest.values():
         verdict = payload.get("verdict")
         if verdict == verdicts.PROBE_ERROR:
             continue  # indeterminate — re-probed later, no discount
         canon = _canon_target(target_col)
+        if canon is None and aid is not None:
+            canon = recovered.get(aid)  # F3 articles fallback
         platform = payload.get("platform")
         if verdict == verdicts.ALIVE:
             # Record the live platform so a dead link elsewhere on the same target

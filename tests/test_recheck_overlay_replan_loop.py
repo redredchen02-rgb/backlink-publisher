@@ -28,6 +28,7 @@ from backlink_publisher.recheck import verdicts
 
 NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
 TARGET = "https://money.site/landing"
+LIVE_URL = "https://medium.com/@me/the-post"  # the page carrying our backlink
 AD = active_dofollow_platforms()  # real registry roster (>=1 dofollow platform)
 DEAD_PLATFORM = AD[0]
 
@@ -42,24 +43,26 @@ def fresh_dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(cache))
 
 
-def _seed_recheck(verdict, *, platform=DEAD_PLATFORM, ts=NOW, aid=1):
+def _seed_recheck(verdict, *, platform=DEAD_PLATFORM, ts=NOW, aid=1, live_url=LIVE_URL):
+    # Real recheck events carry live_url in the payload (emit_recheck); the overlay
+    # keys on it, so a stdin recheck (aid=None) is still identified by its live_url.
     EventStore().append(
         LINK_RECHECKED,
-        {"verdict": verdict, "platform": platform},
+        {"verdict": verdict, "platform": platform, "live_url": live_url},
         article_id=aid,
         target_url=TARGET,
         ts_utc=ts.isoformat(),
     )
 
 
-def _ledger_line():
+def _ledger_line(liveness="live"):
     # The ledger still counts the (now-dead) link as live equity — publish-time
     # clock only, never reads recheck verdicts. desired=1 → deficit 0 here.
     return json.dumps({
         "target_url": TARGET,
         "live_dofollow": 1,
         "live_dofollow_platforms": [DEAD_PLATFORM],
-        "liveness": "live",
+        "liveness": liveness,
         "liveness_verified_at": "2026-06-01T00:00:00",
     }) + "\n"
 
@@ -82,8 +85,11 @@ def _seeds(out):
     return [json.loads(line) for line in out.splitlines() if line.strip()]
 
 
-def _plan_gap(stdin):
-    return _run(plan_gap_cli.main, ["--desired", "1", "--language", "en"], stdin)
+def _plan_gap(stdin, *, emit_stale=False):
+    argv = ["--desired", "1", "--language", "en"]
+    if emit_stale:
+        argv.append("--emit-stale")
+    return _run(plan_gap_cli.main, argv, stdin)
 
 
 def _overlay(stdin, argv=None):
@@ -137,3 +143,41 @@ def test_probe_error_only_no_spurious_seed():
     assert _seeds(overlaid)[0]["live_dofollow"] == 1  # indeterminate → no discount
     out, _err, _code = _plan_gap(overlaid)
     assert _seeds(out) == []
+
+
+def test_aged_stale_target_needs_emit_stale_to_close_loop():
+    # The realistic recheck population: an aged target whose ledger liveness is
+    # `stale`/`unverified` (publish-time clock, never re-verified). Discounting its
+    # last live link to 0 makes plan-gap SUPPRESS it by default — so the documented
+    # recipe pipes `plan-gap --emit-stale`. This test proves both halves; a
+    # fresh-publish-only fixture (liveness=live) would silently mask the bug.
+    _seed_recheck(verdicts.HOST_GONE)
+    overlaid, _e, oc = _overlay(_ledger_line(liveness="stale"))
+    assert oc == 0
+    assert _seeds(overlaid)[0]["live_dofollow"] == 0  # discounted regardless
+
+    # Default plan-gap suppresses the stale, zero-coverage row → zero seeds.
+    out_default, _e1, _c1 = _plan_gap(overlaid)
+    assert _seeds(out_default) == []
+
+    # With --emit-stale (the documented recipe), the loop closes: one replacement.
+    out_stale, _e2, _c2 = _plan_gap(overlaid, emit_stale=True)
+    seeds = _seeds(out_stale)
+    assert len(seeds) == 1
+    assert seeds[0]["target_url"] == TARGET
+
+
+def test_stdin_null_article_id_still_discounts_and_seeds():
+    # The headless regression (A1): a stdin-sourced recheck carries a real live_url
+    # but NULL article_id. Keying on article_id (or filtering it NOT NULL) would drop
+    # it — re-opening the exact false-success the overlay exists to close. The overlay
+    # keys on canonical live_url, so the dead link is still discounted end-to-end.
+    _seed_recheck(verdicts.HOST_GONE, aid=None, live_url=LIVE_URL)
+    overlaid, _e, oc = _overlay(_ledger_line())
+    assert oc == 0
+    assert _seeds(overlaid)[0]["live_dofollow"] == 0  # discounted despite NULL aid
+    out, _err, code = _plan_gap(overlaid)
+    assert code == 0
+    seeds = _seeds(out)
+    assert len(seeds) == 1
+    assert seeds[0]["target_url"] == TARGET

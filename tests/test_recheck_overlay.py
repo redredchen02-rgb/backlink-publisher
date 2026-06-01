@@ -34,11 +34,19 @@ def store(tmp_path):
     return EventStore(path=tmp_path / "events.db")
 
 
-def _append(store, aid, verdict, *, target=TARGET, platform="medium", ts=NOW):
-    """Append one link.rechecked event with controlled ts/target/platform."""
+def _append(store, aid, verdict, *, target=TARGET, platform="medium", ts=NOW, live_url=None):
+    """Append one link.rechecked event with controlled ts/target/platform.
+
+    ``live_url`` defaults to absent (events.db-sourced rechecks keyed via the
+    article_id fallback); pass it to exercise the canonical-live_url keying that
+    keeps NULL-article_id stdin rechecks (A1).
+    """
+    payload = {"verdict": verdict, "platform": platform}
+    if live_url is not None:
+        payload["live_url"] = live_url
     store.append(
         LINK_RECHECKED,
-        {"verdict": verdict, "platform": platform},
+        payload,
         article_id=aid,
         target_url=target,
         ts_utc=ts.isoformat() if ts is not None else None,
@@ -128,10 +136,42 @@ def test_unknown_verdict_is_quarantined_not_alive(store):
 
 
 def test_null_blank_target_counted_not_dropped(store):
+    # target NULL and no articles row to recover from → counted, not silently dropped.
     _append(store, 1, verdicts.HOST_GONE, target=None)
     res = build_discount_map(store)
     assert res.by_target == {}
     assert res.tally.null_or_blank_target == 1
+
+
+def test_keys_on_live_url_when_article_id_null(store):
+    # A1: a stdin-sourced recheck has a real live_url but NULL article_id. Keying on
+    # canonical live_url (not article_id, not filtered NOT NULL) keeps it discounted.
+    _append(store, None, verdicts.HOST_GONE, live_url="https://medium.com/@me/post")
+    res = build_discount_map(store)
+    assert res.by_target[CANON].dead_count == 1
+    assert res.tally.dead_seen == 1
+    assert res.tally.unkeyable == 0
+
+
+def test_recency_across_null_article_id_keyed_by_live_url(store):
+    # Two stdin rechecks for the SAME live_url (both NULL article_id): the newer
+    # alive must win over the older host_gone — proving live_url is the link identity.
+    lu = "https://medium.com/@me/post"
+    _append(store, None, verdicts.HOST_GONE, ts=NOW - timedelta(days=3), live_url=lu)
+    _append(store, None, verdicts.ALIVE, ts=NOW - timedelta(days=1), live_url=lu)
+    res = build_discount_map(store)
+    assert res.by_target == {}  # latest is alive → no discount
+    assert res.tally.unkeyable == 0
+
+
+def test_unkeyable_when_no_live_url_and_no_article_id(store):
+    # Neither live_url nor article_id → the link is unidentifiable: loud tally, no
+    # silent drop, never treated as alive.
+    _append(store, None, verdicts.HOST_GONE)  # no live_url passed
+    res = build_discount_map(store)
+    assert res.by_target == {}
+    assert res.tally.unkeyable == 1
+    assert res.tally.dead_seen == 0
 
 
 def test_canonicalization_matches_ledger_key(store):
