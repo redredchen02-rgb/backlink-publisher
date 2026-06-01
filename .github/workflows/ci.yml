@@ -38,8 +38,13 @@ jobs:
         run: python -m radon --version
 
       - name: Run tests
+        # -n auto (pytest-xdist) parallelises across the runner's cores. The suite
+        # is determinism-verified under workers: PYTHONHASHSEED=0 is set per worker
+        # via pytest-env (+ job env above for subprocess tests), the footprint gate
+        # hard-fails on seed != 0, and every store/lock path resolves to a per-worker
+        # sandbox. --timeout=30 is per-test (pytest-timeout) and unaffected by xdist.
         run: |
-          python -m pytest tests/ -v --tb=short --timeout=30
+          python -m pytest tests/ -v --tb=short --timeout=30 -n auto
 
       - name: Check code style
         run: |
