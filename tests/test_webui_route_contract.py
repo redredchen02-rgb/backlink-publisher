@@ -185,10 +185,11 @@ class TestGetRoutes:
         assert 'data-bs-target="#batchPanel"' in body
 
     def test_homepage_loads_mode_toggle_script(self, client):
-        """Plan 012 Unit 5 — mode_toggle.js is wired up in the template."""
+        """Plan 012 Unit 5 — mode toggle is wired up. Plan 007 U6: mode_toggle.js
+        is now imported by the index.js ES module (no separate <script> tag)."""
         resp = client.get("/")
         body = resp.data.decode("utf-8", errors="ignore")
-        assert "js/mode_toggle.js" in body
+        assert "js/index.js" in body and 'type="module"' in body
         # Server-side hint must be injected so the JS can read batch_tab flag
         # without an extra round-trip.
         assert "window.__batchTabHint" in body
@@ -337,7 +338,9 @@ class TestGetRoutes:
             templates_dir.glob("_settings_*.html")
         )
         assert candidates, f"no settings templates under {templates_dir}"
+        static_js = Path(__file__).parent.parent / "webui_app" / "static" / "js"
         combined = b"".join(p.read_bytes() for p in candidates)
+        combined += (static_js / "settings.js").read_bytes()
 
         # 12 form action URLs (10 channel-related + 2 global).
         # /settings/medium/oauth-start removed: Medium closed new app registration
@@ -374,13 +377,13 @@ class TestGetRoutes:
         for dom_id in dom_ids:
             assert dom_id in combined, f"missing DOM id: {dom_id!r}"
 
-        # 5 inline JS handler call sites.
+        # 5 handler call sites — Plan 007 U3 migrated inline on* to data-action.
         js_handlers = [
-            b'copyUri(',
-            b'toggleSecret(',
-            b'toggleToken(',
-            b'addRow(',
-            b'removeRow(',
+            b'data-action="copy-uri"',
+            b'data-action="toggle-secret"',
+            b'data-action="toggle-token"',
+            b'data-action="add-row"',
+            b'data-action="remove-row"',
         ]
         for handler in js_handlers:
             assert handler in combined, (
