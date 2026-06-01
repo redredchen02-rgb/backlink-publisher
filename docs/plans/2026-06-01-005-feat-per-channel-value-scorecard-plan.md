@@ -5,6 +5,7 @@ status: active
 date: 2026-06-01
 deepened: 2026-06-01
 origin: docs/brainstorms/2026-06-01-per-channel-realized-value-scorecard-requirements.md
+claims: {}
 ---
 
 # feat: Per-Channel Realized-Value Scorecard
