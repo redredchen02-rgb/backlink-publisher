@@ -26,8 +26,8 @@ ceiling = 250
 rationale = "Soft-404 title detection extracted to content/_soft404.py, HTML head-window reading + title extraction to content/_html_utils.py (2026-05-26). SLOC dropped 281→216. Ceiling 250 = round_up_to_10(216+30) per policy."
 
 [files."src/backlink_publisher/config/writer.py"]
-ceiling = 200
-rationale = "Unit 2 monolith split (2026-05-20): TOML heading utilities extracted to _toml_utils.py (~80 SLOC), file I/O helpers to _config_io.py (~20 SLOC), merge_site_url_categories to _merge_categories.py (~80 SLOC). writer.py dropped from ~618 to ~169 SLOC, now holds only save_config(). Ceiling 200 = round_up_to_10(169+30) per policy."
+ceiling = 240
+rationale = "Wave 1 dofollow channels (Plan 2026-06-01-007): the GitLab Pages [gitlabpages] config section added _emit_gitlabpages_section (4 routing fields), a gitlabpages_config= save_config param, and its round-trip resolution — mirroring the [ghpages] wiring. SLOC rose 169→208. Ceiling 240 = round_up_to_10(208+30) per policy. Prior: Unit 2 monolith split (2026-05-20) extracted TOML/IO/merge helpers leaving only save_config()."
 
 [files."src/backlink_publisher/_util/markdown.py"]
 ceiling = 240
@@ -42,8 +42,8 @@ ceiling = 550
 rationale = "Holds the 3 extracted reducers (_project_checkpoint, _project_history, _project_drafts) plus the confirmed-emit helpers _emit_confirmed_history_row (#350) and _emit_drafts_confirmed (#340, extracted 2026-06-01 to bring _project_drafts CC under the CC-30 backstop). At 520 SLOC; ceiling 550 = round_up_to_10(520+30) per policy."
 
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
-ceiling = 600
-rationale = "Removed 3 additional channels (2026-05-28): operator has no accounts on csdn/juejin/note and does not intend to use them, so their register() blocks plus manifest/adapter imports were deleted. SLOC dropped 601 → 562. Ceiling re-tightened 640 → 600 = round_up_to_10(562+30) per policy."
+ceiling = 670
+rationale = "Wave 1 dofollow channels (Plan 2026-06-01-007): added 3 register() blocks + adapter imports + manifest imports + _SETUP_CHECKS entries for hackmd, mataroa, gitlabpages (all dofollow='uncertain' pending OUR-pipeline canary). SLOC rose 584→640. Ceiling 670 = round_up_to_10(640+30) per policy. Prior 600 was a 2026-05-28 ratchet-down after removing csdn/juejin/note."
 
 [files."src/backlink_publisher/cli/phase0_seal.py"]
 ceiling = 465
