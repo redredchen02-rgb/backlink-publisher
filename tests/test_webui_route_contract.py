@@ -337,7 +337,9 @@ class TestGetRoutes:
             templates_dir.glob("_settings_*.html")
         )
         assert candidates, f"no settings templates under {templates_dir}"
+        static_js = Path(__file__).parent.parent / "webui_app" / "static" / "js"
         combined = b"".join(p.read_bytes() for p in candidates)
+        combined += (static_js / "settings.js").read_bytes()
 
         # 12 form action URLs (10 channel-related + 2 global).
         # /settings/medium/oauth-start removed: Medium closed new app registration
@@ -374,7 +376,7 @@ class TestGetRoutes:
         for dom_id in dom_ids:
             assert dom_id in combined, f"missing DOM id: {dom_id!r}"
 
-        # 5 inline JS handler call sites.
+        # 5 JS handlers now live in the settings ES module (Plan 2026-06-01-007).
         js_handlers = [
             b'copyUri(',
             b'toggleSecret(',

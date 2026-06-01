@@ -30,7 +30,7 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(tmp_path / "cache"))
     app = create_app()
     app.config["TESTING"] = True
-    app.config["CSRF_ENABLED"] = False  # isolate route logic from the global CSRF guard
+    app.config.update(CSRF_ENABLED=False)  # isolate route logic from the global CSRF guard
     return app
 
 

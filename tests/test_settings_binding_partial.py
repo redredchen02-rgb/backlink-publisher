@@ -170,5 +170,5 @@ class TestSettingsRouteIncludesPartial:
         html = resp.get_data(as_text=True)
         assert 'id="bind-section-blogger"' in html
         assert 'id="bind-section-medium"' in html
-        assert 'src="/static/js/bind_channel.js"' in html
+        assert '/static/js/bind_channel.js' in html
         assert '<meta name="csrf-token"' in html

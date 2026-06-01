@@ -17,7 +17,7 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     app = create_app()
     app.config["TESTING"] = True
-    app.config["CSRF_ENABLED"] = False
+    app.config.update(CSRF_ENABLED=False)
     return app
 
 
