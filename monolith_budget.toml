@@ -37,6 +37,10 @@ rationale = "Post-split: body templates (9 functions, ~130 SLOC) extracted to _b
 ceiling = 110
 rationale = "3 reducers (_project_checkpoint, _project_history, _project_drafts) extracted to events/_project_reducers.py (2026-05-27). projector.py dropped from 542 to 75 SLOC — holds only flush_for dispatch, record_projection_health, project_run_safe, and health constants. Ceiling 110 = round_up_to_10(75+30) per policy."
 
+[files."src/backlink_publisher/events/_project_reducers.py"]
+ceiling = 550
+rationale = "Holds the 3 extracted reducers (_project_checkpoint, _project_history, _project_drafts) plus the confirmed-emit helpers _emit_confirmed_history_row (#350) and _emit_drafts_confirmed (#340, extracted 2026-06-01 to bring _project_drafts CC under the CC-30 backstop). At 520 SLOC; ceiling 550 = round_up_to_10(520+30) per policy."
+
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
 ceiling = 600
 rationale = "Removed 3 additional channels (2026-05-28): operator has no accounts on csdn/juejin/note and does not intend to use them, so their register() blocks plus manifest/adapter imports were deleted. SLOC dropped 601 → 562. Ceiling re-tightened 640 → 600 = round_up_to_10(562+30) per policy."
