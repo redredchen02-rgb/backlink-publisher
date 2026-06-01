@@ -46,9 +46,24 @@ def test_unknown_gate_is_usage_error():
     assert exc.value.code == 1
 
 
-def test_unimplemented_gate_g5_is_flagged():
+# --- G5 routing (empty events.db in the isolated sandbox → INCONCLUSIVE) -------
+def test_g5_no_published_links_is_inconclusive_exit_zero(capsys):
+    gate_probe.main(["--gate", "g5"])
+    rows = [json.loads(l) for l in capsys.readouterr().out.splitlines() if l.strip()]
+    assert rows[0]["gate"] == "g5"
+    assert rows[0]["verdict"] == gv.INCONCLUSIVE
+    assert rows[0]["sample_n"] == 0
+
+
+def test_g5_invalid_saturation_floor_rejected():
     with pytest.raises(SystemExit) as exc:
-        gate_probe.main(["--gate", "g5"])
+        gate_probe.main(["--gate", "g5", "--saturation-floor", "2.0"])
+    assert exc.value.code == 1
+
+
+def test_g5_invalid_sample_size_rejected():
+    with pytest.raises(SystemExit) as exc:
+        gate_probe.main(["--gate", "g5", "--sample-size", "0"])
     assert exc.value.code == 1
 
 

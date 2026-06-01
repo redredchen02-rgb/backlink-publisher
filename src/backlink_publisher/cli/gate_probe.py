@@ -22,11 +22,10 @@ from .. import config_echo
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher.config import load_config
-from backlink_publisher.gates import g2_decay, g3_referer
+from backlink_publisher.gates import g2_decay, g3_referer, g5_footprint_survival
 from backlink_publisher.gates import verdict as gv
 
 _GATES = ("g2", "g3", "g5")
-_IMPLEMENTED = ("g2", "g3")
 
 
 def _money_page_urls(cfg) -> list[str]:
@@ -64,6 +63,42 @@ def _run_g3(args) -> gv.GateVerdict:
         referral=referral,
         credentials_available=not args.credentials_unavailable,
         strip_threshold=args.strip_threshold,
+    )
+    _recon(verdict)
+    return verdict
+
+
+def _run_g5(args) -> gv.GateVerdict:
+    import json
+
+    from backlink_publisher.events import EventStore
+
+    store = EventStore()
+    rows = store.query(
+        "SELECT live_url, target_urls_json FROM articles WHERE live_url IS NOT NULL"
+    )
+    links: list[g5_footprint_survival.PublishedLink] = []
+    for row in rows:
+        targets = json.loads(row["target_urls_json"] or "[]")
+        if targets:
+            links.append(
+                g5_footprint_survival.PublishedLink(
+                    live_url=row["live_url"], target_url=targets[0]
+                )
+            )
+    if args.sample_size is not None:
+        links = links[: args.sample_size]
+    if not links:
+        print(
+            "gate-probe g5: no published links in events.db articles; "
+            "verdict is INCONCLUSIVE (nothing to re-fetch).",
+            file=sys.stderr,
+        )
+    verdict = g5_footprint_survival.assess_survival(
+        links,
+        expected_rel=args.expected_rel,
+        survival_threshold=args.survival_threshold,
+        saturation_floor=args.saturation_floor,
     )
     _recon(verdict)
     return verdict
@@ -134,6 +169,40 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="[g3] Tier-2 GA4/GSC credentials are not configured → BLOCKED (parked).",
     )
+    parser.add_argument(
+        "--survival-threshold",
+        type=float,
+        default=None,
+        metavar="FRAC",
+        help=(
+            "[g5] calibrated fingerprint-survival boundary in [0,1]. At/above → GO "
+            "(footprint measures a crawler-visible signal); below → KILL. Omit → calibration."
+        ),
+    )
+    parser.add_argument(
+        "--saturation-floor",
+        type=float,
+        default=g5_footprint_survival.DEFAULT_SATURATION_FLOOR,
+        metavar="FRAC",
+        help=(
+            "[g5] minimum re-fetchable fraction; below it the gate returns terminal "
+            "INCONCLUSIVE-unmeasurable (default: 0.5)."
+        ),
+    )
+    parser.add_argument(
+        "--expected-rel",
+        default=g5_footprint_survival.DEFAULT_EXPECTED_REL,
+        metavar="REL",
+        help="[g5] the operator's emitted rel fingerprint to test survival of "
+        "(default: 'noopener noreferrer').",
+    )
+    parser.add_argument(
+        "--sample-size",
+        type=int,
+        default=None,
+        metavar="N",
+        help="[g5] cap the number of published links re-fetched (default: all).",
+    )
     args = parser.parse_args(argv)
 
     gate = (args.gate or "").lower()
@@ -141,16 +210,14 @@ def main(argv: list[str] | None = None) -> None:
         emit_error(
             f"gate-probe: --gate must be one of {', '.join(_GATES)}", exit_code=1
         )
-    if gate not in _IMPLEMENTED:
-        emit_error(
-            f"gate-probe: gate {gate!r} is not yet implemented "
-            f"(plan 2026-06-01-005 Unit 4); implemented: {', '.join(_IMPLEMENTED)}",
-            exit_code=1,
-        )
-    if args.decay_threshold is not None and not (0.0 <= args.decay_threshold <= 1.0):
-        emit_error("gate-probe: --decay-threshold must be within [0, 1]", exit_code=1)
-    if args.strip_threshold is not None and not (0.0 <= args.strip_threshold <= 1.0):
-        emit_error("gate-probe: --strip-threshold must be within [0, 1]", exit_code=1)
+    for name, value in (
+        ("--decay-threshold", args.decay_threshold),
+        ("--strip-threshold", args.strip_threshold),
+        ("--survival-threshold", args.survival_threshold),
+        ("--saturation-floor", args.saturation_floor),
+    ):
+        if value is not None and not (0.0 <= value <= 1.0):
+            emit_error(f"gate-probe: {name} must be within [0, 1]", exit_code=1)
     if args.referral_sessions is not None:
         if args.referral_sessions < 0:
             emit_error("gate-probe: --referral-sessions must be >= 0", exit_code=1)
@@ -159,11 +226,18 @@ def main(argv: list[str] | None = None) -> None:
                 "gate-probe: --referral-window is required with --referral-sessions",
                 exit_code=1,
             )
+    if args.sample_size is not None and args.sample_size <= 0:
+        emit_error("gate-probe: --sample-size must be a positive integer", exit_code=1)
 
     cfg = load_config()
     config_echo.emit_banner(cfg, "gate-probe")
 
-    verdict = _run_g2(cfg, args.decay_threshold) if gate == "g2" else _run_g3(args)
+    if gate == "g2":
+        verdict = _run_g2(cfg, args.decay_threshold)
+    elif gate == "g3":
+        verdict = _run_g3(args)
+    else:
+        verdict = _run_g5(args)
     write_jsonl([verdict.to_jsonl_dict()], sys.stdout)
 
 
