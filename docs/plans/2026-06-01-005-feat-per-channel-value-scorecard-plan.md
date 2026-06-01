@@ -64,7 +64,8 @@ would attribute ~2 rows of real data. **Do not build the GA4/GSC half yet.**
   **only after** real owned-target placement volume grows. **Concrete re-trigger:** re-run this 5-line
   measurement; build the GA4 axis only when there are **≥ ~30 real placements to owned targets across
   ≥ a few channels** (operator-tunable) *and* a quick GA4 check shows non-zero referral. Until then the
-  GA4 axis would measure nothing.
+  GA4 axis would measure nothing. **Runbook (the exact measurement + GO threshold):**
+  `docs/runbooks/2026-06-01-channel-scorecard-phase2-retrigger.md`.
 - **Irreversibility guard:** do **not** bake the non-rotating HMAC-UTM secret into published URLs
   (Unit 5) until Phase 2 is justified — it is a permanent decision serving an axis with no data.
 
