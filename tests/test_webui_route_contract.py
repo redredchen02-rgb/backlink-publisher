@@ -1216,6 +1216,31 @@ class TestChannelBindSaveRoutes:
         assert resp.status_code == 403
 
 
+class TestCopilotRoutes:
+    """Copilot route smoke. Full lifecycle lives in tests/test_copilot_routes.py;
+    these calls satisfy the route-coverage gate below."""
+
+    def test_get_copilot_advice(self, client, monkeypatch):
+        from webui_app.services.copilot_advisor import AggregateResult
+
+        monkeypatch.setattr(
+            "webui_app.routes.copilot.cached_aggregate",
+            lambda **_kwargs: AggregateResult(
+                tool_results=[],
+                findings=[],
+                degraded=False,
+                considered=0,
+                problem_count=0,
+            ),
+        )
+        resp = client.get("/copilot/advice")
+        assert resp.status_code == 200
+
+    def test_post_copilot_run_live_guarded(self, client):
+        resp = client.post("/copilot/run-live")
+        assert resp.status_code == 403
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Coverage assertion — make sure we exercised every @app.route declared.
 # This is the file's primary regression net for "did anyone add a route?".
