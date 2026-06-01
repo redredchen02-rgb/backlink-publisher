@@ -113,3 +113,32 @@ def test_settings_html_final_size():
     ).read_text(encoding="utf-8")
     lines = len(src.splitlines())
     assert lines <= 400, f"settings.html is {lines} lines, expected ≤400"
+
+
+def test_settings_extends_base_layout():
+    """Plan 007 U2: settings.html extends base; head is base-owned (one head, one
+    csrf-meta), but the legacy settings_main.js stays wired (atomic boundary)."""
+    from pathlib import Path
+    src = (
+        Path(__file__).resolve().parents[1]
+        / "webui_app" / "templates" / "settings.html"
+    ).read_text(encoding="utf-8")
+    assert "{% extends 'base.html' %}" in src
+    assert "<!DOCTYPE" not in src  # head comes from base now
+    assert "js/settings_main.js" in src  # legacy JS kept (ESM swap is U3)
+
+
+# ── Plan 007 U2: CSRF survives the extends migration (CSRF_ENABLED=True) ──────
+
+def test_settings_binding_form_csrf_token_non_empty_when_enabled(tmp_path, monkeypatch):
+    """With CSRF enabled, a channel binding form's hidden csrf_token must render
+    non-empty after the base-layout migration (the include-with-context flow that
+    supplies csrf_token must not be severed by `{% extends %}`)."""
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["CSRF_ENABLED"] = True
+    body = app.test_client().get("/settings").data.decode()
+    m = re.search(r'name="csrf_token"\s+value="([^"]+)"', body)
+    assert m, "no hidden csrf_token input rendered on /settings"
+    assert m.group(1).strip(), "csrf_token rendered EMPTY — context flow severed"

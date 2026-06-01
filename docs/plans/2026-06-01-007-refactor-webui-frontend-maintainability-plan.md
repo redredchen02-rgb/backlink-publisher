@@ -523,7 +523,18 @@ in Unit 2).
 csrf meta and a classic (non-defer/non-module) Bootstrap tag; `renderBadge` escapes its input; no page
 behavior changed yet.
 
-- [ ] **Unit 2: Settings pilot — template + CSS layer**
+- [x] **Unit 2: Settings pilot — template + CSS layer**
+
+> **Execution finding (2026-06-01):** the `_settings_*` binding partials are NOT copy-pasted — they are
+> distinct auth forms (`_settings_channel_binding` 160L browser-flow, `_settings_binding_token` 56L,
+> `_settings_binding_userpass` 75L) **already reused via `{% include %}` + `{% with channel=… %}`**, which
+> inherits the `csrf_token` context value. Converting these to macros would add the P0 macro-CSRF risk for
+> **zero** real de-duplication, so the macro conversion was **skipped** — the include-with-context pattern
+> already satisfies R5's parameterization intent. Implemented: `extends base` (head/csrf-meta now
+> base-owned) + `settings.css` consumes `tokens.css`, legacy JS kept intact (atomic boundary). Added a
+> CSRF-enabled regression proving the binding form's hidden `csrf_token` stays non-empty post-`extends`.
+> The macro-CSRF rule + the include-with-context pattern are documented in the U4 AGENTS recipe for anyone
+> who *does* introduce a binding macro later. 65 frontend tests green.
 
 **Goal:** `settings.html` `{% extends base.html %}`; parameterize the copy-pasted `_settings_*` binding
 partials with Jinja macros; `settings.css` consumes shared tokens. Update the existing template-split

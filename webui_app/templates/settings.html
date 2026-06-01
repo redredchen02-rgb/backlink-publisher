@@ -1,15 +1,14 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>设置 - Backlink Publisher</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <meta name="csrf-token" content="{{ csrf_token or '' }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
-</head>
-<body>
+{% extends 'base.html' %}
+{# Settings page — migrated to base layout (Plan 2026-06-01-007 Unit 2).
+   <head>, Bootstrap CDN and the csrf-meta now come from base.html. ATOMIC
+   BOUNDARY: the legacy classic scripts (settings_main.js + fetch_json.js +
+   bind_channel/channel-binding) and the inline on* handlers are kept INTACT —
+   the page stays fully interactive on the legacy JS; the ESM swap is Unit 3. #}
+{% block title %}设置 - Backlink Publisher{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css', v=asset_version) }}">
+{% endblock %}
+{% block content %}
     <nav class="navbar" style="display:flex;justify-content:space-between;align-items:center;">
         <h1><i class="bi bi-gear me-2"></i>设置</h1>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -354,14 +353,7 @@
 
     </div>
 
-     <script>window.__settingsBootstrap = {{ {'plans_list': plans_list | default(none), 'profiles': profiles | default([])} | tojson }};</script>
-     <script src="{{ url_for('static', filename='js/fetch_json.js') }}"></script>
-     <script src="{{ url_for('static', filename='js/settings_main.js') }}"></script>
-
-    <script src="/static/js/bind_channel.js" defer></script>
-    <script src="/static/js/channel-binding.js" defer></script>
-
-    <!-- Loading Overlay -->
+    <!-- Loading Overlay (settings_main.js toggles #_loadingOverlay) -->
     <div id="_loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,15,15,0.55);z-index:9999;flex-direction:column;align-items:center;justify-content:center;">
         <div style="background:white;border-radius:20px;padding:40px 48px;text-align:center;max-width:320px;box-shadow:0 24px 64px rgba(0,0,0,0.25);">
             <div class="spinner-border mb-4" style="width:3rem;height:3rem;color:var(--primary);" role="status">
@@ -371,5 +363,17 @@
             <div id="_loadingSubtext" style="font-size:0.85rem;color:#6b7280;line-height:1.5;">请稍候</div>
         </div>
     </div>
-</body>
-</html>
+{% endblock %}
+
+{% block page_data %}
+     <script>window.__settingsBootstrap = {{ {'plans_list': plans_list | default(none), 'profiles': profiles | default([])} | tojson }};</script>
+{% endblock %}
+
+{% block page_module %}
+     {# ATOMIC BOUNDARY (U2): legacy classic scripts kept intact — page stays fully
+        interactive on settings_main.js. The ESM swap to settings.js is Unit 3. #}
+     <script src="{{ url_for('static', filename='js/fetch_json.js') }}"></script>
+     <script src="{{ url_for('static', filename='js/settings_main.js') }}"></script>
+     <script src="/static/js/bind_channel.js" defer></script>
+     <script src="/static/js/channel-binding.js" defer></script>
+{% endblock %}
