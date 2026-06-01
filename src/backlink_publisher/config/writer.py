@@ -189,48 +189,6 @@ def save_config(
     _emit_mastodon_section(lines, mastodon_cfg)
     _emit_image_gen_section(lines, image_gen_cfg)
 
-    if image_gen_cfg is not None:
-        lines.append("[image_gen]")
-        lines.append(f"base_url = {_toml_str(image_gen_cfg.base_url)}")
-        lines.append(f"model = {_toml_str(image_gen_cfg.model)}")
-        lines.append(f"banner_size = {_toml_str(image_gen_cfg.banner_size)}")
-        lines.append(f"daily_cap = {image_gen_cfg.daily_cap}")
-        lines.append(f"per_run_cap = {image_gen_cfg.per_run_cap}")
-        lines.append(f"timeout_s = {image_gen_cfg.timeout_s}")
-        lines.append(f"max_retries = {image_gen_cfg.max_retries}")
-        lines.append(
-            f"strict = {'true' if image_gen_cfg.strict else 'false'}"
-        )
-        lines.append(
-            "auto_disable_threshold = "
-            f"{image_gen_cfg.auto_disable_threshold}"
-        )
-        lines.append(
-            f"use_image_gen = {'true' if image_gen_cfg.use_image_gen else 'false'}"
-        )
-        lines.append("")
-
-    if image_gen_cfg is not None:
-        lines.append("[image_gen]")
-        lines.append(f"base_url = {_toml_str(image_gen_cfg.base_url)}")
-        lines.append(f"model = {_toml_str(image_gen_cfg.model)}")
-        lines.append(f"banner_size = {_toml_str(image_gen_cfg.banner_size)}")
-        lines.append(f"daily_cap = {image_gen_cfg.daily_cap}")
-        lines.append(f"per_run_cap = {image_gen_cfg.per_run_cap}")
-        lines.append(f"timeout_s = {image_gen_cfg.timeout_s}")
-        lines.append(f"max_retries = {image_gen_cfg.max_retries}")
-        lines.append(
-            f"strict = {'true' if image_gen_cfg.strict else 'false'}"
-        )
-        lines.append(
-            "auto_disable_threshold = "
-            f"{image_gen_cfg.auto_disable_threshold}"
-        )
-        lines.append(
-            f"use_image_gen = {'true' if image_gen_cfg.use_image_gen else 'false'}"
-        )
-        lines.append("")
-
     known_subsections: set[tuple[str, str]] = set()
     if client_id or client_secret:
         known_subsections.add(("blogger", "oauth"))
