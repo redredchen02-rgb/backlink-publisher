@@ -133,6 +133,67 @@ def test_no_divergence_when_no_measured_links(store):
     assert tele.divergence == []
 
 
+def test_divergence_high_value_no_live_links(store):
+    # devto is nofollow/high; its one link is unverified → 0 live → flag fires.
+    rows = build_channel_scorecard(store=store, history=_hist())
+    devto = _row(rows, "devto")
+    assert devto.declared_referral_value == "high"
+    assert devto.total_links == 1 and devto.live_links == 0
+    assert "declared-high-value:no-live-links" in devto.divergence
+
+
+def test_declared_uncertain_branch_and_divergence(tmp_path):
+    # substack is dofollow="uncertain"; a live link → "uncertain has live links" flag.
+    s = EventStore(path=tmp_path / "u.db")
+    _article(s, "https://substack.example/u1")
+    hist = [{"id": "u1", "platform": "substack", "target_url": T,
+             "article_urls": ["https://substack.example/u1"],
+             "status": "published", "verified_at": FRESH}]
+    rows = build_channel_scorecard(store=s, history=hist)
+    sub = _row(rows, "substack")
+    assert sub.declared_dofollow == "uncertain"   # the uncertain _declared branch
+    assert sub.live_links == 1
+    assert "uncertain-dofollow:has-live-links(run-canary-to-confirm)" in sub.divergence
+
+
+# ── invariants + edges ───────────────────────────────────────────────────────
+
+def test_live_dofollow_never_exceeds_live_and_pct_zero_when_no_live(store):
+    rows = build_channel_scorecard(store=store, history=_hist())  # nothing verified
+    for r in rows:
+        assert r.live_dofollow <= r.live_links
+        if r.total_links > 0:
+            assert r.live_pct == 0.0  # has links but none live → 0.0, not None
+        else:
+            assert r.live_pct is None
+
+
+def test_default_sort_weakest_presence_first(store):
+    rows = build_channel_scorecard(store=store, history=_hist(medium_verified=FRESH))
+    # Sorted by (live_links, total_links, channel) ascending — live channels last.
+    keys = [(r.live_links, r.total_links, r.channel) for r in rows]
+    assert keys == sorted(keys)
+
+
+def test_platform_augmentation_carries_liveness(tmp_path):
+    # A link attributed via the confirmed-event payload still gets its liveness.
+    s = EventStore(path=tmp_path / "e.db")
+    aid = _article(s, "https://medium.com/x2")
+    s.append(
+        kinds.PUBLISH_CONFIRMED,
+        {"live_url": "https://medium.com/x2", "platform": "medium"},
+        target_url=T, article_id=aid,
+    )
+    hist = [{"id": "x", "platform": None, "target_url": T,
+             "article_urls": ["https://medium.com/x2"], "status": "published",
+             "verified_at": FRESH}]
+    rows = build_channel_scorecard(store=s, history=hist)
+    medium = _row(rows, "medium")
+    assert medium.total_links == 1
+    assert medium.live_links == 1           # liveness from history flows through
+    assert medium.live_dofollow == 1        # medium is dofollow + live
+
+
 # ── platform augmentation from confirmed-event payload (sparse history) ───────
 
 def test_platform_resolved_from_confirmed_event_when_history_empty(tmp_path):

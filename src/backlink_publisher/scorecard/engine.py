@@ -14,12 +14,19 @@ Platform sourcing: ``build_target_buckets`` attaches ``platform`` only from
 Links + liveness still come solely from ``build_target_buckets`` (no divergent
 re-derivation of the core set).
 
+**Precedence:** when a link has a platform from *both* sources, the history
+value wins (``link.platform or plat_index.get(...)``) — consistent with how the
+equity-ledger attributes platform (history-only). The two should agree (both
+record the same publish); the event-payload index only *fills* the gap left by a
+sparse history, it does not override it.
+
 Read-only; no writes, no network, no LLM.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.events import EventStore, kinds
@@ -107,7 +114,7 @@ def build_channel_scorecard(
     stale_days: int = 30,
     small_sample_max: int = DEFAULT_SMALL_SAMPLE_MAX,
     store: EventStore | None = None,
-    history=None,
+    history: list[dict[str, Any]] | None = None,
 ) -> list[ChannelScoreRow]:
     """Build the per-channel signal-vector scorecard.
 

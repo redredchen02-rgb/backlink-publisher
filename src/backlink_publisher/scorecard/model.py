@@ -43,7 +43,10 @@ class ChannelScoreRow:
     live_links: int = 0
     #: live / total, or None when there are no links (avoids a misleading 0.0).
     live_pct: float | None = None
-    #: live AND declared-dofollow placements via this channel.
+    #: Live links whose channel's registry dofollow status is True (the channel's
+    #: own tier — equals ``declared_dofollow == "dofollow"`` for any attributed
+    #: channel; the ``(unattributed)`` bucket classifies as unknown so never
+    #: contributes). Always ``<= live_links``.
     live_dofollow: int = 0
     #: counts by per-link liveness status: failed / stale / live / unverified.
     liveness_breakdown: dict[str, int] = field(default_factory=dict)

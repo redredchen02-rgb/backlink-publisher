@@ -95,6 +95,19 @@ def test_bad_stale_days_exits_1():
     assert "stale-days" in err
 
 
+def test_stale_days_zero_exits_1():
+    # Boundary: 0 is invalid (must be positive).
+    _, err, code = _run(["--stale-days", "0"])
+    assert code == 1
+    assert "stale-days" in err
+
+
+def test_negative_small_sample_max_exits_1():
+    _, err, code = _run(["--small-sample-max", "-1"])
+    assert code == 1
+    assert "small-sample-max" in err
+
+
 def test_small_sample_flag_accepted():
     _seed()
     _, _, code = _run(["--small-sample-max", "0"])

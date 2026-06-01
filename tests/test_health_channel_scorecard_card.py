@@ -49,3 +49,19 @@ def test_seeded_channel_appears_with_declared_signal(client):
     body = client.get("/ce:health").get_data(as_text=True)
     assert "medium" in body
     assert "dofollow" in body  # medium's declared dofollow status renders
+
+
+def test_card_fails_open_when_engine_raises(client, monkeypatch):
+    # Fail-open: if the scorecard engine raises, the dashboard must not 500.
+    import backlink_publisher.scorecard as sc
+
+    def _boom(*a, **k):
+        raise RuntimeError("scorecard boom")
+
+    monkeypatch.setattr(sc, "build_channel_scorecard", _boom)
+    resp = client.get("/ce:health")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    # The page still renders; the card degrades to its empty state.
+    assert "Per-channel value scorecard" in body
+    assert "No channels to score yet" in body
