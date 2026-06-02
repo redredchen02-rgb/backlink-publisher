@@ -93,40 +93,52 @@ def _decay_counts():
 
 
 def _pipeline_summary():
-    """Publish counts for 24h/7d/30d windows + last recheck timestamp. Fail-open."""
+    """Publish counts for past 24h/7d/30d windows + last recheck timestamp.
+
+    Returns a dict with keys ``w24h``, ``w7d``, ``w30d`` (each ``{ok, fail}``)
+    and ``last_recheck`` (ISO timestamp or None). Fail-open.
+    """
     try:
         import sqlite3
-        from datetime import datetime, timedelta, timezone
+        import time
         from backlink_publisher.config.loader import _config_dir
 
         db_path = _config_dir() / "events.db"
         if not db_path.exists():
             return {}
 
-        now_utc = datetime.now(timezone.utc)
-        windows = {
-            "w24h": (now_utc - timedelta(hours=24)).isoformat(),
-            "w7d": (now_utc - timedelta(days=7)).isoformat(),
-            "w30d": (now_utc - timedelta(days=30)).isoformat(),
-        }
+        now = time.time()
+        windows = {"w24h": now - 86400, "w7d": now - 604800, "w30d": now - 2592000}
         con = sqlite3.connect(str(db_path), timeout=2)
         cur = con.cursor()
+
         result: dict = {}
-        for wname, since_iso in windows.items():
+        for wname, since_ts in windows.items():
             cur.execute(
-                "SELECT COUNT(*) FROM events WHERE kind=\'publish.confirmed\' AND ts_utc >= ?",
-                (since_iso,),
+                "SELECT json_extract(data, '$.status') as status, COUNT(*) "
+                "FROM events WHERE kind='article.published' AND ts >= ? GROUP BY status",
+                (since_ts,),
             )
-            ok_count = (cur.fetchone() or (0,))[0]
-            cur.execute(
-                "SELECT COUNT(*) FROM events WHERE kind=\'publish.failed\' AND ts_utc >= ?",
-                (since_iso,),
-            )
-            fail_count = (cur.fetchone() or (0,))[0]
-            result[wname] = {"ok": ok_count, "fail": fail_count}
-        cur.execute("SELECT MAX(ts_utc) FROM events WHERE kind=\'link.rechecked\'")
+            row_map: dict = {}
+            for status, count in cur.fetchall():
+                row_map[status or "unknown"] = count
+            result[wname] = {
+                "ok": row_map.get("published", 0) + row_map.get("ok", 0),
+                "fail": sum(v for k, v in row_map.items() if k not in ("published", "ok")),
+            }
+
+        # most recent recheck
+        cur.execute("SELECT MAX(ts) FROM events WHERE kind='link.rechecked'")
         row = cur.fetchone()
-        result["last_recheck"] = row[0] if row and row[0] else None
+        last_ts = row[0] if row and row[0] else None
+        if last_ts:
+            import datetime
+            result["last_recheck"] = datetime.datetime.fromtimestamp(
+                last_ts, tz=datetime.timezone.utc
+            ).isoformat()
+        else:
+            result["last_recheck"] = None
+
         con.close()
         return result
     except Exception as exc:  # noqa: BLE001
@@ -135,23 +147,26 @@ def _pipeline_summary():
 
 
 def _storage_health():
-    """Disk usage of events.db, dedup.db, and the config directory. Fail-open."""
+    """Disk usage of events.db, dedup.db, and the config directory.
+
+    Returns ``{events_db_mb, dedup_db_mb, config_dir_mb}`` or ``{}`` on error.
+    """
     try:
         import os
         from backlink_publisher.config.loader import _config_dir
 
         cfg = _config_dir()
 
-        def _mb(p) -> float:
+        def _mb(path) -> float:
             try:
-                return round(os.path.getsize(p) / 1_048_576, 2)
+                return round(os.path.getsize(path) / 1_048_576, 2)
             except OSError:
                 return 0.0
 
-        def _dir_mb(d) -> float:
+        def _dir_mb(dirpath) -> float:
             try:
                 total = 0
-                for root, _, files in os.walk(d):
+                for root, _, files in os.walk(dirpath):
                     for fname in files:
                         try:
                             total += os.path.getsize(os.path.join(root, fname))
