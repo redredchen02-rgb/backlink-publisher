@@ -7,6 +7,7 @@ diversity audit (Unit 4), and burst dispatch (Unit 5) onto this skeleton.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -25,6 +26,10 @@ class SprayCandidate:
     seed: dict[str, Any]
     dropped: bool = False
     gate_reason: str | None = None
+    # Non-blocking advisory: this platform may already host a link to the same
+    # money site (cross-seed footprint risk). v1 does not govern cross-seed
+    # footprint; surfaced for the operator (see plan R3 accepted residual risk).
+    cross_seed_warning: str | None = None
     row: dict[str, Any] | None = None
 
 
@@ -78,3 +83,62 @@ def validate_platform_selection(
             seen.add(p)
             deduped.append(p)
     return deduped
+
+
+def _default_degraded(platform: str) -> bool:
+    """Soft-gate signal: is the platform under canary quarantine?"""
+    from backlink_publisher.canary.store import is_degraded
+
+    return is_degraded(platform)
+
+
+def _seed_main_domain(seed: dict[str, Any]) -> str:
+    return str(seed.get("main_domain", "")).rstrip("/")
+
+
+def gate_candidates(
+    candidates: list[SprayCandidate],
+    cell_assignments: dict[str, list[str]],
+    cap: int,
+    *,
+    force: frozenset[str] = frozenset(),
+    degraded_fn: Callable[[str], bool] = _default_degraded,
+    already_published_fn: Callable[[str, str], bool] | None = None,
+) -> None:
+    """Apply gating + the hard blast-radius cap, mutating candidates in place.
+
+    Order of operations (matters):
+      1. HARD cell gate — drop platforms not in the seed's money-site cell
+         (`_cell_gate_drop`); unenrolled sites are unrestricted.
+      2. SOFT health gate — drop canary-degraded platforms unless ``--force``d;
+         the reason is recorded so the override is auditable.
+      3. HARD cap — among survivors (operator selection order preserved), keep
+         the first ``cap``; the rest are dropped as over-cap.
+      4. Non-blocking cross-seed warning — annotate surviving shots whose
+         platform may already link the money site (advisory only).
+    """
+    from backlink_publisher.cli.plan_backlinks._engine import _cell_gate_drop
+
+    kept = 0
+    for cand in candidates:
+        main_domain = _seed_main_domain(cand.seed)
+        if _cell_gate_drop(main_domain, cand.platform, cell_assignments):
+            cand.dropped = True
+            cand.gate_reason = "cell: platform not in money-site cell"
+            continue
+        if cand.platform not in force and degraded_fn(cand.platform):
+            cand.dropped = True
+            cand.gate_reason = "degraded: canary quarantine (override with --force)"
+            continue
+        if kept >= cap:
+            cand.dropped = True
+            cand.gate_reason = f"over-cap: exceeds --cap {cap}"
+            continue
+        kept += 1
+        if already_published_fn is not None and already_published_fn(
+            cand.platform, main_domain
+        ):
+            cand.cross_seed_warning = (
+                "platform may already link this money site — cross-seed footprint "
+                "risk (v1 does not govern cross-seed; self-space targets)"
+            )

@@ -31,7 +31,7 @@ from backlink_publisher.config import load_config
 from backlink_publisher.publishing.registry import registered_platforms
 from backlink_publisher.schema import validate_input_payload
 
-from ._engine import expand_seed, validate_platform_selection
+from ._engine import expand_seed, gate_candidates, validate_platform_selection
 
 _LOG_LEVELS = {"DEBUG", "INFO", "WARN", "ERROR"}
 _DISPATCH_MODES = {"dry-run", "burst"}
@@ -72,6 +72,16 @@ def _build_parser() -> Any:
         default="dry-run",
         metavar="MODE",
         help="dry-run (preview only, no side effects) | burst (default: dry-run)",
+    )
+    parser.add_argument(
+        "--force",
+        default="",
+        metavar="A,B",
+        help=(
+            "Comma-separated platforms to keep despite a soft health/quality "
+            "gate warning (the override reason is recorded). The hard cap and "
+            "cell gate are NOT overridable."
+        ),
     )
     parser.add_argument(
         "--log-level",
@@ -131,11 +141,32 @@ def main(argv: list[str] | None = None) -> None:
         config_echo.emit_banner(cfg, "spray-backlinks")
 
         candidates = expand_seed(seed, platforms)
+        force = frozenset(_parse_platforms(args.force))
+        gate_candidates(candidates, cfg.cell_assignments, args.cap, force=force)
 
-        # Unit 1 scaffold: emit the expanded per-platform seed clones. Gating
-        # (Unit 2), LLM draft (Unit 3), audit (Unit 4), and burst dispatch
-        # (Unit 5) replace this pass-through.
-        write_jsonl(c.seed for c in candidates)
+        # Gate diagnostics to stderr (data stays on stdout).
+        for cand in candidates:
+            if cand.dropped:
+                print(
+                    f"[gate] drop {cand.platform}: {cand.gate_reason}",
+                    file=sys.stderr,
+                )
+            elif cand.cross_seed_warning:
+                print(
+                    f"[warn] {cand.platform}: {cand.cross_seed_warning}",
+                    file=sys.stderr,
+                )
+
+        surviving = [c for c in candidates if not c.dropped]
+        if not surviving:
+            emit_envelope_and_exit(
+                "InputValidationError", 2,
+                "spray-backlinks: all platforms gated out — nothing to draft",
+            )
+
+        # Unit 2 scaffold: emit the surviving per-platform seed clones. LLM draft
+        # (Unit 3), audit (Unit 4), and burst dispatch (Unit 5) replace this.
+        write_jsonl(c.seed for c in surviving)
     except PipelineError as exc:
         handle_error(exc)
 
