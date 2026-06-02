@@ -18,6 +18,7 @@ from backlink_publisher.config import load_config
 from ..helpers.security import (
     _check_bind_origin_or_abort,
     _refuse_when_allow_network,
+    _safe_flash_redirect,
 )
 from ..medium_login import (
     clear_browser_profile,
@@ -44,12 +45,12 @@ def medium_launch_browser_login():
             "&flash_msg=Medium 浏览器登录完成！#channel-medium"
         )
     except DependencyError as e:
-        return redirect(
-            f"/settings?flash_type=warning&flash_msg={e}#channel-medium"
+        return _safe_flash_redirect(
+            "/settings", flash_type="warning", msg=str(e), fragment="channel-medium"
         )
     except ExternalServiceError as e:
-        return redirect(
-            f"/settings?flash_type=danger&flash_msg={e}#channel-medium"
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger", msg=str(e), fragment="channel-medium"
         )
 
 
@@ -68,16 +69,16 @@ def medium_probe_browser_login():
         else:
             session.pop("medium_probe_logged_in", None)
             msg = "Medium 未登录，请点击「打开浏览器登录」完成登录"
-        return redirect(
-            f"/settings?flash_type=info&flash_msg={msg}#channel-medium"
+        return _safe_flash_redirect(
+            "/settings", flash_type="info", msg=msg, fragment="channel-medium"
         )
     except DependencyError as e:
-        return redirect(
-            f"/settings?flash_type=warning&flash_msg={e}#channel-medium"
+        return _safe_flash_redirect(
+            "/settings", flash_type="warning", msg=str(e), fragment="channel-medium"
         )
     except ExternalServiceError as e:
-        return redirect(
-            f"/settings?flash_type=warning&flash_msg={e}#channel-medium"
+        return _safe_flash_redirect(
+            "/settings", flash_type="warning", msg=str(e), fragment="channel-medium"
         )
 
 
@@ -95,6 +96,6 @@ def medium_clear_browser_login():
             "&flash_msg=浏览器登录已清除；下次发布前请重新登录#channel-medium"
         )
     except Exception as e:
-        return redirect(
-            f"/settings?flash_type=danger&flash_msg=清除失败: {e}#channel-medium"
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger", msg=f"清除失败: {e}", fragment="channel-medium"
         )

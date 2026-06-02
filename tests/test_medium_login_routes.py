@@ -540,3 +540,63 @@ class TestPWErrorRouteIntegration:
         # route handler maps probe ExternalServiceError -> warning, not danger
         assert "flash_type=warning" in loc
         assert "浏览器窗口被关闭" in loc
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BF3 (plans 2026-06-01-003 / 001) — flash-redirect message sanitization
+# Exception/probe messages embedded in the Location header must go through
+# helpers.security._safe_flash_redirect: no CR/LF (header/redirect injection),
+# URL-quoted (no query-param / fragment break-out), length-capped (bounds how
+# much of a raw Playwright exception — which can carry cookie/storage-state
+# fragments — leaks into the redirect URL / flash / logs). Pre-BF3 the routes
+# f-string-interpolated the raw str(e)/username straight into the Location.
+# ══════════════════════════════════════════════════════════════════════════════
+
+_HOSTILE_MSG = (
+    "boom\r\nSet-Cookie: pwned=1\r\n"   # CRLF -> header/redirect injection
+    "&flash_type=success&x=1"           # query-param injection
+    "#evil "                            # fragment break-out
+    + "Z" * 400                         # overlong -> leakage bound
+)
+
+
+class TestMediumRedirectSanitization:
+    def _assert_sanitized(self, loc, expected_type):
+        assert "\r" not in loc and "\n" not in loc, "raw CR/LF in redirect Location header"
+        assert loc.count("flash_type=") == 1, f"flash_type param break-out: {loc!r}"
+        assert f"flash_type={expected_type}" in loc
+        assert loc.endswith("#channel-medium"), f"fragment break-out: {loc!r}"
+        assert "#evil" not in loc
+        from webui_app.helpers.security import _FLASH_MSG_MAX_LEN
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query)
+        assert len(q.get("flash_msg", [""])[0]) <= _FLASH_MSG_MAX_LEN
+
+    def test_launch_dependency_error_sanitized(self, csrf_client, monkeypatch):
+        client, token = csrf_client
+        def _boom(_cfg):
+            raise DependencyError(_HOSTILE_MSG)
+        monkeypatch.setattr("webui_app.routes.medium_login.launch_login_window", _boom)
+        resp = client.post("/settings/medium/launch-browser-login",
+                           data={"csrf_token": token}, headers=_origin_headers())
+        assert resp.status_code == 302
+        self._assert_sanitized(resp.headers["Location"], "warning")
+
+    def test_clear_generic_exception_sanitized(self, csrf_client, monkeypatch):
+        client, token = csrf_client
+        def _boom(_cfg):
+            raise RuntimeError(_HOSTILE_MSG)
+        monkeypatch.setattr("webui_app.routes.medium_login.clear_browser_profile", _boom)
+        resp = client.post("/settings/medium/clear-browser-login",
+                           data={"csrf_token": token}, headers=_origin_headers())
+        assert resp.status_code == 302
+        self._assert_sanitized(resp.headers["Location"], "danger")
+
+    def test_probe_hostile_username_sanitized(self, csrf_client, monkeypatch):
+        client, token = csrf_client
+        def _probe(_cfg):
+            return {"logged_in": True, "username": _HOSTILE_MSG}
+        monkeypatch.setattr("webui_app.routes.medium_login.probe_login_status", _probe)
+        resp = client.post("/settings/medium/probe-browser-login",
+                           data={"csrf_token": token}, headers=_origin_headers())
+        assert resp.status_code == 302
+        self._assert_sanitized(resp.headers["Location"], "info")
