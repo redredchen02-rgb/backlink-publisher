@@ -29,6 +29,7 @@ Design choices:
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any
 
@@ -43,8 +44,15 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 _QIITA_ITEMS_API = "https://qiita.com/api/v2/items"
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 5
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 5  # 5 s: Qiita API is lenient
 _MAX_TAGS = 5
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("QIITA_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _required_headers(token: str) -> dict[str, str]:
@@ -102,7 +110,7 @@ class QiitaAPIAdapter(Publisher):
     This adapter's value is entity signal + JP referral traffic, not PageRank.
     """
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -132,6 +140,7 @@ class QiitaAPIAdapter(Publisher):
                 adapter="qiita-api",
                 platform="qiita",
                 draft_url="https://qiita.com/drafts",
+                post_publish_delay_seconds=_post_publish_delay_s(),
             )
 
         def execute():
@@ -196,4 +205,5 @@ class QiitaAPIAdapter(Publisher):
             adapter="qiita-api",
             platform="qiita",
             published_url=published_url,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

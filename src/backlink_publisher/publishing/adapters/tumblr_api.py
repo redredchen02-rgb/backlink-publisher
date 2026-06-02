@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any
 
@@ -18,7 +19,14 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 TUMBLR_API_BASE = "https://api.tumblr.com/v2"
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 15
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 15
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("TUMBLR_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _load_credentials(config: Config) -> dict[str, str]:
@@ -64,7 +72,7 @@ class TumblrAPIAdapter(Publisher):
     which is per-request, not compatible with the shared-session wrapper.
     """
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -180,5 +188,5 @@ class TumblrAPIAdapter(Publisher):
             adapter="tumblr",
             platform="tumblr",
             published_url=published_url,
-            post_publish_delay_seconds=_POST_PUBLISH_DELAY_S,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

@@ -42,6 +42,7 @@ Design choices:
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any
 
@@ -58,8 +59,15 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 DEVTO_ARTICLES_API = "https://dev.to/api/articles"
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 30
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 30  # 30 s conservative — no observed 429 at this interval
 _MAX_TAGS = 4
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("DEVTO_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _required_headers(api_key: str) -> dict[str, str]:
@@ -148,7 +156,7 @@ class DevtoAPIAdapter(Publisher):
     are EXPECTED and should not be treated as anomalies.
     """
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -259,5 +267,5 @@ class DevtoAPIAdapter(Publisher):
             adapter="devto",
             platform="devto",
             published_url=published_url,
-            post_publish_delay_seconds=_POST_PUBLISH_DELAY_S,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

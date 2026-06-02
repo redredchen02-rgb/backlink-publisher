@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import time
 from typing import Any
@@ -47,7 +48,14 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 _GITHUB_API = "https://api.github.com"
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 10
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 10  # 10 s: GitHub push rate limit buffer
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("ZENN_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _slugify(text: str) -> str:
@@ -140,7 +148,7 @@ class ZennGitHubAdapter(Publisher):
     3. A GitHub PAT at zenn-token.json (contents:write scope)
     """
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -185,6 +193,7 @@ class ZennGitHubAdapter(Publisher):
                 adapter="zenn-github",
                 platform="zenn",
                 draft_url=published_url,
+                post_publish_delay_seconds=_post_publish_delay_s(),
             )
 
         headers = _required_headers(token)
@@ -251,4 +260,5 @@ class ZennGitHubAdapter(Publisher):
             adapter="zenn-github",
             platform="zenn",
             published_url=result_url,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

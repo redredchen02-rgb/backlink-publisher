@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
@@ -24,6 +25,14 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 _API_BASE = MEDIUM_API_BASE
 _TIMEOUT = MEDIUM_API_TIMEOUT
+_DEFAULT_MEDIUM_PUBLISH_DELAY_S: int = 30  # 30 s: shared with MEDIUM_THROTTLE_MIN/MAX timing
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("MEDIUM_PUBLISH_DELAY_S", _DEFAULT_MEDIUM_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
 
 
 class _TransientHTTPError(Exception):
@@ -251,7 +260,7 @@ class MediumAPIAdapter(Publisher):
                 adapter="medium-api",
                 platform="medium",
                 published_url=url,
-                post_publish_delay_seconds=30,
+                post_publish_delay_seconds=_post_publish_delay_s(),
                 _provider_meta=meta if meta else None,
             )
         return AdapterResult(
@@ -259,5 +268,5 @@ class MediumAPIAdapter(Publisher):
             adapter="medium-api",
             platform="medium",
             draft_url=url,
-            post_publish_delay_seconds=30,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

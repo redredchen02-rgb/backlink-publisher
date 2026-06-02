@@ -86,6 +86,41 @@ USER_AGENT: str = "backlink-publisher/0.1 content-fetch"
 #: ``http_200_no_title``: legitimate short pages WITH a title still pass.
 BODY_TOO_SMALL_BYTES: int = 2048
 
+def _fetch_timeout() -> int:
+    try:
+        return int(os.environ.get("BACKLINK_FETCH_TIMEOUT", FETCH_TIMEOUT))
+    except (ValueError, TypeError):
+        return FETCH_TIMEOUT
+
+
+def _max_retries() -> int:
+    try:
+        return int(os.environ.get("BACKLINK_FETCH_MAX_RETRIES", MAX_RETRIES))
+    except (ValueError, TypeError):
+        return MAX_RETRIES
+
+
+def _head_scan_bytes() -> int:
+    try:
+        return int(os.environ.get("BACKLINK_FETCH_HEAD_SCAN_BYTES", HEAD_SCAN_BYTES))
+    except (ValueError, TypeError):
+        return HEAD_SCAN_BYTES
+
+
+def _max_body_bytes() -> int:
+    try:
+        return int(os.environ.get("BACKLINK_FETCH_MAX_BODY_BYTES", MAX_BODY_BYTES))
+    except (ValueError, TypeError):
+        return MAX_BODY_BYTES
+
+
+def _body_too_small_bytes() -> int:
+    try:
+        return int(os.environ.get("BACKLINK_FETCH_BODY_TOO_SMALL", BODY_TOO_SMALL_BYTES))
+    except (ValueError, TypeError):
+        return BODY_TOO_SMALL_BYTES
+
+
 #: Loose TLS context (matches ``linkcheck``'s default — self-signed and
 #: expired certs are tolerated because backlink targets historically include
 #: rough indie sites).
@@ -208,7 +243,7 @@ def _check_once(
     req = Request(normalize_url_for_fetch(url), method="GET")
     req.add_header("User-Agent", USER_AGENT)
     opener = _make_ssrf_opener(max_redirects) if max_redirects is not None else _SSRF_OPENER
-    effective_timeout = timeout_seconds if timeout_seconds is not None else FETCH_TIMEOUT
+    effective_timeout = timeout_seconds if timeout_seconds is not None else _fetch_timeout()
     try:
         resp = opener.open(req, timeout=effective_timeout)
     except HTTPError as exc:
@@ -243,7 +278,7 @@ def _check_once(
         return False, f"http_{code}", None
 
     try:
-        body = read_html_head_window(resp, HEAD_SCAN_BYTES)
+        body = read_html_head_window(resp, _head_scan_bytes())
     except Exception:  # noqa: BLE001
         return False, "network_error", None
     finally:
@@ -255,7 +290,7 @@ def _check_once(
     title = extract_title(body)
     if not title:
         has_head_close = b"</head>" in body.lower()
-        if not has_head_close and len(body) < BODY_TOO_SMALL_BYTES:
+        if not has_head_close and len(body) < _body_too_small_bytes():
             return False, "body_too_small", None
         return False, "http_200_no_title", None
     if _is_soft_404_title(title):
@@ -333,7 +368,7 @@ def verify_url_has_content(
 
     started = time.monotonic()
     last_result: CheckResult = (False, "network_error", None)
-    for attempt in range(MAX_RETRIES + 1):
+    for attempt in range(_max_retries() + 1):
         ok, reason, title = _check_once(url, timeout_seconds, max_redirects)
         if ok:
             last_result = (True, None, title)
@@ -341,9 +376,9 @@ def verify_url_has_content(
         last_result = (False, reason, None)
         if reason is None or not _is_transient(reason):
             break
-        if attempt < MAX_RETRIES:
+        if attempt < _max_retries():
             opencli_logger.debug(
-                f"content_fetch retry {attempt + 1}/{MAX_RETRIES} for {url}: {reason}"
+                f"content_fetch retry {attempt + 1}/{_max_retries()} for {url}: {reason}"
             )
     elapsed_ms = int((time.monotonic() - started) * 1000)
 

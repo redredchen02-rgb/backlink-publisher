@@ -20,6 +20,8 @@ from .helpers.history import (
 )
 
 
+_RATE_LIMIT_RETRY_DELAY_S: int = 300
+
 _scheduler = BackgroundScheduler(
     executors={'default': APSThreadPoolExecutor(max_workers=1)},
     job_defaults={'misfire_grace_time': 3600},
@@ -69,7 +71,7 @@ def _process_queue_job() -> None:
             # when the rate-limit surfaces only in the message text.
             err = result.error or '发布失败'
             if "429" in err or "Too Many Requests" in err:
-                retry_delay = 300
+                retry_delay = _RATE_LIMIT_RETRY_DELAY_S
                 next_retry = now + timedelta(seconds=retry_delay)
                 _queue_store.update_task(task_id, {
                     'status': 'failed',

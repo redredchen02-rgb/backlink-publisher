@@ -22,8 +22,8 @@ ceiling = 190
 rationale = "refactor 2026-06-02: Unit 3b loop extraction — per-row loop body moved to _engine.py::_publish_one_row + run_publish_loop; __init__ keeps only setup orchestration + epilogue guard. SLOC 361->159. Ceiling 190 = round_up_to_10(159+30)."
 
 [files."src/backlink_publisher/content/fetch.py"]
-ceiling = 240
-rationale = "Stats counters (content/_stats.py) and stateless predicates _cache_key/_is_valid_http_url/_is_transient (content/_fetch_helpers.py) extracted 2026-06-01; gate hot-path (_check_once, verify_url_has_content, verify_urls_batch) and all test-patched module globals stay here. SLOC dropped 250→204. Ceiling 240 = round_up_to_10(204+30) per policy. Earlier: soft-404 → _soft404.py, head-window/title → _html_utils.py (2026-05-26)."
+ceiling = 250
+rationale = "Added 5 env-var getter functions (BACKLINK_FETCH_*) for network constants. Measured SLOC grew to ~219 before this PR; adding ~25 SLOC for getters brings total to ~244. Ceiling raised 240->250 per ratchet policy."
 
 [files."src/backlink_publisher/config/writer.py"]
 ceiling = 240
@@ -43,7 +43,7 @@ rationale = "Holds the 3 extracted reducers (_project_checkpoint, _project_histo
 
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
 ceiling = 290
-rationale = "refactor 2026-06-01: split live-verify (->_verify_live.py) + offline-readiness checks (->_setup_checks.py) out of the dispatcher; __init__ now holds only imports + register() wiring + thin verify_adapter_setup delegators. SLOC 640->234. Wave-2 JP channels (qiita/zenn) added 2026-06-02 growing register() wiring to 281 SLOC. Ceiling 320 = round_up_to_10(281+30) per ratchet-up policy."
+rationale = "Tightened ceiling from 320 to 290: actual SLOC=256 after wave-2 JP channels, ceiling=round_up_to_10(256+30)=290 per ratchet policy. Prior 320 had headroom 64 which exceeded the 50 max."
 
 [files."src/backlink_publisher/cli/phase0_seal.py"]
 ceiling = 465

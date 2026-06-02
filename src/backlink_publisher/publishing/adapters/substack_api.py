@@ -17,7 +17,14 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 60
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 60  # 60 s: Substack rate-limits aggressive publishing
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("SUBSTACK_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _load_cookies(config: Config) -> dict[str, str]:
@@ -75,7 +82,7 @@ class SubstackAPIAdapter(Publisher):
     RSS-import approach instead.
     """
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -191,5 +198,5 @@ class SubstackAPIAdapter(Publisher):
             adapter="substack",
             platform="substack",
             published_url=published_url,
-            post_publish_delay_seconds=_POST_PUBLISH_DELAY_S,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

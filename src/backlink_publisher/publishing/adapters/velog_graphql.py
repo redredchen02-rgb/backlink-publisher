@@ -109,6 +109,20 @@ UNLOCK_DATE_UTC: datetime = datetime(2026, 6, 2, 0, 0, tzinfo=timezone.utc)
 _VELOG_JITTER_MIN_S: int = 60
 _VELOG_JITTER_MAX_S: int = 180
 
+
+def _velog_jitter_min_s() -> int:
+    try:
+        return int(os.environ.get("VELOG_THROTTLE_MIN_S", _VELOG_JITTER_MIN_S))
+    except (ValueError, TypeError):
+        return _VELOG_JITTER_MIN_S
+
+
+def _velog_jitter_max_s() -> int:
+    try:
+        return int(os.environ.get("VELOG_THROTTLE_MAX_S", _VELOG_JITTER_MAX_S))
+    except (ValueError, TypeError):
+        return _VELOG_JITTER_MAX_S
+
 _TIMEOUT: int = 30  # seconds per HTTP request
 _PROBE_TIMEOUT: int = 10  # seconds — lightweight liveness check
 _LOCK_POLL_INTERVAL: float = 0.5  # seconds
@@ -421,7 +435,16 @@ def _apply_publish_jitter(article_id: str, last_publish_at: float) -> None:
     if last_publish_at <= 0:
         return
     elapsed = time.time() - last_publish_at
-    jitter = random.uniform(_VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S)
+    jitter_min = _velog_jitter_min_s()
+    jitter_max = _velog_jitter_max_s()
+    if jitter_min > jitter_max:
+        log.warning(
+            "VELOG_THROTTLE_MIN_S (%d) > VELOG_THROTTLE_MAX_S (%d); "
+            "falling back to defaults (%d, %d)",
+            jitter_min, jitter_max, _VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S,
+        )
+        jitter_min, jitter_max = _VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S
+    jitter = random.uniform(jitter_min, jitter_max)
     if elapsed < jitter:
         wait = jitter - elapsed
         log.info(_json_log(

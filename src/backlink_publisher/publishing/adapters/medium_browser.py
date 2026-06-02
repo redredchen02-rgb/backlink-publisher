@@ -60,6 +60,15 @@ except ImportError:  # pragma: no cover — tested via DependencyError path
     sync_playwright = None  # type: ignore[assignment]
     PlaywrightTimeoutError = Exception  # type: ignore[assignment,misc]
 
+_DEFAULT_MEDIUM_PUBLISH_DELAY_S: int = 30  # 30 s: shared with MEDIUM_THROTTLE_MIN/MAX timing
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("MEDIUM_PUBLISH_DELAY_S", _DEFAULT_MEDIUM_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
+
 
 def _json_log(**kwargs: Any) -> str:
     return json.dumps(kwargs)
@@ -371,7 +380,7 @@ class MediumBrowserAdapter(Publisher):
                             adapter="medium-browser",
                             platform="medium",
                             published_url=final_url,
-                            post_publish_delay_seconds=30,
+                            post_publish_delay_seconds=_post_publish_delay_s(),
                             _provider_meta=meta if meta else None,
                         )
                     return AdapterResult(
@@ -379,7 +388,7 @@ class MediumBrowserAdapter(Publisher):
                         adapter="medium-browser",
                         platform="medium",
                         draft_url=final_url,
-                        post_publish_delay_seconds=30,
+                        post_publish_delay_seconds=_post_publish_delay_s(),
                     )
 
                 except AuthExpiredError:

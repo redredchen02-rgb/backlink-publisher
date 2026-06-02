@@ -176,6 +176,34 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 | `BACKLINK_PUBLISHER_WORKTREE_AUTOREMOVE=1` | Auto-remove stale worktrees |
 | `MEDIUM_THROTTLE_MIN`, `MEDIUM_THROTTLE_MAX` | Inter-post delay (default 60-300s) |
 | `OAUTHLIB_INSECURE_TRANSPORT` | Allow HTTP for OAuth loopback |
+| **Platform publish delays** — Post-publish sleep before the next operation. Setting to `0` collapses the post-publish link-verification window (30 s → 10 s) and suppresses the Medium throttle adjacency guard in `_engine.py`. ||
+| `DEVTO_PUBLISH_DELAY_S` | dev.to post-publish delay (default 30 s) |
+| `HASHNODE_PUBLISH_DELAY_S` | Hashnode post-publish delay (default 15 s) |
+| `HATENA_PUBLISH_DELAY_S` | Hatena AtomPub post-publish delay (default 30 s) |
+| `LINKEDIN_PUBLISH_DELAY_S` | LinkedIn post-publish delay (default 60 s; 429s observed at < 30 s) |
+| `MEDIUM_PUBLISH_DELAY_S` | Medium API + browser post-publish delay (default 30 s) |
+| `NOTION_PUBLISH_DELAY_S` | Notion post-publish delay (default 30 s) |
+| `QIITA_PUBLISH_DELAY_S` | Qiita post-publish delay (default 5 s) |
+| `RENTRY_PUBLISH_DELAY_S` | Rentry post-publish delay (default 10 s) |
+| `SUBSTACK_PUBLISH_DELAY_S` | Substack post-publish delay (default 60 s) |
+| `TUMBLR_PUBLISH_DELAY_S` | Tumblr post-publish delay (default 15 s) |
+| `WORDPRESSCOM_PUBLISH_DELAY_S` | WordPress.com post-publish delay (default 15 s) |
+| `WRITEAS_PUBLISH_DELAY_S` | Write.as post-publish delay (default 5 s) |
+| `ZENN_PUBLISH_DELAY_S` | Zenn (GitHub push) post-publish delay (default 10 s) |
+| **Velog throttle** ||
+| `VELOG_THROTTLE_MIN_S` | Velog inter-post jitter lower bound (default 60 s). If > `VELOG_THROTTLE_MAX_S`, both fall back to defaults. |
+| `VELOG_THROTTLE_MAX_S` | Velog inter-post jitter upper bound (default 180 s). Setting equal to `VELOG_THROTTLE_MIN_S` gives deterministic fixed-interval waits. |
+| **Link-checker network** ||
+| `BACKLINK_LINKCHECK_REQUEST_TIMEOUT` | HTTP request timeout for URL checks (default 10 s) |
+| `BACKLINK_LINKCHECK_MAX_CONCURRENT` | Max concurrent URL check coroutines (default 10) |
+| `BACKLINK_LINKCHECK_MAX_RETRIES` | Max retry attempts per URL check (default 2) |
+| `BACKLINK_LINKCHECK_RETRY_DELAY_BASE_S` | Base delay for linear backoff between retries; actual sleep = base × attempt_number (default 1 s) |
+| **Content fetch network** ||
+| `BACKLINK_FETCH_TIMEOUT` | HTTP timeout for content fetches (default 10 s) |
+| `BACKLINK_FETCH_MAX_RETRIES` | Max retry attempts for content fetch (default 2; `0` = no retry) |
+| `BACKLINK_FETCH_HEAD_SCAN_BYTES` | Max bytes read for HTML head scan (default 262144) |
+| `BACKLINK_FETCH_MAX_BODY_BYTES` | Max response body bytes before truncation (default 1048576) |
+| `BACKLINK_FETCH_BODY_TOO_SMALL` | Minimum body bytes to consider a page valid (default 2048) |
 | `BIND_HOST` / `PORT` | WebUI address |
 | `PYTHONHASHSEED=0` | Required for footprint regression tests |
 

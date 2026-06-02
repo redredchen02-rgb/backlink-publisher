@@ -20,6 +20,8 @@ from ..helpers.contexts import _render
 
 bp = Blueprint("equity_ledger", __name__)
 
+_STALE_DAYS_DEFAULT: int = 30
+
 # _outcome (from recheck_one) → delta-summary bucket.
 _OUTCOME_LABELS = {"confirmed": "confirmed", "downgraded": "failed", "skipped": "skipped"}
 
@@ -67,11 +69,11 @@ def equity_ledger_recheck():
     # Honor the same staleness window the table was rendered with, so the
     # refreshed row's stale flag matches the rest of the view.
     try:
-        stale_days = int(data.get("stale_days", 30))
+        stale_days = int(data.get("stale_days", _STALE_DAYS_DEFAULT))
     except (TypeError, ValueError):
-        stale_days = 30
+        stale_days = _STALE_DAYS_DEFAULT
     if stale_days <= 0:
-        stale_days = 30
+        stale_days = _STALE_DAYS_DEFAULT
     canon = canonicalize_url(target)
 
     row = next((r for r in build_ledger(stale_days=stale_days) if r.target_url == canon), None)

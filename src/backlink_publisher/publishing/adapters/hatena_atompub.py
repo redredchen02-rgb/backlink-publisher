@@ -60,9 +60,16 @@ from .base import AdapterResult
 from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 30
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 30
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 _CRED_FILENAME = "hatena-credentials.json"
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("HATENA_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _load_credentials(config: Config) -> tuple[str, str, str]:
@@ -169,7 +176,7 @@ def _parse_entry_url(xml_text: str) -> str:
 class HatenaAtomPubAdapter(Publisher):
     """Publishes a live Hatena Blog entry via AtomPub + WSSE."""
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -266,5 +273,5 @@ class HatenaAtomPubAdapter(Publisher):
             platform="hatena",
             published_url=published_url if mode == "publish" else "",
             draft_url="" if mode == "publish" else published_url,
-            post_publish_delay_seconds=_POST_PUBLISH_DELAY_S,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

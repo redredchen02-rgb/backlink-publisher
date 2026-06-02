@@ -18,7 +18,7 @@ from pathlib import Path
 
 from backlink_publisher._util.logger import publish_logger
 from backlink_publisher.linkcheck.verify import verify_published
-from backlink_publisher.linkcheck.http import MAX_CONCURRENT as _LINKCHECK_MAX_CONCURRENT, check_url
+from backlink_publisher.linkcheck.http import _max_concurrent as _linkcheck_max_concurrent, check_url
 from backlink_publisher.cli._publish_cli import (
     _build_parser,
     _handle_auth_expired,
@@ -111,7 +111,7 @@ def _check_row_reachability(row: dict[str, Any]) -> tuple[bool, str | None]:
         ok, _err = check_url(urls[0])
         return (True, None) if ok else (False, urls[0])
 
-    workers = min(_LINKCHECK_MAX_CONCURRENT, len(urls))
+    workers = min(_linkcheck_max_concurrent(), len(urls))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(check_url, u): u for u in urls}
         first_failure: str | None = None

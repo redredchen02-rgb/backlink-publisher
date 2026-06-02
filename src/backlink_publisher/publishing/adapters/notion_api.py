@@ -33,6 +33,7 @@ Design choices:
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any
 
@@ -50,7 +51,14 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 NOTION_PAGES_API = "https://api.notion.com/v1/pages"
 _NOTION_VERSION = "2022-06-28"
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 30
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 30
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("NOTION_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _required_headers(integration_token: str) -> dict[str, str]:
@@ -188,7 +196,7 @@ class NotionAPIAdapter(Publisher):
        to ``~/.config/backlink-publisher/notion-token.json`` (chmod 600).
     """
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -297,5 +305,5 @@ class NotionAPIAdapter(Publisher):
             adapter="notion",
             platform="notion",
             published_url=published_url,
-            post_publish_delay_seconds=_POST_PUBLISH_DELAY_S,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

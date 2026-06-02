@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any
 
@@ -17,7 +18,14 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 LINKEDIN_API_BASE = "https://api.linkedin.com/v2"
 _HTTP_TIMEOUT_S = 30
-_POST_PUBLISH_DELAY_S = 60
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 60  # 60 s: LinkedIn 429s observed at < 30 s; conservative safe floor
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get("LINKEDIN_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 class LinkedInAPIAdapter(Publisher):
@@ -46,7 +54,7 @@ class LinkedInAPIAdapter(Publisher):
     ``DependencyError`` if the token is missing or has insufficient scope.
     """
 
-    post_publish_delay_seconds: int = _POST_PUBLISH_DELAY_S
+    post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
 
     @classmethod
     def available(cls, config: Config) -> bool:
@@ -195,5 +203,5 @@ class LinkedInAPIAdapter(Publisher):
             adapter="linkedin",
             platform="linkedin",
             published_url=published_url,
-            post_publish_delay_seconds=_POST_PUBLISH_DELAY_S,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

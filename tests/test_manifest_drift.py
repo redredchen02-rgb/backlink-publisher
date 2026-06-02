@@ -37,6 +37,10 @@ import pytest
 import backlink_publisher.publishing.adapters as _production  # noqa: F401
 from backlink_publisher.publishing._manifest_types import Policy
 from backlink_publisher.publishing.adapters import velog_graphql
+from backlink_publisher.publishing.adapters.velog_graphql import (
+    _velog_jitter_min_s,
+    _velog_jitter_max_s,
+)
 from backlink_publisher.publishing.registry import (
     _REGISTRY,
     registered_platforms,
@@ -55,8 +59,8 @@ DRIFT_BINDINGS = [
     pytest.param(
         "velog",
         "throttle_band",
-        (velog_graphql._VELOG_JITTER_MIN_S, velog_graphql._VELOG_JITTER_MAX_S),
-        id="velog:throttle_band==(_VELOG_JITTER_MIN_S,_VELOG_JITTER_MAX_S)",
+        (_velog_jitter_min_s(), _velog_jitter_max_s()),
+        id="velog:throttle_band==(_velog_jitter_min_s(),_velog_jitter_max_s())",
     ),
 ]
 

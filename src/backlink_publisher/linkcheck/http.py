@@ -15,11 +15,43 @@ from backlink_publisher._util.url import (
     normalize_url_for_fetch,
     safe_urlparse,
 )
-REQUEST_TIMEOUT = 10  # seconds
-MAX_CONCURRENT = 10
+
+import os as _os
+
+_DEFAULT_REQUEST_TIMEOUT = 10
+_DEFAULT_MAX_CONCURRENT = 10
+_DEFAULT_MAX_RETRIES = 2
+_DEFAULT_RETRY_DELAY_BASE_S = 1
+
 ACCEPTABLE_CODES = {200, 301, 302}
-MAX_RETRIES = 2
-RETRY_DELAY = 1  # seconds
+
+
+def _request_timeout() -> int:
+    try:
+        return int(_os.environ.get("BACKLINK_LINKCHECK_REQUEST_TIMEOUT", _DEFAULT_REQUEST_TIMEOUT))
+    except (ValueError, TypeError):
+        return _DEFAULT_REQUEST_TIMEOUT
+
+
+def _max_concurrent() -> int:
+    try:
+        return int(_os.environ.get("BACKLINK_LINKCHECK_MAX_CONCURRENT", _DEFAULT_MAX_CONCURRENT))
+    except (ValueError, TypeError):
+        return _DEFAULT_MAX_CONCURRENT
+
+
+def _max_retries() -> int:
+    try:
+        return int(_os.environ.get("BACKLINK_LINKCHECK_MAX_RETRIES", _DEFAULT_MAX_RETRIES))
+    except (ValueError, TypeError):
+        return _DEFAULT_MAX_RETRIES
+
+
+def _retry_delay_base_s() -> int:
+    try:
+        return int(_os.environ.get("BACKLINK_LINKCHECK_RETRY_DELAY_BASE_S", _DEFAULT_RETRY_DELAY_BASE_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_RETRY_DELAY_BASE_S
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -41,7 +73,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
     try:
         req = Request(fetch_url, method="HEAD")
         req.add_header("User-Agent", "backlink-publisher/0.1 linkcheck")
-        resp = urlopen(req, timeout=REQUEST_TIMEOUT, context=_ssl_context())
+        resp = urlopen(req, timeout=_request_timeout(), context=_ssl_context())
         code = resp.getcode()
         if code in ACCEPTABLE_CODES:
             return True, None
@@ -52,7 +84,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
     try:
         req = Request(fetch_url, method="GET")
         req.add_header("User-Agent", "backlink-publisher/0.1 linkcheck")
-        resp = urlopen(req, timeout=REQUEST_TIMEOUT, context=_ssl_context())
+        resp = urlopen(req, timeout=_request_timeout(), context=_ssl_context())
         code = resp.getcode()
         if code in ACCEPTABLE_CODES:
             return True, None
@@ -72,16 +104,16 @@ def _check_url_with_retry(url: str) -> tuple[str, bool, str | None]:
     # attribute). Same shim pattern as Unit 5 ``config/writer.py``.
     from backlink_publisher import linkcheck as _legacy
     last_error = "unknown error"
-    for attempt in range(MAX_RETRIES + 1):
+    for attempt in range(_max_retries() + 1):
         reachable, error = _legacy._check_url_once(url)
         if reachable:
             return url, True, None
         last_error = error or "unknown error"
-        if attempt < MAX_RETRIES:
+        if attempt < _max_retries():
             opencli_logger.debug(
-                f"Retry {attempt + 1}/{MAX_RETRIES} for {url}: {last_error}"
+                f"Retry {attempt + 1}/{_max_retries()} for {url}: {last_error}"
             )
-            time.sleep(RETRY_DELAY * (attempt + 1))
+            time.sleep(_retry_delay_base_s() * (attempt + 1))
 
     return url, False, last_error
 
@@ -147,7 +179,7 @@ def check_urls(urls: list[str]) -> dict[str, tuple[bool, str | None]]:
             results[orig] = (reachable, error)
         return results
 
-    with ThreadPoolExecutor(max_workers=min(MAX_CONCURRENT, len(distinct_canonical))) as pool:
+    with ThreadPoolExecutor(max_workers=min(_max_concurrent(), len(distinct_canonical))) as pool:
         futures: dict[Any, str] = {}  # future -> canonical
         for c in distinct_canonical:
             rep = canonical_to_originals[c][0]
