@@ -195,9 +195,9 @@ def settings_save_llm_config():
     existing.update({
         'endpoint': new_endpoint,
         'api_key': new_api_key or existing.get('api_key', ''),
-        'model': request.form.get('model', '').strip(),
+        'model': request.form.get('model', '').strip() or existing.get('model', ''),
         'temperature': temperature,
-        'system_prompt': request.form.get('system_prompt', ''),
+        'system_prompt': request.form.get('system_prompt', '') or existing.get('system_prompt', ''),
         'use_article_gen': 'use_article_gen' in request.form,
         'image_gen_api_key': new_image_key or existing.get('image_gen_api_key', ''),
         'image_gen_endpoint': image_endpoint,

@@ -261,3 +261,51 @@ def test_save_blank_endpoint_not_rejected(client, tmp_path, monkeypatch):
 
     assert resp.status_code == 302
     assert "flash_type=danger" not in resp.location
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BF1 (plans 2026-06-01-003 / 001) — partial POST must not silently clear
+# model / system_prompt. Pre-BF1 they were form-only (request.form.get(..,'')
+# with no `or existing`), unlike api_key's `new or existing`, so a form/section
+# that omits them wiped the stored values. Fix: absent ⇒ preserve existing;
+# only the explicit `action=clear` marker resets (whole-file).
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_partial_post_preserves_model_and_system_prompt(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    _seed(tmp_path, model="gpt-4o-mini", system_prompt="KEEP ME")
+    # Partial edit (e.g. a section that only touches api_key) omits model +
+    # system_prompt entirely.
+    resp = client.post("/settings/save-llm-config", data={"api_key": ""})
+    assert resp.status_code == 302
+    assert "flash_type=success" in resp.location
+    stored = _read(tmp_path)
+    assert stored["model"] == "gpt-4o-mini", "model silently cleared on partial POST (BF1)"
+    assert stored["system_prompt"] == "KEEP ME", "system_prompt silently cleared on partial POST (BF1)"
+
+
+def test_full_post_still_updates_model_and_system_prompt(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    _seed(tmp_path, model="old-model", system_prompt="old")
+    resp = client.post(
+        "/settings/save-llm-config",
+        data={"endpoint": "https://api.test/v1", "api_key": "",
+              "model": "new-model", "system_prompt": "new sys"},
+    )
+    assert resp.status_code == 302
+    assert "flash_type=success" in resp.location
+    stored = _read(tmp_path)
+    assert stored["model"] == "new-model"
+    assert stored["system_prompt"] == "new sys"
+
+
+def test_action_clear_resets_model_and_system_prompt(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    _seed(tmp_path, model="gpt-4o-mini", system_prompt="KEEP ME")
+    # The explicit clear marker is the ONLY sanctioned way to empty fields.
+    resp = client.post("/settings/save-llm-config", data={"action": "clear"})
+    assert resp.status_code == 302
+    assert "flash_type=success" in resp.location
+    stored = _read(tmp_path)
+    assert stored["model"] == ""
+    assert stored["system_prompt"] == ""
