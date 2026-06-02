@@ -1,7 +1,7 @@
 ---
 title: "feat: Harden publish pipeline saga contracts (runbook + G3/G4/G7 + tests)"
 type: feat
-status: complete
+status: completed
 date: 2026-05-28
 deepened: 2026-05-28
 merged: 2026-05-28

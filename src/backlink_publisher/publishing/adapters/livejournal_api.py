@@ -123,6 +123,25 @@ def store_credentials(config: Config, username: str, password: str) -> Path:
     return path
 
 
+def _livejournal_credential_saver(
+    channel: str,
+    config: Config,
+    validated_fields: dict,
+    write_mode: str,
+) -> "Path":
+    """Registry credential_saver callback for livejournal (Plan 2026-06-01-001 U3a).
+
+    Delegates to store_credentials — the single mutation site that handles
+    hashing, atomic 0600 write, and post-write stat re-check.
+    write_mode is always "replace" for userpass (full replacement semantics).
+    """
+    return store_credentials(
+        config,
+        username=validated_fields.get("username", ""),
+        password=validated_fields.get("password", ""),
+    )
+
+
 def _load_credentials(config: Config) -> dict[str, str]:
     """Load ``{username, hpassword}`` fail-loud. Raises ``DependencyError``.
 

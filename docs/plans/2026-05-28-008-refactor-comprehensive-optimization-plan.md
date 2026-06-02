@@ -1,7 +1,7 @@
 ---
 title: "refactor: Comprehensive optimization — 4-wave quality + type safety + observability"
 type: refactor
-status: complete
+status: completed
 date: 2026-05-28
 origin: docs/brainstorms/2026-05-28-comprehensive-optimization-requirements.md
 claims:

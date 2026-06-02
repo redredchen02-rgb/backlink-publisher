@@ -1,7 +1,7 @@
 ---
 title: "feat: Korean language full support — corpus calibration, WebUI option, content templates"
 type: feat
-status: archived
+status: completed
 superseded_by: docs/plans/2026-05-22-008-feat-korean-publishing-language-plan.md
 date: 2026-05-22
 origin: anchor/resolver.py:100, linkcheck/language.py:73, webui_app/templates/_shared_config_selects.html:27

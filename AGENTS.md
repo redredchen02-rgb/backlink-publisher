@@ -283,6 +283,36 @@ Exit codes:
 
 When an implementing PR lands, the author flips `status: active → shipped` and re-resolves the `claims:` block against post-merge `origin/main`. **Do NOT bump the `date:` field** — it stays pinned at the original authoring date, preserving grandfather status for plans that pre-date the cutoff. The R11b filename↔date lock also requires `date:` to match the filename prefix, so bumping it would break the lock.
 
+### Status vocabulary canon
+
+The closed set of valid `status:` tokens for `docs/plans/*.md`:
+
+| Token | Meaning | Done-family? |
+|---|---|---|
+| `active` | Genuine open work — executing or ready to execute | No |
+| `completed` | All units landed (canonical done head) | **Yes** |
+| `shipped` | Landed-alias written by update-on-ship discipline | **Yes** |
+| `parked` | Intentionally deferred — must have a written resume trigger | No |
+
+**Done-family** (`completed` + `shipped`) = closed work that counts as converged.
+
+**Deterministic open-work query** (anchored, avoids prose false-matches):
+```bash
+python3 -c "
+import re, pathlib
+canon = {'active','completed','shipped','parked'}
+for p in sorted(pathlib.Path('docs/plans').glob('*.md')):
+    m = re.search(r'^status:\s*(\S+)', p.read_text(), re.MULTILINE)
+    tok = m.group(1) if m else ''
+    if tok not in canon:
+        print(f'OFF-CANON  {p.name}: {tok!r}')
+    elif tok == 'active':
+        print(f'OPEN       {p.name}')
+"
+```
+
+Off-canon tokens (`done`, `complete`, `ready`, `archived`, `phase1-complete`, `partial`, `open`) are **not valid** — normalize to the canon set on discovery.
+
 ### Canonical reference
 
 Implementation plan: `docs/plans/2026-05-19-009-feat-plan-claims-and-head-drift-gate-plan.md`.

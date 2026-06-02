@@ -1,7 +1,7 @@
 ---
 title: "refactor: Remove csdn, juejin, note channels"
 type: refactor
-status: complete
+status: completed
 date: 2026-05-28
 origin: docs/brainstorms/2026-05-28-remove-csdn-juejin-note-channels-requirements.md
 claims: {}

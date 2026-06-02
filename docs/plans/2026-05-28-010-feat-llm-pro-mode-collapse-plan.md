@@ -1,7 +1,7 @@
 ---
 title: "feat: Collapse AI generation features into Pro Mode sub-section"
 type: feat
-status: complete
+status: completed
 date: 2026-05-28
 origin: docs/brainstorms/2026-05-28-ai-gen-pro-group-requirements.md
 ---

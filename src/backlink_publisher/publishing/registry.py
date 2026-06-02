@@ -45,7 +45,7 @@ is ``publish`` (``verify_adapter_setup`` stays a module function).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Any, Callable, Literal, Optional, TYPE_CHECKING
 
 from backlink_publisher.config import Config
 from backlink_publisher._util.errors import RegistryError
@@ -126,6 +126,10 @@ class RegistryEntry:
     bind: tuple[BindDescriptor, ...] = ()
     policy: Policy | None = None
     visibility: Visibility = "active"
+    # Optional credential-persistence callback (Plan 2026-06-01-001 U3a).
+    # Signature: (channel, config, validated_fields, write_mode) -> Path.
+    # write_mode = "replace" | "merge". None = platform has no WebUI saver.
+    credential_saver: Optional[Callable[..., Any]] = None
 
 _REGISTRY: dict[str, RegistryEntry] = {}
 
@@ -291,6 +295,7 @@ def register(
     bind: list[BindDescriptor] | tuple[BindDescriptor, ...] | None = None,
     policy: Policy | None = None,        # noqa: F811 — shadows re-exported manifest helper
     visibility: Visibility = "active",   # noqa: F811 — shadows re-exported manifest helper
+    credential_saver: Optional[Callable[..., Any]] = None,  # U3a
 ) -> None:
     """Register the fallback chain for one platform. Last call wins.
 
@@ -411,6 +416,7 @@ def register(
         bind=bind_tuple,
         policy=policy,
         visibility=visibility,
+        credential_saver=credential_saver,
     )
 
 
@@ -482,6 +488,20 @@ def dofollow_rationale(name: str) -> str | None:
     """
     entry = _REGISTRY.get(name)
     return entry.rationale if entry else None
+
+
+def credential_saver(name: str) -> Optional[Callable[..., Any]]:
+    """Return the credential-persistence callback for ``name``, or ``None``.
+
+    Callback signature: ``(channel, config, validated_fields, write_mode) -> Path``.
+    ``write_mode`` is ``"replace"`` or ``"merge"`` (token_fields path).
+    ``None`` = platform has no WebUI credential saver (anon, oauth, live_browser,
+    or config-file-only channels).
+
+    Plan 2026-06-01-001 U3a / R8.
+    """
+    entry = _REGISTRY.get(name)
+    return entry.credential_saver if entry else None
 
 
 # Re-export from extracted sub-module. All existing callers import from

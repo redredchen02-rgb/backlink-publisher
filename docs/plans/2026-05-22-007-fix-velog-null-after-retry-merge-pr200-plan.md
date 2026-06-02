@@ -1,7 +1,7 @@
 ---
 title: "fix: Merge velog null-after-retry fix (PR #200)"
 type: fix
-status: done
+status: completed
 date: 2026-05-22
 claims: {}
 ---
