@@ -21,7 +21,7 @@ black --check src/
 flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
 
 # SLOC measurement (for monolith budget edits)
-python -m radon raw -s src/backlink_publisher/cli/plan_backlinks.py
+python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan_backlinks is a package; core.py is the monitored file
 
 # WebUI
 python webui.py                                    # start dev server on :8888
@@ -70,7 +70,7 @@ cat seeds.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --mode
 |---|---|---|
 | `plan-backlinks` | `cli/plan_backlinks/` | Generate articles from seed JSONL |
 | `validate-backlinks` | `cli/validate_backlinks.py` | Validate + enrich |
-| `publish-backlinks` | `cli/publish_backlinks.py` | Publish via platform adapters |
+| `publish-backlinks` | `cli/publish_backlinks/` (package) | Publish via platform adapters |
 | `report-anchors` | `cli/report_anchors.py` | Post-hoc anchor profile |
 | `equity-ledger` | `cli/equity_ledger.py` | Per-target backlink scorecard (read-only JSONL) |
 | `footprint` | `cli/footprint.py` | Link footprint analysis |
@@ -297,18 +297,26 @@ Shared safety in `scripts/_worktree_safety.sh`. Tests: `tests/scripts/test_prune
 
 ## Monolith Budget
 
-`monolith_budget.toml` tracks radon SLOC ceilings for **6** source files. Enforced by `tests/test_no_monolith_regrowth.py` (R4 hard-fail + R7 warning canary + radon version pinning).
+`monolith_budget.toml` tracks radon SLOC ceilings for **14** source files (authoritative list is in the TOML; the table below is a summary snapshot — when in doubt, trust the TOML). Enforced by `tests/test_no_monolith_regrowth.py` (R4 hard-fail + R7 warning canary + radon version pinning).
 
 | File | Ceiling |
 |---|---|
-| `cli/plan_backlinks.py` | 1270 |
-| `cli/publish_backlinks.py` | 730 |
-| `content/fetch.py` | 370 |
-| `config/writer.py` | 340 |
-| `_util/markdown.py` | 320 |
-| `events/projector.py` | 580 |
+| `cli/publish_backlinks/__init__.py` | 190 |
+| `cli/plan_backlinks/core.py` | 250 |
+| `cli/generate_backlink_text.py` | 390 |
+| `cli/_publish_helpers.py` | 480 |
+| `cli/phase0_seal.py` | 465 |
+| `cli/plan_check.py` | 260 |
+| `cli/validate_backlinks.py` | 150 |
+| `cli/report_anchors.py` | 120 |
+| `content/fetch.py` | 240 |
+| `config/writer.py` | 240 |
+| `_util/markdown.py` | 240 |
+| `events/_project_reducers.py` | 550 |
+| `events/projector.py` | 110 |
+| `publishing/adapters/__init__.py` | 270 |
 
-If a PR exceeds a ceiling, edit `monolith_budget.toml` in the same PR — raise it and add `rationale` (≥80 chars). `git blame` is the defense; no override label. Bumping `radon` (pinned `==6.0.1`) requires re-measuring all 6 ceilings + updating `SLOC_CANARY_EXPECTED` in `tests/fixtures/sloc_canary.py`.
+If a PR exceeds a ceiling, edit `monolith_budget.toml` in the same PR — raise it and add `rationale` (≥80 chars). `git blame` is the defense; no override label. Bumping `radon` (pinned `==6.0.1`) requires re-measuring all monitored ceilings + updating `SLOC_CANARY_EXPECTED` in `tests/fixtures/sloc_canary.py`.
 
 References: `docs/plans/2026-05-18-006-feat-monolith-sloc-ceiling-plan.md`, `docs/brainstorms/2026-05-18-monolith-loc-ceiling-requirements.md`.
 
@@ -416,7 +424,7 @@ register(
 If the platform name appears in `publishing.registry._REJECTED_PLATFORMS` (the negative-knowledge map seeded from PR #108→#109's `devto` / `mastodon` / `wordpresscom` reverts), `register()` raises `RegistryError` at import time. Un-rejection path: delete the entry from `_REJECTED_PLATFORMS` in the same PR as the new `register()` call — the deletion diff makes the un-rejection visible to reviewers; no `accept_rejection_override` kwarg exists.
 
 Do NOT edit:
-- `cli/publish_backlinks.py` (reads `registered_platforms()` dynamically)
+- `cli/publish_backlinks/__init__.py` (reads `registered_platforms()` dynamically)
 - `cli/plan_backlinks.py` `--default-platform` choices
 - `cli/validate_backlinks.py` unsupported-platform rejection
 - `schema.py` `supported_platforms()` or `reject_unsupported_platform()`
