@@ -53,8 +53,9 @@ from ._html_utils import read_html_head_window, extract_title
 # monolith-budget headroom (2026-06-01). ``_STATS`` is imported by reference
 # and mutated in place here; ``reset_stats`` / ``stats_snapshot`` are
 # re-exported so ``content.fetch.<name>`` stays the stable public surface.
-from ._stats import _STATS, _record_reason, reset_stats, stats_snapshot
+from ._stats import _STATS, _record_reason, reset_stats, stats_snapshot  # noqa: F401
 from ._fetch_helpers import _cache_key, _is_transient, _is_valid_http_url
+from ._disk_cache import disk_cache_get, disk_cache_set, disk_cache_clear  # noqa: F401
 
 #: Wall-clock budget per single GET attempt. Roughly matches ``linkcheck``'s
 #: REQUEST_TIMEOUT so a row's combined plan-time HTTP doesn't drift wildly.
@@ -148,10 +149,12 @@ except (ValueError, TypeError):
 _DEFAULT_MAX_AGE_S: Optional[float] = None
 
 def reset_cache() -> None:
-    """Clear the in-run cache. Tests call this between scenarios; production
-    code should not need it (process restart clears the cache naturally).
-    """
+    """Clear the in-run cache and disk cache. Tests call this between scenarios."""
     _CACHE.clear()
+    try:
+        disk_cache_clear()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def set_default_max_age(seconds: Optional[float]) -> None:
@@ -317,6 +320,17 @@ def verify_url_has_content(
         _record_reason("invalid_url", ok=False)
         return result
 
+    # L2: disk cache (cross-process persistence, TTL 1h default).
+    # Bypassed when explicit TTL is set — in-memory cache is authoritative then.
+    if effective_ttl is None:
+        _disk_hit = disk_cache_get(url)
+        if _disk_hit is not None:
+            _STATS["cache_hits"] += 1
+            with _CACHE_LOCK:
+                _CACHE[canonical_url] = (_disk_hit, time.monotonic())
+                _evict_lru()
+            return _disk_hit
+
     started = time.monotonic()
     last_result: CheckResult = (False, "network_error", None)
     for attempt in range(MAX_RETRIES + 1):
@@ -339,6 +353,9 @@ def verify_url_has_content(
     with _CACHE_LOCK:
         _CACHE[canonical_url] = (last_result, time.monotonic())
         _evict_lru()
+    # Persist successful fetches to disk for cross-process reuse.
+    if last_result[0] and effective_ttl is None:
+        disk_cache_set(url, last_result)
     return last_result
 
 
