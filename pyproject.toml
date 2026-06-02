@@ -33,6 +33,7 @@ dev-webwright = ["webwright==0.0.7"]
 
 [project.scripts]
 plan-backlinks = "backlink_publisher.cli.plan_backlinks:main"
+spray-backlinks = "backlink_publisher.cli.spray_backlinks:main"
 footprint = "backlink_publisher.cli.footprint:main"
 validate-backlinks = "backlink_publisher.cli.validate_backlinks:main"
 phase0-seal = "backlink_publisher.cli.phase0_seal:main"

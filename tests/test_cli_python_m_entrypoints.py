@@ -50,6 +50,7 @@ _CLI_ONLY_MODULES = {
     "generate-backlink-text": "backlink_publisher.cli.generate_backlink_text",
     "plan-gap": "backlink_publisher.cli.plan_gap",
     "recheck-backlinks": "backlink_publisher.cli.recheck_backlinks",
+    "spray-backlinks": "backlink_publisher.cli.spray_backlinks",
 }
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
