@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: py-compile
+        name: py_compile
+        entry: python -m py_compile
+        language: system
+        files: \.py$
+        exclude: ^(docs/|scripts/quickstart)
+      - id: test-fast
+        name: fast tests (pre-push only)
+        entry: python -m pytest tests/ -x -q --timeout=10 -k "not real_"
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
