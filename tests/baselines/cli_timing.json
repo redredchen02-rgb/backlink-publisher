@@ -18,8 +18,8 @@
       "samples": 5
     },
     "backlink_publisher._util.io": {
-      "median_ms": 2.05,
-      "p95_ms": 2.34,
+      "median_ms": 8.0,
+      "p95_ms": 10.0,
       "samples": 5
     },
     "backlink_publisher.config": {
