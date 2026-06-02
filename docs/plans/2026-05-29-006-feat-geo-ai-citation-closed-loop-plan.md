@@ -1,9 +1,8 @@
 ---
 title: "feat: GEO/AI-citation closed loop (probe + citability shaping)"
 type: feat
-status: shipped
-shipped: 4637a02
-decision: "2026-06-02 SHIP. U1–U9 all complete. Trigger met: live_dofollow=37 for 51acgs.com. probe-citations CLI live; citability levers in long-form; GEO dashboard panel on /health."
+status: parked
+decision: "2026-06-01 PARK (convergence audit 2026-06-01-009). U1–U4 shipped (#331); U5–U8 deferred — exploratory, with an internal credit-gate → probe-citations CLI dependency. Trigger to resume: backlink/AI-citation corpus volume becomes non-trivial (attribution has no signal at current owned-target volume). Resumes here, not a re-brainstorm."
 date: 2026-05-29
 origin: docs/brainstorms/2026-05-29-geo-ai-citation-closed-loop-requirements.md
 deepened: 2026-05-29
