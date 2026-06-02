@@ -31,6 +31,7 @@ from backlink_publisher.config import load_config
 from backlink_publisher.publishing.registry import registered_platforms
 from backlink_publisher.schema import validate_input_payload
 
+from ._draft import _default_rewrite_fn, draft_row
 from ._engine import expand_seed, gate_candidates, validate_platform_selection
 
 _LOG_LEVELS = {"DEBUG", "INFO", "WARN", "ERROR"}
@@ -82,6 +83,12 @@ def _build_parser() -> Any:
             "gate warning (the override reason is recorded). The hard cap and "
             "cell gate are NOT overridable."
         ),
+    )
+    parser.add_argument(
+        "--no-fetch-verify",
+        action="store_true",
+        default=False,
+        help="Skip the plan-time URL content gate (dev/replay/offline targets)",
     )
     parser.add_argument(
         "--log-level",
@@ -164,9 +171,19 @@ def main(argv: list[str] | None = None) -> None:
                 "spray-backlinks: all platforms gated out — nothing to draft",
             )
 
-        # Unit 2 scaffold: emit the surviving per-platform seed clones. LLM draft
-        # (Unit 3), audit (Unit 4), and burst dispatch (Unit 5) replace this.
-        write_jsonl(c.seed for c in surviving)
+        # Unit 3: per-shot LLM rewrite. _default_rewrite_fn raises (exit 3) when
+        # no LLM is configured — the R4a hard abort, no identical-content fallback.
+        rewrite_fn = _default_rewrite_fn(cfg)
+        for shot_idx, cand in enumerate(surviving):
+            cand.row = draft_row(
+                cand.seed, cand.platform, shot_idx, cfg,
+                rewrite_fn=rewrite_fn,
+                fetch_verify_enabled=not args.no_fetch_verify,
+            )
+
+        # Unit 3 scaffold: emit the drafted publish-ready rows. The diversity
+        # audit + --dry-run preview (Unit 4) and burst dispatch (Unit 5) layer on.
+        write_jsonl(c.row for c in surviving)
     except PipelineError as exc:
         handle_error(exc)
 

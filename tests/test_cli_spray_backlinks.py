@@ -13,7 +13,17 @@ import pytest
 
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from backlink_publisher.cli import spray_backlinks
+from backlink_publisher.cli.spray_backlinks import core as spray_core
 from backlink_publisher.publishing.registry import registered_platforms
+
+
+def _fake_rewrite(platform, shot_idx, domain_label, main_domain, anchors, topic, language):
+    return f"# {platform} variant {shot_idx}\n\nDistinct prose for {platform}."
+
+
+def _mock_llm(monkeypatch):
+    """Patch the CLI's rewrite-fn factory so no network/LLM is needed."""
+    monkeypatch.setattr(spray_core, "_default_rewrite_fn", lambda cfg: _fake_rewrite)
 
 
 def _seed(platform: str) -> dict:
@@ -39,17 +49,22 @@ def _two_registered() -> list[str]:
     return plats[:2]
 
 
-def test_fans_one_seed_to_selected_platforms(tmp_path, capsys):
+def test_fans_one_seed_to_selected_platforms(tmp_path, capsys, monkeypatch):
+    _mock_llm(monkeypatch)
     p0, p1 = _two_registered()
     seed_path = _write_seed(tmp_path, _seed(p0))
 
-    spray_backlinks.main(["--input", seed_path, "--platforms", f"{p0},{p1}"])
+    spray_backlinks.main(
+        ["--input", seed_path, "--platforms", f"{p0},{p1}", "--no-fetch-verify"]
+    )
 
     rows = [json.loads(l) for l in capsys.readouterr().out.splitlines() if l.strip()]
     assert len(rows) == 2
     assert [r["platform"] for r in rows] == [p0, p1]
-    # Seed is cloned per platform; non-platform fields are preserved.
-    assert all(r["target_url"] == "https://example.com/post" for r in rows)
+    # Drafted publish-ready rows carry distinct LLM bodies + the canonical links.
+    assert all("content_markdown" in r for r in rows)
+    assert rows[0]["content_markdown"] != rows[1]["content_markdown"]
+    assert rows[0]["id"] != rows[1]["id"]
 
 
 def test_unknown_platform_is_usage_error_exit_1(tmp_path):
@@ -68,12 +83,26 @@ def test_empty_platform_selection_is_usage_error_exit_1(tmp_path):
     assert exc.value.code == 1
 
 
-def test_duplicate_platforms_deduped(tmp_path, capsys):
+def test_duplicate_platforms_deduped(tmp_path, capsys, monkeypatch):
+    _mock_llm(monkeypatch)
     p0, _ = _two_registered()
     seed_path = _write_seed(tmp_path, _seed(p0))
-    spray_backlinks.main(["--input", seed_path, "--platforms", f"{p0},{p0}"])
+    spray_backlinks.main(
+        ["--input", seed_path, "--platforms", f"{p0},{p0}", "--no-fetch-verify"]
+    )
     rows = [json.loads(l) for l in capsys.readouterr().out.splitlines() if l.strip()]
     assert len(rows) == 1
+
+
+def test_no_llm_configured_cli_aborts_exit_3(tmp_path):
+    # No LLM in the sandbox → R4a hard abort at the draft step (exit 3).
+    p0, _ = _two_registered()
+    seed_path = _write_seed(tmp_path, _seed(p0))
+    with pytest.raises(SystemExit) as exc:
+        spray_backlinks.main(
+            ["--input", seed_path, "--platforms", p0, "--no-fetch-verify"]
+        )
+    assert exc.value.code == 3
 
 
 def test_multiple_seeds_rejected_single_seed_scope(tmp_path):
