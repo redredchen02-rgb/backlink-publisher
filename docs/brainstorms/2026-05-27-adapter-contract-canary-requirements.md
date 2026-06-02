@@ -114,3 +114,8 @@ flowchart TB
 
 ## Next Steps
 → `/ce:plan`(plan 首步 = 刪除能力 research spike,再定 L3 vs evergreen 分布)。
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-27-001-feat-adapter-contract-canary-plan.md` (status: active).

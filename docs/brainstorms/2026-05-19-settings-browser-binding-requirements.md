@@ -138,3 +138,8 @@ backlink-publisher 当前的渠道绑定路径割裂：
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-19-001-feat-settings-browser-binding-plan.md` (status: completed).

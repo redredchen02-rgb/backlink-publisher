@@ -244,3 +244,8 @@ the anti-P0 mechanism.
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-06-01-008-feat-events-db-measurement-probe-and-tripwire-register-plan.md` (status: completed).

@@ -109,3 +109,8 @@ topic: worktree-branch-pr-cleanup
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning（11 个 R 跨多个 PR，需要 plan 拆 unit + 排冲突依赖 + 写 verification commands）
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-18-005-refactor-open-pr-landing-cleanup-plan.md` (status: completed); `docs/plans/2026-05-20-005-refactor-worktree-branch-cleanup-plan.md` (status: completed); `docs/plans/2026-05-20-008-refactor-worktree-branch-cleanup-r2-plan.md` (status: completed).

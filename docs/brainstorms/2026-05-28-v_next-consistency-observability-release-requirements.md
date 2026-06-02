@@ -107,3 +107,8 @@ dedup failed→done ratchet 都已 ship。
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning（saga 通道可直接 plan 复审；readtime U5 按 plan §U5 执行）
+
+
+## Outcome (2026-06-01)
+
+Shipped across multiple plans: consistency via dedup-failed-to-done (2026-05-28-003, completed), observability via recheck-deficit-overlay (2026-06-01-006, completed) + gate-first (2026-06-01-005, completed). Release tooling: version-sync + PR conventions in place.

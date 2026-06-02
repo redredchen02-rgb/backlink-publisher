@@ -58,3 +58,8 @@ Pro 功能需要折疊收納，讓非 Pro 用戶的 settings 頁保持簡潔。
 ## Next Steps
 
 → `/ce:work` 直接實作（template-only 修改，範圍清晰）
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-06-01-002-feat-pro-mode-copilot-v1-plan.md` (status: completed, all U1-U7 shipped). AI-gen advisory panel live in WebUI copilot.

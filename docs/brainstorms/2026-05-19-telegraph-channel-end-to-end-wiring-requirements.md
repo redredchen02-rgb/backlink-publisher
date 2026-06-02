@@ -169,3 +169,8 @@ Recommended planning split (2 units, Group 3 已砍):
 依赖关系：U1 和 U2 **可并行**。U2 的反向驱动测试用 velog 作 canary（velog 已在 registry，不依赖 U1）；这也意味着 U2 会**顺带救回 velog 在 WebUI 的可见性**。
 
 Phase 0 ship-seal 三个 routines (T+7/14/21, deadlines 5/25, 6/01, 6/08) 与本期 2 units 完全解耦，可并行进行。
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-19-002-feat-telegraph-channel-end-to-end-wiring-plan.md` (status: completed).

@@ -152,3 +152,8 @@ worse than none** — it gives parallel AI agents false safety. Every guard here
 ## Next Steps
 → `/ce:plan` — plan the audit spike first (R1–R3), with the artifact-shape decision (R4) as
 an explicit gate that consumes the audit's N before any register or guard work is committed.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-27-007-feat-recurring-trap-eradication-plan.md` (status: completed).

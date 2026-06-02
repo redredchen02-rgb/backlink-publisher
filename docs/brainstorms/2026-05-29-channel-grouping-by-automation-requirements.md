@@ -86,3 +86,8 @@ WebUI 渠道页目前把 16 个活跃渠道平铺成一长串卡片,没有任何
 
 ## Next Steps
 → /ce:plan 进行结构化实现规划(无阻塞性待决问题)
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-29-003-feat-channel-tier-grouping-overview-plan.md` (status: completed).

@@ -262,3 +262,8 @@ The detection-visibility scope (R1–R6b + opt-in R9 gate) is **plan-ready** —
 proven real, R3c/split decisions made. The ledger bridge (R7/R8) is sequenced behind the
 real-corpus probe. `→ /ce:plan` for the detection-first scope; run the probe before committing
 the equity-loop unit.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-06-01-002-feat-source-indexability-detection-plan.md` (status: completed); `docs/plans/2026-06-01-005-feat-gate-first-validation-and-deficit-overlay-plan.md` (status: active).

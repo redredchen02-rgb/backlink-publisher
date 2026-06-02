@@ -122,3 +122,8 @@ topic: canonical-contract-and-platform-expansion
 1. **PR-A**: canonical 跨 adapter 契約（R1-R4）— 影響所有現有 adapter，先 ship 立基。
 2. **PR-B**: Notion + Dev.to + Hashnode paywall（R5-R9）— 3 個垂直整合 + Hashnode 護欄。
 3. **PR-C**: IndexNow + GSC sitemap ping（R10-R13）— 跨頻道推送層。
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-21-003-feat-canonical-contract-and-platform-expansion-plan.md` (status: completed).

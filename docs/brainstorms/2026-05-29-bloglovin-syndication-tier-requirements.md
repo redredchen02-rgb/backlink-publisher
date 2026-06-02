@@ -246,3 +246,8 @@ These are blockers, not refinements — each can independently kill the feature.
 operator decision on overturning the NO-GO and a hands-on probe confirming bots
 get 200 (not 403) and claim→auto-pull still works. If those clear, resume
 `/ce:brainstorm`; only then `/ce:plan`.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-26-007-refactor-remove-four-channels-plan.md` (status: completed); `docs/plans/2026-05-29-001-feat-livejournal-canary-closeout-plan.md` (status: active).

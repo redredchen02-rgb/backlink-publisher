@@ -99,3 +99,8 @@ PR #108 → PR #109 (2026-05-20 03:29 → 03:38 UTC, 9-minute revert) made this 
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-20-009-feat-adapter-dofollow-gate-plan.md` (status: completed).

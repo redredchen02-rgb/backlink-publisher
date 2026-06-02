@@ -124,3 +124,8 @@ publish-backlinks (现有调度) ─┬─→ adapters/blogger_api.py           
 ## Next Steps
 
 → Phase 0 索引实验(运营手工执行 14 天)→ 达标后 `/ce:plan` 进入 Phase 1 适配器实现规划
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-15-004-feat-telegraph-adapter-plan.md` (status: completed).

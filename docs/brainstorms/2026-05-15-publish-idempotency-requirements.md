@@ -147,3 +147,8 @@ _(none — Blogger `Posts.list + fetchBodies` and HTML-comment preservation are 
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning.
+
+
+## Outcome (2026-06-01)
+
+Shipped as part of `docs/plans/2026-05-13-003-feat-checkpoint-resume-plan.md` (status: completed). Idempotency enforced via checkpoint + dedup-failed-to-done invariant (plan 2026-05-28-003).

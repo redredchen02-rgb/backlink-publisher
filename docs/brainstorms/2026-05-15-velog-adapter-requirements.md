@@ -136,3 +136,8 @@ publish-backlinks (现有调度) ─┬─→ adapters/blogger_api.py           
 ## Next Steps
 
 → Phase 0 spike(运营 + 工程联合执行,~1 人日 + 14 天等待)→ 达标后 `/ce:plan` 进入 Phase 1 适配器实现规划
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-18-012-feat-velog-adapter-plan.md` (status: completed).

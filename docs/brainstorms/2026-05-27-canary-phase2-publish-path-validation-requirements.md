@@ -89,3 +89,8 @@ Affected: the operator running `publish-backlinks`. No end-user impact.
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-27-006-feat-canary-publish-path-validation-plan.md` (status: active).

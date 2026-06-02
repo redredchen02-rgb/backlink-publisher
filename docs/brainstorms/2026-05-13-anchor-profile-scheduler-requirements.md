@@ -197,3 +197,8 @@ revised: 2026-05-13
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning（重写原 plan，作用域显著扩大：现 unit 集 = 短文 generator 重写 + scheduler + resolver + profile store + validator + report 增强）
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-13-005-feat-zh-short-article-scheduler-plan.md` (status: completed). Anchor profile reporting shipped as the `report-anchors` CLI verb.

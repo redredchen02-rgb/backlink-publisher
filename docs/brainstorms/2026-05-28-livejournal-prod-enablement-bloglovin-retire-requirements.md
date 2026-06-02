@@ -175,3 +175,8 @@ wiring" 在本仓语义下是个伪问题——已隐含解决。
 
 → `/ce:plan` for structured implementation planning（operator 已授权 defer
 两个 user-decision 到 plan 阶段）。
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-29-001-feat-livejournal-canary-closeout-plan.md` (status: active).

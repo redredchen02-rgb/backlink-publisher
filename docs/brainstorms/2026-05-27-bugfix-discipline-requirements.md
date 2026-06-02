@@ -143,3 +143,8 @@ PR-checklist line is the single, deliberate forcing function.
 ## Next Steps
 → /ce:plan for structured implementation planning (small — one AGENTS.md addendum
   + one PR-checklist line).
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-27-002-feat-bugfix-discipline-agents-plan.md` (status: completed).

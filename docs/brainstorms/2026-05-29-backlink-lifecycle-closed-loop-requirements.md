@@ -198,3 +198,8 @@ flowchart TB
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-06-01-005-feat-gate-first-validation-and-deficit-overlay-plan.md` (status: active); `docs/plans/2026-06-01-006-feat-recheck-deficit-overlay-replan-plan.md` (status: active).

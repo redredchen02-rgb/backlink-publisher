@@ -285,3 +285,8 @@ The following gaps are documented in the contracts above. They are recorded here
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Partially covered by schema-validation + adapter contract canary (plan 2026-05-27-001 completed) + test-global-state-isolation (plan 2026-05-27-003 completed). Full saga contract DSL not pursued — covered by existing exit-code table + schema.validate_publish_payload.

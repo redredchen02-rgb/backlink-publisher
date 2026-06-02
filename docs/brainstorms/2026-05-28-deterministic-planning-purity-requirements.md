@@ -96,3 +96,8 @@ The pipeline's output contract (stdout = clean JSONL, stderr = diagnostics, exit
 - The document is advisory — it codifies the principle for future reference, not as an enforceable CI gate
 - Readers are familiar with the pipeline at the command level (documented in AGENTS.md)
 - All codebase references (validate/engine.py, plan_backlinks/_engine.py, ledger.aggregate.build_ledger) exist at their canonical paths at time of writing
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-28-002-feat-deterministic-planning-purity-plan.md` (status: active).

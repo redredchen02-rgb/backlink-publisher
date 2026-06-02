@@ -144,3 +144,8 @@ Each requirement is tagged **[P0]** (load-bearing for the outcome), **[P1]** (vi
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-18-002-refactor-phase0-unblock-actions-plan.md` (status: completed); `docs/plans/2026-05-18-003-fix-pytest-bug-sweep-plan.md` (status: completed).

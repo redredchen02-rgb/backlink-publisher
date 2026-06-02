@@ -149,3 +149,8 @@ Per selected candidate — probe verdict already known:
 
 ## Next Steps
 → `/ce:plan` for the canary close-out (R14/R15 for the two already-built channels) plus the record-keeping requirements (R2 bloglovin NO-GO, R3 jkforum HOLD, R5 justpaste.it/teletype.in CONDITIONAL-deferred, R4 audit location, 6→5 roster note). No new adapter is built this round.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-06-01-007-feat-wave1-dofollow-channels-plan.md` (status: active).

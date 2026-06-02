@@ -86,3 +86,8 @@ This is a **diagnostic scorecard**: it reflects the current state per target pag
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning (all blocking questions resolved).
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-25-004-feat-backlink-equity-ledger-plan.md` (status: completed).

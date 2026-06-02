@@ -113,3 +113,8 @@ All six "Resolve Before Planning" questions raised by document-review were close
 ## Next Steps
 
 All blocking questions resolved during brainstorm review. → `/ce:plan` for structured implementation planning.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-14-001-feat-mandatory-linkcheck-lang-gate-plan.md` (status: completed).

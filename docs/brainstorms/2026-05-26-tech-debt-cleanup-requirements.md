@@ -38,3 +38,8 @@ Two decompositions remain uncommitted in the dirty main worktree, plus one open 
 
 ## Next Steps
 → `/ce:work` — execute R1–R6 sequentially
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-18-002-refactor-phase0-unblock-actions-plan.md` (status: completed); `docs/plans/2026-05-18-003-fix-pytest-bug-sweep-plan.md` (status: completed); `docs/plans/2026-05-18-005-refactor-open-pr-landing-cleanup-plan.md` (status: completed).

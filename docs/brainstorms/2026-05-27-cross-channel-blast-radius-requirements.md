@@ -225,3 +225,8 @@ diagram and text disagree.
 → `/ce:plan` for structured implementation planning. **Start with Phase 1: R9
 channel cull + R7-minimal cell split** (the immediate exposure cut). The scorer
 (R1–R6) is planned as Phase 2 validation once the cells exist.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-27-003-feat-blast-radius-phase1-plan.md` (status: active).

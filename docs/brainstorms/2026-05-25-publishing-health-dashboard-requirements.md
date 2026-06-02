@@ -202,3 +202,8 @@ quietly wrong, so a dashboard built on it would lie."
 → `/ce:plan` for structured implementation planning. Blocking product decisions are
 resolved; the plan should sequence the projection correctness fix (R1–R4) as a
 verified-against-real-data prerequisite before building the views (R6–R9).
+
+
+## Outcome (2026-06-01)
+
+Partially shipped → WebUI `webui_app/` health projection & copilot advisor (plans `2026-06-01-001` thin-webui + `2026-06-01-002` pro-mode copilot, both completed). Full standalone dashboard deferred; covered by copilot panel MVP.

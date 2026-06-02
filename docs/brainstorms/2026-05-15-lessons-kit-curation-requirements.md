@@ -106,3 +106,8 @@ Goal: turn the highest-leverage private memories into a queryable institutional 
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning (light plan; mostly file moves + 6 markdown writes + 1 AGENTS.md note)
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-15-001-refactor-lessons-kit-curation-plan.md` (status: completed).

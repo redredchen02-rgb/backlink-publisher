@@ -169,3 +169,8 @@ First start-up after migration ships:
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-28-007-refactor-history-store-events-db-migration-plan.md` (status: active).

@@ -145,3 +145,8 @@ by a later `publish.verified`. Both P0s are dissolved by construction.
 → `/ce:plan` for structured implementation planning. No blocking questions remain (approach + mechanism
 resolved; the remaining items are implementation seams for planning). The plan should also record
 R6-proper (ledger writeback via plan-007) as the follow-up that retires this overlay.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-06-01-006-feat-recheck-deficit-overlay-replan-plan.md` (status: active).

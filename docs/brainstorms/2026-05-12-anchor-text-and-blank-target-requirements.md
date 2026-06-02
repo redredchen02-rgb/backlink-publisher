@@ -70,3 +70,8 @@ topic: anchor-text-and-blank-target
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-12-007-feat-anchor-text-seo-and-blank-target-plan.md` (status: completed); `docs/plans/2026-05-13-001-feat-anchor-text-followups-plan.md` (status: completed).

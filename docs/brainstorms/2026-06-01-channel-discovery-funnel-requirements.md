@@ -164,3 +164,8 @@ OUTPUT -> docs/discovery/<date>-run.md   (READ-ONLY, human gate; sanitized, see 
 
 ## Next Steps
 All blocking questions resolved (primary signal, convert scope, ranking proxy decided; spike done; store-form is a planning-mechanical). → `/ce:plan` for structured implementation planning.
+
+
+## Outcome (2026-06-01)
+
+Deferred — gate G4 BLOCKED (GEO/AI-citation tooling unavailable) and G3 KILLED (referral attribution structurally blind). Channel discovery funnel has no measurable signal at current corpus size. Park; resume trigger = AI-citation corpus non-trivial.

@@ -229,3 +229,8 @@ crawl/score candidates → generate-backlink-text → review → publish → ver
 → `/ce:plan` for structured implementation planning. All blocking product
 decisions are resolved (see Key Decisions). Two optional scope simplifications
 remain at the operator's discretion (JSONL-only input; trimming the flag set).
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-27-006-feat-generate-backlink-text-plan.md` (status: active).

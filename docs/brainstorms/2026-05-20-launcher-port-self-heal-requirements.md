@@ -58,3 +58,8 @@ Operator 雙擊 `启动WebUI.command` 啟動 WebUI。當前腳本（workspace-ro
 ## Next Steps
 
 → `/ce:plan` for structured implementation planning（單檔 bash 重構，但有 4 個 function 抽取 + restart loop + 速率限制 + 多分支告知文案，值得先 plan 一輪定 function 邊界與測試手法）
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-20-014-feat-launcher-port-self-heal-plan.md` (status: completed).

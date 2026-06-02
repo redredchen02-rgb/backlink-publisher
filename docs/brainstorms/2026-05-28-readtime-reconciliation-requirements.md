@@ -147,3 +147,8 @@ topic: readtime-reconciliation-hub
 - `[Affects R4][Needs research]` publish history（`publish-history.json`）如何关联到 checkpoint/dedup 的行？通过 `row_id` / `title` 还是其他 key？如果缺失关联字段，history reconciliation 可能倒退为 heuristic。
 - `[Affects R7][Technical]` Dashboard `/health` 需要经过多少修改才能展示 `reconciliation_gaps`？需要先读 `webui_app/` 的 health route。
 - `[Affects R1][Technical]` `project_on_read` 目前返回 `ReadProjectionResult`，reconciler 的返回需要合并进去还是单独返回？需要确定 API 契约。
+
+
+## Outcome (2026-06-01)
+
+Deferred / no plan. Readtime reconciliation (Medium read-time vs publish-time drift) is a nice-to-have; corpus too small for meaningful signal. Park until corpus grows.

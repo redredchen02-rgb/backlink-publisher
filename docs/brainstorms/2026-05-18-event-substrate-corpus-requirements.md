@@ -221,3 +221,8 @@ projector 的转换规则约定（实现细节进 plan）：
 ## Next Steps
 
 → `/ce:plan docs/brainstorms/2026-05-18-event-substrate-corpus-requirements.md` 进入实施规划。规划阶段需先确认 architecture-health-refactor 的 R1–R4 落地节点，再切片本 brainstorm 的 R1–R22。
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-18-004-feat-event-substrate-corpus-plan.md` (status: completed).

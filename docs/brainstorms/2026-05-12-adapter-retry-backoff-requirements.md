@@ -80,3 +80,8 @@ This requirement reduces the frequency of such exits by automatically retrying t
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-12-002-feat-adapter-retry-exponential-backoff-plan.md` (status: completed).

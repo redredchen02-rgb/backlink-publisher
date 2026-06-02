@@ -98,3 +98,8 @@ The auditor is a **new, separate** verb — it is **not** `reconcile.py` (which 
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning (v1 scope: R1, R3, R5-v1, R6–R12; R2/R4 deferred until #235/#237 merge).
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-26-006-feat-dual-state-divergence-auditor-plan.md` (status: unknown).

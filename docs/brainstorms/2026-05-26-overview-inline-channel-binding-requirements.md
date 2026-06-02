@@ -105,3 +105,8 @@ topic: overview-inline-channel-binding
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-20-007-feat-real-chrome-channel-binding-plan.md` (status: completed); `docs/plans/2026-05-29-003-feat-channel-tier-grouping-overview-plan.md` (status: completed).

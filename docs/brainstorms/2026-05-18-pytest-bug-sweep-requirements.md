@@ -62,3 +62,8 @@ backlink-publisher 仓库当前在 `main`，过去几周合并了多个 feature 
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning（推荐，因为有 53 个测试文件、3 个 deferred 技术问题需要在 plan 阶段先用 collect-only 摸清规模）
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-18-003-fix-pytest-bug-sweep-plan.md` (status: completed).

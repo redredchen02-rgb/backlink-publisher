@@ -85,3 +85,8 @@ to plan `2026-05-26-007-refactor-remove-four-channels`.
 
 ## Next Steps
 → `/ce:plan` (done: docs/plans/2026-05-27-001-refactor-remove-jianshu-channel-plan.md)
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-26-007-refactor-remove-four-channels-plan.md` (status: completed); `docs/plans/2026-05-27-001-refactor-remove-jianshu-channel-plan.md` (status: completed).

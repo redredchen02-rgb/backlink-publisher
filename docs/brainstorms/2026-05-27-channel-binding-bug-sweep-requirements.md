@@ -89,3 +89,8 @@ topic: channel-binding-bug-sweep
 
 ## Next Steps
 → `/ce:plan`(本轮已在进行)
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-20-007-feat-real-chrome-channel-binding-plan.md` (status: completed).

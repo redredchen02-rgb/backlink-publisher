@@ -267,3 +267,8 @@ defines the schema-first typed-error contract over the existing subprocess
 consolidation and migrates one read-only entrypoint — `validate-backlinks`, the
 purest — in-process end-to-end to prove the pattern before `plan`/`report-anchors`.
 `publish` and login CLIs stay subprocess.
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-27-004-refactor-thin-webui-in-process-pipeline-plan.md` (status: active).

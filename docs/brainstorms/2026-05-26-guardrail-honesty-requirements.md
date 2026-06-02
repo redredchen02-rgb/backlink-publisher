@@ -151,3 +151,8 @@ gate (the 85% floor). Then prevent regrowth.
 
 ## Next Steps
 → `/ce:plan` for structured implementation planning
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-28-003-fix-dedup-failed-to-done-invariant-plan.md` (status: active); `docs/plans/2026-05-27-003-feat-blast-radius-phase1-plan.md` (status: active).

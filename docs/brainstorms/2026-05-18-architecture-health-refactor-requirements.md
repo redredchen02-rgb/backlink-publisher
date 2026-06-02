@@ -149,3 +149,8 @@ flowchart TB
 ## Next Steps
 
 → `/ce:plan docs/brainstorms/2026-05-18-architecture-health-refactor-requirements.md` 进入实施规划，从 R1–R4 (P0 WebUI 拆解) 开始切片。
+
+
+## Outcome (2026-06-01)
+
+Shipped → `docs/plans/2026-05-18-001-refactor-architecture-health-roadmap-plan.md` (status: completed).
