@@ -22,7 +22,7 @@ Behaviour preserved verbatim:
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any
 
 from backlink_publisher.config import Config
 from ..registry import dispatch, register
@@ -49,7 +49,6 @@ from .._manifests import (
     WORDPRESSCOM_MANIFEST,
     WRITEAS_MANIFEST,
 )
-from .._verify import VerifyResult
 from .base import AdapterResult
 from .blogger_api import BloggerAPIAdapter
 from .ghpages import GitHubPagesAPIAdapter
