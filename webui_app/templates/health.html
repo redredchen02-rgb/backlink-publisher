@@ -401,6 +401,45 @@
     {% endif %}
   </div>
 
+  {# ── Pipeline health card (E3) ───────────────────────────────────────────── #}
+  {% set ps = pipeline_summary | default({}) %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold">Pipeline health</div>
+    {% if ps %}
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>Window</th><th class="text-end">Published</th><th class="text-end">Failed</th></tr></thead>
+      <tbody>
+        <tr><td>Last 24 h</td><td class="text-end">{{ ps.w24h.ok | default(0) }}</td><td class="text-end text-danger">{{ ps.w24h.fail | default(0) }}</td></tr>
+        <tr><td>Last 7 d</td><td class="text-end">{{ ps.w7d.ok | default(0) }}</td><td class="text-end text-danger">{{ ps.w7d.fail | default(0) }}</td></tr>
+        <tr><td>Last 30 d</td><td class="text-end">{{ ps.w30d.ok | default(0) }}</td><td class="text-end text-danger">{{ ps.w30d.fail | default(0) }}</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="card-footer bg-white text-muted small py-2">
+      Last recheck: {{ ps.last_recheck or "never" }}
+    </div>
+    {% else %}
+    <div class="card-body text-muted text-center py-4">No events.db data available.</div>
+    {% endif %}
+  </div>
+
+  {# ── Storage health card (E3) ─────────────────────────────────────────────── #}
+  {% set sh = storage_health | default({}) %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold">Storage health</div>
+    {% if sh %}
+    <ul class="list-group list-group-flush">
+      <li class="list-group-item d-flex justify-content-between"><span>events.db</span><span class="badge text-bg-secondary">{{ sh.events_db_mb | default(0) }} MB</span></li>
+      <li class="list-group-item d-flex justify-content-between"><span>dedup.db</span><span class="badge text-bg-secondary">{{ sh.dedup_db_mb | default(0) }} MB</span></li>
+      <li class="list-group-item d-flex justify-content-between"><span>Config dir total</span><span class="badge text-bg-secondary">{{ sh.config_dir_mb | default(0) }} MB</span></li>
+    </ul>
+    {% else %}
+    <div class="card-body text-muted text-center py-4">Storage data unavailable.</div>
+    {% endif %}
+  </div>
+
+
 </main>
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}

@@ -91,6 +91,86 @@ def _decay_counts():
         return {}
 
 
+
+def _pipeline_summary():
+    """Publish counts for 24h/7d/30d windows + last recheck timestamp. Fail-open."""
+    try:
+        import sqlite3
+        from datetime import datetime, timedelta, timezone
+        from backlink_publisher.config.loader import _config_dir
+
+        db_path = _config_dir() / "events.db"
+        if not db_path.exists():
+            return {}
+
+        now_utc = datetime.now(timezone.utc)
+        windows = {
+            "w24h": (now_utc - timedelta(hours=24)).isoformat(),
+            "w7d": (now_utc - timedelta(days=7)).isoformat(),
+            "w30d": (now_utc - timedelta(days=30)).isoformat(),
+        }
+        con = sqlite3.connect(str(db_path), timeout=2)
+        cur = con.cursor()
+        result: dict = {}
+        for wname, since_iso in windows.items():
+            cur.execute(
+                "SELECT COUNT(*) FROM events WHERE kind=\'publish.confirmed\' AND ts_utc >= ?",
+                (since_iso,),
+            )
+            ok_count = (cur.fetchone() or (0,))[0]
+            cur.execute(
+                "SELECT COUNT(*) FROM events WHERE kind=\'publish.failed\' AND ts_utc >= ?",
+                (since_iso,),
+            )
+            fail_count = (cur.fetchone() or (0,))[0]
+            result[wname] = {"ok": ok_count, "fail": fail_count}
+        cur.execute("SELECT MAX(ts_utc) FROM events WHERE kind=\'link.rechecked\'")
+        row = cur.fetchone()
+        result["last_recheck"] = row[0] if row and row[0] else None
+        con.close()
+        return result
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("health: pipeline summary failed: %s", exc)
+        return {}
+
+
+def _storage_health():
+    """Disk usage of events.db, dedup.db, and the config directory. Fail-open."""
+    try:
+        import os
+        from backlink_publisher.config.loader import _config_dir
+
+        cfg = _config_dir()
+
+        def _mb(p) -> float:
+            try:
+                return round(os.path.getsize(p) / 1_048_576, 2)
+            except OSError:
+                return 0.0
+
+        def _dir_mb(d) -> float:
+            try:
+                total = 0
+                for root, _, files in os.walk(d):
+                    for fname in files:
+                        try:
+                            total += os.path.getsize(os.path.join(root, fname))
+                        except OSError:
+                            pass
+                return round(total / 1_048_576, 2)
+            except OSError:
+                return 0.0
+
+        return {
+            "events_db_mb": _mb(cfg / "events.db"),
+            "dedup_db_mb": _mb(cfg / "dedup.db"),
+            "config_dir_mb": _dir_mb(cfg),
+        }
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("health: storage health failed: %s", exc)
+        return {}
+
+
 @bp.route("/ce:health", methods=["GET"])
 def ce_health():
     def _build():
@@ -204,6 +284,8 @@ def ce_health():
         recheck_decay = _g_cache("recheck_decay", _decay_counts)
         channel_scorecard = _g_cache("channel_scorecard", _scorecard_rows)
         geo_panel = _g_cache("geo_panel", _geo_panel)
+        pipeline_summary = _g_cache("pipeline_summary", _pipeline_summary)
+        storage_health = _g_cache("storage_health", _storage_health)
         return _render(
             "health.html",
             health=health,
@@ -214,6 +296,8 @@ def ce_health():
             recheck_decay=recheck_decay,
             channel_scorecard=channel_scorecard,
             geo_panel=geo_panel,
+            pipeline_summary=pipeline_summary,
+            storage_health=storage_health,
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500
         _log.error("health: dashboard render failed, serving minimal fallback: %s", exc)
