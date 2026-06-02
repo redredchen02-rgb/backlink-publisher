@@ -19,7 +19,7 @@ dependencies = [
     "flask>=3.1,<4",
     "apscheduler>=3.11,<4",
     "pyyaml>=6.0.3",
-    "tomli>=2.0; python_version<'3.11'",
+    "google-analytics-data>=0.18",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +49,7 @@ preflight-targets = "backlink_publisher.cli.preflight_targets:main"
 cull-channels = "backlink_publisher.cli.cull_channels:main"
 channel-scorecard = "backlink_publisher.cli.channel_scorecard:main"
 canary-targets = "backlink_publisher.cli.canary_targets:main"
+canary-seed = "backlink_publisher.cli.canary_seed:main"
 comment = "backlink_publisher.cli.comment:main"
 generate-backlink-text = "backlink_publisher.cli.generate_backlink_text:main"
 plan-gap = "backlink_publisher.cli.plan_gap:main"
@@ -57,6 +58,7 @@ gate-probe = "backlink_publisher.cli.gate_probe:main"
 recheck-overlay = "backlink_publisher.cli.recheck_overlay:main"
 canonical-expand = "backlink_publisher.cli.canonical_expand:main"
 pr-opportunities = "backlink_publisher.cli.pr_opportunities:main"
+click-track = "backlink_publisher.cli.click_track:main"
 probe-citations = "backlink_publisher.cli.probe_citations:main"
 
 [tool.setuptools.packages.find]
@@ -84,3 +86,10 @@ markers = [
     "real_image_gen: exercise the real FRW image-gen endpoint instead of mocking; opt-in operator-only, never runs in CI (Plan 2026-05-20-001 Unit 2)",
     "real_browser_publish_smoke: open live channel compose URL in attached Chrome and verify selectors against current DOM; opt-in operator-only (Plan 2026-05-21-001 Unit 4a+)",
 ]
+
+[tool.towncrier]
+package = "backlink_publisher"
+package_dir = "src"
+filename = "CHANGELOG.md"
+directory = "changelog.d"
+version = "0.3.0"

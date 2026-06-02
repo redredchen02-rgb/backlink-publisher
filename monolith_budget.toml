@@ -42,7 +42,7 @@ ceiling = 550
 rationale = "Holds the 3 extracted reducers (_project_checkpoint, _project_history, _project_drafts) plus the confirmed-emit helpers _emit_confirmed_history_row (#350) and _emit_drafts_confirmed (#340, extracted 2026-06-01 to bring _project_drafts CC under the CC-30 backstop). At 520 SLOC; ceiling 550 = round_up_to_10(520+30) per policy."
 
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
-ceiling = 320
+ceiling = 290
 rationale = "refactor 2026-06-01: split live-verify (->_verify_live.py) + offline-readiness checks (->_setup_checks.py) out of the dispatcher; __init__ now holds only imports + register() wiring + thin verify_adapter_setup delegators. SLOC 640->234. Wave-2 JP channels (qiita/zenn) added 2026-06-02 growing register() wiring to 281 SLOC. Ceiling 320 = round_up_to_10(281+30) per ratchet-up policy."
 
 [files."src/backlink_publisher/cli/phase0_seal.py"]
@@ -68,3 +68,17 @@ rationale = "refactor 2026-06-01: extracted the CLI layer (_build_parser argpars
 [files."src/backlink_publisher/cli/generate_backlink_text.py"]
 ceiling = 390
 rationale = "refactor 2026-06-01: extracted the input-parsing + deterministic-validation cluster (9 funcs + their constants) to cli/_candidates.py; this module now holds CLI/argparse + LLM orchestration (main/_resolve_client/_run_dry_run/_run_generate) and re-exports the moved names for the tests that import them. SLOC 541->357. Ceiling 390 = round_up_to_10(357+30)."
+
+# Plan 2026-06-02-003: canary-seed + platform-discovery (dofollow hardening).
+# Three new files co-landed in the same PR; budget entries required by C2.
+[files."src/backlink_publisher/_util/http_probe.py"]
+ceiling = 210
+rationale = "HTTP probe core extracted from scripts/channel_probe.py (Plan 2026-06-02-003 Unit 1). Contains Hit/UrlResult dataclasses, USER_AGENTS constants, _validate_url_ssrf/_probe/_triage private functions, and public probe_url(). SLOC 174 reflects the full three-UA probe + triage decision matrix. Ceiling 210 = round_up_to_10(174+30) per policy."
+
+[files."src/backlink_publisher/cli/canary_seed.py"]
+ceiling = 230
+rationale = "canary-seed CLI (Plan 2026-06-02-003 Unit 2): publishes a minimal test post to a dofollow=uncertain platform, inspects the target anchor rel, and emits advisory verdict JSONL. SLOC 196 includes argparse, cohort gate, credential check, stub payload builder, publish dispatch, SSRF guard, inspect_target_anchor call, and JSONL+RECON emit. Ceiling 230 = round_up_to_10(196+30) per policy."
+
+[files."scripts/platform_discovery.py"]
+ceiling = 340
+rationale = "platform-discovery script (Plan 2026-06-02-003 Unit 3): SERP → HTTP probe → browser-UA rel scan → scored JSONL candidate report. SLOC 306 includes DuckDuckGo HTML fetch, regex anchor extraction, dofollow_rate scoring, SSRF guard (fail-closed Track B), --candidate-urls fallback path, and progress RECON. Ceiling 340 = round_up_to_10(306+30) per policy."

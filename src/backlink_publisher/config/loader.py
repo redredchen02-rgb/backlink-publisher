@@ -13,6 +13,7 @@ from backlink_publisher._util.errors import DependencyError
 from .tokens import load_medium_integration_token
 from .types import (
     BloggerOAuthConfig,
+    ClickTrackConfig,
     Config,
     GhpagesConfig,
     GitlabPagesConfig,
@@ -287,6 +288,13 @@ def load_config(path: Path | None = None) -> Config:
 
     image_gen = _parse_image_gen(data.get("image_gen"))
 
+    click_track_section = data.get("click_track")
+    click_track: ClickTrackConfig | None = None
+    if click_track_section is not None and isinstance(click_track_section, dict):
+        click_track = ClickTrackConfig(
+            credential_path=click_track_section.get("credential_path"),
+        )
+
     cell_assignments = _parse_cell_assignments(data.get("cells"))
 
     return Config(
@@ -312,6 +320,7 @@ def load_config(path: Path | None = None) -> Config:
         gitlabpages=gitlabpages,
         mastodon=mastodon,
         zenn=zenn,
+        click_track=click_track,
         image_gen=image_gen,
         cell_assignments=cell_assignments,
     )

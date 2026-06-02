@@ -50,3 +50,4 @@ rationale = "Config TOML writer: emits [blogger]/[medium]/[targets.*] sections. 
 # merged to main) centralized the loose-permission warning out of the parser, dropping it to
 # CC 28 — now under the CC-30 backstop, so no entry is needed (the backstop covers it). Entry
 # removed on rebase onto post-SEC-6 main (the same-PR-bump discipline applied across the merge).
+

@@ -1,10 +1,16 @@
 """Tests for SSRF hardening in scripts/channel_probe.py (plan 2026-06-02-002 R14).
 
+After the Unit 1 refactor (2026-06-02-003), probe logic lives in
+backlink_publisher._util.http_probe. Tests patch http_probe._ssrf_check
+(the local binding used by _probe/_validate_url_ssrf) per the institutional
+guideline: mock path must point to the module that holds the local reference.
+
 Verifies that:
 - RFC1918 / loopback / cloud-metadata URLs are blocked before any network fetch
 - Redirect hops to blocked addresses are blocked before following the hop
 - Normal public URLs still produce Hit objects with real HTTP data
 - The SSRF guard is in the right place (before requests.get)
+- channel_probe.py CLI main() still works after the refactor (integration check)
 """
 
 from __future__ import annotations
@@ -16,8 +22,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Import the probe core (installed package).
+from backlink_publisher._util import http_probe
+
 # scripts/ is not a package; add the scripts directory to sys.path so we can
-# import channel_probe directly.
+# import channel_probe directly for the CLI integration check.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import channel_probe  # noqa: E402
@@ -52,9 +61,9 @@ class TestSsrfInitialUrl:
 
     def test_loopback_blocked(self):
         with patch.object(
-            channel_probe, "_ssrf_check", return_value="loopback"
+            http_probe, "_ssrf_check", return_value="loopback"
         ), patch("requests.get") as mock_get:
-            hit = channel_probe._probe("http://127.0.0.1/", "browser", "UA")
+            hit = http_probe._probe("http://127.0.0.1/", "browser", "UA")
         assert hit.status is None
         assert "ssrf-blocked" in hit.error
         assert "loopback" in hit.error
@@ -62,27 +71,27 @@ class TestSsrfInitialUrl:
 
     def test_rfc1918_blocked(self):
         with patch.object(
-            channel_probe, "_ssrf_check", return_value="rfc1918"
+            http_probe, "_ssrf_check", return_value="rfc1918"
         ), patch("requests.get") as mock_get:
-            hit = channel_probe._probe("http://192.168.1.1/", "browser", "UA")
+            hit = http_probe._probe("http://192.168.1.1/", "browser", "UA")
         assert hit.status is None
         assert "ssrf-blocked" in hit.error
         mock_get.assert_not_called()
 
     def test_cloud_metadata_blocked(self):
         with patch.object(
-            channel_probe, "_ssrf_check", return_value="cloud_metadata"
+            http_probe, "_ssrf_check", return_value="cloud_metadata"
         ), patch("requests.get") as mock_get:
-            hit = channel_probe._probe("http://169.254.169.254/latest/meta-data/", "browser", "UA")
+            hit = http_probe._probe("http://169.254.169.254/latest/meta-data/", "browser", "UA")
         assert hit.status is None
         assert "ssrf-blocked" in hit.error
         mock_get.assert_not_called()
 
     def test_public_url_not_blocked(self):
         with patch.object(
-            channel_probe, "_ssrf_check", return_value=None
+            http_probe, "_ssrf_check", return_value=None
         ), patch("requests.get", return_value=_make_response(200, "https://example.com/")) as mock_get:
-            hit = channel_probe._probe("https://example.com/", "browser", "UA")
+            hit = http_probe._probe("https://example.com/", "browser", "UA")
         assert hit.status == 200
         assert hit.error == ""
         mock_get.assert_called_once()
@@ -95,7 +104,6 @@ class TestSsrfRedirectHop:
     """Redirect to a blocked address must be blocked before following the hop."""
 
     def test_redirect_to_rfc1918_blocked(self):
-        # First GET returns a redirect to 10.0.0.1
         redirect_resp = _make_response(
             status=302,
             url="https://example.com/",
@@ -104,20 +112,18 @@ class TestSsrfRedirectHop:
         )
 
         def _ssrf_side_effect(url: str):
-            # Initial URL passes; redirect target fails.
             if "10.0.0.1" in url:
                 return "rfc1918"
             return None
 
         with patch.object(
-            channel_probe, "_ssrf_check", side_effect=_ssrf_side_effect
+            http_probe, "_ssrf_check", side_effect=_ssrf_side_effect
         ), patch("requests.get", return_value=redirect_resp) as mock_get:
-            hit = channel_probe._probe("https://example.com/", "browser", "UA")
+            hit = http_probe._probe("https://example.com/", "browser", "UA")
 
         assert hit.status is None
         assert "ssrf-redirect-blocked" in hit.error
         assert "rfc1918" in hit.error
-        # Should have fetched the initial URL but not followed the redirect.
         assert mock_get.call_count == 1
 
     def test_redirect_to_cloud_metadata_blocked(self):
@@ -134,9 +140,9 @@ class TestSsrfRedirectHop:
             return None
 
         with patch.object(
-            channel_probe, "_ssrf_check", side_effect=_ssrf_side_effect
+            http_probe, "_ssrf_check", side_effect=_ssrf_side_effect
         ), patch("requests.get", return_value=redirect_resp):
-            hit = channel_probe._probe("https://legit.com/", "browser", "UA")
+            hit = http_probe._probe("https://legit.com/", "browser", "UA")
 
         assert hit.status is None
         assert "ssrf-redirect-blocked" in hit.error
@@ -151,9 +157,9 @@ class TestSsrfRedirectHop:
         final_resp = _make_response(200, "https://www.example.com/")
 
         with patch.object(
-            channel_probe, "_ssrf_check", return_value=None
+            http_probe, "_ssrf_check", return_value=None
         ), patch("requests.get", side_effect=[redirect_resp, final_resp]):
-            hit = channel_probe._probe("https://example.com/", "browser", "UA")
+            hit = http_probe._probe("https://example.com/", "browser", "UA")
 
         assert hit.status == 200
         assert hit.error == ""
@@ -166,10 +172,10 @@ class TestSsrfGuardAbsent:
     """When _ssrf_check is None (package not installed), probe still works."""
 
     def test_probe_works_without_guard(self):
-        with patch.object(channel_probe, "_ssrf_check", None), patch(
+        with patch.object(http_probe, "_ssrf_check", None), patch(
             "requests.get", return_value=_make_response(200, "https://example.com/")
         ):
-            hit = channel_probe._probe("https://example.com/", "browser", "UA")
+            hit = http_probe._probe("https://example.com/", "browser", "UA")
         assert hit.status == 200
         assert hit.error == ""
 
@@ -190,8 +196,31 @@ class TestRelativeRedirect:
         final_resp = _make_response(200, "https://example.com/safe-path")
 
         with patch.object(
-            channel_probe, "_ssrf_check", return_value=None
+            http_probe, "_ssrf_check", return_value=None
         ), patch("requests.get", side_effect=[redirect_resp, final_resp]):
-            hit = channel_probe._probe("https://example.com/page", "browser", "UA")
+            hit = http_probe._probe("https://example.com/page", "browser", "UA")
 
         assert hit.status == 200
+
+
+# ── Integration: channel_probe.py CLI still works after refactor ──────────────
+
+
+class TestChannelProbeCli:
+    """channel_probe.main() imports correctly from http_probe after refactor."""
+
+    def test_channel_probe_imports_from_http_probe(self):
+        # Verify channel_probe re-exports core symbols from http_probe.
+        assert channel_probe._probe is http_probe._probe
+        assert channel_probe._triage is http_probe._triage
+        assert channel_probe.UrlResult is http_probe.UrlResult
+
+    def test_probe_url_public_api(self):
+        """probe_url() public function returns correct shape."""
+        with patch.object(http_probe, "_ssrf_check", return_value=None), patch(
+            "requests.get", return_value=_make_response(200, "https://example.com/")
+        ):
+            result = http_probe.probe_url("https://example.com/")
+        assert "verdict" in result
+        assert result["verdict"] in ("needs-canary", "needs-browser-tier", "no-go-unreachable")
+        assert "ssrf_guard_active" in result

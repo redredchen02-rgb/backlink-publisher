@@ -99,6 +99,7 @@ from .types import (
     AnchorAlarmConfig,
     AnchorAlarmOverride,
     BloggerOAuthConfig,
+    ClickTrackConfig,
     Config,
     GhpagesConfig,
     ImageGenConfig,

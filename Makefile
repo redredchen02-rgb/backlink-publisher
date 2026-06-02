@@ -33,7 +33,7 @@ test-js:
 
 # ── Code quality targets (Phase 3 F4) ────────────────────────────────────────
 
-.PHONY: lint type-check coverage clean-all
+.PHONY: lint type-check coverage clean-all setup-hooks
 
 lint:
 	@ruff check src/ tests/ || true
@@ -45,6 +45,10 @@ type-check:
 coverage:
 	@PYTHONHASHSEED=0 PYTHONPATH=src pytest tests/ --cov=src/backlink_publisher \
 		--cov-report=html --cov-report=term-missing -q --timeout=30
+
+setup-hooks:
+	bash scripts/install-post-merge-hook.sh
+	@echo "Git hooks installed. Set BACKLINK_PUBLISHER_WORKTREE_AUTOREMOVE=1 in shell rc for auto cleanup"
 
 clean-all:
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

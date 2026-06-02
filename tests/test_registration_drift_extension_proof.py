@@ -20,7 +20,7 @@ from backlink_publisher.publishing.registry import (
     active_platforms,
     platforms_by_auth_type,
 )
-from webui_app.routes.channel_bind_save import _TOKEN_DISPATCH
+from webui_app.services.credential_service import _TOKEN_DISPATCH
 
 
 class _FakeExtAdapter(Publisher):

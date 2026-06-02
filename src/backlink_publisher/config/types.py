@@ -276,6 +276,18 @@ class VelogConfig:
     cookies_path: Path = field(default_factory=lambda: _velog_default_cookies_path())
 
 
+@dataclass
+class ClickTrackConfig:
+    """GA4 click-track configuration (Plan 2026-06-02-001).
+
+    Populated from ``[click_track]`` in config.toml.  ``None`` when section
+    absent — click tracking is opt-in.
+    """
+
+    #: Path to the GA4 service-account JSON key file.
+    credential_path: str | None = None
+
+
 @dataclass(frozen=True)
 class AnchorAlarmOverride:
     """One override row in ``[[anchor_alarm.override]]``.
@@ -458,6 +470,12 @@ class Config:
     Populated from ``[zenn]`` in config.toml. ``None`` when section is
     absent. The GitHub PAT lives in a separate 0600 file at
     ``~/.config/backlink-publisher/zenn-token.json`` (per SEC-3)."""
+
+    click_track: "ClickTrackConfig | None" = None
+    """GA4 click-track configuration (Plan 2026-06-02-001).
+
+    Populated from ``[click_track]`` in config.toml.  ``None`` when section
+    absent — click tracking is opt-in."""
 
     image_gen: ImageGenConfig | None = None
     """AI banner image-gen settings (Plan 2026-05-20-001).
