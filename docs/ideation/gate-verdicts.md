@@ -6,14 +6,88 @@ status: active
 plan: docs/plans/2026-06-01-005-feat-gate-first-validation-and-deficit-overlay-plan.md
 ---
 
-# Phase-0 Falsification-Gate Verdict Ledger
+# Backlog Convergence & Decision Surface
 
-> **Soft-fold note.** This is the interim single decision surface for the Phase-0
-> gate verdicts. When the architecture-suite A2 ledger (`docs/ideation/SYNTHESIS.md`,
-> plan 2026-06-01-003) ships, the owner of that plan folds these rows into its
-> **Tried / Open** tables and leaves a back-reference here. Until then this file
-> is authoritative (consol. R3 — reuse the ideation ledger, don't build a new
-> file system; the soft-fold honors that without a hard dependency on unshipped A2).
+> **Single decision surface (2026-06-02).** This file is now the authoritative
+> backlog roll-up, open-work shortlist, and Phase-0 gate ledger. The planned
+> `docs/ideation/SYNTHESIS.md` was intentionally not created as a separate file
+> — this file fulfils that role (consol. R3: reuse the ideation ledger).
+> Retired convergence docs are indexed in the "Retired docs" section below.
+
+---
+
+## Backlog Truth Roll-up
+
+*Derived from `docs/plans/*.md` frontmatter. Updated 2026-06-02.*
+
+| Status | Count | Meaning |
+|---|---|---|
+| **Done** | **116** | `status ∈ {completed, shipped}` — canonical done-family |
+| **Parked** | **2** | `status: parked` — deliberate, each has a written resume trigger |
+| **Open** | **1** | `status: active` — the genuine open set (see shortlist below) |
+
+**Deterministic open-work query** (CRLF/BOM-tolerant, anchored):
+
+```bash
+python3 -c "
+import re, pathlib
+canon = {'active','completed','shipped','parked'}
+for p in sorted(pathlib.Path('docs/plans').glob('*.md')):
+    m = re.search(r'^status:\s*(\S+)', p.read_text(errors='replace'), re.MULTILINE)
+    tok = m.group(1) if m else ''
+    if tok == 'active':
+        print('OPEN', p.name)
+    elif tok not in canon:
+        print('OFF-CANON', p.name, tok)
+"
+```
+
+---
+
+## Open-Work Shortlist
+
+*Gate-ordered: lower gate = harder prerequisite. Execute in order.*
+
+| Priority | Plan | Gate blocker | Action |
+|---|---|---|---|
+| 1 | `2026-05-25-002` channel-manifest Phase 2+3 | None (Phase 1 shipped) | `ce:work` Phase 2 (9 channels) + Phase 3 (CI gate) |
+
+**Parked (resume triggers documented in plan frontmatter):**
+
+| Plan | Resume trigger |
+|---|---|
+| `2026-05-29-006` geo-ai-citation | G4 gate returns GO |
+| `2026-05-28-007` history-store→events-db | events.db corpus reaches production scale |
+
+---
+
+## Status Vocabulary Canon
+
+See `AGENTS.md` → "Status vocabulary canon" for the full closed-set definition,
+done-family, and maintenance rule. Quick reference:
+
+| Token | Meaning | Done? |
+|---|---|---|
+| `active` | Open / executing | No |
+| `completed` | All units landed | **Yes** |
+| `shipped` | Landed-alias (update-on-ship discipline) | **Yes** |
+| `parked` | Deferred — has resume trigger | No |
+
+---
+
+## Retired Convergence Docs
+
+Prior convergence passes that are now superseded or folded:
+
+| Doc | Status | Disposition |
+|---|---|---|
+| `docs/plans/2026-06-01-009-…-convergence-closeout-plan.md` | `completed` | 16 stale-active plans flipped; brainstorm triage complete |
+| `docs/plans/2026-06-01-010-…-full-project-convergence-plan.md` | `parked` | Branch-landing scope deferred to merge-swarm; docs scope folded into 011 |
+| `docs/plans/2026-06-01-011-…-decision-surface-plan.md` | `shipped` | This expansion (U1–U5) |
+| `docs/plans/2026-05-26-002-opt-verify-consolidation-REVIEW.md` | moved | Moved to `docs/notes/`; findings addressed by two shipped consolidation plans |
+| `SYNTHESIS.md` (planned) | not created | Role fulfilled by this file (consol. R3) |
+
+---
 
 ## Governance rule (consol. R16) — read before adding any build-out plan
 

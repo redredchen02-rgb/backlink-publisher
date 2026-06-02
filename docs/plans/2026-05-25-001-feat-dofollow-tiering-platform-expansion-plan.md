@@ -1,7 +1,7 @@
 ---
 title: "feat: Dofollow 分層貫穿 + 6 平台擴充"
 type: feat
-status: partial  # Unit 6 (livejournal) + Unit 7 (txt.fyi) shipped; Unit 5 HOLD, Unit 8 deferred per Phase 0
+status: completed  # 2026-06-02 CLOSE: remaining units superseded by wave-1 channels (HackMD/Mataroa/GitLab #363); livejournal canary closed dofollow=False (#303)
 date: 2026-05-25
 deepened: 2026-05-25
 origin: docs/brainstorms/2026-05-25-dofollow-tiering-and-6-platform-expansion-requirements.md
