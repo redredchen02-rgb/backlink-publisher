@@ -8,7 +8,7 @@ diversity audit (Unit 4), and burst dispatch (Unit 5) onto this skeleton.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from backlink_publisher._util.errors import UsageError
@@ -31,16 +31,6 @@ class SprayCandidate:
     # footprint; surfaced for the operator (see plan R3 accepted residual risk).
     cross_seed_warning: str | None = None
     row: dict[str, Any] | None = None
-
-
-@dataclass
-class SprayOutcome:
-    candidates: list[SprayCandidate] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-
-    @property
-    def surviving(self) -> list[SprayCandidate]:
-        return [c for c in self.candidates if not c.dropped]
 
 
 def expand_seed(seed: dict[str, Any], platforms: list[str]) -> list[SprayCandidate]:

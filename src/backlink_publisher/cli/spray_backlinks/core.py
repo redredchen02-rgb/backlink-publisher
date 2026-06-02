@@ -263,8 +263,9 @@ def main(argv: list[str] | None = None) -> None:
         summary = dispatch_burst([c.row for c in surviving], cfg, args.mode)
         for plat, err in summary.failed:
             print(f"[burst] FAILED {plat}: {err}", file=sys.stderr)
+        verb = "published" if args.mode == "publish" else "drafted"
         print(
-            f"[burst] published {summary.n_published}/{len(surviving)}, "
+            f"[burst] mode={args.mode}: {verb} {summary.n_succeeded}/{len(surviving)}, "
             f"failed {summary.n_failed}",
             file=sys.stderr,
         )

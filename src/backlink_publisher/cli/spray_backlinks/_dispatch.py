@@ -31,13 +31,16 @@ SleepFn = Callable[[float], None]
 
 @dataclass
 class DispatchSummary:
-    published: list[str] = field(default_factory=list)
+    # "succeeded" = adapter result was not "failed". In --mode draft these are
+    # drafts, in --mode publish they are published; the bucket is mode-neutral
+    # so the operator-facing summary doesn't overstate what happened.
+    succeeded: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
     sleeps: list[float] = field(default_factory=list)
 
     @property
-    def n_published(self) -> int:
-        return len(self.published)
+    def n_succeeded(self) -> int:
+        return len(self.succeeded)
 
     @property
     def n_failed(self) -> int:
@@ -94,5 +97,5 @@ def dispatch_burst(
         if status == "failed":
             summary.failed.append((platform, getattr(result, "error", None) or "failed"))
         else:
-            summary.published.append(platform)
+            summary.succeeded.append(platform)
     return summary

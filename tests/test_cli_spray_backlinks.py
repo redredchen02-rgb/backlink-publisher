@@ -124,6 +124,34 @@ def test_invalid_seed_rejected_exit_2(tmp_path):
     assert exc.value.code == 2
 
 
+def test_burst_aborts_when_audit_fails(tmp_path, monkeypatch):
+    # Identical bodies → body-similarity audit fails → burst aborts (exit 2)
+    # before any dispatch (no network).
+    identical = lambda *a, **k: "the same body text repeated across every shot here"
+    monkeypatch.setattr(spray_core, "_default_rewrite_fn", lambda cfg: identical)
+    p0, p1 = _two_registered()
+    seed_path = _write_seed(tmp_path, _seed(p0))
+    with pytest.raises(SystemExit) as exc:
+        spray_backlinks.main([
+            "--input", seed_path, "--platforms", f"{p0},{p1}",
+            "--no-fetch-verify", "--dispatch", "burst",
+        ])
+    assert exc.value.code == 2
+
+
+def test_all_platforms_gated_out_exits_2(tmp_path, monkeypatch):
+    # Every platform canary-degraded + no --force → all soft-dropped → exit 2.
+    import backlink_publisher.canary.store as canary_store
+    monkeypatch.setattr(canary_store, "is_degraded", lambda p: True)
+    p0, p1 = _two_registered()
+    seed_path = _write_seed(tmp_path, _seed(p0))
+    with pytest.raises(SystemExit) as exc:
+        spray_backlinks.main(
+            ["--input", seed_path, "--platforms", f"{p0},{p1}", "--no-fetch-verify"]
+        )
+    assert exc.value.code == 2
+
+
 def test_bad_dispatch_mode_is_usage_error_exit_1(tmp_path):
     p0, _ = _two_registered()
     seed_path = _write_seed(tmp_path, _seed(p0))

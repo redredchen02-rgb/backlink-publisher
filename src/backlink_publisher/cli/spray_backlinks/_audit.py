@@ -33,7 +33,7 @@ def _shingles(text: str, k: int = _SHINGLE_K) -> set[tuple[str, ...]]:
     return {tuple(tokens[i : i + k]) for i in range(len(tokens) - k + 1)}
 
 
-def _jaccard(a: set, b: set) -> float:
+def _jaccard(a: set[tuple[str, ...]], b: set[tuple[str, ...]]) -> float:
     if not a and not b:
         return 1.0
     if not a or not b:

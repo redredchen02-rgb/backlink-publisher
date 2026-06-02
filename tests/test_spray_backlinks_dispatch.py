@@ -38,7 +38,7 @@ def test_burst_publishes_all_and_sleeps_between_shots():
         _rows(3), cfg=None, mode="draft",
         publish_fn=pub, sleep_fn=sleeps.append, rng=random.Random(0),
     )
-    assert summary.n_published == 3
+    assert summary.n_succeeded == 3
     assert summary.n_failed == 0
     assert calls == ["p0", "p1", "p2"]
     assert len(sleeps) == 2  # N-1 gaps
@@ -77,7 +77,7 @@ def test_continue_on_failure_mid_batch():
         _rows(4), cfg=None, mode="draft",
         publish_fn=pub, sleep_fn=lambda s: None, rng=random.Random(0),
     )
-    assert summary.n_published == 3  # p0, p2, p3
+    assert summary.n_succeeded == 3  # p0, p2, p3
     assert summary.n_failed == 1
     assert summary.failed[0][0] == "p1"
 
@@ -93,6 +93,6 @@ def test_auth_expired_fails_shot_not_burst():
         publish_fn=pub, sleep_fn=lambda s: None, rng=random.Random(0),
     )
     # p0 AuthExpired → fails just that shot; p1, p2 still dispatch.
-    assert summary.n_published == 2
+    assert summary.n_succeeded == 2
     assert summary.n_failed == 1
     assert "AuthExpiredError" in summary.failed[0][1]
