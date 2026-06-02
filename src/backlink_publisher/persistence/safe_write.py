@@ -6,21 +6,23 @@ import tempfile
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable, TextIO
 
 _log = logging.getLogger(__name__)
 
 
-def atomic_write(path: Path, text: str, mode: int = 0o600) -> None:
-    """Write text to path atomically via a unique temp file and replace.
+def atomic_write_stream(
+    path: Path, write_fn: Callable[[TextIO], None], mode: int = 0o600
+) -> None:
+    """Atomically write to *path* by streaming via *write_fn*, O(1) memory.
 
-    Uses ``tempfile.mkstemp`` for a unique sibling filename so concurrent
-    callers do not collide on a shared ``.new`` temporary.  Readers see
-    either the old file or the fully written new one — never a partial write.
-    Protects the write path with a cooperative flock sibling lock file under
-    multi-process environments to prevent lost updates.
+    Same atomicity / cooperative-lock / 0600 guarantees as :func:`atomic_write`,
+    but instead of a fully-materialized string it invokes ``write_fn(handle)``
+    to write incrementally to the temp file.  Readers see either the old file
+    or the fully written new one — never a partial write.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Cooperative flock sibling lock file protection
     lock_path = path.parent / (path.name + ".lock")
     lock_fd = None
@@ -45,7 +47,7 @@ def atomic_write(path: Path, text: str, mode: int = 0o600) -> None:
         )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(text)
+                write_fn(f)
             os.chmod(tmp, mode)
             os.replace(tmp, path)
         except BaseException:
@@ -65,6 +67,15 @@ def atomic_write(path: Path, text: str, mode: int = 0o600) -> None:
             except OSError:
                 pass
 
+
+def atomic_write(path: Path, text: str, mode: int = 0o600) -> None:
+    """Write *text* to *path* atomically via a unique temp file and replace.
+
+    Thin wrapper over :func:`atomic_write_stream` so the atomicity / lock / 0600
+    machinery is single-sourced.  Readers see either the old file or the fully
+    written new one — never a partial write.
+    """
+    atomic_write_stream(path, lambda f: f.write(text), mode)
 
 def rotate_snapshots(
     path: Path,
