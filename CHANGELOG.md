@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- URL verify throttle rollback now removes the caller's own session-window
+  slot by value (`remove(now)`) instead of the last-appended entry (`pop()`).
+  Under concurrent calls sharing the same session, `pop()` (LIFO) could remove
+  a *peer's* slot instead of the failing caller's own, leaking the failing
+  caller's timestamp in the window. This caused the session's rate-limit counter
+  to over-count rejected requests: a session could be rate-limited for a 10s
+  window even though its requests were turned away before being served. Both
+  rollback paths (`upstream_overloaded` and `host_busy`) are fixed.
+
+- `spawn_browser_login` now prepends the **absolute** path to `src/` in
+  `PYTHONPATH` for the detached subprocess, matching the pattern established in
+  `bind_job.py`. The previous relative `"src"` prefix only resolved when the
+  WebUI was started from the repository root; starting from any other directory
+  (e.g. a system-service working directory) would cause the subprocess to fail
+  with an `ImportError` on `backlink_publisher`.
+
 - G3 referer-audit evidence now correctly shows `preserving=none` when every
   render path strips `referer`. The previous `or "preserving=none"` fallback
   was unreachable: `"preserving=" + ""` (an empty join over a zero-length list)
