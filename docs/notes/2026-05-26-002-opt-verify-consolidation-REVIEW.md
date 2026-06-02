@@ -1,7 +1,7 @@
 ---
 title: "ce:review findings — opt verify-consolidation (stash@{0})"
 type: review-note
-status: open
+status: completed
 date: 2026-05-26
 reviews: docs/plans/2026-05-26-002-opt-verify-consolidation-plan.md
 target: "stash@{0} (do NOT pop) / branch wip/deep-optimization"

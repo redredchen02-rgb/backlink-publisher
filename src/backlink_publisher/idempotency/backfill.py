@@ -91,6 +91,11 @@ _ADAPTER_STRING_TO_PLATFORM: dict[str, str] = {
     "velog-browser-attach": "velog",
     "devto-browser-attach": "devto",
     "mastodon-browser-attach": "mastodon",
+    # Wave-2 JP channels
+    "qiita": "qiita",
+    "qiita-api": "qiita",
+    "zenn": "zenn",
+    "zenn-github": "zenn",
 }
 
 _BACKFILL_KINDS = ("publish.confirmed", "publish.unverified")

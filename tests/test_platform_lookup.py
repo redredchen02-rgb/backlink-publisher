@@ -23,8 +23,8 @@ from backlink_publisher.publishing.registry import (
 # so a silent auth_type flip — the #253 drift class — fails loudly here too.
 _EXPECTED_BUCKETS = {
     "anon": {"rentry", "telegraph", "txtfyi"},
-    "token": {"devto", "writeas", "hackmd", "mataroa"},
-    "token_fields": {"ghpages", "gitlabpages", "hashnode", "hatena", "notion", "tumblr", "wordpresscom"},
+    "token": {"devto", "writeas", "hackmd", "mataroa", "qiita"},
+    "token_fields": {"ghpages", "gitlabpages", "hashnode", "hatena", "notion", "tumblr", "wordpresscom", "zenn"},
     "paste_blob": {"substack"},
     "userpass": {"livejournal"},
     "oauth": {"blogger"},
