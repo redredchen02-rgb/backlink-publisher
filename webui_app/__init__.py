@@ -262,6 +262,25 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
         from .helpers.security import _check_csrf_or_abort
         _check_csrf_or_abort()
 
+    # Global rate limiting — POST/PUT/PATCH/DELETE capped at 60 req/min per IP.
+    # GET/HEAD/OPTIONS and /api/url-verify/* are exempt (the latter carries its
+    # own per-session/per-host throttle via url_verify_throttle.py).
+    # Auto-disabled under pytest so existing tests need no change.
+    from flask import request as _flask_req
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["60 per minute"],
+        default_limits_exempt_when=lambda: (
+            _flask_req.method in ("GET", "HEAD", "OPTIONS")
+            or _flask_req.path.startswith("/api/url-verify")
+        ),
+        storage_uri="memory://",
+        enabled='PYTEST_CURRENT_TEST' not in os.environ,
+    )
+    _limiter.init_app(app)
+
     # Start scheduler unless under pytest (tests don't need background jobs)
     if start_scheduler is None:
         start_scheduler = 'PYTEST_CURRENT_TEST' not in os.environ

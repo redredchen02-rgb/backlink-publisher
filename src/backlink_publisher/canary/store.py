@@ -34,15 +34,10 @@ NOT ``channel_status_store`` — that store is bind-scoped to
 
 from __future__ import annotations
 
-import sys
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover - 3.10 fallback mirrors config/loader.py
-    import tomli as tomllib  # type: ignore[no-redef]
 
 from backlink_publisher.config.loader import _config_dir
 from webui_store.base import JsonStore, _LazyStore

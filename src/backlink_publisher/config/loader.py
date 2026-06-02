@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import stat
-import sys
+import tomllib
 from pathlib import Path
 
 from backlink_publisher._util.errors import DependencyError
@@ -23,11 +23,6 @@ from .types import (
     ThreeUrlConfig,
     VelogConfig,
 )
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # type: ignore[no-redef]
 
 from .parsers.alarm import _parse_anchor_alarm
 from .parsers.anchor import _parse_anchor_proportions
