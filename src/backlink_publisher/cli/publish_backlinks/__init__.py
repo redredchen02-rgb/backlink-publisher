@@ -86,6 +86,14 @@ def main(argv: list[str] | None = None) -> None:
     except SystemExit as exc:
         raise SystemExit(exc.code)
 
+    if len(rows) > args.max_rows:
+        print(
+            f"[warn] publish-backlinks: truncated input from {len(rows)} to"
+            f" {args.max_rows} rows (--max-rows={args.max_rows})",
+            file=sys.stderr,
+        )
+        rows = rows[:args.max_rows]
+
     publish_logger.info(f"processing {len(rows)} payloads")
 
     config = load_config()

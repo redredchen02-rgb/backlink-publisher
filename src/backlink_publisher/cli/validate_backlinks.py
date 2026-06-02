@@ -74,6 +74,13 @@ def main(argv: list[str] | None = None) -> None:
         choices=["DEBUG", "INFO", "WARN", "ERROR"],
         help="Log verbosity (default: WARN)",
     )
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=1000,
+        dest="max_rows",
+        help="Maximum input rows to process; excess rows are truncated with a warning (default: 1000)",
+    )
     args = parser.parse_args(argv)
 
     from backlink_publisher._util.logger import set_log_level
@@ -104,6 +111,14 @@ def main(argv: list[str] | None = None) -> None:
         rows = list(read_jsonl(args.input))
     except SystemExit as exc:
         raise SystemExit(exc.code)
+
+    if len(rows) > args.max_rows:
+        print(
+            f"[warn] validate-backlinks: truncated input from {len(rows)} to"
+            f" {args.max_rows} rows (--max-rows={args.max_rows})",
+            file=sys.stderr,
+        )
+        rows = rows[:args.max_rows]
 
     validate_logger.info(f"validating {len(rows)} payloads")
 

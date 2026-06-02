@@ -147,6 +147,13 @@ def main(argv: list[str] | None = None) -> None:
         default=False,
         help="Enable cProfile profiling (saved to ~/.cache/backlink-publisher/profiles/)",
     )
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=1000,
+        dest="max_rows",
+        help="Maximum seed rows to process; excess rows are truncated with a warning (default: 1000)",
+    )
     args = parser.parse_args(argv)
 
     # H1: set_log_level stays in the shell — never inside the engine.
@@ -197,6 +204,15 @@ def main(argv: list[str] | None = None) -> None:
             rows = list(read_jsonl(args.input))
         except SystemExit as exc:
             raise SystemExit(exc.code)
+
+    if len(rows) > args.max_rows:
+        import sys as _sys
+        print(
+            f"[warn] plan-backlinks: truncated input from {len(rows)} to"
+            f" {args.max_rows} rows (--max-rows={args.max_rows})",
+            file=_sys.stderr,
+        )
+        rows = rows[:args.max_rows]
 
     plan_logger.info(f"read {len(rows)} seed rows")
 

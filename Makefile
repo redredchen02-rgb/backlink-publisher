@@ -30,3 +30,24 @@ reconcile-check:
 .PHONY: test-js
 test-js:
 	node --test tests/js/test_lib_api.mjs tests/js/test_lib_dom.mjs
+
+# ── Code quality targets (Phase 3 F4) ────────────────────────────────────────
+
+.PHONY: lint type-check coverage clean-all
+
+lint:
+	@ruff check src/ tests/ || true
+	@ruff format --check src/ tests/ || true
+
+type-check:
+	@mypy src/backlink_publisher/_util/ src/backlink_publisher/config/ 2>&1 | tail -5 || true
+
+coverage:
+	@PYTHONHASHSEED=0 PYTHONPATH=src pytest tests/ --cov=src/backlink_publisher \
+		--cov-report=html --cov-report=term-missing -q --timeout=30
+
+clean-all:
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -name "*.pyc" -delete 2>/dev/null || true
+	@rm -rf .pytest_cache .mypy_cache htmlcov .coverage
+	@echo "Cleaned build artifacts"

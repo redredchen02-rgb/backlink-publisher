@@ -138,6 +138,13 @@ def _build_parser() -> Any:
         default=False,
         help="Enable cProfile profiling (saved to ~/.cache/backlink-publisher/profiles/)",
     )
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=1000,
+        dest="max_rows",
+        help="Maximum input rows to process; excess rows are truncated with a warning (default: 1000)",
+    )
     return parser
 
 
