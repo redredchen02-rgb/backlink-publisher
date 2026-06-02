@@ -58,13 +58,12 @@ def test_fans_one_seed_to_selected_platforms(tmp_path, capsys, monkeypatch):
         ["--input", seed_path, "--platforms", f"{p0},{p1}", "--no-fetch-verify"]
     )
 
-    rows = [json.loads(l) for l in capsys.readouterr().out.splitlines() if l.strip()]
-    assert len(rows) == 2
-    assert [r["platform"] for r in rows] == [p0, p1]
-    # Drafted publish-ready rows carry distinct LLM bodies + the canonical links.
-    assert all("content_markdown" in r for r in rows)
-    assert rows[0]["content_markdown"] != rows[1]["content_markdown"]
-    assert rows[0]["id"] != rows[1]["id"]
+    out = [json.loads(l) for l in capsys.readouterr().out.splitlines() if l.strip()]
+    shots = [o for o in out if o.get("kind") == "shot"]
+    assert len(shots) == 2
+    assert [s["platform"] for s in shots] == [p0, p1]
+    # Distinct LLM bodies per shot (the stealth mechanism).
+    assert shots[0]["body_excerpt"] != shots[1]["body_excerpt"]
 
 
 def test_unknown_platform_is_usage_error_exit_1(tmp_path):
@@ -90,8 +89,9 @@ def test_duplicate_platforms_deduped(tmp_path, capsys, monkeypatch):
     spray_backlinks.main(
         ["--input", seed_path, "--platforms", f"{p0},{p0}", "--no-fetch-verify"]
     )
-    rows = [json.loads(l) for l in capsys.readouterr().out.splitlines() if l.strip()]
-    assert len(rows) == 1
+    out = [json.loads(l) for l in capsys.readouterr().out.splitlines() if l.strip()]
+    shots = [o for o in out if o.get("kind") == "shot"]
+    assert len(shots) == 1
 
 
 def test_no_llm_configured_cli_aborts_exit_3(tmp_path):

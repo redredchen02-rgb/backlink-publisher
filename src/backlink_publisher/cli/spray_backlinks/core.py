@@ -31,8 +31,14 @@ from backlink_publisher.config import load_config
 from backlink_publisher.publishing.registry import registered_platforms
 from backlink_publisher.schema import validate_input_payload
 
+from ._audit import AuditReport, audit_batch
 from ._draft import _default_rewrite_fn, draft_row
-from ._engine import expand_seed, gate_candidates, validate_platform_selection
+from ._engine import (
+    SprayCandidate,
+    expand_seed,
+    gate_candidates,
+    validate_platform_selection,
+)
 
 _LOG_LEVELS = {"DEBUG", "INFO", "WARN", "ERROR"}
 _DISPATCH_MODES = {"dry-run", "burst"}
@@ -101,6 +107,52 @@ def _build_parser() -> Any:
 
 def _parse_platforms(raw: str) -> list[str]:
     return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def _main_anchor_of(row: dict[str, Any]) -> str:
+    for link in row.get("links", []):
+        if link.get("kind") == "main_domain":
+            return str(link.get("anchor", ""))
+    return ""
+
+
+def _emit_preview(surviving: list[SprayCandidate], report: AuditReport) -> None:
+    """Dry-run artifact: one JSONL row per shot + an audit summary. No side
+    effects. The operator spot-checks the LLM body before any publish."""
+    for cand in surviving:
+        row = cand.row or {}
+        body = row.get("content_markdown", "")
+        write_jsonl([{
+            "kind": "shot",
+            "platform": cand.platform,
+            "title": row.get("title", ""),
+            "main_anchor": _main_anchor_of(row),
+            "body_chars": len(body),
+            "body_excerpt": body[:200],
+            # Anchors come from the static (provider-neutered) path → reproducible;
+            # the LLM body is intentionally non-deterministic.
+            "anchor_reproducible": True,
+            "cross_seed_warning": cand.cross_seed_warning,
+        }])
+    write_jsonl([{
+        "kind": "audit_summary",
+        "n": report.n,
+        "body_max_similarity": round(report.body_max_similarity, 4),
+        "distinct_main_anchors": report.distinct_main_anchors,
+        "link_concentration_informational": report.link_concentration,
+        "passed": report.passed,
+        "fail_reason": report.fail_reason,
+    }])
+    # Caveat on stderr: the gate measures body distinctness; the footprint
+    # link byte-signature is informational (degenerate for same-target fan-out).
+    print(
+        "[audit] body-distinctness is the gate; link byte-signature is "
+        "informational only (same-target shots share links by design). "
+        "Spot-check the body_excerpt before publishing.",
+        file=sys.stderr,
+    )
+    if not report.passed:
+        print(f"[audit] FAILED: {report.fail_reason}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -181,8 +233,23 @@ def main(argv: list[str] | None = None) -> None:
                 fetch_verify_enabled=not args.no_fetch_verify,
             )
 
-        # Unit 3 scaffold: emit the drafted publish-ready rows. The diversity
-        # audit + --dry-run preview (Unit 4) and burst dispatch (Unit 5) layer on.
+        # Unit 4: link/anchor diversity audit + body-similarity readout.
+        report = audit_batch([c.row for c in surviving])
+
+        if args.dispatch == "dry-run":
+            _emit_preview(surviving, report)
+            return  # dry-run: zero side effects
+
+        # burst: the body-distinctness gate is hard — abort before dispatch.
+        if not report.passed:
+            print(f"[audit] {report.fail_reason}", file=sys.stderr)
+            emit_envelope_and_exit(
+                "InputValidationError", 2,
+                f"spray-backlinks: diversity audit failed ({report.fail_reason})",
+            )
+
+        # Unit 4 scaffold: emit the drafted rows. Burst dispatch with jitter
+        # (Unit 5) replaces this with adapter_publish + jittered sleeps.
         write_jsonl(c.row for c in surviving)
     except PipelineError as exc:
         handle_error(exc)
