@@ -32,6 +32,7 @@ from backlink_publisher.publishing.registry import registered_platforms
 from backlink_publisher.schema import validate_input_payload
 
 from ._audit import AuditReport, audit_batch
+from ._dispatch import dispatch_burst
 from ._draft import _default_rewrite_fn, draft_row
 from ._engine import (
     SprayCandidate,
@@ -79,6 +80,12 @@ def _build_parser() -> Any:
         default="dry-run",
         metavar="MODE",
         help="dry-run (preview only, no side effects) | burst (default: dry-run)",
+    )
+    parser.add_argument(
+        "--mode",
+        default="draft",
+        metavar="MODE",
+        help="Publish mode for burst dispatch: draft | publish (default: draft)",
     )
     parser.add_argument(
         "--force",
@@ -171,6 +178,10 @@ def main(argv: list[str] | None = None) -> None:
                 f"spray-backlinks: --dispatch must be one of {sorted(_DISPATCH_MODES)}; "
                 f"got {args.dispatch!r}"
             )
+        if args.mode not in {"draft", "publish"}:
+            raise UsageError(
+                f"spray-backlinks: --mode must be draft|publish; got {args.mode!r}"
+            )
         if args.cap < 1:
             raise UsageError("spray-backlinks: --cap must be >= 1")
         set_log_level(args.log_level)
@@ -248,8 +259,16 @@ def main(argv: list[str] | None = None) -> None:
                 f"spray-backlinks: diversity audit failed ({report.fail_reason})",
             )
 
-        # Unit 4 scaffold: emit the drafted rows. Burst dispatch with jitter
-        # (Unit 5) replaces this with adapter_publish + jittered sleeps.
+        # Unit 5: jittered burst dispatch (continue-on-failure incl. AuthExpired).
+        summary = dispatch_burst([c.row for c in surviving], cfg, args.mode)
+        for plat, err in summary.failed:
+            print(f"[burst] FAILED {plat}: {err}", file=sys.stderr)
+        print(
+            f"[burst] published {summary.n_published}/{len(surviving)}, "
+            f"failed {summary.n_failed}",
+            file=sys.stderr,
+        )
+        # Rows still emitted to stdout as the reviewable artifact.
         write_jsonl(c.row for c in surviving)
     except PipelineError as exc:
         handle_error(exc)
