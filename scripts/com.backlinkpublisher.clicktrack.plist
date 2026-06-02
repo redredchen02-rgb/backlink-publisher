@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.backlinkpublisher.clicktrack</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>bash</string>
+        <string>/ABSOLUTE/PATH/TO/backlink-publisher/scripts/click-track-periodic.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+        <key>CLICK_TRACK_EXTRA_ARGS</key>
+        <string>--window-days 7</string>
+    </dict>
+
+    <!-- Run daily at 03:00 (adjust hour as needed) -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- StandardOut / StandardError paths.  Create the parent dir first:
+         mkdir -p ~/Library/Logs/backlink-publisher -->
+    <key>StandardOutPath</key>
+    <string>/Users/USERNAME/Library/Logs/backlink-publisher/click-track-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USERNAME/Library/Logs/backlink-publisher/click-track-stderr.log</string>
+
+    <!-- Keep trying if the process exits abnormally; wait 60s before retry -->
+    <key>KeepAlive</key>
+    <false/>
+    <key>ThrottleInterval</key>
+    <integer>3600</integer>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
