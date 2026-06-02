@@ -449,10 +449,10 @@ class TestCallbackSecurityFixes:
 
 class TestIsLoopbackUriUncoveredPaths:
     def test_non_loopback_ip_is_false(self):
-        from webui_app.routes.oauth import _is_loopback_uri
+        from webui_app.services.oauth_service import is_loopback_uri as _is_loopback_uri
         assert _is_loopback_uri("http://10.0.0.5/cb") is False
 
     def test_no_host_is_false(self):
-        from webui_app.routes.oauth import _is_loopback_uri
+        from webui_app.services.oauth_service import is_loopback_uri as _is_loopback_uri
         assert _is_loopback_uri("") is False
         assert _is_loopback_uri("not-a-uri") is False

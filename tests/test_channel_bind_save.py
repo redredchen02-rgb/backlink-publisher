@@ -196,7 +196,7 @@ def test_token_secret_not_leaked_on_error(client):
     csrf = _seed_csrf(client)
     secret = "SUPER_SECRET_TOKEN_12345"
     from unittest.mock import patch
-    with patch("webui_app.routes.channel_bind_save.save_writeas_token",
+    with patch("backlink_publisher.config.tokens._save_token",
                side_effect=Exception("disk full")):
         resp = _post(client, {"channel": "writeas", "auth_type": "token",
                                "token": secret}, csrf=csrf)
@@ -424,11 +424,11 @@ def test_userpass_secret_not_leaked_on_error(client):
     """A store_credentials failure must not expose the password in flash."""
     csrf = _seed_csrf(client)
     password = "MY_SECRET_PASSWORD_XYZ"
-    from unittest.mock import patch, MagicMock
-    fake_mod = MagicMock()
-    fake_mod.store_credentials.side_effect = Exception("auth error")
-    with patch("webui_app.routes.channel_bind_save.importlib.import_module",
-               return_value=fake_mod):
+    from unittest.mock import patch
+    with patch(
+        "backlink_publisher.publishing.adapters.livejournal_api.store_credentials",
+        side_effect=Exception("auth error"),
+    ):
         resp = _post(client, {"channel": "livejournal", "auth_type": "userpass",
                                "username": "u", "password": password}, csrf=csrf)
     assert resp.status_code == 302
@@ -475,18 +475,21 @@ def test_userpass_clear_unlinks_file(client, tmp_path, monkeypatch):
 
 
 def test_dispatch_maps_have_no_dead_rows():
-    """Every channel in the bind-save dispatch maps must be a registered
-    platform — guards against re-introducing rows for removed channels
-    (jianshu/zhihu/cnblogs/habr/pikabu/segmentfault were swept 2026-05-27)."""
+    """Every channel in the credential-service dispatch maps must be registered.
+
+    Guards against re-introducing rows for removed channels
+    (jianshu/zhihu/cnblogs/habr/pikabu/segmentfault were swept 2026-05-27).
+    Maps live in credential_service after U3b migration.
+    """
     import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
     from backlink_publisher.publishing.registry import registered_platforms
-    from webui_app.routes.channel_bind_save import (
+    from webui_app.services.credential_service import (
         _PASTE_BLOB_CHANNELS,
-        _USERPASS_MODULES,
+        _USERPASS_CRED_BASENAMES,
     )
 
     reg = set(registered_platforms())
-    dead = (set(_PASTE_BLOB_CHANNELS) | set(_USERPASS_MODULES)) - reg
+    dead = (set(_PASTE_BLOB_CHANNELS) | set(_USERPASS_CRED_BASENAMES)) - reg
     assert dead == set(), f"dead dispatch rows for unregistered channels: {dead}"
 
 

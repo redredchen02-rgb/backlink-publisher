@@ -17,46 +17,40 @@ import stat
 
 from flask import Blueprint, redirect, request
 
-from backlink_publisher.config import (
-    save_devto_token,
-    save_ghpages_token,
-    save_notion_token,
-)
+from backlink_publisher.config import load_config, save_notion_token
+from backlink_publisher.publishing.registry import auth_type as _registry_auth_type
 
 from ..helpers.security import _safe_flash_redirect
+from ..services import credential_service
 
 bp = Blueprint("token_paste", __name__)
 
-
-# Platform → (save_fn, token_file_basename, token_field_key).
-# Single-token channels: save_fn is called with {token_field_key: value}.
-# Multi-field channels (notion) use the separate /save-notion-token route.
-_ALLOWED: dict[str, tuple] = {
-    "ghpages": (save_ghpages_token, "ghpages-token.json", "token"),
-    "devto": (save_devto_token, "devto-token.json", "api_key"),
+# Channels handled by this route: token (devto) + token_fields/single-field (ghpages).
+_PASTE_ROUTE_CHANNELS: frozenset[str] = frozenset(
+    credential_service._TOKEN_DISPATCH
+) | {
+    ch for ch in credential_service._TOKEN_FIELDS_DISPATCH
+    if credential_service._TOKEN_FIELDS_DISPATCH[ch][2] == ["token"]
 }
 
 
 @bp.route('/settings/save-channel-token', methods=['POST'])
 def save_channel_token():
     channel = (request.form.get('channel', '') or '').strip()
-    if channel not in _ALLOWED:
+    if channel not in _PASTE_ROUTE_CHANNELS:
         return redirect(
             f'/settings?flash_type=danger&flash_msg='
-            f'unknown channel "{channel}" — allowed: {sorted(_ALLOWED)}'
+            f'unknown channel "{channel}" — allowed: {sorted(_PASTE_ROUTE_CHANNELS)}'
         )
 
-    save_fn, token_basename, token_field_key = _ALLOWED[channel]
     anchor = f"#channel-{channel}"
+    cfg = load_config()
+    channel_auth_type = _registry_auth_type(channel) or "token"
 
-    # Clear button (named "clear") → delete the file + report.
     if request.form.get('clear'):
-        from backlink_publisher.config import load_config
-        cfg = load_config()
-        token_path = cfg.config_dir / token_basename
         try:
-            if token_path.exists():
-                token_path.unlink()
+            cleared = credential_service.clear_credential(channel, channel_auth_type, cfg)
+            if cleared:
                 return redirect(
                     f'/settings?flash_type=success&flash_msg='
                     f'{channel} token 已清除{anchor}'
@@ -65,13 +59,17 @@ def save_channel_token():
                 f'/settings?flash_type=info&flash_msg='
                 f'{channel} token 文件不存在，无需清除{anchor}'
             )
+        except credential_service.ChannelNotConfigured:
+            return _safe_flash_redirect(
+                '/settings', flash_type='danger',
+                msg=f'清除 {channel} token 失败（渠道未配置）',
+                fragment=f'channel-{channel}')
         except OSError as e:
             return _safe_flash_redirect(
                 '/settings', flash_type='danger',
                 msg=f'清除 {channel} token 失败: {e}',
                 fragment=f'channel-{channel}')
 
-    # Save button — token can be empty (means "leave as-is").
     token = (request.form.get('token', '') or '').strip()
     if not token:
         return redirect(
@@ -80,24 +78,19 @@ def save_channel_token():
         )
 
     try:
-        save_fn({token_field_key: token})
-        # Defensive re-check: file should now exist + be 0600.
-        from backlink_publisher.config import load_config
-        cfg = load_config()
-        token_path = cfg.config_dir / token_basename
-        if not token_path.exists():
-            return redirect(
-                f'/settings?flash_type=danger&flash_msg='
-                f'保存 {channel} token 失败（文件未创建）{anchor}'
-            )
-        mode = stat.S_IMODE(token_path.stat().st_mode)
-        if os.name != "nt" and mode != 0o600:
-            # save_fn should have set 0600; if it didn't, fix it now.
-            os.chmod(token_path, 0o600)
+        if channel_auth_type == "token_fields":
+            credential_service.save_token_fields(channel, cfg, {"token": token})
+        else:
+            credential_service.save_token(channel, cfg, token)
         return redirect(
             f'/settings?flash_type=success&flash_msg='
             f'{channel} token 已绑定 ✓{anchor}'
         )
+    except credential_service.ChannelNotConfigured:
+        return _safe_flash_redirect(
+            '/settings', flash_type='danger',
+            msg=f'保存 {channel} token 失败（渠道未配置）',
+            fragment=f'channel-{channel}')
     except Exception as e:
         return _safe_flash_redirect(
             '/settings', flash_type='danger',
@@ -119,7 +112,6 @@ def save_notion_channel_token():
 
     # Clear button — delete notion-token.json.
     if request.form.get('clear'):
-        from backlink_publisher.config import load_config
         cfg = load_config()
         token_path = cfg.notion_token_path
         try:
@@ -160,7 +152,6 @@ def save_notion_channel_token():
             "integration_token": integration_token,
             "database_id": database_id,
         })
-        from backlink_publisher.config import load_config
         cfg = load_config()
         token_path = cfg.notion_token_path
         if not token_path.exists():

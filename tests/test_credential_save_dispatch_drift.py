@@ -1,27 +1,15 @@
-"""Drift guard for the credential-save dispatch cluster (Plan 2026-05-27-008, U3).
+"""Drift guard for the credential-save dispatch cluster (U3b migration).
 
-Six per-platform maps decide how the WebUI persists a channel's credentials,
-none previously guarded against the #253 registration-drift class (a removed /
-renamed platform leaving a stale key, or a key whose ``auth_type`` silently
-drifted away from what its handler assumes):
+Maps consolidated in ``webui_app.services.credential_service`` (U3b):
 
-  - ``token_paste._ALLOWED``                     (single-token-paste route)
-  - ``channel_bind_save._TOKEN_DISPATCH``        (auth_type "token")
-  - ``channel_bind_save._TOKEN_FIELDS_DISPATCH`` (auth_type "token_fields")
-  - ``channel_bind_save._PASTE_BLOB_CHANNELS``   (auth_type "paste_blob")
-  - ``channel_bind_save._USERPASS_MODULES``      (auth_type "userpass")
-  - ``channel_bind_save._SKIP_CHANNELS``         (handled by dedicated routes)
+  - ``_TOKEN_DISPATCH``          (auth_type "token")
+  - ``_TOKEN_FIELDS_DISPATCH``   (auth_type "token_fields"; includes ghpages)
+  - ``_PASTE_BLOB_CHANNELS``     (auth_type "paste_blob")
+  - ``_USERPASS_CRED_BASENAMES`` (auth_type "userpass")
 
-Authority is SUBSET, not equality. A bucket member may legitimately be absent
-from these maps — config-file-only channels (``hashnode``), dedicated routes
-(``ghpages``/``devto``/``notion``), pending UI (``tumblr``), or non-token auth
-(anon / oauth / live_browser). So the guard asserts every *key present* is a
-registered, active platform whose ``auth_type`` matches the handler that
-consumes it. It does NOT require every bucket member to be wired (that is a UI
-completeness concern, not registration drift).
+Plus ``channel_bind_save._SKIP_CHANNELS`` (dedicated-route guard, in route).
 
-Test-time only, registry populated by importing adapters — never an import-time
-assert (``invert-drift-check-when-invariant-becomes-dynamic``).
+Authority is SUBSET, not equality.
 """
 
 import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
@@ -32,14 +20,13 @@ from backlink_publisher.publishing.registry import (
     active_platforms,
     platforms_by_auth_type,
 )
-from webui_app.routes.channel_bind_save import (
+from webui_app.routes.channel_bind_save import _SKIP_CHANNELS
+from webui_app.services.credential_service import (
     _PASTE_BLOB_CHANNELS,
-    _SKIP_CHANNELS,
     _TOKEN_DISPATCH,
     _TOKEN_FIELDS_DISPATCH,
-    _USERPASS_MODULES,
+    _USERPASS_CRED_BASENAMES,
 )
-from webui_app.routes.token_paste import _ALLOWED
 
 
 def _allowed_for(*auth_types: str) -> frozenset[str]:
@@ -51,14 +38,11 @@ def _allowed_for(*auth_types: str) -> frozenset[str]:
 
 
 # (map name, its keys, the auth_type bucket(s) every key must belong to).
-# ``_ALLOWED`` spans two buckets because the single-token-paste route serves
-# both a "token" channel (devto) and a "token_fields" channel (ghpages).
 _DISPATCH_CASES = [
-    ("token_paste._ALLOWED", set(_ALLOWED), ("token", "token_fields")),
-    ("_TOKEN_DISPATCH", set(_TOKEN_DISPATCH), ("token",)),
+    ("_TOKEN_DISPATCH",        set(_TOKEN_DISPATCH),        ("token",)),
     ("_TOKEN_FIELDS_DISPATCH", set(_TOKEN_FIELDS_DISPATCH), ("token_fields",)),
-    ("_PASTE_BLOB_CHANNELS", set(_PASTE_BLOB_CHANNELS), ("paste_blob",)),
-    ("_USERPASS_MODULES", set(_USERPASS_MODULES), ("userpass",)),
+    ("_PASTE_BLOB_CHANNELS",   set(_PASTE_BLOB_CHANNELS),   ("paste_blob",)),
+    ("_USERPASS_CRED_BASENAMES", set(_USERPASS_CRED_BASENAMES), ("userpass",)),
 ]
 
 

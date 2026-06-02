@@ -78,7 +78,7 @@ from .instant_web import (
     TelegraphCdpAdapter,  # noqa: F401  kept for test import, not yet wired
 )
 from .linkedin_api import LinkedInAPIAdapter
-from .livejournal_api import LivejournalAPIAdapter
+from .livejournal_api import LivejournalAPIAdapter, _livejournal_credential_saver
 from .mataroa_api import MataroaAPIAdapter
 from .medium_api import MediumAPIAdapter
 from .medium_brave import MediumBraveAdapter
@@ -203,6 +203,7 @@ register(
     dofollow=False,
     rationale=_R["livejournal"],
     referral_value="high",
+    credential_saver=_livejournal_credential_saver,
     **LIVEJOURNAL_MANIFEST,
 )
 register(

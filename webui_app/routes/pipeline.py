@@ -27,10 +27,14 @@ from ..helpers.url_meta import (
     _normalize_url,
     _verify_urls_or_error,
     detect_language,
-    detect_platform,
     fetch_full_tdk,
     fetch_url_metadata,
     get_main_domain,
+)
+from ..services.pipeline_service import (
+    build_generate_seed,
+    build_plan_config,
+    validate_plan_inputs,
 )
 
 bp = Blueprint("pipeline", __name__)
@@ -60,13 +64,7 @@ def ce_plan():
             category_url=category_url, work_url=work_url,
         )
 
-    field_errors: list[str] = []
-    if not main_url.startswith("https://"):
-        field_errors.append("主网域必须 https")
-    if category_url and not category_url.startswith("https://"):
-        field_errors.append("分类页必须 https")
-    if work_url and not work_url.startswith("https://"):
-        field_errors.append("漫画页必须 https")
+    field_errors = validate_plan_inputs(main_url, category_url, work_url)
     if field_errors:
         return _render(
             'index.html', error="; ".join(field_errors),
@@ -104,7 +102,6 @@ def ce_plan():
     target_url = main_url
     target_language = request.form.get('target_language', detect_language(target_url))
 
-    # Fetch TDK if enabled and add suggested anchors
     fetch_tdk = request.form.get('fetch_tdk', 'yes')
     suggested_anchors = []
     if fetch_tdk == 'yes':
@@ -112,20 +109,14 @@ def ce_plan():
         if tdk_data.get('status') == 'success':
             suggested_anchors = tdk_data.get('suggested_anchors', [])
 
-    config = {
-        'target_url': target_url,
-        'main_domain': get_main_domain(target_url),
-        'platform': detect_platform(target_url),
-        'url_mode': 'C',
-        'publish_mode': 'publish',
-        'target_language': target_language,
-        'custom_title': '',
-        'custom_tags': '',
-        'fetch_tdk': fetch_tdk,
-        'suggested_anchors': suggested_anchors,
-        'urls': url_inputs,
-        'meta_info': meta_info,
-    }
+    config = build_plan_config(
+        main_url=target_url,
+        url_inputs=url_inputs,
+        target_language=target_language,
+        fetch_tdk=fetch_tdk,
+        meta_info=meta_info,
+        suggested_anchors=suggested_anchors,
+    )
     session['config'] = config
     session['urls_json'] = urls_json
 
@@ -174,26 +165,16 @@ def ce_generate():
     if fetch_tdk == 'yes':
         tdk_data = fetch_full_tdk(main_url)
 
-    seed = {
-        'target_url': main_url,
-        'main_domain': get_main_domain(main_url),
-        'platform': platform,
-        'language': detect_language(main_url),
-        'url_mode': url_mode,
-        'publish_mode': publish_mode,
-        'target_language': target_language,
-    }
-    if custom_title:
-        seed['custom_title'] = custom_title
-    if custom_tags:
-        seed['custom_tags'] = custom_tags
-    if extra_urls:
-        seed['extra_urls'] = extra_urls
-    if tdk_data and tdk_data.get('status') == 'success':
-        suggested = tdk_data.get('suggested_anchors', [])
-        if suggested:
-            seed['suggested_anchors'] = suggested
-
+    seed = build_generate_seed(
+        urls=urls,
+        platform=platform,
+        url_mode=url_mode,
+        publish_mode=publish_mode,
+        target_language=target_language,
+        custom_title=custom_title,
+        custom_tags=custom_tags,
+        tdk_data=tdk_data,
+    )
     seed_json = json.dumps(seed, ensure_ascii=False)
 
     result = _api.plan(seed_json)

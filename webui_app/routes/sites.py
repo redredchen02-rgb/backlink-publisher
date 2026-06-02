@@ -24,10 +24,11 @@ from backlink_publisher.content.scraper import fetch_work_metadata
 from backlink_publisher._util.logger import plan_logger
 
 from ..api.pipeline_api import PipelineAPI
-from ..helpers.cli_runner import (
-    _WORK_THEMED_RUNS,
-    _WORK_THEMED_RUNS_MAX,
-    _parse_lines,
+from ..services.work_themed_service import (
+    get_run as _get_run,
+    parse_lines as _parse_lines,
+    parse_plan_output as _parse_plan_output,
+    register_run as _register_run,
 )
 from ..helpers.security import _ensure_csrf_token
 from ..helpers.url_meta import (
@@ -256,7 +257,7 @@ def sites_run():
             "/sites?flash_type=danger&flash_msg=" + f"plan-backlinks 失败：{result.error}"
         )
 
-    rows = _parse_run_result_local(result.stdout, entry)
+    rows = _parse_plan_output(result.stdout, entry)
     summary = {
         "total": len(rows),
         "generated": sum(1 for r in rows if r["status"] == "success"),
@@ -265,42 +266,13 @@ def sites_run():
     }
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + secrets.token_hex(4)
-    _WORK_THEMED_RUNS[run_id] = {
-        "main_url": main_url, "summary": summary, "rows": rows,
-    }
-    if len(_WORK_THEMED_RUNS) > _WORK_THEMED_RUNS_MAX:
-        oldest = sorted(_WORK_THEMED_RUNS.keys())[:-_WORK_THEMED_RUNS_MAX]
-        for k in oldest:
-            _WORK_THEMED_RUNS.pop(k, None)
-
+    _register_run(run_id, main_url, summary, rows)
     return redirect(f"/sites/run/{run_id}/result")
-
-
-def _parse_run_result_local(stdout: str, entry) -> list[dict]:
-    """Parse plan-backlinks JSONL stdout into per-work-URL success rows."""
-    rows: list[dict] = []
-    seen: set[str] = set()
-    for line in stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            payload = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        canonical = (
-            payload.get("seo", {}).get("canonical_url")
-            or payload.get("url") or ""
-        )
-        if canonical and canonical not in seen:
-            seen.add(canonical)
-            rows.append({"work_url": canonical, "status": "success"})
-    return rows
 
 
 @bp.route("/sites/run/<run_id>/result", methods=["GET"])
 def sites_run_result(run_id: str):
-    run = _WORK_THEMED_RUNS.get(run_id)
+    run = _get_run(run_id)
     if run is None:
         abort(404)
     return render_template(

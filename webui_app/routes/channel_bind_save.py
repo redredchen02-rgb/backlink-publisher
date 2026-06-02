@@ -13,32 +13,24 @@ Security guarantees
 * SSRF: URL fields (site, site_url) are validated via ``_check_url_for_ssrf``
   and must use https.
 * Paste-blob: size-capped, JSON-schema checked, domain-validated per channel.
-* Credential files written via ``atomic_write_json`` 0600; userpass via the
-  adapter's own ``store_credentials`` (preserves per-adapter credential
-  formats, e.g. livejournal md5 — dispatch by module, not bare symbol import).
 
 Channels devto / ghpages / notion keep their existing routes in
 ``token_paste.py``; this route ignores them to avoid conflicts.
+Dispatch maps and credential writes live in
+``webui_app.services.credential_service`` (U3b).
 """
 
 from __future__ import annotations
 
-import importlib
 import json
 import logging
-from pathlib import Path
 
 _log = logging.getLogger(__name__)
 
 from flask import Blueprint, request
 
 from backlink_publisher.config import load_config
-from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.net_safety import _check_url_for_ssrf
-from backlink_publisher.config.tokens import (
-    save_wordpresscom_token,
-    save_writeas_token,
-)
 from backlink_publisher.publishing.registry import auth_type as _registry_auth_type
 
 from ..helpers.security import (
@@ -46,42 +38,15 @@ from ..helpers.security import (
     _refuse_when_allow_network,
     _safe_flash_redirect,
 )
+from ..services import credential_service
 
 bp = Blueprint("channel_bind_save", __name__)
 
 # Channels with dedicated existing routes — never handled here.
 _SKIP_CHANNELS: frozenset[str] = frozenset({"devto", "ghpages", "notion"})
 
-# TOKEN — single secret field.  (channel, token_key) → saver fn + basename.
-_TOKEN_DISPATCH: dict[str, tuple] = {
-    "writeas": (save_writeas_token, "writeas-token.json", "token"),
-}
-
-# TOKEN+FIELDS — secret + extra config fields; all stored in token JSON file.
-# (channel) → (saver_fn, basename, [field_names])
-# URL fields listed here are SSRF-validated (must be https, non-private).
-_TOKEN_FIELDS_DISPATCH: dict[str, tuple] = {
-    "wordpresscom": (save_wordpresscom_token, "wordpresscom-token.json",
-                     ["token", "site"]),
-}
+# URL fields that must pass SSRF validation (must be https, non-private).
 _URL_FIELDS: frozenset[str] = frozenset({"site", "site_url"})
-
-# PASTE-BLOB — pasted {"cookies":[...]} JSON; written as <channel>-credentials.json.
-# Each entry maps channel → (basename, expected_domain_suffix).
-# NOTE: when hard-removing a paste-blob/userpass channel, also add its slug to
-# ``webui_store.channel_status._REMOVED_CREDENTIAL_SLUGS`` so its orphaned 0600
-# credential file gets purged (its UI clear path disappears with the row below).
-# Domain suffix is checked against at least one cookie's domain field (advisory
-# only — warn, not reject — because some channels use multiple subdomains).
-_PASTE_BLOB_CHANNELS: dict[str, tuple[str, str]] = {
-    "substack":      ("substack-credentials.json",       "substack.com"),
-}
-_PASTE_BLOB_MAX_BYTES = 100_000
-
-# USERPASS — module path for dispatch; call module.store_credentials(config, u, p).
-_USERPASS_MODULES: dict[str, str] = {
-    "livejournal": "backlink_publisher.publishing.adapters.livejournal_api",
-}
 
 
 @bp.route("/settings/save-channel-credential", methods=["POST"])
@@ -148,19 +113,27 @@ def _save_anon(channel: str, is_clear: bool):
 
 
 def _save_token(channel: str, is_clear: bool):
-    if channel not in _TOKEN_DISPATCH:
-        return _safe_flash_redirect(
-            "/settings", flash_type="danger",
-            msg=f"{channel} token 保存未实现（渠道可能已退役）",
-            fragment=f"channel-{channel}",
-        )
-    save_fn, basename, field_key = _TOKEN_DISPATCH[channel]
     cfg = load_config()
-    token_path = cfg.config_dir / basename
     frag = f"channel-{channel}"
 
     if is_clear:
-        return _do_unlink(token_path, channel, frag)
+        try:
+            cleared = credential_service.clear_credential(channel, "token", cfg)
+            if cleared:
+                return _safe_flash_redirect(
+                    "/settings", flash_type="success",
+                    msg=f"{channel} 凭据已清除", fragment=frag)
+            return _safe_flash_redirect(
+                "/settings", flash_type="info",
+                msg=f"{channel} 凭据文件不存在，无需清除", fragment=frag)
+        except credential_service.ChannelNotConfigured:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"{channel} token 保存未实现（渠道可能已退役）", fragment=frag)
+        except OSError:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"清除 {channel} 凭据失败（详见服务器日志）", fragment=frag)
 
     token = (request.form.get("token", "") or "").strip()
     if not token:
@@ -170,7 +143,11 @@ def _save_token(channel: str, is_clear: bool):
             fragment=frag,
         )
     try:
-        save_fn({field_key: token})
+        credential_service.save_token(channel, cfg, token)
+    except credential_service.ChannelNotConfigured:
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger",
+            msg=f"{channel} token 保存未实现（渠道可能已退役）", fragment=frag)
     except Exception:
         _log.exception("save_token failed for channel=%s", channel)
         return _safe_flash_redirect(
@@ -186,22 +163,39 @@ def _save_token(channel: str, is_clear: bool):
 
 
 def _save_token_fields(channel: str, is_clear: bool):
-    if channel not in _TOKEN_FIELDS_DISPATCH:
-        return _safe_flash_redirect(
-            "/settings", flash_type="danger",
-            msg=f"{channel} token_fields 保存未实现（渠道可能已退役或待实现）",
-            fragment=f"channel-{channel}",
-        )
-    save_fn, basename, fields = _TOKEN_FIELDS_DISPATCH[channel]
     cfg = load_config()
-    token_path = cfg.config_dir / basename
     frag = f"channel-{channel}"
 
     if is_clear:
-        return _do_unlink(token_path, channel, frag)
+        try:
+            cleared = credential_service.clear_credential(channel, "token_fields", cfg)
+            if cleared:
+                return _safe_flash_redirect(
+                    "/settings", flash_type="success",
+                    msg=f"{channel} 凭据已清除", fragment=frag)
+            return _safe_flash_redirect(
+                "/settings", flash_type="info",
+                msg=f"{channel} 凭据文件不存在，无需清除", fragment=frag)
+        except credential_service.ChannelNotConfigured:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"{channel} token_fields 保存未实现（渠道可能已退役或待实现）",
+                fragment=frag)
+        except OSError:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"清除 {channel} 凭据失败（详见服务器日志）", fragment=frag)
+
+    field_names = credential_service.token_field_names(channel)
+    if field_names is None:
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger",
+            msg=f"{channel} token_fields 保存未实现（渠道可能已退役或待实现）",
+            fragment=frag,
+        )
 
     data: dict = {}
-    for field_name in fields:
+    for field_name in field_names:
         val = (request.form.get(field_name, "") or "").strip()
         if val:
             data[field_name] = val
@@ -213,24 +207,27 @@ def _save_token_fields(channel: str, is_clear: bool):
             fragment=frag,
         )
 
-    # Validate URL fields against SSRF before any write.
+    # Validate URL fields against SSRF before any write (security gate stays in route).
     for field_name, val in data.items():
         if field_name in _URL_FIELDS:
             err = _validate_url_field(channel, field_name, val)
             if err:
                 return err
 
-    # Leave-as-is: merge with existing data for fields not submitted.
-    existing: dict = {}
-    if token_path.exists():
-        try:
-            existing = json.loads(token_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
-            pass
-    merged = {**existing, **data}
-
     try:
-        save_fn(merged)
+        credential_service.save_token_fields(channel, cfg, data)
+    except credential_service.ChannelNotConfigured:
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger",
+            msg=f"{channel} token_fields 保存未实现（渠道可能已退役或待实现）",
+            fragment=frag)
+    except credential_service.CorruptCredentialFile as exc:
+        _log.error("corrupt credential file for channel=%s: %s", channel, exc)
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger",
+            msg=f"凭据文件已损坏，请手动删除后重试: {exc}",
+            fragment=frag,
+        )
     except Exception:
         _log.exception("save_token_fields failed for channel=%s", channel)
         return _safe_flash_redirect(
@@ -246,19 +243,27 @@ def _save_token_fields(channel: str, is_clear: bool):
 
 
 def _save_paste_blob(channel: str, is_clear: bool):
-    if channel not in _PASTE_BLOB_CHANNELS:
-        return _safe_flash_redirect(
-            "/settings", flash_type="danger",
-            msg=f"{channel} paste_blob 保存未实现（渠道可能已退役）",
-            fragment=f"channel-{channel}",
-        )
-    basename, expected_domain = _PASTE_BLOB_CHANNELS[channel]
     cfg = load_config()
-    cred_path = cfg.config_dir / basename
     frag = f"channel-{channel}"
 
     if is_clear:
-        return _do_unlink(cred_path, channel, frag)
+        try:
+            cleared = credential_service.clear_credential(channel, "paste_blob", cfg)
+            if cleared:
+                return _safe_flash_redirect(
+                    "/settings", flash_type="success",
+                    msg=f"{channel} 凭据已清除", fragment=frag)
+            return _safe_flash_redirect(
+                "/settings", flash_type="info",
+                msg=f"{channel} 凭据文件不存在，无需清除", fragment=frag)
+        except credential_service.ChannelNotConfigured:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"{channel} paste_blob 保存未实现（渠道可能已退役）", fragment=frag)
+        except OSError:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"清除 {channel} 凭据失败（详见服务器日志）", fragment=frag)
 
     blob_raw = request.form.get("blob", "") or ""
     if not blob_raw.strip():
@@ -268,14 +273,13 @@ def _save_paste_blob(channel: str, is_clear: bool):
             fragment=frag,
         )
 
-    if len(blob_raw.encode("utf-8")) > _PASTE_BLOB_MAX_BYTES:
+    if len(blob_raw.encode("utf-8")) > credential_service._PASTE_BLOB_MAX_BYTES:
         return _safe_flash_redirect(
             "/settings", flash_type="danger",
-            msg=f"Cookie JSON 超过 {_PASTE_BLOB_MAX_BYTES // 1000}KB 限制",
+            msg=f"Cookie JSON 超过 {credential_service._PASTE_BLOB_MAX_BYTES // 1000}KB 限制",
             fragment=frag,
         )
 
-    # Parse once — reused by validation and write.
     try:
         data = json.loads(blob_raw)
     except json.JSONDecodeError as exc:
@@ -285,17 +289,22 @@ def _save_paste_blob(channel: str, is_clear: bool):
             fragment=frag,
         )
 
-    err = _validate_cookie_blob(data, expected_domain)
-    if err:
+    expected_domain = credential_service.paste_blob_expected_domain(channel)
+    if expected_domain is None:
         return _safe_flash_redirect(
             "/settings", flash_type="danger",
-            msg=err,
-            fragment=frag,
-        )
+            msg=f"{channel} paste_blob 保存未实现（渠道可能已退役）", fragment=frag)
+
+    err = _validate_cookie_blob(data, expected_domain)
+    if err:
+        return _safe_flash_redirect("/settings", flash_type="danger", msg=err, fragment=frag)
 
     try:
-        cred_path.parent.mkdir(parents=True, exist_ok=True)
-        atomic_write_json(cred_path, data, mode=0o600)
+        credential_service.save_paste_blob(channel, cfg, data)
+    except credential_service.ChannelNotConfigured:
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger",
+            msg=f"{channel} paste_blob 保存未实现（渠道可能已退役）", fragment=frag)
     except OSError:
         return _safe_flash_redirect(
             "/settings", flash_type="danger",
@@ -310,19 +319,27 @@ def _save_paste_blob(channel: str, is_clear: bool):
 
 
 def _save_userpass(channel: str, is_clear: bool):
-    if channel not in _USERPASS_MODULES:
-        return _safe_flash_redirect(
-            "/settings", flash_type="danger",
-            msg=f"{channel} userpass 保存未实现（渠道可能已退役）",
-            fragment=f"channel-{channel}",
-        )
+    cfg = load_config()
     frag = f"channel-{channel}"
-    module_path = _USERPASS_MODULES[channel]
 
     if is_clear:
-        cfg = load_config()
-        cred_path = cfg.config_dir / f"{channel}-credentials.json"
-        return _do_unlink(cred_path, channel, frag)
+        try:
+            cleared = credential_service.clear_credential(channel, "userpass", cfg)
+            if cleared:
+                return _safe_flash_redirect(
+                    "/settings", flash_type="success",
+                    msg=f"{channel} 凭据已清除", fragment=frag)
+            return _safe_flash_redirect(
+                "/settings", flash_type="info",
+                msg=f"{channel} 凭据文件不存在，无需清除", fragment=frag)
+        except credential_service.ChannelNotConfigured:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"{channel} userpass 保存未实现（渠道可能已退役）", fragment=frag)
+        except OSError:
+            return _safe_flash_redirect(
+                "/settings", flash_type="danger",
+                msg=f"清除 {channel} 凭据失败（详见服务器日志）", fragment=frag)
 
     username = (request.form.get("username", "") or "").strip()
     password = (request.form.get("password", "") or "").strip()
@@ -341,9 +358,11 @@ def _save_userpass(channel: str, is_clear: bool):
         )
 
     try:
-        mod = importlib.import_module(module_path)
-        cfg = load_config()
-        mod.store_credentials(cfg, username, password)
+        credential_service.save_userpass(channel, cfg, username, password)
+    except credential_service.ChannelNotConfigured:
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger",
+            msg=f"{channel} userpass 保存未实现（渠道可能已退役）", fragment=frag)
     except Exception:
         _log.exception("save_userpass failed for channel=%s", channel)
         return _safe_flash_redirect(
@@ -359,28 +378,6 @@ def _save_userpass(channel: str, is_clear: bool):
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
-
-
-def _do_unlink(path: Path, channel: str, frag: str):
-    try:
-        if path.exists():
-            path.unlink()
-            return _safe_flash_redirect(
-                "/settings", flash_type="success",
-                msg=f"{channel} 凭据已清除",
-                fragment=frag,
-            )
-        return _safe_flash_redirect(
-            "/settings", flash_type="info",
-            msg=f"{channel} 凭据文件不存在，无需清除",
-            fragment=frag,
-        )
-    except OSError:
-        return _safe_flash_redirect(
-            "/settings", flash_type="danger",
-            msg=f"清除 {channel} 凭据失败（详见服务器日志）",
-            fragment=frag,
-        )
 
 
 def _validate_url_field(channel: str, field_name: str, val: str):

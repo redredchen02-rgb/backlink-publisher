@@ -40,10 +40,10 @@ from webui_app.helpers.contexts import (  # noqa: E402
     _settings_context,
 )
 from webui_app.helpers.cli_runner import (  # noqa: E402
-    _WORK_THEMED_RUNS,
     _parse_lines,
     run_pipe,
 )
+from webui_app.services.work_themed_service import _RUNS as _WORK_THEMED_RUNS  # noqa: E402
 from webui_app.helpers.security import (  # noqa: E402
     _check_csrf_or_abort,
     _check_localhost,

@@ -23,6 +23,7 @@ import pytest
 
 from backlink_publisher.config.loader import _config_dir
 from webui_app import medium_liveness
+import webui_app.services.medium_liveness_service as _svc
 from webui_app.medium_liveness import (
     LivenessResult,
     _active_probe,
@@ -92,7 +93,7 @@ class TestNeverBoundShortCircuit:
         mark_expired("medium")
         # No probe should run — verified by patching _active_probe to raise.
         with patch(
-            "webui_app.medium_liveness._active_probe",
+            "webui_app.services.medium_liveness_service._active_probe",
             side_effect=AssertionError("probe should not run on expired state"),
         ):
             assert medium_liveness_check() == LivenessResult.EXPIRED
@@ -105,7 +106,7 @@ class TestTTLCache:
     def test_recently_verified_returns_cached_bound(self):
         _mark_bound_with_last_verified(seconds_ago=60)  # 1 minute ago
         with patch(
-            "webui_app.medium_liveness._active_probe",
+            "webui_app.services.medium_liveness_service._active_probe",
             side_effect=AssertionError("probe should not run on cache hit"),
         ):
             assert medium_liveness_check() == LivenessResult.CACHED_BOUND
@@ -114,14 +115,14 @@ class TestTTLCache:
         _mark_bound_with_last_verified(seconds_ago=600)  # 10 minutes ago
         # Cache miss; with probe disabled (default), result is NEEDS_RECHECK
         monkeypatch.setattr(
-            medium_liveness, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", False
+            _svc, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", False
         )
         assert medium_liveness_check() == LivenessResult.NEEDS_RECHECK
 
     def test_no_last_verified_at_busts_cache(self, monkeypatch):
         _mark_bound_with_last_verified(seconds_ago=None)  # never verified
         monkeypatch.setattr(
-            medium_liveness, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", False
+            _svc, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", False
         )
         assert medium_liveness_check() == LivenessResult.NEEDS_RECHECK
 
@@ -133,11 +134,11 @@ class TestProbeDisabledDefault:
     def test_probe_disabled_returns_needs_recheck(self, monkeypatch):
         _mark_bound_with_last_verified(seconds_ago=600)
         monkeypatch.setattr(
-            medium_liveness, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", False
+            _svc, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", False
         )
         # _active_probe should not be invoked
         with patch(
-            "webui_app.medium_liveness._active_probe",
+            "webui_app.services.medium_liveness_service._active_probe",
             side_effect=AssertionError("probe disabled but called"),
         ):
             assert medium_liveness_check() == LivenessResult.NEEDS_RECHECK
@@ -151,14 +152,14 @@ class TestActiveProbeOutcomes:
 
     def _enable_probe(self, monkeypatch):
         monkeypatch.setattr(
-            medium_liveness, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", True
+            _svc, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", True
         )
 
     def test_logged_in_url_returns_logged_in_and_marks_verified(self, monkeypatch):
         _mark_bound_with_last_verified(seconds_ago=600)
         self._enable_probe(monkeypatch)
         with patch(
-            "webui_app.medium_liveness._active_probe",
+            "webui_app.services.medium_liveness_service._active_probe",
             return_value=LivenessResult.LOGGED_IN,
         ):
             result = medium_liveness_check()
@@ -174,7 +175,7 @@ class TestActiveProbeOutcomes:
         _mark_bound_with_last_verified(seconds_ago=600)
         self._enable_probe(monkeypatch)
         with patch(
-            "webui_app.medium_liveness._active_probe",
+            "webui_app.services.medium_liveness_service._active_probe",
             return_value=LivenessResult.EXPIRED,
         ):
             result = medium_liveness_check()
@@ -187,7 +188,7 @@ class TestActiveProbeOutcomes:
         _mark_bound_with_last_verified(seconds_ago=600)
         self._enable_probe(monkeypatch)
         with patch(
-            "webui_app.medium_liveness._active_probe",
+            "webui_app.services.medium_liveness_service._active_probe",
             return_value=LivenessResult.NEEDS_RECHECK,
         ):
             result = medium_liveness_check()
@@ -206,14 +207,14 @@ class TestProbeTimeout:
     def test_probe_exceeding_timeout_returns_needs_recheck(self, monkeypatch):
         _mark_bound_with_last_verified(seconds_ago=600)
         monkeypatch.setattr(
-            medium_liveness, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", True
+            _svc, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", True
         )
 
         def _slow_probe(storage_state):
             time.sleep(2.0)  # exceeds 0.1s budget
             return LivenessResult.LOGGED_IN
 
-        with patch("webui_app.medium_liveness._active_probe", _slow_probe):
+        with patch("webui_app.services.medium_liveness_service._active_probe", _slow_probe):
             result = medium_liveness_check(timeout_s=0.1)
         assert result == LivenessResult.NEEDS_RECHECK
 

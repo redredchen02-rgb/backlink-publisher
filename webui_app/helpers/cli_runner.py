@@ -231,11 +231,8 @@ def run_pipe(cmd, stdin):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# In-memory work-themed run store (shared between /sites routes)
+# In-memory work-themed run store — MOVED to services/work_themed_service.py (U6)
 # ─────────────────────────────────────────────────────────────────────────────
-
-_WORK_THEMED_RUNS: dict[str, dict] = {}
-_WORK_THEMED_RUNS_MAX = 50
 
 
 def _parse_run_result(stdout: str, entry) -> list[dict]:

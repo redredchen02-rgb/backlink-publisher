@@ -9,82 +9,19 @@ is kept so legacy users can revoke their token via the UI.
 from __future__ import annotations
 
 import os
-from contextlib import contextmanager
-from urllib.parse import urlparse
 
 from flask import Blueprint, redirect, request, session
 
 from backlink_publisher.config import load_config, save_config
 
 from ..helpers.security import _oauth_callback_uri, _safe_flash_redirect
+from ..services.oauth_service import (
+    build_blogger_client_config as _build_blogger_client_config,
+    is_loopback_uri as _is_loopback_uri,
+    oauthlib_insecure_transport as _oauthlib_insecure_transport,
+)
 
 bp = Blueprint("oauth", __name__)
-
-
-# Plan 2026-05-21-006 Unit 3.2 — `OAUTHLIB_INSECURE_TRANSPORT=1` allows
-# Google's oauthlib to accept http (not just https) callback URIs, needed
-# because the WebUI binds to loopback http. The previous implementation
-# mutated os.environ permanently in two request handlers, leaving the
-# variable set for every subsequent OAuth-using code path in this process
-# (and any subprocess that inherits the env).
-#
-# This context manager:
-#   1. Asserts the callback URI is loopback BEFORE enabling insecure transport.
-#      Off-loopback OAuth must use https; refusing to enable the bypass
-#      keeps an off-loopback deployment from silently downgrading TLS.
-#   2. Sets the env var only for the duration of the block.
-#   3. Restores the prior value (or unsets it) on exit, even on exception.
-_OAUTH_ENV_VAR = "OAUTHLIB_INSECURE_TRANSPORT"
-_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
-
-
-def _is_loopback_uri(uri: str) -> bool:
-    """Check if a URI points to a loopback host (localhost, 127.0.0.1, ::1).
-
-    Args:
-        uri: The URI to check.
-
-    Returns:
-        True if the hostname is a loopback address, False otherwise.
-    """
-    try:
-        host = urlparse(uri).hostname
-    except Exception:
-        return False
-    return (host or "").lower() in _LOOPBACK_HOSTS
-
-
-@contextmanager
-def _oauthlib_insecure_transport(callback_uri: str) -> None:
-    """Scope OAUTHLIB_INSECURE_TRANSPORT to a single OAuth handler.
-
-    Refuses to enable the bypass when callback_uri is not a loopback host —
-    that situation requires real TLS and the bypass would be a downgrade.
-
-    Args:
-        callback_uri: The OAuth callback URI to validate.
-
-    Raises:
-        RuntimeError: If the callback URI is not a loopback host.
-
-    Yields:
-        None
-    """
-    if not _is_loopback_uri(callback_uri):
-        raise RuntimeError(
-            f"refusing to enable OAUTHLIB_INSECURE_TRANSPORT: "
-            f"callback URI {callback_uri!r} is not loopback. "
-            f"Off-loopback OAuth must use https without the bypass."
-        )
-    prev = os.environ.get(_OAUTH_ENV_VAR)
-    os.environ[_OAUTH_ENV_VAR] = "1"
-    try:
-        yield
-    finally:
-        if prev is None:
-            os.environ.pop(_OAUTH_ENV_VAR, None)
-        else:
-            os.environ[_OAUTH_ENV_VAR] = prev
 
 
 # ── Medium OAuth ────────────────────────────────────────────────────────────
@@ -177,15 +114,7 @@ def settings_blogger_oauth_start():
             from google_auth_oauthlib.flow import Flow
             from backlink_publisher.publishing.adapters.blogger_api import _SCOPES
 
-            client_config = {
-                'installed': {
-                    'client_id': client_id,
-                    'client_secret': client_secret,
-                    'redirect_uris': ['http://localhost', cb_uri],
-                    'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
-                    'token_uri': 'https://oauth2.googleapis.com/token',
-                }
-            }
+            client_config = _build_blogger_client_config(client_id, client_secret, cb_uri)
 
             flow = Flow.from_client_config(client_config, scopes=_SCOPES,
                                            redirect_uri=cb_uri)
