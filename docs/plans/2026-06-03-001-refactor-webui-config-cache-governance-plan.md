@@ -1,7 +1,7 @@
 ---
 title: "refactor: Complete _g_cache adoption in WebUI routes and extend complexity governance to webui_app/"
 type: refactor
-status: active
+status: completed
 date: 2026-06-03
 deepened: 2026-06-03
 claims: {}  # refactor of existing call sites; no new SLOC/CC claims pre-merge; budget entries validated at execution time per post-2026-05-20 policy.
