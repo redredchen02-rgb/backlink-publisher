@@ -83,8 +83,7 @@ def _final_status_for(original: str, ok: bool) -> str:
         # Strip an ``_unverified`` suffix when verify confirms the post.
         if original.endswith("_unverified"):
             return original[: -len("_unverified")]
-        if original == "failed":
-            # Manually-marked failed but URL actually resolves → upgrade.
+        if original in ("failed", "unknown"):
             return "published"
         return original
     # ok=False — verify could not find title + anchor on the live page
