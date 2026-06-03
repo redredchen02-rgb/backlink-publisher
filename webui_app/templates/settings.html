@@ -10,7 +10,7 @@
 {% block content %}
     <nav class="navbar">
         <h1><i class="bi bi-gear me-2"></i>设置</h1>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div class="nav-actions">
             <!-- LLM Status Badge -->
             {% if llm_settings and llm_settings.api_key and llm_settings.endpoint %}
             <span class="nav-badge ok" title="LLM 进阶功能已启用">
@@ -24,7 +24,7 @@
     </nav>
 
     {% if flash %}
-    <div class="alert alert-{{ flash.type }} alert-dismissible fade show" role="alert" style="margin:12px 24px 0;">
+    <div class="alert alert-{{ flash.type }} alert-dismissible fade show settings-flash" role="alert">
         {{ flash.msg }}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
@@ -40,7 +40,7 @@
                 <h2 class="section-heading overview-heading">
                     <span class="overview-heading-left">
                         <i class="bi bi-broadcast"></i> 渠道綁定總覽
-                        <span style="font-weight:400; font-size:0.85rem; color:#64748b;">
+                        <span class="overview-hint">
                             · 點按鈕即時 verify / 綁定，不需開 terminal
                         </span>
                     </span>
@@ -70,7 +70,7 @@
                         <button type="button" class="channel-toggle"
                                 data-bs-toggle="collapse" data-bs-target="#channel-blogger"
                                 aria-expanded="false" aria-controls="channel-blogger">
-                            <i class="bi bi-google" style="color:#ea4335;" aria-hidden="true"></i>
+                            <i class="bi bi-google icon-google" aria-hidden="true"></i>
                             <span>Blogger</span>
                             <span class="badges">
                                 {% if blogger_token %}
@@ -126,7 +126,7 @@
                         <button type="button" class="channel-toggle"
                                 data-bs-toggle="collapse" data-bs-target="#channel-velog"
                                 aria-expanded="false" aria-controls="channel-velog">
-                            <i class="bi bi-pencil-square" style="color:#20c997;" aria-hidden="true"></i>
+                            <i class="bi bi-pencil-square icon-velog" aria-hidden="true"></i>
                             <span>Velog</span>
                             <span class="badges">
                                 {% if velog_status is defined %}
@@ -134,11 +134,11 @@
                                     {% if vs.state == 'fresh' or vs.state == 'ok' %}
                                         <span class="badge-status ok"><i class="bi bi-check-circle-fill"></i> {{ vs.label }}</span>
                                     {% elif vs.state == 'cap_reached' %}
-                                        <span class="badge-status" style="background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;">
+                                        <span class="badge-status neutral">
                                             <i class="bi bi-pause-circle-fill"></i> {{ vs.label }}
                                         </span>
                                     {% elif vs.state == 'permission_denied' %}
-                                        <span class="badge-status" style="background:#faf5ff;color:#7c3aed;border:1px solid #c4b5fd;">
+                                        <span class="badge-status violet">
                                             <i class="bi bi-lock-fill"></i> 权限错误
                                         </span>
                                     {% elif vs.state == 'warn' %}
@@ -207,14 +207,14 @@
                                 {% else %}
                                 <span class="badge-status err">未绑定</span>
                                 {% endif %}
-                                <span class="badge-status" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:10px;">nofollow</span>
+                                <span class="badge-status nofollow sm">nofollow</span>
                             </span>
                             <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div id="channel-devto" class="collapse">
                         <div class="card-body">
-                            <p class="text-muted" style="font-size:12px; margin-bottom:8px;">
+                            <p class="text-muted channel-note">
                                 <strong>注意：</strong>Dev.to 对所有外链强制添加 <code>rel="nofollow ugc"</code>。
                                 本渠道的价值在于实体信号、收录速度和引荐流量，不作为 dofollow 主力渠道。
                             </p>
@@ -245,56 +245,54 @@
                                 {% else %}
                                 <span class="badge-status err">未绑定</span>
                                 {% endif %}
-                                <span class="badge-status" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:10px;">nofollow</span>
+                                <span class="badge-status nofollow sm">nofollow</span>
                             </span>
                             <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div id="channel-notion" class="collapse">
                         <div class="card-body">
-                            <p class="text-muted" style="font-size:12px; margin-bottom:8px;">
+                            <p class="text-muted channel-note">
                                 Notion 对公开页面外链强制添加 nofollow。本渠道价值：实体信号 + 收录速度。<br>
                                 <strong>设置步骤：</strong>① 在 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener">Notion Integrations</a> 创建集成，复制 <code>secret_...</code> Token；
                                 ② 打开目标数据库页面，Share → Invite，选择刚创建的集成；
                                 ③ 从数据库 URL 复制 Database ID（URL 中 <code>notion.so/<strong>xxxxxxxx...</strong>?v=</code> 部分）。
                             </p>
-                            <p class="text-muted" style="font-size:11px;">
+                            <p class="text-muted channel-note-xs">
                                 注意：Dev.to 通道的 token 通过上方 <strong>通用 Token 绑定</strong> 表单保存；
                                 Notion 需要两个字段，使用下方专用表单。
                             </p>
 
-                            <hr style="margin:16px 0 12px;">
+                            <hr class="hr-tight">
                             <div class="token-paste-section" id="token-paste-notion" data-channel="notion">
-                                <div class="token-status-row" style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
+                                <div class="token-status-row notion-token-row">
                                     {% if notion_status.bound %}
                                     <span class="badge-status ok"><i class="bi bi-check-circle-fill"></i> 已绑定 ✓</span>
                                     {% if notion_status.masked %}
-                                    <code class="text-muted" style="font-size:12px;">{{ notion_status.masked }}</code>
+                                    <code class="text-muted fs-12">{{ notion_status.masked }}</code>
                                     {% endif %}
                                     {% else %}
                                     <span class="badge-status err"><i class="bi bi-x-circle-fill"></i> 未绑定</span>
                                     {% endif %}
-                                    <span class="badge-status" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;">
+                                    <span class="badge-status nofollow">
                                         <i class="bi bi-link-slash"></i> nofollow
                                     </span>
                                 </div>
 
                                 <form method="POST" action="/settings/save-notion-token" class="token-paste-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <div class="form-group" style="margin-bottom:12px;">
-                                        <label for="notion-integration-token" style="font-weight:500;">Integration Token</label>
+                                    <div class="form-group form-row">
+                                        <label for="notion-integration-token" class="form-label-medium">Integration Token</label>
                                         <input type="password" id="notion-integration-token" name="integration_token"
-                                               class="form-control" autocomplete="off" spellcheck="false"
-                                               placeholder="{% if notion_status.bound %}重新绑定时填入新 token；保留空白则不更新{% else %}secret_...{% endif %}"
-                                               style="font-family:monospace;">
+                                               class="form-control input-mono" autocomplete="off" spellcheck="false"
+                                               placeholder="{% if notion_status.bound %}重新绑定时填入新 token；保留空白则不更新{% else %}secret_...{% endif %}">
                                         <small class="form-text text-muted">Notion Integration 的 Internal Integration Secret。</small>
                                     </div>
-                                    <div class="form-group" style="margin-bottom:12px;">
-                                        <label for="notion-database-id" style="font-weight:500;">Database ID</label>
+                                    <div class="form-group form-row">
+                                        <label for="notion-database-id" class="form-label-medium">Database ID</label>
                                         <input type="text" id="notion-database-id" name="database_id"
-                                               class="form-control" autocomplete="off" spellcheck="false"
-                                               placeholder="{% if notion_status.database_id_set %}已设置（重新绑定时填入）{% else %}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx{% endif %}"
-                                               style="font-family:monospace;">
+                                               class="form-control input-mono" autocomplete="off" spellcheck="false"
+                                               placeholder="{% if notion_status.database_id_set %}已设置（重新绑定时填入）{% else %}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx{% endif %}">
                                         <small class="form-text text-muted">数据库页面 URL 中的 ID 部分。</small>
                                     </div>
                                     <button type="submit" class="btn btn-primary">
@@ -302,7 +300,7 @@
                                     </button>
                                     {% if notion_status.bound %}
                                     <button type="submit" name="clear" value="1"
-                                            class="btn btn-outline-danger" style="margin-left:8px;"
+                                            class="btn btn-outline-danger btn-inline-left"
                                             data-confirm="清除 Notion token 文件？">
                                         清除
                                     </button>
@@ -334,9 +332,9 @@
                         <i class="bi bi-folder2 me-2"></i>配置文件路径
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-1" style="font-size:13px;">配置保存路径：</p>
-                        <code style="font-size:13px;">{{ config_path }}</code>
-                        <p class="text-muted mt-2 mb-0" style="font-size:12px;">
+                        <p class="text-muted mb-1 config-path-text">配置保存路径：</p>
+                        <code class="config-path-text">{{ config_path }}</code>
+                        <p class="text-muted mt-2 mb-0 fs-12">
                             OAuth Token：<code>{{ token_path }}</code>
                         </p>
                     </div>
