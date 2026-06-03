@@ -52,6 +52,13 @@ _BROWSER_TIER: frozenset[str] = frozenset({"medium", "velog", "devto", "mastodon
 #: When "1": full policy (health gate + circuit breaker + events) is active.
 POLICY_ENV = "BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED"
 
+#: Phase 3 — consecutive-failure trip thresholds (configurable). After this many
+#: consecutive non-ban AuthExpiredError / ExternalServiceError, the circuit trips.
+_AUTH_THRESHOLD_ENV = "BACKLINK_PUBLISHER_CIRCUIT_AUTH_THRESHOLD"
+_ERROR_THRESHOLD_ENV = "BACKLINK_PUBLISHER_CIRCUIT_ERROR_THRESHOLD"
+_DEFAULT_AUTH_THRESHOLD = 3
+_DEFAULT_ERROR_THRESHOLD = 5
+
 
 def policy_enabled() -> bool:
     """True iff the operator opted into the reliability policy layer."""
@@ -60,6 +67,51 @@ def policy_enabled() -> bool:
 
 def _is_browser_tier(platform: str) -> bool:
     return platform in _BROWSER_TIER
+
+
+def _threshold(env_name: str, default: int) -> int:
+    try:
+        return max(1, int(os.environ.get(env_name, default)))
+    except (ValueError, TypeError):
+        return default
+
+
+def _reset_failures(platform: str, config: Config) -> None:
+    """Reset the consecutive-failure counter (on success or after a trip)."""
+    try:
+        from backlink_publisher.health.persistence import locked_store
+
+        locked_store.update(
+            platform, lambda e: {**e, "consecutive_failures": 0}, config
+        )
+    except Exception:  # noqa: BLE001 — health-store faults never block publishing
+        pass
+
+
+def _record_failure_and_maybe_trip(
+    platform: str, config: Config, threshold: int
+) -> None:
+    """Increment the consecutive-failure counter; trip the circuit at *threshold*.
+
+    Counts in ``LockedHealthStore.consecutive_failures`` (Phase 1's field, now
+    live). On reaching *threshold* the circuit trips and the counter resets so
+    the post-cooldown window starts fresh. Fail-soft: a health-store error is
+    swallowed so a transient fault never escalates a single failure into a trip.
+    """
+    try:
+        from backlink_publisher.health.persistence import locked_store
+
+        locked_store.update(
+            platform,
+            lambda e: {**e, "consecutive_failures": int(e.get("consecutive_failures", 0)) + 1},
+            config,
+        )
+        count = locked_store.get(platform, config)["consecutive_failures"]
+    except Exception:  # noqa: BLE001
+        return
+    if count >= threshold:
+        trip(platform, config)
+        _reset_failures(platform, config)
 
 
 def publish_with_policy(
@@ -79,8 +131,8 @@ def publish_with_policy(
     """
     full_payload = {**payload, "platform": platform}
 
-    # Passthrough when policy is disabled (default) or for non-browser-tier.
-    if not policy_enabled() or not _is_browser_tier(platform):
+    # Passthrough when policy is disabled (default).
+    if not policy_enabled():
         return adapter_publish(
             payload=full_payload,
             mode=mode,
@@ -91,23 +143,28 @@ def publish_with_policy(
 
     # --- Policy active (BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED=1) ---
 
-    # 1. Health gate (already fail-CLOSED: JSONDecodeError → {} → "unbound")
-    try:
-        from webui_store.channel_status import get_status
-        status_info = get_status(platform)
-        channel_status = status_info.get("status", "unbound")
-    except Exception:  # noqa: BLE001
-        channel_status = "unbound"
+    # 1. Health gate — browser-tier only. The "bound" status tracks a browser
+    #    session binding that API-tier platforms do not have, so applying it to
+    #    them would skip every non-browser publish. (Phase 3 keeps the health
+    #    gate browser-scoped while the circuit below covers all platforms.)
+    if _is_browser_tier(platform):
+        try:
+            from webui_store.channel_status import get_status
+            status_info = get_status(platform)
+            channel_status = status_info.get("status", "unbound")
+        except Exception:  # noqa: BLE001
+            channel_status = "unbound"
 
-    if channel_status != "bound":
-        return AdapterResult(
-            status="skipped_policy",
-            adapter="policy",
-            platform=platform,
-            error=f"channel not bound (status={channel_status!r})",
-        )
+        if channel_status != "bound":
+            return AdapterResult(
+                status="skipped_policy",
+                adapter="policy",
+                platform=platform,
+                error=f"channel not bound (status={channel_status!r})",
+            )
 
-    # 2. Circuit breaker (fail-CLOSED: corrupt state → is_tripped returns True)
+    # 2. Circuit breaker — ALL platforms (Phase 3 U9; fail-CLOSED: corrupt state
+    #    → is_tripped returns True).
     if is_tripped(platform, config):
         return AdapterResult(
             status="skipped_circuit_open",
@@ -116,7 +173,7 @@ def publish_with_policy(
             error=f"circuit open for {platform}",
         )
 
-    # 3. Dispatch + observe
+    # 3. Dispatch + observe + consecutive-failure trip accounting.
     t0 = now_ms()
     try:
         result = adapter_publish(
@@ -127,19 +184,30 @@ def publish_with_policy(
             banner_emit=banner_emit,
         )
         emit_attempt(platform, Outcome.SUCCESS, now_ms() - t0)
+        _reset_failures(platform, config)
         return result
 
     except AuthExpiredError as exc:
         duration = now_ms() - t0
         if is_ban_signal(exc):
+            # Ban/suspend → trip immediately (v1 behavior).
             trip(platform, config)
+            _reset_failures(platform, config)
             emit_attempt(platform, Outcome.AUTH_BANNED, duration)
         else:
+            # Plain session expiry → trip only after N consecutive (U10).
             emit_attempt(platform, Outcome.AUTH_EXPIRED, duration)
+            _record_failure_and_maybe_trip(
+                platform, config, _threshold(_AUTH_THRESHOLD_ENV, _DEFAULT_AUTH_THRESHOLD)
+            )
         raise
 
     except ExternalServiceError as exc:
+        # Upstream error → trip after N consecutive (U11).
         emit_attempt(platform, Outcome.EXTERNAL_ERROR, now_ms() - t0)
+        _record_failure_and_maybe_trip(
+            platform, config, _threshold(_ERROR_THRESHOLD_ENV, _DEFAULT_ERROR_THRESHOLD)
+        )
         raise
 
     except Exception as exc:

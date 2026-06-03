@@ -82,10 +82,11 @@ def test_non_browser_tier_platforms():
 # ---------------------------------------------------------------------------
 
 
-def test_non_browser_tier_delegates_directly(cfg):
-    """Non-browser-tier platforms bypass health gate and circuit breaker."""
+def test_non_browser_tier_dispatches_through_closed_circuit(cfg):
+    """Non-browser-tier platforms skip the health gate but DO pass the circuit
+    breaker (Phase 3 U9). With a closed circuit, dispatch proceeds normally."""
     result = _result(platform="blogger")
-    with patch(_ADAPTER_PUB, return_value=result) as mock_pub:
+    with patch(_ADAPTER_PUB, return_value=result) as mock_pub, patch(_EMIT):
         out = publish_with_policy("blogger", payload={"id": "1"}, config=cfg)
 
     mock_pub.assert_called_once()

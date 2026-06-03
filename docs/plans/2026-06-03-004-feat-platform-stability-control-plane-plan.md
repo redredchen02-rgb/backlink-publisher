@@ -347,13 +347,25 @@ WebUI wiring: `webui_app/routes/health_actions.py` (loopback + app-level CSRF),
 `static/js/health.js` (delegated `data-action`, CSRF via `postJson`), Actions
 column in the Platform last-state panel.
 
-## Phase 3 (deferred) — Circuit Breaker Expansion
+## Phase 3 (shipped 2026-06-03) — Circuit Breaker Expansion
 
-- U9: Extend `trip()` trigger to all registered platforms (not just browser-tier)
-- U10: Add consecutive `AuthExpiredError` trip (without ban keyword) after N failures
-- U11: Add `ExternalServiceError` trip condition (configurable threshold)
-- U12: Expose circuit state in `platform-health` CLI output and `/ce:health`
-  (already partially done in Phase 1 `PlatformHealthRecord.circuit_tripped`)
+- [x] U9: Circuit breaker now covers ALL platforms — `publish_with_policy` no
+  longer passes non-browser-tier platforms straight through; the health gate
+  stays browser-scoped (API platforms have no session binding) but `is_tripped`
+  now gates every platform.
+- [x] U10: Consecutive non-ban `AuthExpiredError` trips after N failures
+  (`BACKLINK_PUBLISHER_CIRCUIT_AUTH_THRESHOLD`, default 3).
+- [x] U11: Consecutive `ExternalServiceError` trips after N failures
+  (`BACKLINK_PUBLISHER_CIRCUIT_ERROR_THRESHOLD`, default 5).
+- [x] U12: Circuit state surfaces for all platforms in `platform-health` CLI and
+  `/ce:health` (shipped Phase 1; this phase made non-browser platforms reachable
+  and fixed `circuit_tripped_at` reading the wrong key — `tripped_at_iso`).
+
+Counting reuses `LockedHealthStore.consecutive_failures` (Phase 1's field, now
+live): success or a trip resets it (the post-cooldown window starts fresh). All
+trip accounting is fail-soft — a health-store fault never escalates a single
+failure into a trip. Whole layer remains gated behind
+`BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED=1` (default off).
 
 ## System-Wide Impact
 
