@@ -77,7 +77,7 @@ from .hackmd_api import HackmdAPIAdapter
 from .hashnode_graphql import HashnodeGraphQLAdapter
 from .hatena_atompub import HatenaAtomPubAdapter
 from .instant_web import (
-    TelegraphCdpAdapter,  # noqa: F401  kept for test import, not yet wired
+    TelegraphCdpAdapter,  # noqa: F401
 )
 from .linkedin_api import LinkedInAPIAdapter
 from .livejournal_api import LivejournalAPIAdapter, _livejournal_credential_saver
@@ -132,17 +132,19 @@ register(
 register(
     "hashnode",
     HashnodeGraphQLAdapter,
-    dofollow="uncertain",  # 3rd-party live check = dofollow; canary pending; retiring (PR #204)
+    dofollow="uncertain",
     rationale=_R["hashnode"],
     referral_value="high",
+    visibility="retired",  # retired in plan 008 (PR #204 intent); deletion follow-up
     **HASHNODE_MANIFEST,
 )
 register(
     "writeas",
     WriteasAPIAdapter,
-    dofollow="uncertain",  # 3rd-party live check = dofollow; canary pending; retiring (PR #202)
+    dofollow="uncertain",
     rationale=_R["writeas"],
     referral_value="low",
+    visibility="retired",  # retired in plan 008 (PR #202 intent); deletion follow-up
     **WRITEAS_MANIFEST,
 )
 register(
@@ -186,7 +188,13 @@ register(
     dofollow=True,
     **MEDIUM_MANIFEST,
 )
-register("telegraph", TelegraphAPIAdapter, dofollow=True, **TELEGRAPH_MANIFEST)
+register(
+    "telegraph",
+    TelegraphAPIAdapter,
+    TelegraphCdpAdapter,
+    dofollow=True,
+    **TELEGRAPH_MANIFEST,
+)
 register(
     "velog",
     VelogGraphQLAdapter,
