@@ -210,6 +210,7 @@ DEVTO_MANIFEST: dict[str, Any] = dict(
                 "browser_recipe": (
                     "backlink_publisher.publishing.browser_publish.recipes.devto"
                 ),
+                "token_field": "api_key",
             },
         ),
     ],

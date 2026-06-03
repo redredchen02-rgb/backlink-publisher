@@ -29,7 +29,6 @@ from ._config_io import (
 )
 from ._merge_categories import merge_site_url_categories
 from ._toml_utils import (
-    _SAVE_CONFIG_KNOWN_ROOTS,
     _TOML_HEADING_RE,
     _preserve_unknown_sections,
     _toml_heading_root,
@@ -149,3 +148,19 @@ __all__ = [
     "snapshot_token_revs",
     "upgrade_target_to_threeurl",
 ]
+
+
+def __getattr__(name: str) -> object:
+    """PEP 562 backward-compat: ``_SAVE_CONFIG_KNOWN_ROOTS`` from ``_toml_utils``.
+
+    The frozenset is computed lazily so the ``config`` package can be imported
+    before ``publishing.registry`` is fully initialized (breaks a circular
+    import chain that would otherwise occur whenever ``adapters/__init__.py``
+    or any downstream caller triggers ``_toml_utils.__getattr__`` at module
+    load time).
+    """
+    if name == "_SAVE_CONFIG_KNOWN_ROOTS":
+        from ._toml_utils import _save_config_known_roots
+
+        return _save_config_known_roots()
+    raise AttributeError(f"module 'backlink_publisher.config' has no attribute {name!r}")

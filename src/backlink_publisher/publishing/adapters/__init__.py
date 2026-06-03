@@ -22,9 +22,10 @@ Behaviour preserved verbatim:
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TYPE_CHECKING
 
-from backlink_publisher.config import Config
+if TYPE_CHECKING:
+    from backlink_publisher.config import Config
 
 from .._manifests import (
     BLOGGER_MANIFEST,

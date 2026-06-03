@@ -83,6 +83,7 @@ _ADAPTER_STRING_TO_PLATFORM: dict[str, str] = {
     "telegraph-api": "telegraph",
     "telegraph-cdp": "telegraph",
     "tumblr": "tumblr",
+    "notesio-form-post": "notesio",
     "txtfyi-form-post": "txtfyi",
     "velog-graphql": "velog",
     "wordpresscom": "wordpresscom",

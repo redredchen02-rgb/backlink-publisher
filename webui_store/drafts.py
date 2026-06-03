@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .base import JsonStore
 
@@ -66,6 +66,48 @@ class DraftsStore(JsonStore):
             if removed:
                 self.save(kept)
             return removed
+
+    def get_by_campaign_id(self, campaign_id: str) -> list[dict]:
+        """Return all drafts whose ``campaign_id`` field matches."""
+        return [
+            it for it in self.load()
+            if it.get("campaign_id") == campaign_id
+        ]
+
+    def bulk_publish_now(
+        self,
+        ids: list[str],
+        publish_fn: Callable[[dict], dict],
+    ) -> dict:
+        """Call ``publish_fn`` for each draft id, update status, return summary.
+
+        Unknown ids are silently skipped.  ``publish_fn`` must return a dict
+        with at least ``{"ok": bool}``; optionally ``{"error": str}`` on failure.
+        Exceptions from ``publish_fn`` are caught and reported as failures.
+        """
+        published = 0
+        failed = 0
+        errors: list[str] = []
+        for item_id in ids:
+            draft = self.get_item(item_id)
+            if draft is None:
+                continue
+            try:
+                result = publish_fn(draft)
+                if result.get("ok"):
+                    self.update_item(item_id, status="published")
+                    published += 1
+                else:
+                    err_msg = result.get("error") or "unknown error"
+                    self.update_item(item_id, status="failed", error=err_msg)
+                    failed += 1
+                    errors.append(f"{item_id}: {err_msg}")
+            except Exception as exc:  # noqa: BLE001
+                err_msg = str(exc)
+                self.update_item(item_id, status="failed", error=err_msg)
+                failed += 1
+                errors.append(f"{item_id}: {err_msg}")
+        return {"published": published, "failed": failed, "errors": errors}
 
     def bulk_update(self, ids: list[str], **fields: Any) -> int:
         """Merge ``fields`` into every draft whose id is in ``ids``.

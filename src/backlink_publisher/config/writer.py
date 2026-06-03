@@ -19,7 +19,7 @@ from .loader import load_config
 from ._config_io import _resolve_config_dir, _snapshot_config, _atomic_write_text
 from .tokens import save_medium_integration_token
 from ._toml_utils import (
-    _SAVE_CONFIG_KNOWN_ROOTS,
+    _save_config_known_roots,
     _emit_target_section,
     _preserve_unknown_sections,
     _toml_str,
@@ -231,7 +231,7 @@ def save_config(
             existing_raw = config_path.read_text(encoding="utf-8")
             preserved = _preserve_unknown_sections(
                 existing_raw,
-                _SAVE_CONFIG_KNOWN_ROOTS,
+                _save_config_known_roots(),
                 frozenset(known_subsections),
             )
         except OSError as exc:

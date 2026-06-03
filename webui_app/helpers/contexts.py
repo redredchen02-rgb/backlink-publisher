@@ -71,6 +71,60 @@ def _token_paste_status_notion(cfg, load_fn) -> dict:
     return settings_service.token_paste_status_notion(cfg, load_fn)
 
 
+def _token_paste_channels_from_registry(cfg) -> dict:
+    """Return status dicts for all registry platforms with ``backend="token-paste"``.
+
+    Derives the token file path from ``BindDescriptor.storage_state_path``
+    (``<config_dir>`` is replaced with ``cfg.config_dir``).  Token field name
+    defaults to ``"token"``; platforms that use a different key store it in
+    ``extras["token_field"]``.  Platforms with ``extras["requires_database_id"]``
+    (e.g. notion — two-field form) are excluded: their explicit wiring in
+    ``_settings_context`` handles them.
+
+    Callers: ``_settings_context`` adds the result as ``token_paste_registry_cards``
+    so the template can render cards for any new platform without needing manual
+    wiring in this file.
+    """
+    from backlink_publisher.publishing.registry import (
+        bind_descriptors,
+        dofollow_status,
+        registered_platforms,
+    )
+    import json as _json
+
+    result: dict = {}
+    config_dir = str(cfg.config_dir)
+    for name in registered_platforms():
+        for desc in bind_descriptors(name):
+            if desc.backend != "token-paste":
+                continue
+            if desc.extras.get("requires_database_id"):
+                continue  # multi-field form — handled by explicit wiring
+            token_path_str = (desc.storage_state_path or "").replace(
+                "<config_dir>", config_dir
+            )
+            token_field = desc.extras.get("token_field", "token")
+            data: dict | None = None
+            if token_path_str:
+                try:
+                    from pathlib import Path as _Path
+                    raw = _Path(token_path_str).read_text(encoding="utf-8")
+                    data = _json.loads(raw)
+                except Exception:
+                    data = None
+            token = (data or {}).get(token_field, "") if isinstance(data, dict) else ""
+            bound = bool(token)
+            if bound and len(token) > 6:
+                masked = token[:3] + "*" * (len(token) - 6) + token[-3:]
+            elif bound:
+                masked = "*" * len(token)
+            else:
+                masked = ""
+            result[name] = {"bound": bound, "masked": masked, "dofollow": dofollow_status(name)}
+            break  # first token-paste descriptor wins
+    return result
+
+
 def _group_history(items: list[dict]) -> list[dict]:
     return settings_service.group_history(items)
 
@@ -198,6 +252,7 @@ def _settings_context(flash=None):
         notion_config_summary=notion_config_summary,
         devto_status=devto_status,
         devto_config_summary=devto_config_summary,
+        token_paste_registry_cards=_token_paste_channels_from_registry(cfg),
     )
 
 

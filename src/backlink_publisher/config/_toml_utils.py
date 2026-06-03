@@ -11,9 +11,50 @@ import re
 from .types import DEFAULT_WORK_TEMPLATES, ThreeUrlConfig
 
 
-_SAVE_CONFIG_KNOWN_ROOTS: frozenset[str] = frozenset(
-    {"blogger", "medium", "targets", "ghpages", "gitlabpages", "mastodon", "image_gen"}
-)
+# Plan 2026-05-25-002 Unit 2b — derived dynamically from
+# ``registry.visibility(name)`` instead of a hand-maintained frozenset.
+# Non-retired registered platforms + two fixed non-platform sections
+# (targets, image_gen) form the complete set of roots that save_config
+# "knows about".  A section whose root is in this set is treated as
+# managed: _preserve_unknown_sections will NOT carry it verbatim.
+# PEP 562 __getattr__ preserves the legacy ``_SAVE_CONFIG_KNOWN_ROOTS``
+# module-level name so existing import sites keep working unchanged.
+
+_FIXED_KNOWN_ROOTS: frozenset[str] = frozenset({"targets", "image_gen"})
+
+
+def _save_config_known_roots() -> frozenset[str]:
+    """Return the frozenset of TOML section roots managed by save_config.
+
+    Derived from all non-retired registered platforms plus two fixed
+    non-platform sections (``targets``, ``image_gen``).  Recomputed on
+    every call so a newly-registered platform is reflected without a
+    reload.
+    """
+    from backlink_publisher.publishing.registry import (  # local: avoid circular
+        registered_platforms,
+        visibility,
+    )
+
+    platform_roots = frozenset(
+        n for n in registered_platforms() if visibility(n) != "retired"
+    )
+    return platform_roots | _FIXED_KNOWN_ROOTS
+
+
+def __getattr__(name: str) -> object:
+    """PEP 562 module-level attribute hook.
+
+    Preserves the legacy ``_SAVE_CONFIG_KNOWN_ROOTS`` module-level name so
+    existing callers that do ``from ._toml_utils import _SAVE_CONFIG_KNOWN_ROOTS``
+    keep working unchanged — they get a freshly computed frozenset.
+    """
+    if name == "_SAVE_CONFIG_KNOWN_ROOTS":
+        return _save_config_known_roots()
+    raise AttributeError(
+        f"module 'backlink_publisher.config._toml_utils' has no attribute {name!r}"
+    )
+
 
 _TOML_HEADING_RE = re.compile(
     r"""

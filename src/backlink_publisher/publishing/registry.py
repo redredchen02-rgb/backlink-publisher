@@ -230,7 +230,7 @@ _AUTH_TYPE_VALUES: frozenset[str] = frozenset({
 })
 _AUTH_TYPE_BY_PLATFORM: dict[str, str] = {
     # ANON — no credentials (anonymous publish / auto-bootstrap)
-    "telegraph": "anon", "txtfyi": "anon", "rentry": "anon",
+    "telegraph": "anon", "txtfyi": "anon", "rentry": "anon", "notesio": "anon",
     # TOKEN — single secret field
     "devto": "token", "writeas": "token",
     "hackmd": "token", "mataroa": "token",
