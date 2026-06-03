@@ -13,13 +13,21 @@ coverage on a non-browser-tier platform (``fake``) — see R6.
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 
 from backlink_publisher.config import load_config
+from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher.publishing.registry import (
+    Publisher as _Publisher,
+    register as _register,
+    _REGISTRY as __REGISTRY,
+)
+from backlink_publisher.publishing.reliability import circuit
 from backlink_publisher.cli.publish_backlinks._engine import (
     PublishRunState,
     run_publish_loop,
@@ -183,3 +191,109 @@ class TestR1ResumeSeam:
                         return_value=_ok_result()) as ap:
             _run_one_resume(item, _make_args())
         assert ap.called and not pwp.called, "resume passthrough when flag unset"
+
+
+# ── R2–R6: end-to-end regression layer (real publish_with_policy, flag on) ──
+
+
+class _RaisingAdapter(_Publisher):
+    """Stub publisher whose publish() raises ExternalServiceError (drives R3)."""
+
+    @classmethod
+    def available(cls, config) -> bool:
+        return True
+
+    def publish(self, payload, mode, config):
+        raise ExternalServiceError("simulated upstream 503")
+
+
+@pytest.fixture
+def raising_fake_registered():
+    """Register a raising adapter under slug ``fake`` for one test."""
+    previous = __REGISTRY.get("fake")
+    _register("fake", _RaisingAdapter, dofollow=True)
+    try:
+        yield
+    finally:
+        if previous is None:
+            __REGISTRY.pop("fake", None)
+        else:
+            __REGISTRY["fake"] = previous
+
+
+def _publish_attempts(captured_err: str):
+    """Extract publish_attempt event payloads from captured stderr JSON lines."""
+    events = []
+    for line in captured_err.splitlines():
+        try:
+            rec = json.loads(line)
+        except (ValueError, TypeError):
+            continue
+        msg = rec.get("msg")
+        if isinstance(msg, dict) and msg.get("event") == "publish_attempt":
+            events.append(msg)
+    return events
+
+
+class TestPolicyBehaviorsEndToEnd:
+    """R2–R5 observed through the real chain on a non-browser platform (R6)."""
+
+    def test_r2_health_gate_browser_tier(self, monkeypatch):
+        # velog is browser-tier; unbound channel_status → skipped_policy.
+        monkeypatch.setenv(_POLICY_ENV, "1")
+        state = _run_one(_fake_row(platform="velog"), _make_args())
+        assert state.outputs[-1]["status"] == "skipped_policy"
+
+    def test_r3_open_circuit_skips_dispatch(
+        self, fake_platform_registered, monkeypatch
+    ):
+        monkeypatch.setenv(_POLICY_ENV, "1")
+        config = load_config()
+        circuit.trip("fake", config)
+        assert circuit.is_tripped("fake", config), "pre-seed: circuit must be OPEN"
+        state = _run_one(_fake_row(), _make_args())
+        assert state.outputs[-1]["status"] == "skipped_circuit_open"
+
+    def test_r4_recovery_after_cooldown(
+        self, fake_platform_registered, monkeypatch
+    ):
+        monkeypatch.setenv(_POLICY_ENV, "1")
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CIRCUIT_COOLDOWN_S", "0")
+        config = load_config()
+        circuit.trip("fake", config)
+        # cooldown=0 → is_tripped transitions OPEN→HALF_OPEN and allows traffic.
+        assert not circuit.is_tripped("fake", config), "recovery: should allow through"
+        state = _run_one(_fake_row(), _make_args())
+        assert state.outputs[-1]["status"] == "drafted", "dispatch allowed after recovery"
+
+    def test_r5_success_event_emitted(
+        self, fake_platform_registered, monkeypatch, capsys
+    ):
+        monkeypatch.setenv(_POLICY_ENV, "1")
+        _run_one(_fake_row(), _make_args())
+        events = _publish_attempts(capsys.readouterr().err)
+        assert any(
+            e["outcome"] == "success"
+            and e["platform"] == "fake"
+            and "duration_ms" in e
+            for e in events
+        ), f"expected a success publish_attempt; got {events}"
+
+    def test_r5_external_error_event_emitted(
+        self, raising_fake_registered, monkeypatch, capsys
+    ):
+        monkeypatch.setenv(_POLICY_ENV, "1")
+        state = _run_one(_fake_row(), _make_args())
+        events = _publish_attempts(capsys.readouterr().err)
+        assert any(
+            e["outcome"] == "external_error" and e["platform"] == "fake"
+            for e in events
+        ), f"expected an external_error publish_attempt; got {events}"
+        assert state.fail_count == 1
+
+    def test_r6_fake_is_non_browser_tier(self):
+        from backlink_publisher.publishing.reliability.policy import _is_browser_tier
+
+        assert not _is_browser_tier("fake"), (
+            "R6 coverage relies on 'fake' being non-browser-tier"
+        )

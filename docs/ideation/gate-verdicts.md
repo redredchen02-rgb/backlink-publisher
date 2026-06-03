@@ -203,3 +203,21 @@ Prior convergence passes that are now superseded or folded:
   machine stays parked — this transcribes the geo plan's *existing* PARK decision, it is not a new kill.
 - **Resume trigger (from the geo plan):** backlink/AI-citation corpus volume becomes non-trivial
   (attribution has no signal at current owned-target volume). Resumes at the geo plan, not a re-brainstorm.
+
+### Probe — reliability policy enforce path (live verification) → GO (2026-06-03)
+
+- **Nature:** a pure-verification probe (R16-exempt — not a Phase 1–N build gate, no `gate-probe` run).
+  Plan `docs/plans/2026-06-03-007-feat-live-verify-reliability-policy-plan.md`; tests
+  `tests/test_reliability_policy_live.py` (12 cases, all green; existing reliability suite unaffected).
+- **What GO certifies (scoped):** with `BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED=1`, the **CLI
+  call-site branch selection** routes dispatch through `publish_with_policy` (not direct
+  `adapter_publish`) at **both** seams — `_engine.py` (`run_publish_loop`) and `_resume.py`
+  (`_publish_one_resume_item`) — with flag-off passthrough intact. Stub-level policy behaviors verified
+  end-to-end on the non-browser-tier `fake` platform: health gate `skipped_policy` (browser-tier `velog`),
+  circuit OPEN → `skipped_circuit_open` (pre-seeded `circuit.trip`), recovery (cooldown→HALF_OPEN allows
+  through), and `publish_attempt` `success` / `external_error` observability events.
+- **Explicitly NOT covered (out of scope):** real-platform error-mapping fidelity (real
+  429/503/ban/session-expiry → typed exception vs generic `Exception`→`TRANSIENT`-no-trip) — needs a bound
+  channel + credentials. And HALF_OPEN **trial-count limiting**: `circuit._increment_half_open_try` has
+  **no caller on the publish path** (`is_tripped` allows traffic in HALF_OPEN without consuming a trial) —
+  surfaced as a **potential production gap for a separate fix plan**, not retired here.

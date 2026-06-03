@@ -1,7 +1,7 @@
 ---
 title: "feat: Live-verify the reliability policy enforce path"
 type: feat
-status: active
+status: completed
 date: 2026-06-03
 origin: docs/brainstorms/2026-06-03-live-verify-reliability-policy-requirements.md
 deepened: 2026-06-03
@@ -196,7 +196,7 @@ retire this risk; the test must drive `run_publish_loop` so the real `_engine.py
 
 ## Implementation Units
 
-- [ ] **Unit 1: R1 discriminating seam tests (engine + resume) — the primary risk**
+- [x] **Unit 1: R1 discriminating seam tests (engine + resume) — the primary risk**
 
 **Goal:** Prove the flag switches the CLI dispatch branch, end-to-end through
 `run_publish_loop` / the resume path, on both publish paths.
@@ -235,7 +235,12 @@ assertions in `tests/test_reliability_policy.py`.
 **Verification:** Both seams select the policy path only when the flag is `"1"`; a wrong
 patch location or a stray dry-run would fail the assertion (discriminating).
 
-- [ ] **Unit 2: End-to-end regression layer for policy behaviors (R2–R6)**
+- [x] **Unit 2: End-to-end regression layer for policy behaviors (R2–R6)**
+  *(Impl note: the raising stub was kept inline in the test file via a local
+  `_RaisingAdapter` + `raising_fake_registered` fixture — no `conftest.py` change
+  needed. R3 uses pre-seeded `circuit.trip()` for determinism; R4 uses
+  `COOLDOWN_S=0`; R5 events captured via stderr JSON, the `opencli` PipelineLogger
+  not being a stdlib logger.)*
 
 **Goal:** With the flag on, observe each policy behavior firing through the real chain, as
 regression coverage layered on the Unit 1 seam proof.
@@ -279,7 +284,7 @@ shape); `tests/test_reliability_circuit.py` (cooldown/time patching).
 **Verification:** Each sentinel/event observed through `run_publish_loop` with the flag
 on; circuit state persists across attempts via the sandbox temp config dir.
 
-- [ ] **Unit 3: Record a scoped GO verdict for audit continuity**
+- [x] **Unit 3: Record a scoped GO verdict for audit continuity**
 
 **Goal:** Log the probe outcome in the gate ledger so the audit trail is consistent,
 without overclaiming.
