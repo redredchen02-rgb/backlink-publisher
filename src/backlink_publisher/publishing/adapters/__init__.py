@@ -104,10 +104,9 @@ from .writeas_api import WriteasAPIAdapter
 # ``False`` and ``"uncertain"`` additionally require ``rationale=`` of
 # ≥80 stripped chars (R3, mirrors ``monolith_budget.toml`` discipline).
 #
-# ``TelegraphCdpAdapter`` is imported from ``instant_web.py`` so the
-# module is callable from regression tests on this branch, but it is
-# NOT added to the dispatch chain yet — that wiring ships with Plan 001
-# (PR #141 chrome-cdp-multi-channel-publish) which is still open.
+# ``TelegraphCdpAdapter`` (imported from ``instant_web.py``) is the
+# Chrome/CDP fallback for the "telegraph" channel. It is registered
+# after ``TelegraphAPIAdapter`` in the channel chain below (2026-06-03).
 # Manifest declarations for migrated channels live in
 # ``publishing/_manifests.py`` (Plan 2026-05-25-002 Phase 2). Adding a
 # channel = new ``<SLUG>_MANIFEST`` dict in that file + new

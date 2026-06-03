@@ -83,9 +83,15 @@ def test_telegraph_chain_contains_both_adapters():
 
 
 def test_api_success_does_not_call_cdp():
-    """When TelegraphAPIAdapter succeeds, TelegraphCdpAdapter is never called."""
+    """When TelegraphAPIAdapter succeeds, TelegraphCdpAdapter is never called.
+
+    CDP available() is patched to True so the test is environment-independent:
+    the skip must be caused by API success, not by CDP unavailability on the
+    test runner.
+    """
     # Chain order: API first, CDP second.
     with patch(_API_PATH, return_value=_ok("telegraph-api")) as mock_api, \
+         patch(_CDP_AVAIL_PATH, return_value=True), \
          patch(_CDP_PUBLISH_PATH) as mock_cdp:
         result = publish(_payload(), "published", CONFIG)
 
