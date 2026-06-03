@@ -1,7 +1,7 @@
 ---
 title: "fix: Sync local main backlog to remotes and prune merged branches"
 type: fix
-status: active
+status: partial
 date: 2026-06-03
 claims: {}
 ---
@@ -46,7 +46,7 @@ The divergence is cosmetic — no work is lost and local HEAD is clean — but i
 
 ## Implementation Units
 
-- [ ] **Unit 0: Commit this plan file**
+- [x] **Unit 0: Commit this plan file**
 
   **Goal:** Include the plan document in the commit history pushed to both remotes.
 
@@ -66,7 +66,7 @@ The divergence is cosmetic — no work is lost and local HEAD is clean — but i
   **Verification:**
   - `git status` shows clean working tree
 
-- [ ] **Unit 1: Verify test suite is green on HEAD**
+- [x] **Unit 1: Verify test suite is green on HEAD**
 
   **Goal:** Confirm HEAD is deployable before pushing to any remote.
 
@@ -89,7 +89,7 @@ The divergence is cosmetic — no work is lost and local HEAD is clean — but i
   **Verification:**
   - `pytest` exits 0 with no failures
 
-- [ ] **Unit 2: Push local main to `origin/main` (GitHub)**
+- [ ] **Unit 2: Push local main to `origin/main` (GitHub)** ⛔ BLOCKED — GitHub account suspended (HTTP 403)
 
   **Goal:** Close the 32-commit gap between local `main` and `origin/main`.
 
@@ -112,7 +112,7 @@ The divergence is cosmetic — no work is lost and local HEAD is clean — but i
   - `git log origin/main..HEAD` returns empty
   - GitHub Actions shows green for the pushed SHA
 
-- [ ] **Unit 3: Delete stale remote branches from `origin`**
+- [ ] **Unit 3: Delete stale remote branches from `origin`** ⛔ BLOCKED — depends on Unit 2 (GitHub suspended)
 
   **Goal:** Remove `origin/feat/notesio-adapter` and `origin/refactor/webui-config-cache-governance`.
 
@@ -134,7 +134,7 @@ The divergence is cosmetic — no work is lost and local HEAD is clean — but i
   **Verification:**
   - `git branch -r` no longer lists `origin/feat/notesio-adapter` or `origin/refactor/webui-config-cache-governance`
 
-- [ ] **Unit 4: Push local main to `gitlab/main` (GitLab)**
+- [x] **Unit 4: Push local main to `gitlab/main` (GitLab)**
 
   **Goal:** Close the 6-commit gap between local `main` and `gitlab/main`.
 
