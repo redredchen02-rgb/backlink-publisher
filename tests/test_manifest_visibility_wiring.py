@@ -1,13 +1,12 @@
-"""Plan 2026-05-25-002 Unit 2a — visibility reverse-lookup wiring.
+"""Plan 2026-05-25-002 Unit 2a/2b — visibility reverse-lookup wiring.
 
-Verifies that ``webui_app.binding_status.hidden_from_ui()`` (and its
-PEP 562 ``HIDDEN_FROM_UI`` alias) reflects the registry manifest
-``visibility`` field dynamically, rather than carrying a hand-maintained
-frozenset.
+Unit 2a: ``webui_app.binding_status.hidden_from_ui()`` (and its PEP 562
+``HIDDEN_FROM_UI`` alias) reflects the registry manifest ``visibility``
+field dynamically.
 
-Scope guard: this file only covers ``HIDDEN_FROM_UI``. The parallel
-``_SAVE_CONFIG_KNOWN_ROOTS`` migration is Unit 2b (separate PR — touches
-production ``save_config`` round-trip and 12+ test sites).
+Unit 2b: ``config._toml_utils._save_config_known_roots()`` (and its PEP
+562 ``_SAVE_CONFIG_KNOWN_ROOTS`` alias) derives from registered non-retired
+platforms + fixed non-platform roots (targets, image_gen).
 """
 
 from __future__ import annotations
@@ -109,3 +108,65 @@ class TestPep562ModuleAlias:
 
         with pytest.raises(AttributeError, match="has no attribute"):
             binding_status.NONEXISTENT_NAME  # type: ignore[attr-defined]
+
+
+# ── Unit 2b: _save_config_known_roots() ──────────────────────────────────────
+
+
+class TestSaveConfigKnownRootsFunction:
+    """_save_config_known_roots() derives from registry — no hand-maintained set."""
+
+    def test_contains_fixed_non_platform_roots(self) -> None:
+        import backlink_publisher.publishing.adapters  # noqa: F401
+
+        from backlink_publisher.config._toml_utils import _save_config_known_roots
+
+        roots = _save_config_known_roots()
+        assert "targets" in roots
+        assert "image_gen" in roots
+
+    def test_contains_active_registered_platforms(self) -> None:
+        import backlink_publisher.publishing.adapters  # noqa: F401
+
+        from backlink_publisher.config._toml_utils import _save_config_known_roots
+        from backlink_publisher.publishing.registry import registered_platforms
+
+        roots = _save_config_known_roots()
+        for name in registered_platforms():
+            assert name in roots, f"active platform {name!r} missing from known_roots"
+
+    def test_excludes_retired_platform(self) -> None:
+        from backlink_publisher.config._toml_utils import _save_config_known_roots
+
+        register("retired_plat", _Fake, dofollow=True, visibility="retired")
+        assert "retired_plat" not in _save_config_known_roots()
+
+    def test_includes_active_and_experimental(self) -> None:
+        from backlink_publisher.config._toml_utils import _save_config_known_roots
+
+        register("exp_plat", _Fake, dofollow=True, visibility="experimental")
+        assert "exp_plat" in _save_config_known_roots()
+
+
+class TestSaveConfigKnownRootsPep562Alias:
+    """PEP 562 __getattr__ alias keeps legacy import path working."""
+
+    def test_module_level_alias_returns_frozenset(self) -> None:
+        from backlink_publisher.config import _toml_utils
+
+        assert isinstance(_toml_utils._SAVE_CONFIG_KNOWN_ROOTS, frozenset)
+
+    def test_alias_is_dynamic(self) -> None:
+        from backlink_publisher.config import _toml_utils
+
+        before = _toml_utils._SAVE_CONFIG_KNOWN_ROOTS
+        register("dyn_plat", _Fake, dofollow=True)
+        after = _toml_utils._SAVE_CONFIG_KNOWN_ROOTS
+        assert "dyn_plat" not in before
+        assert "dyn_plat" in after
+
+    def test_attribute_error_on_unknown_name(self) -> None:
+        from backlink_publisher.config import _toml_utils
+
+        with pytest.raises(AttributeError, match="has no attribute"):
+            _toml_utils.NONEXISTENT_ATTR  # type: ignore[attr-defined]

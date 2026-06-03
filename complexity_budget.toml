@@ -55,3 +55,7 @@ rationale = "Config TOML writer: emits [blogger]/[medium]/[targets.*] sections. 
 [functions."webui_app/routes/sites.py::sites_save_three_url"]
 ceiling = 38
 rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. CC 38 grandfathered at current value; decomposition deferred to the next PR that touches this route (reduce per-branch logic into URL-validator service layer at that point)."
+
+[functions."src/backlink_publisher/cli/spray_backlinks/core.py::main"]
+ceiling = 65
+rationale = "spray-backlinks CLI entry point: orchestrates seed expansion, gate evaluation, per-platform publish dispatch, cross-seed idempotency checks, and result serialisation. High CC is inherent to a top-level CLI coordinator; individual stages (gate_candidates, cross_seed_checker, _dispatch_platform) are already extracted to separate functions. Decomposing main further would only add indirection without reducing decision paths."

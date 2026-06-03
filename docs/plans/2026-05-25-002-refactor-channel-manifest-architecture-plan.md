@@ -199,7 +199,7 @@ Unit 5 (legacy 看板)      → legacy_platforms() + contract test count + docs
 ---
 
 - [x] **Unit 2a: Wire `visibility` into `HIDDEN_FROM_UI`** — shipped on `feat/manifest-visibility-u2` (commit `8f1b8d3`, PR #208 stacked on #207); PEP 562 `__getattr__` preserves legacy interface, 8 existing readers unchanged, 7 new tests + 13 drift tests + 4346 full-suite all green
-- [ ] **Unit 2b: Wire `_SAVE_CONFIG_KNOWN_ROOTS` from registry** — split out due to 12+ reader sites + production `save_config` round-trip blast radius; separate PR
+- [x] **Unit 2b: Wire `_SAVE_CONFIG_KNOWN_ROOTS` from registry** — shipped on `refactor/channel-manifest-2b-4b` (commit `c65fdad`); PEP 562 `__getattr__` alias + `_save_config_known_roots()` derives roots from non-retired platforms + fixed {"targets","image_gen"}; 7 new tests all green
 
 **Goal:** 把 `binding_status.HIDDEN_FROM_UI` 與 `config/_toml_utils._SAVE_CONFIG_KNOWN_ROOTS` 從手維護 frozenset 改成從 `registry.visibility(name)` 動態算。Drift test 同步更新。為 R7/R8 鋪路。
 
@@ -270,7 +270,7 @@ Unit 5 (legacy 看板)      → legacy_platforms() + contract test count + docs
 ---
 
 - [x] **Unit 4a: Reverse-lookup `inject_platforms` + `dashboard_channels` from registry** — shipped on `feat/manifest-webui-wiring-u4` (commit `96d1ebe`, PR #211 stacked on #209); `bound_platforms(cfg, is_bound)` + `active_platforms()` + `ui_meta()` reverse-lookup; 7 new tests + 13 drift + 4396 full-suite green
-- [ ] **Unit 4b: `_token_paste_status` + `_channel_card_macro.html` iterate `bind_descriptors()`** — touches 5-site token-paste wire + JS card layer; separate PR
+- [x] **Unit 4b: `_token_paste_channels_from_registry()` iterates `bind_descriptors()`** — shipped on `refactor/channel-manifest-2b-4b` (commit `c65fdad`); auto-discovers all token-paste platforms via registry, injects as `token_paste_registry_cards` in `_settings_context`; devto `token_field` fix included; 9 new tests all green
 
 **Goal:** 把 `webui_app/__init__.py:inject_platforms`、`webui_app/helpers/contexts.py:_token_paste_status` / `_token_paste_status_notion` / `*_config_summary` 三類 helper、`templates/_channel_card_macro.html` 全改為從 registry 反查。`platforms` / `bound_platforms` 兩 context key 保留分離（per `[[platforms-vs-bound-platforms-split]]`）。
 

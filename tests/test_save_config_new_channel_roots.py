@@ -230,13 +230,18 @@ def test_round_trip_is_idempotent_for_all_three_channels(tmp_path: Path) -> None
 # ─── Reverted PR #108 channels remain unmanaged → verbatim preserved ────────
 
 
-def test_devto_section_still_unmanaged_after_a2(tmp_path: Path) -> None:
-    """The reverted Phase 4 ``[devto]`` channel was never added to
-    ``_SAVE_CONFIG_KNOWN_ROOTS`` (see Plan 2026-05-20-003 §Scope Boundaries
-    and the binding_status._DOFOLLOW_BY_CHANNEL map). An operator who edits
-    ``[devto]`` into config.toml should see it preserved verbatim under
-    branch (d), not silently dropped by A.2's known-roots expansion.
+def test_devto_section_dropped_after_unit2b(tmp_path: Path) -> None:
+    """Plan 2026-05-25-002 Unit 2b: ``_save_config_known_roots()`` now derives
+    from the registry, so all non-retired registered platforms (including devto)
+    are treated as managed roots.  A manually-edited ``[devto]`` section in
+    config.toml is therefore NOT preserved — devto credentials live in the
+    sidecar ``devto-token.json`` (SEC-3), not in config.toml.
+
+    This test inverts the previous ``test_devto_section_still_unmanaged_after_a2``
+    assertion which pre-dated the manifest registry wiring.
     """
+    import backlink_publisher.publishing.adapters  # noqa: F401 — populate registry
+
     config_path = tmp_path / "config.toml"
     config_path.write_text(
         '[blogger]\n'
@@ -251,10 +256,10 @@ def test_devto_section_still_unmanaged_after_a2(tmp_path: Path) -> None:
     save_config(cfg, path=config_path)
 
     text = config_path.read_text(encoding="utf-8")
-    assert "[devto]" in text, (
-        "Branch (d): unmanaged [devto] dropped by A.2's preservation pass"
+    assert "[devto]" not in text, (
+        "Unit 2b: devto is now a managed root (derived from registry); "
+        "[devto] section should be dropped by _preserve_unknown_sections"
     )
-    assert "operator-edit-only" in text
 
 
 # ─── Channel sections do NOT carry PATs (SEC-3 audit) ───────────────────────

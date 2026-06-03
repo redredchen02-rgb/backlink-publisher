@@ -93,8 +93,9 @@ def test_cross_seed_warning_fires_on_already_published():
         already_published_fn=lambda p, d: (p, d) in already,
     )
     by_plat = {c.platform: c for c in cands}
-    assert by_plat["telegraph"].cross_seed_warning is not None
-    assert by_plat["rentry"].cross_seed_warning is None
+    assert by_plat["telegraph"].dropped
+    assert "cross-seed" in by_plat["telegraph"].gate_reason
+    assert not by_plat["rentry"].dropped
 
 
 def test_cap_counts_only_survivors_not_gated_out():
