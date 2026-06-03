@@ -130,6 +130,10 @@ class RegistryEntry:
     # Signature: (channel, config, validated_fields, write_mode) -> Path.
     # write_mode = "replace" | "merge". None = platform has no WebUI saver.
     credential_saver: Optional[Callable[..., Any]] = None
+    # Routing reliability discount (0.0 < weight <= 1.0; 1.0 = no discount).
+    # Applied to Phase 2 Score in dispatch routing. Platforms with empirically
+    # confirmed anchor-loss rates should declare a weight < 1.0 here.
+    dispatch_weight: float = 1.0
 
 _REGISTRY: dict[str, RegistryEntry] = {}
 
@@ -299,6 +303,7 @@ def register(
     policy: Policy | None = None,        # noqa: F811 — shadows re-exported manifest helper
     visibility: Visibility = "active",   # noqa: F811 — shadows re-exported manifest helper
     credential_saver: Optional[Callable[..., Any]] = None,  # U3a
+    dispatch_weight: float = 1.0,
 ) -> None:
     """Register the fallback chain for one platform. Last call wins.
 
@@ -410,6 +415,12 @@ def register(
             f"`register({platform!r}, ..., policy=...)` — expected Policy, "
             f"got {type(policy).__name__}."
         )
+    if not (0.0 < dispatch_weight <= 1.0):
+        raise RegistryError(
+            f"`register({platform!r}, ..., dispatch_weight={dispatch_weight!r})` "
+            f"— dispatch_weight must be in (0.0, 1.0] (got {dispatch_weight!r}). "
+            f"Use visibility='retired' to permanently exclude a platform."
+        )
     _REGISTRY[platform] = RegistryEntry(
         publishers=list(publishers),
         dofollow=dofollow,
@@ -420,6 +431,7 @@ def register(
         policy=policy,
         visibility=visibility,
         credential_saver=credential_saver,
+        dispatch_weight=dispatch_weight,
     )
 
 
@@ -505,6 +517,19 @@ def credential_saver(name: str) -> Optional[Callable[..., Any]]:
     """
     entry = _REGISTRY.get(name)
     return entry.credential_saver if entry else None
+
+
+def dispatch_weight(name: str) -> float:
+    """Return the routing reliability discount for ``name`` (0.0, 1.0].
+
+    1.0 means no discount (the default for all platforms). Values below 1.0
+    reduce the Phase 2 routing score proportionally, causing the engine to
+    prefer more reliable alternatives when available.
+
+    Returns 1.0 for unregistered platforms (safe default = no discount).
+    """
+    entry = _REGISTRY.get(name)
+    return entry.dispatch_weight if entry is not None else 1.0
 
 
 # Re-export from extracted sub-module. All existing callers import from

@@ -96,7 +96,11 @@ VELOG_MANIFEST: dict[str, Any] = dict(
 # jitter, which is not a thundering-herd throttle). ``env_keys`` is
 # empty for the same reason — there are no ``TELEGRAPH_*`` env knobs.
 
+# 2026-06-03 recheck: 57 links — 33 alive / 23 born_stripped / 1 flipped.
+# born_stripped rate ~40%; root cause unconfirmed (anti-spam vs publish body).
+# dispatch_weight=0.6 discounts routing score without blocking the platform.
 TELEGRAPH_MANIFEST: dict[str, Any] = dict(
+    dispatch_weight=0.6,
     ui=UiMeta(
         display_name="Telegraph",
         domain="telegra.ph",

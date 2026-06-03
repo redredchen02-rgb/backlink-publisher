@@ -16,6 +16,7 @@ from typing import Any
 from backlink_publisher.canary.store import get_health
 from backlink_publisher.publishing.registry import (
     active_platforms,
+    dispatch_weight as registry_dispatch_weight,
     dofollow_status,
     policy,
     referral_value,
@@ -50,6 +51,8 @@ class PlatformSignal:
     language_whitelist: tuple[str, ...] = ()
     # Visibility (defaults to "active")
     visibility: str = "active"
+    # Routing reliability discount from registry (0.0 < weight <= 1.0)
+    dispatch_weight: float = 1.0
 
 
 # Platforms that are always considered "bound" — they have no credential
@@ -117,6 +120,7 @@ def collect_all(
             canary_last_ok_at=last_ok_at,
             language_whitelist=whitelist,
             visibility=visibility_str,
+            dispatch_weight=registry_dispatch_weight(name),
         )
         signals[name] = sig
 

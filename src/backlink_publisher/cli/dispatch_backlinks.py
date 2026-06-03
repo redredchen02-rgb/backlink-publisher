@@ -20,6 +20,7 @@ from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import publish_logger as log
 from backlink_publisher.config import load_config
 from backlink_publisher.dispatch import collect_all, route
+from backlink_publisher.dispatch.routing import ENGINE_VERSION
 from webui_store.channel_status import channel_status_store
 
 # Available strategy choices.
@@ -78,6 +79,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--log-level", default="WARN",
                         help="Set log level (DEBUG, INFO, WARN; default: WARN).")
+    from backlink_publisher._util.profiling import add_profile_arg
+    add_profile_arg(parser)
     args = parser.parse_args(argv)
 
     from backlink_publisher._util.logger import set_log_level
@@ -140,7 +143,7 @@ def main(argv: list[str] | None = None) -> None:
             out["platform"] = args.platform
             out["_dispatch"] = {
                 "strategy": "manual",
-                "engine_version": 1,
+                "engine_version": ENGINE_VERSION,
                 "reason": f"--platform={args.platform} override",
             }
             output_rows.append(out)

@@ -14,7 +14,7 @@ from .signals import PlatformSignal
 
 #: Current routing engine version. Bump when routing logic changes
 #: in a way that may produce different output for the same input.
-ENGINE_VERSION = 1
+ENGINE_VERSION = 2
 
 #: Default stale-days for canary data (no env override for v1).
 DEFAULT_CANARY_STALE_DAYS = 7
@@ -204,7 +204,8 @@ def route(
             spread_bonus = max(0, _MAX_SPREAD_BONUS - cover_count)
             score = base_score + float(spread_bonus)
 
-        scored.append((score, sig.name))
+        final_score = score * sig.dispatch_weight
+        scored.append((final_score, sig.name))
 
     # ── Phase 3: Select ──────────────────────────────────────────────
     scored.sort(key=lambda x: (-x[0], x[1]))  # desc score, asc name tiebreak
@@ -220,6 +221,8 @@ def route(
     if sig:
         dof_str = str(sig.dofollow) if sig.dofollow is not None else "unknown"
         reason_parts.append(f"dofollow={dof_str}")
+        if sig.dispatch_weight != 1.0:
+            reason_parts.append(f"dispatch_weight={sig.dispatch_weight}")
         if live_dofollow_platforms:
             if sig.name not in live_dofollow_platforms:
                 reason_parts.append("new_platform")
