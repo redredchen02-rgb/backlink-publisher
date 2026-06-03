@@ -341,7 +341,13 @@ function _hashToPaneKey(hash) {
 function showPane(key) {
   document.querySelectorAll('.settings-pane').forEach((el) => el.classList.remove('active'));
   const target = document.getElementById('pane-' + key);
-  if (target) target.classList.add('active');
+  if (target) {
+    target.classList.add('active');
+  } else {
+    // Stale sessionStorage key — fall back to dashboard to avoid blank page.
+    const fallback = document.getElementById('pane-dashboard');
+    if (fallback) fallback.classList.add('active');
+  }
   document.querySelectorAll('[data-pane]').forEach((el) => {
     el.classList.toggle('active', el.dataset.pane === key);
   });
@@ -456,7 +462,14 @@ function _boot() {
   _openCollapseForHash();
   _initOverviewPersistence();
   _initTierPersistence();
-  on(window, 'hashchange', _openCollapseForHash);
+  on(window, 'hashchange', () => {
+    const key = _hashToPaneKey(window.location.hash);
+    if (key) {
+      try { sessionStorage.setItem('settings:activePane', key); } catch (e) { /* ignore */ }
+      showPane(key);
+    }
+    _openCollapseForHash();
+  });
 }
 
 if (document.readyState === 'loading') {

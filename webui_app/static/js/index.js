@@ -244,8 +244,9 @@ function _initUrlDerive() {
 
 // ── Flash auto-dismiss (U5: R17) ────────────────────────────────
 function _initFlashDismiss() {
-  document.querySelectorAll('.alert.alert-dismissible').forEach((el) => {
-    setTimeout(() => el.remove(), 4000);
+  // Only auto-dismiss non-critical alerts; danger/warning must persist until manually closed.
+  document.querySelectorAll('.alert-success.alert-dismissible, .alert-info.alert-dismissible').forEach((el) => {
+    setTimeout(() => { if (el.isConnected) el.remove(); }, 4000);
   });
 }
 

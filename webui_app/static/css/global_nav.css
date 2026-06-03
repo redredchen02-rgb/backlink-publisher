@@ -41,3 +41,10 @@
     color: #fff;
     font-weight: 600;
 }
+
+/* Ghost button — used in page-level navbars on index and settings pages */
+.nav-btn-ghost {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.5);
+}

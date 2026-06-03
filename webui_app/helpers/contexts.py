@@ -240,4 +240,6 @@ def _render(template_name: str, **kwargs):
         )
     if 'incomplete_run' not in kwargs:
         kwargs['incomplete_run'] = _load_incomplete_run()
+    if 'active_page' not in kwargs and template_name == 'index.html':
+        kwargs['active_page'] = 'index'
     return render_template(template_name, **kwargs)

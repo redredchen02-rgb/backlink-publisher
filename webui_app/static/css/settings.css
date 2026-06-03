@@ -38,12 +38,7 @@
             letter-spacing: -0.03em;
         }
         
-        /* Ghost button for navbar actions (mirrors index.css .nav-btn-ghost) */
-        .nav-btn-ghost {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.5);
-        }
+        /* .nav-btn-ghost — defined in global_nav.css (loaded by base.html) */
 
         /* ── Two-column settings layout (U4) ─────────────────────── */
         .settings-layout {

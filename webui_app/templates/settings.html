@@ -356,6 +356,8 @@
             <div id="_loadingSubtext" style="font-size:0.85rem;color:#6b7280;line-height:1.5;">请稍候</div>
         </div>
     </div>
+    {# Pro Mode Copilot — side panel #}
+    {% include '_copilot_panel.html' %}
 {% endblock %}
 
 {% block page_data %}
@@ -371,6 +373,3 @@
      <script src="{{ url_for('static', filename='js/bind_channel.js', v=asset_version) }}" defer></script>
      <script src="{{ url_for('static', filename='js/channel-binding.js', v=asset_version) }}" defer></script>
 {% endblock %}
-
-{# Pro Mode Copilot — side panel (Plan U4) #}
-{% include '_copilot_panel.html' %}

@@ -742,9 +742,4 @@
         .nav-badge.expired { background: rgba(239,68,68,0.25); border: 1px solid rgba(239,68,68,0.6); }
         .nav-badge.unlinked{ background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); }
 
-        /* Ghost button for navbar actions */
-        .nav-btn-ghost {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.5);
-        }
+        /* .nav-btn-ghost — defined in global_nav.css (loaded by base.html) */
