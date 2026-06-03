@@ -111,18 +111,20 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
 
     result: dict[str, PlatformHealthRecord] = {}
     for platform in platforms:
-        # Circuit state — non-browser-tier platforms return False already.
+        # Circuit state — read for every registered platform. As of Phase 3 the
+        # breaker covers all platforms (not just browser-tier), so a non-browser
+        # platform can legitimately report tripped here.
         tripped = False
         tripped_at: str | None = None
         try:
             tripped = circuit.is_tripped(platform, config)
             if tripped:
-                # Read tripped_at from circuit state file if available.
+                # circuit.py persists the timestamp under "tripped_at_iso".
                 state_path = config.config_dir / "publish-circuit-state.json"
                 if state_path.exists():
                     import json as _json
                     raw = _json.loads(state_path.read_text(encoding="utf-8"))
-                    tripped_at = raw.get(platform, {}).get("tripped_at")
+                    tripped_at = raw.get(platform, {}).get("tripped_at_iso")
         except Exception as exc:
             _log.debug(f"build_platform_health: circuit check for {platform}: {exc}")
 

@@ -50,6 +50,7 @@ from backlink_publisher.cli._publish_helpers import (
     _make_banner_emit,
     _maybe_emit_gate_banner,
     _medium_throttle_sleep,
+    _partition_paused,
     _publish_epilogue,
     _record_publish_failure,
     _record_publish_path,
@@ -137,6 +138,22 @@ def main(argv: list[str] | None = None) -> None:
                 forced_keys = load_force_manifest(
                     args.force_manifest, confirm=args.confirm, reason=args.reason
                 )
+            # Phase 2 U8: drop platforms an operator paused via /ce:health BEFORE
+            # acquiring leases — a paused platform must hold no lease and create
+            # no checkpoint.
+            rows, paused_platforms = _partition_paused(rows, args.platform, config)
+            for plat in paused_platforms:
+                publish_logger.warning(
+                    f"publish-backlinks: skipping paused platform '{plat}' "
+                    f"(resume via /ce:health)"
+                )
+            if not rows:
+                publish_logger.warning(
+                    "publish-backlinks: all target platforms are paused; "
+                    "nothing to publish"
+                )
+                raise SystemExit(0)
+
             platforms_in_use = {
                 args.platform or row.get("platform", "") for row in rows
             }

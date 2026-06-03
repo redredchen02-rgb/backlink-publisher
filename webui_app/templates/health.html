@@ -171,11 +171,12 @@
             <th class="text-center">Consec. Fails</th>
             <th class="text-center">Circuit</th>
             <th class="text-center">Paused</th>
+            <th class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for platform, rec in ph.items() | sort %}
-          <tr>
+          <tr data-platform-row="{{ platform }}">
             <td class="fw-medium">{{ platform }}</td>
             <td class="text-success small">{{ rec.last_success_at[:19] if rec.last_success_at else '—' }}</td>
             <td class="text-danger small">{{ rec.last_failure_at[:19] if rec.last_failure_at else '—' }}</td>
@@ -184,17 +185,35 @@
               <span class="badge text-bg-warning">{{ rec.consecutive_failures }}</span>
               {% else %}—{% endif %}
             </td>
-            <td class="text-center">
+            <td class="text-center" data-cell="circuit">
               {% if rec.circuit_tripped %}
               <span class="badge text-bg-danger">OPEN</span>
               {% else %}
               <span class="text-muted small">closed</span>
               {% endif %}
             </td>
-            <td class="text-center">
+            <td class="text-center" data-cell="paused">
               {% if rec.paused %}
               <span class="badge text-bg-secondary">paused</span>
               {% else %}—{% endif %}
+            </td>
+            <td class="text-center text-nowrap">
+              <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                      data-action="health-pause" data-platform="{{ platform }}"
+                      data-paused="{{ '1' if rec.paused else '0' }}">
+                {{ 'Resume' if rec.paused else 'Pause' }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-primary py-0"
+                      data-action="health-reverify" data-platform="{{ platform }}">
+                Re-verify
+              </button>
+              {% if rec.circuit_tripped %}
+              <button type="button" class="btn btn-sm btn-outline-danger py-0"
+                      data-action="health-circuit-reset" data-platform="{{ platform }}">
+                Reset circuit
+              </button>
+              {% endif %}
+              <span class="small ms-1" data-cell="action-status" aria-live="polite"></span>
             </td>
           </tr>
           {% endfor %}
@@ -477,4 +496,7 @@
 </main>
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}
+{% endblock %}
+{% block page_module %}
+<script type="module" src="{{ url_for('static', filename='js/health.js', v=asset_version) }}"></script>
 {% endblock %}

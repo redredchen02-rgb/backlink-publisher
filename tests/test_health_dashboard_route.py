@@ -308,6 +308,27 @@ def test_platform_health_panel_renders_when_data_present(client, monkeypatch):
     assert "OPEN" in body
 
 
+def test_platform_health_panel_renders_action_buttons(client, monkeypatch):
+    """Phase 2: per-platform Pause / Re-verify action buttons render with the panel."""
+    from backlink_publisher.health.aggregate import PlatformHealthRecord
+
+    fake = {
+        "medium": PlatformHealthRecord(platform="medium", circuit_tripped=True, paused=False)
+    }
+    monkeypatch.setattr(
+        "backlink_publisher.health.aggregate.build_platform_health",
+        lambda cfg: fake,
+    )
+
+    body = client.get("/ce:health").data.decode()
+    assert 'data-action="health-pause"' in body
+    assert 'data-action="health-reverify"' in body
+    # circuit OPEN → reset button present
+    assert 'data-action="health-circuit-reset"' in body
+    assert "Pause" in body  # not yet paused → "Pause" label
+    assert "js/health.js" in body  # page module wired
+
+
 def test_platform_health_error_does_not_500(client, monkeypatch):
     """build_platform_health failure does not crash /ce:health."""
     def _crash(cfg):

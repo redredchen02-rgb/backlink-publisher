@@ -148,3 +148,20 @@ def test_returns_all_registered_platforms(cfg, monkeypatch):
 
     result = build_platform_health(cfg)
     assert set(result.keys()) == set(platforms)
+
+
+def test_tripped_non_browser_platform_surfaces_with_timestamp(cfg, monkeypatch):
+    """Phase 3 U12: a real tripped non-browser circuit surfaces in the aggregate,
+    with circuit_tripped_at populated from the real state file (regression: the
+    aggregate previously read the wrong key and always returned None)."""
+    from backlink_publisher.publishing.reliability import circuit
+
+    monkeypatch.setattr(
+        "backlink_publisher.publishing.registry.registered_platforms",
+        lambda: ["blogger"],
+    )
+    circuit.trip("blogger", cfg)  # real trip, real state file
+
+    rec = build_platform_health(cfg)["blogger"]
+    assert rec.circuit_tripped is True
+    assert rec.circuit_tripped_at is not None  # timestamp read from tripped_at_iso

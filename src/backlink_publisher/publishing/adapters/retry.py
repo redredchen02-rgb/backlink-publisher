@@ -73,6 +73,10 @@ class ErrorClass(str, Enum):
     AUTH_EXPIRED = "auth_expired"
     HTTP_5XX = "http_5xx"
     SSRF_BLOCKED = "ssrf_blocked"
+    # Permanent platform content rejection (spam/policy block). Value matches the
+    # "content_rejected" string already emitted by the publish engine for
+    # ContentRejectedError, so downstream consumers need no new vocabulary.
+    CONTENT_REJECTED = "content_rejected"
     UNEXPECTED = "unexpected"
 
 
@@ -84,14 +88,33 @@ def classify_exception(exc: Exception) -> ErrorClass:
 
     Used by the publisher and event projectors to route and store failure reasons.
     """
-    from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
+    from backlink_publisher._util.errors import (
+        AuthExpiredError,
+        ContentRejectedError,
+        ExternalServiceError,
+    )
 
     if isinstance(exc, AuthExpiredError):
         return ErrorClass.AUTH_EXPIRED
 
+    # Permanent content rejection must never collapse to TRANSIENT (retrying never
+    # helps). velog raises ContentRejectedError directly; browser/CDP adapters such
+    # as Write.as surface a generic ExternalServiceError whose message carries the
+    # platform's block code (e.g. Write.as HTTP 201 with id="contentisblocked").
+    if isinstance(exc, ContentRejectedError):
+        return ErrorClass.CONTENT_REJECTED
+
     msg = str(exc)
+    msg_low = msg.lower()
     if "ssrf_blocked" in msg or "ssrf_redirect" in msg or "ssrf_https_downgrade" in msg:
         return ErrorClass.SSRF_BLOCKED
+
+    if (
+        "contentisblocked" in msg_low
+        or "content is blocked" in msg_low
+        or "content blocked" in msg_low
+    ):
+        return ErrorClass.CONTENT_REJECTED
 
     if _HTTP_5XX_RE.search(msg):
         return ErrorClass.HTTP_5XX

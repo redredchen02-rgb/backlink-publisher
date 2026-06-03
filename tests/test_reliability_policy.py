@@ -17,6 +17,7 @@ from backlink_publisher.publishing.reliability.events import Outcome
 from backlink_publisher.publishing.reliability.policy import (
     publish_with_policy,
     policy_enabled,
+    _is_browser_tier,
 )
 
 
@@ -72,16 +73,36 @@ def test_passthrough_when_policy_disabled(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_policy_applies_to_all_platforms(cfg):
-    """Stage 1: policy applies to ALL platforms, including non-browser-tier."""
-    for platform in ("blogger", "wordpresscom", "telegraph", "notion", "hashnode", "medium", "velog"):
+def test_browser_tier_platforms_gated_by_health(cfg):
+    """Browser-tier platforms go through the health gate (Stage 1 + Phase 3)."""
+    for platform in ("medium", "velog"):
         result = _result(platform=platform)
         with patch(_GET_STATUS, return_value={"status": "bound"}), \
              patch(_ADAPTER_PUB, return_value=result) as mock_pub:
             out = publish_with_policy(platform, payload={"id": "1"}, config=cfg)
+            mock_pub.assert_called_once()
+            assert out.status == "published"
 
-        mock_pub.assert_called_once()
-        assert out.status == "published"
+
+def test_non_browser_tier_platforms():
+    for p in ("blogger", "wordpress", "telegraph", "notion", "hashnode"):
+        assert _is_browser_tier(p) is False
+
+
+# ---------------------------------------------------------------------------
+# Unit 2: Non-browser-tier passthrough
+# ---------------------------------------------------------------------------
+
+
+def test_non_browser_tier_dispatches_through_closed_circuit(cfg):
+    """Non-browser-tier platforms skip the health gate but DO pass the circuit
+    breaker (Phase 3 U9). With a closed circuit, dispatch proceeds normally."""
+    result = _result(platform="blogger")
+    with patch(_ADAPTER_PUB, return_value=result) as mock_pub, patch(_EMIT):
+        out = publish_with_policy("blogger", payload={"id": "1"}, config=cfg)
+
+    mock_pub.assert_called_once()
+    assert out.status == "published"
 
 
 # ---------------------------------------------------------------------------
@@ -250,36 +271,41 @@ def test_half_open_allows_test_traffic(cfg):
 
 
 def test_trip_on_error_with_status_429(cfg):
-    """429 responses trip the circuit immediately."""
+    """Phase 3: consecutive ExternalServiceError trips at threshold (default 5)."""
     from backlink_publisher.publishing.reliability.circuit import is_tripped
 
     exc = ExternalServiceError("rate limited: 429")
-    with patch(_GET_STATUS, return_value={"status": "bound"}), \
-         patch(_ADAPTER_PUB, side_effect=exc), \
-         patch(_EMIT):
-        with pytest.raises(ExternalServiceError):
-            publish_with_policy("medium", payload={"id": "1"}, config=cfg)
+    threshold = 5
+    for i in range(threshold):
+        with patch(_GET_STATUS, return_value={"status": "bound"}), \
+             patch(_ADAPTER_PUB, side_effect=exc), \
+             patch(_EMIT):
+            with pytest.raises(ExternalServiceError):
+                publish_with_policy("medium", payload={"id": "1"}, config=cfg)
 
     assert is_tripped("medium", cfg) is True
 
 
 def test_trip_on_error_with_status_503(cfg):
-    """503 responses trip the circuit immediately."""
+    """Phase 3: consecutive ExternalServiceError trips at threshold (default 5)."""
     from backlink_publisher.publishing.reliability.circuit import is_tripped
 
     exc = ExternalServiceError("service unavailable: 503")
-    with patch(_GET_STATUS, return_value={"status": "bound"}), \
-         patch(_ADAPTER_PUB, side_effect=exc), \
-         patch(_EMIT):
-        with pytest.raises(ExternalServiceError):
-            publish_with_policy("medium", payload={"id": "1"}, config=cfg)
+    threshold = 5
+    for i in range(threshold):
+        with patch(_GET_STATUS, return_value={"status": "bound"}), \
+             patch(_ADAPTER_PUB, side_effect=exc), \
+             patch(_EMIT):
+            with pytest.raises(ExternalServiceError):
+                publish_with_policy("medium", payload={"id": "1"}, config=cfg)
 
     assert is_tripped("medium", cfg) is True
 
 
 def test_consecutive_errors_increment_counter(cfg):
-    """Consecutive transient errors increment error counter; trip after threshold."""
-    # For timeout-like errors, the policy now calls trip_on_error
+    """Phase 3: consecutive ExternalServiceError increments health-store counter."""
+    from backlink_publisher.health.persistence import locked_store
+
     exc = ExternalServiceError("timeout")
     with patch(_GET_STATUS, return_value={"status": "bound"}), \
          patch(_ADAPTER_PUB, side_effect=exc), \
@@ -287,12 +313,9 @@ def test_consecutive_errors_increment_counter(cfg):
         with pytest.raises(ExternalServiceError):
             publish_with_policy("medium", payload={"id": "1"}, config=cfg)
 
-    # Verify error counter was incremented
-    from backlink_publisher.publishing.reliability.circuit import _get_state
-    state = _get_state("medium", cfg)
-    assert state.get("consecutive_errors") == 1
-    # Circuit still closed because threshold (3) not reached yet
-    assert state.get("state") == "closed"
+    # Counter lives in LockedHealthStore.consecutive_failures (Phase 3 U10).
+    entry = locked_store.get("medium", cfg)
+    assert entry.get("consecutive_failures") == 1
 
 
 def test_record_success_resets_error_counter(cfg):
@@ -317,14 +340,13 @@ def test_record_success_resets_error_counter(cfg):
 # ---------------------------------------------------------------------------
 
 
-def test_event_emitted_with_http_status(cfg):
-    """Events include HTTP status code for better observability."""
+def test_event_emitted_with_external_error_outcome(cfg):
+    """Phase 3: ExternalServiceError emits EXTERNAL_ERROR outcome."""
     with patch(_GET_STATUS, return_value={"status": "bound"}), \
          patch(_ADAPTER_PUB, side_effect=ExternalServiceError("API error: 503")), \
          patch(_EMIT) as mock_emit:
         with pytest.raises(ExternalServiceError):
             publish_with_policy("medium", payload={"id": "1"}, config=cfg)
 
-    # Verify http_status was passed to emit_attempt
-    call_kwargs = mock_emit.call_args[1]
-    assert call_kwargs.get("http_status") == 503
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[0][1] == Outcome.EXTERNAL_ERROR

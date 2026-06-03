@@ -1626,3 +1626,22 @@ class TestMetricsRoutes:
         resp = client.get("/metrics")
         assert resp.status_code == 200
         assert b"bp_publish_total" in resp.data
+
+
+class TestHealthActionRoutes:
+    """Contract tests for /ce:health maintenance actions (Plan 2026-06-03-004 P2)."""
+
+    def test_pause_platform_toggles(self, client):
+        resp = client.post("/ce:health/pause", json={"platform": "medium", "paused": True})
+        assert resp.status_code == 200
+        assert resp.get_json()["paused"] is True
+
+    def test_reverify_platform_returns_json(self, client):
+        resp = client.post("/ce:health/reverify", json={"platform": "medium"})
+        assert resp.status_code == 200
+        assert "ready" in resp.get_json()
+
+    def test_circuit_reset_platform_ok(self, client):
+        resp = client.post("/ce:health/circuit-reset", json={"platform": "medium"})
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
