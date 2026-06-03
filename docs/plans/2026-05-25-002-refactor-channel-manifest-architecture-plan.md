@@ -1,7 +1,7 @@
 ---
 title: "refactor: Channel Manifest Architecture (extend register() to SSoT)"
 type: refactor
-status: active  # 2026-06-02 FINISH: Phase 2 (9 channels) + Phase 3 (CI gate) are genuine remaining work
+status: completed  # 2026-06-03: Phase 2 (#215) + Phase 3 (#216) confirmed in main
 date: 2026-05-25
 origin: docs/brainstorms/2026-05-25-channel-manifest-architecture-requirements.md
 claims: {}
