@@ -47,6 +47,7 @@ def equity_ledger():
         stale_days=stale_days,
         stale_count=stale_count,
         exact_match_threshold=cfg.anchor_alarm.exact_ratio_ceiling,
+        active_page='equity',
     )
 
 

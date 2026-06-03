@@ -164,6 +164,7 @@ def _settings_context(flash=None):
 
     return dict(
         flash=flash,
+        active_page='settings',
         csrf_token=csrf_token,
         dashboard_channels=dashboard_channels,
         dashboard_channel_tiers=dashboard_channel_tiers,

@@ -1,35 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="csrf-token" content="{{ csrf_token }}">
-  <title>Publishing Health</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-  <style>
-    body {
-        font-family: 'Outfit', 'Segoe UI', -apple-system, sans-serif;
-        background: linear-gradient(to bottom, #f3f4f6, #e5e7eb);
-        min-height: 100vh;
-    }
-    .hero-pct { font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
-    .hero-good { color: #10b981; }
-    .hero-warn { color: #f59e0b; }
-    .hero-bad  { color: #ef4444; }
-    .hero-none { color: #6b7280; }
-    .as-of { font-variant-numeric: tabular-nums; font-size: 12px; }
-    .target-cell { font-family: ui-monospace, monospace; font-size: 13px; }
-    .row-worst { box-shadow: inset 4px 0 0 #ef4444; }
-  </style>
-</head>
-<body>
-<nav class="navbar" style="display:flex;justify-content:space-between;align-items:center;margin: 20px;">
-  <h1><i class="bi bi-heart-pulse me-2"></i>Publishing Health</h1>
-  <a href="/" class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.5);"><i class="bi bi-house"></i> Home</a>
-</nav>
-
+{% extends 'base.html' %}
+{% block title %}Publishing Health{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css', v=asset_version) }}">
+    <style>
+        .hero-pct { font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+        .hero-good { color: #10b981; }
+        .hero-warn { color: #f59e0b; }
+        .hero-bad  { color: #ef4444; }
+        .hero-none { color: #6b7280; }
+        .as-of { font-variant-numeric: tabular-nums; font-size: 12px; }
+        .target-cell { font-family: ui-monospace, monospace; font-size: 13px; }
+        .row-worst { box-shadow: inset 4px 0 0 #ef4444; }
+    </style>
+{% endblock %}
+{% block content %}
 <main class="container py-4">
 
   {# ── Freshness + degraded/gap notice (R5, adjacent to hero) ───────────── #}
@@ -439,9 +423,7 @@
     {% endif %}
   </div>
 
-
 </main>
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}
-</body>
-</html>
+{% endblock %}

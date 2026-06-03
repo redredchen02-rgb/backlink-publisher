@@ -313,6 +313,7 @@ def ce_health():
             geo_panel=geo_panel,
             pipeline_summary=pipeline_summary,
             storage_health=storage_health,
+            active_page='health',
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500
         _log.error("health: dashboard render failed, serving minimal fallback: %s", exc)

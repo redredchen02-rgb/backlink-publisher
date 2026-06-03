@@ -18,11 +18,12 @@ def index():
     flash = {'type': flash_type, 'msg': flash_msg} if flash_type else None
     history_active = tab == 'draft'
     return _render('index.html', config=config,
-                   history_active=history_active, flash=flash)
+                   history_active=history_active, flash=flash,
+                   active_page='index')
 
 
 @bp.route('/ce:clear', methods=['POST'])
 def ce_clear():
     """Clear session and restart."""
     session.clear()
-    return _render('index.html')
+    return _render('index.html', active_page='index')
