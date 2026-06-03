@@ -14,10 +14,10 @@ from backlink_publisher.config import (
     load_blogger_token,
     load_config,
 )
+from backlink_publisher.events.history_query import list_history as _list_history
 
 from webui_store import (
     drafts_store as _drafts_store,
-    history_store as _history_store,
     profiles_store as _profiles_store,
     queue_store as _queue_store,
 )
@@ -272,7 +272,7 @@ def _render(template_name: str, **kwargs):
         now_iso, suggested_next, incomplete_run
     """
     if 'history' not in kwargs:
-        kwargs['history'] = _g_cache('history', _history_store.load)
+        kwargs['history'] = _g_cache('history', _list_history)
     if 'grouped_history' not in kwargs:
         kwargs['grouped_history'] = _group_history(kwargs['history'])
     if 'blogger_token_status' not in kwargs:

@@ -330,4 +330,13 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
         except Exception as exc:  # noqa: BLE001 — startup must not crash
             _log.warning("chrome_session.reap_orphan_publish_chrome failed: %s", exc)
 
+        # Plan 2026-05-28-007 U4: one-shot history→events.db import.
+        try:
+            from backlink_publisher.events.history_importer import (
+                import_history_to_events,
+            )
+            import_history_to_events()
+        except Exception as exc:  # noqa: BLE001 — startup must not crash
+            _log.warning("history_importer.import_history_to_events failed: %s", exc)
+
     return app

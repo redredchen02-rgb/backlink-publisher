@@ -62,7 +62,13 @@ def equity_ledger_recheck():
     """
     from webui_store import history_store
 
+    from backlink_publisher.events.history_query import get_history_item as _get_history_item
+
     from ..services.recheck import recheck_one
+    from backlink_publisher.events.publish_writer import (
+        map_history_entry,
+        write_event,
+    )
 
     data = request.get_json(silent=True) or {}
     target = data.get("target_url")
@@ -84,7 +90,9 @@ def equity_ledger_recheck():
 
     counts: Counter[str] = Counter()
     for item_id in row.history_item_ids:
-        item = history_store.get_item(item_id)
+        item = _get_history_item(item_id)
+        if item is None:
+            item = history_store.get_item(str(item_id))
         if not item:
             counts["skipped"] += 1  # deleted between snapshot and recheck
             continue
@@ -93,10 +101,18 @@ def equity_ledger_recheck():
         except Exception as exc:  # one bad item must not abort the whole batch
             history_store.update_item(item_id, status="failed", verify_error=str(exc))
             counts["failed"] += 1
+            failed_entry = {**item, "status": "failed", "error": str(exc)}
+            mapped = map_history_entry(failed_entry)
+            if mapped is not None:
+                write_event(mapped[0], mapped[1], target_url=failed_entry.get("target_url"))
             continue
         outcome = mutation.pop("_outcome", None)
         history_store.update_item(item_id, **mutation)
         counts[_OUTCOME_LABELS.get(outcome, "skipped")] += 1
+        updated = {**item, **mutation}
+        mapped = map_history_entry(updated)
+        if mapped is not None:
+            write_event(mapped[0], mapped[1], target_url=updated.get("target_url"))
 
     # Recompute the target's row from the freshly mutated history.
     refreshed = next((r for r in build_ledger(stale_days=stale_days) if r.target_url == canon), row)

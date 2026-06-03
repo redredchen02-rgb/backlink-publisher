@@ -21,10 +21,10 @@ from backlink_publisher.config import (
     save_config,
     upgrade_target_to_threeurl,
 )
+from backlink_publisher.events.history_query import list_history as _list_history
 
 from webui_store import (
     drafts_store as _drafts_store,
-    history_store as _history_store,
     schedule_store as _schedule_store,
 )
 
@@ -119,7 +119,7 @@ def calc_next_available(requested_dt: datetime) -> datetime:
                 except ValueError:
                     plan_logger.warn("calc_next_available: bad date in drafts_store", ts=ts)
 
-    for item in _history_store.load():
+    for item in _list_history():
         ts = item.get("created_at")
         if ts and item.get("status") in ("drafted", "published"):
             try:
