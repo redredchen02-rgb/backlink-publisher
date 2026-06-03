@@ -15,6 +15,7 @@ from flask import Blueprint, redirect, session
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config import load_config
 
+from ..helpers._request_cache import _g_cache
 from ..helpers.security import (
     _check_bind_origin_or_abort,
     _refuse_when_allow_network,
@@ -36,7 +37,7 @@ def medium_launch_browser_login():
     """Open a headed Chromium for the user to log in to Medium."""
     _refuse_when_allow_network()
     _check_bind_origin_or_abort()
-    cfg = load_config()
+    cfg = _g_cache('config', load_config)
     try:
         result = launch_login_window(cfg)
         session["medium_probe_logged_in"] = result.get("logged_in", False)
@@ -59,7 +60,7 @@ def medium_probe_browser_login():
     """Probe Medium login state via a short Playwright navigation."""
     _refuse_when_allow_network()
     _check_bind_origin_or_abort()
-    cfg = load_config()
+    cfg = _g_cache('config', load_config)
     try:
         result = probe_login_status(cfg)
         if result["logged_in"]:
@@ -87,7 +88,9 @@ def medium_clear_browser_login():
     """Delete the persistent Chromium profile (clears stored login cookies)."""
     _refuse_when_allow_network()
     _check_bind_origin_or_abort()
-    cfg = load_config()
+    # config_dir is immutable within a request; cache is safe here.
+    # If config_dir becomes per-request configurable, move this to the write-handler exclusion list.
+    cfg = _g_cache('config', load_config)
     try:
         clear_browser_profile(cfg)
         session.pop("medium_probe_logged_in", None)

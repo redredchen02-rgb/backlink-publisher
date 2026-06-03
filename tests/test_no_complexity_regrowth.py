@@ -242,6 +242,23 @@ def test_unlisted_functions_within_backstop() -> None:
     )
 
 
+def test_backstop_webui_unlisted_functions() -> None:
+    """Rule (b) extended: every unlisted Function/Method block in webui_app/ must have CC <= backstop."""
+    declared = set(MONITORED_KEYS)
+    violations = _scan_unlisted_over_backstop(
+        scan_root=REPO_ROOT / "webui_app",
+        declared_keys=declared,
+        repo_root=REPO_ROOT,
+        backstop=BACKSTOP,
+    )
+    assert not violations, (
+        f"{len(violations)} unlisted webui_app function(s) exceed the CC backstop ({BACKSTOP}):\n  "
+        + "\n  ".join(sorted(violations))
+        + "\nEither reduce the function's complexity, or add an explicit "
+        "complexity_budget.toml entry (with a >=80-char rationale) in this same PR."
+    )
+
+
 def test_radon_cc_behavior_pinned() -> None:
     """CC canary: pin radon's complexity counter against the hand-crafted fixture.
 

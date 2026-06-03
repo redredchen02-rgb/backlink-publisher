@@ -13,6 +13,7 @@ from backlink_publisher.publishing.adapters import verify_adapter_setup
 from backlink_publisher.publishing.registry import registered_platforms
 
 from ..binding_status import get_channel_status
+from ..helpers._request_cache import _g_cache
 from ..helpers.contexts import _save_schedule_settings, _settings_context
 from ..helpers.security import _safe_flash_redirect
 
@@ -54,7 +55,7 @@ def _require_known_channel(channel: str) -> None:
 def api_channel_status(channel: str):
     """Cheap offline status — config presence, no network call."""
     _require_known_channel(channel)
-    config = load_config()
+    config = _g_cache('config', load_config)
     return jsonify(get_channel_status(channel, config))
 
 
@@ -66,7 +67,7 @@ def api_channel_verify(channel: str):
     deferred to Unit 6 backfill — Unit 4 ships the dispatch + JSON contract.
     """
     _require_known_channel(channel)
-    config = load_config()
+    config = _g_cache('config', load_config)
     result = verify_adapter_setup(channel, config, mode='live')
     return jsonify(_verify_result_to_json(result))
 
@@ -80,7 +81,7 @@ def api_channel_dry_run(channel: str):
     the dashboard JS can reuse ``renderResult()``.
     """
     _require_known_channel(channel)
-    config = load_config()
+    config = _g_cache('config', load_config)
     result = verify_adapter_setup(channel, config, mode='dry-run')
     return jsonify(_verify_result_to_json(result))
 
