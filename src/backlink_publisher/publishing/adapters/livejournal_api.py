@@ -60,6 +60,15 @@ log = logging.getLogger(__name__)
 LIVEJOURNAL_XMLRPC = "https://www.livejournal.com/interface/xmlrpc"
 _HTTP_TIMEOUT_S = 15
 _CRED_FILENAME = "livejournal-credentials.json"
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 30
+_LIVEJOURNAL_PUBLISH_DELAY_ENV = "LIVEJOURNAL_PUBLISH_DELAY_S"
+
+
+def _post_publish_delay_s() -> int:
+    try:
+        return int(os.environ.get(_LIVEJOURNAL_PUBLISH_DELAY_ENV, _DEFAULT_POST_PUBLISH_DELAY_S))
+    except (ValueError, TypeError):
+        return _DEFAULT_POST_PUBLISH_DELAY_S
 
 #: faultString fragments LiveJournal returns for credential failures. Matched
 #: case-insensitively. The raw faultString is never logged (it can echo the
@@ -299,6 +308,7 @@ class LivejournalAPIAdapter(Publisher):
                 adapter="livejournal-api",
                 platform="livejournal",
                 draft_url=published_url,
+                post_publish_delay_seconds=_post_publish_delay_s(),
             )
         # R4 "measure": fire-and-forget verify of the live dofollow status.
         meta = attach_link_verification(published_url, target_urls=required_link_urls(payload))
@@ -308,4 +318,5 @@ class LivejournalAPIAdapter(Publisher):
             platform="livejournal",
             published_url=published_url,
             _provider_meta=meta or None,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

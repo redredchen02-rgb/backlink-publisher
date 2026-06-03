@@ -77,7 +77,7 @@ from .hackmd_api import HackmdAPIAdapter
 from .hashnode_graphql import HashnodeGraphQLAdapter
 from .hatena_atompub import HatenaAtomPubAdapter
 from .instant_web import (
-    TelegraphCdpAdapter,  # noqa: F401  kept for test import, not yet wired
+    TelegraphCdpAdapter,  # noqa: F401
 )
 from .linkedin_api import LinkedInAPIAdapter
 from .livejournal_api import LivejournalAPIAdapter, _livejournal_credential_saver
@@ -104,10 +104,9 @@ from .writeas_api import WriteasAPIAdapter
 # ``False`` and ``"uncertain"`` additionally require ``rationale=`` of
 # ≥80 stripped chars (R3, mirrors ``monolith_budget.toml`` discipline).
 #
-# ``TelegraphCdpAdapter`` is imported from ``instant_web.py`` so the
-# module is callable from regression tests on this branch, but it is
-# NOT added to the dispatch chain yet — that wiring ships with Plan 001
-# (PR #141 chrome-cdp-multi-channel-publish) which is still open.
+# ``TelegraphCdpAdapter`` (imported from ``instant_web.py``) is the
+# Chrome/CDP fallback for the "telegraph" channel. It is registered
+# after ``TelegraphAPIAdapter`` in the channel chain below (2026-06-03).
 # Manifest declarations for migrated channels live in
 # ``publishing/_manifests.py`` (Plan 2026-05-25-002 Phase 2). Adding a
 # channel = new ``<SLUG>_MANIFEST`` dict in that file + new
@@ -132,17 +131,19 @@ register(
 register(
     "hashnode",
     HashnodeGraphQLAdapter,
-    dofollow="uncertain",  # 3rd-party live check = dofollow; canary pending; retiring (PR #204)
+    dofollow="uncertain",
     rationale=_R["hashnode"],
     referral_value="high",
+    visibility="retired",  # retired in plan 008 (PR #204 intent); deletion follow-up
     **HASHNODE_MANIFEST,
 )
 register(
     "writeas",
     WriteasAPIAdapter,
-    dofollow="uncertain",  # 3rd-party live check = dofollow; canary pending; retiring (PR #202)
+    dofollow="uncertain",
     rationale=_R["writeas"],
     referral_value="low",
+    visibility="retired",  # retired in plan 008 (PR #202 intent); deletion follow-up
     **WRITEAS_MANIFEST,
 )
 register(
@@ -186,7 +187,13 @@ register(
     dofollow=True,
     **MEDIUM_MANIFEST,
 )
-register("telegraph", TelegraphAPIAdapter, dofollow=True, **TELEGRAPH_MANIFEST)
+register(
+    "telegraph",
+    TelegraphAPIAdapter,
+    TelegraphCdpAdapter,
+    dofollow=True,
+    **TELEGRAPH_MANIFEST,
+)
 register(
     "velog",
     VelogGraphQLAdapter,

@@ -11,6 +11,27 @@ from webui_store import drafts_store, history_store
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(drafts_store, "_path", tmp_path / "drafts.json")
     monkeypatch.setattr(history_store, "_path", tmp_path / "history.json")
+    # Under U6 (Plan 2026-05-28-007), the /ce:history route reads history
+    # through HistoryAPI.list() → list_history() which queries events.db
+    # (SQLite), NOT through history_store.load() (legacy JSON file).
+    #
+    # For rendering tests we need seeded test data to survive through to
+    # template render.  We therefore intercept at the API boundary —
+    # monkeypatch list_history where it's imported in history_api — and
+    # wire history_store.save() to populate our test data list so test
+    # assertions can seed via the familiar store interface.
+    _saved: list[dict] = []
+
+    def _save(items: list[dict]) -> None:
+        _saved.clear()
+        _saved.extend(items)
+
+    real = history_store._real()
+    monkeypatch.setattr(real, "save", _save)
+
+    import webui_app.api.history_api as _hapi
+    monkeypatch.setattr(_hapi, "list_history", lambda: list(_saved))
+
     import webui
     webui.app.config["TESTING"] = True
     webui.app.config["WTF_CSRF_ENABLED"] = False
