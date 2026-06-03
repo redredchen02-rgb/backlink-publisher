@@ -23,7 +23,7 @@ idempotency guard) are intentionally left unchanged. `history_store` is excluded
 
 ## Problem Frame
 
-The `webui_store` package scatters operational state across 6–7 JSON files, each
+The `webui_store` package scatters operational state across six JSON files, each
 with its own atomic write path, in-process threading lock, and no cross-process
 safety story. Every feature that needs cross-store consistency (a campaign linking
 its drafts and queue tasks) must manually load from multiple files and hope they
@@ -174,8 +174,8 @@ already proven by `events.db` and `dedup.db`.
 - *[R3]* `DraftsStore.bulk_publish_now` wraps multiple `update_item` calls — whether
   these run inside a single SQLite transaction is an implementation call
 - *[R3]* `CampaignStore.update_seed_status` seeds-as-blob vs. seeds table — blob
-  confirmed for this plan; decide at Unit 7 implementation time if query patterns
-  differ from expectations
+  is the decision for this plan; normalize to a separate `campaign_seeds` table
+  only if per-seed query patterns emerge post-ship
 
 ## High-Level Technical Design
 
@@ -277,7 +277,10 @@ migrated yet; this is the infrastructure prerequisite for all subsequent units.
   `settings_service.py` calls `_schedule_store.save(data)` directly (bypasses
   `update()` entirely); for row-based stores with delete-all semantics, an
   unguarded `save()` allows a concurrent `update_item()` to interleave mid-rewrite
-- `_retry_sqlite` imported from `events._store_sqlite` — do not copy-paste
+- `_retry_sqlite` imported from `events._store_sqlite` — do not copy-paste. Use the
+  **absolute import** `from backlink_publisher.events._store_sqlite import ...`
+  (same pattern as `webui_store/channel_status.py`); a relative import fails because
+  `webui_store/` is not a subpackage of `backlink_publisher`
 - Each subclass will call DDL in its `__init__` (or on first connect) to create its
   own table; `WebUIDatabase` does not own any DDL itself
 - No schema migration framework at this stage — tables are created with
@@ -328,7 +331,9 @@ prove the end-to-end pattern before tackling richer stores.
 - Startup migration — **sequence is load-bearing**:
   1. `save()` into `webui.db` inside a SQLite transaction (commit first)
   2. Only rename `.json` → `.json.migrated` after the commit succeeds
-  3. Write sentinel only after the rename succeeds
+  3. `chmod(migrated_path, 0o600)` immediately after rename (the original JSON was
+     created under umask → 0o644; silently tighten before the sentinel is written)
+  4. Write sentinel only after rename + chmod succeed
   Each step is conditional on the prior step's success. If the process crashes after
   rename but before sentinel: next boot detects `.json.migrated` + absent sentinel →
   write sentinel only (data already in webui.db). If `.json` is corrupt/absent on
@@ -477,7 +482,9 @@ proper row table with an indexed `status` column.
   )
   CREATE INDEX tasks_status_retry ON tasks(status, next_retry_at)
   ```
-- `load()` → `SELECT * FROM tasks ORDER BY rowid` → list (preserves insertion order)
+- `load()` → `SELECT * FROM tasks ORDER BY rowid` → list (preserves insertion order;
+  note: the table is named `tasks` to distinguish it from the legacy `publish-queue.json`;
+  the Python API remains `queue_store.update_task()` / `.get_runnable()` / etc.)
 - `save(value: list)` → transaction: delete-all + bulk-insert
 - `update_task(task_id, updates)` → targeted `UPDATE tasks SET status=?, next_retry_at=?,
   data_json=? WHERE id=?` (replaces current full-list-scan RMW)
@@ -542,7 +549,8 @@ row table. Also removes the two pairs of duplicate method definitions in `drafts
 - `get_by_campaign_id(campaign_id)` → `SELECT * FROM drafts WHERE campaign_id = ?`
 - `bulk_delete(ids)` → `DELETE FROM drafts WHERE id IN (?…)` parameterized
 - `bulk_update(ids, **fields)` → batch UPDATE per id in one transaction
-- `insert_first(item)` → `INSERT INTO drafts …`; order preserved via rowid
+- `insert_first(item)` → `INSERT INTO drafts` with `inserted_at = int(time.time() * 1000)`;
+  **order preserved via `inserted_at DESC` in `load()`** — NOT via `rowid`
 - `bulk_publish_now(ids, publish_fn)` — logic unchanged; individual `update_item`
   calls are now targeted SQL UPDATEs
 - **Fix in this unit:** remove the duplicate `get_by_campaign_id` and `bulk_publish_now`
