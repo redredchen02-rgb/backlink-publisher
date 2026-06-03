@@ -253,8 +253,9 @@ def handle_error(exc: PipelineError) -> None:
     print(str(exc.message), file=sys.stderr, flush=True)
     # error_class = the specific exception type (e.g. "AuthExpiredError",
     # "ContentRejectedError") so the operator sees the real error, not a coarse
-    # bucket. (classify_exception's 5-value ErrorClass would collapse
-    # ContentRejectedError → "unexpected", defeating the Phase 1 success criterion.)
+    # bucket. (classify_exception now maps ContentRejectedError → "content_rejected"
+    # instead of collapsing it to "unexpected"; the exact type name here is still
+    # the most specific signal for the operator.)
     _emit_error_envelope(type(exc).__name__, exc.exit_code, str(exc.message))
     raise SystemExit(exc.exit_code)
 

@@ -47,6 +47,41 @@ def test_settings_page_has_no_inline_style(client):
     assert "<style>" not in resp.data.decode()
 
 
+def test_settings_template_inline_styles_confined_to_loading_overlay():
+    """settings.html proper must not carry static inline ``style=""`` attributes.
+
+    The R10 follow-up (Plan 2026-06-03-003) extracted every static inline style
+    into named settings.css classes. The only sanctioned exception is the
+    ``#_loadingOverlay`` widget, whose ``display`` is toggled by settings.js (a
+    data-driven exception R10 explicitly allows). Included sub-template partials
+    (``_settings_channel_*`` etc.) are out of scope per the plan's scope boundary,
+    so this asserts on the template source — not the rendered response.
+
+    The original ``test_settings_page_has_no_inline_style`` only catches ``<style>``
+    blocks, not ``style=""`` attributes — which is why the R10 residual slipped
+    through. This closes that gap.
+    """
+    import pathlib
+
+    import webui_app
+
+    tpl = pathlib.Path(webui_app.__file__).parent / "templates" / "settings.html"
+    lines = tpl.read_text(encoding="utf-8").splitlines()
+    overlay_idx = next(
+        (i for i, line in enumerate(lines) if "_loadingOverlay" in line), None
+    )
+    assert overlay_idx is not None, "expected the #_loadingOverlay widget in settings.html"
+    stray = [
+        (i + 1, line.strip())
+        for i, line in enumerate(lines)
+        if 'style="' in line and i < overlay_idx
+    ]
+    assert not stray, (
+        'settings.html has inline style="" attributes outside the JS-toggled '
+        f"#_loadingOverlay widget — extract them to settings.css classes: {stray}"
+    )
+
+
 # ── Unit 2: JS ───────────────────────────────────────────────────────────────
 
 def test_settings_js_served(client):

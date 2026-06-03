@@ -5,6 +5,7 @@ from backlink_publisher.publishing.adapters.retry import (
 )
 from backlink_publisher._util.errors import (
     AuthExpiredError,
+    ContentRejectedError,
     ExternalServiceError,
 )
 
@@ -13,6 +14,7 @@ def test_error_class_enum_values():
     assert ErrorClass.AUTH_EXPIRED == "auth_expired"
     assert ErrorClass.HTTP_5XX == "http_5xx"
     assert ErrorClass.SSRF_BLOCKED == "ssrf_blocked"
+    assert ErrorClass.CONTENT_REJECTED == "content_rejected"
     assert ErrorClass.UNEXPECTED == "unexpected"
 
 def test_classify_auth_expired():
@@ -33,6 +35,21 @@ def test_classify_ssrf_blocked():
     
     exc2 = Exception("ssrf_redirect: IP blocked")
     assert classify_exception(exc2) == ErrorClass.SSRF_BLOCKED
+
+def test_classify_content_rejected_by_type():
+    """ContentRejectedError must not collapse to UNEXPECTED (velog raises this)."""
+    exc = ContentRejectedError(channel="velog", reason="spam policy")
+    assert classify_exception(exc) == ErrorClass.CONTENT_REJECTED
+
+def test_classify_content_rejected_by_message():
+    """A generic ExternalServiceError carrying a platform block code (e.g. Write.as
+    HTTP 201 id="contentisblocked") is a permanent rejection, not a TRANSIENT retry.
+    Regression: events.db recorded this as error_class="transient" before the fix."""
+    exc = ExternalServiceError(
+        "Write.as CDP publish failed: Write.as returned no URL (HTTP 201): "
+        "{'code': 201, 'data': {'id': 'contentisblocked', 'slug': None}}"
+    )
+    assert classify_exception(exc) == ErrorClass.CONTENT_REJECTED
 
 def test_classify_unexpected():
     exc = Exception("Some arbitrary error message")
