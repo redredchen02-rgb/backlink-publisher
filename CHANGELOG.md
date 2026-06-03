@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-03
+
+### Added
+
+- Telegraph publishing now falls back to Chrome/CDP (`TelegraphCdpAdapter`) when the API path returns a dependency error. Chain order is API first, CDP second; environments without Chrome safely skip the fallback.
+- LiveJournal adapter includes a configurable post-publish delay (`post_publish_delay_seconds`, default 30 s, overridable via `LIVEJOURNAL_PUBLISH_DELAY_S`) so the downstream verify step gets an extended window for page propagation. Fixes `published_unverified → InternalError` regressions on slow-propagating LJ pages.
+
+### Changed
+
+- `hashnode` and `writeas` channels marked `visibility="retired"` in the adapter registry (plan 008 cleanup; deletion follow-up planned).
+
 ## [0.3.0] - 2026-06-01
 
 ### Added
