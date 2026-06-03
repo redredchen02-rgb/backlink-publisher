@@ -109,16 +109,10 @@ def equity_ledger_recheck():
         history_store.update_item(item_id, **mutation)
         counts[_OUTCOME_LABELS.get(outcome, "skipped")] += 1
         updated = {**item, **mutation}
-        import sys as _sys
-        print(f"[DEBUG item={item_id}] item.status={item.get('status')!r} mutation.status={mutation.get('status')!r} outcome={outcome!r} updated.status={updated.get('status')!r}", file=_sys.stderr)
         mapped = map_history_entry(updated)
-        print(f"[DEBUG item={item_id}] mapped={'OK' if mapped else 'NONE'}", file=_sys.stderr)
         if mapped is not None:
-            result = write_event(mapped[0], mapped[1], target_url=updated.get("target_url"),
-                                 article_id=int(item_id))
-            print(f"[DEBUG item={item_id}] write_event result={result}", file=_sys.stderr)
-        else:
-            print(f"[DEBUG item={item_id}] write_event SKIPPED", file=_sys.stderr)
+            write_event(mapped[0], mapped[1], target_url=updated.get("target_url"),
+                        article_id=int(item_id))
 
     # Recompute the target's row from the freshly mutated history.
     refreshed = next((r for r in build_ledger(stale_days=stale_days) if r.target_url == canon), row)
