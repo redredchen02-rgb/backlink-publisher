@@ -1,7 +1,7 @@
 ---
 title: "feat: Platform Stability Control Plane — unified health source, platform-health CLI, and circuit breaker expansion"
 type: feat
-status: active
+status: completed
 date: 2026-06-03
 deepened: 2026-06-03
 claims: {}  # new modules under src/; no SLOC/CC claims pre-merge; budget entries validated at execution time
@@ -163,7 +163,7 @@ U1 + U2 ──► U4 (/ce:health display)
 
 ---
 
-- [ ] **Unit 1: `health/aggregate.py` — unified per-platform health source**
+- [x] **Unit 1: `health/aggregate.py` — unified per-platform health source**
 
 **Goal:** `build_platform_health(config) -> dict[str, PlatformHealthRecord]`
 that combines EventStore last-events + circuit state + LockedHealthStore
@@ -214,7 +214,7 @@ if needed
 
 ---
 
-- [ ] **Unit 2: `LockedHealthStore` — cross-process-safe mutable health state**
+- [x] **Unit 2: `LockedHealthStore` — cross-process-safe mutable health state**
 
 **Goal:** File-backed store for mutable per-platform state (consecutive_failures,
 paused) protected by flock — same pattern as `circuit.py`.
@@ -253,7 +253,7 @@ paused) protected by flock — same pattern as `circuit.py`.
 
 ---
 
-- [ ] **Unit 3: `platform-health` CLI verb**
+- [x] **Unit 3: `platform-health` CLI verb**
 
 **Goal:** `platform-health` entrypoint prints per-platform health table. Reads
 from `build_platform_health()`. Respects `--json` for machine-readable output.
@@ -290,7 +290,7 @@ from `build_platform_health()`. Respects `--json` for machine-readable output.
 
 ---
 
-- [ ] **Unit 4: `/ce:health` display refresh**
+- [x] **Unit 4: `/ce:health` display refresh**
 
 **Goal:** `/ce:health` WebUI panel shows per-platform last-success, last-failure,
 consecutive failures, and circuit state alongside the existing 30-day panels.
