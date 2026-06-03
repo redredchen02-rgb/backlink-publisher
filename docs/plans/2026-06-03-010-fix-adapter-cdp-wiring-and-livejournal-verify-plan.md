@@ -1,7 +1,7 @@
 ---
 title: "fix: Wire TelegraphCdpAdapter + repair livejournal verification failure"
 type: fix
-status: active
+status: completed
 date: 2026-06-03
 origin: docs/brainstorms/2026-06-03-adapter-repair-and-cdp-wiring-requirements.md
 deepened: 2026-06-03
