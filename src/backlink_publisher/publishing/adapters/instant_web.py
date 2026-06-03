@@ -218,6 +218,7 @@ class TelegraphCdpAdapter(Publisher):
         except DependencyError:
             raise
         except Exception as exc:
+            log.exception("Telegraph CDP publish failed")
             raise ExternalServiceError(f"Telegraph CDP publish failed: {exc}") from exc
         finally:
             session.close()

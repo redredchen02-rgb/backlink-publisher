@@ -99,126 +99,36 @@ def _project_checkpoint(path: Path, store: EventStore) -> ProjectionResult:
             outcome = kinds.classify("checkpoint", status)
 
             if outcome is kinds.PUBLISH_INTENT:
-                if prior_state is not None:
-                    continue
-                dedup_key = (run_id, target_url or "", kinds.PUBLISH_INTENT)
-                if dedup_key in seen_intent_or_failed:
-                    continue
-                seen_intent_or_failed.add(dedup_key)
-                store.append(
-                    kinds.PUBLISH_INTENT,
-                    {
-                        "target_url": target_url,
-                        "title": item.get("title"),
-                        "platform": item.get("adapter"),
-                    },
-                    run_id=run_id,
-                    target_url=target_url,
-                    host=host,
-                    ts_raw=ts_raw,
-                    ts_utc=ts_utc,
-                    conn=conn,
-                    pending_quarantines=pending_quarantines,
-                )
-                events_inserted += 1
+                if _handle_checkpoint_intent(
+                    item, run_id, target_url, host, ts_raw, ts_utc,
+                    prior_state, seen_intent_or_failed, conn,
+                    pending_quarantines, store,
+                ):
+                    events_inserted += 1
 
             elif outcome is kinds.CONFIRMED_FAMILY:
-                live_host = host_of(published_url) or host
-                payload = item.get("payload") or {}
-                _body = payload.get("content_markdown") if isinstance(payload, dict) else None
-                _anchors = extract_anchors(payload)
-                _completed_at = item.get("completed_at")
-                if isinstance(_completed_at, str) and _completed_at:
-                    try:
-                        _pub_raw, _pub_utc = split_iso_with_offset(_completed_at)
-                    except ValueError:
-                        _pub_raw, _pub_utc = _completed_at, None
-                else:
-                    _pub_raw, _pub_utc = None, None
-                _lang = payload.get("lang") if isinstance(payload, dict) else None
-                art = article_payload(
-                    live_url=published_url,
-                    target_url=target_url,
-                    host=live_host,
-                    anchors_json=json.dumps(_anchors, sort_keys=True, ensure_ascii=False),
-                    run_id=run_id,
-                    body=_body,
-                    lang=_lang if isinstance(_lang, str) and _lang else None,
-                    published_at_raw=_pub_raw,
-                    published_at_utc=_pub_utc,
+                articles, events = _handle_checkpoint_confirmed(
+                    item, run_id, published_url, target_url, host,
+                    ts_raw, ts_utc, conn, pending_quarantines, store,
                 )
-                try:
-                    article_id = store.add_article(art, conn=conn)
-                except sqlite3.IntegrityError:
+                articles_inserted += articles
+                events_inserted += events
+                if articles == 0 and events == 0:
                     skipped_due_to_dedup += 1
-                    continue
-                articles_inserted += 1
-                _verified = item.get("verified", True)
-                _kind = kinds.PUBLISH_CONFIRMED if _verified else kinds.PUBLISH_UNVERIFIED
-                store.append(
-                    _kind,
-                    {
-                        "live_url": published_url,
-                        "target_url": target_url,
-                        "live_url_canonical": (
-                            canonicalize_url(published_url)
-                            if published_url
-                            else None
-                        ),
-                        "platform": item.get("adapter"),
-                    },
-                    run_id=run_id,
-                    target_url=target_url,
-                    host=live_host,
-                    article_id=article_id,
-                    ts_raw=ts_raw,
-                    ts_utc=ts_utc,
-                    conn=conn,
-                    pending_quarantines=pending_quarantines,
-                )
-                events_inserted += 1
 
             elif outcome is kinds.PUBLISH_FAILED:
-                dedup_key = (run_id, target_url or "", kinds.PUBLISH_FAILED)
-                if dedup_key in seen_intent_or_failed:
-                    continue
-                seen_intent_or_failed.add(dedup_key)
-                error_class = item.get("error_class")
-                error_message = item.get("error") or ""
-                cleaned, hits = scrub_text(error_message)
-                store.append(
-                    kinds.PUBLISH_FAILED,
-                    {
-                        "error_class": error_class,
-                        "error_message_clean": cleaned,
-                        "scrub_hits": hits or {},
-                        "platform": item.get("adapter"),
-                    },
-                    run_id=run_id,
-                    target_url=target_url,
-                    host=host,
-                    ts_raw=ts_raw,
-                    ts_utc=ts_utc,
-                    conn=conn,
-                    pending_quarantines=pending_quarantines,
-                )
-                events_inserted += 1
+                if _handle_checkpoint_failed(
+                    item, run_id, target_url, host, ts_raw, ts_utc,
+                    seen_intent_or_failed, conn,
+                    pending_quarantines, store,
+                ):
+                    events_inserted += 1
 
             elif outcome is kinds.NO_EMIT:
                 pass
 
             else:
-                pending_quarantines.append(
-                    {
-                        "reason": f"unmapped_status: checkpoint/{status}",
-                        "failure_type": "unmapped_status",
-                        "source": "checkpoint",
-                        "run_id": run_id,
-                        "source_status": status,
-                        "record_identity": item_id,
-                        "raw_payload": {"target_url": target_url, "adapter": item.get("adapter")},
-                    }
-                )
+                _handle_checkpoint_unmapped(item, pending_quarantines)
 
         cursor_save(
             conn,
@@ -239,6 +149,187 @@ def _project_checkpoint(path: Path, store: EventStore) -> ProjectionResult:
         cursor_updated=True,
         quarantined=len(pending_quarantines),
         records_considered=records_considered,
+    )
+
+
+# ── Checkpoint outcome handlers (extracted 2026-06-03, CC 39→25) ──
+
+
+def _handle_checkpoint_intent(
+    item: dict[str, Any],
+    run_id: str,
+    target_url: str | None,
+    host: str | None,
+    ts_raw: str,
+    ts_utc: str | None,
+    prior_state: dict[str, Any] | None,
+    seen_intent_or_failed: set[tuple[str, str, str]],
+    conn: sqlite3.Connection,
+    pending_quarantines: list[dict[str, Any]],
+    store: EventStore,
+) -> bool:
+    """Handle a PUBLISH_INTENT checkpoint row.
+
+    Returns ``True`` when an event was appended, ``False`` when skipped
+    (previously seen or already in prior state).
+    """
+    if prior_state is not None:
+        return False
+    dedup_key = (run_id, target_url or "", kinds.PUBLISH_INTENT)
+    if dedup_key in seen_intent_or_failed:
+        return False
+    seen_intent_or_failed.add(dedup_key)
+    store.append(
+        kinds.PUBLISH_INTENT,
+        {
+            "target_url": target_url,
+            "title": item.get("title"),
+            "platform": item.get("adapter"),
+        },
+        run_id=run_id,
+        target_url=target_url,
+        host=host,
+        ts_raw=ts_raw,
+        ts_utc=ts_utc,
+        conn=conn,
+        pending_quarantines=pending_quarantines,
+    )
+    return True
+
+
+def _handle_checkpoint_confirmed(
+    item: dict[str, Any],
+    run_id: str,
+    published_url: str | None,
+    target_url: str | None,
+    host: str | None,
+    ts_raw: str,
+    ts_utc: str | None,
+    conn: sqlite3.Connection,
+    pending_quarantines: list[dict[str, Any]],
+    store: EventStore,
+) -> tuple[int, int]:
+    """Handle a CONFIRMED_FAMILY checkpoint row.
+
+    Returns ``(articles_inserted, events_inserted)`` for this row.
+    ``articles_inserted`` is 0 when the article was already known
+    (``sqlite3.IntegrityError`` dedup).
+    """
+    live_host = host_of(published_url) or host
+    payload = item.get("payload") or {}
+    _body = payload.get("content_markdown") if isinstance(payload, dict) else None
+    _anchors = extract_anchors(payload)
+    _completed_at = item.get("completed_at")
+    if isinstance(_completed_at, str) and _completed_at:
+        try:
+            _pub_raw, _pub_utc = split_iso_with_offset(_completed_at)
+        except ValueError:
+            _pub_raw, _pub_utc = _completed_at, None
+    else:
+        _pub_raw, _pub_utc = None, None
+    _lang = payload.get("lang") if isinstance(payload, dict) else None
+    art = article_payload(
+        live_url=published_url,
+        target_url=target_url,
+        host=live_host,
+        anchors_json=json.dumps(_anchors, sort_keys=True, ensure_ascii=False),
+        run_id=run_id,
+        body=_body,
+        lang=_lang if isinstance(_lang, str) and _lang else None,
+        published_at_raw=_pub_raw,
+        published_at_utc=_pub_utc,
+    )
+    try:
+        article_id = store.add_article(art, conn=conn)
+    except sqlite3.IntegrityError:
+        return (0, 0)
+    _verified = item.get("verified", True)
+    _kind = kinds.PUBLISH_CONFIRMED if _verified else kinds.PUBLISH_UNVERIFIED
+    store.append(
+        _kind,
+        {
+            "live_url": published_url,
+            "target_url": target_url,
+            "live_url_canonical": (
+                canonicalize_url(published_url)
+                if published_url
+                else None
+            ),
+            "platform": item.get("adapter"),
+        },
+        run_id=run_id,
+        target_url=target_url,
+        host=live_host,
+        article_id=article_id,
+        ts_raw=ts_raw,
+        ts_utc=ts_utc,
+        conn=conn,
+        pending_quarantines=pending_quarantines,
+    )
+    return (1, 1)
+
+
+def _handle_checkpoint_failed(
+    item: dict[str, Any],
+    run_id: str,
+    target_url: str | None,
+    host: str | None,
+    ts_raw: str,
+    ts_utc: str | None,
+    seen_intent_or_failed: set[tuple[str, str, str]],
+    conn: sqlite3.Connection,
+    pending_quarantines: list[dict[str, Any]],
+    store: EventStore,
+) -> bool:
+    """Handle a PUBLISH_FAILED checkpoint row.
+
+    Returns ``True`` when an event was appended, ``False`` when skipped
+    (already seen).
+    """
+    dedup_key = (run_id, target_url or "", kinds.PUBLISH_FAILED)
+    if dedup_key in seen_intent_or_failed:
+        return False
+    seen_intent_or_failed.add(dedup_key)
+    error_class = item.get("error_class")
+    error_message = item.get("error") or ""
+    cleaned, hits = scrub_text(error_message)
+    store.append(
+        kinds.PUBLISH_FAILED,
+        {
+            "error_class": error_class,
+            "error_message_clean": cleaned,
+            "scrub_hits": hits or {},
+            "platform": item.get("adapter"),
+        },
+        run_id=run_id,
+        target_url=target_url,
+        host=host,
+        ts_raw=ts_raw,
+        ts_utc=ts_utc,
+        conn=conn,
+        pending_quarantines=pending_quarantines,
+    )
+    return True
+
+
+def _handle_checkpoint_unmapped(
+    item: dict[str, Any],
+    pending_quarantines: list[dict[str, Any]],
+) -> None:
+    """Handle an unmapped checkpoint status — appends a quarantine entry."""
+    target_url = (item.get("payload") or {}).get("target_url") or None
+    item_id = item.get("id", "")
+    status = item.get("status", "")
+    pending_quarantines.append(
+        {
+            "reason": f"unmapped_status: checkpoint/{status}",
+            "failure_type": "unmapped_status",
+            "source": "checkpoint",
+            "run_id": "",
+            "source_status": status,
+            "record_identity": item_id,
+            "raw_payload": {"target_url": target_url, "adapter": item.get("adapter")},
+        }
     )
 
 

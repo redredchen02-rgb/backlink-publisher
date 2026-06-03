@@ -48,6 +48,18 @@ from backlink_publisher._util.net_safety import (
 )
 from ._soft404 import is_soft_404_title as _is_soft_404_title
 from ._html_utils import read_html_head_window, extract_title
+from ._fetch_settings import (
+    FETCH_TIMEOUT,  # noqa: F401 — re-exported for test imports
+    MAX_RETRIES,  # noqa: F401
+    HEAD_SCAN_BYTES,  # noqa: F401
+    MAX_BODY_BYTES,  # noqa: F401
+    BODY_TOO_SMALL_BYTES,  # noqa: F401
+    _fetch_timeout,
+    _max_retries,
+    _head_scan_bytes,
+    _max_body_bytes,  # noqa: F401 — re-exported for test imports
+    _body_too_small_bytes,
+)
 
 # Stats counters + stateless predicates were extracted to sibling modules for
 # monolith-budget headroom (2026-06-01). ``_STATS`` is imported by reference
@@ -57,69 +69,9 @@ from ._stats import _STATS, _record_reason, reset_stats, stats_snapshot  # noqa:
 from ._fetch_helpers import _cache_key, _is_transient, _is_valid_http_url
 from ._disk_cache import disk_cache_get, disk_cache_set, disk_cache_clear  # noqa: F401
 
-#: Wall-clock budget per single GET attempt. Roughly matches ``linkcheck``'s
-#: REQUEST_TIMEOUT so a row's combined plan-time HTTP doesn't drift wildly.
-FETCH_TIMEOUT: int = 10
-
-#: Retries on transient failures (timeout / 5xx / network). 4xx and
-#: ``http_200_no_title`` are not retried — the result is structurally stable.
-MAX_RETRIES: int = 2
-
-#: Soft head-window cap. Title extraction only needs ``<head>`` content;
-#: we stream the response and stop as soon as ``</head>`` appears (or after
-#: this many bytes if it doesn't). 256KB is generous for any reasonable HTML
-#: head — typical heads are 5-50KB even with inlined CSS/JS / og: tags.
-HEAD_SCAN_BYTES: int = 256_000
-
-#: Retained for backward-import compatibility and as a defensive hard cap
-#: passed down to readers in case ``HEAD_SCAN_BYTES`` ever needs to grow.
-#: No longer triggers ``body_too_large`` — streaming caps far earlier.
-MAX_BODY_BYTES: int = 1_000_000
-
 #: User-Agent identifies this fetcher distinctly from ``linkcheck``'s probe so
 #: target sites can rate-limit / allowlist the two independently.
 USER_AGENT: str = "backlink-publisher/0.1 content-fetch"
-
-#: Below this byte count, a 200 with neither ``</head>`` parsed nor a
-#: ``<title>`` extracted is rejected as ``body_too_small`` — likely a stub /
-#: interstitial / placeholder page. Strictly tighter than
-#: ``http_200_no_title``: legitimate short pages WITH a title still pass.
-BODY_TOO_SMALL_BYTES: int = 2048
-
-def _fetch_timeout() -> int:
-    try:
-        return int(os.environ.get("BACKLINK_FETCH_TIMEOUT", FETCH_TIMEOUT))
-    except (ValueError, TypeError):
-        return FETCH_TIMEOUT
-
-
-def _max_retries() -> int:
-    try:
-        return int(os.environ.get("BACKLINK_FETCH_MAX_RETRIES", MAX_RETRIES))
-    except (ValueError, TypeError):
-        return MAX_RETRIES
-
-
-def _head_scan_bytes() -> int:
-    try:
-        return int(os.environ.get("BACKLINK_FETCH_HEAD_SCAN_BYTES", HEAD_SCAN_BYTES))
-    except (ValueError, TypeError):
-        return HEAD_SCAN_BYTES
-
-
-def _max_body_bytes() -> int:
-    try:
-        return int(os.environ.get("BACKLINK_FETCH_MAX_BODY_BYTES", MAX_BODY_BYTES))
-    except (ValueError, TypeError):
-        return MAX_BODY_BYTES
-
-
-def _body_too_small_bytes() -> int:
-    try:
-        return int(os.environ.get("BACKLINK_FETCH_BODY_TOO_SMALL", BODY_TOO_SMALL_BYTES))
-    except (ValueError, TypeError):
-        return BODY_TOO_SMALL_BYTES
-
 
 #: Loose TLS context (matches ``linkcheck``'s default — self-signed and
 #: expired certs are tolerated because backlink targets historically include

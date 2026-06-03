@@ -72,114 +72,115 @@ def main(argv: list[str] | None = None) -> None:
         _run_resume(args)
         return
 
-    publish_logger.info("publish-backlinks started", extra={
-        "platform": args.platform,
-        "mode": args.mode,
-        "dry_run": args.dry_run,
-    })
+    with profile_if_enabled(args):
+        publish_logger.info("publish-backlinks started", extra={
+            "platform": args.platform,
+            "mode": args.mode,
+            "dry_run": args.dry_run,
+        })
 
-    if not args.dry_run:
-        _maybe_emit_gate_banner(args.skip_publish_time_check)
+        if not args.dry_run:
+            _maybe_emit_gate_banner(args.skip_publish_time_check)
 
-    try:
-        rows = list(read_jsonl(args.input))
-    except SystemExit as exc:
-        raise SystemExit(exc.code)
-
-    if len(rows) > args.max_rows:
-        print(
-            f"[warn] publish-backlinks: truncated input from {len(rows)} to"
-            f" {args.max_rows} rows (--max-rows={args.max_rows})",
-            file=sys.stderr,
-        )
-        rows = rows[:args.max_rows]
-
-    publish_logger.info(f"processing {len(rows)} payloads")
-
-    config = load_config()
-    config_echo.emit_banner(config, "publish-backlinks")
-
-    for idx, row in enumerate(rows, start=1):
-        platform = args.platform or row.get("platform", "")
-        platform_msg = reject_unsupported_platform(platform)
-        if platform_msg is not None:
-            emit_error(f"row {idx}: {platform_msg}", exit_code=2)
-        errs = validate_publish_payload(row)
-        if errs:
-            for e in errs:
-                publish_logger.warning(f"row {idx}: {e}")
-            emit_envelope_and_exit(
-                "InputValidationError", 2, f"row {idx}: payload validation failed"
-            )
-
-    if args.preview_manifest:
-        # Read-only dedup preview over the validated planned rows. Emits verdicts
-        # and exits 0 before any lease/checkpoint/dispatch side effect (U3).
-        from backlink_publisher.cli.preview_manifest import emit_manifest
-        emit_manifest(rows, args.platform)
-        raise SystemExit(0)
-
-    forced_keys: set = set()
-    if not args.dry_run:
-        # R19b: enforce refuses to run until the dedup store covers the
-        # back-catalogue (no-op in observe). Checked before acquiring leases so a
-        # not-ready run fails fast without holding a platform lease.
-        enforce_precondition_or_exit()
-        if args.force_manifest:
-            # U7c: honor force-flags from a preview manifest (enforce only).
-            if not enforce_enabled():
-                emit_error(
-                    "error: --force-manifest requires "
-                    "BACKLINK_PUBLISHER_DEDUP_ENFORCE=1",
-                    exit_code=1,
-                )
-            forced_keys = load_force_manifest(
-                args.force_manifest, confirm=args.confirm, reason=args.reason
-            )
-        platforms_in_use = {
-            args.platform or row.get("platform", "") for row in rows
-        }
-        _acquire_publish_leases(platforms_in_use, False)
-        for plat in platforms_in_use:
-            if plat not in supported_platforms():
-                continue
-            try:
-                verify_adapter_setup(plat, config)
-            except DependencyError as exc:
-                emit_error(str(exc), exit_code=3)
-
-    run_id: str | None = None
-    checkpoint_disabled = False
-    if not args.dry_run:
         try:
-            run_id, _ = checkpoint.create_checkpoint(
-                rows,
-                platform=args.platform,
-                mode=args.mode,
-                flags={
-                    "skip_publish_time_check": args.skip_publish_time_check,
-                },
+            rows = list(read_jsonl(args.input))
+        except SystemExit as exc:
+            raise SystemExit(exc.code)
+
+        if len(rows) > args.max_rows:
+            print(
+                f"[warn] publish-backlinks: truncated input from {len(rows)} to"
+                f" {args.max_rows} rows (--max-rows={args.max_rows})",
+                file=sys.stderr,
             )
-            publish_logger.info(f"publish-backlinks: run_id={run_id}")
-        except Exception as exc:
-            checkpoint_disabled = True
-            publish_logger.warning(
-                f"[WARN] checkpoint not created — this run cannot be resumed: {exc}"
-            )
+            rows = rows[:args.max_rows]
 
-    state = PublishRunState(run_id=run_id)
-    ts = datetime.now(timezone.utc).isoformat()
-    banner_emit = _make_banner_emit()
+        publish_logger.info(f"processing {len(rows)} payloads")
 
-    throttle_min, throttle_max = _load_throttle_config()
+        config = load_config()
+        config_echo.emit_banner(config, "publish-backlinks")
 
-    from backlink_publisher.config import snapshot_token_revs
-    initial_token_revs = snapshot_token_revs()
+        for idx, row in enumerate(rows, start=1):
+            platform = args.platform or row.get("platform", "")
+            platform_msg = reject_unsupported_platform(platform)
+            if platform_msg is not None:
+                emit_error(f"row {idx}: {platform_msg}", exit_code=2)
+            errs = validate_publish_payload(row)
+            if errs:
+                for e in errs:
+                    publish_logger.warning(f"row {idx}: {e}")
+                emit_envelope_and_exit(
+                    "InputValidationError", 2, f"row {idx}: payload validation failed"
+                )
 
-    run_publish_loop(
-        rows, args, config, state, ts, banner_emit,
-        forced_keys, throttle_min, throttle_max, initial_token_revs,
-    )
+        if args.preview_manifest:
+            # Read-only dedup preview over the validated planned rows. Emits verdicts
+            # and exits 0 before any lease/checkpoint/dispatch side effect (U3).
+            from backlink_publisher.cli.preview_manifest import emit_manifest
+            emit_manifest(rows, args.platform)
+            raise SystemExit(0)
+
+        forced_keys: set = set()
+        if not args.dry_run:
+            # R19b: enforce refuses to run until the dedup store covers the
+            # back-catalogue (no-op in observe). Checked before acquiring leases so a
+            # not-ready run fails fast without holding a platform lease.
+            enforce_precondition_or_exit()
+            if args.force_manifest:
+                # U7c: honor force-flags from a preview manifest (enforce only).
+                if not enforce_enabled():
+                    emit_error(
+                        "error: --force-manifest requires "
+                        "BACKLINK_PUBLISHER_DEDUP_ENFORCE=1",
+                        exit_code=1,
+                    )
+                forced_keys = load_force_manifest(
+                    args.force_manifest, confirm=args.confirm, reason=args.reason
+                )
+            platforms_in_use = {
+                args.platform or row.get("platform", "") for row in rows
+            }
+            _acquire_publish_leases(platforms_in_use, False)
+            for plat in platforms_in_use:
+                if plat not in supported_platforms():
+                    continue
+                try:
+                    verify_adapter_setup(plat, config)
+                except DependencyError as exc:
+                    emit_error(str(exc), exit_code=3)
+
+        run_id: str | None = None
+        checkpoint_disabled = False
+        if not args.dry_run:
+            try:
+                run_id, _ = checkpoint.create_checkpoint(
+                    rows,
+                    platform=args.platform,
+                    mode=args.mode,
+                    flags={
+                        "skip_publish_time_check": args.skip_publish_time_check,
+                    },
+                )
+                publish_logger.info(f"publish-backlinks: run_id={run_id}")
+            except Exception as exc:
+                checkpoint_disabled = True
+                publish_logger.warning(
+                    f"[WARN] checkpoint not created — this run cannot be resumed: {exc}"
+                )
+
+        state = PublishRunState(run_id=run_id)
+        ts = datetime.now(timezone.utc).isoformat()
+        banner_emit = _make_banner_emit()
+
+        throttle_min, throttle_max = _load_throttle_config()
+
+        from backlink_publisher.config import snapshot_token_revs
+        initial_token_revs = snapshot_token_revs()
+
+        run_publish_loop(
+            rows, args, config, state, ts, banner_emit,
+            forced_keys, throttle_min, throttle_max, initial_token_revs,
+        )
 
     if not state.auth_aborted:
         _publish_epilogue(
@@ -196,5 +197,3 @@ def main(argv: list[str] | None = None) -> None:
                 state.dedup_hold_count,
                 checkpoint_disabled=checkpoint_disabled,
         )
-
-

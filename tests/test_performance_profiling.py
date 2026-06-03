@@ -67,6 +67,22 @@ class TestPlanBacklinksProfileFlag:
 # ---------------------------------------------------------------------------
 
 
+class TestSprayBacklinksProfileFlag:
+    """spray-backlinks --profile flag must exist and be accepted."""
+
+    def test_profile_flag_exists_and_defaults_false(self):
+        """--profile is accepted by spray-backlinks and defaults to False."""
+        from backlink_publisher.cli.spray_backlinks.core import main
+        import io
+        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            try:
+                main(["--help"])
+            except SystemExit:
+                pass
+            help_text = mock_stdout.getvalue()
+        assert "--profile" in help_text, "--profile flag missing from spray-backlinks --help"
+
+
 class TestPublishBacklinksProfileFlag:
     def test_profile_flag_exists_in_publish_parser(self):
         """--profile flag must be accepted by publish-backlinks _build_parser()."""

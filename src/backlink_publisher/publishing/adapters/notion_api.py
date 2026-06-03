@@ -292,6 +292,7 @@ class NotionAPIAdapter(Publisher):
         except (DependencyError, ExternalServiceError):
             raise
         except Exception as exc:
+            log.exception("Notion publish failed")
             raise ExternalServiceError(
                 f"Notion publish failed ({type(exc).__name__}): {exc}"
             ) from exc

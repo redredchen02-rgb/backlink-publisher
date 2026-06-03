@@ -192,7 +192,7 @@ def _save_null_artifact(
         finally:
             os.umask(old_umask)
         return str(artifact_path)
-    except Exception:
+    except (OSError, TypeError):
         return None
 
 
@@ -262,7 +262,7 @@ def _extract_tokens_from_origins(origins: object, cookies: dict[str, str]) -> No
             if key == "account":
                 try:
                     account = json.loads(val)
-                except Exception:
+                except json.JSONDecodeError:
                     continue
                 for token_key in ("access_token", "refresh_token", "token"):
                     token_val = account.get(token_key)

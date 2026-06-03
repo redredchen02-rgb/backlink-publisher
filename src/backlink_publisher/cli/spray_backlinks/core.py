@@ -159,6 +159,12 @@ def _build_parser() -> Any:
         metavar="LEVEL",
         help="Log verbosity: DEBUG|INFO|WARN|ERROR (default: WARN)",
     )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        default=False,
+        help="Enable cProfile profiling (saved to ~/.cache/backlink-publisher/profiles/)",
+    )
     return parser
 
 
@@ -349,235 +355,237 @@ def main(argv: list[str] | None = None) -> None:
                     print(f"{run_id}  {summary} seeds", file=sys.stderr)
             return
 
-        platforms = validate_platform_selection(
-            _parse_platforms(args.platforms), registered_platforms()
-        )
-
-        rows = list(read_jsonl(args.input))
-        if len(rows) == 0:
-            raise UsageError("spray-backlinks: no seed rows on input")
-        if len(rows) > args.max_seeds:
-            raise UsageError(
-                f"spray-backlinks: {len(rows)} seed rows exceeds --max-seeds "
-                f"({args.max_seeds})"
+        from backlink_publisher._util.profiling import profile_if_enabled
+        with profile_if_enabled(args):
+            platforms = validate_platform_selection(
+                _parse_platforms(args.platforms), registered_platforms()
             )
 
-        # Pre-validate all seeds upfront (preserves exit-2 contract: schema
-        # validation rejects before any LLM/gating work).
-        pre_errors = 0
-        for seed_index, seed in enumerate(rows):
-            errors = validate_input_payload(seed, 1)
-            if errors:
-                pre_errors += len(errors)
-                print(f"[seed#{seed_index}] {'; '.join(errors)}", file=sys.stderr)
-        if pre_errors:
-            emit_envelope_and_exit(
-                "InputValidationError", 2,
-                f"spray-backlinks: {pre_errors} seed validation error(s) across "
-                f"{len(rows)} seed(s)",
-            )
-
-        # --- Resume / checkpoint setup -----------------------------------------
-        cross_seed_used: set[tuple[str, str]] = set()
-        seed_indices_to_process: list[int] = list(range(len(rows)))
-        checkpoint_seeds: list[dict[str, Any]] = []
-        run_id: str | None = None
-
-        if args.resume:
-            cpath = _checkpoint_path(args.resume)
-            if not cpath.exists():
+            rows = list(read_jsonl(args.input))
+            if len(rows) == 0:
+                raise UsageError("spray-backlinks: no seed rows on input")
+            if len(rows) > args.max_seeds:
                 raise UsageError(
-                    f"spray-backlinks: checkpoint {args.resume!r} not found "
-                    f"(looked in {cpath})"
+                    f"spray-backlinks: {len(rows)} seed rows exceeds --max-seeds "
+                    f"({args.max_seeds})"
                 )
-            ckpt: dict[str, Any] = json.loads(cpath.read_text(encoding="utf-8"))
-            for s in ckpt.get("seeds", []):
-                checkpoint_seeds.append(s)
-                if s.get("status") == "completed":
-                    seed_indices_to_process.remove(s["index"])
-                    for pair in s.get("cross_seed_pairs", []):
-                        cross_seed_used.add((pair[0], pair[1]))
-            run_id = args.resume
-            total_seeds = len(ckpt.get("seeds", []))
-            print(
-                f"[spray] resuming {run_id}: {len(seed_indices_to_process)} "
-                f"seed(s) remaining ({total_seeds - len(seed_indices_to_process)} completed)",
-                file=sys.stderr,
-            )
-        else:
-            run_id = _generate_run_id()
 
-        # --- Main loop ---------------------------------------------------------
-        cfg = load_config()
-        config_echo.emit_banner(cfg, "spray-backlinks")
+            # Pre-validate all seeds upfront (preserves exit-2 contract: schema
+            # validation rejects before any LLM/gating work).
+            pre_errors = 0
+            for seed_index, seed in enumerate(rows):
+                errors = validate_input_payload(seed, 1)
+                if errors:
+                    pre_errors += len(errors)
+                    print(f"[seed#{seed_index}] {'; '.join(errors)}", file=sys.stderr)
+            if pre_errors:
+                emit_envelope_and_exit(
+                    "InputValidationError", 2,
+                    f"spray-backlinks: {pre_errors} seed validation error(s) across "
+                    f"{len(rows)} seed(s)",
+                )
 
-        output_dir: Path | None = None
-        if args.output_dir:
-            output_dir = Path(args.output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
+            # --- Resume / checkpoint setup -----------------------------------------
+            cross_seed_used: set[tuple[str, str]] = set()
+            seed_indices_to_process: list[int] = list(range(len(rows)))
+            checkpoint_seeds: list[dict[str, Any]] = []
+            run_id: str | None = None
 
-        all_output_rows: list[dict[str, Any]] = []
-        total_candidates = 0
-        total_surviving = 0
-        seed_errors_list: list[str] = []
-        force = frozenset(_parse_platforms(args.force))
-        rewrite_fn = None
-        cross_seed_checker = _make_cross_seed_checker(cross_seed_used)
+            if args.resume:
+                cpath = _checkpoint_path(args.resume)
+                if not cpath.exists():
+                    raise UsageError(
+                        f"spray-backlinks: checkpoint {args.resume!r} not found "
+                        f"(looked in {cpath})"
+                    )
+                ckpt: dict[str, Any] = json.loads(cpath.read_text(encoding="utf-8"))
+                for s in ckpt.get("seeds", []):
+                    checkpoint_seeds.append(s)
+                    if s.get("status") == "completed":
+                        seed_indices_to_process.remove(s["index"])
+                        for pair in s.get("cross_seed_pairs", []):
+                            cross_seed_used.add((pair[0], pair[1]))
+                run_id = args.resume
+                total_seeds = len(ckpt.get("seeds", []))
+                print(
+                    f"[spray] resuming {run_id}: {len(seed_indices_to_process)} "
+                    f"seed(s) remaining ({total_seeds - len(seed_indices_to_process)} completed)",
+                    file=sys.stderr,
+                )
+            else:
+                run_id = _generate_run_id()
 
-        for seed_index in seed_indices_to_process:
-            seed = rows[seed_index]
-            seed_label = f"seed#{seed_index}"
-            print(f"[spray] processing {seed_label} ({seed_index + 1}/{len(rows)})",
-                  file=sys.stderr)
+            # --- Main loop ---------------------------------------------------------
+            cfg = load_config()
+            config_echo.emit_banner(cfg, "spray-backlinks")
 
-            candidates = expand_seed(seed, platforms)
-            gate_candidates(
-                candidates, cfg.cell_assignments, args.cap,
-                force=force, already_published_fn=cross_seed_checker,
-            )
+            output_dir: Path | None = None
+            if args.output_dir:
+                output_dir = Path(args.output_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
 
-            for cand in candidates:
-                if cand.dropped:
-                    print(
-                        f"[gate] drop {cand.platform}: {cand.gate_reason}",
-                        file=sys.stderr,
+            all_output_rows: list[dict[str, Any]] = []
+            total_candidates = 0
+            total_surviving = 0
+            seed_errors_list: list[str] = []
+            force = frozenset(_parse_platforms(args.force))
+            rewrite_fn = None
+            cross_seed_checker = _make_cross_seed_checker(cross_seed_used)
+
+            for seed_index in seed_indices_to_process:
+                seed = rows[seed_index]
+                seed_label = f"seed#{seed_index}"
+                print(f"[spray] processing {seed_label} ({seed_index + 1}/{len(rows)})",
+                      file=sys.stderr)
+
+                candidates = expand_seed(seed, platforms)
+                gate_candidates(
+                    candidates, cfg.cell_assignments, args.cap,
+                    force=force, already_published_fn=cross_seed_checker,
+                )
+
+                for cand in candidates:
+                    if cand.dropped:
+                        print(
+                            f"[gate] drop {cand.platform}: {cand.gate_reason}",
+                            file=sys.stderr,
+                        )
+
+                surviving = [c for c in candidates if not c.dropped]
+                total_candidates += len(candidates)
+                total_surviving += len(surviving)
+                seed_main_domain = _main_domain_of(seed)
+
+                if not surviving:
+                    print(f"[spray] {seed_label} all platforms gated out — skipped",
+                          file=sys.stderr)
+                    checkpoint_seeds.append({
+                        "index": seed_index,
+                        "main_domain": seed_main_domain,
+                        "status": "skipped",
+                        "n_shots": 0,
+                        "cross_seed_pairs": [],
+                    })
+                    _save_checkpoint(run_id, args, checkpoint_seeds, cross_seed_used)
+                    continue
+
+                # Unit 3: per-shot LLM rewrite (lazy — exit 3 only when LLM is
+                # actually needed, after seed validation and gating have passed).
+                if rewrite_fn is None:
+                    rewrite_fn = _default_rewrite_fn(cfg)
+                for shot_idx, cand in enumerate(surviving):
+                    cand.row = draft_row(
+                        cand.seed, cand.platform, shot_idx, cfg,
+                        rewrite_fn=rewrite_fn,
+                        fetch_verify_enabled=not args.no_fetch_verify,
                     )
 
-            surviving = [c for c in candidates if not c.dropped]
-            total_candidates += len(candidates)
-            total_surviving += len(surviving)
-            seed_main_domain = _main_domain_of(seed)
+                # Unit 4: link/anchor diversity audit.
+                report = audit_batch([c.row for c in surviving])
 
-            if not surviving:
-                print(f"[spray] {seed_label} all platforms gated out — skipped",
-                      file=sys.stderr)
+                seed_failed = False
+                if args.dispatch == "dry-run":
+                    _emit_preview(surviving, report)
+                else:
+                    # burst: body-distinctness gate is hard — abort this seed.
+                    if not report.passed:
+                        print(f"[audit] {seed_label}: {report.fail_reason}",
+                              file=sys.stderr)
+                        seed_errors_list.append(
+                            f"{seed_label}: diversity audit failed ({report.fail_reason})"
+                        )
+                        print(f"[spray] {seed_label} FAILED (audit)", file=sys.stderr)
+                        seed_failed = True
+                    else:
+                        # Unit 5: jittered burst dispatch.
+                        summary = dispatch_burst(
+                            [c.row for c in surviving], cfg, args.mode,
+                        )
+                        for plat, err in summary.failed:
+                            print(f"[burst] {seed_label} FAILED {plat}: {err}",
+                                  file=sys.stderr)
+                        verb = "published" if args.mode == "publish" else "drafted"
+                        print(
+                            f"[burst] {seed_label} mode={args.mode}: {verb} "
+                            f"{summary.n_succeeded}/{len(surviving)}, "
+                            f"failed {summary.n_failed}",
+                            file=sys.stderr,
+                        )
+                        for c in surviving:
+                            if c.row:
+                                c.row["seed_id"] = seed_index
+                        seed_rows = [c.row for c in surviving if c.row is not None]
+                        all_output_rows.extend(seed_rows)
+
+                        # Per-seed output if --output-dir set.
+                        if output_dir and seed_rows:
+                            _write_per_seed_file(
+                                output_dir, seed_index, seed_main_domain, seed_rows,
+                            )
+
+                # Track cross-seed usage for subsequent seeds.
+                for c in surviving:
+                    cross_seed_used.add((seed_main_domain, c.platform))
+
+                # Persist checkpoint after each seed.
+                seed_status = "failed" if seed_failed else "completed"
+                seed_pairs = [(seed_main_domain, c.platform) for c in surviving]
                 checkpoint_seeds.append({
                     "index": seed_index,
                     "main_domain": seed_main_domain,
-                    "status": "skipped",
-                    "n_shots": 0,
-                    "cross_seed_pairs": [],
+                    "status": seed_status,
+                    "n_shots": len(surviving),
+                    "cross_seed_pairs": seed_pairs,
                 })
                 _save_checkpoint(run_id, args, checkpoint_seeds, cross_seed_used)
-                continue
 
-            # Unit 3: per-shot LLM rewrite (lazy — exit 3 only when LLM is
-            # actually needed, after seed validation and gating have passed).
-            if rewrite_fn is None:
-                rewrite_fn = _default_rewrite_fn(cfg)
-            for shot_idx, cand in enumerate(surviving):
-                cand.row = draft_row(
-                    cand.seed, cand.platform, shot_idx, cfg,
-                    rewrite_fn=rewrite_fn,
-                    fetch_verify_enabled=not args.no_fetch_verify,
-                )
-
-            # Unit 4: link/anchor diversity audit.
-            report = audit_batch([c.row for c in surviving])
-
-            seed_failed = False
-            if args.dispatch == "dry-run":
-                _emit_preview(surviving, report)
-            else:
-                # burst: body-distinctness gate is hard — abort this seed.
-                if not report.passed:
-                    print(f"[audit] {seed_label}: {report.fail_reason}",
-                          file=sys.stderr)
-                    seed_errors_list.append(
-                        f"{seed_label}: diversity audit failed ({report.fail_reason})"
-                    )
-                    print(f"[spray] {seed_label} FAILED (audit)", file=sys.stderr)
-                    seed_failed = True
-                else:
-                    # Unit 5: jittered burst dispatch.
-                    summary = dispatch_burst(
-                        [c.row for c in surviving], cfg, args.mode,
-                    )
-                    for plat, err in summary.failed:
-                        print(f"[burst] {seed_label} FAILED {plat}: {err}",
-                              file=sys.stderr)
-                    verb = "published" if args.mode == "publish" else "drafted"
+                if args.dispatch == "burst":
+                    n_done = sum(1 for s in checkpoint_seeds
+                                 if s.get("status") in ("completed", "skipped"))
                     print(
-                        f"[burst] {seed_label} mode={args.mode}: {verb} "
-                        f"{summary.n_succeeded}/{len(surviving)}, "
-                        f"failed {summary.n_failed}",
+                        f"[spray] progress: {n_done}/{len(rows)} seeds processed",
                         file=sys.stderr,
                     )
-                    for c in surviving:
-                        if c.row:
-                            c.row["seed_id"] = seed_index
-                    seed_rows = [c.row for c in surviving if c.row is not None]
-                    all_output_rows.extend(seed_rows)
 
-                    # Per-seed output if --output-dir set.
-                    if output_dir and seed_rows:
-                        _write_per_seed_file(
-                            output_dir, seed_index, seed_main_domain, seed_rows,
-                        )
+                # Inter-seed delay (opt-in).
+                last_idx = seed_indices_to_process[-1]
+                if (
+                    seed_index != last_idx
+                    and args.seed_delay_min is not None
+                ):
+                    delay = random.randint(
+                        args.seed_delay_min,
+                        args.seed_delay_max or args.seed_delay_min,
+                    )
+                    print(f"[spray] waiting {delay}s before next seed",
+                          file=sys.stderr)
+                    time.sleep(delay)
 
-            # Track cross-seed usage for subsequent seeds.
-            for c in surviving:
-                cross_seed_used.add((seed_main_domain, c.platform))
+            # --- Post-loop output ---------------------------------------------------
+            if args.dispatch == "burst" and not output_dir:
+                write_jsonl(all_output_rows)
 
-            # Persist checkpoint after each seed.
-            seed_status = "failed" if seed_failed else "completed"
-            seed_pairs = [(seed_main_domain, c.platform) for c in surviving]
-            checkpoint_seeds.append({
-                "index": seed_index,
-                "main_domain": seed_main_domain,
-                "status": seed_status,
-                "n_shots": len(surviving),
-                "cross_seed_pairs": seed_pairs,
-            })
-            _save_checkpoint(run_id, args, checkpoint_seeds, cross_seed_used)
-
-            if args.dispatch == "burst":
-                n_done = sum(1 for s in checkpoint_seeds
-                             if s.get("status") in ("completed", "skipped"))
-                print(
-                    f"[spray] progress: {n_done}/{len(rows)} seeds processed",
-                    file=sys.stderr,
-                )
-
-            # Inter-seed delay (opt-in).
-            last_idx = seed_indices_to_process[-1]
-            if (
-                seed_index != last_idx
-                and args.seed_delay_min is not None
-            ):
-                delay = random.randint(
-                    args.seed_delay_min,
-                    args.seed_delay_max or args.seed_delay_min,
-                )
-                print(f"[spray] waiting {delay}s before next seed",
-                      file=sys.stderr)
-                time.sleep(delay)
-
-        # --- Post-loop output ---------------------------------------------------
-        if args.dispatch == "burst" and not output_dir:
-            write_jsonl(all_output_rows)
-
-        verb = "candidate" if args.dispatch == "dry-run" else "burst"
-        print(
-            f"[spray] {verb} done: {total_surviving} surviving shots "
-            f"across {len(rows)} seeds ({len(seed_errors_list)} seed errors)",
-            file=sys.stderr,
-        )
-        for err in seed_errors_list:
-            print(f"[spray] seed error: {err}", file=sys.stderr)
-
-        if total_surviving == 0:
-            emit_envelope_and_exit(
-                "InputValidationError", 2,
-                "spray-backlinks: all platforms gated out across all seeds — "
-                "nothing to dispatch",
+            verb = "candidate" if args.dispatch == "dry-run" else "burst"
+            print(
+                f"[spray] {verb} done: {total_surviving} surviving shots "
+                f"across {len(rows)} seeds ({len(seed_errors_list)} seed errors)",
+                file=sys.stderr,
             )
-        if seed_errors_list and args.dispatch == "burst":
-            emit_envelope_and_exit(
-                "PartialFailure", 2,
-                f"spray-backlinks: {len(seed_errors_list)} of {len(rows)} "
-                f"seeds failed; check stderr for details",
-            )
+            for err in seed_errors_list:
+                print(f"[spray] seed error: {err}", file=sys.stderr)
+
+            if total_surviving == 0:
+                emit_envelope_and_exit(
+                    "InputValidationError", 2,
+                    "spray-backlinks: all platforms gated out across all seeds — "
+                    "nothing to dispatch",
+                )
+            if seed_errors_list and args.dispatch == "burst":
+                emit_envelope_and_exit(
+                    "PartialFailure", 2,
+                    f"spray-backlinks: {len(seed_errors_list)} of {len(rows)} "
+                    f"seeds failed; check stderr for details",
+                )
 
     except PipelineError as exc:
         handle_error(exc)
