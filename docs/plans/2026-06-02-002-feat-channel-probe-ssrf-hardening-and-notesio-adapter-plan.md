@@ -1,7 +1,7 @@
 ---
 title: "feat: SSRF-harden channel_probe.py (R14) + notes.io adapter stub (wave-3)"
 type: feat
-status: active
+status: completed
 date: 2026-06-02
 deepened: 2026-06-02
 origin: docs/brainstorms/2026-06-01-channel-discovery-funnel-requirements.md

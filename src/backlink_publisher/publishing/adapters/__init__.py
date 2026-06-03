@@ -39,6 +39,7 @@ from .._manifests import (
     MASTODON_MANIFEST,
     MATAROA_MANIFEST,
     MEDIUM_MANIFEST,
+    NOTESIO_MANIFEST,
     NOTION_MANIFEST,
     QIITA_MANIFEST,
     RENTRY_MANIFEST,
@@ -90,6 +91,7 @@ from .zenn_github import ZennGitHubAdapter
 from .substack_api import SubstackAPIAdapter
 from .telegraph_api import TelegraphAPIAdapter
 from .tumblr_api import TumblrAPIAdapter
+from .notesio_api import NotesioFormPostAdapter
 from .txtfyi_api import TxtfyiFormPostAdapter
 from .velog_graphql import VelogGraphQLAdapter
 from .wordpresscom_api import WordpresscomAPIAdapter
@@ -213,6 +215,14 @@ register(
     rationale=_R["txtfyi"],
     referral_value="low",  # anonymous pastebin; modest DA + R4 pending
     **TXTFYI_MANIFEST,
+)
+register(
+    "notesio",
+    NotesioFormPostAdapter,
+    dofollow="uncertain",  # R4 canary pending; 3rd-party probe 12/0 dofollow
+    rationale=_R["notesio"],
+    referral_value="low",  # anonymous pastebin; modest DA + R4 pending
+    **NOTESIO_MANIFEST,
 )
 register(
     "devto",
