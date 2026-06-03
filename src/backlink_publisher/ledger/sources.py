@@ -77,8 +77,14 @@ def _canon(url: str | None) -> str:
 def _load_history(history: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     if history is not None:
         return history
-    # Lazy import so a pure-events.db consumer never imports the WebUI store.
-    from webui_store import history_store
+    from backlink_publisher.events.history_query import list_history
+
+    result = list_history(limit=2000)
+    if result:
+        return result
+    # U5 migration fallback: if events.db has no data yet (tests, pre-U4) use
+    # the legacy JSON store.  U6 removes this fallback.
+    from webui_store import history_store  # noqa: PLC0415 — deferred import
 
     return history_store.load()
 
