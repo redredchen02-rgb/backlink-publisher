@@ -242,6 +242,13 @@ function _initUrlDerive() {
   );
 }
 
+// ── Flash auto-dismiss (U5: R17) ────────────────────────────────
+function _initFlashDismiss() {
+  document.querySelectorAll('.alert.alert-dismissible').forEach((el) => {
+    setTimeout(() => el.remove(), 4000);
+  });
+}
+
 // ── boot ─────────────────────────────────────────────────────────
 function _boot() {
   _initActions();
@@ -250,6 +257,7 @@ function _boot() {
   _initBulkSelect();   // defines rewireBulkSelect — before filter clicks fire
   _initUrlDerive();
   initModeToggle();
+  _initFlashDismiss();
 }
 
 if (document.readyState === 'loading') on(document, 'DOMContentLoaded', _boot); else _boot();
