@@ -1,96 +1,94 @@
-"""HistoryStore — publish-history specialized JsonStore.
+"""HistoryStore — publish-history specialised store (Plan 2026-05-28-007 U6).
 
-Plan 2026-05-19-006 Unit 2. Adds per-item + bulk helpers on top of the
-plain ``JsonStore`` that backed ``history_store`` before. Existing code
-that calls ``history_store.load()`` / ``.update(fn)`` keeps working because
-``HistoryStore`` inherits ``JsonStore``.
+U6 replaces the JSON-file store with a no-op shim: reads go through events.db
+(``history_query``), writes are no-ops because the events.db equivalents are
+handled by ``publish_writer`` / dual-write.  The ``HistoryStore`` class and
+its method signatures are preserved so every import site keeps working.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-from .base import JsonStore
 
+class HistoryStore:
+    """No-op shim backed by events.db (U6).
 
-class HistoryStore(JsonStore):
-    """Publish-history list store with item + bulk helpers.
-
-    All mutations go through ``update()`` / the internal lock so background
-    scheduler writes and HTTP-handler writes stay race-free.
+    ``load()`` and ``get_item()`` read from events.db via ``history_query``.
+    All mutations are no-ops — the canonical data lives in events.db and is
+    written by ``publish_writer``.
     """
 
-    def __init__(self, path: Path) -> None:
-        super().__init__(path, default_factory=list)
+    def __init__(self, path: Any = None) -> None:
+        self._path = path  # kept for backward compat only
 
-    # ── per-item helpers ──────────────────────────────────────────────
+    # ── read ────────────────────────────────────────────────────────────────
+
+    def load(self) -> list[dict[str, Any]]:
+        from backlink_publisher.events.history_query import list_history  # noqa: PLC0415
+
+        return list_history()
 
     def get_item(self, item_id: str) -> dict | None:
-        for item in self.load():
-            if item.get("id") == item_id:
-                return item
-        return None
+        from backlink_publisher.events.history_query import get_history_item  # noqa: PLC0415
+
+        return get_history_item(item_id)
+
+    # ── write (all no-op — canonical writes go through publish_writer) ──────
+
+    def save(self, items: list[dict[str, Any]]) -> None:
+        pass
+
+    def update(self, fn: Any = None) -> list[dict[str, Any]]:
+        return self.load()
 
     def update_item(self, item_id: str, **fields: Any) -> bool:
-        if not fields:
+        """Update an article's verification fields in events.db.
+
+        Accepts ``verified_at`` and ``verify_error``; other fields are
+        silently ignored (no-op).  Returns ``True`` if the article was
+        actually updated.
+        """
+        verified_at = fields.get("verified_at")
+        verify_error = fields.get("verify_error")
+        if not verified_at and not verify_error:
             return False
-        with self._lock:
-            items = self.load()
-            for it in items:
-                if it.get("id") == item_id:
-                    it.update(fields)
-                    self.save(items)
-                    return True
+        try:
+            aid = int(item_id)
+        except (ValueError, TypeError):
+            return False
+        from backlink_publisher.events.store import EventStore  # noqa: PLC0415
+
+        store = EventStore()
+        sets: list[str] = []
+        params: list[str] = []
+        if verified_at is not None:
+            sets.append("verified_at = ?")
+            params.append(verified_at)
+        if verify_error is not None:
+            sets.append("verify_error = ?")
+            params.append(verify_error)
+        if not sets:
+            return False
+        params.append(str(aid))
+        try:
+            with store.connect() as conn:
+                conn.execute(
+                    f"UPDATE articles SET {', '.join(sets)} WHERE article_id = ?",
+                    params,
+                )
+            return True
+        except Exception:
             return False
 
     def delete_item(self, item_id: str) -> bool:
-        with self._lock:
-            items = self.load()
-            new_items = [it for it in items if it.get("id") != item_id]
-            if len(new_items) == len(items):
-                return False
-            self.save(new_items)
-            return True
-
-    # ── bulk helpers ──────────────────────────────────────────────────
+        return False
 
     def bulk_delete(self, ids: list[str]) -> int:
-        if not ids:
-            return 0
-        id_set = set(ids)
-        with self._lock:
-            items = self.load()
-            kept = [it for it in items if it.get("id") not in id_set]
-            removed = len(items) - len(kept)
-            if removed:
-                self.save(kept)
-            return removed
+        return 0
 
     def bulk_update(self, ids: list[str], **fields: Any) -> int:
-        if not ids or not fields:
-            return 0
-        id_set = set(ids)
-        with self._lock:
-            items = self.load()
-            n = 0
-            for it in items:
-                if it.get("id") in id_set:
-                    it.update(fields)
-                    n += 1
-            if n:
-                self.save(items)
-            return n
+        return 0
 
     def purge_by_status(self, status: str) -> int:
-        """Remove every history item whose ``status`` field equals ``status``.
-        Returns the count actually removed."""
-        if not status:
-            return 0
-        with self._lock:
-            items = self.load()
-            kept = [it for it in items if it.get("status") != status]
-            removed = len(items) - len(kept)
-            if removed:
-                self.save(kept)
-            return removed
+        return 0

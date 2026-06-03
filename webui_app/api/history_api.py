@@ -100,8 +100,7 @@ class HistoryAPI:
 
         # Server-side invariant guard (F22)
         if new_status in _REQUIRES_URL_STATUSES:
-            current = _history_store.load()
-            matched = next((h for h in current if h.get("id") == item_id), None)
+            matched = get_history_item(item_id)
             if matched is not None and not matched.get("article_urls"):
                 abort(400, description=(
                     f"invariant_violation: cannot set status={new_status!r} "
@@ -160,7 +159,6 @@ class HistoryAPI:
         from ..services.recheck import recheck_one
         mutation = recheck_one(self._normalize_item(item))
         mutation.pop("_outcome", None)
-        # U6 todo: replace _history_store.update_item with events.db write
         _history_store.update_item(item_id, **mutation)
         status = mutation.get("status", "")
         updated = {**item, **mutation}
@@ -169,6 +167,7 @@ class HistoryAPI:
             write_event(
                 mapped[0], mapped[1],
                 target_url=updated.get("target_url"),
+                article_id=int(item_id),
             )
         return {"ok": True, "flash_msg": f"已重新核实：状态 → {status}"}
 
@@ -195,6 +194,7 @@ class HistoryAPI:
                 write_event(
                     mapped[0], mapped[1],
                     target_url=updated.get("target_url"),
+                    article_id=int(item_id),
                 )
         return {"ok": True, "flash_msg": summary.as_flash()}
 

@@ -91,8 +91,6 @@ def equity_ledger_recheck():
     counts: Counter[str] = Counter()
     for item_id in row.history_item_ids:
         item = _get_history_item(item_id)
-        if item is None:
-            item = history_store.get_item(str(item_id))
         if not item:
             counts["skipped"] += 1  # deleted between snapshot and recheck
             continue
@@ -104,7 +102,8 @@ def equity_ledger_recheck():
             failed_entry = {**item, "status": "failed", "error": str(exc)}
             mapped = map_history_entry(failed_entry)
             if mapped is not None:
-                write_event(mapped[0], mapped[1], target_url=failed_entry.get("target_url"))
+                write_event(mapped[0], mapped[1], target_url=failed_entry.get("target_url"),
+                            article_id=int(item_id))
             continue
         outcome = mutation.pop("_outcome", None)
         history_store.update_item(item_id, **mutation)
@@ -112,7 +111,8 @@ def equity_ledger_recheck():
         updated = {**item, **mutation}
         mapped = map_history_entry(updated)
         if mapped is not None:
-            write_event(mapped[0], mapped[1], target_url=updated.get("target_url"))
+            write_event(mapped[0], mapped[1], target_url=updated.get("target_url"),
+                        article_id=int(item_id))
 
     # Recompute the target's row from the freshly mutated history.
     refreshed = next((r for r in build_ledger(stale_days=stale_days) if r.target_url == canon), row)
