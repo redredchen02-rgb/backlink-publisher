@@ -50,32 +50,12 @@ from backlink_publisher.cli._publish_helpers import (
     _make_banner_emit,
     _maybe_emit_gate_banner,
     _medium_throttle_sleep,
+    _partition_paused,
     _publish_epilogue,
     _record_publish_failure,
     _record_publish_path,
     _try_update_ckpt_failed,
 )
-
-
-def _partition_paused(rows, platform_arg, config):
-    """Split *rows* into (publishable_rows, sorted_paused_platforms).
-
-    A platform an operator paused via /ce:health (``LockedHealthStore.paused``)
-    is dropped pre-dispatch. ``is_paused`` is fail-SAFE — a store read error
-    reports not-paused, so a transient fault never silently blocks publishing.
-    """
-    from backlink_publisher.health.persistence import locked_store
-
-    platforms = {platform_arg or r.get("platform", "") for r in rows}
-    paused = sorted(p for p in platforms if p and locked_store.is_paused(p, config))
-    if not paused:
-        return rows, []
-    paused_set = set(paused)
-    kept = [
-        r for r in rows
-        if (platform_arg or r.get("platform", "")) not in paused_set
-    ]
-    return kept, paused
 
 
 def main(argv: list[str] | None = None) -> None:
