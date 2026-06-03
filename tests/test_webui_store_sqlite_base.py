@@ -27,6 +27,9 @@ class _BlobStore(SqliteStore):
 
     def __init__(self, db: WebUIDatabase) -> None:
         super().__init__(db)
+        self._init_table()
+
+    def _init_table(self) -> None:
         with self._db.connect() as conn:
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS _test_blob "
@@ -188,6 +191,31 @@ class TestSqliteStoreProtocol:
 
 
 # ── Integration: path resolves from env var (lazy init) ───────────────────────
+
+class TestPathCompat:
+    def test_path_property_returns_db_path(self, tmp_path):
+        db = WebUIDatabase(tmp_path / "webui.db")
+        store = _BlobStore(db)
+        assert store.path == tmp_path / "webui.db"
+
+    def test_path_setter_redirects_store(self, tmp_path):
+        """Backward compat: monkeypatch.setattr(store, 'path', new_path) redirects IO."""
+        db = WebUIDatabase(tmp_path / "webui.db")
+        store = _BlobStore(db)
+        store.save("original")
+
+        new_path = tmp_path / "redirected.db"
+        store.path = new_path
+        assert store.path == new_path
+        # New db starts empty
+        assert store.load() == ""
+        store.save("redirected")
+        assert store.load() == "redirected"
+        # Original db is untouched
+        db2 = WebUIDatabase(tmp_path / "webui.db")
+        orig_store = _BlobStore(db2)
+        assert orig_store.load() == "original"
+
 
 class TestLazyPathResolution:
     def test_path_resolves_from_config_dir_env(self, tmp_path, monkeypatch):

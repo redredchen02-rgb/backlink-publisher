@@ -93,12 +93,17 @@ class SqliteStore(ABC):
     """Abstract base for ``webui.db``-backed store implementations.
 
     Satisfies the ``Store`` protocol (``load`` / ``save`` / ``update``).
-    Subclasses implement ``load()`` and ``save()``; ``update()`` is provided
-    here as ``load → fn → save`` under a ``threading.RLock``.
+    Subclasses implement ``load()``, ``save()``, and ``_init_table()``;
+    ``update()`` is provided here as ``load → fn → save`` under a
+    ``threading.RLock``.
 
     RLock (reentrant) is required because ``update()`` acquires the lock and
     then delegates to ``save()``, which also acquires the same lock. A plain
     ``Lock`` would deadlock on that call path.
+
+    The ``path`` property exposes ``self._db.path`` for backward compat with
+    tests that do ``monkeypatch.setattr(store, "path", tmp_path / "x")``.
+    The setter re-runs ``_init_table()`` so the redirected db has its schema.
     """
 
     def __init__(self, db: WebUIDatabase) -> None:
@@ -115,6 +120,15 @@ class SqliteStore(ABC):
         """Persist ``value`` atomically under the store lock."""
         ...
 
+    @abstractmethod
+    def _init_table(self) -> None:
+        """Create the store's table (``CREATE TABLE IF NOT EXISTS …``).
+
+        Called by ``__init__`` and by the ``path`` setter when the backing
+        database is redirected (e.g. by test fixtures).
+        """
+        ...
+
     def update(self, fn: Callable[[Any], Any]) -> Any:
         """Atomic ``load → fn → save`` under RLock. Returns the new value."""
         with self._lock:
@@ -122,3 +136,16 @@ class SqliteStore(ABC):
             new_value = fn(current)
             self.save(new_value)
             return new_value
+
+    # ── Backward compat: path property mirrors JsonStore ──────────────────
+
+    @property
+    def path(self) -> Path:
+        """The underlying ``webui.db`` path. Exposed for test fixture compat."""
+        return self._db.path
+
+    @path.setter
+    def path(self, value: Path) -> None:
+        """Redirect the store to a different db file and re-initialise schema."""
+        self._db = WebUIDatabase(value)
+        self._init_table()
