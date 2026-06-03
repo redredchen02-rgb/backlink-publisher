@@ -1,7 +1,7 @@
 ---
 title: "fix: Sync local main backlog to remotes and prune merged branches"
 type: fix
-status: partial
+status: completed
 date: 2026-06-03
 claims: {}
 ---
