@@ -90,6 +90,45 @@ def test_publish_computes_challenge_response(isolated_config_dir):
     assert "secretpw" not in json.dumps(sent)
 
 
+def test_publish_sets_post_publish_delay_for_extended_verify_window(isolated_config_dir):
+    """AdapterResult must include post_publish_delay_seconds > 0 so _do_verify()
+    uses max_wait=30 instead of 10. Without this field, livejournal publishes get
+    a 10-second verification window — too short given LJ page propagation delays,
+    which caused published_unverified → InternalError on 2026-05-29.
+    Both publish and draft modes carry the field so the engine always applies the
+    extended window when re-verifying via --resume."""
+    store_credentials(Config(), "tester", "pw")
+    proxy = _mock_proxy()
+
+    # publish mode
+    with mock.patch(f"{_ADAPTER}.ServerProxy", return_value=proxy), mock.patch(
+        f"{_ADAPTER}.attach_link_verification", return_value={}
+    ):
+        res_pub = LivejournalAPIAdapter().publish(PAYLOAD, mode="publish", config=Config())
+
+    assert res_pub.post_publish_delay_seconds > 0, (
+        "post_publish_delay_seconds must be >0 so _do_verify() uses max_wait=30"
+    )
+
+    # draft mode
+    with mock.patch(f"{_ADAPTER}.ServerProxy", return_value=proxy):
+        res_draft = LivejournalAPIAdapter().publish(PAYLOAD, mode="draft", config=Config())
+
+    assert res_draft.post_publish_delay_seconds > 0
+
+
+def test_publish_delay_env_var_overrides_default(isolated_config_dir, monkeypatch):
+    """LIVEJOURNAL_PUBLISH_DELAY_S env var controls post_publish_delay_seconds."""
+    monkeypatch.setenv("LIVEJOURNAL_PUBLISH_DELAY_S", "15")
+    store_credentials(Config(), "tester", "pw")
+    proxy = _mock_proxy()
+    with mock.patch(f"{_ADAPTER}.ServerProxy", return_value=proxy), mock.patch(
+        f"{_ADAPTER}.attach_link_verification", return_value={}
+    ):
+        res = LivejournalAPIAdapter().publish(PAYLOAD, mode="publish", config=Config())
+    assert res.post_publish_delay_seconds == 15
+
+
 def test_publish_draft_mode_returns_draft_url(isolated_config_dir):
     store_credentials(Config(), "tester", "pw")
     proxy = _mock_proxy(url="https://user.livejournal.com/5.html")
