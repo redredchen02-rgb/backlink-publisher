@@ -66,6 +66,34 @@ def test_update_paused_flag(cfg):
     assert locked_store.get("devto", cfg)["paused"] is False
 
 
+# ── set_paused (Phase 2 U5) ────────────────────────────────────────────────────
+
+def test_set_paused_true_then_false(cfg):
+    locked_store.set_paused("medium", True, cfg)
+    assert locked_store.get("medium", cfg)["paused"] is True
+    locked_store.set_paused("medium", False, cfg)
+    assert locked_store.get("medium", cfg)["paused"] is False
+
+
+def test_set_paused_preserves_consecutive_failures(cfg):
+    locked_store.update("velog", lambda e: {"consecutive_failures": 3, "paused": False}, cfg)
+    locked_store.set_paused("velog", True, cfg)
+    rec = locked_store.get("velog", cfg)
+    assert rec["paused"] is True
+    assert rec["consecutive_failures"] == 3
+
+
+def test_set_paused_returns_new_state(cfg):
+    assert locked_store.set_paused("blogger", True, cfg) is True
+    assert locked_store.set_paused("blogger", False, cfg) is False
+
+
+def test_is_paused_helper(cfg):
+    assert locked_store.is_paused("devto", cfg) is False
+    locked_store.set_paused("devto", True, cfg)
+    assert locked_store.is_paused("devto", cfg) is True
+
+
 # ── concurrent writes ─────────────────────────────────────────────────────────
 
 def _worker(config_dir: str, platform: str, value: int, result_queue):

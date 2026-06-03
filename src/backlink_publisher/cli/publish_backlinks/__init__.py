@@ -57,6 +57,27 @@ from backlink_publisher.cli._publish_helpers import (
 )
 
 
+def _partition_paused(rows, platform_arg, config):
+    """Split *rows* into (publishable_rows, sorted_paused_platforms).
+
+    A platform an operator paused via /ce:health (``LockedHealthStore.paused``)
+    is dropped pre-dispatch. ``is_paused`` is fail-SAFE — a store read error
+    reports not-paused, so a transient fault never silently blocks publishing.
+    """
+    from backlink_publisher.health.persistence import locked_store
+
+    platforms = {platform_arg or r.get("platform", "") for r in rows}
+    paused = sorted(p for p in platforms if p and locked_store.is_paused(p, config))
+    if not paused:
+        return rows, []
+    paused_set = set(paused)
+    kept = [
+        r for r in rows
+        if (platform_arg or r.get("platform", "")) not in paused_set
+    ]
+    return kept, paused
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -137,6 +158,22 @@ def main(argv: list[str] | None = None) -> None:
                 forced_keys = load_force_manifest(
                     args.force_manifest, confirm=args.confirm, reason=args.reason
                 )
+            # Phase 2 U8: drop platforms an operator paused via /ce:health BEFORE
+            # acquiring leases — a paused platform must hold no lease and create
+            # no checkpoint.
+            rows, paused_platforms = _partition_paused(rows, args.platform, config)
+            for plat in paused_platforms:
+                publish_logger.warning(
+                    f"publish-backlinks: skipping paused platform '{plat}' "
+                    f"(resume via /ce:health)"
+                )
+            if not rows:
+                publish_logger.warning(
+                    "publish-backlinks: all target platforms are paused; "
+                    "nothing to publish"
+                )
+                raise SystemExit(0)
+
             platforms_in_use = {
                 args.platform or row.get("platform", "") for row in rows
             }

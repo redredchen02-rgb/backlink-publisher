@@ -115,3 +115,18 @@ def update(platform: str, fn: Callable[[dict[str, Any]], dict[str, Any]], config
         _write_state_unsafe(state_path, state)
     finally:
         _release_lock(fd)
+
+
+def set_paused(platform: str, paused: bool, config: Config) -> bool:
+    """Set the operator pause flag for *platform*, preserving other state.
+
+    Returns the new paused value. Lock-protected read-modify-write so a
+    concurrent failure-counter update is not lost.
+    """
+    update(platform, lambda e: {**e, "paused": bool(paused)}, config)
+    return bool(paused)
+
+
+def is_paused(platform: str, config: Config) -> bool:
+    """Fail-SAFE read of the pause flag (False on any read error)."""
+    return get(platform, config)["paused"]

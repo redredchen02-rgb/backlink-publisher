@@ -328,15 +328,24 @@ consecutive failures, and circuit state alongside the existing 30-day panels.
 
 ---
 
-## Phase 2 (deferred) — Maintenance Actions
+## Phase 2 (shipped 2026-06-03) — Maintenance Actions
 
-- U5: Pause / resume channel (sets `LockedHealthStore.paused` flag; publish
-  pipeline checks flag pre-dispatch)
-- U6: One-click re-verify button on `/ce:health` per platform (calls
-  `verify_adapter_setup` live)
-- U7: Circuit reset button on `/ce:health`
-- U8: Pre-publish probe gate (CLI `publish-backlinks` checks platform health
-  before dispatch; `paused=True` → skip platform with warning)
+- [x] U5: Pause / resume channel — `locked_store.set_paused` / `is_paused` +
+  `POST /ce:health/pause`; publish pipeline checks the flag pre-dispatch (U8).
+- [x] U6: One-click re-verify button on `/ce:health` per platform —
+  `POST /ce:health/reverify` calls `verify_adapter_setup` (offline mode: a
+  synchronous web request must not block on a network probe; live probing is
+  the pre-publish probe's job).
+- [x] U7: Circuit reset button on `/ce:health` — `POST /ce:health/circuit-reset`
+  calls the existing `circuit.reset_circuit`; button renders only when the
+  breaker is OPEN.
+- [x] U8: Pre-publish pause gate — `publish-backlinks` drops paused platforms
+  via `_partition_paused` before lease acquisition; all-paused run exits 0 with
+  a warning, no dispatch.
+
+WebUI wiring: `webui_app/routes/health_actions.py` (loopback + app-level CSRF),
+`static/js/health.js` (delegated `data-action`, CSRF via `postJson`), Actions
+column in the Platform last-state panel.
 
 ## Phase 3 (deferred) — Circuit Breaker Expansion
 
