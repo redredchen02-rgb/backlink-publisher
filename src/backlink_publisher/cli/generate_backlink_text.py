@@ -131,74 +131,78 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-
         help="Emit prompts only — no API key or HTTP call required (R3)",
     )
 
+    from backlink_publisher._util.profiling import add_profile_arg
+    add_profile_arg(parser)
     args = parser.parse_args(argv)
 
-    try:
-        # Closed-set validation post-parse (repo convention: UsageError exit 1,
-        # not argparse's exit 2).  See [[argparse-choices-vs-usage-error]].
-        if args.output_format not in _OUTPUT_FORMATS:
-            raise UsageError(
-                f"generate-backlink-text: --output-format must be one of "
-                f"{sorted(_OUTPUT_FORMATS)}; got {args.output_format!r}"
+    from backlink_publisher._util.profiling import profile_if_enabled
+    with profile_if_enabled(args):
+        try:
+            # Closed-set validation post-parse (repo convention: UsageError exit 1,
+            # not argparse's exit 2).  See [[argparse-choices-vs-usage-error]].
+            if args.output_format not in _OUTPUT_FORMATS:
+                raise UsageError(
+                    f"generate-backlink-text: --output-format must be one of "
+                    f"{sorted(_OUTPUT_FORMATS)}; got {args.output_format!r}"
+                )
+
+            # Read raw input ─────────────────────────────────────────────────────
+            if args.input is not None:
+                try:
+                    with open(args.input, encoding="utf-8") as fh:
+                        raw_text = fh.read()
+                except OSError as exc:
+                    raise PipelineError(
+                        f"generate-backlink-text: cannot read --input: {exc}"
+                    ) from exc
+            else:
+                raw_text = sys.stdin.read()
+
+            # Parse input and validate per-record fields (Unit 1).
+            raw_candidates = _read_candidates(
+                raw_text,
+                max_input_bytes=args.max_input_bytes,
+                max_records=args.max_records,
             )
 
-        # Read raw input ─────────────────────────────────────────────────────
-        if args.input is not None:
-            try:
-                with open(args.input, encoding="utf-8") as fh:
-                    raw_text = fh.read()
-            except OSError as exc:
-                raise PipelineError(
-                    f"generate-backlink-text: cannot read --input: {exc}"
-                ) from exc
-        else:
-            raw_text = sys.stdin.read()
+            if not raw_candidates:
+                # R5b: empty input → exit 0, empty output, stderr summary "0".
+                generate_logger.recon(
+                    "generate_summary",
+                    total=0, ok=0, rejected=0, dry_run=False,
+                )
+                return
 
-        # Parse input and validate per-record fields (Unit 1).
-        raw_candidates = _read_candidates(
-            raw_text,
-            max_input_bytes=args.max_input_bytes,
-            max_records=args.max_records,
-        )
+            # Per-record field validation — rejected records continue the batch.
+            validated: list[dict] = [_validate_candidate(rec) for rec in raw_candidates]
 
-        if not raw_candidates:
-            # R5b: empty input → exit 0, empty output, stderr summary "0".
+            # ── Generation (Unit 3+5 will fill this in) ──────────────────────────
+            if args.dry_run:
+                output_records = _run_dry_run(validated, args)
+            else:
+                output_records = _run_generate(validated, args)
+
+            # Emit output.
+            _emit_records(output_records, args.output_format)
+
+            # Stderr summary.
+            ok_count = sum(1 for r in output_records if r.get("status") == "ok")
+            rejected_count = sum(
+                1 for r in output_records if r.get("status") == "rejected"
+            )
+            dry_count = sum(
+                1 for r in output_records if r.get("status") == "dry_run"
+            )
             generate_logger.recon(
                 "generate_summary",
-                total=0, ok=0, rejected=0, dry_run=False,
+                total=len(output_records),
+                ok=ok_count,
+                rejected=rejected_count,
+                dry_run=dry_count,
             )
-            return
 
-        # Per-record field validation — rejected records continue the batch.
-        validated: list[dict] = [_validate_candidate(rec) for rec in raw_candidates]
-
-        # ── Generation (Unit 3+5 will fill this in) ──────────────────────────
-        if args.dry_run:
-            output_records = _run_dry_run(validated, args)
-        else:
-            output_records = _run_generate(validated, args)
-
-        # Emit output.
-        _emit_records(output_records, args.output_format)
-
-        # Stderr summary.
-        ok_count = sum(1 for r in output_records if r.get("status") == "ok")
-        rejected_count = sum(
-            1 for r in output_records if r.get("status") == "rejected"
-        )
-        dry_count = sum(
-            1 for r in output_records if r.get("status") == "dry_run"
-        )
-        generate_logger.recon(
-            "generate_summary",
-            total=len(output_records),
-            ok=ok_count,
-            rejected=rejected_count,
-            dry_run=dry_count,
-        )
-
-    except PipelineError as exc:
-        handle_error(exc)
+        except PipelineError as exc:
+            handle_error(exc)
 
 
 # ── Endpoint resolution + guard ───────────────────────────────────────────────

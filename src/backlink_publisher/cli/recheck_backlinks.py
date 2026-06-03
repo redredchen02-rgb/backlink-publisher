@@ -93,6 +93,8 @@ def main(argv: list[str] | None = None) -> None:
         "--limit", type=int, metavar="N",
         help="cap candidates this run (in addition to the built-in per-run cap)",
     )
+    from backlink_publisher._util.profiling import add_profile_arg
+    add_profile_arg(parser)
     args = parser.parse_args(argv)
 
     # Post-parse validation — repo convention is UsageError (exit 1), not
@@ -103,78 +105,80 @@ def main(argv: list[str] | None = None) -> None:
     if args.since:
         since_dt = _parse_since(args.since)
 
-    cfg = load_config()
-    config_echo.emit_banner(cfg, "recheck-backlinks")
+    from backlink_publisher._util.profiling import profile_if_enabled
+    with profile_if_enabled(args):
+        cfg = load_config()
+        config_echo.emit_banner(cfg, "recheck-backlinks")
 
-    from backlink_publisher.events import EventStore
-    from backlink_publisher.recheck import selection
-    from backlink_publisher.recheck.events_io import emit_recheck
-    from backlink_publisher.recheck.probe import recheck_link
+        from backlink_publisher.events import EventStore
+        from backlink_publisher.recheck import selection
+        from backlink_publisher.recheck.events_io import emit_recheck
+        from backlink_publisher.recheck.probe import recheck_link
 
-    store = EventStore()
-    now = datetime.now(timezone.utc)
+        store = EventStore()
+        now = datetime.now(timezone.utc)
 
-    candidates = selection.read_stdin_candidates(sys.stdin)
-    if candidates is None:
-        candidates = selection.select_candidates(
-            store, now=now, since=since_dt, host=args.host,
-            run_id=args.run_id, limit=args.limit,
-        )
+        candidates = selection.read_stdin_candidates(sys.stdin)
+        if candidates is None:
+            candidates = selection.select_candidates(
+                store, now=now, since=since_dt, host=args.host,
+                run_id=args.run_id, limit=args.limit,
+            )
 
-    # ── dry preview (no --probe): zero network ───────────────────────────────
-    if not args.probe:
-        rows = [recheck_link(c, probe=False) for c in candidates]
-        write_jsonl(iter(rows), sys.stdout)
-        _log.recon("recheck_dry_preview", candidates=len(rows))
-        print(
-            f"recheck-backlinks: dry preview — {len(rows)} candidate(s) would be "
-            f"probed (add --probe to run)",
-            file=sys.stderr,
-        )
-        return
-
-    # ── probe (network): concurrency guard + batch budget ────────────────────
-    with _single_run_lock(store.path.parent) as acquired:
-        if not acquired:
-            _log.recon("recheck_skipped_locked")
+        # ── dry preview (no --probe): zero network ───────────────────────────────
+        if not args.probe:
+            rows = [recheck_link(c, probe=False) for c in candidates]
+            write_jsonl(iter(rows), sys.stdout)
+            _log.recon("recheck_dry_preview", candidates=len(rows))
             print(
-                "recheck-backlinks: another run holds the lock; skipping",
+                f"recheck-backlinks: dry preview — {len(rows)} candidate(s) would be "
+                f"probed (add --probe to run)",
                 file=sys.stderr,
             )
             return
-        results = _probe_batch(candidates)
-        written = emit_recheck(store, results)
 
-    tally = _tally(results)
-    _log.recon("recheck_reconciliation", checked=len(results), written=written, **tally)
-    write_jsonl(iter(results), sys.stdout)
-    print(_summary_line(len(results), written, tally), file=sys.stderr)
-    for line in _indexability_summary(results):
-        print(line, file=sys.stderr)
+        # ── probe (network): concurrency guard + batch budget ────────────────────
+        with _single_run_lock(store.path.parent) as acquired:
+            if not acquired:
+                _log.recon("recheck_skipped_locked")
+                print(
+                    "recheck-backlinks: another run holds the lock; skipping",
+                    file=sys.stderr,
+                )
+                return
+            results = _probe_batch(candidates)
+            written = emit_recheck(store, results)
 
-    # Fail gates (both reuse exit code 6). --fail-on-dead is checked first: a dead
-    # link is strictly worse than a live-but-noindex one, and both map to the same
-    # code, so the exit code stays deterministic when both flags trip.
-    dead = tally["host_gone"] + tally["link_stripped"]
-    if args.fail_on_dead and dead > 0:
-        emit_envelope_and_exit(
-            "DeadBacklinksDetected",
-            FAIL_ON_DEAD_EXIT_CODE,
-            f"recheck-backlinks: {dead} deterministic dead backlink(s) detected",
-        )
+        tally = _tally(results)
+        _log.recon("recheck_reconciliation", checked=len(results), written=written, **tally)
+        write_jsonl(iter(results), sys.stdout)
+        print(_summary_line(len(results), written, tally), file=sys.stderr)
+        for line in _indexability_summary(results):
+            print(line, file=sys.stderr)
 
-    # Opt-in indexability gate: only a live, present dofollow link on a CONFIRMED
-    # blocked (noindex) page trips it (the equity-waste case — same count as the
-    # summary headline). unknown (fail-open) never trips; a stripped/nofollow link
-    # is excluded. Reuses --fail-on-dead's exit code (R9).
-    blocked = _alive_blocked_count(results)
-    if args.fail_on_unindexable and blocked > 0:
-        emit_envelope_and_exit(
-            "UnindexableBacklinksDetected",
-            FAIL_ON_DEAD_EXIT_CODE,
-            f"recheck-backlinks: {blocked} live dofollow backlink(s) on "
-            f"confirmed-unindexable (noindex) page(s)",
-        )
+        # Fail gates (both reuse exit code 6). --fail-on-dead is checked first: a dead
+        # link is strictly worse than a live-but-noindex one, and both map to the same
+        # code, so the exit code stays deterministic when both flags trip.
+        dead = tally["host_gone"] + tally["link_stripped"]
+        if args.fail_on_dead and dead > 0:
+            emit_envelope_and_exit(
+                "DeadBacklinksDetected",
+                FAIL_ON_DEAD_EXIT_CODE,
+                f"recheck-backlinks: {dead} deterministic dead backlink(s) detected",
+            )
+
+        # Opt-in indexability gate: only a live, present dofollow link on a CONFIRMED
+        # blocked (noindex) page trips it (the equity-waste case — same count as the
+        # summary headline). unknown (fail-open) never trips; a stripped/nofollow link
+        # is excluded. Reuses --fail-on-dead's exit code (R9).
+        blocked = _alive_blocked_count(results)
+        if args.fail_on_unindexable and blocked > 0:
+            emit_envelope_and_exit(
+                "UnindexableBacklinksDetected",
+                FAIL_ON_DEAD_EXIT_CODE,
+                f"recheck-backlinks: {blocked} live dofollow backlink(s) on "
+                f"confirmed-unindexable (noindex) page(s)",
+            )
 
 
 def _parse_since(value: str):

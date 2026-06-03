@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help=(
             "exit 6 if any measured-above-floor target has share below "
-            f"{LOW_SHARE_THRESHOLD:.0%}; suppressed for "
+            f"{int(LOW_SHARE_THRESHOLD * 100)}%%; suppressed for "
             "never_probed/warming_up/below-floor targets"
         ),
     )
@@ -119,6 +119,8 @@ def main(argv: list[str] | None = None) -> None:
         metavar="N",
         help="maximum pairs to select per run (default: 10)",
     )
+    from backlink_publisher._util.profiling import add_profile_arg
+    add_profile_arg(parser)
     args = parser.parse_args(argv)
 
     # -- Post-parse validation (closed-set convention: UsageError/exit 1) -----
@@ -160,45 +162,48 @@ def main(argv: list[str] | None = None) -> None:
     cfg = load_config()
     config_echo.emit_banner(cfg, "probe-citations")
 
-    # -- Build the (target, query) corpus from config -------------------------
-    all_pairs = _build_corpus(cfg)
+    from backlink_publisher._util.profiling import profile_if_enabled
+    with profile_if_enabled(args):
 
-    if not all_pairs:
-        print(
-            "probe-citations: no (target, query) pairs configured; "
-            "add [targets.\"<domain>\"].probe_queries to config.toml",
-            file=sys.stderr,
-        )
-        _log.recon("probe_citations_no_pairs")
-        return
+        # -- Build the (target, query) corpus from config -------------------------
+        all_pairs = _build_corpus(cfg)
 
-    # -- Selection (D5 cursor from events.db) ---------------------------------
-    from backlink_publisher.geo.selection import select_pairs
-
-    store = EventStore()
-    selection = select_pairs(
-        all_pairs,
-        store=store,
-        stale_days=args.stale_days,
-        max_pairs=args.max_pairs,
-    )
-
-    # -- Dry-run (default): zero network ---------------------------------------
-    if not args.probe:
-        _run_dry(args, cfg, selection, store)
-        return
-
-    # -- Probe (network): requires GEO config ----------------------------------
-    if cfg.geo_probe_provider is None:
-        handle_error(
-            DependencyError(
-                "probe-citations: --probe requires [geo.probe_provider] in "
-                "config.toml (or BACKLINK_GEO_API_KEY env var). "
-                "See config.example.toml for the required fields."
+        if not all_pairs:
+            print(
+                "probe-citations: no (target, query) pairs configured; "
+                "add [targets.\"<domain>\"].probe_queries to config.toml",
+                file=sys.stderr,
             )
+            _log.recon("probe_citations_no_pairs")
+            return
+
+        # -- Selection (D5 cursor from events.db) ---------------------------------
+        from backlink_publisher.geo.selection import select_pairs
+
+        store = EventStore()
+        selection = select_pairs(
+            all_pairs,
+            store=store,
+            stale_days=args.stale_days,
+            max_pairs=args.max_pairs,
         )
 
-    _run_probe(args, cfg, selection, store, all_pairs=all_pairs)
+        # -- Dry-run (default): zero network ---------------------------------------
+        if not args.probe:
+            _run_dry(args, cfg, selection, store)
+            return
+
+        # -- Probe (network): requires GEO config ----------------------------------
+        if cfg.geo_probe_provider is None:
+            handle_error(
+                DependencyError(
+                    "probe-citations: --probe requires [geo.probe_provider] in "
+                    "config.toml (or BACKLINK_GEO_API_KEY env var). "
+                    "See config.example.toml for the required fields."
+                )
+            )
+
+        _run_probe(args, cfg, selection, store, all_pairs=all_pairs)
 
 
 # ---------------------------------------------------------------------------

@@ -109,68 +109,70 @@ def main(argv: list[str] | None = None) -> None:
 
     log.info(f"dispatch-backlinks: {len(rows)} row(s) to process on stdin")
 
-    # ── Resolve signals ──────────────────────────────────────────────
-    channel_data = channel_status_store.load() or {}
-    signals = collect_all(channel_data=channel_data)
-    log.info(
-        f"dispatch-backlinks: collected signals for "
-        f"{len(signals)} active platform(s)"
-    )
-
-    ledger_map = _load_ledger_map(args.equity_ledger)
-    if ledger_map is None:
-        log.warning(
-            "dispatch-backlinks: no equity-ledger data — "
-            "spread/spread bonuses will use round-robin within tiers"
+    from backlink_publisher._util.profiling import profile_if_enabled
+    with profile_if_enabled(args):
+        # ── Resolve signals ──────────────────────────────────────────────
+        channel_data = channel_status_store.load() or {}
+        signals = collect_all(channel_data=channel_data)
+        log.info(
+            f"dispatch-backlinks: collected signals for "
+            f"{len(signals)} active platform(s)"
         )
 
-    if not ledger_map and args.strategy in ("balanced", "spread"):
-        log.warning(
-            f"dispatch-backlinks: --strategy is '{args.strategy}' but no "
-            f"equity-ledger data available. Spread analysis is degraded to "
-            f"round-robin within tiers."
-        )
-
-    # ── Route each row ───────────────────────────────────────────────
-    output_rows: list[dict] = []
-    total_platforms: dict[str, int] = {}
-    total_errors = 0
-
-    for idx, row in enumerate(rows):
-        if args.platform is not None:
-            # --platform override: skip routing logic entirely
-            out = dict(row)
-            out["platform"] = args.platform
-            out["_dispatch"] = {
-                "strategy": "manual",
-                "engine_version": ENGINE_VERSION,
-                "reason": f"--platform={args.platform} override",
-            }
-            output_rows.append(out)
-            total_platforms[args.platform] = total_platforms.get(args.platform, 0) + 1
-            continue
-
-        result = route(
-            row,
-            signals=signals,
-            ledger_map=ledger_map,
-            strategy=args.strategy,
-            canary_stale_days=args.canary_stale_days,
-        )
-
-        out = dict(row)
-        if result.platform is not None:
-            out["platform"] = result.platform
-            total_platforms[result.platform] = (
-                total_platforms.get(result.platform, 0) + 1
+        ledger_map = _load_ledger_map(args.equity_ledger)
+        if ledger_map is None:
+            log.warning(
+                "dispatch-backlinks: no equity-ledger data — "
+                "spread/spread bonuses will use round-robin within tiers"
             )
-        else:
-            total_errors += 1
-        out["_dispatch"] = result.dispatch
-        output_rows.append(out)
 
-    # ── Emit output ──────────────────────────────────────────────────
-    write_jsonl(output_rows, sys.stdout)
+        if not ledger_map and args.strategy in ("balanced", "spread"):
+            log.warning(
+                f"dispatch-backlinks: --strategy is '{args.strategy}' but no "
+                f"equity-ledger data available. Spread analysis is degraded to "
+                f"round-robin within tiers."
+            )
+
+        # ── Route each row ───────────────────────────────────────────────
+        output_rows: list[dict] = []
+        total_platforms: dict[str, int] = {}
+        total_errors = 0
+
+        for idx, row in enumerate(rows):
+            if args.platform is not None:
+                # --platform override: skip routing logic entirely
+                out = dict(row)
+                out["platform"] = args.platform
+                out["_dispatch"] = {
+                    "strategy": "manual",
+                    "engine_version": ENGINE_VERSION,
+                    "reason": f"--platform={args.platform} override",
+                }
+                output_rows.append(out)
+                total_platforms[args.platform] = total_platforms.get(args.platform, 0) + 1
+                continue
+
+            result = route(
+                row,
+                signals=signals,
+                ledger_map=ledger_map,
+                strategy=args.strategy,
+                canary_stale_days=args.canary_stale_days,
+            )
+
+            out = dict(row)
+            if result.platform is not None:
+                out["platform"] = result.platform
+                total_platforms[result.platform] = (
+                    total_platforms.get(result.platform, 0) + 1
+                )
+            else:
+                total_errors += 1
+            out["_dispatch"] = result.dispatch
+            output_rows.append(out)
+
+        # ── Emit output ──────────────────────────────────────────────────
+        write_jsonl(output_rows, sys.stdout)
 
     # ── Stderr summary ───────────────────────────────────────────────
     if total_errors == len(rows):

@@ -203,6 +203,8 @@ def main(argv: list[str] | None = None) -> None:
         metavar="N",
         help="[g5] cap the number of published links re-fetched (default: all).",
     )
+    from backlink_publisher._util.profiling import add_profile_arg
+    add_profile_arg(parser)
     args = parser.parse_args(argv)
 
     gate = (args.gate or "").lower()
@@ -232,13 +234,15 @@ def main(argv: list[str] | None = None) -> None:
     cfg = load_config()
     config_echo.emit_banner(cfg, "gate-probe")
 
-    if gate == "g2":
-        verdict = _run_g2(cfg, args.decay_threshold)
-    elif gate == "g3":
-        verdict = _run_g3(args)
-    else:
-        verdict = _run_g5(args)
-    write_jsonl([verdict.to_jsonl_dict()], sys.stdout)
+    from backlink_publisher._util.profiling import profile_if_enabled
+    with profile_if_enabled(args):
+        if gate == "g2":
+            verdict = _run_g2(cfg, args.decay_threshold)
+        elif gate == "g3":
+            verdict = _run_g3(args)
+        else:
+            verdict = _run_g5(args)
+        write_jsonl([verdict.to_jsonl_dict()], sys.stdout)
 
 
 if __name__ == "__main__":

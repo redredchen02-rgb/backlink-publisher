@@ -33,7 +33,7 @@ test-js:
 
 # ── Code quality targets (Phase 3 F4) ────────────────────────────────────────
 
-.PHONY: lint type-check coverage clean-all setup-hooks
+.PHONY: lint type-check coverage clean-pyc clean-all setup-hooks
 
 lint:
 	@ruff check src/ tests/ || true
@@ -50,8 +50,11 @@ setup-hooks:
 	bash scripts/install-post-merge-hook.sh
 	@echo "Git hooks installed. Set BACKLINK_PUBLISHER_WORKTREE_AUTOREMOVE=1 in shell rc for auto cleanup"
 
-clean-all:
-	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	@find . -name "*.pyc" -delete 2>/dev/null || true
+clean-pyc:
+	@find . -type d -name __pycache__ -not -path '*/.venv/*' -exec rm -rf {} + 2>/dev/null || true
+	@find . -name "*.pyc" -not -path '*/.venv/*' -delete 2>/dev/null || true
+	@echo "Cleaned __pycache__ and .pyc artifacts"
+
+clean-all: clean-pyc
 	@rm -rf .pytest_cache .mypy_cache htmlcov .coverage
-	@echo "Cleaned build artifacts"
+	@echo "Cleaned all build artifacts"

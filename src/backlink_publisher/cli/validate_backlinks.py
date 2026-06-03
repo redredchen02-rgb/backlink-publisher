@@ -81,6 +81,8 @@ def main(argv: list[str] | None = None) -> None:
         dest="max_rows",
         help="Maximum input rows to process; excess rows are truncated with a warning (default: 1000)",
     )
+    from backlink_publisher._util.profiling import add_profile_arg
+    add_profile_arg(parser)
     args = parser.parse_args(argv)
 
     from backlink_publisher._util.logger import set_log_level
@@ -107,66 +109,68 @@ def main(argv: list[str] | None = None) -> None:
     if config is not None:
         config_echo.emit_banner(config, "validate-backlinks")
 
-    try:
-        rows = list(read_jsonl(args.input))
-    except SystemExit as exc:
-        raise SystemExit(exc.code)
+    from backlink_publisher._util.profiling import profile_if_enabled
+    with profile_if_enabled(args):
+        try:
+            rows = list(read_jsonl(args.input))
+        except SystemExit as exc:
+            raise SystemExit(exc.code)
 
-    if len(rows) > args.max_rows:
-        print(
-            f"[warn] validate-backlinks: truncated input from {len(rows)} to"
-            f" {args.max_rows} rows (--max-rows={args.max_rows})",
-            file=sys.stderr,
+        if len(rows) > args.max_rows:
+            print(
+                f"[warn] validate-backlinks: truncated input from {len(rows)} to"
+                f" {args.max_rows} rows (--max-rows={args.max_rows})",
+                file=sys.stderr,
+            )
+            rows = rows[:args.max_rows]
+
+        validate_logger.info(f"validating {len(rows)} payloads")
+
+        try:
+            outcome = validate_rows(rows, config, check_urls=check_urls)
+        except errors.ExternalServiceError as exc:
+            validate_logger.error(f"URL check failed: {exc}")
+            errors.emit_envelope_and_exit(
+                "ExternalServiceError", 4, f"URL check failed: {exc}"
+            )
+
+        # R2/R5: per-row skip semantic — passing rows STILL stream to stdout
+        # so downstream consumers see partial success; exit code reflects overall
+        # success only when zero rows failed.
+        failed_count = outcome.failed_count
+        write_jsonl(outcome.outputs)
+
+        # Emit Silent-Drop Tripwire reconciliation BEFORE the exit guard so failed
+        # runs still surface a delta summary.
+        output_rows = len(outcome.outputs)
+        validate_logger.recon(
+            "validate_reconciliation",
+            input_rows=outcome.input_count,
+            output_rows=output_rows,
+            delta=outcome.input_count - output_rows,
+            dropped={
+                "platform": len(outcome.platform_drops),
+                "validation": len(outcome.validation_drops),
+            },
+            dropped_row_indices={
+                "platform": outcome.platform_drops,
+                "validation": outcome.validation_drops,
+            },
         )
-        rows = rows[:args.max_rows]
 
-    validate_logger.info(f"validating {len(rows)} payloads")
-
-    try:
-        outcome = validate_rows(rows, config, check_urls=check_urls)
-    except errors.ExternalServiceError as exc:
-        validate_logger.error(f"URL check failed: {exc}")
-        errors.emit_envelope_and_exit(
-            "ExternalServiceError", 4, f"URL check failed: {exc}"
-        )
-
-    # R2/R5: per-row skip semantic — passing rows STILL stream to stdout
-    # so downstream consumers see partial success; exit code reflects overall
-    # success only when zero rows failed.
-    failed_count = outcome.failed_count
-    write_jsonl(outcome.outputs)
-
-    # Emit Silent-Drop Tripwire reconciliation BEFORE the exit guard so failed
-    # runs still surface a delta summary.
-    output_rows = len(outcome.outputs)
-    validate_logger.recon(
-        "validate_reconciliation",
-        input_rows=outcome.input_count,
-        output_rows=output_rows,
-        delta=outcome.input_count - output_rows,
-        dropped={
-            "platform": len(outcome.platform_drops),
-            "validation": len(outcome.validation_drops),
-        },
-        dropped_row_indices={
-            "platform": outcome.platform_drops,
-            "validation": outcome.validation_drops,
-        },
-    )
-
-    if outcome.errors:
-        for err in outcome.errors:
-            print(f"validation error: {err}", file=sys.stderr)
-        validate_logger.error(
-            f"validation failed: {len(outcome.errors)} errors "
-            f"({output_rows} passed, {failed_count} failed)"
-        )
-        errors.emit_envelope_and_exit(
-            "InputValidationError",
-            2,
-            f"validation failed: {len(outcome.errors)} errors "
-            f"({output_rows} passed, {failed_count} failed)",
-        )
+        if outcome.errors:
+            for err in outcome.errors:
+                print(f"validation error: {err}", file=sys.stderr)
+            validate_logger.error(
+                f"validation failed: {len(outcome.errors)} errors "
+                f"({output_rows} passed, {failed_count} failed)"
+            )
+            errors.emit_envelope_and_exit(
+                "InputValidationError",
+                2,
+                f"validation failed: {len(outcome.errors)} errors "
+                f"({output_rows} passed, {failed_count} failed)",
+            )
 
     validate_logger.info(
         f"validated {output_rows} payloads "
