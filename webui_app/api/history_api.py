@@ -3,6 +3,10 @@
 Centralises history operations so routes never touch the store or recheck
 service directly.  Every mutating method returns a dict with ``ok`` /
 ``flash_msg`` for the route's redirect (or JSON) response.
+
+Plan 2026-05-28-007 U5: reads now go through ``events/history_query``
+instead of ``_history_store``.  Write CRUD still hits ``_history_store``
+until U6 makes it a no-op shim.
 """
 
 from __future__ import annotations
@@ -15,6 +19,11 @@ from webui_store import history_store as _history_store
 from webui_store import queue_store as _queue_store
 
 from ..helpers.history import _REQUIRES_URL_STATUSES
+from backlink_publisher.events.history_query import get_history_item, list_history
+from backlink_publisher.events.publish_writer import (
+    map_history_entry,
+    write_event,
+)
 
 
 # ── HistoryAPI ─────────────────────────────────────────────────────────────
@@ -57,8 +66,8 @@ class HistoryAPI:
         return [HistoryAPI._normalize_item(item) for item in items]
 
     def list(self) -> list[dict]:
-        """Return all history items, normalised."""
-        return self._normalize_items(_history_store.load())
+        """Return all history items from events.db, normalised."""
+        return self._normalize_items(list_history())
 
     # ── delete ────────────────────────────────────────────────────────────
 
@@ -144,22 +153,31 @@ class HistoryAPI:
         """Re-verify a single history item."""
         if not item_id:
             return {"ok": False, "flash_msg": "参数缺失"}
-        item = _history_store.get_item(item_id)
+        item = get_history_item(item_id)
         if not item:
             return {"ok": False, "flash_msg": "记录不存在"}
 
         from ..services.recheck import recheck_one
         mutation = recheck_one(self._normalize_item(item))
         mutation.pop("_outcome", None)
+        # U6 todo: replace _history_store.update_item with events.db write
         _history_store.update_item(item_id, **mutation)
         status = mutation.get("status", "")
+        updated = {**item, **mutation}
+        mapped = map_history_entry(updated)
+        if mapped is not None:
+            write_event(
+                mapped[0], mapped[1],
+                target_url=updated.get("target_url"),
+            )
         return {"ok": True, "flash_msg": f"已重新核实：状态 → {status}"}
 
     def bulk_recheck(self, ids: list[str]) -> dict[str, Any]:
         """Re-verify multiple history entries."""
         if not ids:
             return {"ok": False, "flash_msg": "未选择任何项"}
-        items = [it for it in _history_store.load() if it.get("id") in set(ids)]
+        all_items = list_history()
+        items = [it for it in all_items if str(it.get("id", "")) in set(ids)]
         if not items:
             return {"ok": False, "flash_msg": "未匹配到记录"}
 
@@ -167,6 +185,17 @@ class HistoryAPI:
         by_id, summary = recheck_many(self._normalize_items(items))
         for item_id, mutation in by_id.items():
             _history_store.update_item(item_id, **mutation)
+        for item_id, mutation in by_id.items():
+            updated = dict(
+                next(it for it in items if str(it.get("id", "")) == item_id),
+                **mutation,
+            )
+            mapped = map_history_entry(updated)
+            if mapped is not None:
+                write_event(
+                    mapped[0], mapped[1],
+                    target_url=updated.get("target_url"),
+                )
         return {"ok": True, "flash_msg": summary.as_flash()}
 
     # ── retry-task (queue) ───────────────────────────────────────────────

@@ -107,6 +107,10 @@ def test_articles_columns_match_plan(tmp_path):
         "published_at_raw",
         "published_at_utc",
         "run_id",
+        "platform",
+        "verified_at",
+        "verify_error",
+        "migration_dedup_key",
     ]
 
 
@@ -146,7 +150,7 @@ def test_schema_version_initialized_to_two(tmp_path):
         rows = list(conn.execute("SELECT version FROM schema_version"))
     # Bumped to 3 when quarantine_log.row_id was added
     # (Plan 2026-05-28-004).
-    assert rows == [(3,)]
+    assert rows == [(4,)]
 
 
 def test_events_kind_is_not_null(tmp_path):

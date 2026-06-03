@@ -11,6 +11,10 @@ import json
 import uuid
 from datetime import datetime
 
+from backlink_publisher.events.publish_writer import (
+    map_history_entry,
+    write_event,
+)
 from webui_store import history_store as _history_store
 
 
@@ -61,7 +65,7 @@ def _push_history_per_row(
     means the adapter returned no usable URL).
     """
     if not rows:
-        return _history_store.load()
+        return []
     now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
     # Rows from one publish call share a run_id so the UI can group them
     # under one collapsible card instead of N separate entries.
@@ -95,9 +99,18 @@ def _push_history_per_row(
         if raw_error:
             item["error"] = raw_error
         new_items.append(item)
-    return _history_store.update(
+    result = _history_store.update(
         lambda hist: [*new_items, *hist][:_HISTORY_MAX_ITEMS]
     )
+    # Dual-write: forward each new entry to events.db (U2).
+    for item in new_items:
+        mapped = map_history_entry(item)
+        if mapped is not None:
+            write_event(
+                mapped[0], mapped[1],
+                target_url=item.get("target_url"),
+            )
+    return result
 
 
 def _push_history_single_failure(
@@ -123,9 +136,13 @@ def _push_history_single_failure(
         "adapter": "",
         "error": error or "publish failed",
     }
-    return _history_store.update(
+    result = _history_store.update(
         lambda hist: [item, *hist][:_HISTORY_MAX_ITEMS]
     )
+    mapped = map_history_entry(item)
+    if mapped is not None:
+        write_event(mapped[0], mapped[1], target_url=item.get("target_url"))
+    return result
 
 
 def _push_history_aggregate(entry: dict) -> list[dict]:
@@ -150,6 +167,10 @@ def _push_history_aggregate(entry: dict) -> list[dict]:
             f"_push_history_aggregate: entry status={entry.get('status')!r} "
             f"requires non-empty article_urls; got {entry.get('article_urls')!r}"
         )
-    return _history_store.update(
+    result = _history_store.update(
         lambda hist: _apply_history_cap([entry, *hist])
     )
+    mapped = map_history_entry(entry)
+    if mapped is not None:
+        write_event(mapped[0], mapped[1], target_url=entry.get("target_url"))
+    return result

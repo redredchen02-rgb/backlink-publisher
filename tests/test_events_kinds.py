@@ -14,13 +14,15 @@ import pytest
 from backlink_publisher.events import kinds
 
 
-def test_kinds_set_is_the_15_documented_kinds():
+def test_kinds_set_is_the_18_documented_kinds():
     assert kinds.KINDS == frozenset(
         {
             "publish.intent",
             "publish.confirmed",
             "publish.unverified",
             "publish.failed",
+            "publish.verified",
+            "publish.verify_failed",
             "draft.created",
             "draft.scheduled",
             "banner.source_url_fallback",
@@ -35,7 +37,7 @@ def test_kinds_set_is_the_15_documented_kinds():
             "link.rechecked",
         }
     )
-    assert len(kinds.KINDS) == 16
+    assert len(kinds.KINDS) == 18
 
 
 @pytest.mark.parametrize(

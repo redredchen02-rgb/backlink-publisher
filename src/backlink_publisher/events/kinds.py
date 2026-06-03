@@ -33,12 +33,19 @@ from __future__ import annotations
 
 from typing import Final
 
-# --- Seam A: the event-kind vocabulary (15 kinds; do NOT rename) ---------
+# --- Seam A: the event-kind vocabulary (15+2 kinds; do NOT rename) ---------
 
 PUBLISH_INTENT: Final = "publish.intent"
 PUBLISH_CONFIRMED: Final = "publish.confirmed"
 PUBLISH_UNVERIFIED: Final = "publish.unverified"
 PUBLISH_FAILED: Final = "publish.failed"
+#: Recheck liveness probe succeeded (Plan 2026-05-28-007 U3). Written directly
+#: by the recheck service via ``EventStore.append`` — NOT through the projector.
+#: The projector updates ``articles.verified_at`` when it processes this kind.
+PUBLISH_VERIFIED: Final = "publish.verified"
+#: Recheck liveness probe failed (Plan 2026-05-28-007 U3). Written directly by
+#: the recheck service. The projector updates ``articles.verify_error``.
+PUBLISH_VERIFY_FAILED: Final = "publish.verify_failed"
 DRAFT_CREATED: Final = "draft.created"
 DRAFT_SCHEDULED: Final = "draft.scheduled"
 BANNER_SOURCE_URL_FALLBACK: Final = "banner.source_url_fallback"
@@ -64,6 +71,8 @@ KINDS: Final[frozenset[str]] = frozenset(
         PUBLISH_CONFIRMED,
         PUBLISH_UNVERIFIED,
         PUBLISH_FAILED,
+        PUBLISH_VERIFIED,
+        PUBLISH_VERIFY_FAILED,
         DRAFT_CREATED,
         DRAFT_SCHEDULED,
         BANNER_SOURCE_URL_FALLBACK,
@@ -130,6 +139,11 @@ REQUIRED_FIELDS: Final[dict[str, frozenset[str]]] = {
     # cursor) needs; target identity travels in the events.db first-class
     # columns (target_url/host/article_id), not the floor.
     LINK_RECHECKED: frozenset({"verdict"}),
+    # Recheck liveness (Plan 2026-05-28-007 U3): these are appended directly by
+    # the recheck service, not the projector. article_id is the load-bearing
+    # field so the projector can update articles.verified_at/verify_error.
+    PUBLISH_VERIFIED: frozenset({"article_id"}),
+    PUBLISH_VERIFY_FAILED: frozenset({"article_id", "error_message"}),
 }
 
 

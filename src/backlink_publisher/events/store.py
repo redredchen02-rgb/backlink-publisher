@@ -288,6 +288,7 @@ class EventStore:
         allowed = {
             "body", "anchors_json", "target_urls_json", "lang", "host",
             "live_url", "published_at_raw", "published_at_utc", "run_id",
+            "platform", "migration_dedup_key",
         }
         unknown = set(article) - allowed
         if unknown:

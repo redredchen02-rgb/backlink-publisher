@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 
 #: Current schema version. Bump when adding a migration step.
-SCHEMA_VERSION: int = 3
+SCHEMA_VERSION: int = 4
 
 
 class SchemaTooNewError(RuntimeError):
@@ -58,11 +58,17 @@ _DDL_STATEMENTS: tuple[str, ...] = (
         live_url TEXT UNIQUE,
         published_at_raw TEXT,
         published_at_utc TEXT,
-        run_id TEXT
+        run_id TEXT,
+        platform TEXT,
+        verified_at TEXT,
+        verify_error TEXT,
+        migration_dedup_key TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_articles_host_pub ON articles(host, published_at_utc)",
     "CREATE INDEX IF NOT EXISTS idx_articles_run ON articles(run_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_migration_dedup "
+    "ON articles(migration_dedup_key) WHERE migration_dedup_key IS NOT NULL",
     """
     CREATE TABLE IF NOT EXISTS projection_cursor (
         source TEXT PRIMARY KEY,
@@ -156,6 +162,11 @@ def maybe_upgrade_schema(conn: sqlite3.Connection) -> None:
         if version in (1, 2):
             _ensure_quarantine_dedup_key(conn)
             _ensure_quarantine_row_id(conn)
+        # v4 migration: add columns to articles table used by history→events.db
+        # migration (plan 2026-05-28-007). Must run before DDL that references
+        # them (e.g. idx_articles_migration_dedup).
+        if version in (1, 2, 3):
+            _ensure_articles_v4_columns(conn)
         initialize_schema(conn)
         conn.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
     # Additive, idempotent, version-independent migrations. These MUST run even
@@ -207,6 +218,41 @@ def _ensure_quarantine_row_id(conn: sqlite3.Connection) -> None:
         except sqlite3.OperationalError as exc:
             if "duplicate column" not in str(exc).lower():
                 raise
+
+
+def _ensure_articles_v4_columns(conn: sqlite3.Connection) -> None:
+    """Add v4 columns to ``articles`` table for history→events.db migration.
+
+    Adds ``platform``, ``verified_at``, ``verify_error``, ``migration_dedup_key``
+    plus a partial UNIQUE index on the dedup key. Each column add is guarded by
+    ``PRAGMA table_info``; the index is ``CREATE UNIQUE INDEX IF NOT EXISTS``.
+    Concurrency-safe: duplicate column from concurrent writer is a benign race.
+
+    This runs BEFORE ``initialize_schema`` so ``idx_articles_migration_dedup``
+    in the DDL set can reference the column it indexes (SQLite requires the
+    column to exist at index-creation time).
+    """
+    existing_tables = {
+        row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+    }
+    if "articles" not in existing_tables:
+        return  # articles table doesn't exist yet; initialize_schema will create it
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(articles)")}
+    for column, coltype in [("platform", "TEXT"), ("verified_at", "TEXT"),
+                            ("verify_error", "TEXT"), ("migration_dedup_key", "TEXT")]:
+        if column not in cols:
+            try:
+                conn.execute(f"ALTER TABLE articles ADD COLUMN {column} {coltype} DEFAULT NULL")
+            except sqlite3.OperationalError as exc:
+                if "duplicate column" not in str(exc).lower():
+                    raise
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_migration_dedup "
+        "ON articles(migration_dedup_key) "
+        "WHERE migration_dedup_key IS NOT NULL"
+    )
 
 
 def maybe_create_fts5(conn: sqlite3.Connection) -> None:  # pragma: no cover - v1 stub
