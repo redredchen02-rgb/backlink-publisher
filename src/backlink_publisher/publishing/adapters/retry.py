@@ -1,22 +1,55 @@
-"""Shared exponential-backoff retry helper for adapter publish calls."""
+"""Shared exponential-backoff retry helper for adapter publish calls.
+
+Enhanced for Stage 1 optimization (Plan 2026-05-28-001):
+- Unified TransientError/PermanentError classification
+- Configurable retry strategies per error type
+- Enhanced backoff with jitter
+"""
 
 from __future__ import annotations
 
 import json
+import os
 import random
 import re
 import time
 from enum import Enum
 from typing import Any, Callable, TypeVar
 
-from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher._util.errors import (
+    DependencyError,
+    ExternalServiceError,
+    AuthExpiredError,
+)
 from backlink_publisher._util.logger import opencli_logger as log
+from .base import TransientError, PermanentError, classify_http_status
 
 T = TypeVar("T")
 
 MAX_ATTEMPTS: int = 3
 BACKOFF_BASE: int = 2
 JITTER_FACTOR: float = 0.15
+
+# Status-specific backoff multipliers for rate limiting
+STATUS_BACKOFF_MULTIPLIER: dict[int, float] = {
+    429: 5.0,  # Rate limited - use longer backoff
+    502: 1.5,
+    503: 2.0,
+    504: 2.0,
+}
+
+
+# Configurable backoff via environment
+def _get_env_backoff(key: str, default: float) -> float:
+    try:
+        return float(os.environ.get(key, str(default)))
+    except (ValueError, TypeError):
+        return default
+
+
+DEFAULT_MAX_ATTEMPTS: int = int(_get_env_backoff("BACKLINK_RETRY_MAX_ATTEMPTS", 3))
+DEFAULT_BACKOFF_BASE: int = int(_get_env_backoff("BACKLINK_RETRY_BACKOFF_BASE", 2))
+DEFAULT_JITTER: float = _get_env_backoff("BACKLINK_RETRY_JITTER", 0.15)
 
 # HTTP status codes that indicate a transient server-side failure worth retrying.
 # Only used by call-site is_retryable predicates — not enforced here.
@@ -77,16 +110,50 @@ def is_transient_reason(reason: str) -> bool:
     return reason in {"timeout", "network_error", "http_5xx"}
 
 
+def _is_retryable_error(exc: Exception, consider_429_as_transient: bool = True) -> bool:
+    """Default retryable predicate using the unified error hierarchy.
+
+    - TransientError and timeout/429/5xx patterns → retry
+    - PermanentError → no retry
+    - Other errors → defer to caller's predicate or no retry
+    """
+    if isinstance(exc, TransientError):
+        return True
+    if isinstance(exc, PermanentError):
+        return False
+    msg = str(exc).lower()
+    if "timeout" in msg or "connection" in msg:
+        return True
+    # HTTP status codes in message
+    import re as _re
+
+    status_match = _re.search(r"\b(\d{3})\b", msg)
+    if status_match:
+        status = int(status_match.group(1))
+        if status == 429 and consider_429_as_transient:
+            return True
+        if status in (502, 503, 504):
+            return True
+    return False
+
+
 def retry_transient_call(
     fn: Callable[[], T],
     *,
-    is_retryable: Callable[[Exception], bool],
-    max_attempts: int = MAX_ATTEMPTS,
-    backoff_base: int = BACKOFF_BASE,
-    jitter: float = JITTER_FACTOR,
+    is_retryable: Callable[[Exception], bool] | None = None,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    backoff_base: int = DEFAULT_BACKOFF_BASE,
+    jitter: float = DEFAULT_JITTER,
     adapter: str = "",
+    status_code: int | None = None,
 ) -> T:
     """Call fn() with exponential-backoff retry on transient failures.
+
+    Enhanced for Stage 1 (Plan 2026-05-28-001):
+    - Uses unified TransientError/PermanentError classification
+    - Applies longer backoff for rate-limited errors (429)
+    - Configurable via BACKLINK_RETRY_MAX_ATTEMPTS, BACKLINK_RETRY_BACKOFF_BASE,
+      BACKLINK_RETRY_JITTER env vars
 
     fn() should be a raw API call that has NOT yet converted exceptions to
     ExternalServiceError.  ExternalServiceError and DependencyError will never
@@ -99,9 +166,13 @@ def retry_transient_call(
     DependencyError (exit 3) vs ExternalServiceError (exit 4) correctly.
 
     Stderr format (R3a): {"level":"WARN","msg":"retrying (attempt N/M): …
-    — waiting Xs","adapter":"…"}
+    — waiting Xs","adapter":"…","status_code":N}
     No response bodies, headers, or credentials are emitted.
     """
+    # Use default predicate if none provided
+    if is_retryable is None:
+        is_retryable = _is_retryable_error
+
     last_exc: Exception | None = None
 
     for attempt in range(1, max_attempts + 1):
@@ -118,11 +189,27 @@ def retry_transient_call(
             if attempt == max_attempts:
                 raise
 
-            wait = float(backoff_base ** attempt) * random.uniform(
-                1.0 - jitter, 1.0 + jitter
-            )
+            # Calculate wait time with status-specific multiplier
+            base_wait = float(backoff_base**attempt)
+            multiplier = STATUS_BACKOFF_MULTIPLIER.get(status_code or 0, 1.0)
+            wait = base_wait * multiplier * random.uniform(1.0 - jitter, 1.0 + jitter)
+
+            # If no explicit status_code, try to extract from exception message
+            if status_code is None and last_exc:
+                import re as _re
+
+                match = _re.search(r"\b(\d{3})\b", str(last_exc))
+                if match:
+                    status_code = int(match.group(1))
+                    multiplier = STATUS_BACKOFF_MULTIPLIER.get(status_code, 1.0)
+                    wait = (
+                        base_wait
+                        * multiplier
+                        * random.uniform(1.0 - jitter, 1.0 + jitter)
+                    )
+
             exc_name = type(exc).__name__
-            _emit_retry(attempt, max_attempts, exc_name, wait, adapter)
+            _emit_retry(attempt, max_attempts, exc_name, wait, adapter, status_code)
             time.sleep(wait)
 
     # Unreachable, but satisfies the type checker.
@@ -136,6 +223,7 @@ def _emit_retry(
     exc_name: str,
     wait: float,
     adapter: str,
+    status_code: int | None = None,
 ) -> None:
     """Write a structured retry warning to stderr (R3a — no credentials/bodies)."""
     msg: dict[str, Any] = {
@@ -143,4 +231,6 @@ def _emit_retry(
         "msg": f"retrying (attempt {attempt}/{max_attempts}): {exc_name} — waiting {wait:.1f}s",
         "adapter": adapter,
     }
+    if status_code is not None:
+        msg["status_code"] = status_code
     log.warn(**msg)

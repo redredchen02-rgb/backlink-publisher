@@ -1,6 +1,11 @@
-"""Tests for AdapterResult base type."""
+"""Tests for adapter base functionality (Stage 1 enhanced)."""
 
-from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher.publishing.adapters.base import (
+    AdapterResult,
+    TransientError,
+    PermanentError,
+    classify_http_status,
+)
 
 
 def test_adapter_result_defaults():
@@ -94,3 +99,46 @@ def test_to_publish_output_omits_key_when_meta_lacks_verification():
     )
     out = r.to_publish_output({"id": "x4"}, "2026-05-25T00:00:00+00:00")
     assert "link_attr_verification" not in out
+
+
+# ---------------------------------------------------------------------------
+# TransientError / PermanentError classification (Stage 1)
+# ---------------------------------------------------------------------------
+
+
+def test_transient_error_is_subclass_of_exception():
+    """TransientError is a proper exception."""
+    exc = TransientError("test transient error")
+    assert isinstance(exc, Exception)
+
+
+def test_permanent_error_is_subclass_of_exception():
+    """PermanentError is a proper exception."""
+    exc = PermanentError("test permanent error")
+    assert isinstance(exc, Exception)
+
+
+def test_classify_http_status_transient():
+    """HTTP status codes 429 and 502-504 should be classified as TransientError."""
+    assert classify_http_status(429) == TransientError
+    assert classify_http_status(502) == TransientError
+    assert classify_http_status(503) == TransientError
+    assert classify_http_status(504) == TransientError
+    assert classify_http_status(500) == TransientError
+    assert classify_http_status(501) == TransientError
+    assert classify_http_status(599) == TransientError
+
+
+def test_classify_http_status_permanent():
+    """HTTP status codes 401, 403, 404 should be classified as PermanentError."""
+    assert classify_http_status(401) == PermanentError
+    assert classify_http_status(403) == PermanentError
+    assert classify_http_status(404) == PermanentError
+
+
+def test_classify_http_status_other():
+    """Other HTTP status codes return None (not classified)."""
+    assert classify_http_status(200) is None
+    assert classify_http_status(201) is None
+    assert classify_http_status(301) is None
+    assert classify_http_status(302) is None

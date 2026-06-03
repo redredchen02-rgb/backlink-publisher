@@ -1,9 +1,45 @@
-"""Shared types and base functionality for publisher adapters."""
+"""Shared types and base functionality for publisher adapters.
+
+Error hierarchy (Plan 2026-05-28-001):
+- TransientError: temporary errors (network timeout, 429, 5xx) - safe to retry
+- PermanentError: permanent errors (401, 403, 404) - no retry
+- DependencyError: missing credentials/prerequisites - triggers fall-through or auth-flip
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+
+class TransientError(Exception):
+    """Temporary error that can be safely retried (network timeout, 429, 5xx)."""
+
+    pass
+
+
+class PermanentError(Exception):
+    """Permanent error that should not be retried (401, 403, 404)."""
+
+    pass
+
+
+def classify_http_status(
+    status_code: int,
+) -> type[TransientError] | type[PermanentError] | None:
+    """Classify an HTTP status code to its error type.
+
+    Returns the appropriate exception class or None if not retryable.
+    """
+    if status_code == 429:
+        return TransientError
+    if status_code in (502, 503, 504):
+        return TransientError
+    if status_code in (401, 403, 404):
+        return PermanentError
+    if 500 <= status_code < 600:
+        return TransientError
+    return None
 
 
 _LINK_ATTR_VERIFICATION_KEY = "link_attr_verification"
@@ -27,7 +63,9 @@ def carry_link_attr_verification(
     return out
 
 
-def _resolve_article_urls(row: dict[str, Any], draft_url: str, published_url: str) -> list[str]:
+def _resolve_article_urls(
+    row: dict[str, Any], draft_url: str, published_url: str
+) -> list[str]:
     """Return the canonical article URL list for publish outputs."""
     urls = row.get("article_urls")
     if isinstance(urls, list):
@@ -41,13 +79,15 @@ def _resolve_article_urls(row: dict[str, Any], draft_url: str, published_url: st
 class AdapterResult:
     """Normalised result returned by every adapter."""
 
-    status: str          # "drafted" | "published" | "failed"
-    adapter: str         # e.g. "blogger-api", "medium-api", "medium-browser"
-    platform: str        # "blogger" | "medium"
+    status: str  # "drafted" | "published" | "failed"
+    adapter: str  # e.g. "blogger-api", "medium-api", "medium-browser"
+    platform: str  # "blogger" | "medium"
     draft_url: str = ""
     published_url: str = ""
     error: str | None = None
-    post_publish_delay_seconds: int = 0  # adapter-declared throttle (plan 2026-05-18-009 R9c)
+    post_publish_delay_seconds: int = (
+        0  # adapter-declared throttle (plan 2026-05-18-009 R9c)
+    )
     _dry_run: bool = False
     _command: str = ""
     _provider_meta: dict[str, Any] | None = None  # optional platform-specific metadata
@@ -75,10 +115,11 @@ class AdapterResult:
 
 class BaseAdapter:
     """Base adapter class with common HTTP handling and error patterns."""
-    
+
     def _json_log(self, **kwargs: Any) -> str:
         """Create a JSON log line."""
         import json
+
         return json.dumps(kwargs)
 
 
@@ -86,6 +127,9 @@ class BaseAdapter:
 __all__ = [
     "AdapterResult",
     "BaseAdapter",
+    "TransientError",
+    "PermanentError",
+    "classify_http_status",
     "carry_link_attr_verification",
     "_resolve_article_urls",
 ]

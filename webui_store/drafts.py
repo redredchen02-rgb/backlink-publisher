@@ -1,11 +1,18 @@
-"""DraftsStore — draft-queue specialized JsonStore with item helpers."""
+"""DraftsStore — draft-queue specialized JsonStore with item helpers.
+
+Plan 2026-06-02-001 U2 adds ``bulk_publish_now`` for campaign-scoped
+publish (no APScheduler indirection).
+"""
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Callable
 
 from .base import JsonStore
+
+_log = logging.getLogger(__name__)
 
 
 class DraftsStore(JsonStore):
@@ -125,3 +132,77 @@ class DraftsStore(JsonStore):
             if n:
                 self.save(items)
             return n
+
+    def get_by_campaign_id(self, campaign_id: str) -> list[dict[str, Any]]:
+        """Return all drafts whose ``campaign_id`` matches.
+
+        Read-only; no lock. Returns empty list when no drafts match or
+        when the store is empty.
+        """
+        return [
+            it for it in self.load()
+            if it.get("campaign_id") == campaign_id
+        ]
+
+    def bulk_publish_now(
+        self,
+        draft_ids: list[str],
+        publish_fn: Callable[[dict[str, Any]], dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Publish multiple drafts synchronously via the provided callback.
+
+        ``publish_fn`` receives a single draft dict and must return a dict
+        with at least ``{"ok": bool}`` (and optionally ``"error"``).
+
+        After each call, the draft's store status is updated to
+        ``"published"`` (on success) or ``"failed"`` (on error / exception).
+        The method returns ``{published: int, failed: int, errors: [str]}``.
+
+        This is designed for campaign-scoped publish (U2) — unlike
+        ``DraftAPI.bulk_publish_now`` which relies on APScheduler, this
+        method executes publish synchronously and is intended to be called
+        from the CampaignWorker (U5) or a future batch endpoint.
+        """
+        if not draft_ids:
+            return {"published": 0, "failed": 0, "errors": []}
+
+        id_set = set(draft_ids)
+        published = 0
+        failed = 0
+        errors: list[str] = []
+
+        drafts_to_publish: list[dict[str, Any]] = []
+        for it in self.load():
+            if it.get("id") in id_set:
+                drafts_to_publish.append(it)
+        for draft in drafts_to_publish:
+            draft_id = draft["id"]
+            try:
+                result = publish_fn(draft)
+                if result.get("ok"):
+                    self.update_item(draft_id, status="published")
+                    published += 1
+                else:
+                    err = result.get("error", "Publish returned ok=False")
+                    self.update_item(
+                        draft_id,
+                        status="failed",
+                        error=str(err),
+                    )
+                    failed += 1
+                    errors.append(f"{draft_id}: {err}")
+            except Exception as exc:
+                _log.exception("bulk_publish_now failed for %s", draft_id)
+                self.update_item(
+                    draft_id,
+                    status="failed",
+                    error=str(exc),
+                )
+                failed += 1
+                errors.append(f"{draft_id}: {exc}")
+
+        return {
+            "published": published,
+            "failed": failed,
+            "errors": errors,
+        }

@@ -586,7 +586,6 @@ def main(argv: list[str] | None = None) -> None:
                     f"spray-backlinks: {len(seed_errors_list)} of {len(rows)} "
                     f"seeds failed; check stderr for details",
                 )
-
     except PipelineError as exc:
         handle_error(exc)
 

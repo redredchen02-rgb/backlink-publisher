@@ -1,13 +1,13 @@
 """Publish-attempt event emission — Plan 2026-05-28-001 Unit 1.
 
-Emits one structured JSON line per browser-tier dispatch attempt so the
-operator has a baseline observability signal before behavioral changes
-(health gate, circuit breaker) in Units 2–3.
+Extended for Stage 1 (Plan 2026-05-28-001):
+- All adapters (not just browser-tier) emit events
+- Enhanced Outcome enum for rate limiting
+- HTTP method, URL, and status code in events
 
 Design constraints:
 - Never raises — side-effect only.
 - Writes to ``opencli_logger`` (stderr-captured by WebUI subprocess pipe).
-- Browser-tier only in v1; HTTP API channels are not covered here.
 """
 
 from __future__ import annotations
@@ -25,6 +25,8 @@ class Outcome(str, Enum):
     AUTH_BANNED = "auth_banned"
     EXTERNAL_ERROR = "external_error"
     TRANSIENT = "transient"
+    RATE_LIMITED = "rate_limited"
+    HTTP_ERROR = "http_error"
 
 
 def emit_attempt(
@@ -32,9 +34,17 @@ def emit_attempt(
     outcome: Outcome,
     duration_ms: float,
     run_id: str | None = None,
+    *,
+    http_method: str | None = None,
+    http_url: str | None = None,
+    http_status: int | None = None,
+    error_class: str | None = None,
     **extra: Any,
 ) -> None:
     """Emit a ``publish_attempt`` event.
+
+    Enhanced for Stage 1: includes HTTP method, URL, status code, and error class
+    for better observability across all adapters.
 
     Never raises — any internal error is swallowed so reliability events
     never break a publish run.
@@ -48,6 +58,14 @@ def emit_attempt(
         }
         if run_id is not None:
             payload["run_id"] = run_id
+        if http_method is not None:
+            payload["http_method"] = http_method
+        if http_url is not None:
+            payload["http_url"] = http_url
+        if http_status is not None:
+            payload["http_status"] = http_status
+        if error_class is not None:
+            payload["error_class"] = error_class
         payload.update(extra)
         _log.info(payload)
     except Exception:  # noqa: BLE001

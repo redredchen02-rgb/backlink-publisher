@@ -18,6 +18,7 @@ from pathlib import Path
 from backlink_publisher.config.loader import _resolve_config_dir
 
 from .base import JsonStore, Store, _LazyStore
+from .campaign_store import CampaignStore
 from .channel_status import channel_status_store
 from .drafts import DraftsStore
 from .history import HistoryStore
@@ -51,6 +52,9 @@ schedule_store = _LazyStore(
 queue_store = _LazyStore(
     lambda: QueueStore(_store_path("publish-queue.json"), default_factory=list)
 )
+campaign_store = _LazyStore(
+    lambda: CampaignStore(_store_path("campaigns.json"))
+)
 
 
 def _refresh_paths() -> None:
@@ -62,7 +66,8 @@ def _refresh_paths() -> None:
     have them re-resolve from the updated env var.
     """
     for store in (history_store, profiles_store, drafts_store,
-                  schedule_store, queue_store, channel_status_store):
+                  schedule_store, queue_store, channel_status_store,
+                  campaign_store):
         store.reset()
 
 
@@ -71,9 +76,11 @@ __all__ = [
     "JsonStore",
     "_LazyStore",
     "_store_path",
+    "CampaignStore",
     "DraftsStore",
     "HistoryStore",
     "QueueStore",
+    "campaign_store",
     "history_store",
     "profiles_store",
     "drafts_store",
