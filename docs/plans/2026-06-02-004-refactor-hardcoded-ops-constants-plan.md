@@ -1,7 +1,7 @@
 ---
 title: "refactor: Env-var overrides for hardcoded ops constants"
 type: refactor
-status: active
+status: completed
 date: 2026-06-02
 claims: {}
 ---
