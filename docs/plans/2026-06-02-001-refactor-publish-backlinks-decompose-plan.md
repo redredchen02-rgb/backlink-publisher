@@ -1,7 +1,7 @@
 ---
 title: "refactor: Decompose publish_backlinks.py into a package without breaking mock seams"
 type: refactor
-status: completed
+status: completed  # 2026-06-03: shipped as #389 in main
 date: 2026-06-02
 deepened: 2026-06-02
 claims: {}  # refactor of existing code; SLOC/CC/seam claims are validated by the existing suite + the two budget gates at execution time, not declared as pre-merge path/sha anchors. Explicit empty escape hatch per AGENTS.md post-2026-05-20 claims cutoff.

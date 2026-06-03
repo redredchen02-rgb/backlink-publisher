@@ -104,8 +104,8 @@ def gate_candidates(
          the reason is recorded so the override is auditable.
       3. HARD cap — among survivors (operator selection order preserved), keep
          the first ``cap``; the rest are dropped as over-cap.
-      4. Non-blocking cross-seed warning — annotate surviving shots whose
-         platform may already link the money site (advisory only).
+       4. Cross-seed governance — drop surviving shots whose platform already
+          linked the money site for a previous seed (hard gate).
     """
     from backlink_publisher.cli.plan_backlinks._engine import _cell_gate_drop
 
@@ -128,7 +128,8 @@ def gate_candidates(
         if already_published_fn is not None and already_published_fn(
             cand.platform, main_domain
         ):
-            cand.cross_seed_warning = (
-                "platform may already link this money site — cross-seed footprint "
-                "risk (v1 does not govern cross-seed; self-space targets)"
+            cand.dropped = True
+            cand.gate_reason = (
+                "cross-seed: already published by a previous seed"
             )
+            continue
