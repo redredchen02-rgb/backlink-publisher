@@ -247,13 +247,8 @@ class NotionAPIAdapter(Publisher):
                     "token is valid and the database is shared with the integration."
                 )
             if resp.status_code == 400:
-                try:
-                    err_body = resp.json()
-                    msg = err_body.get("message", resp.text[:200])
-                except ValueError:
-                    msg = resp.text[:200]
                 raise ExternalServiceError(
-                    f"Notion API rejected request (HTTP 400): {msg}"
+                    f"Notion API rejected request (HTTP 400): {resp.text[:200]}"
                 )
             if resp.status_code not in (200, 201):
                 raise ExternalServiceError(
