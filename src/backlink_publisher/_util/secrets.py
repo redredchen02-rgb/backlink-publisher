@@ -45,6 +45,8 @@ log = logging.getLogger(__name__)
 #: Lock acquisition timeout for the rotate-write sequence.  Above this,
 #: assume a stuck peer and abort rather than block forever.
 _LOCK_TIMEOUT_S = 10
+_LOCK_JITTER_MIN_S: float = 0.05  # flock retry jitter lower bound (s)
+_LOCK_JITTER_MAX_S: float = 0.15  # flock retry jitter upper bound (s)
 
 
 # ── 1. Path resolver ────────────────────────────────────────────────────────
@@ -219,7 +221,7 @@ def _token_lock(token_path: Path) -> Iterator[None]:
                         "Another frw-login may be stuck. Inspect with "
                         "`lsof <path>` and retry."
                     )
-                time.sleep(random.uniform(0.05, 0.15))
+                time.sleep(random.uniform(_LOCK_JITTER_MIN_S, _LOCK_JITTER_MAX_S))
         yield
     finally:
         try:

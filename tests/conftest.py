@@ -41,14 +41,14 @@ GRANDFATHERED_EXPANDUSER_SITES: frozenset[tuple[str, int]] = frozenset(
         # construction — legitimately uses ~ to find the binary).
         (
             "src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py",
-            66,
+            68,
         ),
         # _resolve_chrome_profile_dir(): expands BACKLINK_PUBLISHER_REAL_CHROME_PROFILE_DIR
         # (same rationale — operator-supplied profile dir may contain "~"; the
         # default branch already calls _config_dir() correctly).
         (
             "src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py",
-            116,
+            118,
         ),
         # _ChromeSession.open() in instant_web.py: env var
         # BACKLINK_PUBLISHER_REAL_CHROME_PROFILE_DIR may contain "~"; the

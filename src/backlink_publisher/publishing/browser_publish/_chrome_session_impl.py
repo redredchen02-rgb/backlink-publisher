@@ -46,6 +46,8 @@ _DEFAULT_PORT = 9222
 _CONNECT_TIMEOUT_S = 10.0
 _POLL_INTERVAL_S = 0.25
 _TERMINATE_TIMEOUT_S = 5.0
+_OS_PROBE_TIMEOUT_S: int = 5        # timeout for lsof / ps subprocess probes
+_KILL_WAIT_TIMEOUT_S: float = 2.0   # last-resort wait after kill() (post-SIGTERM failure)
 _CHANNEL_RE = re.compile(r"^[a-z0-9_-]+$")
 _PID_FILE_NAME = "real-chrome-publish.pid"
 _PROFILE_LOCK_NAME = "chrome-profile.lock"
@@ -159,7 +161,7 @@ def _lsof_listener_pid(port: int) -> int | None:
             ["lsof", f"-iTCP:{port}", "-sTCP:LISTEN", "-Fp", "-n", "-P"],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=_OS_PROBE_TIMEOUT_S,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
@@ -184,7 +186,7 @@ def _ps_command(pid: int) -> str | None:
             ["ps", "-o", "command=", "-p", str(pid)],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=_OS_PROBE_TIMEOUT_S,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
@@ -551,7 +553,7 @@ class ChromeAttachSession(AbstractContextManager):
             except Exception:
                 pass
             try:
-                proc.wait(timeout=2.0)
+                proc.wait(timeout=_KILL_WAIT_TIMEOUT_S)
             except Exception:
                 pass
         finally:

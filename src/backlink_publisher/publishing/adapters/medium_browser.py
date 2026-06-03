@@ -61,6 +61,12 @@ except ImportError:  # pragma: no cover — tested via DependencyError path
     PlaywrightTimeoutError = Exception  # type: ignore[assignment,misc]
 
 _DEFAULT_MEDIUM_PUBLISH_DELAY_S: int = 30  # 30 s: shared with MEDIUM_THROTTLE_MIN/MAX timing
+_PLAYWRIGHT_GOTO_TIMEOUT_MS: int = 30_000   # page.goto timeout for Medium editor page (ms)
+_PASTE_SETTLE_MS: int = 1_500               # settle after clipboard paste render (ms)
+_MENU_OPEN_SETTLE_MS: int = 1_000           # settle after opening Publish menu (ms)
+_TAG_INPUT_SETTLE_MS: int = 300             # settle after each tag entered (ms)
+_PUBLISH_SETTLE_MS: int = 3_000             # settle after Publish / draft-fallback click (ms)
+_SAVE_DRAFT_SETTLE_MS: int = 2_000          # settle after Save Draft click (ms)
 
 
 def _post_publish_delay_s() -> int:
@@ -259,7 +265,7 @@ class MediumBrowserAdapter(Publisher):
 
                     log.info(_json_log(adapter="medium-browser", phase="open", id=article_id))
                     try:
-                        page.goto("https://medium.com/new-story", timeout=30_000)
+                        page.goto("https://medium.com/new-story", timeout=_PLAYWRIGHT_GOTO_TIMEOUT_MS)
                     except PlaywrightTimeoutError:
                         # CAPTCHA timing race mitigation: if the page partially loaded with a
                         # CAPTCHA present, raise ExternalServiceError (non-retryable) rather than
@@ -310,34 +316,34 @@ class MediumBrowserAdapter(Publisher):
                         html_content,
                     )
                     page.keyboard.press(_paste_key())
-                    page.wait_for_timeout(1500)
+                    page.wait_for_timeout(_PASTE_SETTLE_MS)
 
                     # Publish or save draft
                     if mode == "publish":
                         log.info(_json_log(adapter="medium-browser", phase="publish", id=article_id))
                         page.locator(sel.PUBLISH_MENU).click()
-                        page.wait_for_timeout(1000)
+                        page.wait_for_timeout(_MENU_OPEN_SETTLE_MS)
                         try:
                             tag_input = page.locator(sel.TAGS_INPUT)
                             for tag in tags:
                                 tag_input.type(tag)
                                 page.keyboard.press("Enter")
-                                page.wait_for_timeout(300)
+                                page.wait_for_timeout(_TAG_INPUT_SETTLE_MS)
                         except Exception as e:
                             log.debug(f"tag insertion failed (optional): {e}")  # tags are optional
                         page.locator(sel.PUBLISH_BUTTON).click()
-                        page.wait_for_timeout(3000)
+                        page.wait_for_timeout(_PUBLISH_SETTLE_MS)
                     else:
                         try:
                             page.locator(sel.SAVE_DRAFT).click()
-                            page.wait_for_timeout(2000)
+                            page.wait_for_timeout(_SAVE_DRAFT_SETTLE_MS)
                         except Exception as exc:
                             log.warn(
                                 "Failed to click 'Save Draft' button during fallback: %s. "
                                 "Proceeding with standard wait.",
                                 exc,
                             )
-                            page.wait_for_timeout(3000)
+                            page.wait_for_timeout(_PUBLISH_SETTLE_MS)
 
                     final_url = page.url
                     elapsed = int((time.monotonic() - t0) * 1000)

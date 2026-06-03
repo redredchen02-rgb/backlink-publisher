@@ -40,6 +40,8 @@ from .driver import BIND_TIMEOUT_MS, ChromeLaunchError
 
 _CONNECT_TIMEOUT_S = 10.0
 _POLL_INTERVAL_S = 0.25
+_CDP_TAB_OPEN_TIMEOUT_S: float = 5.0  # HTTP timeout for /json/new tab-open request
+_CDP_WS_CONNECT_TIMEOUT_S: int = 5    # WebSocket handshake timeout for CDP session
 
 
 def _chrome_profile_dir() -> Path:
@@ -223,7 +225,7 @@ class RealChromeBrowserRunner:
         for method in ("put", "get"):
             try:
                 resp = getattr(self._requests, method)(
-                    f"{base}/json/new?{encoded}", timeout=5.0
+                    f"{base}/json/new?{encoded}", timeout=_CDP_TAB_OPEN_TIMEOUT_S
                 )
             except Exception:
                 continue
@@ -261,7 +263,7 @@ class _CdpClient:
                 raise ChromeLaunchError("chrome_cdp_unavailable") from exc
             websocket_factory = websocket.create_connection
         try:
-            self._ws = websocket_factory(ws_url, timeout=5)
+            self._ws = websocket_factory(ws_url, timeout=_CDP_WS_CONNECT_TIMEOUT_S)
         except Exception as exc:
             raise ChromeLaunchError("chrome_cdp_unavailable") from exc
         self._next_id = 1
