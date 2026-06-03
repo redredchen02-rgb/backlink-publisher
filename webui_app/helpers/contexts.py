@@ -218,6 +218,7 @@ def _settings_context(flash=None):
 
     return dict(
         flash=flash,
+        active_page='settings',
         csrf_token=csrf_token,
         dashboard_channels=dashboard_channels,
         dashboard_channel_tiers=dashboard_channel_tiers,
@@ -294,4 +295,6 @@ def _render(template_name: str, **kwargs):
         )
     if 'incomplete_run' not in kwargs:
         kwargs['incomplete_run'] = _load_incomplete_run()
+    if 'active_page' not in kwargs and template_name == 'index.html':
+        kwargs['active_page'] = 'index'
     return render_template(template_name, **kwargs)

@@ -1,0 +1,50 @@
+/* Global navigation bar — Plan 2026-06-03-003 U2.
+ *
+ * Uses Bootstrap sticky-top for scroll behaviour; z-index inherits Bootstrap's
+ * sticky-top (~1020), which is safely below the Copilot FAB (1080). */
+
+.global-nav {
+    background: var(--gradient);
+    box-shadow: var(--shadow-brand);
+    padding: 0 24px;
+}
+
+.global-nav__inner {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    max-width: 1200px;
+    margin: 0 auto;
+    height: 48px;
+}
+
+.global-nav__item {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+}
+
+.global-nav__item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.global-nav__item.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* Ghost button — used in page-level navbars on index and settings pages */
+.nav-btn-ghost {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.5);
+}

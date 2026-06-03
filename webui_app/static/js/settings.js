@@ -320,21 +320,54 @@ function _initActions() {
   on(document, 'velog:login', () => runVelogLogin());
 }
 
-// ── Inline-script blocks lifted verbatim from settings_main.js ───
-function _initStickyTabBar() {
-  const links = Array.from(document.querySelectorAll('.stab-link[data-section]'));
-  if (!links.length) return;
-  let pinUntil = 0;
-  const setActive = (id) => links.forEach((a) => a.classList.toggle('active', a.dataset.section === id));
-  links.forEach((a) => on(a, 'click', () => { pinUntil = Date.now() + 800; setActive(a.dataset.section); }));
-  const visible = new Set();
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((e) => { if (e.isIntersecting) visible.add(e.target.id); else visible.delete(e.target.id); });
-    if (Date.now() < pinUntil) return;
-    for (const a of links) { if (visible.has(a.dataset.section)) { setActive(a.dataset.section); return; } }
-  }, { rootMargin: '-10% 0px -60% 0px' });
-  links.forEach((a) => { const el = document.getElementById(a.dataset.section); if (el) observer.observe(el); });
-  setActive(links[0] && links[0].dataset.section);
+// ── Settings sidebar pane switch (U4, replaces _initStickyTabBar) ─
+const HASH_TO_PANE = {
+  '#channel-medium': 'channels',
+  '#channel-blogger': 'channels',
+  '#channel-velog': 'channels',
+  '#channel-telegraph': 'channels',
+  '#channel-ghpages': 'channels',
+  '#channel-devto': 'channels',
+  '#channel-notion': 'channels',
+  '#section-channels': 'channels',
+  '#section-global': 'global',
+  '#section-llm': 'llm',
+};
+
+function _hashToPaneKey(hash) {
+  return HASH_TO_PANE[hash] || null;
+}
+
+function showPane(key) {
+  document.querySelectorAll('.settings-pane').forEach((el) => el.classList.remove('active'));
+  const target = document.getElementById('pane-' + key);
+  if (target) {
+    target.classList.add('active');
+  } else {
+    // Stale sessionStorage key — fall back to dashboard to avoid blank page.
+    const fallback = document.getElementById('pane-dashboard');
+    if (fallback) fallback.classList.add('active');
+  }
+  document.querySelectorAll('[data-pane]').forEach((el) => {
+    el.classList.toggle('active', el.dataset.pane === key);
+  });
+}
+
+function _initActivePane() {
+  let key = null;
+  try { key = sessionStorage.getItem('settings:activePane'); } catch (e) { /* ignore */ }
+  if (!key) key = _hashToPaneKey(window.location.hash);
+  if (!key) key = 'dashboard';
+  showPane(key);
+}
+
+function _initSidebarNav() {
+  delegate(document, 'click', '[data-action="sidebar-nav"]', (e, el) => {
+    const key = el.dataset.pane;
+    if (!key) return;
+    try { sessionStorage.setItem('settings:activePane', key); } catch (err) { /* ignore */ }
+    showPane(key);
+  });
 }
 
 function _initLoadingOverlay() {
@@ -418,17 +451,25 @@ function _initTierPersistence() {
 }
 
 // ── boot ─────────────────────────────────────────────────────────
-// Modules are deferred (run after HTML parse), so the DOM is ready here — but
-// guard for the (rare) interactive state to match the old DOMContentLoaded.
+// Boot order is significant: _initActivePane must run before _initBindReopen
+// so the target pane is display:block before scrollIntoView fires.
 function _boot() {
   _initActions();
-  _initStickyTabBar();
+  _initSidebarNav();
+  _initActivePane();        // must precede _initBindReopen + _openCollapseForHash
   _initLoadingOverlay();
-  _openCollapseForHash();
   _initBindReopen();
+  _openCollapseForHash();
   _initOverviewPersistence();
   _initTierPersistence();
-  on(window, 'hashchange', _openCollapseForHash);
+  on(window, 'hashchange', () => {
+    const key = _hashToPaneKey(window.location.hash);
+    if (key) {
+      try { sessionStorage.setItem('settings:activePane', key); } catch (e) { /* ignore */ }
+      showPane(key);
+    }
+    _openCollapseForHash();
+  });
 }
 
 if (document.readyState === 'loading') {

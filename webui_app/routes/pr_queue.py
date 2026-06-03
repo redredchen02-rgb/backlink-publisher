@@ -39,7 +39,7 @@ def pr_queue_page() -> Any:
     items = _load()
     for item in items:
         item["_status_color"] = _STATUS_COLORS.get(item.get("status", "pending"), "gray")
-    return render_template("pr_queue.html", items=items)
+    return render_template("pr_queue.html", items=items, active_page='pr_queue')
 
 
 @bp.get("/api/pr-queue")

@@ -16,9 +16,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {# Single source of design tokens, consumed by per-page CSS. #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css', v=asset_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global_nav.css', v=asset_version) }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
+    {# Global navigation — active_page must use | default('') so pages that omit it render without error. #}
+    <nav class="global-nav sticky-top">
+        <div class="global-nav__inner">
+            <a href="/" class="global-nav__item{% if (active_page | default('')) == 'index' %} active{% endif %}">发布</a>
+            <a href="/ce:health" class="global-nav__item{% if (active_page | default('')) == 'health' %} active{% endif %}">健康</a>
+            <a href="/schedule" class="global-nav__item{% if (active_page | default('')) == 'schedule' %} active{% endif %}">排程</a>
+            <a href="/ce:equity-ledger" class="global-nav__item{% if (active_page | default('')) == 'equity' %} active{% endif %}">权益</a>
+            <a href="/sites" class="global-nav__item{% if (active_page | default('')) == 'sites' %} active{% endif %}">站点</a>
+            <a href="/pr-queue" class="global-nav__item{% if (active_page | default('')) == 'pr_queue' %} active{% endif %}">PR队列</a>
+            <a href="/settings" class="global-nav__item{% if (active_page | default('')) == 'settings' %} active{% endif %}">设置</a>
+        </div>
+    </nav>
     {% block content %}{% endblock %}
     {# Server -> client bootstrap data island(s). Usually one window.__<page>Bootstrap;
        index is the documented exception (two: __indexBootstrap + __batchTabHint). #}

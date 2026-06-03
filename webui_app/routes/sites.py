@@ -78,6 +78,7 @@ def sites_form():
         flash_type=request.args.get("flash_type"),
         flash_msg=request.args.get("flash_msg"),
         default_templates=", ".join(DEFAULT_WORK_TEMPLATES),
+        active_page='sites',
     )
 
 
@@ -147,6 +148,7 @@ def sites_save_three_url():
             flash_type="danger",
             flash_msg="请修正下方表单错误",
             default_templates=", ".join(DEFAULT_WORK_TEMPLATES),
+            active_page='sites',
         ), 422
 
     # Server-side derivation (plan 006)

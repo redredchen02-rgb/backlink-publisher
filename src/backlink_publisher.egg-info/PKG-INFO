@@ -1,20 +1,21 @@
 Metadata-Version: 2.4
 Name: backlink-publisher
-Version: 0.2.0
+Version: 0.3.0
 Summary: A local-first backlink publishing pipeline for Blogger and Medium.
 Requires-Python: >=3.11
 Requires-Dist: markdown-it-py>=4.2
 Requires-Dist: google-api-python-client>=2.196
 Requires-Dist: google-auth-oauthlib>=1.4
 Requires-Dist: google-auth-httplib2>=0.2
-Requires-Dist: playwright>=1.55
-Requires-Dist: requests>=2.32.4
+Requires-Dist: playwright<2,>=1.55
+Requires-Dist: requests<3,>=2.32.4
 Requires-Dist: websocket-client>=1.9
-Requires-Dist: beautifulsoup4>=4.13
+Requires-Dist: beautifulsoup4<5,>=4.13
 Requires-Dist: flask<4,>=3.1
+Requires-Dist: flask-limiter<5,>=3.5
 Requires-Dist: apscheduler<4,>=3.11
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: tomli>=2.0; python_version < "3.11"
+Requires-Dist: google-analytics-data>=0.18
 Provides-Extra: dev
 Requires-Dist: pytest>=8.4; extra == "dev"
 Requires-Dist: pytest-mock>=3.15; extra == "dev"

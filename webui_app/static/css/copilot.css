@@ -301,3 +301,8 @@
 .copilot-panel .d-none,
 .copilot-fab.d-none,
 .copilot-fab .d-none { display: none !important; }
+
+/* Responsive FAB: hide text label below 1280px, keep ✦ icon visible */
+@media (max-width: 1279px) {
+    .copilot-fab__label { display: none; }
+}

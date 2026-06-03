@@ -20,6 +20,7 @@ def schedule_list() -> Any:
     return _render(
         "schedule.html",
         scheduled_items=scheduled.get("items", []) if scheduled.get("ok") else [],
+        active_page='schedule',
     )
 
 

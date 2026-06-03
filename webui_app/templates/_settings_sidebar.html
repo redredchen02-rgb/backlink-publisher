@@ -1,0 +1,35 @@
+{# Settings sidebar tree — rendered upfront; JS toggles pane visibility via data-pane.
+   Zero inline on* handlers — settings.js uses data-action delegation. #}
+<aside class="settings-sidebar">
+    <div class="sidebar-group">
+        <button class="sidebar-item" data-pane="dashboard" data-action="sidebar-nav">
+            <i class="bi bi-broadcast"></i> 綁定總覽
+        </button>
+    </div>
+
+    <div class="sidebar-group">
+        <span class="sidebar-group__label">发布渠道</span>
+        {% if dashboard_channels %}
+            {% for name, status in dashboard_channels %}
+            <button class="sidebar-item" data-pane="channels" data-action="sidebar-nav">
+                {{ name }}
+            </button>
+            {% endfor %}
+        {% else %}
+            <span class="sidebar-item disabled">（暂无渠道）</span>
+        {% endif %}
+    </div>
+
+    <div class="sidebar-group">
+        <span class="sidebar-group__label">全局设置</span>
+        <button class="sidebar-item" data-pane="global" data-action="sidebar-nav">
+            <i class="bi bi-sliders"></i> 关键词 &amp; 排程
+        </button>
+    </div>
+
+    <div class="sidebar-group">
+        <button class="sidebar-item" data-pane="llm" data-action="sidebar-nav">
+            <i class="bi bi-cpu"></i> AI 引擎
+        </button>
+    </div>
+</aside>

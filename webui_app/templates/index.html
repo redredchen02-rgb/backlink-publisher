@@ -8,44 +8,36 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css', v=asset_version) }}">
 {% endblock %}
 {% block content %}
-    <nav class="navbar" style="display:flex;justify-content:space-between;align-items:center;">
+    <nav class="navbar">
         <h1><i class="bi bi-link-45deg me-2"></i>Backlink Publisher</h1>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div class="nav-actions">
             {% if blogger_token_status %}
             {% set ts = blogger_token_status %}
             {% if ts.state == 'ok' %}
-            <span title="{{ ts.label }}" style="display:flex;align-items:center;gap:5px;
-                background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.5);
-                color:white;padding:4px 10px;border-radius:20px;font-size:12px;">
+            <span title="{{ ts.label }}" class="nav-badge ok">
                 <i class="bi bi-shield-check"></i> Blogger 已连接
             </span>
             {% elif ts.state == 'expiring' %}
-            <a href="/settings" title="{{ ts.label }}" style="display:flex;align-items:center;gap:5px;
-                background:rgba(245,158,11,0.25);border:1px solid rgba(245,158,11,0.6);
-                color:white;padding:4px 10px;border-radius:20px;font-size:12px;text-decoration:none;">
+            <a href="/settings" title="{{ ts.label }}" class="nav-badge expiring">
                 <i class="bi bi-exclamation-triangle"></i> {{ ts.label }}
             </a>
             {% elif ts.state == 'expired' %}
-            <a href="/settings/blogger/oauth-start" method="post" title="{{ ts.label }}" style="display:flex;align-items:center;gap:5px;
-                background:rgba(239,68,68,0.25);border:1px solid rgba(239,68,68,0.6);
-                color:white;padding:4px 10px;border-radius:20px;font-size:12px;text-decoration:none;">
+            <a href="/settings/blogger/oauth-start" method="post" title="{{ ts.label }}" class="nav-badge expired">
                 <i class="bi bi-exclamation-circle"></i> Token 过期 · 点击重新授权
             </a>
             {% else %}
-            <a href="/settings" title="{{ ts.label }}" style="display:flex;align-items:center;gap:5px;
-                background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.5);
-                color:white;padding:4px 10px;border-radius:20px;font-size:12px;text-decoration:none;">
+            <a href="/settings" title="{{ ts.label }}" class="nav-badge unlinked">
                 <i class="bi bi-shield-x"></i> Blogger 未授权
             </a>
             {% endif %}
             {% endif %}
-            <a href="/settings" class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.5);">
+            <a href="/settings" class="btn btn-sm nav-btn-ghost">
                 <i class="bi bi-gear me-1"></i>设置
             </a>
             {% if config %}
             <form method="POST" action="/ce:clear" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.5);">
+                <button type="submit" class="btn btn-sm nav-btn-ghost">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>重置
                 </button>
             </form>

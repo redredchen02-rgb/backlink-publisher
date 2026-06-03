@@ -242,6 +242,14 @@ function _initUrlDerive() {
   );
 }
 
+// ── Flash auto-dismiss (U5: R17) ────────────────────────────────
+function _initFlashDismiss() {
+  // Only auto-dismiss non-critical alerts; danger/warning must persist until manually closed.
+  document.querySelectorAll('.alert-success.alert-dismissible, .alert-info.alert-dismissible').forEach((el) => {
+    setTimeout(() => { if (el.isConnected) el.remove(); }, 4000);
+  });
+}
+
 // ── boot ─────────────────────────────────────────────────────────
 function _boot() {
   _initActions();
@@ -250,6 +258,7 @@ function _boot() {
   _initBulkSelect();   // defines rewireBulkSelect — before filter clicks fire
   _initUrlDerive();
   initModeToggle();
+  _initFlashDismiss();
 }
 
 if (document.readyState === 'loading') on(document, 'DOMContentLoaded', _boot); else _boot();
