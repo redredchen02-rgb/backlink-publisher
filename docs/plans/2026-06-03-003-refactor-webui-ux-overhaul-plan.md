@@ -1,7 +1,7 @@
 ---
 title: "refactor: WebUI UI/UX Complete Overhaul"
 type: refactor
-status: active
+status: completed
 date: 2026-06-03
 origin: docs/brainstorms/2026-06-03-webui-ux-overhaul-requirements.md
 ---
