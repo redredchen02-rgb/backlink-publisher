@@ -346,3 +346,440 @@ Units 1–2 functionally).
   `cli/_resume.py`, `tests/conftest.py` (`FakeAdapter`), `tests/test_reliability_policy.py`,
   `tests/test_reliability_circuit.py`
 - Related plan: `docs/plans/2026-05-28-001-feat-publish-reliability-policy-plan.md` (completed)
+
+---
+
+<!-- /autoplan restore point: /Users/dex/.gstack/projects/redredchen01-backlink-publisher/feat-live-verify-reliability-policy-autoplan-restore-20260603-164619.md -->
+
+## /autoplan Review — 2026-06-03
+
+**Branch:** feat/live-verify-reliability-policy | **Commit:** f5be626 | **Phases run:** CEO + Eng (Design skipped — no UI scope)
+
+---
+
+### Phase 1: CEO Review
+
+#### 0A. Premise Challenge
+
+**P1 (PARTIALLY OUTDATED):** The plan presents Unit 1 as uncreated, but `tests/test_reliability_policy_live.py` exists on disk as an **untracked (uncommitted) file** with 185 lines covering both `TestR1EngineSeam` (4 tests) and `TestR1ResumeSeam` (2 tests). Unit 1 is functionally complete pending commit. The actual remaining work is: (a) add a `assert state.outputs` guard in every R1 test to prevent vacuous negative assertions, (b) Unit 2 (R2–R6 behaviors), (c) Unit 3 (gate-verdicts entry).
+
+**P2 (VALID):** Pure verification probe. No production-logic changes. R9 contract (no cli/*.py edits) confirmed not at risk.
+
+**P3 (VALID):** `fake` is non-browser-tier — confirmed against `policy.py:55` `_BROWSER_TIER = frozenset({"medium","velog","devto","mastodon"})`.
+
+**P4 (VALID):** `_increment_half_open_try` has no caller on the publish path — confirmed. `is_tripped()` returns `False` for HALF_OPEN (dispatch allowed, no trial counting). R4 scoped to recovery is correct.
+
+#### 0B. Existing Code Leverage
+
+| Sub-problem | Existing code | Plan reuses? |
+|---|---|---|
+| Engine seam spy | `tests/test_reliability_policy.py` (sentinel pattern) | Yes (follows pattern) |
+| Resume seam spy | `tests/test_reliability_circuit.py` | Yes (same pattern) |
+| Circuit trip/recovery | `circuit.time` mock in `test_reliability_circuit.py:95` | Yes (reuse pattern) |
+| FakeAdapter raising | `tests/conftest.py:544` (`FakeAdapter`) | Partial — raising variant not yet added |
+| Events capture | `events.py` uses `opencli_logger as _log` | Plan correctly identifies logger target |
+
+**Unit 1 is already written (untracked).** Plan incorrectly presents it as uncreated.
+
+#### 0C. Dream State Delta
+
+```
+CURRENT STATE                  THIS PLAN                  12-MONTH IDEAL
+Policy ships behind flag  →  CLI branch selection    →  Policy default-on with real
+Untested in CI via           tested via run_publish       adapter error mapping and
+run_publish_loop             _loop. R2–R6 behaviors       HALF_OPEN trial limiting
+                             regression-covered.           wired end-to-end.
+                             Gate verdict recorded.
+```
+
+This plan moves toward the ideal but explicitly excludes real-platform error mapping and HALF_OPEN trial limiting — both needed before default-on.
+
+#### 0C-bis. Implementation Alternatives
+
+```
+APPROACH A: Committed tests (current plan)
+  Summary: committed pytest file exercising CLI loop, policy behaviors, gate verdict
+  Effort:  S (human: ~4h / CC: ~20min)
+  Risk:    Low
+  Pros:    Durable regression artifact; exercises real seams; matches project's testing philosophy
+  Cons:    Stub-only (no real adapter coverage)
+  Reuses:  FakeAdapter, existing circuit/policy test patterns
+
+APPROACH B: Minimal seam test only (skip R2-R6)
+  Summary: only the R1 branch-selection tests (engine + resume)
+  Effort:  XS (human: ~1h / CC: ~5min)
+  Risk:    Low
+  Pros:    Smallest possible artifact
+  Cons:    Misses R2–R6 behavioral regression; already substantially written anyway
+  Reuses:  Same as A
+
+APPROACH C: Expand to HALF_OPEN fix + real adapter error mapping
+  Summary: fix the unwired trial limiter AND add characterization tests for real adapters
+  Effort:  L (human: ~2d / CC: ~2h)
+  Risk:    Medium (requires credentials/bound channels for real adapters)
+  Pros:    Closes the larger reliability gap Codex identified
+  Cons:    Out of scope for a pure verification probe; credential dependency
+  Reuses:  All of A plus circuit.py changes
+```
+
+**RECOMMENDATION: Approach A** (current plan) — already mostly written, right level of completeness for a verification probe.
+**AUTO-DECIDED: HOLD SCOPE** (Principle P3: pragmatic; this is a verification probe on a completed feature, not a feature build).
+
+#### 0D. HOLD SCOPE Analysis
+
+- Plan touches 3 files (1 new test + conftest modification + gate-verdicts). Well under 8-file complexity smell.
+- Minimum change that achieves the goal: exactly what the plan describes.
+- No work to defer from the plan's stated scope.
+
+#### 0E. Temporal Interrogation
+
+```
+HOUR 1 (foundations):   Stage + verify the existing Unit 1 file; confirm tests pass.
+                         Add assert state.outputs guard before committing.
+HOUR 2 (core logic):    Add RaisingFakeAdapter to conftest.py.
+                         Wire R3 (circuit trip), R4 (recovery via time mock), R5 (caplog opencli).
+HOUR 4 (integration):   R2 (browser-tier health gate stub — lightest fixture approach).
+                         Confirm caplog logger name is "opencli" (not root).
+HOUR 6+ (polish):        Unit 3 gate-verdicts entry. Commit everything.
+```
+
+#### CEO Dual Voices
+
+**CLAUDE SUBAGENT (CEO — strategic independence):**
+- B1: Resume seam tests already written; plan says they're not → HIGH
+- B2: Vacuous negative assertion risk if row never reaches line 237 → HIGH (add `assert state.outputs`)
+- R3: HALF_OPEN dead-code gap has no tracking artifact → MEDIUM
+- S1: Plan presents Unit 1 as unstarted → MEDIUM
+
+**CODEX SAYS (CEO — strategy challenge):**
+> The probe is partially justified, but solves the smallest possible risk while walking past the bigger business risk: the reliability policy is still default-off, and the plan does not define what evidence would make it safe or worthwhile to enable.
+> Strategic gaps: (1) branch-selection ≠ reliability; (2) HALF_OPEN limiter unwired undermines circuit premise; (3) GO verdict risks false management confidence; (4) stub-only misses adapter error mapping; (5) double env check is awkward architecture; (6) Unit 1 already partially drafted.
+> Recommends: split into seam artifact + HALF_OPEN fix plan + scoped GO (not full GO).
+
+```
+CEO DUAL VOICES — CONSENSUS TABLE:
+═══════════════════════════════════════════════════════════════
+  Dimension                           Claude  Codex  Consensus
+  ──────────────────────────────────── ─────── ─────── ─────────
+  1. Premises valid?                   Mostly  Mostly  CONFIRMED
+  2. Right problem to solve?           Yes     Partial DISAGREE → TASTE DECISION
+  3. Scope calibration correct?        Yes     No      DISAGREE → TASTE DECISION
+  4. Alternatives sufficiently explored? Yes   No      DISAGREE
+  5. Competitive/market risks          N/A     N/A     N/A
+  6. 6-month trajectory sound?        Yes*    No      DISAGREE → TASTE DECISION
+═══════════════════════════════════════════════════════════════
+* with HALF_OPEN tracking artifact and scoped GO
+```
+
+**Cross-phase theme (surfaced by both voices):** The HALF_OPEN trial limiter is dead code on the publish path. Both reviewers flagged it independently. High-confidence signal that the plan needs to explicitly disclaim this in the GO verdict AND create a tracking artifact.
+
+#### CEO Review Sections
+
+**Section 1 — Architecture:** Test-only. No new production components.
+```
+run_publish_loop() ──▶ _publish_one_row():237 ──▶ policy_enabled()? ──▶ publish_with_policy()
+                                                        └──▶ adapter_publish() (else)
+
+_publish_one_resume_item():324 ──▶ policy_enabled()? ──▶ publish_with_policy()
+                                          └──▶ adapter_publish() (else)
+
+Tests spy at module-namespace boundaries (late-import for engine, module-top for resume).
+```
+No architectural concerns. The two different import seams (late-import engine vs module-top resume) are correctly handled by different spy targets.
+
+**Section 2 — Error & Rescue Map:**
+| Codepath | What can go wrong | Exception | Rescued? |
+|---|---|---|---|
+| RaisingFakeAdapter.publish() | raises ExternalServiceError | ExternalServiceError | Y — in publish_with_policy |
+| circuit.trip() via locked_store | locked_store faults | swallowed try/except | Y — fail-soft design |
+| caplog missing opencli logger | logs to wrong logger | No exception | N (silent miss) — test-design gap |
+
+The `caplog` silent-miss risk is the most important — see Section 6 (Tests).
+
+**Section 3 — Security:** No new attack surface. Test infrastructure only.
+
+**Section 4 — Data Flow:** No new data flows. Existing publish_with_policy path exercised via test stubs.
+
+**Section 5 — Code Quality:**
+- R1 tests lack `assert state.outputs` guard — vacuous negative assertions possible if dedup gate skips before line 237. **Fix: add `assert len(state.outputs) == 1` before spy assertions in every R1 test.**
+- Plan Unit 1 checklist shows `[ ]` but the file exists on disk. **Fix: note untracked file in plan; update to `[x]` after adding guard assertion and committing.**
+
+**Section 6 — Test Review (CRITICAL — do not skip):**
+```
+NEW CODEPATHS (via tests):
+  R1a: engine seam flag=1 → publish_with_policy
+  R1b: engine seam flag=0/unset → adapter_publish
+  R1c: resume seam flag=1 → publish_with_policy
+  R1d: resume seam flag=0/unset → adapter_publish
+  R2: browser-tier health gate → skipped_policy (flag=1)
+  R3: circuit trip → skipped_circuit_open (flag=1, non-browser)
+  R4: circuit recovery HALF_OPEN → dispatch allowed (flag=1, non-browser)
+  R5: opencli logger events (success + external_error) (flag=1, non-browser)
+  R6: R3/R4/R5 on fake (non-browser) — implicit in the above
+
+STATUS:
+  R1a–R1d: EXISTS on disk (untracked, needs guard assertion) ✓ pending commit
+  R2: NOT YET WRITTEN
+  R3: NOT YET WRITTEN (needs RaisingFakeAdapter in conftest)
+  R4: NOT YET WRITTEN (needs circuit.time mock pattern)
+  R5: NOT YET WRITTEN (needs caplog targeting opencli_logger)
+  R6: NOT YET WRITTEN (implicit in R3-R5 using fake slug)
+```
+
+Implementation notes for Unit 2:
+- `caplog` must target logger named `"opencli"` — `events.py:19` uses `from backlink_publisher._util.logger import opencli_logger as _log`. The logger propagates to root, so `caplog` with `propagate=True` or direct capture on the `opencli` logger name both work. Verify the logger name matches what `opencli_logger` is registered as.
+- RaisingFakeAdapter: add to `tests/conftest.py` near `FakeAdapter:544` — a variant whose `publish()` raises `ExternalServiceError`. Use `BACKLINK_PUBLISHER_CIRCUIT_ERROR_THRESHOLD=1` AND pre-seed `circuit.trip(platform, config)` for deterministic trip.
+- Circuit recovery (R4): use `mock.patch("backlink_publisher.publishing.reliability.circuit.time")` — pattern confirmed at `tests/test_reliability_circuit.py:95`.
+- R2 (health gate): stub `channel_status_store.get_status("velog")` to return non-"bound" — check `webui_store/channel_status.py` for the correct import target.
+
+**Section 7 — Performance:** Test-only. `throttle_min=0, throttle_max=0` in test harness ensures no real sleep.
+
+**Section 8 — Observability:** R5 verifies the observability path directly. No new observability gaps.
+
+**Section 9 — Deployment:** Test-only. No deployment considerations.
+
+**Section 10 — Long-Term Trajectory:**
+- **HALF_OPEN trial limiter dead code** — `circuit.py:396` `_increment_half_open_try` has no caller on the publish path. This is a latent bug: the circuit never limits HALF_OPEN trials in practice, which may allow more traffic through recovery than intended. The GO verdict **must** explicitly disclaim this. A TODO should be filed — not deferred to "a separate fix plan" with no tracking artifact.
+- **The GO verdict scope** — Codex correctly identifies the risk of a broad GO creating false confidence. The verdict should read: "CLI enforce-branch selection (engine + resume) and stub-level health-gate / circuit-trip / recovery / observability verified through run_publish_loop. **NOT covered:** real-platform error mapping, HALF_OPEN trial-count limiting, default-on readiness."
+- **Reversibility:** 5/5 — tests only, easy to delete/modify.
+- **Knowledge concentration:** The plan documents the key traps (caplog target, BACKLINK_PUBLISHER_CIRCUIT_ERROR_THRESHOLD env, dry-run guard, dedup gate) thoroughly. New contributor could follow it.
+
+#### CEO Required Outputs
+
+**NOT in scope:**
+- Real-platform error-mapping fidelity (needs bound channels + credentials)
+- HALF_OPEN trial-limiting end-to-end (separate fix plan needed)
+- Flipping the default flag to on (no evidence threshold defined)
+- Any production-logic changes
+
+**What already exists:**
+- `TestR1EngineSeam` + `TestR1ResumeSeam` in `tests/test_reliability_policy_live.py` (untracked, 185 lines)
+- `FakeAdapter` in `tests/conftest.py:544`
+- Circuit time-mock pattern in `tests/test_reliability_circuit.py:95`
+- `circuit.trip()` + `is_tripped()` API in `circuit.py`
+- Events `opencli_logger` pattern in `events.py:19`
+
+**Dream state delta:** This plan leaves us at "branch selection and stub-level policy behaviors are CI-verified." The 12-month ideal (policy default-on, real error mapping, HALF_OPEN limiting) requires at least two more follow-up plans.
+
+**Error & Rescue Registry:**
+| Codepath | What can go wrong | Exception | Rescued? | User sees |
+|---|---|---|---|---|
+| RaisingFakeAdapter.publish() | ExternalServiceError raised | ExternalServiceError | Y in publish_with_policy | skipped_circuit_open after trip |
+| circuit locked_store in test | faults silently swallowed | (swallowed) | Y — fail-soft | counter never advances → R3 flaky |
+| caplog missing logger name | no events captured | (none) | N — silent miss | R5 test false-pass |
+
+**Failure Modes Registry:**
+| Codepath | Failure mode | Rescued? | Tested? | User sees | Logged? |
+|---|---|---|---|---|---|
+| dedup gate before line 237 | skip/hold → row never reaches policy branch | Y (by dedup) | NOT YET (guard assertion missing) | Silent false-pass on negative spy assertions | Y (dedup_skip_count) |
+| caplog wrong logger | R5 events not captured | N | NOT YET | False-pass | N |
+| RaisingFakeAdapter missing | R3 can't trip deterministically | N | NOT YET | Flaky test | N |
+
+---
+
+### Phase 3: Eng Review
+
+#### Scope Challenge
+
+Branch diff: 1 new test file + conftest modification + gate-verdicts. 3 files total. Well under complexity threshold.
+
+**Existing code mapped to sub-problems:**
+
+| Sub-problem | Existing code | Status |
+|---|---|---|
+| R1 engine seam | `tests/test_reliability_policy_live.py` (untracked) | EXISTS — needs guard assertion |
+| R1 resume seam | same file, `TestR1ResumeSeam` | EXISTS — needs guard assertion |
+| R2 health gate | `webui_store/channel_status.py` (get_status target) | NOT YET (requires fixture/patch) |
+| R3 circuit trip | `circuit.trip()` + RaisingFakeAdapter | NOT YET (FakeAdapter variant needed) |
+| R4 recovery | `circuit.time` mock pattern | NOT YET (pattern exists, not applied) |
+| R5 events | `opencli_logger` in events.py | NOT YET (caplog wiring needed) |
+| Unit 3 gate verdict | `docs/ideation/gate-verdicts.md` | NOT YET |
+
+#### Eng Dual Voices
+
+**CLAUDE SUBAGENT (eng — independent review):**
+Findings from CEO phase (same subagent session, independent perspective):
+- Architecture sound: test infrastructure follows established project patterns ✓
+- Test coverage: R1 engine/resume seam covered; R2-R6 gap real and well-scoped
+- Security: no new attack surface ✓
+- Hidden complexity: dedup gate vacuous-assertion trap is the main one
+- Error paths: caplog logger name is the silent-failure risk
+
+**CODEX SAYS (eng — architecture challenge):**
+> The double `policy_enabled()` check (engine calls it before calling `publish_with_policy`, which calls it again at line 146) is awkward split ownership. Testing both paths is correct, but architecturally someone will patch one seam and believe they changed rollout behavior. This is not a test plan issue — it's a future refactor target.
+> The `assert state.outputs` guard is non-negotiable for R1 test correctness.
+> For R5: confirm the logger name returned by `opencli_logger` — it's not guaranteed to be `"opencli"` unless explicitly registered with that name.
+
+```
+ENG DUAL VOICES — CONSENSUS TABLE:
+═══════════════════════════════════════════════════════════════
+  Dimension                           Claude  Codex  Consensus
+  ──────────────────────────────────── ─────── ─────── ─────────
+  1. Architecture sound?               Yes     Yes*    CONFIRMED
+  2. Test coverage sufficient?         Unit1✓  Unit1✓  CONFIRMED (Unit 2 needed)
+  3. Performance risks addressed?      N/A     N/A     N/A
+  4. Security threats covered?         Yes     Yes     CONFIRMED
+  5. Error paths handled?              Mostly  Mostly  CONFIRMED (caplog gap noted)
+  6. Deployment risk manageable?       None    None    CONFIRMED
+═══════════════════════════════════════════════════════════════
+* Codex flags double policy_enabled() check as future refactor target
+```
+
+#### Architecture ASCII Diagram
+
+```
+TEST FILE: tests/test_reliability_policy_live.py
+────────────────────────────────────────────────
+TestR1EngineSeam
+  monkeypatch env ──▶ run_publish_loop() ──▶ _publish_one_row():237
+                                                    │
+                          spy: _ENGINE_NS.publish_with_policy ◀── flag=1
+                          spy: _ENGINE_NS.adapter_publish     ◀── flag=0/unset
+
+TestR1ResumeSeam
+  monkeypatch env ──▶ _publish_one_resume_item() ──▶ :324
+                                                    │
+                          spy: _RESUME_NS.publish_with_policy ◀── flag=1
+                          spy: _RESUME_NS.adapter_publish     ◀── flag=0/unset
+
+TestR2HealthGate (to be written)
+  stub channel_status(velog) ≠ bound ──▶ run_publish_loop()
+  assert out.status == "skipped_policy"
+
+TestR3CircuitTrip (to be written)
+  RaisingFakeAdapter + THRESHOLD=1 OR circuit.trip(fake, config)
+  ──▶ run_publish_loop() ──▶ assert is_tripped(fake) == True
+  ──▶ run_publish_loop() again ──▶ assert out.status == "skipped_circuit_open"
+
+TestR4Recovery (to be written)
+  From tripped state ──▶ advance time via circuit.time mock
+  ──▶ run_publish_loop() ──▶ assert dispatch allowed (HALF_OPEN, is_tripped False)
+
+TestR5Observability (to be written)
+  caplog(logger_name="opencli") ──▶ run_publish_loop()
+  assert "publish_attempt" in records with platform/outcome/duration_ms
+
+CONFTEST:
+  FakeAdapter (existing) ──▶ add RaisingFakeAdapter variant raising ExternalServiceError
+```
+
+#### Test Diagram (Section 3 — never skip)
+
+| Codepath/requirement | Test type | Exists? | Gap |
+|---|---|---|---|
+| Engine seam flag=1 | Unit | ✓ (untracked) | Missing `assert state.outputs` guard |
+| Engine seam flag=0/unset | Unit | ✓ (untracked) | Missing `assert state.outputs` guard |
+| Engine seam flag="0" | Unit | ✓ (untracked) | Missing `assert state.outputs` guard |
+| Engine seam dry_run guard | Unit | ✓ (untracked) | No guard needed here (dry_run True is the case) |
+| Resume seam flag=1 | Unit | ✓ (untracked) | Missing `assert state.outputs` guard |
+| Resume seam flag=0/unset | Unit | ✓ (untracked) | Missing `assert state.outputs` guard |
+| R2 browser-tier health gate | Unit | NOT WRITTEN | Need `velog` channel_status stub |
+| R3 circuit trip OPEN | Unit | NOT WRITTEN | Need RaisingFakeAdapter + threshold=1 |
+| R3 skipped_circuit_open | Unit | NOT WRITTEN | Assert after trip |
+| R4 HALF_OPEN recovery | Unit | NOT WRITTEN | Need circuit.time mock |
+| R5 opencli events success | Unit | NOT WRITTEN | Need caplog("opencli") |
+| R5 opencli events external_error | Unit | NOT WRITTEN | Need caplog("opencli") + raising adapter |
+| R6 non-browser fake coverage | Implicit | Via R3-R5 | Satisficed when R3-R5 run on `fake` |
+| Unit 3 gate-verdicts entry | Doc | NOT WRITTEN | Append scoped GO |
+
+**Gaps requiring action before merge:**
+1. `assert state.outputs` (or `assert len(state.outputs) >= 1`) in every R1 test that asserts a spy was NOT called — prevents vacuous pass if dedup gate skips before line 237
+2. RaisingFakeAdapter variant in conftest.py
+3. R2, R3, R4, R5 test classes (Unit 2)
+4. Gate-verdicts GO entry with explicit HALF_OPEN disclaimer (Unit 3)
+
+**Test ambition checks:**
+- 2am Friday confidence: dedup gate guard assertion (R1) and is_tripped pre-assertion (R3) are the load-bearing correctness tests
+- Hostile QA: would add `assert state.outputs` absence causes test to pass vacuously — already identified
+- Chaos: circuit locked_store faults — plan correctly notes pre-seeding `circuit.trip()` beats relying on counter accumulation
+
+**Flakiness risks:**
+- R3 via counter accumulation: FLAKY (locked_store faults swallow count) → mitigate with `circuit.trip()` pre-seed
+- R4 via real time: FLAKY → mitigate with `circuit.time` mock (pattern exists)
+- caplog: NOT flaky if logger name is correct; SILENT MISS if logger name is wrong
+
+#### Implementation Tasks
+
+- [ ] **T1 (P1, human: ~15min / CC: ~2min)** — `tests/test_reliability_policy_live.py` — Add `assert state.outputs` guard to all 6 R1 tests
+  - Surfaced by: CEO/Eng dual voices — vacuous negative assertion risk when dedup gate skips before line 237
+  - Files: `tests/test_reliability_policy_live.py`
+  - Verify: `assert len(state.outputs) == 1` in each R1 test before spy assertions; test fails if row is dedup-skipped
+
+- [ ] **T2 (P1, human: ~30min / CC: ~5min)** — `tests/conftest.py` — Add `RaisingFakeAdapter` variant
+  - Surfaced by: Eng review Section 3 — R3 needs a raising adapter for circuit trip
+  - Files: `tests/conftest.py` (near FakeAdapter:544)
+  - Verify: `RaisingFakeAdapter.publish()` raises `ExternalServiceError`; fixture registered alongside `FakeAdapter`
+
+- [ ] **T3 (P1, human: ~2h / CC: ~15min)** — `tests/test_reliability_policy_live.py` — Write Unit 2 (R2–R6)
+  - Surfaced by: Plan Unit 2; Eng review Section 3 gap table
+  - Files: `tests/test_reliability_policy_live.py`
+  - Key implementation notes:
+    - R2: stub `channel_status_store` for `velog` to return non-"bound"; assert `skipped_policy`
+    - R3: `BACKLINK_PUBLISHER_CIRCUIT_ERROR_THRESHOLD=1` + pre-seed `circuit.trip("fake", config)`; assert `is_tripped` True before asserting `skipped_circuit_open`
+    - R4: `mock.patch("backlink_publisher.publishing.reliability.circuit.time")` (pattern: `test_reliability_circuit.py:95`); advance past cooldown; assert dispatch allowed
+    - R5: `caplog` on `"opencli"` logger; assert `publish_attempt` records with `platform`/`outcome`/`duration_ms` fields
+  - Verify: `PYTHONHASHSEED=0 pytest tests/test_reliability_policy_live.py -v`
+
+- [ ] **T4 (P1, human: ~5min / CC: ~2min)** — `docs/ideation/gate-verdicts.md` — Add scoped GO entry (Unit 3)
+  - Surfaced by: CEO dual voices — GO verdict must disclaim HALF_OPEN and real error mapping
+  - Files: `docs/ideation/gate-verdicts.md`
+  - Required disclaimer: "CLI enforce-branch selection (engine + resume) and stub-level health-gate / circuit-trip / recovery / observability verified through run_publish_loop. NOT covered: real-platform error mapping, HALF_OPEN trial-count limiting, default-on readiness."
+  - Verify: entry is dated, references this plan file + test file
+
+- [ ] **T5 (P2, human: ~5min / CC: ~1min)** — `docs/plans/2026-06-03-007-*.md` — Update Unit 1 checkbox from `[ ]` to `[x]` (after T1 guard assertion is added and file is committed)
+  - Surfaced by: CEO review — plan presents Unit 1 as unstarted; it's functionally complete
+  - Files: this plan file
+  - Verify: `[ ] **Unit 1:` → `[x] **Unit 1:`
+
+- [ ] **T6 (P3, TODOS.md)** — `HALF_OPEN trial limiter (`_increment_half_open_try`) has no caller on the publish path` — file as a tracked TODO/fix plan
+  - Surfaced by: CEO dual voices (both Claude + Codex) — dead code limiter means circuit-recovery is unlimited in HALF_OPEN; this is a latent production gap
+  - Not blocking this plan; must not be silently dropped
+  - Verify: a tracking artifact exists (TODOS.md entry or separate fix plan stub)
+
+#### Completion Checklist
+
+- [x] Scope challenge with actual code analysis
+- [x] Architecture ASCII diagram produced
+- [x] Test diagram mapping codepaths to coverage
+- [x] "NOT in scope" section written
+- [x] "What already exists" section written
+- [x] Failure modes registry with critical gap assessment
+- [x] Dual voices ran (Codex + Claude subagent)
+- [x] Eng consensus table produced
+
+---
+
+### Decision Audit Trail
+
+<!-- AUTONOMOUS DECISION LOG -->
+| # | Phase | Decision | Principle | Rationale | Rejected |
+|---|-------|----------|-----------|-----------|----------|
+| 1 | CEO | Mode: HOLD SCOPE | P3 (pragmatic), P5 (explicit) | Verification probe on completed feature; no expansion justified | EXPANSION, SELECTIVE EXPANSION |
+| 2 | CEO | Approach A (committed test artifact) | P1 (completeness) | Only durable form; one-off CLI run doesn't prevent regression | One-off operator run (Approach B) |
+| 3 | CEO | Acknowledge untracked file (Unit 1 ~done) | P6 (bias toward action) | Prevents implementer from rewriting existing tests | Silently ignoring |
+| 4 | CEO/Eng | Add `assert state.outputs` guard | P1 (completeness) | Vacuous negative assertion risk is real; guard costs 1 line | Skip guard |
+| 5 | CEO | Flag HALF_OPEN dead code as P3 TODO | P1 (completeness), P6 (action) | Both Claude + Codex flagged; high-confidence; must not be silently dropped | Defer with no tracking artifact |
+| 6 | CEO | Scope GO verdict precisely | P5 (explicit) | "GO" without disclaimer creates false management confidence | Broad GO |
+| 7 | Eng | Reuse circuit.time mock for R4 | P3 (pragmatic) | Pattern already exists at test_reliability_circuit.py:95 | New time mechanism |
+| 8 | Eng | Pre-seed circuit.trip() for R3 (not counter accumulation) | P5 (explicit) | locked_store fault swallows count; pre-seed is deterministic | Counter accumulation only |
+
+**TASTE DECISIONS (surfaced at gate):**
+
+| # | Topic | Claude position | Codex position | Impact if Codex wins |
+|---|-------|----------------|----------------|---------------------|
+| TD1 | Probe scope: stay narrow vs expand to HALF_OPEN fix | HOLD SCOPE | Expand | ~L effort spike; out of scope for verification probe |
+| TD2 | Real adapter error mapping | Defer (out of scope) | Include at least 1-2 adapters | Credential dependency; blocks fast ship |
+| TD3 | GO verdict approach | Scoped GO with explicit disclaimer | Don't record a gate verdict (or label "seam-only") | Either is fine; scoped GO is more consistent with gate ledger conventions |
+
+---
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/autoplan` Phase 1 | Scope & strategy | 1 | issues_open | 6 findings (2 HIGH, 2 MEDIUM, 2 LOW); Unit 1 untracked, vacuous assertion risk, HALF_OPEN gap |
+| Codex CEO Voice | `/autoplan` dual voice | Independent 2nd opinion | 1 | issues_open | 6 strategic blind spots; expand scope suggestion → TASTE DECISION |
+| Eng Review | `/autoplan` Phase 3 | Architecture & tests | 1 | issues_open | 6 implementation tasks (4 P1, 1 P2, 1 P3); Unit 2 + Unit 3 not written |
+| Design Review | `/autoplan` Phase 2 | UI/UX gaps | 0 | skipped | No UI scope detected |
+
+**VERDICT:** 6 auto-decided findings written to plan + 3 taste decisions surfaced at gate. See Final Approval Gate below.
