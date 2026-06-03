@@ -153,6 +153,57 @@
     {% endif %}
   </div>
 
+  {# ── 3a. Platform last-state panel (Plan 2026-06-03-004 U4) ─────────────── #}
+  {% set ph = platform_health | default({}) %}
+  {% if ph %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold">
+      Platform last-state
+      <span class="text-muted small fw-normal">— per-platform publish history &amp; circuit state</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Platform</th>
+            <th>Last Success</th>
+            <th>Last Failure</th>
+            <th class="text-center">Consec. Fails</th>
+            <th class="text-center">Circuit</th>
+            <th class="text-center">Paused</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for platform, rec in ph.items() | sort %}
+          <tr>
+            <td class="fw-medium">{{ platform }}</td>
+            <td class="text-success small">{{ rec.last_success_at[:19] if rec.last_success_at else '—' }}</td>
+            <td class="text-danger small">{{ rec.last_failure_at[:19] if rec.last_failure_at else '—' }}</td>
+            <td class="text-center">
+              {% if rec.consecutive_failures > 0 %}
+              <span class="badge text-bg-warning">{{ rec.consecutive_failures }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-center">
+              {% if rec.circuit_tripped %}
+              <span class="badge text-bg-danger">OPEN</span>
+              {% else %}
+              <span class="text-muted small">closed</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if rec.paused %}
+              <span class="badge text-bg-secondary">paused</span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
   {# ── 3a. Per-channel value scorecard (Plan 2026-06-01-005 U8, Wave-0 MVP) ─ #}
   {% set scorecard_rows = channel_scorecard | default([]) %}
   <div class="card shadow-sm mb-4">

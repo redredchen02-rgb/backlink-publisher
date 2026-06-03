@@ -291,6 +291,16 @@ def ce_health():
             _log.warning("health: channel scorecard read failed: %s", exc)
             return []
 
+    def _platform_health():
+        try:
+            from backlink_publisher.config import load_config
+            from backlink_publisher.health.aggregate import build_platform_health
+            cfg = _g_cache('config', load_config)
+            return build_platform_health(cfg)
+        except Exception as exc:  # noqa: BLE001 — never 500 the page
+            _log.warning("health: platform_health build failed: %s", exc)
+            return {}
+
     try:
         projection, health = _g_cache("health_agg", _build)
         canary = _g_cache("canary_health", _canary_rows)
@@ -301,6 +311,7 @@ def ce_health():
         geo_panel = _g_cache("geo_panel", _geo_panel)
         pipeline_summary = _g_cache("pipeline_summary", _pipeline_summary)
         storage_health = _g_cache("storage_health", _storage_health)
+        platform_health = _g_cache("platform_health", _platform_health)
         return _render(
             "health.html",
             health=health,
@@ -313,6 +324,7 @@ def ce_health():
             geo_panel=geo_panel,
             pipeline_summary=pipeline_summary,
             storage_health=storage_health,
+            platform_health=platform_health,
             active_page='health',
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500

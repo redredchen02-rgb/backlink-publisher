@@ -33,6 +33,7 @@ _BASE_BACKOFF_S: float = 0.05
 
 #: macOS xattr key for Time Machine / iCloud backup exclusion.
 _XATTR_BACKUP_EXCLUDE: str = "com.apple.metadata:com_apple_backup_excludeItem"
+_XATTR_TIMEOUT_S: int = 5  # subprocess timeout for xattr backup-exclusion tagging
 
 
 def _default_db_path() -> Path:
@@ -100,7 +101,7 @@ def _set_backup_exclude_xattr(path: Path) -> None:
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=5,
+            timeout=_XATTR_TIMEOUT_S,
         )
     except (FileNotFoundError, subprocess.SubprocessError):
         # xattr binary missing or subprocess died. Don't crash event-store

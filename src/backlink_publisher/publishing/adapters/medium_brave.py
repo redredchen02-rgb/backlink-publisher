@@ -28,6 +28,21 @@ from backlink_publisher.publishing.registry import Publisher
 from .base import AdapterResult
 from .link_attr_verifier import required_link_urls, verify_link_attributes
 
+_APPLESCRIPT_READ_TIMEOUT_S: int = 10    # timeout for URL-read / focus-tab AppleScript calls
+_APPLESCRIPT_JS_TIMEOUT_S: int = 30      # timeout for execute-JS AppleScript calls
+_KEYSTROKE_TITLE_TIMEOUT_S: int = 15     # System Events keystroke for article title text
+_KEYSTROKE_QUICK_TIMEOUT_S: int = 5      # System Events quick key press (Enter / Cmd+V)
+_PBCOPY_TIMEOUT_S: int = 10              # subprocess timeout for pbcopy clipboard set
+_BRAVE_CHECK_TIMEOUT_S: int = 5          # Brave liveness probe AppleScript timeout
+_UI_SETTLE_S: float = 0.3               # post-JS-click settle before next action
+_UI_MICRO_SETTLE_S: float = 0.2         # micro settle after focus() / window activate
+_UI_MED_SETTLE_S: float = 0.5           # settle after Enter keypress
+_PASTE_SETTLE_S: float = 2.0            # settle after clipboard paste render
+_CLICK_SETTLE_S: float = 2.0            # settle after menu button click
+_PUBLISH_SETTLE_S: float = 3.0          # settle after "Publish now" click / draft save
+_EDITOR_FALLBACK_WAIT_S: float = 5.0    # extra wait when editor-ready probe times out
+_EDITOR_POLL_INTERVAL_S: float = 1.0    # polling interval in editor-ready and URL-settle loops
+
 
 def _json_log(**kwargs: Any) -> str:
     return json.dumps(kwargs)
@@ -126,7 +141,7 @@ tell application "Brave Browser"
     return theURL
 end tell
 '''
-    result = _run_applescript(script, timeout=10)
+    result = _run_applescript(script, timeout=_APPLESCRIPT_READ_TIMEOUT_S)
     if result == _TAB_GONE_SENTINEL:
         raise _tab_gone_error(win_id, tab_id)
     return result
@@ -169,7 +184,7 @@ tell application "Brave Browser"
 end tell
 delay 0.3
 '''
-    result = _run_applescript(script, timeout=10)
+    result = _run_applescript(script, timeout=_APPLESCRIPT_READ_TIMEOUT_S)
     if result == _TAB_GONE_SENTINEL:
         raise _tab_gone_error(win_id, tab_id)
 
@@ -199,14 +214,14 @@ tell application "Brave Browser"
     return theResult
 end tell
 '''
-    result = _run_applescript(script, timeout=30)
+    result = _run_applescript(script, timeout=_APPLESCRIPT_JS_TIMEOUT_S)
     if result == _TAB_GONE_SENTINEL:
         raise _tab_gone_error(win_id, tab_id)
     return result
 
 
 def _set_clipboard(text: str) -> None:
-    proc = subprocess.run(["pbcopy"], input=text.encode("utf-8"), timeout=10)
+    proc = subprocess.run(["pbcopy"], input=text.encode("utf-8"), timeout=_PBCOPY_TIMEOUT_S)
     if proc.returncode != 0:
         raise ExternalServiceError("Failed to copy content to clipboard")
 
@@ -230,7 +245,7 @@ def _wait_for_editor(win_id: str, tab_id: str, max_wait: int = 20) -> bool:
                 return True
         except Exception as exc:  # noqa: BLE001
             log.debug("page-ready probe failed: %s", exc)
-        time.sleep(1)
+        time.sleep(_EDITOR_POLL_INTERVAL_S)
     return False
 
 
@@ -241,45 +256,45 @@ def _fill_title(win_id: str, tab_id: str, title: str) -> None:
         "[class*=\"graf--title\"], h3[class*=\"title\"]'); "
         "if(el){ el.click(); el.focus(); }"
     )
-    time.sleep(0.3)
+    time.sleep(_UI_SETTLE_S)
     _focus_tab(win_id, tab_id)
-    time.sleep(0.2)
+    time.sleep(_UI_MICRO_SETTLE_S)
     escaped = title.replace('"', '\\"').replace("\\", "\\\\")
     subprocess.run(
         ["osascript", "-e",
          f'tell application "System Events" to tell process "Brave Browser"'
          f' to keystroke "{escaped}"'],
-        timeout=15,
+        timeout=_KEYSTROKE_TITLE_TIMEOUT_S,
     )
-    time.sleep(0.3)
+    time.sleep(_UI_SETTLE_S)
     subprocess.run(
         ["osascript", "-e",
          'tell application "System Events" to tell process "Brave Browser"'
          ' to key code 36'],
-        timeout=5,
+        timeout=_KEYSTROKE_QUICK_TIMEOUT_S,
     )
-    time.sleep(0.5)
+    time.sleep(_UI_MED_SETTLE_S)
 
 
 def _paste_body(win_id: str, tab_id: str, html_content: str) -> None:
     _set_clipboard(html_content)
-    time.sleep(0.3)
+    time.sleep(_UI_SETTLE_S)
     _tab_js(
         win_id, tab_id,
         "var b = document.querySelector('[data-testid=\"post-body\"], "
         ".section-inner, [class*=\"graf--p\"]'); "
         "if(b){ b.click(); b.focus(); }"
     )
-    time.sleep(0.3)
+    time.sleep(_UI_SETTLE_S)
     _focus_tab(win_id, tab_id)
-    time.sleep(0.2)
+    time.sleep(_UI_MICRO_SETTLE_S)
     subprocess.run(
         ["osascript", "-e",
          'tell application "System Events" to tell process "Brave Browser"'
          ' to keystroke "v" using command down'],
-        timeout=10,
+        timeout=_APPLESCRIPT_READ_TIMEOUT_S,
     )
-    time.sleep(2)
+    time.sleep(_PASTE_SETTLE_S)
 
 
 def _click_publish_menu(win_id: str, tab_id: str) -> None:
@@ -293,7 +308,7 @@ def _click_publish_menu(win_id: str, tab_id: str) -> None:
         raise ExternalServiceError(
             "Could not find Publish button — editor may not have loaded correctly."
         )
-    time.sleep(2)
+    time.sleep(_CLICK_SETTLE_S)
 
 
 def _click_publish_now(win_id: str, tab_id: str) -> None:
@@ -304,7 +319,7 @@ def _click_publish_now(win_id: str, tab_id: str) -> None:
         "b.textContent.includes('Publish now') || b.textContent.includes('Publish'));"
         "if(pub){ pub.click(); return 'clicked'; } return 'notfound';"
     )
-    time.sleep(3)
+    time.sleep(_PUBLISH_SETTLE_S)
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +349,7 @@ class MediumBraveAdapter(Publisher):
         log.info(_json_log(adapter="medium-brave", phase="start", id=article_id))
 
         try:
-            _run_applescript('tell application "Brave Browser" to return name', timeout=5)
+            _run_applescript('tell application "Brave Browser" to return name', timeout=_BRAVE_CHECK_TIMEOUT_S)
         except Exception:
             raise ExternalServiceError(
                 "Brave Browser is not running. Please open Brave and log in to Medium."
@@ -364,7 +379,7 @@ class MediumBraveAdapter(Publisher):
 
         log.info(_json_log(adapter="medium-brave", phase="wait-editor", id=article_id))
         if not _wait_for_editor(win_id, tab_id, max_wait=20):
-            time.sleep(5)
+            time.sleep(_EDITOR_FALLBACK_WAIT_S)
 
         log.info(_json_log(adapter="medium-brave", phase="fill-title", id=article_id))
         _fill_title(win_id, tab_id, title)
@@ -385,7 +400,7 @@ class MediumBraveAdapter(Publisher):
                 ))
         else:
             log.info(_json_log(adapter="medium-brave", phase="save-draft", id=article_id))
-            time.sleep(3)
+            time.sleep(_PUBLISH_SETTLE_S)
 
         # Wait up to 20s for Medium to redirect away from /new-story.
         final_url = ""
@@ -400,7 +415,7 @@ class MediumBraveAdapter(Publisher):
             else:
                 if "/p/" in final_url or "/edit" in final_url:
                     break
-            time.sleep(1)
+            time.sleep(_EDITOR_POLL_INTERVAL_S)
         log.info(_json_log(
             adapter="medium-brave", phase="done", id=article_id, url=final_url,
         ))

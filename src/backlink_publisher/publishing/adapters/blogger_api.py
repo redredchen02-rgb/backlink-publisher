@@ -32,6 +32,8 @@ _SCOPES = ["https://www.googleapis.com/auth/blogger"]
 
 
 _LOCK_TIMEOUT_S = BLOGGER_LOCK_TIMEOUT_S
+_LOCK_JITTER_MIN_S: float = 0.05  # flock retry jitter lower bound (s)
+_LOCK_JITTER_MAX_S: float = 0.15  # flock retry jitter upper bound (s)
 
 
 @contextmanager
@@ -61,7 +63,7 @@ def _refresh_lock(token_path: Path) -> Iterator[None]:
                         f"Could not acquire blogger token lock "
                         f"(waited {_LOCK_TIMEOUT_S}s): {lock_path}"
                     )
-                time.sleep(random.uniform(0.05, 0.15))
+                time.sleep(random.uniform(_LOCK_JITTER_MIN_S, _LOCK_JITTER_MAX_S))
         yield
     finally:
         try:

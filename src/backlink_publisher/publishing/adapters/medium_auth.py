@@ -41,6 +41,8 @@ except ImportError:
 _LOCK_FILENAME = "medium-browser.lock"
 _UI_LOCK_TIMEOUT = 10      # seconds the UI waits before fail-fast
 _MEDIUM_SIGNIN = "medium.com/m/signin"
+_PLAYWRIGHT_GOTO_TIMEOUT_MS: int = 30_000    # page.goto timeout for Medium signin page (ms)
+_PLAYWRIGHT_LOGIN_TIMEOUT_MS: int = 180_000  # wait_for_url timeout for login completion (ms)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -177,10 +179,10 @@ def launch_login_window(config: Config) -> dict:
         page = ctx.new_page()
         t0 = time.monotonic()
         try:
-            page.goto("https://medium.com/m/signin", timeout=30_000)
+            page.goto("https://medium.com/m/signin", timeout=_PLAYWRIGHT_GOTO_TIMEOUT_MS)
             page.wait_for_url(
                 re.compile(r"https://medium\.com/(?!m/signin)"),
-                timeout=180_000,
+                timeout=_PLAYWRIGHT_LOGIN_TIMEOUT_MS,
             )
             duration = int(time.monotonic() - t0)
             return {"logged_in": True, "duration_seconds": duration}

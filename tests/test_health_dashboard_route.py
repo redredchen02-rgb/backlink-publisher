@@ -281,3 +281,42 @@ def test_forward_path_degraded_badge_renders(client):
     assert "Publish-path drift monitor" in html
     assert "degraded" in html
     cstore.canary_health_store.reset()
+
+
+# ── U4: platform_health panel (Plan 2026-06-03-004) ──────────────────────────
+
+def test_platform_health_panel_renders_when_data_present(client, monkeypatch):
+    """GET /ce:health includes platform last-state panel when build_platform_health returns data."""
+    from backlink_publisher.health.aggregate import PlatformHealthRecord
+
+    fake = {
+        "medium": PlatformHealthRecord(
+            platform="medium",
+            last_success_at="2026-06-03T10:00:00+00:00",
+            circuit_tripped=True,
+        )
+    }
+    monkeypatch.setattr(
+        "backlink_publisher.health.aggregate.build_platform_health",
+        lambda cfg: fake,
+    )
+
+    resp = client.get("/ce:health")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    assert "Last Success" in body
+    assert "OPEN" in body
+
+
+def test_platform_health_error_does_not_500(client, monkeypatch):
+    """build_platform_health failure does not crash /ce:health."""
+    def _crash(cfg):
+        raise RuntimeError("aggregate failed")
+
+    monkeypatch.setattr(
+        "backlink_publisher.health.aggregate.build_platform_health",
+        _crash,
+    )
+
+    resp = client.get("/ce:health")
+    assert resp.status_code == 200
