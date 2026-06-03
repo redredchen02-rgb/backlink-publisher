@@ -51,3 +51,7 @@ rationale = "Config TOML writer: emits [blogger]/[medium]/[targets.*] sections. 
 # CC 28 — now under the CC-30 backstop, so no entry is needed (the backstop covers it). Entry
 # removed on rebase onto post-SEC-6 main (the same-PR-bump discipline applied across the merge).
 
+
+[functions."webui_app/routes/sites.py::sites_save_three_url"]
+ceiling = 38
+rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. CC 38 grandfathered at current value; decomposition deferred to the next PR that touches this route (reduce per-branch logic into URL-validator service layer at that point)."

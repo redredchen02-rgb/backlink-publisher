@@ -16,6 +16,7 @@ from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.config import load_config
 from backlink_publisher.ledger import build_ledger
 
+from ..helpers._request_cache import _g_cache
 from ..helpers.contexts import _render
 
 bp = Blueprint("equity_ledger", __name__)
@@ -37,7 +38,7 @@ def _resolve_stale_days() -> int:
 @bp.route("/ce:equity-ledger", methods=["GET"])
 def equity_ledger():
     stale_days = _resolve_stale_days()
-    cfg = load_config()
+    cfg = _g_cache('config', load_config)
     rows = [row.to_jsonl_dict() for row in build_ledger(stale_days=stale_days)]
     stale_count = sum(1 for r in rows if r["liveness"] in ("stale", "failed"))
     return _render(

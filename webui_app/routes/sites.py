@@ -30,6 +30,7 @@ from ..services.work_themed_service import (
     parse_plan_output as _parse_plan_output,
     register_run as _register_run,
 )
+from ..helpers._request_cache import _g_cache
 from ..helpers.security import _ensure_csrf_token
 from ..helpers.url_meta import (
     _derive_branded_pool,
@@ -45,7 +46,7 @@ bp = Blueprint("sites", __name__)
 @bp.route("/sites", methods=["GET"])
 def sites_form():
     csrf_token = _ensure_csrf_token()
-    cfg = load_config()
+    cfg = _g_cache('config', load_config)
     domain_query = (request.args.get("domain") or "").rstrip("/")
     saved = request.args.get("saved", "")
     autofilled_raw = request.args.get("autofilled", "")
@@ -238,7 +239,7 @@ def sites_run():
     if not main_url:
         abort(400)
 
-    cfg = load_config()
+    cfg = _g_cache('config', load_config)
     entry = cfg.target_three_url.get(main_url)
     if entry is None:
         abort(400)

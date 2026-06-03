@@ -17,6 +17,8 @@ from flask import Blueprint, jsonify
 
 import requests
 
+from ..helpers._request_cache import _g_cache
+
 bp = Blueprint("image_gen", __name__)
 
 
@@ -29,7 +31,7 @@ def settings_test_image_gen():
         from backlink_publisher._util.secrets import load_frw_token
 
         try:
-            cfg = load_config()
+            cfg = _g_cache('config', load_config)
         except Exception as exc:
             return jsonify({
                 "ok": False,
