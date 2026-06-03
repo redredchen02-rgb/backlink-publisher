@@ -66,11 +66,14 @@ def test_recheck_both_rows_confirmed(client, monkeypatch):
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["summary"] == "2 confirmed, 0 failed, 0 skipped"
-    # Both rows written back via update_item (status upgraded, verified_at set).
-    from webui_store import history_store
-    assert history_store.get_item("h1")["status"] == "published"
-    assert history_store.get_item("h2")["status"] == "published"
-    assert history_store.get_item("h1")["verified_at"]
+    # Both rows updated in events.db (status upgraded, verified_at set).
+    from backlink_publisher.events.history_query import get_history_item
+    it1 = get_history_item(1)
+    it2 = get_history_item(2)
+    assert it1 is not None and it2 is not None
+    assert it1["status"] == "published"
+    assert it2["status"] == "published"
+    assert it1["verified_at"]
 
 
 def test_recheck_downgrade_reports_failed(client, monkeypatch):
@@ -86,8 +89,9 @@ def test_recheck_downgrade_reports_failed(client, monkeypatch):
     resp = _post(client)
     body = resp.get_json()
     assert "2 failed" in body["summary"]
-    from webui_store import history_store
-    assert history_store.get_item("h1")["status"] == "failed"
+    from backlink_publisher.events.history_query import get_history_item
+    it1 = get_history_item(1)
+    assert it1 is not None and it1["status"] == "failed"
     # Refreshed row reflects worst-status liveness.
     assert body["row"]["liveness"] == "failed"
 

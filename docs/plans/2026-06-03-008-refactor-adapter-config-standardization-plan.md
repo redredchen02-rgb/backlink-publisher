@@ -29,7 +29,7 @@ The env-var-first architecture from plan 004 is preserved: env vars remain the h
 
 - R1. Each wave-1/2 adapter's `AdapterResult` carries a non-zero `post_publish_delay_seconds` when the env var is set.
 - R2. `active_platforms()` excludes hashnode and writeas after the change; `registered_platforms()` still lists them (it returns all keys regardless of visibility — the relevant filter function is `active_platforms()`).
-- R3. An operator can set `[throttle.hackmd]` (or any other platform) in `config.toml` and the adapter respects it without setting an env var.
+- R3. An operator can set `[throttle.hackmd]` (or any other platform) in `config.toml` using the `delay_s` key (e.g. `delay_s = 30.0`) and the adapter respects it without setting an env var.
 - R4. A `save_config()` call must not silently drop any `[throttle.*]` entry — round-trip must be verifiable by test.
 - R5. Env var always overrides TOML; TOML always overrides hardcoded default (precedence order is documented and tested).
 - R6. No adapter module or test file references a deleted or retired adapter import that would silently pass (mock.patch string scan).
@@ -37,7 +37,7 @@ The env-var-first architecture from plan 004 is preserved: env vars remain the h
 ## Scope Boundaries
 
 - No physical file deletion of `hashnode_graphql.py` or `writeas_api.py` — retirement is registry-only in this PR; deletion is a follow-up.
-- No changes to `_FIXED_KNOWN_ROOTS` or `_SAVE_CONFIG_KNOWN_ROOTS` — `throttle` must remain an unmanaged root.
+- No additions to `_FIXED_KNOWN_ROOTS` — `throttle` is intentionally absent (an unmanaged root) so `_preserve_unknown_sections` preserves it verbatim. Do not add `throttle` to this set.
 - No WebUI read-path for `[throttle.*]` — this is CLI/operator-edit only; WebUI integration belongs to the "thin-WebUI" follow-up.
 - No new test base class — the `conftest.py` autouse fixtures (`_isolate_user_dirs`, `_mock_check_url`, `_block_sockets`) already provide the implicit baseline for all adapter tests. Adding a separate class would be YAGNI.
 - ghpages and gitlabpages adapters: verify whether they need `post_publish_delay_seconds` (git-push based, rate limits differ from REST APIs); include in U1 only if clearly warranted.
@@ -53,7 +53,7 @@ The env-var-first architecture from plan 004 is preserved: env vars remain the h
 - **Adapter getter shape:** `devto_api._post_publish_delay_s()` (plan 004 U2) — module-level function, `os.environ.get("DEVTO_PUBLISH_DELAY_S")` with hardcoded default, returned via `AdapterResult(post_publish_delay_seconds=...)`.
 - **Lazy `load_config()` inside method:** `docs/solutions/best-practices/embed-banner-lazy-config-load-contract-2026-05-20.md` — adapter methods must call `load_config()` lazily inside the method body, never at import time or in `__init__`.
 - **Registry visibility field:** `publishing/_manifest_types.py` — `Visibility = Literal["active", "experimental", "hidden", "retired"]`; retired platforms are filtered by `visibility(name) in {"hidden","retired"}` in `_registry_manifest.py`.
-- **Existing retiring comments:** `__init__.py:133` (hashnode, `dofollow="uncertain"`) and `__init__.py:141` (writeas, `dofollow="uncertain"`).
+- **Existing retiring comments:** the `register("hashnode", ...)` and `register("writeas", ...)` calls in `__init__.py`, currently marked with inline comments `# retiring (PR #204)` and `# retiring (PR #202)` respectively.
 
 ### Institutional Learnings
 
@@ -202,6 +202,7 @@ U2 (retire hashnode/writeas)     ← independent of U1/U3
 - The `load_config()` call inside the getter must be lazy (inside the function body, not at module scope) — per the embed-banner lazy-load contract.
 - "throttle" must NOT be added to `_FIXED_KNOWN_ROOTS`. Verify `config/_toml_utils.py` does not reference it.
 - `config.example.toml` example should show the slug format (lowercase, underscore-free, matching the `register()` first argument).
+- **TOML schema:** `[throttle.<slug>]` sections contain a single key `delay_s` (float, seconds). The parser iterates all subsections under `throttle`, extracts `delay_s` from each, and builds `Config.platform_throttle = {slug: float(cfg["delay_s"]) for slug, cfg in data.get("throttle", {}).items() if isinstance(cfg, dict) and "delay_s" in cfg}`. Sub-tables lacking `delay_s` are skipped silently; `delay_s` present but non-numeric raises `InputValidationError`. Other keys in the sub-table are ignored.
 
 **Patterns to follow:**
 - `Config.anchor_proportions` and `Config.geo_probe_provider` in `config/types.py` — unmanaged root fields with the same docstring pattern.

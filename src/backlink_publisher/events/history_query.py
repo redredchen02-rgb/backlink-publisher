@@ -84,6 +84,7 @@ def _build_history_item(
         item["language"] = lang or ""
         item["run_id"] = run_id or ""
         item["verified_at"] = verified_at
+        item["verify_error"] = verify_error or ""
         if live_url:
             item["article_urls"] = [live_url]
 

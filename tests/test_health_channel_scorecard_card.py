@@ -37,15 +37,12 @@ def test_card_renders_on_get_with_inert_axes(client):
 
 
 def test_seeded_channel_appears_with_declared_signal(client):
+    # U6: history_store.save() is a no-op; platform must be on the article row.
     EventStore().add_article({
         "target_urls_json": json.dumps(["https://site.com/p"]),
         "live_url": "https://medium.com/post1",
+        "platform": "medium",
     })
-    from webui_store import history_store
-    history_store.save([{
-        "id": "h1", "platform": "medium", "target_url": "https://site.com/p",
-        "article_urls": ["https://medium.com/post1"], "status": "published",
-    }])
     body = client.get("/ce:health").get_data(as_text=True)
     assert "medium" in body
     assert "dofollow" in body  # medium's declared dofollow status renders
