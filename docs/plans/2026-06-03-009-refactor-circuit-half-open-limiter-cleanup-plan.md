@@ -1,7 +1,7 @@
 ---
 title: "refactor: Remove unwired HALF_OPEN trial limiter (keep cooldown-only recovery)"
 type: refactor
-status: active
+status: completed
 date: 2026-06-03
 origin: docs/brainstorms/2026-06-03-circuit-half-open-limiter-cleanup-requirements.md
 ---
@@ -106,7 +106,7 @@ never the trial cap. Discovered during the document-review of plan `2026-06-03-0
 
 ## Implementation Units
 
-- [ ] **Unit 1: Delete the dead limiter surface + state field (circuit.py)**
+- [x] **Unit 1: Delete the dead limiter surface + state field (circuit.py)**
 
 **Goal:** Remove `_increment_half_open_try`, `_half_open_tries`, `_DEFAULT_HALF_OPEN_TRIES`,
 the `…CIRCUIT_HALF_OPEN_TRIES` env var, and every `half_open_tries` state write/read.
@@ -140,7 +140,7 @@ the `…CIRCUIT_HALF_OPEN_TRIES` env var, and every `half_open_tries` state writ
   (`test_half_open_allows_test_traffic` exercises the kept recovery path — it stays green
   because `is_tripped` returning `False` in HALF_OPEN is unchanged.)
 
-- [ ] **Unit 2: Correct the docstring + recovery comment (circuit.py)**
+- [x] **Unit 2: Correct the docstring + recovery comment (circuit.py)**
 
 **Goal:** Make the documentation match reality — cooldown-only recovery, no trial cap.
 

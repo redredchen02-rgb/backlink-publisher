@@ -26,10 +26,10 @@ Extended trip conditions (Stage 1):
 States:
 - closed: normal operation
 - open: circuit tripped, requests blocked
-- half-open: test mode, limited traffic allowed
+- half-open: post-cooldown recovery — traffic is allowed through to test recovery
+  (cooldown-only; there is no half-open trial cap)
 
 Cooldown: ``BACKLINK_PUBLISHER_CIRCUIT_COOLDOWN_S`` env var (default 300 s).
-Half-open trial count: ``BACKLINK_PUBLISHER_CIRCUIT_HALF_OPEN_TRIES`` (default 1).
 """
 
 from __future__ import annotations
@@ -54,7 +54,6 @@ if TYPE_CHECKING:
 _LOCK_TIMEOUT: float = 60.0
 _LOCK_POLL_INTERVAL: float = 0.1
 _DEFAULT_COOLDOWN_S: int = 300
-_DEFAULT_HALF_OPEN_TRIES: int = 1
 _DEFAULT_CONSECUTIVE_ERRORS: int = 3
 
 _BAN_SIGNALS: tuple[str, ...] = ("ban", "banned", "suspended")
@@ -149,17 +148,6 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _half_open_tries() -> int:
-    try:
-        return int(
-            os.environ.get(
-                "BACKLINK_PUBLISHER_CIRCUIT_HALF_OPEN_TRIES", _DEFAULT_HALF_OPEN_TRIES
-            )
-        )
-    except (ValueError, TypeError):
-        return _DEFAULT_HALF_OPEN_TRIES
-
-
 def _consecutive_errors_threshold() -> int:
     try:
         return int(
@@ -183,7 +171,6 @@ def _get_state(platform: str, config: Config) -> dict[str, Any]:
             "state": CircuitState.CLOSED.value,
             "tripped": False,
             "tripped_at_iso": None,
-            "half_open_tries": 0,
             "consecutive_errors": 0,
         }
     try:
@@ -193,7 +180,6 @@ def _get_state(platform: str, config: Config) -> dict[str, Any]:
             "state": entry.get("state", CircuitState.CLOSED.value),
             "tripped": entry.get("tripped", False),
             "tripped_at_iso": entry.get("tripped_at_iso"),
-            "half_open_tries": entry.get("half_open_tries", 0),
             "consecutive_errors": entry.get("consecutive_errors", 0),
         }
     except Exception:
@@ -202,7 +188,6 @@ def _get_state(platform: str, config: Config) -> dict[str, Any]:
             "state": CircuitState.OPEN.value,
             "tripped": True,
             "tripped_at_iso": None,
-            "half_open_tries": 0,
             "consecutive_errors": 0,
         }
 
@@ -217,7 +202,8 @@ def is_tripped(platform: str, config: Config) -> bool:
 
     Enhanced for Stage 1 (Plan 2026-05-28-001):
     - Supports CLOSED, OPEN, and HALF_OPEN states
-    - HALF_OPEN state allows limited traffic after cooldown to test recovery
+    - HALF_OPEN state allows traffic through after cooldown to test recovery
+      (cooldown-only recovery — no trial-count limiting)
     - Extended trip conditions: consecutive transient errors, 429/5xx responses
 
     Fail-CLOSED: any read error (JSONDecodeError, OSError, etc.) returns
@@ -238,7 +224,8 @@ def is_tripped(platform: str, config: Config) -> bool:
                     _transition_to_half_open(platform, config)
             except (ValueError, TypeError):
                 pass
-            # In half-open state, we allow a limited number of requests through
+            # In half-open state we allow traffic through to test recovery
+            # (cooldown-only — there is no trial-count cap).
             return False
 
         # OPEN state: check cooldown; also handle fail-CLOSED case (tripped but no timestamp)
@@ -277,7 +264,6 @@ def trip(platform: str, config: Config) -> None:
             "state": CircuitState.OPEN.value,
             "tripped": True,
             "tripped_at_iso": _now_iso(),
-            "half_open_tries": 0,
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
@@ -322,7 +308,6 @@ def trip_on_error(
                 "state": CircuitState.OPEN.value,
                 "tripped": True,
                 "tripped_at_iso": _now_iso(),
-                "half_open_tries": 0,
                 "consecutive_errors": 0,
             }
             _log.info(
@@ -384,40 +369,10 @@ def _transition_to_half_open(platform: str, config: Config) -> None:
             "state": CircuitState.HALF_OPEN.value,
             "tripped": True,
             "tripped_at_iso": _now_iso(),
-            "half_open_tries": 0,
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
         _log.info({"event": "circuit_half_open", "platform": platform})
-    finally:
-        _release_lock(fd)
-
-
-def _increment_half_open_try(platform: str, config: Config) -> bool:
-    """Increment half-open try counter, return True if still allowed.
-
-    Returns True if the adapter can proceed; False if trial limit reached.
-    """
-    fd = _acquire_lock(_lock_path(config))
-    try:
-        try:
-            state = _read_state_unsafe(_state_path(config))
-        except (json.JSONDecodeError, OSError):
-            state = {}
-        entry = state.get(platform, {})
-        tries = entry.get("half_open_tries", 0) + 1
-        max_tries = _half_open_tries()
-
-        if tries > max_tries:
-            # Exceeded trials, trip again
-            entry["state"] = CircuitState.OPEN.value
-            entry["tripped"] = True
-            _log.info({"event": "circuit_trip_on_half_open_fail", "platform": platform})
-        else:
-            entry["half_open_tries"] = tries
-        state[platform] = entry
-        _write_state_unsafe(_state_path(config), state)
-        return tries <= max_tries
     finally:
         _release_lock(fd)
 
@@ -434,7 +389,6 @@ def reset_circuit(platform: str, config: Config) -> None:
             "state": CircuitState.CLOSED.value,
             "tripped": False,
             "tripped_at_iso": None,
-            "half_open_tries": 0,
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
