@@ -35,4 +35,5 @@ registered `"uncertain"` — so the flip cannot silently rot the way 8+ prior
 | hackmd | 2026-06-01 | 2026-07-31 | pending |
 | mataroa | 2026-06-01 | 2026-07-31 | pending |
 | gitlabpages | 2026-06-01 | 2026-07-31 | pending |
+| notesio | 2026-06-03 | 2026-09-01 | pending |
 <!-- canary-pending:end -->

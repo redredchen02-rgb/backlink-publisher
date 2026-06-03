@@ -86,6 +86,16 @@ NOFOLLOW_RATIONALES: dict[str, str] = {
         "them. No credentials needed; the form-POST adapter composes the "
         "Unit 4 http_form_post helpers for a zero-dependency publish path."
     ),
+    "notesio": (
+        "notes.io: dofollow confirmed 12/0 on 3rd-party posts (2026-06-01 "
+        "discovery run, scripts/channel_probe.py); server-rendered static HTML, "
+        "no rel=nofollow on outbound links. Registered dofollow=\"uncertain\" "
+        "pending OUR-pipeline canary — verify_link_attributes on a canary post "
+        "must confirm our own placed link renders dofollow before amending "
+        "register() to dofollow=True. referral_value=\"low\": anonymous-pastebin "
+        "character, modest DA; links pass equity only after canary confirms dofollow. "
+        "No credentials required; anonymous form-POST, no CSRF preflight needed."
+    ),
     # --- Phase 1 channel-expansion dofollow truth audit (2026-05-26) ---
     # The 16 Phase-1 adapters shipped with bare ``dofollow=True`` and no
     # evidence. This audit downgrades every one: hard server-side

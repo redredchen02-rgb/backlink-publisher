@@ -1,0 +1,89 @@
+"""notes.io adapter — anonymous form-POST publishing (Plan 2026-06-02-002 Unit 2).
+
+notes.io is a minimalist anonymous publishing platform. No accounts, no CSRF tokens —
+a single form POST at ``https://notes.io/`` with a ``text`` field and an empty ``token``
+publishes a public note and redirects to its permalink.
+
+dofollow confirmed 12/0 on 3rd-party posts (2026-06-01 discovery run, scripts/channel_probe.py);
+server-rendered static HTML with no rel="nofollow" decoration on outbound links.
+OUR-pipeline canary pending — registered dofollow="uncertain" until verify_link_attributes
+confirms our own placed link renders dofollow.
+"""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from backlink_publisher._util.errors import ExternalServiceError
+from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
+from backlink_publisher.publishing.registry import Publisher
+from .base import AdapterResult
+from .http_form_post import attach_link_verification, submit_form
+from .link_attr_verifier import required_link_urls
+
+_NOTESIO_ENDPOINT = "https://notes.io/"
+_ADAPTER = "notesio-form-post"
+_PLATFORM = "notesio"
+
+
+class NotesioFormPostAdapter(Publisher):
+    """Anonymous form-POST publisher for notes.io.
+
+    No config, credentials, or browser needed — direct HTTP form submission
+    with no CSRF preflight required.
+    """
+
+    def publish(
+        self,
+        payload: dict[str, Any],
+        mode: str,
+        config: Config,
+    ) -> AdapterResult:
+        t0 = time.monotonic()
+        article_id = payload.get("id", "")
+        title = (payload.get("title") or "").strip()
+        log.info("notesio_publish_start", id=article_id, title=title)
+
+        content_md = payload.get("content_markdown") or payload.get("content_md") or ""
+        if not content_md.strip():
+            raise ExternalServiceError("notes.io payload has no content_markdown")
+
+        body = f"# {title}\n\n{content_md}" if title else content_md
+
+        post_data: dict[str, str] = {
+            "text": body,
+            "token": "",
+        }
+        submit_resp = submit_form(_NOTESIO_ENDPOINT, post_data)
+
+        published_url = (submit_resp.url or "").strip()
+        if not published_url or published_url == _NOTESIO_ENDPOINT:
+            raise ExternalServiceError(
+                "notes.io did not redirect to a published URL after submit"
+            )
+
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        log.info(
+            "notesio_publish_done",
+            id=article_id,
+            url=published_url,
+            elapsed_ms=elapsed_ms,
+        )
+
+        if mode == "draft":
+            return AdapterResult(
+                status="drafted",
+                adapter=_ADAPTER,
+                platform=_PLATFORM,
+                draft_url=published_url,
+            )
+        meta = attach_link_verification(published_url, target_urls=required_link_urls(payload))
+        return AdapterResult(
+            status="published",
+            adapter=_ADAPTER,
+            platform=_PLATFORM,
+            published_url=published_url,
+            _provider_meta=meta,
+        )

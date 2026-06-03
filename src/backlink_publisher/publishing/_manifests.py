@@ -566,6 +566,30 @@ TXTFYI_MANIFEST: dict[str, Any] = dict(
 )
 
 
+# ── notesio ────────────────────────────────────────────────────────────────
+#
+# notes.io is a minimalist anonymous publishing platform — no accounts,
+# no CSRF tokens, direct form POST. ``bind=[]`` and every credential
+# field is empty.
+
+NOTESIO_MANIFEST: dict[str, Any] = dict(
+    ui=UiMeta(
+        display_name="notes.io",
+        domain="notes.io",
+        category="anonymous-paste",
+        icon="bi-file-earmark-text",
+    ),
+    bind=[],
+    policy=Policy(
+        throttle_band=None,
+        env_keys={},
+        retry_id="default",
+        liveness_probe_sec=None,
+        language_whitelist=(),
+    ),
+)
+
+
 # ── medium ─────────────────────────────────────────────────────────────────
 #
 # Three-adapter chain: MediumAPIAdapter (deprecated Integration Token)
