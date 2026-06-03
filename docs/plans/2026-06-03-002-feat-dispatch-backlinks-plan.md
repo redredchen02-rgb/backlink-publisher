@@ -1,7 +1,7 @@
 ---
 title: "feat: dispatch-backlinks 自動平台路由引擎"
 type: feat
-status: active
+status: completed
 date: 2026-06-03
 origin: docs/brainstorms/2026-06-03-dispatch-backlinks-requirements.md
 claims:
