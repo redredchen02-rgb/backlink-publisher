@@ -24,6 +24,16 @@ _STORE: EventStore | None = None
 
 def _get_store() -> EventStore:
     global _STORE
+    if _STORE is not None:
+        # If BACKLINK_PUBLISHER_CONFIG_DIR changed since the cached
+        # EventStore was created, re-resolve (same defensive pattern as
+        # _LazyStore._real()).  Without this, tests that monkeypatch
+        # config dir per fixture cannot isolate events.db.
+        import os
+        current_env = os.environ.get("BACKLINK_PUBLISHER_CONFIG_DIR")
+        fresh = EventStore()
+        if fresh.path != _STORE.path:
+            _STORE = None
     if _STORE is None:
         _STORE = EventStore()
     return _STORE

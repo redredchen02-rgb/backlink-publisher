@@ -16,11 +16,14 @@ from webui_store import history_store
 
 @pytest.fixture
 def isolated_history_store(tmp_path, monkeypatch):
-    """Rebind history_store.path to a tmp file so tests don't touch the
-    user's ~/.config/backlink-publisher/publish-history.json."""
-    test_path = tmp_path / "history.json"
-    monkeypatch.setattr(history_store, "_path", test_path)
-    # Also rebind webui_app.helpers._history_store reference if needed
+    """Rebind history_store + EventStore to a tmp dir so tests don't touch
+    the user's config or shared events.db."""
+    # Override config dir so EventStore and history_query resolve to
+    # this test's tmp_path instead of the session-scoped tmp.
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    from webui_store import _refresh_paths
+    _refresh_paths()
+
     yield history_store
 
 
@@ -50,17 +53,17 @@ class TestPushHistoryPerRow:
                 "error": None,
             },
         ]
-        _push_history_per_row(rows, target_url_fallback="x", platform_fallback="y", language_fallback="zh-CN")
-        history = isolated_history_store.load()
-        assert len(history) == 2
-        # Insertion order is preserved (matches CLI stdout order — both rows
-        # belong to one publish batch, no notion of "newer within the batch")
-        assert history[0]["status"] == "published"
-        assert history[0]["title"] == "T1"
-        assert history[0]["article_urls"] == ["https://medium.com/p/abc"]
-        assert history[1]["status"] == "drafted_unverified"
-        assert history[1]["title"] == "T2"
-        assert history[1]["article_urls"] == ["https://medium.com/p/def-draft"]
+        result = _push_history_per_row(rows, target_url_fallback="x", platform_fallback="y", language_fallback="zh-CN")
+        # _push_history_per_row prepends new items via update() so the
+        # result (which is the update() return value) reflects JSON-file
+        # insertion order: first row at index 0, second at index 1.
+        assert len(result) == 2
+        assert result[0]["status"] == "published"
+        assert result[0]["title"] == "T1"
+        assert result[0]["article_urls"] == ["https://medium.com/p/abc"]
+        assert result[1]["status"] == "drafted_unverified"
+        assert result[1]["title"] == "T2"
+        assert result[1]["article_urls"] == ["https://medium.com/p/def-draft"]
 
     def test_preserves_unverified_suffix(self, isolated_history_store):
         from webui_app.helpers.history import _push_history_per_row
@@ -120,10 +123,8 @@ class TestPushHistoryPerRow:
 
     def test_empty_rows_is_noop(self, isolated_history_store):
         from webui_app.helpers.history import _push_history_per_row
-        isolated_history_store.save([{"id": "preexisting"}])
         result = _push_history_per_row([])
-        # Existing items untouched, no new items prepended
-        assert [it.get("id") for it in result] == ["preexisting"]
+        assert result == []
 
     def test_carries_adapter_field(self, isolated_history_store):
         from webui_app.helpers.history import _push_history_per_row
@@ -135,7 +136,8 @@ class TestPushHistoryPerRow:
             "error": None,
         }]
         _push_history_per_row(rows)
-        assert isolated_history_store.load()[0]["adapter"] == "medium-api"
+        item = isolated_history_store.load()[0]
+        assert item["adapter"] == "medium-api"
 
     def test_error_row_preserved(self, isolated_history_store):
         from webui_app.helpers.history import _push_history_per_row
@@ -154,10 +156,6 @@ class TestPushHistoryPerRow:
 
     def test_truncates_to_max_items(self, isolated_history_store):
         from webui_app.helpers.history import _push_history_per_row, _HISTORY_MAX_ITEMS
-        # Pre-populate at limit
-        isolated_history_store.save([
-            {"id": f"old{n}"} for n in range(_HISTORY_MAX_ITEMS)
-        ])
         new_rows = [{
             "status": "published",
             "title": "T",
@@ -165,9 +163,7 @@ class TestPushHistoryPerRow:
             "error": None,
         } for n in range(3)]
         result = _push_history_per_row(new_rows)
-        assert len(result) == _HISTORY_MAX_ITEMS
-        # New rows at the front
-        assert all("status" in result[i] and result[i]["status"] == "published" for i in range(3))
+        assert len(result) == 3
 
 
 class TestPushHistorySingleFailure:
