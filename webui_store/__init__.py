@@ -23,11 +23,20 @@ from .channel_status import channel_status_store
 from .drafts import DraftsStore
 from .history import HistoryStore
 from .queue_store import QueueStore
+from .schedule import ScheduleSqliteStore
+from .sqlite_base import WebUIDatabase
 
 
 def _store_path(filename: str) -> Path:
     """Resolve a store file path under the current config dir."""
     return _resolve_config_dir() / filename
+
+
+def _make_schedule_store() -> ScheduleSqliteStore:
+    config_dir = _resolve_config_dir()
+    store = ScheduleSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store.migrate_from_json(config_dir)
+    return store
 
 
 # Singleton bindings — lazily resolved on first access so test fixtures
@@ -44,11 +53,7 @@ profiles_store = _LazyStore(
 drafts_store = _LazyStore(
     lambda: DraftsStore(_store_path("draft-queue.json"))
 )
-schedule_store = _LazyStore(
-    lambda: JsonStore(
-        _store_path("schedule-settings.json"), default_factory=dict,
-    )
-)
+schedule_store = _LazyStore(_make_schedule_store)
 queue_store = _LazyStore(
     lambda: QueueStore(_store_path("publish-queue.json"), default_factory=list)
 )
