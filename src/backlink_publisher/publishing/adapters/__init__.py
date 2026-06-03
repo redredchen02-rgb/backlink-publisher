@@ -134,7 +134,7 @@ register(
     dofollow="uncertain",
     rationale=_R["hashnode"],
     referral_value="high",
-    visibility="retired",  # retired in plan 008 (PR #204 intent); deletion follow-up
+    visibility="retired",
     **HASHNODE_MANIFEST,
 )
 register(
@@ -143,7 +143,7 @@ register(
     dofollow="uncertain",
     rationale=_R["writeas"],
     referral_value="low",
-    visibility="retired",  # retired in plan 008 (PR #202 intent); deletion follow-up
+    visibility="retired",
     **WRITEAS_MANIFEST,
 )
 register(

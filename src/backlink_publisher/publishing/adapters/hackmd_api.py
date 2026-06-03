@@ -49,6 +49,21 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 HACKMD_NOTES_API = "https://api.hackmd.io/v1/notes"
 _HTTP_TIMEOUT_S = 30
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 30
+
+
+def _post_publish_delay_s() -> int:
+    env_val = os.environ.get("HACKMD_PUBLISH_DELAY_S")
+    if env_val is not None:
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            return _DEFAULT_POST_PUBLISH_DELAY_S
+    from backlink_publisher.config import load_config
+    toml_val = load_config().platform_throttle.get("hackmd")
+    if toml_val is not None:
+        return int(toml_val)
+    return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _required_headers(token: str) -> dict[str, str]:
@@ -156,6 +171,7 @@ class HackmdAPIAdapter(Publisher):
                 adapter="hackmd",
                 platform="hackmd",
                 draft_url="https://hackmd.io/",
+                post_publish_delay_seconds=_post_publish_delay_s(),
             )
 
         def execute():
@@ -220,4 +236,5 @@ class HackmdAPIAdapter(Publisher):
             adapter="hackmd",
             platform="hackmd",
             published_url=published_url,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

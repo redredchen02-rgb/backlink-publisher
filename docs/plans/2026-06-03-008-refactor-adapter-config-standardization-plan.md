@@ -1,7 +1,7 @@
 ---
 title: "refactor: Adapter Config Standardization and Env-Var Consolidation"
 type: refactor
-status: active
+status: completed
 date: 2026-06-03
 ---
 

@@ -52,12 +52,15 @@ def _snapshot():
 
 
 class TestHiddenFromUiFunction:
-    def test_empty_when_no_platform_is_hidden_or_retired(self) -> None:
-        # The 8 production platforms all default to visibility="active",
-        # so the dynamic set is empty in the steady state.
+    def test_retired_platforms_appear_in_hidden_from_ui(self) -> None:
+        # hashnode and writeas were retired in plan 008.
+        import backlink_publisher.publishing.adapters  # noqa: F401
+
         from webui_app.binding_status import hidden_from_ui
 
-        assert hidden_from_ui() == frozenset()
+        hidden = hidden_from_ui()
+        assert "hashnode" in hidden
+        assert "writeas" in hidden
 
     def test_includes_visibility_hidden_platform(self) -> None:
         from webui_app.binding_status import hidden_from_ui
@@ -129,10 +132,10 @@ class TestSaveConfigKnownRootsFunction:
         import backlink_publisher.publishing.adapters  # noqa: F401
 
         from backlink_publisher.config._toml_utils import _save_config_known_roots
-        from backlink_publisher.publishing.registry import registered_platforms
+        from backlink_publisher.publishing.registry import active_platforms
 
         roots = _save_config_known_roots()
-        for name in registered_platforms():
+        for name in active_platforms():
             assert name in roots, f"active platform {name!r} missing from known_roots"
 
     def test_excludes_retired_platform(self) -> None:

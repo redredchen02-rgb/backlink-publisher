@@ -28,6 +28,7 @@ from .parsers.alarm import _parse_anchor_alarm
 from .parsers.anchor import _parse_anchor_proportions
 from .parsers.cells import _parse_cell_assignments
 from .parsers.geo import _parse_geo_probe_provider
+from .parsers.throttle import _parse_platform_throttle
 from .parsers.image_gen import _parse_image_gen
 from .parsers.llm import _llm_provider_from_sidecar, _parse_llm_anchor_provider
 from .parsers.target import (
@@ -210,6 +211,7 @@ def load_config(path: Path | None = None) -> Config:
             )
 
     anchor_proportions = _parse_anchor_proportions(data.get("anchor", {}))
+    platform_throttle = _parse_platform_throttle(data)
 
     llm_anchor_provider = _parse_llm_anchor_provider(
         data.get("llm", {}).get("anchor_provider", {}),
@@ -318,6 +320,7 @@ def load_config(path: Path | None = None) -> Config:
         click_track=click_track,
         image_gen=image_gen,
         cell_assignments=cell_assignments,
+        platform_throttle=platform_throttle,
     )
 
 

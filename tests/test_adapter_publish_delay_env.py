@@ -105,6 +105,31 @@ ADAPTER_DELAY_PARAMS = [
         "MEDIUM_PUBLISH_DELAY_S",
         30,
     ),
+    # Wave-1/2 adapters (U1, plan 008)
+    (
+        "backlink_publisher.publishing.adapters.hackmd_api",
+        "_post_publish_delay_s",
+        "HACKMD_PUBLISH_DELAY_S",
+        30,
+    ),
+    (
+        "backlink_publisher.publishing.adapters.mataroa_api",
+        "_post_publish_delay_s",
+        "MATAROA_PUBLISH_DELAY_S",
+        15,
+    ),
+    (
+        "backlink_publisher.publishing.adapters.notesio_api",
+        "_post_publish_delay_s",
+        "NOTESIO_PUBLISH_DELAY_S",
+        10,
+    ),
+    (
+        "backlink_publisher.publishing.adapters.livejournal_api",
+        "_post_publish_delay_s",
+        "LIVEJOURNAL_PUBLISH_DELAY_S",
+        30,
+    ),
 ]
 
 ADAPTER_IDS = [p[0].split(".")[-1] for p in ADAPTER_DELAY_PARAMS]

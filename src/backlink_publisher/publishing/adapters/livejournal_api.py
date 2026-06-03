@@ -65,10 +65,17 @@ _LIVEJOURNAL_PUBLISH_DELAY_ENV = "LIVEJOURNAL_PUBLISH_DELAY_S"
 
 
 def _post_publish_delay_s() -> int:
-    try:
-        return int(os.environ.get(_LIVEJOURNAL_PUBLISH_DELAY_ENV, _DEFAULT_POST_PUBLISH_DELAY_S))
-    except (ValueError, TypeError):
-        return _DEFAULT_POST_PUBLISH_DELAY_S
+    env_val = os.environ.get(_LIVEJOURNAL_PUBLISH_DELAY_ENV)
+    if env_val is not None:
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            return _DEFAULT_POST_PUBLISH_DELAY_S
+    from backlink_publisher.config import load_config
+    toml_val = load_config().platform_throttle.get("livejournal")
+    if toml_val is not None:
+        return int(toml_val)
+    return _DEFAULT_POST_PUBLISH_DELAY_S
 
 #: faultString fragments LiveJournal returns for credential failures. Matched
 #: case-insensitively. The raw faultString is never logged (it can echo the

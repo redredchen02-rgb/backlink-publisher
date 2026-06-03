@@ -46,6 +46,21 @@ from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 MATAROA_POSTS_API = "https://mataroa.blog/api/posts/"
 _HTTP_TIMEOUT_S = 30
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 15
+
+
+def _post_publish_delay_s() -> int:
+    env_val = os.environ.get("MATAROA_PUBLISH_DELAY_S")
+    if env_val is not None:
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            return _DEFAULT_POST_PUBLISH_DELAY_S
+    from backlink_publisher.config import load_config
+    toml_val = load_config().platform_throttle.get("mataroa")
+    if toml_val is not None:
+        return int(toml_val)
+    return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _required_headers(token: str) -> dict[str, str]:
@@ -128,6 +143,7 @@ class MataroaAPIAdapter(Publisher):
                 adapter="mataroa",
                 platform="mataroa",
                 draft_url="https://mataroa.blog/",
+                post_publish_delay_seconds=_post_publish_delay_s(),
             )
 
         def execute():
@@ -192,4 +208,5 @@ class MataroaAPIAdapter(Publisher):
             adapter="mataroa",
             platform="mataroa",
             published_url=published_url,
+            post_publish_delay_seconds=_post_publish_delay_s(),
         )

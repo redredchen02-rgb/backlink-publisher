@@ -12,6 +12,7 @@ confirms our own placed link renders dofollow.
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
@@ -26,6 +27,21 @@ from .link_attr_verifier import required_link_urls
 _NOTESIO_ENDPOINT = "https://notes.io/"
 _ADAPTER = "notesio-form-post"
 _PLATFORM = "notesio"
+_DEFAULT_POST_PUBLISH_DELAY_S: int = 10
+
+
+def _post_publish_delay_s() -> int:
+    env_val = os.environ.get("NOTESIO_PUBLISH_DELAY_S")
+    if env_val is not None:
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            return _DEFAULT_POST_PUBLISH_DELAY_S
+    from backlink_publisher.config import load_config
+    toml_val = load_config().platform_throttle.get("notesio")
+    if toml_val is not None:
+        return int(toml_val)
+    return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 class NotesioFormPostAdapter(Publisher):
@@ -78,6 +94,7 @@ class NotesioFormPostAdapter(Publisher):
                 adapter=_ADAPTER,
                 platform=_PLATFORM,
                 draft_url=published_url,
+                post_publish_delay_seconds=_post_publish_delay_s(),
             )
         meta = attach_link_verification(published_url, target_urls=required_link_urls(payload))
         return AdapterResult(
@@ -85,5 +102,6 @@ class NotesioFormPostAdapter(Publisher):
             adapter=_ADAPTER,
             platform=_PLATFORM,
             published_url=published_url,
+            post_publish_delay_seconds=_post_publish_delay_s(),
             _provider_meta=meta,
         )

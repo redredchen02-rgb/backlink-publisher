@@ -83,7 +83,7 @@ def settings_body(client):
     ("wordpresscom", "token_fields"),
     ("substack", "paste_blob"),
     ("txtfyi", "anon"),
-    ("writeas", "token"),
+    # writeas removed: retired in plan 008, no longer rendered in settings UI
 ])
 def test_cardless_channel_inline_form_rendered(settings_body, channel, auth_type):
     """Each auth-type partial renders a form block for cardless channels."""
@@ -166,24 +166,21 @@ def test_skip_channel_rejected(client):
 
 
 # ---------------------------------------------------------------------------
-# U4 TOKEN — writeas round-trip
+# U4 TOKEN — hackmd round-trip (writeas retired in plan 008, tests replaced)
 # ---------------------------------------------------------------------------
 
 
 def test_token_save_creates_0600_file(client, tmp_path, monkeypatch):
-    """Saving a writeas token creates writeas-token.json with mode 0600."""
+    """Saving a hackmd token creates hackmd-token.json with mode 0600."""
     config_dir = tmp_path / "cfg"
     config_dir.mkdir()
     csrf = _seed_csrf(client)
-    # monkeypatch.setenv restores the session-isolated value on teardown;
-    # a bare ``del os.environ[...]`` would unset it for every later test,
-    # leaking subsequent store paths back to the operator's real ~/.config.
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
-    resp = _post(client, {"channel": "writeas", "auth_type": "token",
+    resp = _post(client, {"channel": "hackmd", "auth_type": "token",
                            "token": "MY_SECRET"}, csrf=csrf)
     assert resp.status_code == 302
     assert "success" in resp.headers["Location"]
-    token_path = config_dir / "writeas-token.json"
+    token_path = config_dir / "hackmd-token.json"
     assert token_path.exists()
     mode = os.stat(token_path).st_mode & 0o777
     assert mode == 0o600
@@ -198,7 +195,7 @@ def test_token_secret_not_leaked_on_error(client):
     from unittest.mock import patch
     with patch("backlink_publisher.config.tokens._save_token",
                side_effect=Exception("disk full")):
-        resp = _post(client, {"channel": "writeas", "auth_type": "token",
+        resp = _post(client, {"channel": "hackmd", "auth_type": "token",
                                "token": secret}, csrf=csrf)
     assert resp.status_code == 302
     assert secret not in resp.headers.get("Location", "")
@@ -208,7 +205,7 @@ def test_token_secret_not_leaked_on_error(client):
 def test_token_leave_as_is_empty(client):
     """Empty token field → leave-as-is → info flash, no file written."""
     csrf = _seed_csrf(client)
-    resp = _post(client, {"channel": "writeas", "auth_type": "token",
+    resp = _post(client, {"channel": "hackmd", "auth_type": "token",
                            "token": ""}, csrf=csrf)
     assert resp.status_code == 302
     assert "info" in resp.headers["Location"]
@@ -218,16 +215,25 @@ def test_token_clear_unlinks_file(client, tmp_path, monkeypatch):
     """Clear removes the token file."""
     config_dir = tmp_path / "cfg"
     config_dir.mkdir()
-    token_path = config_dir / "writeas-token.json"
+    token_path = config_dir / "hackmd-token.json"
     token_path.write_text('{"token": "old"}', encoding="utf-8")
     token_path.chmod(0o600)
 
     csrf = _seed_csrf(client)
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
-    resp = _post(client, {"channel": "writeas", "clear": "1"}, csrf=csrf)
+    resp = _post(client, {"channel": "hackmd", "clear": "1"}, csrf=csrf)
     assert resp.status_code == 302
     assert "success" in resp.headers["Location"]
     assert not token_path.exists()
+
+
+def test_retired_writeas_token_save_returns_danger(client):
+    """writeas retired — save-channel-credential returns danger flash."""
+    csrf = _seed_csrf(client)
+    resp = _post(client, {"channel": "writeas", "auth_type": "token",
+                           "token": "x"}, csrf=csrf)
+    assert resp.status_code == 302
+    assert "danger" in resp.headers["Location"]
 
 
 # ---------------------------------------------------------------------------

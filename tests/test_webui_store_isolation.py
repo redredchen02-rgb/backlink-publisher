@@ -72,6 +72,10 @@ def test_writes_land_in_isolated_dir_not_prod():
 
     _refresh_paths()
 
+    cfg_env = os.environ.get("BACKLINK_PUBLISHER_CONFIG_DIR", "")
+    assert cfg_env, "conftest fixture should have set this env"
+    isolated = Path(cfg_env).resolve()
+
     real_history = Path.home() / ".config" / "backlink-publisher" / "publish-history.json"
     real_drafts = Path.home() / ".config" / "backlink-publisher" / "draft-queue.json"
 
@@ -92,11 +96,14 @@ def test_writes_land_in_isolated_dir_not_prod():
         "drafts_store write leaked into prod draft-queue.json"
     )
 
-    # The write must be visible via the singleton's own path
+    # HistoryStore is a no-op shim (U6) — it does NOT write files.
+    # Verify the path resolves inside the isolated dir but don't expect a file.
     isolated_history = Path(history_store.path)
-    assert isolated_history.exists(), "isolated history file was not written"
-    assert any(r.get("id") == "iso-test" for r in history_store.load())
+    assert str(isolated_history).startswith(str(isolated)), (
+        f"history_store path {isolated_history} not inside isolated dir {isolated}"
+    )
 
+    # DraftsStore writes to a JSON file — verify it landed.
     isolated_drafts = Path(drafts_store.path)
     assert isolated_drafts.exists(), "isolated drafts file was not written"
     assert any(r.get("id") == "iso-draft" for r in drafts_store.load())

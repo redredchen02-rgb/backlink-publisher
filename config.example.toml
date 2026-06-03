@@ -436,3 +436,24 @@ client_secret = "your-client-secret"
 # expected_target = "https://your-site.com/"
 # marker = "cnry-7f3a9c2e-do-not-reuse"
 # hard_skip = false
+
+# ────────────────────────────────────────────────────────────
+# [throttle.*]  Per-platform post-publish delay overrides
+# ────────────────────────────────────────────────────────────
+#
+# Lowest-precedence tier: env var > TOML > hardcoded default.
+# Each sub-table takes a single key: delay_s (float, seconds).
+#
+# Use when you want a persistent override without setting shell env vars.
+# CI/automation should still use env vars (<PLATFORM>_PUBLISH_DELAY_S).
+#
+# Slug must match the platform slug in register() — all lowercase.
+#
+# [throttle.hackmd]
+# delay_s = 30.0
+#
+# [throttle.devto]
+# delay_s = 45.0
+#
+# [throttle.mataroa]
+# delay_s = 20.0

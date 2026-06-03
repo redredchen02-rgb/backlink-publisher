@@ -236,12 +236,12 @@ _AUTH_TYPE_BY_PLATFORM: dict[str, str] = {
     # ANON — no credentials (anonymous publish / auto-bootstrap)
     "telegraph": "anon", "txtfyi": "anon", "rentry": "anon", "notesio": "anon",
     # TOKEN — single secret field
-    "devto": "token", "writeas": "token",
+    "devto": "token",
     "hackmd": "token", "mataroa": "token",
     "qiita": "token",  # API token, single secret field
     # TOKEN+FIELDS — secret + extra config field(s)
     "ghpages": "token_fields", "notion": "token_fields",
-    "wordpresscom": "token_fields", "hashnode": "token_fields",
+    "wordpresscom": "token_fields",
     "tumblr": "token_fields",
     # hatena: api_key + hatena_id + blog_id (secret + 2 config fields)
     "hatena": "token_fields",

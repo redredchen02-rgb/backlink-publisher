@@ -16,8 +16,10 @@ from backlink_publisher.config import Config
 from backlink_publisher.config.tokens import (
     save_devto_token,
     save_ghpages_token,
+    save_hackmd_token,
+    save_mataroa_token,
+    save_qiita_token,
     save_wordpresscom_token,
-    save_writeas_token,
 )
 from backlink_publisher._util.io import atomic_write_json
 
@@ -41,8 +43,10 @@ class CorruptCredentialFile(Exception):
 # TOKEN — single secret field.  auth_type="token" channels.
 # (channel) → (save_fn, basename, token_field_key)
 _TOKEN_DISPATCH: dict[str, tuple] = {
-    "writeas": (save_writeas_token, "writeas-token.json", "token"),
     "devto":   (save_devto_token,   "devto-token.json",   "api_key"),
+    "hackmd":  (save_hackmd_token,  "hackmd-token.json",  "token"),
+    "mataroa": (save_mataroa_token, "mataroa-token.json", "token"),
+    "qiita":   (save_qiita_token,   "qiita-token.json",   "token"),
 }
 
 # TOKEN+FIELDS — secret + extra config fields; field-merge semantics.

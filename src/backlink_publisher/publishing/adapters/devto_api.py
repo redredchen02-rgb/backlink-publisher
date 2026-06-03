@@ -64,10 +64,17 @@ _MAX_TAGS = 4
 
 
 def _post_publish_delay_s() -> int:
-    try:
-        return int(os.environ.get("DEVTO_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
-    except (ValueError, TypeError):
-        return _DEFAULT_POST_PUBLISH_DELAY_S
+    env_val = os.environ.get("DEVTO_PUBLISH_DELAY_S")
+    if env_val is not None:
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            return _DEFAULT_POST_PUBLISH_DELAY_S
+    from backlink_publisher.config import load_config
+    toml_val = load_config().platform_throttle.get("devto")
+    if toml_val is not None:
+        return int(toml_val)
+    return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _required_headers(api_key: str) -> dict[str, str]:

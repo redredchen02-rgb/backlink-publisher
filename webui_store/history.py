@@ -29,17 +29,12 @@ class HistoryStore:
         self._path: Path | None = Path(path) if path is not None else None
         self._lock = threading.Lock()
 
-    # ── path property (required by _LazyStore + tests) ────────────────
-
     @property
-    def path(self) -> Path | None:
+    def path(self):
+        """Legacy path property (``_LazyStore`` proxy accesses this)."""
         return self._path
 
-    @path.setter
-    def path(self, new_path: Any) -> None:
-        self._path = Path(new_path) if new_path is not None else None
-
-    # ── Core Store API ────────────────────────────────────────────────
+    # ── read ────────────────────────────────────────────────────────────────
 
     def load(self) -> list[dict[str, Any]]:
         if self._path is None:

@@ -410,6 +410,14 @@ class Config:
     Operator-edit-only; not modeled in ``Config`` for rewrite. Preserved
     verbatim by ``save_config`` (unmanaged root)."""
 
+    platform_throttle: dict[str, float] = field(default_factory=dict)
+    """Per-platform post-publish delay overrides (seconds), keyed by platform slug.
+
+    Populated from ``[throttle.<slug>]`` sections in config.toml, each
+    containing a ``delay_s`` key (float). Operator-edit-only; not modeled in
+    ``Config`` for rewrite. Preserved verbatim by ``save_config``
+    (unmanaged root). Lowest-precedence tier: env var > TOML > hardcoded default."""
+
     target_probe_queries: dict[str, list[str]] = field(default_factory=dict)
     """Per-target GEO probe-query overrides, keyed by main_domain (trailing
     slash stripped). Populated from ``[targets."<main_domain>"].probe_queries``

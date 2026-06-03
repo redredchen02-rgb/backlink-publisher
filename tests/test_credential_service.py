@@ -34,8 +34,12 @@ def cfg(tmp_path, monkeypatch):
 
 
 def test_token_dispatch_contains_expected_channels():
-    assert "writeas" in credential_service._TOKEN_DISPATCH
+    # writeas retired in plan 008; hackmd/mataroa/qiita added as token channels
+    assert "writeas" not in credential_service._TOKEN_DISPATCH
     assert "devto" in credential_service._TOKEN_DISPATCH
+    assert "hackmd" in credential_service._TOKEN_DISPATCH
+    assert "mataroa" in credential_service._TOKEN_DISPATCH
+    assert "qiita" in credential_service._TOKEN_DISPATCH
 
 
 def test_token_fields_dispatch_contains_expected_channels():
@@ -55,11 +59,12 @@ def test_userpass_cred_basenames_contains_livejournal():
 
 
 def test_save_token_writes_0600_file(cfg, tmp_path):
-    path = credential_service.save_token("writeas", cfg, "MY_WRITEAS_TOKEN")
+    # writeas retired in plan 008; hackmd is representative token channel
+    path = credential_service.save_token("hackmd", cfg, "MY_HACKMD_TOKEN")
     assert path.exists()
     assert os.stat(path).st_mode & 0o777 == 0o600
     data = json.loads(path.read_text())
-    assert data["token"] == "MY_WRITEAS_TOKEN"
+    assert data["token"] == "MY_HACKMD_TOKEN"
 
 
 def test_save_token_devto_uses_api_key_field(cfg, tmp_path):
@@ -179,13 +184,13 @@ def test_save_userpass_unknown_channel_raises(cfg):
 
 
 def test_clear_token_returns_true_when_file_exists(cfg, tmp_path):
-    credential_service.save_token("writeas", cfg, "tok")
-    assert credential_service.clear_credential("writeas", "token", cfg) is True
-    assert not (cfg.config_dir / "writeas-token.json").exists()
+    credential_service.save_token("hackmd", cfg, "tok")
+    assert credential_service.clear_credential("hackmd", "token", cfg) is True
+    assert not (cfg.config_dir / "hackmd-token.json").exists()
 
 
 def test_clear_token_returns_false_when_file_missing(cfg):
-    assert credential_service.clear_credential("writeas", "token", cfg) is False
+    assert credential_service.clear_credential("hackmd", "token", cfg) is False
 
 
 def test_clear_token_fields_returns_true(cfg, tmp_path):
@@ -211,7 +216,7 @@ def test_clear_unknown_channel_raises(cfg):
 
 def test_clear_unknown_auth_type_raises(cfg):
     with pytest.raises(ChannelNotConfigured):
-        credential_service.clear_credential("writeas", "weirdtype", cfg)
+        credential_service.clear_credential("hackmd", "weirdtype", cfg)
 
 
 # ── paste_blob_expected_domain ────────────────────────────────────────────────

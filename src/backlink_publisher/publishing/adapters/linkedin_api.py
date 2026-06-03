@@ -22,10 +22,17 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 60  # 60 s: LinkedIn 429s observed at < 30 
 
 
 def _post_publish_delay_s() -> int:
-    try:
-        return int(os.environ.get("LINKEDIN_PUBLISH_DELAY_S", _DEFAULT_POST_PUBLISH_DELAY_S))
-    except (ValueError, TypeError):
-        return _DEFAULT_POST_PUBLISH_DELAY_S
+    env_val = os.environ.get("LINKEDIN_PUBLISH_DELAY_S")
+    if env_val is not None:
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            return _DEFAULT_POST_PUBLISH_DELAY_S
+    from backlink_publisher.config import load_config
+    toml_val = load_config().platform_throttle.get("linkedin")
+    if toml_val is not None:
+        return int(toml_val)
+    return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 class LinkedInAPIAdapter(Publisher):
