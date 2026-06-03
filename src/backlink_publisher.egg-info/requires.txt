@@ -2,16 +2,15 @@ markdown-it-py>=4.2
 google-api-python-client>=2.196
 google-auth-oauthlib>=1.4
 google-auth-httplib2>=0.2
-playwright>=1.55
-requests>=2.32.4
+playwright<2,>=1.55
+requests<3,>=2.32.4
 websocket-client>=1.9
-beautifulsoup4>=4.13
+beautifulsoup4<5,>=4.13
 flask<4,>=3.1
+flask-limiter<5,>=3.5
 apscheduler<4,>=3.11
 pyyaml>=6.0.3
-
-[:python_version < "3.11"]
-tomli>=2.0
+google-analytics-data>=0.18
 
 [dev]
 pytest>=8.4

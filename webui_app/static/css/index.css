@@ -1,20 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
-        :root {
-            --primary: #4f46e5;
-            --primary-dark: #4338ca;
-            --secondary: #6b7280;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --info: #3b82f6;
-            --light: #f9fafb;
-            --dark: #1f2937;
-            --gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            --glass-bg: rgba(255, 255, 255, 0.8);
-            --glass-border: rgba(255, 255, 255, 0.4);
-        }
-        
         body {
             font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
             background: radial-gradient(circle at 10% 20%, rgba(243, 244, 246, 1) 0%, rgba(229, 231, 235, 1) 90%);
@@ -35,7 +20,6 @@
         }
         
         .navbar:hover {
-            transform: translateY(-2px);
             box-shadow: 0 15px 30px -5px rgba(79, 70, 229, 0.4);
         }
         
@@ -60,8 +44,7 @@
         }
         
         .card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.12);
         }
         
         .card-header {

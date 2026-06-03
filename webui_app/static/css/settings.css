@@ -24,7 +24,6 @@
         }
         
         .navbar:hover {
-            transform: translateY(-2px);
             box-shadow: 0 15px 30px -5px rgba(79, 70, 229, 0.4);
         }
         
@@ -90,8 +89,7 @@
         }
         
         .card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.12);
         }
         
         .card-header {
