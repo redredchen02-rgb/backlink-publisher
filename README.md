@@ -304,7 +304,8 @@ colleague over the same machine), no login. Treat it accordingly.
   re-opens the door.
 - **Debug off by default.** `python webui.py` runs with the Werkzeug debugger
   off; opt in per-session with `FLASK_DEBUG=1` only on a trusted machine. The
-  launcher pins a persistent `SECRET_KEY` so sessions/CSRF survive restart.
+  canonical launcher `scripts/launcher.command` (the one git-tracked launcher)
+  pins a persistent `SECRET_KEY` so sessions/CSRF survive restart.
 - **Two guards are the whole defense.** CSRF + the Origin/Referer guard on
   every state-mutating route are the entire defense against a hostile process
   or browser page on the loopback interface. They must be present on every such

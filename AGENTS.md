@@ -25,7 +25,10 @@ python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan
 
 # WebUI
 python webui.py                                    # start dev server on :8888
+scripts/launcher.command                           # canonical operator launcher (FLASK_DEBUG=0 + pinned SECRET_KEY, crash-restart loop)
 ```
+
+> **One launcher (R9):** `scripts/launcher.command` is the single git-tracked launcher. The workspace-root `启动WebUI.command` / `restart_webui.sh` and `make restart-webui` are thin entry points that should resolve to it — keep the security posture (Werkzeug debug off, pinned `SECRET_KEY`) in this one file only.
 
 ## Repo Layout
 
