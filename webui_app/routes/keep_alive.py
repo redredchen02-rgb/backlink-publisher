@@ -5,6 +5,8 @@ backlinks are still live vs stripped, bleeding deep pages first, sourced from th
 ``link.rechecked`` time series (the liveness authority — the ledger column is
 stale). The recheck / republish *action* states (S1, S3–S7) land in Units 5–7;
 this unit owns the read states (S0 / S2-static / S-stale / empty).
+
+plan 2026-06-04-002: Unit 1 adds POST /ce:keep-alive/recheck.
 """
 from __future__ import annotations
 
@@ -13,20 +15,25 @@ from flask import Blueprint, abort, jsonify, request
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 
+from ..api import HistoryAPI
 from ..helpers.contexts import _render
 from ..helpers.security import _check_bind_origin_or_abort
 from ..services.keep_alive import build_keepalive_view
 from ..services.keepalive_job import registry as keepalive_registry
 
 bp = Blueprint("keep_alive", __name__)
+_history = HistoryAPI()
 
 
 @bp.route("/ce:keep-alive", methods=["GET"])
 def keep_alive():
+    flash_type = request.args.get("flash_type", "")
+    flash_msg = request.args.get("flash_msg", "")
+    flash = {"type": flash_type, "msg": flash_msg} if flash_type else None
     view = build_keepalive_view()
     running = keepalive_registry.running_job("recheck")  # G5a: rehydrate on reopen
     return _render(
-        "keep_alive.html", view=view, active_page="keep_alive", running_job=running
+        "keep_alive.html", view=view, flash=flash, active_page="keep_alive", running_job=running
     )
 
 
