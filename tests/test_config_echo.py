@@ -10,9 +10,9 @@ Verifies:
 
 Plan ref: docs/ideation/2026-05-14-round3-fresh-pass-ideation.md (#7)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import logging
 import re

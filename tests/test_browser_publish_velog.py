@@ -13,9 +13,9 @@ A ``real_browser_publish_smoke`` marker test is provided but skipped by
 default — operator runs it manually to re-verify selectors against live
 velog.io/write.
 """
-
 from __future__ import annotations
 
+__tier__ = "e2e"
 from unittest.mock import MagicMock
 
 import pytest

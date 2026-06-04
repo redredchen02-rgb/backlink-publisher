@@ -8,9 +8,9 @@ Three loopback-only POST endpoints behind the live CSRF guard:
 Covers: happy path, CSRF rejection (no token → 403), unknown-platform
 rejection (400, no side effect), and write-error degradation (never 500).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 

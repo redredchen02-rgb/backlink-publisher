@@ -6,9 +6,9 @@ Strategies
 * ``handle_site`` → checks dry-run passthrough and error-surface.
 * ``ClickQueryResult`` / ``ClickStats`` → dataclass shape tests.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 from datetime import datetime, timezone
 

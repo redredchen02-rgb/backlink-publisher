@@ -4,9 +4,9 @@ Validates the foundation scaffolding before any page extends it: the shared lib
 assets and token source are served, and a child-of-base renders exactly one head
 with one CSRF meta and a CLASSIC (non-defer/non-module) Bootstrap script.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from webui_app import create_app

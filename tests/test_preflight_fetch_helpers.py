@@ -3,9 +3,9 @@
 Covers _classify_url_error and _build_facts_from_response.
 All tests are pure-unit: no network, no I/O.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import email.message
 import socket
 import ssl

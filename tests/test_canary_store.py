@@ -11,9 +11,9 @@ already points ``BACKLINK_PUBLISHER_CONFIG_DIR`` at a tmp dir; per-test
 overrides use ``monkeypatch.setenv`` (never ``del os.environ`` — that
 poisons later tests; see feedback_del_os_environ_poisons_later_tests).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import stat
 from pathlib import Path

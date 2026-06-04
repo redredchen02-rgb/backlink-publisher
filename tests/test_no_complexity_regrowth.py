@@ -18,9 +18,9 @@ radon.complexity.cc_visit() (per-function) instead of radon.raw.analyze().sloc (
 keys are "<relpath>::<fullname>", and the seed convention is exact current CC (zero headroom)
 rather than round_up_to_10(SLOC+30).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import tomllib
 from pathlib import Path
 
@@ -42,6 +42,7 @@ CC_HEADROOM_MAX = 10
 # Missing/malformed budget file raises during collection -- pytest reports a clear error.
 BUDGET = tomllib.loads(BUDGET_FILE.read_text())
 MONITORED_KEYS = list(BUDGET["functions"].keys())
+MONITORED_TEST_KEYS = list(BUDGET.get("test_files", {}).keys())
 
 # CC canary: pins radon's complexity counter against the hand-crafted fixture. Re-baseline
 # only on a deliberate radon bump (which also re-measures every monitored ceiling).
@@ -273,6 +274,58 @@ def test_radon_cc_behavior_pinned() -> None:
         f"CC canary expected={CC_CANARY_EXPECTED} but radon returned={match.complexity}. "
         f"radon's counter behavior changed -- re-baseline all monitored ceilings and update "
         f"CC_CANARY_EXPECTED in tests/test_no_complexity_regrowth.py."
+    )
+
+
+# ---------- Test-file SLOC budget tests ----------
+
+
+def _sloc_of(path: Path) -> int:
+    """Return the logical SLOC (source lines of code) of a Python file."""
+    from radon.raw import analyze
+    return analyze(path.read_text()).sloc
+
+
+def test_test_files_budget_exists() -> None:
+    """The budget file must contain a [test_files] table."""
+    assert "test_files" in BUDGET, (
+        "complexity_budget.toml missing [test_files] table"
+    )
+    assert len(BUDGET["test_files"]) > 0, (
+        "[test_files] table must have at least one entry"
+    )
+
+
+@pytest.mark.parametrize("relpath", MONITORED_TEST_KEYS)
+def test_test_file_entry_schema(relpath: str) -> None:
+    """Each test-file entry must have int ceiling + str rationale >= 80 chars."""
+    entry = BUDGET["test_files"][relpath]
+    assert "ceiling" in entry, f"Entry '{relpath}' missing 'ceiling'"
+    assert isinstance(entry["ceiling"], int), (
+        f"Entry '{relpath}' ceiling must be int, got {type(entry['ceiling']).__name__}"
+    )
+    assert "rationale" in entry, f"Entry '{relpath}' missing 'rationale'"
+    assert isinstance(entry["rationale"], str), (
+        f"Entry '{relpath}' rationale must be str, got {type(entry['rationale']).__name__}"
+    )
+    n = len(entry["rationale"])
+    assert n >= RATIONALE_MIN_CHARS, (
+        f"Entry '{relpath}' rationale length {n} < {RATIONALE_MIN_CHARS} minimum."
+    )
+
+
+@pytest.mark.parametrize("relpath", MONITORED_TEST_KEYS)
+def test_test_file_within_ceiling(relpath: str) -> None:
+    """Each monitored test file's SLOC must not exceed its budgeted ceiling."""
+    entry = BUDGET["test_files"][relpath]
+    full_path = REPO_ROOT / relpath
+    assert full_path.exists(), f"Test file {relpath} not found at repo root"
+    actual = _sloc_of(full_path)
+    ceiling = entry["ceiling"]
+    assert actual <= ceiling, (
+        f"{relpath}: SLOC={actual} exceeds ceiling={ceiling} by {actual - ceiling}. "
+        f"Rationale: '{entry['rationale']}'. Either slim the file or bump the ceiling "
+        f"in complexity_budget.toml with an updated >=80-char rationale in this same PR."
     )
 
 

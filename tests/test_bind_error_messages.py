@@ -6,10 +6,10 @@ Every error_code the bind-channel CLI (Unit 2) can emit on a
 addition in the driver without a matching message addition fails loudly
 here, not silently in production.
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 KNOWN_DRIVER_ERROR_CODES = frozenset({
     "bound_predicate_timeout",
     "playwright_launch_failed",

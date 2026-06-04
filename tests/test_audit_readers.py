@@ -2,6 +2,7 @@
 session sandbox doesn't bleed seeded state. Covers snapshot freshness (the
 load-bearing WAL behavior), zero-touch on the real store, store-state
 distinction, and tear flagging."""
+__tier__ = "integration"
 
 import hashlib
 import json

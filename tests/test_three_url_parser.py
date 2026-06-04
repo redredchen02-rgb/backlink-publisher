@@ -4,9 +4,9 @@ Covers the three extracted helpers (_parse_work_urls, _parse_work_templates,
 _parse_blocklist) and the main orchestrator _parse_target_three_url.
 All tested without I/O — inputs are plain dicts, outputs are pure values.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.config.parsers.three_url import (

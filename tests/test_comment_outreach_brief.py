@@ -8,9 +8,9 @@ network. The prompt-construction / sanitizer-parity tests import the provider mo
 Invisible characters are written as escape sequences (``\\x00`` / ``\\u200b`` / ``\\u202e``
 / ``\\u2060`` / ``\\ufeff``) -- a literal NUL in the source cannot even be parsed.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 

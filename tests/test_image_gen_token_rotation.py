@@ -10,9 +10,9 @@ catch the bootstrap-TOCTOU regression that
 about — credential-rotation tests must enumerate ALL state-mutation
 sites, not only the rotation hot-path.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import stat

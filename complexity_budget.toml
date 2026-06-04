@@ -1,5 +1,7 @@
-# Cyclomatic-complexity (CC) budget. Sibling to monolith_budget.toml (which gates
-# file SLOC); this gates per-function radon cyclomatic complexity. See:
+# Cyclomatic-complexity (CC) budget + Test-file SLOC budget.
+# Sibling to monolith_budget.toml (which gates file SLOC); the [functions] section
+# gates per-function radon cyclomatic complexity, and the [test_files] section gates
+# per-file radon SLOC for test files. See:
 # - docs/plans/2026-05-29-005-feat-cyclomatic-complexity-budget-plan.md
 # - docs/brainstorms/2026-05-29-cyclomatic-complexity-budget-requirements.md
 #
@@ -55,6 +57,76 @@ rationale = "Config TOML writer: emits [blogger]/[medium]/[targets.*] sections. 
 ceiling = 38
 rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. CC 38 grandfathered at current value; decomposition deferred to the next PR that touches this route (reduce per-branch logic into URL-validator service layer at that point)."
 
+[functions."src/backlink_publisher/cli/publish_backlinks/_engine.py::_publish_one_row"]
+ceiling = 35
+rationale = "Per-row publish dispatcher gating canary, reachability, bad platform, dedup, dry-run, and the adapter publish try/except block. Last CC bump from +2 when U6-of-system-optimization added RECON progress events. Grandfathered as a coordinator with many sequential pre-condition gates that don't decompose cleanly; # noqa: C901 acknowledges the shape."
+
 [functions."src/backlink_publisher/cli/spray_backlinks/core.py::main"]
 ceiling = 65
 rationale = "spray-backlinks CLI entry point: orchestrates seed expansion, gate evaluation, per-platform publish dispatch, cross-seed idempotency checks, and result serialisation. High CC is inherent to a top-level CLI coordinator; individual stages (gate_candidates, cross_seed_checker, _dispatch_platform) are already extracted to separate functions. Decomposing main further would only add indirection without reducing decision paths."
+
+# Test-file SLOC budgets (enforced by test_no_complexity_regrowth.py).
+# Each entry is a repo-relative .py path with:
+#   ceiling  -- int, SLOC (logical lines of code via radon raw -s)
+#   rationale -- string, >=80 chars explaining why the file is large.
+#
+# Seed values are exact current SLOC + round_up_to_10 (same convention as
+# monolith_budget.toml), providing ~10-line breathing room. Regular entries
+# hold the line against test-file SLOC growth; bump in the same PR with a
+# rationale update.
+
+[test_files."tests/test_webui_route_contract.py"]
+ceiling = 1080
+rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Decompose parametrize tables into shared helpers when a new route makes this file grow further."
+
+[test_files."tests/test_cli_generate_backlink_text.py"]
+ceiling = 1070
+rationale = "CLI generate-backlink-text tests: covers LLM-based text generation with mock provider responses, fallback chains, error handling (timeout, malformed, empty responses), and multi-language support (en/zh-CN/ru). Large because each provider variant x language x error case is a separate test function."
+
+[test_files."tests/test_webui_three_url.py"]
+ceiling = 940
+rationale = "WebUI three-URL form tests: validates the sites-save-three-url route behaviour across every field combination, gate logic, redirect chain, and error path. Large due to thorough coverage of the 4-step URL validation pipeline with ~30 parametrized scenarios per gate."
+
+[test_files."tests/test_plan_backlinks.py"]
+ceiling = 900
+rationale = "plan-backlinks E2E integration tests: exercises the full deterministic planning pipeline with seed variation across language (en/zh-CN/ru), url_mode (A/B/C), platform (medium/blogger/velog), and banner configuration. Large due to combinatorial coverage of 4 dimensions x 3+ values each."
+
+[test_files."tests/test_content_fetch.py"]
+ceiling = 870
+rationale = "Content fetch tests: full coverage of the content-fetch engine across success paths, HTTP error codes, redirect handling, SSRF defense, cache behavior, timeout handling, and content-type negotiation. Large due to the breadth of network failure modes each tested with a separate fixture."
+
+[test_files."tests/test_cli_plan_check.py"]
+ceiling = 820
+rationale = "plan-check CLI tests: integrates the full plan-check engine including frontmatter parsing, claim drift detection, schema validation, git-fetch orchestration, and RECON output formatting. Large because every exit code (1/2/7/8) and every output format (human/JSON/RECON) is tested independently."
+
+[test_files."tests/test_adapter_velog_graphql.py"]
+ceiling = 670
+rationale = "Velog GraphQL adapter tests: covers the writePost mutation lifecycle including cookie auth, retry-on-null, currentUser liveness probe, daily-cap enforcement, and all GraphQL error shapes. Large due to the null-after-retry diagnostics flow which adds 5 probe-variant tests."
+
+[test_files."tests/test_config_three_url.py"]
+ceiling = 650
+rationale = "Three-URL config tests: validates the upgrade-Target-to-three-url migration path, merge_site_url_categories writer, round-trip preservation of legacy sections, and all save_config taxonomy branches for [sites.*] and [targets.*] tables."
+
+[test_files."tests/test_publish_backlinks.py"]
+ceiling = 610
+rationale = "publish-backlinks integration tests: covers the fresh-publish loop including adapter dispatch, dedup gating, checkpoint creation/update, AuthExpiredError handling, banner upload edge cases, and dry-run mode. Large due to complete end-to-end mock coverage of the pipeline."
+
+[test_files."tests/test_work_scraper.py"]
+ceiling = 550
+rationale = "Work scraper tests: exercises the sitemap-based URL discovery pipeline across valid sitemaps, sitemapindex recursion, network errors, blocklist filtering, HTML fallback scraping, and url_category extraction. Large due to parsing-variant fixtures for each XML/HTML shape."
+
+[test_files."tests/conftest.py"]
+ceiling = 470
+rationale = "Root-level pytest conftest: houses 25+ fixtures spanning config isolation, mock HTTP responses, fake adapter registration, CSRF guard management, browser state simulation, and worktree sandboxes. Large because it is the single shared fixture surface across ~160 test files."
+
+[test_files."tests/test_webui_url_verify_routes.py"]
+ceiling = 460
+rationale = "WebUI URL verify routes tests: covers the throttle-guarded URL verification endpoint with per-route status codes, throttling rejection after N calls, rate-limit header assertions, and concurrency safety checks. Large due to parametrize across 6 origin situations x 3 URL modes."
+
+[test_files."tests/test_validate_backlinks.py"]
+ceiling = 450
+rationale = "validate-backlinks CLI tests: full schema validation coverage including required fields, type checks, URL reachability, language matching heuristic, and all exit code paths (0 pass, 2 fail). Large due to per-field validation x pass/fail parametrize."
+
+[test_files."tests/test_plan_backlinks_work_themed.py"]
+ceiling = 440
+rationale = "Work-themed plan-backlinks tests: covers the three-URL planner variant with sitemap discovery, work URL selection, anchor permutation, brand/partial/exact pool distribution, and zh-CN short-form fallback. Large due to combinatorial parametrize across anchor pools."

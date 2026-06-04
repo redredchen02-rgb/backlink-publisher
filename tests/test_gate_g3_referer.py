@@ -1,7 +1,7 @@
 """Unit 3 — G3 referer render-path audit + GA4 referral intake (plan 005)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.gates import g3_referer as g3
 from backlink_publisher.gates import verdict as gv
 

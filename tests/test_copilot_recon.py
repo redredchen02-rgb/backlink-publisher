@@ -1,7 +1,7 @@
 """Tests for Copilot RECON invocation logging (Plan U7)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 from backlink_publisher._util.logger import set_log_level

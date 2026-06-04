@@ -10,9 +10,9 @@ queries over _REGISTRY. This file verifies:
   - bound_platforms() callback contract
   - Type correctness of returned dataclasses
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import backlink_publisher.publishing.adapters as _adapters_import  # noqa: F401
 
 import pytest

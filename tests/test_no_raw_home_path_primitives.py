@@ -22,6 +22,7 @@ Plan 2026-05-27-005 Unit 2.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import ast
 from pathlib import Path
 from typing import NamedTuple

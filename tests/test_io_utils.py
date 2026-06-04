@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.io_utils."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import stat

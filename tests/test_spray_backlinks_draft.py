@@ -4,9 +4,9 @@ The LLM is always injected (a fake ``rewrite_fn``) so no test hits the network.
 Covers: distinct bodies per shot, salted ids, validation, empty-body rejection,
 and the R4a hard-abort when no LLM is configured.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.config import load_config

@@ -5,9 +5,9 @@ event-time-series age cursor (probe_error never advances last_definitive_at),
 oldest-first ordering, the cap, filters, the NULL-url exclusion, and the stdin
 trust boundary.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import io
 from datetime import datetime, timedelta, timezone
 

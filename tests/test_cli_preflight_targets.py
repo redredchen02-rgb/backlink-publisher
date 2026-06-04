@@ -6,9 +6,9 @@ Plan: docs/plans/2026-05-26-008-feat-preflight-targets-verb-plan.md (Unit 2).
 touched; these tests exercise the R5b verdict ladder, dedupe/fan-out, the
 always-exit-0 contract, and the receipt serializer.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from unittest.mock import MagicMock, patch
 

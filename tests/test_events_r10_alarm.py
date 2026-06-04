@@ -1,9 +1,9 @@
 """R10: mass-quarantine alarm — a flood of quarantines records a degraded
 health signal even though the run completes (quarantine-and-continue).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sqlite3
 from pathlib import Path

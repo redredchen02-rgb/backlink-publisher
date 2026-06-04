@@ -18,6 +18,7 @@ covering all discovered namers also reds it.
 """
 from __future__ import annotations
 
+__tier__ = "integration"
 import fnmatch
 import re
 from pathlib import Path

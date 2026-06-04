@@ -23,9 +23,9 @@ Coverage:
   known HTML/YAML/GraphQL escape vectors the forwarder adapters cannot
   defend against on their own.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

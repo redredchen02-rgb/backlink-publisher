@@ -5,9 +5,9 @@ bridge (``_llm_provider_from_sidecar`` requires https), leaving "I enabled Pro
 Mode but nothing happens". The save route rejects a non-empty non-https endpoint
 up front so the on-disk file is always bridge-usable.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import base64
 import json
 from unittest.mock import MagicMock, patch

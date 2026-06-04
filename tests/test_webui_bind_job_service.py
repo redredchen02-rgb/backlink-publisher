@@ -3,9 +3,9 @@
 Tests the registry's spawn/transition/cleanup behavior with a fake
 ``subprocess.Popen`` so no real ``bind-channel`` ever launches.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import time

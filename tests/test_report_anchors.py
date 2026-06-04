@@ -1,7 +1,7 @@
 """Tests for report-anchors CLI."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 from io import StringIO

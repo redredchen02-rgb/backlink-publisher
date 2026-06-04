@@ -1,7 +1,7 @@
 """Tests for LockedHealthStore — Plan 2026-06-03-004 Unit 2."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import multiprocessing
 import os

@@ -3,9 +3,9 @@
 Covers append-only diff, scrubbed failed events, and the bounded JSON
 read retry that protects against the non-atomic webui writer.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from pathlib import Path
 from typing import Any

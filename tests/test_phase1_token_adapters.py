@@ -8,6 +8,7 @@ per-adapter test files where it exists.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import importlib
 import json
 import os

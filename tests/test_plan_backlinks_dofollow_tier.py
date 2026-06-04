@@ -7,9 +7,9 @@ tests pin the mapping (the behavior-bearing part) against the registry's
 single source of truth, plus the observability-only invariant that the
 mark adds metadata without changing platform allocation.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.cli.plan_backlinks._payload import dofollow_tier_metadata

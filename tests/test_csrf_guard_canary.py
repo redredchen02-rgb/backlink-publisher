@@ -16,6 +16,7 @@ mutation; ``TESTING`` is ungated).
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 from flask.testing import FlaskClient
 

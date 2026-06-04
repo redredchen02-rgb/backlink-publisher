@@ -3,9 +3,9 @@
 The _compute_asset_version function must cache its result to avoid walking
 the static tree on every WebUI startup.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 from pathlib import Path
 

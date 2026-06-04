@@ -19,6 +19,7 @@ Patterns followed:
 
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import os
 import re

@@ -4,9 +4,9 @@ Tests pair positive+negative per the inverted-negative-assertion rule:
 each positive test has a counterpart that asserts the opposite outcome
 on a structurally different input.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import subprocess
 import textwrap

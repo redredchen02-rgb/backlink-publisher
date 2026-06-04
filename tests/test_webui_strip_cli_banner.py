@@ -3,9 +3,9 @@ errors. Without this, the 5-line banner + run_id line eats the 200-char
 truncation budget in publish-history templates and hides the real error
 (see memory: feedback_webui_stderr_preview_truncated).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from webui_app.helpers.cli_runner import strip_cli_diagnostic_banner
 
 

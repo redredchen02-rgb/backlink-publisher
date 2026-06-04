@@ -9,9 +9,9 @@ Asserts that the /ce:health route:
 The route already implements _reconciliation_gaps() (R7 backstop from Plan
 2026-05-25-006); these tests lock the contract and prevent regression.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 from unittest.mock import MagicMock, patch

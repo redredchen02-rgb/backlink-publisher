@@ -4,9 +4,9 @@ Covers:
   - POST /settings/channels/<channel>/bind  (CSRF + loopback + channel allow-list)
   - GET  /settings/channels/<channel>/bind/<job_id>  (poll lifecycle)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import os

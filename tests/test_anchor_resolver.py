@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.anchor_resolver."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import random
 from unittest.mock import MagicMock
 

@@ -1,7 +1,7 @@
 """Tests for build_platform_health — Plan 2026-06-03-004 Unit 1."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 import pytest

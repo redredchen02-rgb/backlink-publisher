@@ -10,9 +10,9 @@ Test scenarios:
 - Draft status transitions to failed on callback error
 - Callback exception is caught and reported
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 import pytest

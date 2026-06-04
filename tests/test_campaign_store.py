@@ -9,9 +9,9 @@ Test scenarios:
 - Concurrent read/write does not corrupt data
 - Persists across process restart (read back after store reload)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import re
 import threading

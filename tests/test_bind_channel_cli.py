@@ -11,9 +11,9 @@ Locks the CLI contract:
 No real Playwright; a fake browser runner is injected via the ``_browser_runner``
 keyword on ``main()`` (production main() defaults to the real Playwright runner).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 import pytest

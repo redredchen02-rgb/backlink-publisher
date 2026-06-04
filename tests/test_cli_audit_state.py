@@ -2,6 +2,7 @@
 equity-ledger harness. Asserts JSONL stdout, stderr summary + remediation, and
 the R9 exit-code distinctions (absent→0, findings→0, unreadable→3, bad flag→1).
 """
+__tier__ = "unit"
 
 import io
 import json

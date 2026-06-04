@@ -14,9 +14,9 @@ Coverage goals (plan spec):
 - PlanOutcome fields populated: content_fetch_stats, drop lists.
 - Backward-compat: _cell_gate_drop / _dispatch_row still importable from core.py.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch, MagicMock
 import pytest
 

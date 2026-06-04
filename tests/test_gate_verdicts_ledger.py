@@ -6,9 +6,9 @@ all five gates present, the R16 governance rule and the entropy-budget KILL at
 the top, no ``GO`` row without an evidence cell, and the no-operator-domain
 discipline noted for ``docs/ideation/``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import re
 from pathlib import Path
 

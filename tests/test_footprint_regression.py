@@ -15,9 +15,9 @@ all raise distinguishable error classes the operator can recognize at 2am.
 Break-glass: drop ``tests/baselines/footprint_concentration.OVERRIDE.md``
 with a ``reason:`` line and the gate downgrades failures to a loud warning.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import subprocess

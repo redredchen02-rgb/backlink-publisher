@@ -10,9 +10,9 @@ with 0600 perms.
 
 Test-first per plan Execution note.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import stat

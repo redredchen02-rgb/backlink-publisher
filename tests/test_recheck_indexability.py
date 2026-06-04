@@ -4,9 +4,9 @@
 Pure, total, never raises — exercised here directly (no probe/fetch involved) so
 the tri-state fail-open ladder is pinned independent of the liveness probe.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.content._preflight_fetch import PreflightFacts
 from backlink_publisher.recheck import indexability as ix
 

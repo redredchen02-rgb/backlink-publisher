@@ -9,9 +9,9 @@ whose ``(main_domain, platform)`` is not in its site's cell is **dropped**
 with an always-on ``recon`` warning; exit stays 0.  Sites without a cell
 entry pass through unchanged.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 from io import StringIO

@@ -9,9 +9,9 @@ Covers:
   - Registry accepts Publisher instance entries (instance path)
   - Registry preserves class entries (legacy path)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -15,6 +15,7 @@ Also verifies:
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import subprocess
 import sys

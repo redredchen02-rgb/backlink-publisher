@@ -4,9 +4,9 @@ Body-similarity (shingle Jaccard) is the gate; footprint link byte-signature is
 informational only (degenerate for same-target fan-out). Dry-run emits a
 per-shot preview + audit summary with zero side effects.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 import pytest

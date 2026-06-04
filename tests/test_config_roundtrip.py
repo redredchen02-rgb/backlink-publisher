@@ -19,9 +19,9 @@ Strategy
   / ``save_config``). The split must preserve this contract verbatim — the
   ``backlink_publisher.config`` import path is part of the contract.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 import pytest

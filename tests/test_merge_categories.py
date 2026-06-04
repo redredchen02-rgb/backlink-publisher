@@ -8,9 +8,9 @@ change config-merge semantics.
 
 Added 2026-06-01 (no production code change).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import tomllib
 
 import pytest

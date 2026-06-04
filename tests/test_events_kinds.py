@@ -4,9 +4,9 @@ Covers the vocabulary set, the three-outcome classifier (kind / CONFIRMED_FAMILY
 / NO_EMIT / QUARANTINE), the NO_EMIT-vs-quarantine distinction that prevents
 false-positive quarantine floods, and the dependency-free (no sqlite) guarantee.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import sys
 
 import pytest

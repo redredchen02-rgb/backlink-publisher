@@ -14,9 +14,9 @@ suite does NOT already cover:
 
 Mirrors the harness in tests/test_publish_backlinks_auth_expired_flip.py.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 from io import StringIO

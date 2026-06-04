@@ -9,9 +9,9 @@ Scope guard: this file only covers the ``inject_platforms`` +
 ``dashboard_channels`` swap. Template-level token-paste 5-site wire-up
 is Unit 4b (separate PR — touches templates + JS).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

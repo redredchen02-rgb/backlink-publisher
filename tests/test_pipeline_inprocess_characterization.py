@@ -43,9 +43,9 @@ structural* properties (exit code, row count, key fields, typed envelope
 class/exit_code, document-vs-rows shape) rather than full stdout, which would be
 brittle against timestamps and run-ids.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import subprocess

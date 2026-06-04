@@ -4,9 +4,9 @@
 comment region, and emits one ``CommentTarget`` per seed. Fetch failures degrade to
 ``comment_open=null``; the process always exits 0. The fetcher is stubbed — no network.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 

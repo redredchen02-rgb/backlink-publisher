@@ -1,7 +1,7 @@
 """Tests for mid-run config drift detection (token revocation)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

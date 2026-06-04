@@ -15,9 +15,9 @@ isolation, this file exercises the full chain:
           → adapter.embed_banner
           → adapter.publish (with body containing the prepended image)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

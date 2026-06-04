@@ -7,9 +7,9 @@ Covers:
   3.4 — _safe_flash_redirect: CR/LF stripping + length cap + URL-quote
   3.5 — SESSION_COOKIE_SECURE env-driven + ALLOW_NETWORK warning
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 import warnings

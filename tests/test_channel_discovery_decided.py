@@ -8,9 +8,9 @@ Verifies:
 - undecided_only filters correctly
 - all_decided_platforms includes both registry + store entries
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 from backlink_publisher.channel_discovery.decided import (
     all_decided_platforms,

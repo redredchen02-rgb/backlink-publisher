@@ -21,6 +21,7 @@ Refresh the baseline (rare — only after an intentional import-time change):
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import statistics
 import subprocess

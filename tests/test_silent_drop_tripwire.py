@@ -6,9 +6,9 @@ input/output/delta/dropped fields, both on success AND failure paths. The
 operator's "planned 20, got 5 — where did 15 go?" question becomes
 answerable without grepping every error line.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 from contextlib import redirect_stdout

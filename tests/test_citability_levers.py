@@ -10,9 +10,9 @@ Covers:
 - _generate_payload sets _citability_levers on the returned payload (before
   plan_rows moves it into metadata).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import datetime
 from unittest.mock import patch
 

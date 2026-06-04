@@ -18,6 +18,7 @@ driver -> channels`` import cycle. So the three representations stay separate
 and this guard keeps them honest. Test-time only (never an import-time assert),
 per ``invert-drift-check-when-invariant-becomes-dynamic``.
 """
+__tier__ = "unit"
 
 from pathlib import Path
 

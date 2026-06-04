@@ -6,9 +6,9 @@ Each negative scenario is paired with a positive (PAIRED-positive rule). The
 two integration tests at the bottom exercise the actual `python <script>`
 subprocess invocation; the rest are in-process via direct `main()` calls.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import hashlib
 import importlib.util
 import io

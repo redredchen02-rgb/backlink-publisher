@@ -4,9 +4,9 @@ All functions in the module are documented as pure — no I/O, no network,
 no DB. Tests construct minimal in-memory inputs and assert on output structure
 or spot-check key values.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 import backlink_publisher.publishing.adapters  # registers platforms before registry reads

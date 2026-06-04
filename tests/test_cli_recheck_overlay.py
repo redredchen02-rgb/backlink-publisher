@@ -4,9 +4,9 @@ The pure logic is covered in test_recheck_overlay.py; these tests exercise the
 I/O shell: pure-JSONL stdout, tally on stderr, the exit-code contract, and the
 opt-in --fail-on-dead gate.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import io
 import json
 import sys

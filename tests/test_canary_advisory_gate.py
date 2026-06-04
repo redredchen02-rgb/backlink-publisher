@@ -16,9 +16,9 @@ The session-autouse ``_isolate_user_dirs`` fixture points
 ``monkeypatch.setenv`` (never ``del os.environ``; see
 feedback_del_os_environ_poisons_later_tests).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from pathlib import Path
 

@@ -5,9 +5,9 @@ crash-stranded checkpoint reconcile, quarantine gap flag (set + clear), the
 within-process single-flight (``threading.Barrier`` → no double-append), and the
 degrade-never-raise contract.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sqlite3
 import threading

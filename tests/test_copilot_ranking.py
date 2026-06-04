@@ -1,7 +1,7 @@
 """Tests for the Copilot deterministic ranking engine (Plan U2)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from webui_app.services.copilot_models import Finding, Freshness
 from webui_app.services.copilot_ranking import rank
 

@@ -3,9 +3,9 @@ single-flight intent-write contract (incl. concurrency), and at-rest perms.
 
 Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U1).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import os
 import stat
 import threading

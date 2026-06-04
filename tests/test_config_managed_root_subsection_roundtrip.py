@@ -8,9 +8,9 @@ All assertions are positive-shape per R9 — see
 ``docs/solutions/test-failures/inverted-negative-assertion-enshrined-config-save-data-loss-2026-05-14.md``
 for the historical incident this file's shape choice is reacting to.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import uuid
 from pathlib import Path
 

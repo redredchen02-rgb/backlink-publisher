@@ -4,9 +4,9 @@ Plan 2026-05-29-003 Unit 1: pure-function bucketing of the settings overview
 ``dashboard_channels`` list into three independent automation tiers derived
 solely from ``status['auth_type']``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

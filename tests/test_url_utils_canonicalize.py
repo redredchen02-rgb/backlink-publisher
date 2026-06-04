@@ -5,9 +5,9 @@ Plan ref: ``docs/plans/2026-05-18-004-feat-event-substrate-corpus-plan.md`` U3 +
 Property-based test asserts idempotency over random URLs (Hypothesis already
 in dev deps, used in ``test_gate_properties.py``).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from hypothesis import given, settings
 from hypothesis import strategies as st
 

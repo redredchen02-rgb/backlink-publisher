@@ -3,9 +3,9 @@
 Follows the plan's U1 execution note: lead with a single round-trip test
 that locks in column types. Positive-shape assertions throughout.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import multiprocessing
 import sqlite3
 import subprocess

@@ -3,9 +3,9 @@
 No file I/O: _parse_llm_anchor_provider takes a plain dict and env vars.
 Env vars are injected via monkeypatch so tests are hermetic.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher._util.errors import InputValidationError

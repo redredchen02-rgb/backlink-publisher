@@ -1,8 +1,8 @@
 """Plan 2026-05-19-006 Unit 7 — end-to-end stack test of the truth /
 batch / recheck / purge flows."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import threading
 from unittest.mock import patch
 from urllib.parse import unquote

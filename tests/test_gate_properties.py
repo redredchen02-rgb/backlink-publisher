@@ -25,9 +25,9 @@ Gates intentionally out of scope here:
 - ``linkcheck`` — HTTP-bound; the pure parts are too thin to property-test
   meaningfully without mocking the network.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import random
 
 from hypothesis import assume, given

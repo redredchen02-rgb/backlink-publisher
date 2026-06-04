@@ -5,9 +5,9 @@ reject when a live PID owns the lease, expired-lease takeover, and the
 stale-PID takeover path that recovers from crashed publish processes
 which bypassed ``atexit`` cleanup.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import os
 
 import pytest

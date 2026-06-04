@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.anchor_metrics — pure deterministic distribution math."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import math
 from datetime import datetime, timedelta, timezone
 

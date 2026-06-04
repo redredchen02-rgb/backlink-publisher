@@ -5,9 +5,9 @@ when ``publish-backlinks`` produced no usable URL. Mirrors the pattern of
 ``test_webui_token_paste.py`` (Flask test client + session_transaction +
 ``run_pipe`` mocked at the import boundary).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 import pytest

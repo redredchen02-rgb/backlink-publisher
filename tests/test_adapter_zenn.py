@@ -3,9 +3,9 @@
 Covers: publish happy path (create + update/idempotent), draft mode, missing
 config/token DependencyError, no token leak on 401/403, and verify_adapter_setup.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from unittest.mock import MagicMock, patch

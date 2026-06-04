@@ -24,9 +24,9 @@ up with a circular ImportError.
 
 This is intentionally a thin import-time gate, not a behavioural test.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import subprocess
 import sys

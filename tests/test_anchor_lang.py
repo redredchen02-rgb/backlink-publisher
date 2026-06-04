@@ -3,9 +3,9 @@
 Covers the R4 codepoint heuristic + branded-pool exemption + kind-scoping +
 non-enum language behavior.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.anchor.lang import check_anchor_language

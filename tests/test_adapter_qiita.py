@@ -4,9 +4,9 @@ Covers: publish happy path, draft mode, DependencyError on missing token,
 no token leak on 401, 422 error surfacing, tag normalization, R9 extension
 gate compatibility (no cli/*.py edits), and verify_adapter_setup offline check.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from unittest.mock import MagicMock, patch

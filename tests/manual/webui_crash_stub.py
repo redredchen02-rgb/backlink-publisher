@@ -1,3 +1,4 @@
+__tier__ = "unit"
 #!/usr/bin/env python3
 """Crash-simulating stub for the launcher restart-loop smoke tests.
 

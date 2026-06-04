@@ -3,6 +3,7 @@
 Real registry values used: medium=dofollow, devto=nofollow(high),
 livejournal=nofollow(high), an unregistered platform → unknown.
 """
+__tier__ = "integration"
 
 import json
 from datetime import datetime, timedelta

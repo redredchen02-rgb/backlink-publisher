@@ -9,9 +9,9 @@ assertions (``cfg2.cell_assignments == cfg.cell_assignments``) prove
 preservation without hard-coding raw TOML substrings, per the
 inverted-negative-assertion lesson.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 import backlink_publisher.publishing.adapters  # noqa: F401 — populate registry

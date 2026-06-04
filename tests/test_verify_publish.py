@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.verify_publish module."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 

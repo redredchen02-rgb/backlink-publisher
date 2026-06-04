@@ -21,9 +21,9 @@ Requirements: R-A1 (no loss across save_config), R-A3 (channels join managed
 roots), R-A4 (file-mode invariants survive — covered by the A.1 canary, not
 re-asserted here).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 

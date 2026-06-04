@@ -3,9 +3,9 @@
 Both modules are extracted from schema.py and have no direct test coverage.
 Tests exercise the individual _check_* helpers and the aggregate validators.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher._schema_input import (

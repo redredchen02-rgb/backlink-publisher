@@ -1,7 +1,7 @@
 """Static CSS file serving — Plan B (index.html template split) Unit 1."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from webui_app import create_app

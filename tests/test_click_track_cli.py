@@ -5,9 +5,9 @@ Covers:
 * --probe with query success → store has ``click.observed`` events.
 * --probe with query error → store has ``click.query_failed`` events.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sqlite3
 from pathlib import Path

@@ -13,9 +13,9 @@ Python regex.
 When Unit 1 has NOT landed yet (no changelog files), this test SKIPS rather
 than fails — the gate is meaningful only once both sides exist.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import glob
 from pathlib import Path
 

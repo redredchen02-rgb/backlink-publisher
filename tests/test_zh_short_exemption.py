@@ -4,9 +4,9 @@ zh-short payloads receive ONLY zero-cost levers: freshness + entity_claim.
 They must NOT receive FAQ or stats blocks. The char envelope must not be
 extended beyond reasonable bounds (zero-cost means no heavy injection).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import datetime
 from unittest.mock import patch
 

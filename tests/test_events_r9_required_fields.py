@@ -15,9 +15,9 @@ reducer's held WAL write transaction would deadlock (the same trap the
 unmapped-status path hit). The end-to-end test below proves a forced miss inside
 the real checkpoint reducer quarantines without deadlocking and the run finishes.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sqlite3
 from pathlib import Path

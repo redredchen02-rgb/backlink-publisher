@@ -9,9 +9,9 @@ Bespoke-flow channels (blogger/velog/medium/mastodon) have auth_types that
 map to custom binding UI; they are NOT flagged as missing — they appear in
 _AUTH_TYPE_BY_PLATFORM and are handled by their own partials.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 import backlink_publisher.publishing.adapters  # noqa: F401 — side-effect: populates registry

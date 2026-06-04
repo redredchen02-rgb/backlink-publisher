@@ -12,9 +12,9 @@ Covers:
     - USERPASS: module-dispatch credential hashing (livejournal md5)
     - Clear path: unlinks credential file
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

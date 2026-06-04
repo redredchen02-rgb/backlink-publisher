@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.bulk_input module."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 from unittest.mock import patch, MagicMock
 

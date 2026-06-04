@@ -9,9 +9,9 @@ New ``baseline regenerate`` subcommand:
 - Writes per-corpus baselines atomically (no partial files on mid-run failure).
 - Idempotent: second regen with same inputs produces byte-identical baseline.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import os

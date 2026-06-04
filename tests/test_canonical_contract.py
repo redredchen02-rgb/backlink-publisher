@@ -17,9 +17,9 @@ URL through *verbatim* (no escaping, no normalization). Defense lives at
 the schema layer (``tests/test_schema_seo_canonical_contract.py``); this
 suite would catch a future PR that adds adapter-side mangling.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 from unittest.mock import MagicMock, patch
 

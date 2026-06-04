@@ -5,9 +5,9 @@ schema_version contract. Failures here mean a future migration changed
 shape without updating the test — the fix is to confirm intent and
 update the asserted set.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import sqlite3
 
 import pytest

@@ -1,5 +1,6 @@
 """Unit 4 — equity-ledger CLI verb. Each test gets a fresh config/cache dir so
 the session-scoped sandbox doesn't bleed seeded state across tests."""
+__tier__ = "unit"
 
 import io
 import json

@@ -5,6 +5,7 @@ from routes/pipeline.py.  No Flask app context required.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from webui_app.services.pipeline_service import (

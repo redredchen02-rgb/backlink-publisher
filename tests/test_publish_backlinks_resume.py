@@ -1,7 +1,7 @@
 """Tests for publish-backlinks --resume, --list-runs, --cleanup, --cleanup-all flags."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

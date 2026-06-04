@@ -1,4 +1,5 @@
 """Unit 5 — equity-ledger WebUI page (GET, read-only)."""
+__tier__ = "unit"
 
 import json
 

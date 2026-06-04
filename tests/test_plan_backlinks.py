@@ -1,7 +1,7 @@
 """Tests for plan-backlinks."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import re
 import sys

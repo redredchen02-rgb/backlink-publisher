@@ -7,9 +7,9 @@ branches, 3 error-path branches, and 2 "no-op" branches.
 Pure helper: no I/O, no EventStore, no Config. Caller supplies
 ``emit`` callback (signature mirrors ``EventStore.append``).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

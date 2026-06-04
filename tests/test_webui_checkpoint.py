@@ -1,7 +1,7 @@
 """Tests for WebUI checkpoint banner and resume/dismiss routes."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 from pathlib import Path

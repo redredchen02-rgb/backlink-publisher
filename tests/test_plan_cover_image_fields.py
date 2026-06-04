@@ -6,9 +6,9 @@ PR (#110) merge — banner artifacts are now handled by ``image_gen`` adapter +
 ``Config.image_gen``. The fields remain in the schema as ``None`` for pipeline
 compatibility.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.cli.plan_backlinks.core import _generate_payload
 from backlink_publisher.config.types import Config
 

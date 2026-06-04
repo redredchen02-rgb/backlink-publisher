@@ -11,9 +11,9 @@ Covers:
 - ``save_config`` preserves ``[sites.x]`` verbatim (P0 data-loss fix).
 - Atomic write: a mid-write failure leaves the original file intact.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import logging
 import os
 import stat

@@ -11,10 +11,10 @@ Drift between registry and dashboard is enforced by ``test_dashboard_drift.py``.
 Plan: docs/plans/2026-05-19-006-feat-channel-binding-dashboard-and-platform-expansion-plan.md
 Companion: ``test_verify_adapter_setup_modes.py`` (Unit 2 — the verify contract).
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 import pytest
 
 from webui_app import create_app

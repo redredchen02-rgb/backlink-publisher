@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.adapters.llm_anchor_provider."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from unittest.mock import MagicMock
 

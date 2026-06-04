@@ -7,9 +7,9 @@ dofollow cross-check against the real manifest registry, anchor-drift
 best-effort degradation, the never-raises contract, and that the WebUI recheck
 service shares this one engine.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

@@ -6,6 +6,7 @@ ChannelNotConfigured on unknown channel.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from pathlib import Path

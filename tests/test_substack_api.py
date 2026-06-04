@@ -6,6 +6,7 @@ miscount as a live backlink.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from unittest.mock import MagicMock, patch

@@ -1,4 +1,5 @@
 """Tests for the adapter dispatcher in adapters/__init__.py."""
+__tier__ = "unit"
 
 from unittest.mock import patch
 

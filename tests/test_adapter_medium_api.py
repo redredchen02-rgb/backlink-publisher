@@ -1,4 +1,5 @@
 """Tests for MediumAPIAdapter."""
+__tier__ = "unit"
 
 from unittest.mock import MagicMock, patch
 

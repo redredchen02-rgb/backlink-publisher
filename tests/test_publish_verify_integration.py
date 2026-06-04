@@ -1,7 +1,7 @@
 """Integration tests: publish-backlinks + post-publish verification."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

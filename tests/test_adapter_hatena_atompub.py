@@ -6,9 +6,9 @@ leak), HTTP 401 surfacing, WSSE digest correctness, XML escaping, and the
 PR #323 invariant that a network error on the non-idempotent create POST is
 NOT retried (which would risk a duplicate entry).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import base64
 import hashlib
 import json

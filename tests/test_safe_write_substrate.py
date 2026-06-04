@@ -1,3 +1,4 @@
+__tier__ = "unit"
 from pathlib import Path
 from backlink_publisher.persistence.safe_write import atomic_write, rotate_snapshots
 

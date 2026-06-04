@@ -1,7 +1,7 @@
 """index.html tab partial structure — Plan B Unit 2 (create_app() fixture pattern)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from webui_app import create_app

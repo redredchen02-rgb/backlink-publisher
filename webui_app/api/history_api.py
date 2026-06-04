@@ -190,11 +190,15 @@ class HistoryAPI:
                 **mutation,
             )
             mapped = map_history_entry(updated)
-            if mapped is not None:
+            try:
+                aid = int(item_id)
+            except (ValueError, TypeError):
+                aid = None
+            if mapped is not None and aid is not None:
                 write_event(
                     mapped[0], mapped[1],
                     target_url=updated.get("target_url"),
-                    article_id=int(item_id),
+                    article_id=aid,
                 )
         return {"ok": True, "flash_msg": summary.as_flash()}
 

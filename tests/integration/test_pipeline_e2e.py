@@ -9,9 +9,9 @@ All tests use subprocess spawns (not in-process) so autouse conftest patches
 don't interfere with the pipeline's own socket/content guards. Each spawn gets
 an isolated BACKLINK_PUBLISHER_CONFIG_DIR so operator state is never touched.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import subprocess

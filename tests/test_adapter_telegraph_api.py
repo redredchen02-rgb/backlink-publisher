@@ -6,9 +6,9 @@ the 401 INVALID_TOKEN recovery path in isolation.
 Plan: docs/plans/2026-05-19-002-feat-telegraph-channel-end-to-end-wiring-plan.md
 U1 Test scenarios mapping → test functions below.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from pathlib import Path

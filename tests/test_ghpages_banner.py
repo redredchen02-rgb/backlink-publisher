@@ -14,9 +14,9 @@ helper.  Distinct from the markdown post-commit path:
 The adapter lazily loads ``Config`` (via ``load_config()``) so it
 honors ``BACKLINK_PUBLISHER_CONFIG_DIR``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import base64
 import hashlib
 import json

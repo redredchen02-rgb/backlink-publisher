@@ -8,9 +8,9 @@ fallback to ``BACKLINK_LLM_API_KEY``.
 Credential-shaped fixture values are built at runtime via concatenation so the
 literal ``api_key = "<value>"`` never appears in source (git-leak-check hook).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import logging
 
 import pytest

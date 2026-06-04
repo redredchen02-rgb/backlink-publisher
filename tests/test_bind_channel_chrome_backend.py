@@ -3,9 +3,9 @@
 Plan 2026-05-20-007 Unit 2. Mocks Chrome process, HTTP, and websocket
 surfaces — CI never launches a real browser.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from pathlib import Path
 from unittest.mock import MagicMock

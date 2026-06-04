@@ -7,9 +7,9 @@ Covers:
 - _read_count / _write_count: happy, UTC rollover, corrupt file
 - publish(): happy path, silent-drop retry, daily cap, cookie expired
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import stat

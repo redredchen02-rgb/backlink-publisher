@@ -4,9 +4,9 @@ These assertions run as a pre-campaign gate for plan 2026-05-28-006
 (direct-deps upgrade). They verify structural invariants that must hold
 across every subsequent wave (W1–W4). Fail here = don't proceed.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import inspect
 import os
 import socket

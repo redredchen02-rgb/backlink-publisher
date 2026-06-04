@@ -9,9 +9,9 @@ Covers:
   not as a clickable link.
 - Advisory copy: panel contains no causal claim language.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from datetime import datetime, timezone
 

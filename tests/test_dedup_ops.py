@@ -10,9 +10,9 @@ Covers the pure and near-pure functions:
 
 Each test class patches only what it needs; DedupStore is never opened for real.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch

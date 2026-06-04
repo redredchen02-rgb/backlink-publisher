@@ -10,9 +10,9 @@ Tests cover:
   - never (token file empty / unreadable)
   - read-only invariant (no token-file writes during verify)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from pathlib import Path

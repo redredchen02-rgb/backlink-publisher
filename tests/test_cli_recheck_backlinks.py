@@ -5,9 +5,9 @@ opt-in exit 6 (only on deterministic dead), stdin vs events.db selection, never-
 raises batch, and usage-error validation. Network is patched at the shared
 inspect_target_anchor engine; the autouse conftest also blocks real sockets.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import io
 import json
 from datetime import datetime, timedelta, timezone

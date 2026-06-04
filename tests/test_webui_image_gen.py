@@ -1,7 +1,7 @@
 """Tests for WebUI image_gen route + status helper — Plan 2026-05-20-001 Unit 6."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import MagicMock, patch
 
 import pytest

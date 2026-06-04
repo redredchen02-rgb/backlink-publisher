@@ -7,9 +7,9 @@ Asserts:
   4. profile_if_enabled() saves a .prof file to the profile dir when args.profile=True.
   5. add_profile_arg() adds the --profile flag to any argparse.ArgumentParser.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import argparse
 import os
 import sys

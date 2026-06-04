@@ -3,6 +3,7 @@
 The active-dofollow universe is injected so tests are registry-agnostic and
 deterministic; ``now`` is injected for the freshness floor.
 """
+__tier__ = "unit"
 
 from datetime import datetime
 

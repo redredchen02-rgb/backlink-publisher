@@ -1,8 +1,8 @@
 """Tests for validate_zh_short_payload — Unit 8 validator gate."""
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 from backlink_publisher._util.markdown import (
     render_zh_short_article,
     validate_zh_short_payload,

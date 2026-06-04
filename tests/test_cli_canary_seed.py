@@ -12,9 +12,9 @@ Patching convention (per feedback_mock_patch_paths_after_extraction):
 
 conftest autouse fixtures apply (sockets blocked, config dir sandboxed).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import time
 from unittest.mock import MagicMock, patch

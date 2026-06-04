@@ -1,7 +1,7 @@
 """Tests for the ``cull-channels`` read-only advisory verb (Blast-radius R9)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from typing import Any
 

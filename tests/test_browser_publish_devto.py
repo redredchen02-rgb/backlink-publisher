@@ -3,9 +3,9 @@
 Covers recipe registration, publish_flow happy path with tags, missing
 fields, dispatch chain shape, and the rejection-map deletion path.
 """
-
 from __future__ import annotations
 
+__tier__ = "e2e"
 from unittest.mock import MagicMock
 
 import pytest

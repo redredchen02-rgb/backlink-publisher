@@ -4,9 +4,9 @@ Covers: og:title priority over <title>; og:title empty fallback; <title>
 fallback; whitespace stripping; None on missing both; malformed HTML tolerance;
 read_html_head_window sentinel stop + max_bytes cap + end-of-stream.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 
 import pytest

@@ -5,9 +5,9 @@ The startup wiring in create_app() is gated by start_scheduler (false under
 pytest), so these tests exercise the standalone purge function directly against
 the conftest-sandboxed config dir.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import logging
 from pathlib import Path
 

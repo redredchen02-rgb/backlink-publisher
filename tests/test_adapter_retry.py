@@ -1,7 +1,7 @@
 """Tests for the shared exponential-backoff retry helper."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from unittest.mock import patch
 

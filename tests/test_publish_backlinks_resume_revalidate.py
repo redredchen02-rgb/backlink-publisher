@@ -6,9 +6,9 @@ reclassified with the retro_* error_class and skipped from the resume
 batch (their slot moves to checkpoint status='failed' with error_class
 naming the retro reason).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import sys
 from io import StringIO
 from pathlib import Path

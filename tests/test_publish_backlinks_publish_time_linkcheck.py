@@ -5,9 +5,9 @@ per-row skip path through publish-backlinks. The default autouse fixture
 in tests/conftest.py patches check_url to (True, None); tests below
 re-patch for failure scenarios.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 from io import StringIO

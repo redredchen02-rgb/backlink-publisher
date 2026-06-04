@@ -7,9 +7,9 @@ every other error class -> ``failed`` (re-publishable).
 
 Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U2).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

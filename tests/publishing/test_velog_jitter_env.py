@@ -1,4 +1,5 @@
 """Tests for Velog jitter env-var override getters (U3)."""
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.publishing.adapters.velog_graphql import (

@@ -17,9 +17,9 @@ because:
 - duplicating the data here means a candidate change in the example must
   also be reflected here, making the regression intent explicit.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import random
 
 import pytest

@@ -14,9 +14,9 @@ TEST-FIRST cases (★):
   (c) marker absent / soft-404      → advisory (NOT drift)
   (d) empty cohort                  → fail-loud (UsageError / exit 1)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from unittest.mock import patch
 

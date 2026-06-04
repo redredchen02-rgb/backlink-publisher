@@ -11,6 +11,7 @@ Self-contained snapshot/restore via ``monkeypatch.setitem`` (no coupling to the
 conftest ``fake_platform_registered`` fixture, which does not set an auth_type).
 Test-time registry population, never an import-time assert.
 """
+__tier__ = "unit"
 
 import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 

@@ -14,9 +14,9 @@ regress (plan 2026-05-27-005, Unit 1):
 Plus a runtime check: running a non-``brief`` verb loads no registry module and
 creates no ``events.db``.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import ast
 import os
 import subprocess

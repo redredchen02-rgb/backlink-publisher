@@ -9,9 +9,9 @@ per-target GEO keys, AND every pre-existing section through the writer's
 Credential-shaped fixture values are assembled at runtime via concatenation so
 the literal ``api_key = "<value>"`` never appears in source (leak-check hook).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import logging
 
 import pytest

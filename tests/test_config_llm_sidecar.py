@@ -9,6 +9,7 @@ The reader must be fail-soft: any malformed/incomplete/non-https sidecar yields
 ``None`` and never raises, so a bad settings file can't break config loading for
 unrelated pipeline runs.
 """
+__tier__ = "unit"
 
 import json
 import os

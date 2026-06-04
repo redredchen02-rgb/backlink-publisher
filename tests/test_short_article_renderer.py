@@ -1,7 +1,7 @@
 """Tests for render_zh_short_article — zh-CN short-form HTML generator."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import random
 import re
 

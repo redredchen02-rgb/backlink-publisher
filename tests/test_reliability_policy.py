@@ -4,9 +4,9 @@ Updated for Stage 1 (Plan 2026-05-28-001):
 - Policy applies to ALL platforms, not just browser-tier
 - Tests updated to reflect this change
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

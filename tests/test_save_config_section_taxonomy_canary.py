@@ -35,9 +35,9 @@ that breaks the taxonomy fires a test whose name matches the branch.
 Plan: docs/plans/2026-05-20-003-feat-portfolio-roundtrip-spike-quality-plan.md
 Unit: A.1 (Requirements R-A1, R-A2, R-A4).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import stat
 from pathlib import Path

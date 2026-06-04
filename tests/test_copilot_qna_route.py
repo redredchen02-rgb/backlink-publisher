@@ -9,9 +9,9 @@ Scenarios:
   6. LLM response missing content → 502.
   7. CSRF guard fires with no token → 403.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

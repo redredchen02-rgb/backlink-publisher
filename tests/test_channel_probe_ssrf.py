@@ -12,9 +12,9 @@ Verifies that:
 - The SSRF guard is in the right place (before requests.get)
 - channel_probe.py CLI main() still works after the refactor (integration check)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import sys
 import os
 from typing import Any

@@ -1,4 +1,5 @@
 """Tests for named constants in webui_app/scheduler.py and equity_ledger.py (U1)."""
+__tier__ = "unit"
 import ast
 import pathlib
 

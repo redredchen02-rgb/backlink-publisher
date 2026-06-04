@@ -3,9 +3,9 @@
 GET-only, fail-open, advisory. The card pairs declared registry signals with
 measured liveness as a signal vector; the GA4/GSC/AI axes render inert.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 import pytest

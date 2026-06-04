@@ -3,9 +3,9 @@
 Plan 2026-05-18-006 Unit 7 R14 + R8 + Threat Model anti-injection on
 operator-supplied TOML config.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import unicodedata
 
 import pytest

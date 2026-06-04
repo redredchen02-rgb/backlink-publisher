@@ -9,9 +9,9 @@ size cap (==N, N+1) / MIME sniff PNG/JPEG/WebP / 401 fail-loud /
 429 retry / response shape missing / source_url unreachable /
 timeout retry.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import base64
 from unittest.mock import MagicMock, patch
 

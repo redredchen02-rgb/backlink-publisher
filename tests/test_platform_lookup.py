@@ -8,6 +8,7 @@ populated by importing the adapters package at module load (registration is an
 import side-effect), and every assertion runs at test time — never at import —
 per ``invert-drift-check-when-invariant-becomes-dynamic``.
 """
+__tier__ = "unit"
 
 import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 

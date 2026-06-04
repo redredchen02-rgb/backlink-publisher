@@ -10,9 +10,9 @@ The adapter's existing publish-path tests live in
 file (Telegraph's ``/upload`` is anonymous) so no fixtures around
 ``BACKLINK_PUBLISHER_CONFIG_DIR`` are needed.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

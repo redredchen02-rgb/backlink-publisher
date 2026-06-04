@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.anchor_scheduler — pure scheduling logic."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from collections import Counter
 
 import pytest

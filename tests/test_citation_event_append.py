@@ -12,9 +12,9 @@ D8 — the persisted payload carries ONLY parsed, bounded fields (``verdict``,
 trace is never serialised into a row, so no ``Bearer`` / ``api_key`` /
 ``Authorization`` substring can ever land at-rest in events.db.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sqlite3
 from typing import Any

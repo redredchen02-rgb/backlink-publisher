@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.anchor_profile."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import stat
 import threading

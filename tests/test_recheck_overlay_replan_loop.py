@@ -9,9 +9,9 @@ fix, not pre-existing behavior.
 Pipes the real CLI verbs: ``recheck-overlay`` (reads the sandbox events.db) →
 ``plan-gap`` (real active-dofollow roster), on default flags (no --include-failed).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import io
 import json
 import sys

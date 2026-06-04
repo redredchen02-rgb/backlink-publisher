@@ -8,9 +8,9 @@ Covers:
 - gh CLI failure modes (auth, not-installed).
 - **v3 BLOCKER post-push verify**: silent push failure detected.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import subprocess
 import textwrap

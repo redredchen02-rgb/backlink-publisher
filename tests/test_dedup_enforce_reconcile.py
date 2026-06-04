@@ -5,9 +5,9 @@ quarantine tail → exit 3 unless acknowledged). Read-only check via
 
 Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U7).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

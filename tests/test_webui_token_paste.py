@@ -5,9 +5,9 @@ derives token-paste status from ``bind_descriptors()`` so new platforms
 only need a ``BindDescriptor(backend="token-paste")`` in ``register()``
 to auto-appear — no manual 5-wire changes.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import stat

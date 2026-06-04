@@ -7,6 +7,7 @@ ExternalServiceError when the upstream returns an error.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -5,9 +5,9 @@ Covers:
 - Unit: collect_all() signal resolution
 - Integration: CLI entrypoint (stdin → stdout → exit code)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import sys

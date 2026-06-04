@@ -10,9 +10,9 @@ worktree root and would fail. `git worktree list --porcelain` returns the
 MAIN worktree path as its first record — that's what `find_main_worktree_root`
 uses now.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import subprocess
 import textwrap
 from pathlib import Path

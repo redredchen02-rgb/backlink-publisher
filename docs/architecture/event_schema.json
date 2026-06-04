@@ -1,0 +1,424 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://backlink-publisher.dev/event_schema.json",
+  "title": "RECON Event Taxonomy",
+  "description": "Draft 2020-12 JSON Schema defining every RECON event type emitted across the backlink-publisher codebase. Authoring-only — NOT loaded at runtime. Four transport layers: (a) events.db via EventStore.append, (b) stdout JSONL via bind-channel driver, (c) stderr JSONL via logger.recon(), (d) stderr text lines via _plan_check_format._emit_recon_line.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/publish_event" },
+    { "$ref": "#/$defs/draft_event" },
+    { "$ref": "#/$defs/banner_event" },
+    { "$ref": "#/$defs/image_gen_event" },
+    { "$ref": "#/$defs/citation_event" },
+    { "$ref": "#/$defs/link_event" },
+    { "$ref": "#/$defs/channel_bind_event" },
+    { "$ref": "#/$defs/plan_event" },
+    { "$ref": "#/$defs/validate_event" },
+    { "$ref": "#/$defs/publish_recon_event" },
+    { "$ref": "#/$defs/recheck_event" },
+    { "$ref": "#/$defs/reverify_event" },
+    { "$ref": "#/$defs/probe_citations_event" },
+    { "$ref": "#/$defs/generate_event" },
+    { "$ref": "#/$defs/canary_event" },
+    { "$ref": "#/$defs/preflight_event" },
+    { "$ref": "#/$defs/cull_event" },
+    { "$ref": "#/$defs/click_track_event" },
+    { "$ref": "#/$defs/comment_event" },
+    { "$ref": "#/$defs/system_recon_line" }
+  ],
+  "$defs": {
+    "publish_event": {
+      "title": "Publish lifecycle (events.db)",
+      "description": "Canonical publish-outcome events written to events.db via EventStore.append(). Drawn from events.kinds.KINDS.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "publish.intent",
+            "publish.confirmed",
+            "publish.unverified",
+            "publish.failed",
+            "publish.verified",
+            "publish.verify_failed"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "target_url": { "type": "string" },
+            "live_url": { "type": ["string", "null"] },
+            "error_class": { "type": "string" },
+            "error_message_clean": { "type": "string" },
+            "article_id": { "type": "string" }
+          }
+        }
+      },
+      "required": ["kind"]
+    },
+    "draft_event": {
+      "title": "Draft lifecycle (events.db)",
+      "description": "Draft-queue events written to events.db. Drawn from events.kinds.KINDS.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["draft.created", "draft.scheduled"]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "draft_id": { "type": "string" }
+          }
+        }
+      },
+      "required": ["kind"]
+    },
+    "banner_event": {
+      "title": "Banner-embed lifecycle (events.db)",
+      "description": "Publish-time banner embedding outcomes. Written to events.db via EventStore.append() from publishing.banner_dispatcher.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "banner.embedded",
+            "banner.failed",
+            "banner.skipped_no_method",
+            "banner.skipped_no_artifact",
+            "banner.source_url_fallback"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "platform": { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        }
+      },
+      "required": ["kind"]
+    },
+    "image_gen_event": {
+      "title": "Image generation lifecycle (events.db)",
+      "description": "AI image-generation outcomes. Written to events.db via EventStore.append().",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "image_gen_invoked",
+            "image_gen_capped",
+            "image_gen_disabled_auto"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "prompt_sha": { "type": "string" },
+            "reason": { "type": "string" },
+            "threshold": { "type": "number" }
+          }
+        }
+      },
+      "required": ["kind"]
+    },
+    "citation_event": {
+      "title": "AI citation probe (events.db)",
+      "description": "GEO AI-citation closed-loop probe result. Written to events.db via EventStore.append().",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["citation.observed"]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "verdict": {
+              "type": "string",
+              "enum": ["site_cited", "article_cited", "absent", "refused"]
+            },
+            "engine": { "type": "string" },
+            "query": { "type": "string" }
+          }
+        }
+      },
+      "required": ["kind"]
+    },
+    "link_event": {
+      "title": "Backlink re-verification (events.db)",
+      "description": "Post-publish backlink survival re-probe verdict. Written to events.db via EventStore.append() from recheck-backlinks CLI.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["link.rechecked"]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "verdict": {
+              "type": "string",
+              "enum": ["dofollow_ok", "dofollow_lost", "link_stripped", "host_gone", "fetch_error"]
+            }
+          }
+        }
+      },
+      "required": ["kind"]
+    },
+    "channel_bind_event": {
+      "title": "Channel binding (stdout JSONL)",
+      "description": "Browser-based credential binding events emitted to stdout as JSONL by bind-channel CLI. Defined in cli/_bind/channels/__init__.py. Payload key is \"event\", not \"kind\".",
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "channel.bind.start",
+            "channel.bind.browser_ready",
+            "channel.bind.login_detected",
+            "channel.bind.persisted",
+            "channel.bind.failed"
+          ]
+        },
+        "channel": { "type": "string" },
+        "ts": { "type": "string" },
+        "storage_state_path": { "type": "string" },
+        "error_code": { "type": "string" }
+      },
+      "required": ["event", "channel", "ts"]
+    },
+    "plan_event": {
+      "title": "Plan-backlinks diagnostics (stderr recon)",
+      "description": "Reconciliation and diagnostic events emitted by plan-backlinks via logger.recon(). All carry level=RECON.",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "link_count_at_plan",
+            "cell_gate_summary",
+            "content_fetch_prefetch",
+            "cell_gate_drop",
+            "plan_reconciliation",
+            "content_fetch_stats",
+            "preflight_nudge",
+            "canary_advisory_nudge",
+            "fetch_verify_disabled",
+            "category_link_skipped_no_config",
+            "detail_link_skipped_no_config",
+            "row_dropped_content_gate",
+            "link_dropped_no_content",
+            "target_upgraded_to_threeurl"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "validate_event": {
+      "title": "Validate-backlinks diagnostics (stderr recon)",
+      "description": "Reconciliation events emitted by validate-backlinks via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "validate_reconciliation"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "publish_recon_event": {
+      "title": "Publish-backlinks diagnostics (stderr recon)",
+      "description": "Reconciliation events emitted by publish-backlinks via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "publish_reconciliation",
+            "dedup_reconciliation"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "recheck_event": {
+      "title": "Recheck-backlinks diagnostics (stderr recon)",
+      "description": "Reconciliation and budget events emitted by recheck-backlinks CLI via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "recheck_dry_preview",
+            "recheck_skipped_locked",
+            "recheck_reconciliation",
+            "recheck_budget_exhausted"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "reverify_event": {
+      "title": "Verify-backlinks diagnostics (stderr recon)",
+      "description": "Reconciliation events emitted by verify-backlinks CLI via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "reverify_dry_preview",
+            "reverify_reconciliation"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "probe_citations_event": {
+      "title": "Probe-citations diagnostics (stderr recon)",
+      "description": "Run-summary and diagnostic events emitted by probe-citations CLI via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "probe_citations_no_pairs",
+            "probe_citations_dry_run",
+            "probe_citations_skipped_locked",
+            "probe_citations_run"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "generate_event": {
+      "title": "Generate-backlink-text diagnostics (stderr recon)",
+      "description": "Run-summary events emitted by generate-backlink-text CLI via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "generate_summary"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "canary_event": {
+      "title": "Canary-targets diagnostics (stderr recon)",
+      "description": "Advisory and coverage events emitted by canary-targets and canary-seed CLIs via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "canary_summary",
+            "canary_coverage_gap",
+            "canary_stale_needs_reseed",
+            "canary_seed_result",
+            "canary_seed_ambiguous_note"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "preflight_event": {
+      "title": "Preflight-targets diagnostics (stderr recon)",
+      "description": "Run-summary and unknown-verdict events emitted by preflight-targets CLI via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "preflight_summary",
+            "preflight_unknown_verdict"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "cull_event": {
+      "title": "Cull-channels diagnostics (stderr recon)",
+      "description": "Run-summary event emitted by cull-channels CLI via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "cull_summary"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "click_track_event": {
+      "title": "Click-track diagnostics (stderr recon)",
+      "description": "Run-summary event emitted by click-track CLI via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "click_track_run"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "comment_event": {
+      "title": "Comment-outreach diagnostics (stderr recon)",
+      "description": "Import, qualify, brief, discover, and status-set events from the comment_outreach subpackage. All emitted via logger.recon().",
+      "type": "object",
+      "properties": {
+        "level": { "const": "RECON" },
+        "msg": {
+          "type": "string",
+          "enum": [
+            "comment_import_skip",
+            "comment_import_summary",
+            "comment_qualify_skip",
+            "comment_qualify_summary",
+            "comment_brief_llm_fallback",
+            "comment_brief_skip",
+            "comment_brief_summary",
+            "comment_discover_skip",
+            "comment_discover_summary",
+            "comment_status_set"
+          ]
+        }
+      },
+      "required": ["level", "msg"]
+    },
+    "system_recon_line": {
+      "title": "System RECON text lines (plan-check stderr)",
+      "description": "Plain-text RECON lines emitted to stderr by plan-check (not JSON). Two shapes: info (freshness only) and warn (fetch skipped).",
+      "type": "object",
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "enum": ["RECON info", "RECON warn"]
+        },
+        "body": {
+          "type": "string",
+          "pattern": "^(fetch_head_age_seconds=[0-9]+|null|fetch_skipped reason=[a-z_]+ fetch_head_age_seconds=[0-9]+|null)$"
+        }
+      },
+      "required": ["prefix", "body"]
+    }
+  }
+}

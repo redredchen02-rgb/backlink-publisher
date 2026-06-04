@@ -11,9 +11,9 @@ Consecutive failures are counted in LockedHealthStore.consecutive_failures
 trip resets it so the post-cooldown window starts fresh. Thresholds are
 configurable via env.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

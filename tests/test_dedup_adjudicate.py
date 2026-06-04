@@ -11,9 +11,9 @@ checkpoint).
 
 Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U5b).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import sys
 from io import StringIO
 

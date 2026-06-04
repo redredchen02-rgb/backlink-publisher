@@ -7,6 +7,7 @@ operator to either flip it to ``True`` (after an OUR-pipeline canary) or retire 
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import re
 from datetime import date
 from pathlib import Path

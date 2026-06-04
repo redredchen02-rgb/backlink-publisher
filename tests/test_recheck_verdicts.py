@@ -5,9 +5,9 @@ predicates, and that the new event kind is registered with the {"verdict"}
 floor (the R2 gate in test_events_r9_required_fields.py asserts floor coverage
 for every KIND; this file adds the recheck-specific assertions).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.events import kinds

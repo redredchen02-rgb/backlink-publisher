@@ -12,9 +12,9 @@ than silently returning success responses:
   4. pipeline.py /ce:generate — corrupt urls_json with a non-empty submitted
      value surfaces an error (not silently falling back to stale session data).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

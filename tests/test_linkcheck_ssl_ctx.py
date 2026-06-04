@@ -3,9 +3,9 @@
 The get_ssl_context() helper must verify by default and allow opt-in insecure
 verification via BACKLINK_PUBLISHER_ALLOW_INSECURE_SSL=1 for self-signed targets.
 """
-
 from __future__ import annotations
 
+__tier__ = "e2e"
 import os
 import ssl
 

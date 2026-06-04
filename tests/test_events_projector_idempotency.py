@@ -4,9 +4,9 @@ Plan §U4 maps three dedup layers — in-tx ``seen``, cursor state diff,
 and ``articles.live_url UNIQUE``. The tests here exercise each layer in
 isolation plus the cross-source dedup that ties them together.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from pathlib import Path
 from typing import Any

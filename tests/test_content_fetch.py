@@ -16,9 +16,9 @@ default-pass mock so the production ``verify_urls_batch`` /
 ``verify_url_has_content`` code paths actually run. Marker is registered in
 ``pyproject.toml [tool.pytest.ini_options] markers``.
 """
-
 from __future__ import annotations
 
+__tier__ = "e2e"
 import socket
 from io import BytesIO
 from unittest.mock import MagicMock, patch

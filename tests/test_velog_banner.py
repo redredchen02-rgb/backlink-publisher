@@ -12,9 +12,9 @@ The pivot rationale lives in detail in the adapter's docstring; this
 test file locks the behavioral contract: pure return, no I/O,
 dispatcher routes to source_url fallback.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 from backlink_publisher.publishing.adapters.velog_graphql import (

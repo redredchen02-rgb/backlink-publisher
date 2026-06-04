@@ -9,9 +9,9 @@ This test is the falsifiable proof. If R9 silently regresses to hardcoded
 platform names anywhere on the path, the FakeAdapter fixture stops working
 and these tests fail.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import argparse
 
 import pytest

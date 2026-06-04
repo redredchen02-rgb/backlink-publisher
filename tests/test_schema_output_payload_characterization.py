@@ -13,9 +13,9 @@ publish wrapper) already have dedicated coverage in
 ``test_schema_seo_canonical_contract.py`` / ``test_schema_source_format.py`` and
 are not duplicated here except where needed for ordering.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 from backlink_publisher.schema import (
