@@ -89,18 +89,20 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-    # Plan 2026-05-21-006 Unit 3.5 — make the unsupported off-loopback
-    # configuration obvious to the operator. The WebUI's threat model
-    # assumes localhost binding; `ALLOW_NETWORK=1` plus an ephemeral
-    # SECRET_KEY would silently downgrade session integrity.
+    # Plan 2026-06-04-001 Unit 9 / R6 — the internal LITE edition binds
+    # loopback-only and refuses a non-loopback BIND_HOST at startup, so
+    # ALLOW_NETWORK can no longer expose the app off-loopback. It still
+    # *disables* the credential-bind endpoints (see _refuse_when_allow_network),
+    # so warn the operator that the flag is now a narrow toggle, not a network
+    # opt-in, and they probably do not want it set.
     if os.environ.get('BACKLINK_PUBLISHER_ALLOW_NETWORK') == '1':
         import warnings
         warnings.warn(
-            "BACKLINK_PUBLISHER_ALLOW_NETWORK=1 — WebUI is binding off-loopback "
-            "in unsupported configuration: ephemeral SECRET_KEY (set "
-            "BACKLINK_PUBLISHER_SECRET_KEY for persistence), and CSRF/SSRF "
-            "gates are belt-and-suspenders only. Use a TLS-terminating "
-            "reverse proxy and `SESSION_COOKIE_SECURE=1`.",
+            "BACKLINK_PUBLISHER_ALLOW_NETWORK=1 has no effect on binding in this "
+            "edition: the WebUI binds loopback-only (a non-loopback BIND_HOST is "
+            "refused at startup) and this flag only disables the credential-bind "
+            "endpoints while set. Unset it unless you specifically want those "
+            "endpoints disabled.",
             RuntimeWarning,
             stacklevel=2,
         )

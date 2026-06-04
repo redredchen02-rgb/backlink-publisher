@@ -463,11 +463,15 @@ class TestBindAssertion:
         with pytest.raises(RuntimeError, match="loopback"):
             webui._resolve_bind_host()
 
-    def test_non_loopback_with_explicit_opt_in_passes(self, monkeypatch):
+    def test_non_loopback_refused_even_with_opt_in(self, monkeypatch):
+        # LITE edition (plan 2026-06-04-001 Unit 9 / R6): ALLOW_NETWORK no
+        # longer grants an off-loopback exception — a non-loopback BIND_HOST is
+        # refused at startup regardless. See test_webui_lite_loopback_enforced.
         monkeypatch.setenv("BIND_HOST", "0.0.0.0")
         monkeypatch.setenv("BACKLINK_PUBLISHER_ALLOW_NETWORK", "1")
         import webui
-        assert webui._resolve_bind_host() == "0.0.0.0"
+        with pytest.raises(RuntimeError, match="loopback"):
+            webui._resolve_bind_host()
 
 
 # ═════════════════════════════════════════════════════════════════════════════

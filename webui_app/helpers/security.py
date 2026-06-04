@@ -86,15 +86,24 @@ def _oauth_callback_uri():
 
 
 def _resolve_bind_host() -> str:
+    """Resolve the WebUI bind interface — loopback-only, enforced.
+
+    LITE security posture (plan 2026-06-04-001 Unit 9 / R6): the internal
+    edition binds to a loopback interface and *nothing else*. A non-loopback
+    ``BIND_HOST`` is refused at startup **regardless of
+    ``BACKLINK_PUBLISHER_ALLOW_NETWORK``** — that env var no longer grants an
+    off-loopback exception (it only disables the credential-bind endpoints, see
+    ``_refuse_when_allow_network``). CSRF + the Origin/Referer guard on every
+    state-mutating route are the entire defense against a hostile loopback peer,
+    so the bind surface must never leave loopback.
+    """
     host = os.environ.get("BIND_HOST", "127.0.0.1")
     if host in _LOOPBACK_HOSTS:
         return host
-    if os.environ.get("BACKLINK_PUBLISHER_ALLOW_NETWORK") == "1":
-        return host
     raise RuntimeError(
-        f"refusing to bind to non-loopback host {host!r}: this WebUI has "
-        "minimal auth. Set BACKLINK_PUBLISHER_ALLOW_NETWORK=1 to opt in to "
-        "network exposure (only do this on a trusted network)."
+        f"refusing to bind to non-loopback host {host!r}: this is the internal "
+        "LITE edition and binds loopback-only. BACKLINK_PUBLISHER_ALLOW_NETWORK "
+        "has no effect on binding; unset BIND_HOST or set it to 127.0.0.1."
     )
 
 
