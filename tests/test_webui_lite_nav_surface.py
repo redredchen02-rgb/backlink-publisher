@@ -21,9 +21,11 @@ _TRIMMED_NAV_LABELS = ["排程", "权益", "PR队列"]
 
 @pytest.fixture
 def client():
-    app = create_app()
-    app.config["CSRF_ENABLED"] = False
-    return app.test_client()
+    # All assertions here are GET-only, so the CSRF guard never engages — no
+    # need to disable it (raw-mutating CSRF_ENABLED would also trip the
+    # security-toggle mutation gate; use the conftest disable_csrf fixture if a
+    # POST is ever added here).
+    return create_app().test_client()
 
 
 @pytest.fixture

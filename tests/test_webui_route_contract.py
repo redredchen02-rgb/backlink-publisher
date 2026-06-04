@@ -1212,6 +1212,16 @@ class TestEquityLedgerRoutes:
         assert resp.status_code in (400, 403, 404, 415)
 
 
+class TestKeepAliveRoutes:
+    """Plan 2026-06-04-001 Unit 4 — keep-alive status screen (R3). Read-only
+    GET; full behaviour in tests/test_webui_keep_alive_status.py. This satisfies
+    the route-coverage gate below."""
+
+    def test_get_keep_alive(self, client):
+        resp = client.get("/ce:keep-alive")
+        assert resp.status_code == 200
+
+
 class TestChannelBindSaveRoutes:
     """Plan 2026-05-26-002 Unit 4 — generic credential save route smoke.
     Full lifecycle in tests/test_channel_bind_save.py; this satisfies the
