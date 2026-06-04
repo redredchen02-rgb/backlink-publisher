@@ -30,9 +30,13 @@ class HistoryStore:
         self._lock = threading.Lock()
 
     @property
-    def path(self):
+    def path(self) -> Path | None:
         """Legacy path property (``_LazyStore`` proxy accesses this)."""
         return self._path
+
+    @path.setter
+    def path(self, new_path: Any) -> None:
+        self._path = Path(new_path) if new_path is not None else None
 
     # ── read ────────────────────────────────────────────────────────────────
 
