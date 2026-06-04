@@ -30,6 +30,7 @@ from backlink_publisher.anchor import profile as anchor_profile
 from backlink_publisher.anchor.metrics import group_by_target_url
 from backlink_publisher.anchor.profile import ProfileEntry
 from backlink_publisher.events import EventStore, kinds
+from backlink_publisher.publishing.platform_alias import canonical_platform
 
 # Event kinds that mark a target as "attempted" (R1a row universe), sourced from
 # the registry (no duplicated literals). publish.unverified is intentionally
@@ -127,7 +128,9 @@ def build_target_buckets(
 
     # 3. History → attach platform + liveness to links (matched by canonical live_url).
     for item in _load_history(history):
-        platform = item.get("platform")
+        # R4: collapse adapter-string variants (telegraph-api → telegraph) so the
+        # ledger/scorecard don't double-count one physical platform.
+        platform = canonical_platform(item.get("platform"))
         item_id = item.get("id")
         verified_at = item.get("verified_at")
         verify_error = item.get("verify_error")

@@ -25,7 +25,10 @@ python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan
 
 # WebUI
 python webui.py                                    # start dev server on :8888
+scripts/launcher.command                           # canonical operator launcher (FLASK_DEBUG=0 + pinned SECRET_KEY, crash-restart loop)
 ```
+
+> **One launcher (R9):** `scripts/launcher.command` is the single git-tracked launcher. The workspace-root `启动WebUI.command` / `restart_webui.sh` and `make restart-webui` are thin entry points that should resolve to it — keep the security posture (Werkzeug debug off, pinned `SECRET_KEY`) in this one file only.
 
 ## Repo Layout
 
@@ -172,7 +175,7 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 | `BACKLINK_LLM_API_KEY` | LLM API key for anchor generation |
 | `BACKLINK_NO_FETCH_VERIFY` | Skip content fetch verification |
 | `BACKLINK_GATE_CACHE_TTL_SECONDS` | Override gate cache TTL |
-| `BACKLINK_PUBLISHER_ALLOW_NETWORK=1` | Bind WebUI to non-loopback |
+| `BACKLINK_PUBLISHER_ALLOW_NETWORK=1` | **No longer binds off-loopback** (LITE edition refuses non-loopback `BIND_HOST`); only disables the credential-bind endpoints while set — see README "Security posture" |
 | `BACKLINK_PUBLISHER_WORKTREE_AUTOREMOVE=1` | Auto-remove stale worktrees |
 | `MEDIUM_THROTTLE_MIN`, `MEDIUM_THROTTLE_MAX` | Inter-post delay (default 60-300s) |
 | `OAUTHLIB_INSECURE_TRANSPORT` | Allow HTTP for OAuth loopback |

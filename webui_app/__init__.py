@@ -89,18 +89,20 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-    # Plan 2026-05-21-006 Unit 3.5 — make the unsupported off-loopback
-    # configuration obvious to the operator. The WebUI's threat model
-    # assumes localhost binding; `ALLOW_NETWORK=1` plus an ephemeral
-    # SECRET_KEY would silently downgrade session integrity.
+    # Plan 2026-06-04-001 Unit 9 / R6 — the internal LITE edition binds
+    # loopback-only and refuses a non-loopback BIND_HOST at startup, so
+    # ALLOW_NETWORK can no longer expose the app off-loopback. It still
+    # *disables* the credential-bind endpoints (see _refuse_when_allow_network),
+    # so warn the operator that the flag is now a narrow toggle, not a network
+    # opt-in, and they probably do not want it set.
     if os.environ.get('BACKLINK_PUBLISHER_ALLOW_NETWORK') == '1':
         import warnings
         warnings.warn(
-            "BACKLINK_PUBLISHER_ALLOW_NETWORK=1 — WebUI is binding off-loopback "
-            "in unsupported configuration: ephemeral SECRET_KEY (set "
-            "BACKLINK_PUBLISHER_SECRET_KEY for persistence), and CSRF/SSRF "
-            "gates are belt-and-suspenders only. Use a TLS-terminating "
-            "reverse proxy and `SESSION_COOKIE_SECURE=1`.",
+            "BACKLINK_PUBLISHER_ALLOW_NETWORK=1 has no effect on binding in this "
+            "edition: the WebUI binds loopback-only (a non-loopback BIND_HOST is "
+            "refused at startup) and this flag only disables the credential-bind "
+            "endpoints while set. Unset it unless you specifically want those "
+            "endpoints disabled.",
             RuntimeWarning,
             stacklevel=2,
         )
@@ -234,6 +236,16 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             llm_ok = False
         return {"llm_configured": llm_ok}
 
+    # Plan 2026-06-04-001 Unit 10 / R7+R8 — the LITE edition shows the operator
+    # only the keep-alive core. ``lite_edition`` drives the nav trim in
+    # base.html; the surface gate (registered below, after the CSRF guard) makes
+    # the hidden blueprints unreachable, not just unlinked.
+    from .helpers.edition import LITE_HIDDEN_BLUEPRINTS, is_lite_edition
+
+    @app.context_processor
+    def inject_lite_edition():
+        return {"lite_edition": is_lite_edition()}
+
     # Global CSRF enforcement. SameSite=Lax + loopback already block most
     # cross-site POST, but operators who flip BACKLINK_PUBLISHER_ALLOW_NETWORK
     # to bind off-loopback lose Lax's effective protection. Defence-in-depth
@@ -261,6 +273,18 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             return
         from .helpers.security import _check_csrf_or_abort
         _check_csrf_or_abort()
+
+    # Plan 2026-06-04-001 Unit 10 / R7+R8 — server-side LITE surface gate.
+    # Registered AFTER _global_csrf_guard so the CSRF guard stays the FIRST
+    # before_request hook (E3 invariant, tests/test_webui_csrf_ordering.py).
+    # Ordering is security-irrelevant for a 404-only denial gate: a GET to a
+    # hidden blueprint 404s here; a no-token POST 403s on the CSRF guard first —
+    # uniform with any unmatched path, so it leaks no hidden-route existence.
+    @app.before_request
+    def _lite_surface_gate():
+        from flask import abort, request as _req
+        if is_lite_edition() and _req.blueprint in LITE_HIDDEN_BLUEPRINTS:
+            abort(404)
 
     # Global rate limiting — POST/PUT/PATCH/DELETE capped at 60 req/min per IP.
     # GET/HEAD/OPTIONS and /api/url-verify/* are exempt (the latter carries its

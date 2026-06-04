@@ -166,8 +166,22 @@ while true; do
   # .venv 是從舊目錄遷來的，editable install 失聯；用 PYTHONPATH 繞過。
   export PYTHONPATH="src${PYTHONPATH:+:${PYTHONPATH}}"
   # 讓 webui.py route exception 真退出，restart loop 才觀察得到。
-  # 直接 `python webui.py` 不過 launcher 時 webui.py 預設仍 debug=True。
+  # webui.py 預設已是 debug=0（fail-safe）；這裡顯式再設一次。
   export FLASK_DEBUG=0
+  # 啟用 LITE 內部版（R7/R8）：精簡導航到保活核心、伺服端 404 掉 Pro/未實作面。
+  # 這是 LITE 的唯一啟用點；不設則回退完整 Pro 介面。
+  export BACKLINK_PUBLISHER_LITE=1
+  # 釘死持久 SECRET_KEY：裸跑用 ephemeral key 每次重啟洗掉 session/CSRF。
+  # 首次生成存進 config dir（0600），之後沿用。
+  SECRET_KEY_FILE="${BACKLINK_PUBLISHER_CONFIG_DIR:-$HOME/.config/backlink-publisher}/.webui_secret_key"
+  if [[ -z "${SECRET_KEY:-}" ]]; then
+    if [[ ! -f "${SECRET_KEY_FILE}" ]]; then
+      mkdir -p "$(dirname "${SECRET_KEY_FILE}")"
+      ( umask 077; python3 -c "import secrets;print(secrets.token_urlsafe(48))" > "${SECRET_KEY_FILE}" )
+    fi
+    SECRET_KEY="$(cat "${SECRET_KEY_FILE}")"
+  fi
+  export SECRET_KEY
 
   if [[ "$FIRST_RUN" == "true" ]]; then
     ( sleep 3 && open "${URL}" ) &

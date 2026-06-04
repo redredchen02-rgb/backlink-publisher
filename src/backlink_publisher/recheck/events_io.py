@@ -108,3 +108,65 @@ def derive_decay_counts(store: "EventStore") -> dict[str, int]:
     for _ts, verdict in latest.values():
         counts[verdict] += 1
     return counts
+
+
+def derive_per_target_status(store: "EventStore") -> dict[str, dict]:
+    """Per-target latest-verdict breakdown (R3 keep-alive scorecard authority).
+
+    Like :func:`derive_decay_counts` but grouped by ``target_url`` instead of
+    aggregated globally: returns, for each target that has any ``link.rechecked``
+    event, the latest verdict per link (keyed by ``article_id``), the resulting
+    per-verdict counts, and the most-recent recheck timestamp. The ledger
+    liveness column is stale (recheck→ledger writeback is deferred), so this
+    time-series read — not the ledger — is the authority for "is this link
+    stripped *now*".
+    """
+    # link.rechecked.target_url is stored raw; canonicalize so canonically-equal
+    # raw variants (utm tags, trailing-slash / default-port drift, mixed publish
+    # vintages) merge into ONE scorecard row instead of one silently overwriting
+    # the other downstream — reusing the same _canon_target the ledger-overlay
+    # join uses. events.id breaks same-ts_utc ties so the "latest verdict" read
+    # is deterministic (mirrors overlay._is_newer / R8), independent of SQL row
+    # order. Without it a same-second alive could mask a later link_stripped.
+    from .overlay import _canon_target, _is_newer
+
+    # (canonical target, article_id) -> (ts, rid, verdict); latest wins.
+    latest: dict[tuple[str, int], tuple[datetime | None, int, str]] = {}
+    last_seen: dict[str, tuple[datetime | None, int]] = {}
+    sql = (
+        "SELECT id, target_url, article_id, payload_json, ts_utc FROM events "
+        "WHERE kind = ? AND article_id IS NOT NULL AND target_url IS NOT NULL"
+    )
+    for row in store.query(sql, (LINK_RECHECKED,)):
+        try:
+            verdict = json.loads(row["payload_json"] or "{}").get("verdict")
+        except (ValueError, TypeError):
+            continue
+        if verdict not in verdicts.VERDICTS:
+            continue
+        target = _canon_target(row["target_url"])
+        if target is None:
+            continue
+        ts = _parse_ts(row["ts_utc"])
+        rid = row["id"]
+        key = (target, row["article_id"])
+        prev = latest.get(key)
+        if prev is None or _is_newer(ts, rid, prev[0], prev[1]):
+            latest[key] = (ts, rid, verdict)
+        seen = last_seen.get(target)
+        if seen is None or _is_newer(ts, rid, seen[0], seen[1]):
+            last_seen[target] = (ts, rid)
+
+    out: dict[str, dict] = {}
+    for (target, _aid), (_ts, _rid, verdict) in latest.items():
+        entry = out.setdefault(
+            target,
+            {"counts": {v: 0 for v in verdicts.VERDICTS}, "total": 0, "last_verified": None},
+        )
+        entry["counts"][verdict] += 1
+        entry["total"] += 1
+    for target, entry in out.items():
+        seen = last_seen.get(target)
+        ts = seen[0] if seen else None
+        entry["last_verified"] = ts.isoformat() if ts is not None else None
+    return out

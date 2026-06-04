@@ -249,9 +249,9 @@ similar) surfaces in the publish report.
 ### Configuring via WebUI
 
 Open `/sites` in the WebUI to fill the three-URL form. The form uses CSRF
-tokens and the page is bound to `127.0.0.1` by default — set
-`BACKLINK_PUBLISHER_ALLOW_NETWORK=1` to bind to a non-loopback address
-(only do this on a trusted network). The save button persists the
+tokens and the page is bound to `127.0.0.1` — and **only** loopback: this
+internal edition refuses to start on a non-loopback `BIND_HOST` (see
+[Security posture](#security-posture-internal-lite-edition)). The save button persists the
 configuration via the same `save_config` that `[blogger.oauth]` uses, so
 existing credentials, the legacy `[sites.*]` block, and any operator-added
 depth-2 subsections under managed roots (e.g. `[medium.oauth]`,
@@ -287,6 +287,34 @@ zh-CN short-form scheduler (next section). Adding a `[targets."<domain>"]`
 three-URL block for the same domain just routes that domain through the
 work-themed planner instead — both paths are kept alive. A single INFO
 log notes the coexistence so you can decide when (or whether) to migrate.
+
+## Security posture (internal LITE edition)
+
+This build is the **internal edition**: a single operator (occasionally a
+colleague over the same machine), no login. Treat it accordingly.
+
+- **Loopback-only, enforced.** The WebUI binds to a loopback interface and
+  refuses to start on a non-loopback `BIND_HOST`. `BACKLINK_PUBLISHER_ALLOW_NETWORK`
+  no longer exposes the app off-loopback — it only *disables* the
+  credential-bind endpoints while set. There is no supported network-exposed
+  deployment.
+- **No reverse proxy.** The Origin/Referer guard hard-codes `loopback:8888`
+  and will `403` any proxied `https://host` POST, so a proxy deployment breaks
+  **by design**. Do not "fix" the guard to accommodate a proxy — that silently
+  re-opens the door.
+- **Debug off by default.** `python webui.py` runs with the Werkzeug debugger
+  off; opt in per-session with `FLASK_DEBUG=1` only on a trusted machine. The
+  canonical launcher `scripts/launcher.command` (the one git-tracked launcher)
+  pins a persistent `SECRET_KEY` so sessions/CSRF survive restart.
+- **Two guards are the whole defense.** CSRF + the Origin/Referer guard on
+  every state-mutating route are the entire defense against a hostile process
+  or browser page on the loopback interface. They must be present on every such
+  route.
+
+**Accepted risk:** anyone with access to the machine has full credential and
+outbound-publish access, with no audit trail. That is acceptable for the
+internal single-operator model and is the reason network exposure is refused
+rather than merely discouraged.
 
 ## zh-CN Short-Form Anchor Profile Scheduler
 

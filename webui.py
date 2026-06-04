@@ -19,6 +19,16 @@ from webui_app.helpers.cli_runner import _wire_content_fetch_ttl_from_env
 from webui_app.helpers.security import _resolve_bind_host
 
 
+def _resolve_debug_mode() -> bool:
+    """Fail-safe Werkzeug debug gate. Default OFF.
+
+    The Werkzeug debug page is an interactive RCE console; this WebUI is
+    no-auth + loopback + holds live publishing credentials, so debug must
+    never default on. Opt in explicitly with ``FLASK_DEBUG=1``.
+    """
+    return os.environ.get('FLASK_DEBUG', '0') == '1'
+
+
 # Module-level app instance — required so ``from webui import app`` works
 # (legacy tests, WSGI servers, debug tooling).
 app = create_app()
@@ -96,11 +106,8 @@ if __name__ == '__main__':
 
     port = int(os.environ.get('PORT', 8888))
     bind_host = _resolve_bind_host()
-    # FLASK_DEBUG env gate: launcher exports FLASK_DEBUG=0 so route exceptions
-    # exit the process (observable by the bash restart loop) instead of being
-    # absorbed by Werkzeug's debug page. Direct `python webui.py` invocations
-    # keep debug=True (default '1'). Only the exact string '1' enables debug.
-    debug_mode = os.environ.get('FLASK_DEBUG', '1') == '1'
+    # Fail-safe debug gate (default OFF) — see _resolve_debug_mode().
+    debug_mode = _resolve_debug_mode()
     print("Starting Backlink Publisher Web UI...")
     print(f"Open: http://{bind_host}:{port}  (debug={debug_mode})")
     app.run(host=bind_host, port=port, debug=debug_mode, use_reloader=False)
