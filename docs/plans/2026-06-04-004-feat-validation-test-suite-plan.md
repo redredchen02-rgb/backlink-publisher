@@ -287,9 +287,7 @@ Units 1, 2, 3, 4, 5, 7 are independent and can be implemented in parallel. Units
 
 **Approach:**
 - All scenarios use `_FakeProc` injection pattern from `test_webui_bind_job_service.py` — no real subprocess
-- **Cancel**: `start()` → job running → call registry cancel method (or stop method if named differently; check `bind_job.py`) → assert status eventually becomes `"cancelled"` or `"failed"`; assert channel is available for re-start
-- **TimeoutExpired→kill**: create a `_HangingProc` subclass of `_FakeProc` whose `wait(timeout=N)` raises `subprocess.TimeoutExpired` (the existing `_FakeProc.wait()` ignores `timeout` and returns immediately — it cannot trigger this path). Inject `_HangingProc`; trigger the `_drain_stdout` timeout branch; assert `.kill()` was called and status becomes `"failed"` with a timeout error indicator in `error_code`. This subclass is a prerequisite, not a deferred item.
-- **Duplicate start same channel**: start job for channel "x" → while running, start another job for channel "x" → assert second start is rejected (check deferred: exact response form); assert first job is unaffected
+- **TimeoutExpired→kill** (prerequisite: `_HangingProc`): create `_HangingProc` at module scope (above test classes) — a subclass of `_FakeProc` with TWO required behaviors: (1) `stdout` iterator terminates (empty or no-terminal-event lines, so `_drain_stdout`'s `for line in proc.stdout` loop exits); (2) `wait(timeout=N)` where N > 0 raises `subprocess.TimeoutExpired`; (3) `wait(timeout=None)` returns an exit code (e.g., `-9`). The production `_drain_stdout` calls `proc.wait(timeout=10)` in the `finally` block AFTER the stdout loop exits — the hang is in the process's exit, not its stdout. Inject `_HangingProc`; assert `.kill()` was called and status becomes `"failed"` with a timeout error indicator in `error_code`.
 - **Concurrent poll**: two `threading.Thread` callers call `registry.poll(job_id)` simultaneously → both return identical snapshots; no exception
 - **Backend failure via event**: `_FakeProc` emits `{"event": "channel.bind.failed", "error_code": "auth_rejected"}` → assert `status="failed"`, `error_code="auth_rejected"`
 - **False-success prevention**: while a job is running (before terminal event), `poll()` must return `status="running"` — never `status="done"`
@@ -299,19 +297,18 @@ Units 1, 2, 3, 4, 5, 7 are independent and can be implemented in parallel. Units
 - Do not test circuit-tripped HALF_OPEN via accumulated failures — plant state via `circuit.trip()` if needed
 
 **Test scenarios:**
-- Happy path: start → `channel.bind.persisted` event → `poll()` returns `status="done"` (confirm existing test covers; cross-reference to avoid duplication)
+- Happy path: start → `channel.bind.persisted` event → `poll()` returns `status="done"` (confirm existing test covers; cross-reference, do not duplicate)
 - Error path: `channel.bind.failed` event with `error_code="auth_rejected"` → `poll()` returns `status="failed"`, `error_code="auth_rejected"`
 - Error path: stdout closes without terminal event → `status="failed"`, `error_code="stream_closed_no_terminal_event"`
-- Error path: proc hangs until timeout → `proc.kill()` called → `status="failed"` with timeout error indicator
-- Error path: duplicate start same channel while running → first job unaffected; second start returns rejection (assert response form after reading `bind.py`)
+- Error path: `_HangingProc` injected → stdout terminates, `proc.wait(timeout=10)` raises `TimeoutExpired` → `.kill()` called → `status="failed"` with timeout error indicator in `error_code`
 - Edge case: concurrent `poll(job_id)` from two threads → both return same snapshot; no exception raised
-- Edge case: `poll()` while job is `status="running"` → returns `"running"`, never prematurely returns `"done"`
-- Edge case: cancel already-done job → no-op or error; no state corruption; original terminal state preserved
+- Edge case: `poll()` while job is `status="running"` → returns `"running"`, never prematurely returns `"done"` (false-success prevention)
+- Not included: cancel (v1 has no cancel method — deferred to future feature plan); duplicate-start (already in `TestRegistryStart::test_concurrent_bind_same_channel_rejected`)
 
 **Verification:**
 - All `_FakeProc` terminal scenarios reach their assertion within `_wait_until` polling timeout
 - No `time.sleep` in test body — `_wait_until` predicate only
-- Duplicate-start assertion matches the actual HTTP status from `bind.py` (confirm deferred item first)
+- `_HangingProc` is defined at module scope before test classes, with all three `wait()` behaviors documented
 
 ---
 
@@ -375,7 +372,7 @@ Units 1, 2, 3, 4, 5, 7 are independent and can be implemented in parallel. Units
 
 **Test scenarios:**
 - Happy path: well-formed `PlannedPayload` passes both legacy and `validate_publish_payload` — no exception
-- Error path (divergence): `canonical_url` containing `<` → passes legacy `validate_output_payload`, raises `ValidationError` in `validate_publish_payload`
+- Error path (divergence): `url_mode='D'` → passes legacy `validate_output_payload` (which does not check enum values) → raises `ValidationError` in `validate_publish_payload` Pydantic path. Confirm first that `validate_output_payload` does NOT check `url_mode` (grep `_schema_output.py`)
 - Error path: `link_count < 6` → `ValidationError` in `PlannedPayload` validation
 - Error path: `content_html` at 1 MiB + 1 byte → `ValidationError`
 - Error path: `url_mode = "D"` (invalid enum) → `ValidationError` raised
