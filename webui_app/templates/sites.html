@@ -134,16 +134,10 @@
   <hr class="my-4">
 
   <fieldset>
-    <legend>预览作品页元数据</legend>
-    <p class="help">先保存配置，再使用此面板验证 work_url 抓取行为。</p>
-    <form method="post" action="/sites/run">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="main_url" value="{{ form.main_url|default('') }}">
-      <button type="submit" class="btn btn-outline-primary"
-              {% if not form.main_url %}disabled{% endif %}>
-        运行（plan-backlinks）
-      </button>
-    </form>
+    <legend>保活发布</legend>
+    <p class="help">「运行（plan-backlinks）」已整合至 <a href="/ce:keep-alive">保活面板</a>，
+      由 keep-alive 循环统一管理发布与存活验证。</p>
+    <a href="/ce:keep-alive" class="btn btn-outline-primary">前往保活面板 →</a>
   </fieldset>
 </div>
 {# Pro Mode Copilot — side panel (Plan U4) #}

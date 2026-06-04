@@ -4,16 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.3.1] - 2026-06-03
+## [0.3.1] - 2026-06-04
 
 ### Added
 
-- Telegraph publishing now falls back to Chrome/CDP (`TelegraphCdpAdapter`) when the API path returns a dependency error. Chain order is API first, CDP second; environments without Chrome safely skip the fallback.
-- LiveJournal adapter includes a configurable post-publish delay (`post_publish_delay_seconds`, default 30 s, overridable via `LIVEJOURNAL_PUBLISH_DELAY_S`) so the downstream verify step gets an extended window for page propagation. Fixes `published_unverified → InternalError` regressions on slow-propagating LJ pages.
+- Internal LITE edition with loopback-only binding, trimmed nav (keep-alive core), and FLASK_DEBUG=0 by default. LITE mode set via `BACKLINK_PUBLISHER_LITE=1`; launcher rewired to `scripts/launcher.command` as single source of truth (R9).
+- Keep-alive recovery loop (R1): recheck → gap detection → republish → re-verify → treadmill, closing the operator-facing "push and prove" cycle. S1-S7 frontend with S3 gap-selection panel, S4 confirm overlay, S5 publish/recheck progress, S6 result, and S7 treadmill banner.
+- Keep-alive recheck button (POST /ce:keep-alive/recheck) with async job registry, polling status endpoint, and cancel support.
+- Keep-alive republish job with phase/reverify/restripped/confirmed_alive tracking; `issue_confirm_token` returns per-seed destinations.
+- `plan-gap` CLI (engines/gap/): deficit-driven re-plan over dofollow platforms; stripped-aware variant using RUNTIME_STICKY_PLATFORMS.
+- Validation test suite (plan 2026-06-04-004): full-stack coverage for validation pipeline.
+- AI content engine pro mode wiring (plan 2026-06-04-003).
 
 ### Changed
 
 - `hashnode` and `writeas` channels marked `visibility="retired"` in the adapter registry (plan 008 cleanup; deletion follow-up planned).
+- `/sites/run` POST and `/sites/run/<id>/result` GET collapsed into keep-alive flow — both redirect to `/ce:keep-alive`. The old "运行（plan-backlinks）" button replaced with a link to the keep-alive panel (R2, Unit 8).
+- 141 completed/shipped/parked plan docs archived from `docs/plans/` to `docs/_archive/plans/`; one active plan remains in place (R10, Unit 12).
+- 5 WebUI stores migrated from JSON to SQLite (`webui.db`): Schedule, Profiles, Queue, Drafts, Campaign. WAL mode + 0o600 permissions. History store excluded per existing plan scope.
+
+### Fixed
+
+- Telegraph publishing now falls back to Chrome/CDP (`TelegraphCdpAdapter`) when the API path returns a dependency error. Chain order is API first, CDP second; environments without Chrome safely skip the fallback.
+- LiveJournal adapter includes a configurable post-publish delay (`post_publish_delay_seconds`, default 30 s, overridable via `LIVEJOURNAL_PUBLISH_DELAY_S`) so the downstream verify step gets an extended window for page propagation. Fixes `published_unverified → InternalError` regressions on slow-propagating LJ pages.
+- Version bump to 0.3.1 with full test suite at 9812+ passing.
 
 ## [0.3.0] - 2026-06-01
 

@@ -1,13 +1,14 @@
-"""/sites/* — Plan Unit 3."""
+"""/sites/* — Plan Unit 3.
+
+R2 (Unit 8): /sites/run and /sites/run/<id>/result are collapsed into
+the keep-alive flow — both redirect to /ce:keep-alive.
+"""
 
 from __future__ import annotations
 
-import json
-import secrets
-from datetime import datetime, timezone
 from urllib.parse import quote as _quote
 
-from flask import Blueprint, abort, jsonify, redirect, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request
 
 from backlink_publisher.config import (
     DEFAULT_WORK_TEMPLATES,
@@ -16,20 +17,12 @@ from backlink_publisher.config import (
     save_config,
 )
 from backlink_publisher._util.errors import InputValidationError
-from backlink_publisher._util.url import (
-    validate_https_url,
-    validate_main_domain_url,
-)
-from backlink_publisher.content.scraper import fetch_work_metadata
+from backlink_publisher._util.url import validate_https_url, validate_main_domain_url
 from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.content.scraper import fetch_work_metadata
 
-from ..api.pipeline_api import PipelineAPI
-from ..services.work_themed_service import (
-    get_run as _get_run,
-    parse_lines as _parse_lines,
-    parse_plan_output as _parse_plan_output,
-    register_run as _register_run,
-)
+from ..services.work_themed_service import parse_lines as _parse_lines
+
 from ..helpers._request_cache import _g_cache
 from ..helpers.security import _ensure_csrf_token
 from ..helpers.url_meta import (
@@ -237,50 +230,9 @@ def sites_scrape_preview():
 
 @bp.route("/sites/run", methods=["POST"])
 def sites_run():
-    main_url = (request.form.get("main_url") or "").strip().rstrip("/")
-    if not main_url:
-        abort(400)
-
-    cfg = _g_cache('config', load_config)
-    entry = cfg.target_three_url.get(main_url)
-    if entry is None:
-        abort(400)
-
-    seed_row = {
-        "target_url": entry.main_url.rstrip("/"),
-        "main_domain": entry.main_url,
-        "language": "zh-CN", "platform": "blogger",
-        "url_mode": "C", "publish_mode": "publish",
-    }
-    seed_jsonl = json.dumps(seed_row, ensure_ascii=False) + "\n"
-
-    result = PipelineAPI().plan(seed_jsonl, work_count=10)
-    if not result.success:
-        return redirect(
-            "/sites?flash_type=danger&flash_msg=" + f"plan-backlinks 失败：{result.error}"
-        )
-
-    rows = _parse_plan_output(result.stdout, entry)
-    summary = {
-        "total": len(rows),
-        "generated": sum(1 for r in rows if r["status"] == "success"),
-        "skipped": sum(1 for r in rows if r["status"] != "success"),
-        "fail_empty": len(rows) == 0,
-    }
-
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + secrets.token_hex(4)
-    _register_run(run_id, main_url, summary, rows)
-    return redirect(f"/sites/run/{run_id}/result")
+    return redirect("/ce:keep-alive")
 
 
 @bp.route("/sites/run/<run_id>/result", methods=["GET"])
 def sites_run_result(run_id: str):
-    run = _get_run(run_id)
-    if run is None:
-        abort(404)
-    return render_template(
-        "result.html",
-        main_url=run["main_url"],
-        summary=run["summary"],
-        rows=run["rows"],
-    )
+    return redirect("/ce:keep-alive")

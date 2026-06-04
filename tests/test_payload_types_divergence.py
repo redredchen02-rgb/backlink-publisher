@@ -30,24 +30,26 @@ def _valid_planned(**overrides):
         "language": "zh-CN",
         "publish_mode": "draft",
         "target_url": "https://example.com/page1",
-        "main_domain": "example.com",
+        "main_domain": "https://example.com",
         "url_mode": "A",
         "title": "Example Title",
         "slug": "example-title",
         "excerpt": "Short excerpt here.",
         "tags": ["tag1", "tag2"],
         "links": [
-            {"url": f"https://blog{i}.com/post", "anchor": f"anchor text {i}",
-             "kind": "supporting", "required": True}
-            for i in range(6)
+            {"url": "https://example.com", "anchor": "Main Domain", "kind": "main_domain", "required": True},
+            {"url": "https://example.com/page1", "anchor": "Target", "kind": "target", "required": True},
+            {"url": "https://wikipedia.org", "anchor": "Wiki", "kind": "supporting", "required": False},
+            {"url": "https://mdn.dev", "anchor": "MDN", "kind": "supporting", "required": False},
+            {"url": "https://stackoverflow.com", "anchor": "SO", "kind": "supporting", "required": False},
+            {"url": "https://github.com", "anchor": "GH", "kind": "supporting", "required": False},
         ],
         "seo": {
             "title": "SEO Title",
             "description": "SEO description text here for the page.",
             "canonical_url": "https://example.com/page1",
         },
-        "content_markdown": "This is the body mentioning example.com with enough words.",
-        "content_html": "<p>This is the body mentioning example.com.</p>",
+        "content_markdown": "Test body mentioning https://example.com inline.",
     }
     base.update(overrides)
     return base
@@ -94,22 +96,24 @@ def test_divergence_error_contains_field_name():
 
 # ── content_html size boundary ────────────────────────────────────────────────
 
+_MiB = 1_048_576  # 1 MiB in bytes
+
+
 def test_content_html_exactly_1mib_accepted():
-    """content_html at exactly 1 MiB → no size error from validate_output_payload."""
-    row = _valid_planned(content_html="x" * (1024 * 1024))
+    """content_html at exactly 1 MiB → no size error; content_markdown covers main_domain check."""
+    row = _valid_planned(content_html="x" * _MiB)
     errors = validate_output_payload(row)
-    size_errors = [e for e in errors if "html" in e.lower() and ("size" in e.lower() or "large" in e.lower() or "1" in e)]
+    size_errors = [e for e in errors if "content_html" in e.lower() and "size" in e.lower()]
     assert size_errors == [], f"1 MiB should be accepted; got size errors: {size_errors}"
 
 
 def test_content_html_exceeds_1mib_rejected():
     """content_html at 1 MiB + 1 byte → size error from validate_output_payload."""
-    row = _valid_planned(content_html="x" * (1024 * 1024 + 1))
+    row = _valid_planned(content_html="x" * (_MiB + 1))
     errors = validate_output_payload(row)
-    assert errors, "Oversized content_html should produce validation errors"
-    # At least one error must mention size/html
-    assert any("html" in e.lower() or "size" in e.lower() or "1" in e for e in errors), (
-        f"Expected size-related error; got: {errors}"
+    size_errors = [e for e in errors if "content_html" in e.lower() and "size" in e.lower()]
+    assert size_errors, (
+        f"Oversized content_html should produce a size-related error; got: {errors}"
     )
 
 

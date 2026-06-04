@@ -19,11 +19,15 @@ def client(disable_csrf):
     return webui.app.test_client()
 
 
-def _publish_envelope(error_class: str, message: str) -> str:
-    """Produce a __BLP_ERR__ envelope matching the pipeline's error format."""
-    banner = "=" * 60
-    envelope = json.dumps({"error_class": error_class, "message": message, "exit_code": 1})
-    return f"{banner}\n__BLP_ERR__{envelope}\n{banner}"
+def _publish_envelope(error_class: str, message: str, exit_code: int = 1) -> str:
+    """Produce a properly-formatted __BLP_ERR__ envelope for testing."""
+    from backlink_publisher._util.error_envelope import ErrorEnvelope
+    _BANNER = (
+        "[publish-backlinks] effective config:\n"
+        "  config:    /tmp/cfg\n"
+        "  platforms: blogger\n"
+    )
+    return _BANNER + ErrorEnvelope(error_class, exit_code, message).serialize() + "\n"
 
 
 # ── Typed publish error prefix ────────────────────────────────────────────────
