@@ -112,5 +112,43 @@ export function createConfigForm({ plansData = [], profiles = [] } = {}) {
       .catch((e) => alert('保存失败：' + e.message));
   }
 
-  return { toggleEditor, markDirty, saveEdit, cancelEdit, loadProfile, loadBatchProfile, saveProfilePrompt };
+  // ── Per-row article regeneration ──
+  async function regenBody(idx, domain, language, anchors, topic) {
+    const btn = document.getElementById('regenBtn-' + idx);
+    const status = document.getElementById('regenStatus-' + idx);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>生成中…'; }
+    if (status) status.textContent = '';
+    try {
+      const resp = await fetch('/ce:regen-body', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': readCsrf() },
+        body: JSON.stringify({ main_domain: domain, anchors, language, topic }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        const ta = document.getElementById('editorArea-' + idx);
+        if (ta) ta.value = data.content_markdown;
+        const preview = document.getElementById('preview-' + idx);
+        if (preview) preview.innerHTML = data.content_html;
+        if (plansData[idx]) { plansData[idx].content_markdown = data.content_markdown; _syncPlansFields(); }
+        const badge = document.querySelector('[data-content-source="' + idx + '"]');
+        if (badge) {
+          badge.textContent = data.content_source === 'llm' ? '✦ AI 生成' : '模板';
+          badge.className = 'badge ' + (data.content_source === 'llm' ? 'bg-success' : 'bg-secondary');
+          badge.style.fontSize = '10px';
+        }
+        if (status) { status.textContent = '✓ 已重新生成'; status.style.color = 'var(--success)'; }
+      } else if (data.error === 'llm_not_configured') {
+        if (status) { status.textContent = '⚠ LLM 未配置'; status.style.color = ''; }
+      } else {
+        if (status) { status.textContent = '✗ 生成失败'; status.style.color = ''; }
+      }
+    } catch (_e) {
+      if (status) { status.textContent = '✗ 生成失败'; status.style.color = ''; }
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-stars me-1"></i>重新生成'; }
+    }
+  }
+
+  return { toggleEditor, markDirty, saveEdit, cancelEdit, loadProfile, loadBatchProfile, saveProfilePrompt, regenBody };
 }

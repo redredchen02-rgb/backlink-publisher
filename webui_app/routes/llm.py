@@ -199,6 +199,7 @@ def settings_save_llm_config():
         'temperature': temperature,
         'system_prompt': request.form.get('system_prompt', '') or existing.get('system_prompt', ''),
         'use_article_gen': 'use_article_gen' in request.form,
+        'article_system_prompt': request.form.get('article_system_prompt', ''),
         'image_gen_api_key': new_image_key or existing.get('image_gen_api_key', ''),
         'image_gen_endpoint': image_endpoint,
         'image_gen_model': image_model,

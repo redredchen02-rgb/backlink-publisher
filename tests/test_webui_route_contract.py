@@ -693,6 +693,15 @@ class TestPipelineRoutes:
         )
         assert resp.status_code == 200
 
+    def test_ce_regen_body_missing_domain_returns_400(self, client):
+        import json
+        resp = client.post(
+            "/ce:regen-body",
+            data=json.dumps({"anchors": [], "language": "zh-CN"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # History POST routes — /ce:history*

@@ -158,12 +158,15 @@ def _generate_payload(
                 topic=topic_val,
                 language=target_language,
             )
+            content_source = "llm"
             plan_logger.info(f"LLM article body generated for {main_domain}")
         except Exception as e:
             plan_logger.warn(f"LLM article generation failed, falling back to template: {e}")
             body = body_tmpl(domain=domain_label, main_domain=main_domain, anchors=anchors)
+            content_source = "template"
     else:
         body = body_tmpl(domain=domain_label, main_domain=main_domain, anchors=anchors)
+        content_source = "template"
 
     if tdk_title or tdk_description:
         tdk_section = f"\n\n---\n**关于 {domain_label}**\n"
@@ -278,6 +281,7 @@ def _generate_payload(
         "excerpt": excerpt,
         "tags": tags,
         "content_markdown": content_markdown,
+        "content_source": content_source,
         "_citability_levers": _citability_levers,
         "links": links,
         "cover_image_url": cover_image_url,

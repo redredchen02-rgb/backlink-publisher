@@ -26,6 +26,7 @@ const CLICK_ACTIONS = {
   'toggle-editor': (e, el) => cf.toggleEditor(el.dataset.idx),
   'save-edit': (e, el) => cf.saveEdit(el.dataset.idx),
   'cancel-edit': (e, el) => cf.cancelEdit(el.dataset.idx, el.dataset.original),
+  'regen-body': (e, el) => cf.regenBody(el.dataset.idx, el.dataset.domain, el.dataset.language, JSON.parse(el.dataset.anchors), el.dataset.topic || null),
   'append-tag': (e, el) => {
     const tagsEl = document.getElementsByName('custom_tags')[0];
     if (tagsEl) tagsEl.value += el.dataset.tag + ',';

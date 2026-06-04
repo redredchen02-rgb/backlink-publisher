@@ -347,3 +347,55 @@ def ce_preview():
     if fmt == 'html':
         return render_to_html(content)
     return content
+
+
+@bp.route('/ce:regen-body', methods=['POST'])
+def ce_regen_body():
+    """Re-generate a single article body via LLM; returns JSON for in-place preview update."""
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    main_domain = (data.get('main_domain') or '').strip()
+    anchors = data.get('anchors') or []
+    language = (data.get('language') or '').strip()
+    topic = data.get('topic') or None
+
+    if not main_domain or not isinstance(anchors, list):
+        return jsonify({'error': 'bad_request', 'detail': 'main_domain and anchors are required'}), 400
+
+    from backlink_publisher.config import load_config
+    try:
+        cfg = load_config()
+    except Exception as exc:
+        return jsonify({'error': 'bad_request', 'detail': str(exc)}), 400
+
+    if not cfg.llm_anchor_provider:
+        return jsonify({'error': 'llm_not_configured', 'detail': 'no LLM provider configured'}), 400
+    if not cfg.llm_anchor_provider.use_article_gen:
+        return jsonify({'error': 'llm_not_configured', 'detail': 'use_article_gen is disabled'}), 400
+
+    from backlink_publisher.cli.plan_backlinks._templates import _domain_label_of
+    domain_label = _domain_label_of(main_domain)
+
+    try:
+        from backlink_publisher.publishing.adapters.llm_anchor_provider import OpenAICompatibleProvider
+        provider = OpenAICompatibleProvider(
+            base_url=cfg.llm_anchor_provider.base_url,
+            api_key=cfg.llm_anchor_provider.api_key,
+            model=cfg.llm_anchor_provider.model,
+            temperature=cfg.llm_anchor_provider.temperature,
+            system_prompt=cfg.llm_anchor_provider.system_prompt,
+            article_system_prompt=cfg.llm_anchor_provider.article_system_prompt,
+        )
+        body = provider.generate_article_body(
+            domain_label=domain_label,
+            main_domain=main_domain,
+            anchors=anchors,
+            topic=topic,
+            language=language,
+        )
+    except Exception as exc:
+        from backlink_publisher.llm.client import _redact_for_log
+        return jsonify({'error': 'llm_call_failed', 'detail': _redact_for_log(str(exc))}), 502
+
+    content_html = render_to_html(body)
+    return jsonify({'content_markdown': body, 'content_html': content_html, 'content_source': 'llm'})
