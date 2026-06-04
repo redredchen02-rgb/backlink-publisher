@@ -1,73 +1,32 @@
 """plan 2026-06-04-002 Unit 1 — POST /ce:keep-alive/recheck route."""
 __tier__ = "integration"
 
-import json
-
 import pytest
 
-from backlink_publisher.events import EventStore
+import webui
+from webui_app.services.keepalive_job import registry as keepalive_registry
 
-T = "https://51acgs.com/comic/test"
+_PORT = 8888
+_GOOD_ORIGIN = {"Origin": f"http://127.0.0.1:{_PORT}"}
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    cfg = tmp_path / "cfg"
-    cache = tmp_path / "cache"
-    cfg.mkdir()
-    cache.mkdir()
-    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(cfg))
-    monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(cache))
-    import webui
-    webui.app.config["TESTING"] = True
-    webui.app.config["WTF_CSRF_ENABLED"] = False
+def client(disable_csrf):
+    keepalive_registry.reset_for_tests()
     return webui.app.test_client()
 
 
-def _seed(tmp_path=None):
-    store = EventStore()
-    store.add_article({"target_urls_json": json.dumps([T]),
-                       "live_url": "https://medium.com/ka1"})
-    from webui_store import history_store
-    history_store.save([
-        {"id": "ka1", "platform": "medium", "target_url": T,
-         "article_urls": ["https://medium.com/ka1"],
-         "status": "published_unverified", "title": "t"},
-    ])
+# ── POST async start ─────────────────────────────────────────────────────────
+
+def test_post_with_good_origin_starts_job(client):
+    resp = client.post("/ce:keep-alive/recheck", headers=_GOOD_ORIGIN)
+    assert resp.status_code in (202, 409)
+    body = resp.get_json()
+    assert "job_id" in body
 
 
-def _alive_probe(*a, **k):
-    return {
-        "page_readable": True, "target_anchor_found": True,
-        "target_is_nofollow": False, "target_rel": None,
-        "target_anchor_text": None, "reason": None, "marker_present": None,
-    }
-
-
-# ── happy path ─────────────────────────────────────────────────────────────
-
-def test_post_redirects_to_keep_alive_with_success_flash(client, monkeypatch):
-    _seed()
-    monkeypatch.setattr(
-        "backlink_publisher.publishing.adapters.link_attr_verifier.inspect_target_anchor",
-        _alive_probe,
-    )
-    resp = client.post("/ce:keep-alive/recheck")
-    assert resp.status_code == 302
-    loc = resp.headers["Location"]
-    assert "/ce:keep-alive" in loc
-    assert "flash_type=success" in loc
-    assert "flash_msg=" in loc
-
-
-# ── empty store ─────────────────────────────────────────────────────────────
-
-def test_empty_store_redirects_with_info_flash(client):
-    # No history seeded — route should redirect without calling recheck.
-    resp = client.post("/ce:keep-alive/recheck")
-    assert resp.status_code == 302
-    loc = resp.headers["Location"]
-    assert "flash_type=info" in loc
+def test_post_without_origin_returns_403(client):
+    assert client.post("/ce:keep-alive/recheck").status_code == 403
 
 
 # ── GET with flash params ────────────────────────────────────────────────────

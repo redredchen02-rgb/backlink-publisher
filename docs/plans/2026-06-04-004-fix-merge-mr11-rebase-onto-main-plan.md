@@ -39,14 +39,15 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 ## Key Technical Decisions
 
 - **Rebase over merge**: rebase keeps MR !11 linear on GitLab; a local merge commit would add noise to the MR diff
-- **Sync POST recheck stays**: `fix/keep-alive-recheck-button` adds a synchronous route distinct from the async job added by `feat/keepalive-loop-r1`; both should coexist
+- **Async version wins at `POST /ce:keep-alive/recheck`**: both branches register a handler at the same URL — feature branch has sync 302 redirect, `main` has async 202 JSON (`start_recheck()`). Flask cannot register two handlers; take `main`'s async version entirely and discard the feature branch's `keep_alive_recheck()`. The recheck button was already enabled by `feat/keepalive-loop-r1`.
 - **Force-push with lease**: use `--force-with-lease` to avoid overwriting concurrent GitLab commits on the feature branch
+- **Plan files go to main, not MR !11**: commit `docs/plans/2026-06-04-003-*` and `docs/plans/2026-06-04-004-*` (this plan) to `main` directly so MR !11 diff stays clean
 
 ## Open Questions
 
 ### Resolved During Planning
 
-- **Does `feat/keepalive-loop-r1` add a recheck route that conflicts?** Yes, it adds async job endpoints in `keep_alive.py`; the sync POST from MR !11 must be integrated alongside them
+- **Does `feat/keepalive-loop-r1` conflict at the route URL?** Yes — both branches register `POST /ce:keep-alive/recheck`. Flask cannot hold two handlers. Resolution: keep `main`'s async `start_recheck()`, discard the feature branch's sync `keep_alive_recheck()`; the entire sync path (`test_webui_keep_alive_recheck.py`, flash block, `fetch()` handler) is superseded.
 - **GitHub push needed?** No — account suspended; GitLab is the live trunk
 
 ### Deferred to Implementation
@@ -55,23 +56,27 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ## Implementation Units
 
-- [ ] **Unit 1: Commit untracked plan file**
+- [ ] **Unit 1: Clean working tree — commit docs to main, stage settings fix to feature branch**
 
-**Goal:** Clean working tree before rebase
+**Goal:** Ensure rebase starts from a clean working tree; keep MR !11 diff free of unrelated docs
 
 **Dependencies:** None
 
 **Files:**
-- Add: `docs/plans/2026-06-04-003-feat-ai-content-engine-pro-mode-wiring-plan.md` (new untracked file, stage + commit)
+- Add to `main`: `docs/plans/2026-06-04-003-feat-ai-content-engine-pro-mode-wiring-plan.md`, `docs/plans/2026-06-04-004-fix-merge-mr11-rebase-onto-main-plan.md`
+- Modify on `fix/keep-alive-recheck-button`: `webui_app/templates/_settings_llm_integration.html` (stage + commit as standalone fix)
 
 **Approach:**
-- `git add docs/plans/2026-06-04-003-...` then commit with message `docs: add AI content engine pro mode wiring plan`
+- Step A: `git checkout main` → `git add docs/plans/2026-06-04-003-... docs/plans/2026-06-04-004-...` → commit `docs: add plan-003 AI content engine and plan-004 MR merge plan` → fast-forward to `gitlab/main` (Unit 2 can follow immediately)
+- Step B: `git checkout fix/keep-alive-recheck-button` → inspect `_settings_llm_integration.html` diff → stage + commit with an appropriate one-line message
+- After Step B: `git status` must show clean working tree before proceeding to Unit 3
 
 **Test scenarios:**
-- Test expectation: none — pure docs commit, no behavioral change
+- Test expectation: none — docs and template config commits, no behavioral change
 
 **Verification:**
-- `git status` shows clean working tree after commit
+- `git log --oneline main | head -1` includes the docs commit
+- `git status` on `fix/keep-alive-recheck-button` shows clean working tree
 
 ---
 
@@ -98,27 +103,30 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 - [ ] **Unit 3: Rebase fix/keep-alive-recheck-button onto main**
 
-**Goal:** Land MR !11 commits on top of updated `main`
+**Goal:** Land MR !11 docs commit on top of updated `main`; discard superseded sync-route code
 
 **Dependencies:** Unit 2
 
 **Files:**
-- `webui_app/routes/keep_alive.py` — expected conflict
-- `webui_app/static/js/keep_alive.js` — expected conflict
-- `webui_app/templates/keep_alive.html` — expected conflict
+- `webui_app/routes/keep_alive.py` — conflict: **take `main`'s version entirely** (discard `keep_alive_recheck()`)
+- `webui_app/static/js/keep_alive.js` — conflict: **take `main`'s version entirely** (discard `fetch()` handler for `#recheckBtn`)
+- `webui_app/templates/keep_alive.html` — conflict: **take `main`'s version entirely** (drop flash block; `main` has async job progress UI and republish panel)
+- `tests/test_webui_route_contract.py` — conflict: **take `main`'s version entirely** (main has the full expanded `TestKeepAliveRoutes` with all 6 action routes; feature branch only covered GET)
+- `tests/test_webui_keep_alive_recheck.py` — **DELETE**: tests the sync 302-redirect contract which is superseded by the async route; keeping it would produce 5 permanent failures
 
 **Approach:**
 - `git checkout fix/keep-alive-recheck-button && git rebase main`
-- For `routes/keep_alive.py`: keep both the async job routes (from `main`) and the sync POST recheck route (from MR !11); they serve different endpoints and should coexist
-- For `keep_alive.js`: retain async job wiring from `main` and add the `fetch()` handler for `#recheckBtn` from MR !11 alongside it
-- For `keep_alive.html`: retain async job UI from `main` and integrate the flash alert block + enabled button from MR !11
+- On each conflict, run `git checkout --theirs <file>` (take main's version) for all four files above
+- For `tests/test_webui_keep_alive_recheck.py`: `git rm tests/test_webui_keep_alive_recheck.py` during conflict resolution (it was added by `f36f532`; after taking main's async route, its 302-redirect assertions permanently fail)
+- After resolving all conflicts: `git rebase --continue`
+- **If `f36f532` becomes an empty commit** after all code changes are discarded: `git rebase --skip` (the commit's functional content is entirely superseded; only `5d91bbc` — docs update — has non-empty changes post-rebase)
 
 **Test scenarios:**
-- Test expectation: none at this unit — conflicts are content merges, not logic changes; tested in Unit 4
+- Test expectation: none at this unit — conflict resolution is a content selection, not logic change; verified in Unit 4
 
 **Verification:**
-- `git rebase --continue` completes without error
-- `git log --oneline main..HEAD` shows exactly 2 commits (SHAs will differ from pre-rebase values — rebase rewrites them)
+- `git rebase --continue` or `--skip` completes without error
+- `git log --oneline main..HEAD` shows 1–2 commits (SHAs will differ from pre-rebase values — rebase rewrites them); `5d91bbc` docs commit must be present
 
 ---
 
@@ -129,21 +137,23 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 **Dependencies:** Unit 3
 
 **Files:**
-- Test: `tests/test_webui_keep_alive_recheck.py`
-- Test: `tests/test_webui_route_contract.py`
+- Test: `tests/test_webui_keepalive_recheck_route.py` (async route contract — 202/403/409)
+- Test: `tests/test_webui_keepalive_recheck_job.py` (async job lifecycle)
+- Test: `tests/test_webui_keepalive_republish.py` (republish path)
+- Test: `tests/test_webui_route_contract.py` (full route coverage gate)
 
 **Approach:**
-- `PYTHONHASHSEED=0 PYTHONPATH=src pytest tests/ -x` from `backlink-publisher/` directory
-- Focus on keep_alive and route_contract tests; known pre-existing failures in `test_webui_equity_ledger_recheck.py` are trunk-level and do not block this MR (per MR !11 description)
+- Run targeted tests first: `PYTHONHASHSEED=0 PYTHONPATH=src pytest tests/test_webui_keepalive_recheck_route.py tests/test_webui_keepalive_recheck_job.py tests/test_webui_keepalive_republish.py tests/test_webui_route_contract.py -v`
+- If those pass, run full suite: `PYTHONHASHSEED=0 PYTHONPATH=src pytest tests/ -x` — ignore known pre-existing failures in `test_webui_equity_ledger_recheck.py`
 
 **Test scenarios:**
-- Happy path: `test_webui_keep_alive_recheck.py` — 5 tests pass (happy path, empty store, GET flash render, no-flash baseline, button enabled)
-- Integration: route_contract gate includes `/ce:keep-alive` POST endpoint
-- Error path: empty store redirects with `flash_type=info`, no 500
+- Happy path: async recheck POST returns 202 with job_id
+- Error path: duplicate recheck returns 409; unauthenticated returns 403
+- Integration: `test_webui_route_contract.py` route coverage gate includes all 6 async keepalive action routes
 
 **Verification:**
-- All tests in `tests/test_webui_keep_alive_recheck.py` green
-- No new test failures beyond pre-existing trunk failures
+- All four targeted test files green
+- No new failures beyond pre-existing trunk baseline
 
 ---
 
@@ -193,17 +203,19 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ## System-Wide Impact
 
-- **Unchanged invariants:** CSRF guard, route contract gate, existing keep-alive async job endpoints — none of these change behavior; the sync POST recheck is additive
-- **Error propagation:** MR !11 adds a flash redirect on error; failure during recheck returns `flash_type=error`, not a 500
+- **Unchanged invariants:** CSRF guard, route contract gate, all existing async keep-alive endpoints — none change behavior; this rebase is purely a merge-hygiene operation landing a docs commit
+- **Superseded by feat/keepalive-loop-r1:** The functional intent of MR !11 (enabling the recheck button) is already present in `gitlab/main`; the rebase lands only the `5d91bbc` docs commit (`f36f532`'s code changes are discarded as superseded)
+- **test_webui_keep_alive_recheck.py deleted:** The sync 302-redirect test file is removed during conflict resolution; async coverage lives in `test_webui_keepalive_recheck_route.py`
 - **Integration coverage:** `test_webui_route_contract.py` enforces route surface parity — it must stay green
 
 ## Risks & Dependencies
 
 | Risk | Mitigation |
 |------|------------|
-| Rebase conflict in `keep_alive.py` harder than expected | Both branches add distinct endpoints; resolve by keeping all new routes |
-| `--force-with-lease` blocked by concurrent GitLab activity | Check for swarm activity before pushing; push to a unique branch if blocked |
-| Pre-existing `equity_ledger_recheck` failures mask real failures | Run targeted `test_webui_keep_alive_recheck.py` first; ignore known pre-existing failures |
+| `f36f532` becomes empty after discarding all code conflicts | Use `git rebase --skip` — the commit's functional content is superseded; docs commit `5d91bbc` still lands |
+| `--force-with-lease` blocked by concurrent swarm activity | Check `git fetch gitlab` before pushing; if blocked, push to a unique branch name |
+| Pre-existing `equity_ledger_recheck` failures mask real failures | Run targeted async keepalive tests first before full suite |
+| Unit 6 tries to delete `feat/internal-edition-lite-keepalive` before verifying it merged | Run `git branch --merged main` to confirm before `git branch -d` |
 | GitHub origin accumulates more drift | Out of scope; push when account is restored |
 
 ## Sources & References
