@@ -1213,13 +1213,26 @@ class TestEquityLedgerRoutes:
 
 
 class TestKeepAliveRoutes:
-    """Plan 2026-06-04-001 Unit 4 — keep-alive status screen (R3). Read-only
-    GET; full behaviour in tests/test_webui_keep_alive_status.py. This satisfies
-    the route-coverage gate below."""
+    """Plan 2026-06-04-001 Units 4–5 — keep-alive screen + recheck job routes.
+    Full behaviour in tests/test_webui_keep_alive_status.py and
+    tests/test_webui_keepalive_recheck_{job,route}.py; this satisfies the
+    route-coverage gate below."""
 
     def test_get_keep_alive(self, client):
         resp = client.get("/ce:keep-alive")
         assert resp.status_code == 200
+
+    def test_post_start_recheck_missing_origin_or_csrf(self, client):
+        resp = client.post("/ce:keep-alive/recheck")
+        assert resp.status_code in (202, 403, 409)
+
+    def test_get_recheck_status(self, client):
+        resp = client.get("/ce:keep-alive/recheck-status/deadbeef")
+        assert resp.status_code == 404
+
+    def test_post_recheck_cancel(self, client):
+        resp = client.post("/ce:keep-alive/recheck-cancel/deadbeef")
+        assert resp.status_code in (403, 404)   # origin guard, or unknown id
 
 
 class TestChannelBindSaveRoutes:

@@ -17,8 +17,8 @@
 <nav class="navbar bg-white border-bottom px-3">
   <span class="navbar-brand mb-0 h1"><i class="bi bi-shield-check me-2"></i>保活 Keep-alive</span>
   <div class="d-flex align-items-center gap-2">
-    <button id="recheckBtn" class="btn btn-sm btn-primary" data-action="recheck" disabled
-            title="即时巡检在 Unit 5 接入异步任务后启用">
+    <button id="recheckBtn" class="btn btn-sm btn-primary" data-action="recheck"
+            title="逐条复查已发布外链，看哪些还活着、哪些被剥离">
       <i class="bi bi-arrow-repeat"></i> 立即巡检
     </button>
     <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> Home</a>
@@ -27,6 +27,20 @@
 
 <main class="container-fluid py-3">
   <div id="staleBanner" class="alert alert-warning d-none" role="status"></div>
+
+  <div id="recheckProgress" class="card border-primary mb-3 d-none">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <strong><i class="bi bi-arrow-repeat me-1"></i>正在巡检…</strong>
+        <button id="cancelRecheckBtn" class="btn btn-sm btn-outline-danger" data-action="cancel-recheck">取消</button>
+      </div>
+      <div class="progress" style="height: 18px;">
+        <div id="recheckBar" class="progress-bar progress-bar-striped progress-bar-animated"
+             role="progressbar" style="width: 0%;"></div>
+      </div>
+      <p class="text-muted small mb-0 mt-2" id="recheckLine"></p>
+    </div>
+  </div>
 
   <div id="emptyState" class="text-center text-muted py-5 d-none"></div>
 
@@ -54,7 +68,10 @@
 {% endblock %}
 
 {% block page_data %}
-<script>window.__keepAliveBootstrap = {{ view | tojson }};</script>
+<script>
+  window.__keepAliveBootstrap = {{ view | tojson }};
+  window.__keepAliveRunningJob = {{ running_job | tojson }};
+</script>
 {% endblock %}
 
 {% block page_module %}

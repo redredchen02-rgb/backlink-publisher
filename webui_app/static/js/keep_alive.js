@@ -1,22 +1,18 @@
-// Keep-alive screen entry — native ES module (plan 2026-06-04-001 Unit 4 / R3).
+// Keep-alive screen entry — native ES module (plan 2026-06-04-001).
 //
-// Read-only scorecard states: S0 (scorecard), S0-empty (no recheck yet),
-// S-stale (overlay banner). The single-screen state controller (render(state))
-// is established here; Units 5-7 add the action states (S1 recheck progress,
-// S3-S7 republish) as new cases on this same switch — no new routes.
-//
-// Server data arrives once via window.__keepAliveBootstrap (an external module
-// cannot read the Jinja context). Untrusted strings (target URLs) go through
-// textContent / esc, never innerHTML.
+// Read states (U4): S0 scorecard / S0-empty / S-stale banner.
+// Action states (U5): S1 recheck progress (start → poll ~2s → done/cancel).
+// Server data arrives once via window.__keepAliveBootstrap; a running recheck
+// (tab reopened mid-job, G5a) arrives via window.__keepAliveRunningJob.
+// Untrusted strings (target URLs) go through textContent, never innerHTML.
 
-import { esc, qs } from './lib/dom.js';
+import { qs } from './lib/dom.js';
+import { postJson, fetchJson } from './lib/api.js';
 
 const BOOT = window.__keepAliveBootstrap || {};
+const RUNNING = window.__keepAliveRunningJob || null;
 const TARGETS = BOOT.targets || [];
 
-// New liveness states carry a non-color signifier (icon + label) so stripped
-// (republishable) is distinguishable from check-failed (do nothing) without
-// relying on colour — the screen's most consequential distinction.
 const BADGES = {
   stripped: ['text-bg-danger', 'bi-scissors', '已剥离'],
   decayed: ['text-bg-secondary', 'bi-arrow-down-circle', '降级'],
@@ -60,8 +56,7 @@ function targetRow(t) {
   tr.appendChild(tgt);
 
   tr.appendChild(numCell(t.live_dofollow, { strong: true }));
-  tr.appendChild(numCell(`${Math.round((t.strip_rate || 0) * 100)}%`,
-    { muted: !t.needs_attention }));
+  tr.appendChild(numCell(`${Math.round((t.strip_rate || 0) * 100)}%`, { muted: !t.needs_attention }));
 
   const stripped = document.createElement('td');
   stripped.className = 'text-end';
@@ -137,8 +132,6 @@ function renderEmpty() {
   el.appendChild(sub);
 }
 
-// Single-screen state controller. U5-U7 add cases (s1-rechecking, s3-review,
-// s4-confirm, s5-republishing, s6, s7) — exactly one primary panel visible.
 function render(state) {
   for (const id of ['#emptyState', '#scorecard']) qs(id).classList.add('d-none');
   if (state === 's0-empty') {
@@ -150,4 +143,91 @@ function render(state) {
   }
 }
 
+// ── S1: recheck job (start → poll → progress → done/cancel) ──────────────────
+let pollTimer = null;
+let activeJobId = null;
+
+function showProgress(show) {
+  qs('#recheckProgress').classList.toggle('d-none', !show);
+  qs('#recheckBtn').disabled = show;
+}
+
+function renderProgress(p) {
+  const total = p.total || 0;
+  const checked = p.checked || 0;
+  const pct = total ? Math.round((checked / total) * 100) : 0;
+  const bar = qs('#recheckBar');
+  bar.style.width = pct + '%';
+  bar.textContent = total ? `${checked}/${total}` : '';
+  const vc = p.verdict_counts || {};
+  const parts = Object.keys(vc).sort().map((k) => `${k} ${vc[k]}`);
+  qs('#recheckLine').textContent = parts.length
+    ? `已检查 ${checked}/${total} · ${parts.join(' · ')}`
+    : `已检查 ${checked}/${total}`;
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+async function pollOnce() {
+  if (!activeJobId) return;
+  let p;
+  try {
+    p = await fetchJson(`/ce:keep-alive/recheck-status/${activeJobId}`);
+  } catch (e) {
+    stopPolling();
+    activeJobId = null;
+    showProgress(false);
+    return;
+  }
+  renderProgress(p);
+  if (p.status !== 'running') {
+    stopPolling();
+    activeJobId = null;
+    if (p.status === 'done') {
+      window.location.reload();        // fresh verdicts recorded → reload scorecard
+    } else {
+      showProgress(false);             // cancelled / error → keep current scorecard
+    }
+  }
+}
+
+function beginPolling(jobId) {
+  activeJobId = jobId;
+  showProgress(true);
+  renderProgress({ total: 0, checked: 0, verdict_counts: {} });
+  stopPolling();
+  pollTimer = setInterval(pollOnce, 2000);
+  pollOnce();
+}
+
+async function startRecheck() {
+  try {
+    // 202 (started) and 409 (already running) both return JSON with job_id.
+    const resp = await postJson('/ce:keep-alive/recheck', {});
+    if (resp && resp.job_id) beginPolling(resp.job_id);
+  } catch (e) {
+    qs('#recheckLine').textContent = '无法启动巡检：' + (e && e.message ? e.message : '未知错误');
+  }
+}
+
+async function cancelRecheck() {
+  if (!activeJobId) return;
+  try {
+    await postJson(`/ce:keep-alive/recheck-cancel/${activeJobId}`, {});
+  } catch (e) { /* the next poll observes status=cancelled */ }
+}
+
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest('[data-action]');
+  if (!el) return;
+  if (el.dataset.action === 'recheck') { ev.preventDefault(); startRecheck(); }
+  else if (el.dataset.action === 'cancel-recheck') { ev.preventDefault(); cancelRecheck(); }
+});
+
 render(BOOT.is_empty ? 's0-empty' : 's2');
+// G5a: a recheck still running when the tab was reopened → resume its progress.
+if (RUNNING && RUNNING.job_id && RUNNING.status === 'running') {
+  beginPolling(RUNNING.job_id);
+}
