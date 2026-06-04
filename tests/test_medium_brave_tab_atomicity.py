@@ -11,9 +11,9 @@ against one consistent snapshot.
 These tests pin the single-call contract and the tab-gone sentinel
 translation so the race-prone two-call pattern can't regress in.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import platform
 from unittest.mock import patch
 

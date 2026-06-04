@@ -27,9 +27,9 @@ duplication in the tree:
 
 New duplications get one ``pytest.param`` line in ``DRIFT_BINDINGS``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 # Importing the production adapters package fires every ``register()`` call,

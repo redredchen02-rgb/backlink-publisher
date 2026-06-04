@@ -1,4 +1,5 @@
 """Unit 1 — LedgerRow model + worst_liveness precedence."""
+__tier__ = "unit"
 
 from backlink_publisher.ledger.model import (
     DofollowBreakdown,

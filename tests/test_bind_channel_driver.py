@@ -13,9 +13,9 @@ Tests use a fake ``page-like`` object and a fake ``storage_state`` provider —
 no real Playwright. Playwright is lazy-imported inside the driver so it isn't
 required to import the module.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from pathlib import Path

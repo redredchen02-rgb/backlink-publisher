@@ -5,10 +5,10 @@ Content-addressed banner storage under
 prompt_sha so a re-run of plan-backlinks never re-pays the
 image-gen bill for an unchanged article.
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.publishing.adapters.image_gen.storage import (

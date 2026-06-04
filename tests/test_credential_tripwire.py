@@ -14,6 +14,7 @@ The meta-tests verify:
 """
 from __future__ import annotations
 
+__tier__ = "integration"
 import hashlib
 import os
 import sqlite3

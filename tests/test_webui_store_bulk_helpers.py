@@ -1,7 +1,7 @@
 """Tests for DraftsStore / HistoryStore bulk helpers — Plan 2026-05-19-006 Unit 2."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import threading
 
 

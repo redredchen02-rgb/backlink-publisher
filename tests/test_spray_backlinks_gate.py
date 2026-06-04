@@ -4,9 +4,9 @@ Tests the pure gate kernel directly (no config-file plumbing) plus one CLI
 integration. The cell gate is HARD, the health gate is SOFT (overridable), the
 cap is HARD, and the cross-seed warning is non-blocking.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.cli.spray_backlinks._engine import (
     SprayCandidate,
     expand_seed,

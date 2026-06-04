@@ -12,9 +12,9 @@ long before the 20-minute absolute floor was reached. The fix gates idle
 enforcement on ``last_nav_at is not None`` (i.e., at least one observed
 nav event).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 import time as time_mod

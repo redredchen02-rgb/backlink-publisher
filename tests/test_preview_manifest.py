@@ -4,9 +4,9 @@ human summary on stderr (counts + HMAC digest only — the leak boundary).
 
 Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U3).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sys
 from io import StringIO

@@ -1,7 +1,7 @@
 """Tests for Config v2 — typed anchor pools, proportions, LLM provider."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import stat
 

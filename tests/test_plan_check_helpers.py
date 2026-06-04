@@ -3,9 +3,9 @@
 Covers _extract_plan_date, _emit_error_and_exit, and _resolve_claims.
 All tests run without subprocess or filesystem I/O.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import datetime
 from unittest.mock import MagicMock, call, patch
 

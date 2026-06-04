@@ -9,9 +9,9 @@ Tests:
  - /ce:history/update-status allows setting 'failed' on a no-URL row
  - /ce:history/update-status allows setting 'published' on a row that HAS URLs
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 

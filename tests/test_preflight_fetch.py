@@ -11,9 +11,9 @@ Test seam: these tests patch this module's own ``_PREFLIGHT_OPENER.open`` and
 ``_check_url_for_ssrf`` is stubbed so its real ``getaddrinfo`` does not trip
 pytest-socket's socket block.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import email.message
 import ssl
 from unittest.mock import MagicMock, patch

@@ -1,4 +1,5 @@
 """Tests for the publish circuit breaker — Plan 2026-05-28-001 Unit 3."""
+__tier__ = "unit"
 
 import json
 import threading

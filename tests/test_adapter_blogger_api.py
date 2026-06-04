@@ -1,4 +1,5 @@
 """Tests for BloggerAPIAdapter."""
+__tier__ = "unit"
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch

@@ -6,9 +6,9 @@ gap/degraded notice (R5), aggregation-error-degrades-not-500 (R5), and the
 /ce:dashboard → /ce:health redirect. Uses the live CSRF guard (create_app) to
 prove a GET needs no token.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from datetime import datetime, timezone
 
 import pytest

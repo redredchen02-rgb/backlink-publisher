@@ -1,6 +1,7 @@
 """Unit 7: Dev.to adapter tests (Plan 003 Phase 2)."""
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from unittest.mock import MagicMock, patch
 

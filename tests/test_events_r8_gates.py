@@ -10,9 +10,9 @@ R8b — bidirectional reader check: a reader queries only registered kinds AND i
 
 The R8c content gate (status->outcome pinning) lives in test_events_kind_contract_gate.py.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import ast
 from pathlib import Path
 

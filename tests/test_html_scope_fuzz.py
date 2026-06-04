@@ -9,9 +9,9 @@ Three test classes — **invariant**, **security-property**, and **regression-se
 Plan: ``docs/plans/2026-05-14-005-feat-v1-verifier-asset-extraction-plan.md``
 Source: ``origin/pr/1:src/backlink_publisher/verifier.py``
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import random
 
 import pytest

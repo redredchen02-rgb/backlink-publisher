@@ -1,4 +1,5 @@
 """Tests for config loader."""
+__tier__ = "unit"
 
 import os
 

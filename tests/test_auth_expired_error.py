@@ -6,9 +6,9 @@ Locks the contract:
 - traversal payloads in channel reject construction (defense-in-depth)
 - isinstance(exc, DependencyError) is True (catch-chain compatibility)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher._util.errors import (

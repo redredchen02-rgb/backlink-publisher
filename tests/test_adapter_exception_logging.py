@@ -11,9 +11,9 @@ Asserts that:
 Both behaviors were already fixed in the codebase; these tests document and
 lock the contracts.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch, PropertyMock

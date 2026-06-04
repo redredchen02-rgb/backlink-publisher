@@ -1,7 +1,7 @@
 """Unit 2 — G2 money-page decay baseline probe (plan 2026-06-01-005)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.content._preflight_fetch import PreflightFacts
 from backlink_publisher.gates import g2_decay
 from backlink_publisher.gates import verdict as gv

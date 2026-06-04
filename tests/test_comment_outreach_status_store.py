@@ -5,9 +5,9 @@ secret-purge-on-delete guarantee, ``0o600`` assert-and-repair, and CONFIG_DIR
 re-resolution. The autouse conftest sandboxes CONFIG_DIR; tests that change it mid-run
 use ``monkeypatch.setenv``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import threading
 

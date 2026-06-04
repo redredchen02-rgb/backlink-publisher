@@ -28,9 +28,9 @@ handler bodies, so they are patched at their source/definition sites. ``load_con
 and ``save_config`` are module-top imports, so they are patched on the consumer
 (``webui_app.routes.oauth``).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 from unittest.mock import MagicMock, patch

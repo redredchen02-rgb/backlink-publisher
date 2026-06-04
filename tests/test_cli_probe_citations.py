@@ -15,9 +15,9 @@ Scenarios
 - Overlapping run declined via flock.
 - No ``--api-key`` flag in argparse namespace.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import contextlib
 import json
 from pathlib import Path

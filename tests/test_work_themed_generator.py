@@ -10,9 +10,9 @@ Covers:
 - ``_passes_work_anchor_filter`` accepts pure-ASCII titles (no CJK requirement)
 - ``InputValidationError`` when ``branded_pool`` is empty
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.anchor.resolver import _passes_work_anchor_filter

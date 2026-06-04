@@ -13,9 +13,9 @@ reference, so no real adapter / socket is ever touched.
 Credential-shaped fixture values are assembled at runtime via concatenation so
 the literal ``api_key = "<value>"`` shape never lands in source (leak-check hook).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import importlib.util
 import io
 import sys

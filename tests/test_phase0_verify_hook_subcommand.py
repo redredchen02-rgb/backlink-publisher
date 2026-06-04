@@ -14,9 +14,9 @@ Test scenarios drawn from plan v3 §417-429:
 - detached HEAD case is enforced in the bash hook, not the Python subcommand
 - direct SHA push key on remote_ref: local_ref bypassed
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import subprocess

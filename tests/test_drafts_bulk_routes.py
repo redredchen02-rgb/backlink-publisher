@@ -1,7 +1,7 @@
 """Plan 2026-05-19-006 Unit 3 — draft bulk-operation routes."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from urllib.parse import unquote
 
 import pytest

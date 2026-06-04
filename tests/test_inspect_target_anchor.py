@@ -14,9 +14,9 @@ Test seam: patch ``inspect_target_anchor``'s reused network references
 feedback_mock_patch_paths_after_extraction. ``_check_url_for_ssrf`` is stubbed
 safe so its real ``getaddrinfo`` does not trip pytest-socket.
 """
-
 from __future__ import annotations
 
+__tier__ = "e2e"
 from unittest.mock import MagicMock, patch
 
 import pytest

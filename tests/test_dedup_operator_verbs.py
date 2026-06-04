@@ -3,9 +3,9 @@
 
 Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U5a).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import sys
 import threading
 from io import StringIO

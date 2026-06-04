@@ -6,6 +6,7 @@ resp.json()["id"] and raised on every success.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from unittest.mock import MagicMock, patch

@@ -12,9 +12,9 @@ to the checkpoint (publish_backlinks.py), so it is intentionally not seeded as
 a checkpoint item — the projector never sees it from the checkpoint, and the
 dashboard must source it elsewhere.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import sqlite3
 
 import pytest

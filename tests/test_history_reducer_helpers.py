@@ -3,9 +3,9 @@
 Covers _parse_row_timestamps and _emit_confirmed_history_row.
 All tests run without I/O — helpers are injected with mock store/conn.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import sqlite3
 from unittest.mock import MagicMock, call
 

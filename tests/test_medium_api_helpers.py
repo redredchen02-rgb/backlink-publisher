@@ -4,9 +4,9 @@ Covers _resolve_medium_token_data, _check_medium_token_expiry,
 _fetch_medium_user_id, and _create_medium_post.
 All tests run without I/O — HTTP calls are mocked via patch.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import sqlite3
 from unittest.mock import MagicMock, patch, call
 

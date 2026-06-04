@@ -1,0 +1,78 @@
+# Debt Registry — known technical debt items.
+#
+# Schema (enforced by tests/test_debt_registry_format.py):
+#   each [[items]] entry MUST have:
+#     slug       -- string, unique identifier
+#     severity   -- low | medium | high | critical
+#     rationale  -- string, >=80 chars explaining why this debt exists
+#     discovered -- ISO date (YYYY-MM-DD)
+#     owner      -- string (initially "unassigned")
+#     status     -- open | mitigated | accepted | resolved
+#
+# Adding an item requires editing this file in the PR that surfaces the debt.
+# There is no override label. The defense is `git blame` -- every intentional
+# addition leaves a reviewable record with rationale.
+
+[[items]]
+slug = "test-tier-coverage-incomplete"
+severity = "medium"
+rationale = "Only a subset of tests carry tier markers (unit/integration/e2e), making targeted test selection impossible. At ~160 test files and ~96K lines, the suite needs tier metadata so CI can run unit-only on quick pushes and full-stack only on merge."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "open"
+
+[[items]]
+slug = "no-recon-schema"
+severity = "medium"
+rationale = "RECON events are emitted ad-hoc with no formal taxonomy or typed schema, making automated analysis (search, aggregation, alerting) fragile. A typed taxonomy would let downstream consumers rely on structured fields instead of string-matching on human-readable messages."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "open"
+
+[[items]]
+slug = "no-health-surface"
+severity = "high"
+rationale = "The system has no runtime health endpoint (/health or similar) to expose liveness, dependency status, or last-operation timestamp. Operators and cron wrappers currently infer health from exit codes alone — no way to detect a hung worker or degraded dependency mid-run."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "open"
+
+[[items]]
+slug = "no-coverage-gate"
+severity = "medium"
+rationale = "Coverage data is computed but never enforced in CI — there is no minimum threshold that fails a build. Without a coverage gate, untested new code can land silently, and the existing ~160 test files provide no quantitative safety guarantee for contribution quality."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "open"
+
+[[items]]
+slug = "orphan-code-unknown"
+severity = "low"
+rationale = "There is no systematic orphan-detection facility (dead code scanner, import-graph audit, or coverage-based reachability analysis). Unused functions, dead conditional branches, and vestigial CLI flags accumulate silently, increasing maintenance surface without corresponding value."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "open"
+
+[[items]]
+slug = "largest-test-file-bloat"
+severity = "medium"
+rationale = "test_webui_route_contract.py stands at ~1647 SLOC — by far the largest test file in the suite. Its size slows collection, makes targeted debugging harder, and increases the likelihood of merge conflicts when multiple branches touch WebUI routes simultaneously."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "open"
+
+[[items]]
+slug = "no-stewardship-model"
+severity = "low"
+rationale = "Domain ownership across the ~160 source + test files is implicit — no CODEOWNERS or module-level stewardship annotations exist. New contributors and automation agents cannot determine who to consult for a given module without spelunking git blame, slowing both reviews and onboarding."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "open"
+
+[[items]]
+slug = "no-debt-tracking"
+severity = "low"
+rationale = "Until this registry was introduced, there was no centralized mechanism to track, prioritize, or trend technical debt across the project. Debt decisions lived in PR descriptions and commit messages — invisible to anyone not following every PR. This entry is 'accepted' because the registry itself resolves it."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "accepted"

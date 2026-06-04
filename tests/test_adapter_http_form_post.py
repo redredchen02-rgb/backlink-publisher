@@ -7,9 +7,9 @@ the AntiBotChallengeError-vs-DependencyError distinction, and the
 fire-and-forget post-publish link verification hook. All network is mocked —
 no sockets, no ``real_*`` marker needed.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest import mock
 
 import pytest

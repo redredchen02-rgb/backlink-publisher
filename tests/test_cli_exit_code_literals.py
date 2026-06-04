@@ -27,6 +27,7 @@ this guards.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import ast
 from pathlib import Path
 

@@ -2,9 +2,9 @@
 
 Plan 2026-05-20-009 §Unit 2.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

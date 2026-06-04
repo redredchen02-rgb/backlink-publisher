@@ -11,9 +11,9 @@ reuse. It must:
 - Not deadlock when subprocess produces large output (the pipe bug this
   helper was created to avoid).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 from pathlib import Path

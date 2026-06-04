@@ -7,9 +7,9 @@ error fidelity. Covers the two pure helpers added to ``cli_runner``:
   ``{stdout, stderr, returncode}`` so callers can branch on the exit code with
   stdout intact (publish exit-4, checkpoint resume).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import sys
 from pathlib import Path
 from unittest.mock import patch

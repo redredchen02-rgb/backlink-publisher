@@ -7,9 +7,9 @@ Tests for:
 - registry snapshot isolation (no state leak across tests)
 - R9: FakeAdapter without credential_saver kwarg still registers (optional kwarg)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from pathlib import Path

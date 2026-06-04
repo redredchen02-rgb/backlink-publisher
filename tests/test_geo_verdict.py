@@ -16,9 +16,9 @@ Scenarios:
   ("Ace" must not match "place").
 - carry_verdict round-trips the tier + share (rounded to 6 decimals).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.geo.engines import ProbeResult

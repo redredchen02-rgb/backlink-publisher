@@ -5,9 +5,9 @@ Asserts positive shapes throughout (per institutional learning:
 test names the expected pattern hit count rather than checking only
 "output != input".
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.events.scrubber import scrub_text
 
 #: Deterministic 64-char base64url token covering every symbol exactly once.

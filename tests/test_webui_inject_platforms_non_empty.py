@@ -12,9 +12,9 @@ processor; assert at least one platform appears. The test uses a subprocess
 to guarantee a cold-import path, so it does NOT inherit the parent process's
 already-populated registry.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import subprocess
 import sys
 import textwrap

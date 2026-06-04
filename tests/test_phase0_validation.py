@@ -7,10 +7,10 @@ fix that flips polarity is loud, not silent.
 Per `tests-coupled-to-operator-config-state-2026-05-18`: gh CLI mocks return
 explicit JSON dicts, never empty success.
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.phase0 import validation as V

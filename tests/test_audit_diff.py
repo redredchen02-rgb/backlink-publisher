@@ -1,6 +1,7 @@
 """Unit 2 — audit.diff. Builds StoreSnapshot views directly and asserts the R1
 + R3 divergence classes, with edge guards for fan-out, draft URLs,
 canonicalization, and the deferred-R2 duplicate-URL case."""
+__tier__ = "unit"
 
 import json
 

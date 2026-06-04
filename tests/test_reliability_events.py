@@ -1,4 +1,5 @@
 """Tests for publish reliability event emission — Plan 2026-05-28-001 Unit 1."""
+__tier__ = "unit"
 
 import pytest
 

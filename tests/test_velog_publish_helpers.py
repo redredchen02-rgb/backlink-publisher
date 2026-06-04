@@ -3,9 +3,9 @@
 Covers _apply_publish_jitter, _execute_write_post, and _handle_null_write_post.
 All tests are pure-unit: no filesystem, no real HTTP.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import MagicMock, patch, call
 
 import pytest

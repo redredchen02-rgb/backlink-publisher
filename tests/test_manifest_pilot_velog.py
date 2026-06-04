@@ -11,9 +11,9 @@ Unit 3 is the canary: if BindDescriptor / Policy / UiMeta are missing
 fields velog needs, that gap surfaces here before the rest of the 7
 existing channels migrate (Phase 2 of the plan).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 # Import the production adapters module so its register() calls run.

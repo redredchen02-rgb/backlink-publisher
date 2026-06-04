@@ -11,9 +11,9 @@ This is a defense-in-depth pair with the runtime fail-closed check:
 runtime catches the misconfigured recipe AT bind time; this catches it
 AT test time, ideally during PR review before the recipe ever ships.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.cli._bind.recipes import RECIPES

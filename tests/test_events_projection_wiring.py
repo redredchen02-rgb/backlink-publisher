@@ -5,9 +5,9 @@ production. These tests cover the fail-safe `project_run_safe` helper (real
 checkpoint module + real events.db: path resolution, projection, health
 marker) and assert the publish/resume CLI actually invokes it.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sqlite3
 from unittest.mock import patch

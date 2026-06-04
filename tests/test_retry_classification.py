@@ -1,3 +1,4 @@
+__tier__ = "integration"
 from backlink_publisher.publishing.adapters.retry import (
     ErrorClass,
     classify_exception,

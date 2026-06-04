@@ -3,9 +3,9 @@
 Covers the round-trip serialize/parse contract, the errors.py chokepoint
 emission, and the parser's resilience to surrounding banner / RECON lines.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher._util import errors

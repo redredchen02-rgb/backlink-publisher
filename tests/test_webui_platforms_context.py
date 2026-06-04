@@ -14,9 +14,9 @@ Subset assertions throughout (per adversarial F3): never lock the exact
 set of platforms, only that the expected slug is present.  This keeps
 the tests stable under U1/U2 merge-order interleaving.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 

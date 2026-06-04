@@ -6,9 +6,9 @@ filter registration and the templated fragments that consume the new
 plan-dict fields in isolation. Any regression that drops the filter,
 renames a field, or breaks render_markdown will fail here.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 

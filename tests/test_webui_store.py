@@ -4,9 +4,9 @@ Locks in the contract behind the JsonStore abstraction: atomic save,
 default-on-missing-file, idempotent update under concurrent writers,
 and DraftsStore item-level helpers.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import threading
 from pathlib import Path

@@ -3,6 +3,7 @@
 Built for docs/plans/2026-06-01-003 OPT1. Characterization-first: the streamed
 output is asserted byte-identical to the prior StringIO-buffered output.
 """
+__tier__ = "unit"
 import json
 import tracemalloc
 from io import StringIO

@@ -6,6 +6,7 @@ group_history, load_incomplete_run, token_paste_status, persist_three_tier_confi
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import stat

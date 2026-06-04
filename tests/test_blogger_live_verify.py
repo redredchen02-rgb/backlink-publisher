@@ -17,9 +17,9 @@ Tests cover:
     OAuth refresh (writes back ``blogger-token.json``) and is *also*
     publish-path only — verify uses whatever token is currently on disk.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from pathlib import Path

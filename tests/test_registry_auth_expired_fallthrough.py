@@ -28,9 +28,9 @@ Channels NOT covered here:
     would itself raise UsageError. The fix still benefits any future
     re-introduction.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

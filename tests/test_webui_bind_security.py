@@ -16,9 +16,9 @@ attacker) and ``_check_csrf_or_abort`` (same-origin XSS) defenses. Each
 helper defends a distinct attack class — see Plan 003 Key Technical
 Decisions for the threat model.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 from flask import Flask, jsonify
 

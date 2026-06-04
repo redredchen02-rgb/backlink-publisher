@@ -7,9 +7,9 @@ extract_anchors, host_of, article_payload, checkpoint_event_timestamp.
 cursor_load / cursor_save / write_quarantines require a live EventStore
 connection and are exercised via projector integration tests.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from pathlib import Path
 

@@ -10,9 +10,9 @@ Locks the contract:
   (exit_code=1) — alias implies channel, no override path.
 - ``--help`` shows the bind-channel help with the alias banner.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.cli import velog_login

@@ -8,9 +8,9 @@ Covers:
   fallback, blocklist path filtering, max_candidates truncation,
   fail-empty vs fail-abort three-state semantics, custom blocklist.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import Mock, patch
 
 import pytest

@@ -2,9 +2,9 @@
 
 Plan 2026-05-20-009 §Unit 1.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher._util.errors import (

@@ -13,9 +13,9 @@ These complement (do not duplicate) the existing resume coverage:
   - tests/test_token_revocation_midrun.py             -- drift aborts with exit 3 (+ call_count)
 The four [P0] hazards below were net-new (no prior test pinned them).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import contextlib
 from unittest.mock import MagicMock, patch
 

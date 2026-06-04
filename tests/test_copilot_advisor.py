@@ -1,7 +1,7 @@
 """Tests for the Copilot advisory aggregator and its per-tool adapters (Plan U1)."""
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import pytest
 
 from backlink_publisher.audit import AuditReadError

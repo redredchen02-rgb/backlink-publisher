@@ -8,9 +8,9 @@ Locks the contract:
   re-modify them.
 - Records with status != bound are untouched.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.config.loader import _config_dir

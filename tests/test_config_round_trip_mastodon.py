@@ -4,10 +4,10 @@ Verifies that ``save_config(load_config(toml))`` preserves the
 ``[mastodon] instance_url`` entry. Closes the known save_config bug
 (``CLAUDE.md`` § Config and environment) for one more section.
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.config.loader import load_config

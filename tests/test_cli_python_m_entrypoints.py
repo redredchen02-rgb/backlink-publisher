@@ -15,9 +15,9 @@ The bug class showed up twice in the same session (2026-05-20):
 This test pins the contract so future refactors can't reintroduce the same
 silent failure.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import subprocess
 import sys

@@ -10,9 +10,9 @@ branch (``_engine.py``) and the module-level import seam (``_resume.py``)
 execute. The policy *behaviors* (R2–R5) are layered on top as regression
 coverage on a non-browser-tier platform (``fake``) — see R6.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from types import SimpleNamespace
 from unittest import mock

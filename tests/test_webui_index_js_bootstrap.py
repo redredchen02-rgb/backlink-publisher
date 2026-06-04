@@ -1,7 +1,7 @@
 """index_main.js bootstrap injection — Plan B Unit 3."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import re
 

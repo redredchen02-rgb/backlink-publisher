@@ -12,9 +12,9 @@ Tests cover:
   - Live verify read-only invariant (token file untouched)
   - Markdown helper: slug + path + front-matter shape
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import base64
 import json
 import os

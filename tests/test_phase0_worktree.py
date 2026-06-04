@@ -1,7 +1,7 @@
 """Tests for `backlink_publisher.phase0.worktree.discover_worktree_heads` — Unit 2."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import subprocess
 from pathlib import Path
 

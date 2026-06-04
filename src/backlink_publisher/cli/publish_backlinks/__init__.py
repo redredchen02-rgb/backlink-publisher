@@ -98,6 +98,12 @@ def main(argv: list[str] | None = None) -> None:
 
         publish_logger.info(f"processing {len(rows)} payloads")
 
+        mode = args.mode or "draft"
+        print(
+            f"RECON info command=publish-backlinks row_count={len(rows)} mode={mode}",
+            file=sys.stderr, flush=True,
+        )
+
         config = load_config()
         config_echo.emit_banner(config, "publish-backlinks")
 
@@ -158,6 +164,11 @@ def main(argv: list[str] | None = None) -> None:
                 args.platform or row.get("platform", "") for row in rows
             }
             _acquire_publish_leases(platforms_in_use, False)
+            print(
+                f"RECON info command=publish-backlinks phase=leases_acquired "
+                f"platform_count={len(platforms_in_use)}",
+                file=sys.stderr, flush=True,
+            )
             for plat in platforms_in_use:
                 if plat not in supported_platforms():
                     continue
@@ -197,6 +208,14 @@ def main(argv: list[str] | None = None) -> None:
         run_publish_loop(
             rows, args, config, state, ts, banner_emit,
             forced_keys, throttle_min, throttle_max, initial_token_revs,
+        )
+
+        skipped = state.skipped_unreachable_count + state.skipped_quarantined_count + state.dedup_skip_count + state.dedup_hold_count
+        print(
+            f"RECON info command=publish-backlinks phase=complete "
+            f"success={state.success_count} fail={state.fail_count} "
+            f"skipped={skipped}",
+            file=sys.stderr, flush=True,
         )
 
     if not state.auth_aborted:

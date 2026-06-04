@@ -9,9 +9,9 @@ plus RECON cap (1/10s/session) + suppressed digest.
 Concurrency tests use ``threading.Barrier`` to align worker starts.
 Time-sliding tests monkeypatch ``time.monotonic`` on the module.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import threading
 from typing import List, Optional
 

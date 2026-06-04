@@ -1,7 +1,7 @@
 """Tests for browser_publish.recipes.mastodon — Plan 2026-05-21-001 Unit 4c."""
-
 from __future__ import annotations
 
+__tier__ = "e2e"
 from pathlib import Path
 from unittest.mock import MagicMock
 

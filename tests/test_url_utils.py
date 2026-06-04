@@ -1,7 +1,7 @@
 """Tests for backlink_publisher.url_utils — Plan 2026-05-13-004 Unit 1."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from urllib.request import Request

@@ -1,7 +1,7 @@
 """Tests for [anchor_alarm] TOML parsing + precedence resolution."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.anchor.metrics import (

@@ -24,9 +24,9 @@ Unit 4 test scenarios:
 - Edge case: zh output for en request → ok + language_flag set (NOT rejected).
 - Edge case: long (>200 char) target_url → output target_url is full URL, not truncated.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import os

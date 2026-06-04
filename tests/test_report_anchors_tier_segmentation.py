@@ -5,9 +5,9 @@ JSONL-aggregate output: per-tier article/anchor counts, the referral
 high/low sub-split inside nofollow-signal, the reserved-key JSON contract,
 and graceful handling of rows missing platform.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import collections
 import json
 

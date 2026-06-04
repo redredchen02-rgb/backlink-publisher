@@ -2,10 +2,10 @@
 
 Pure-function tests — no Playwright, no I/O.
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 from backlink_publisher.cli._bind.recipes.velog import _velog_cookie_host_filter
 from backlink_publisher.cli._bind.driver import _apply_host_filter
 

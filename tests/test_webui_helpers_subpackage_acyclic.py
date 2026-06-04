@@ -8,6 +8,7 @@ KNOWN_MODULES and updates ALLOWED_EDGES if it introduces a new documented edge.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import ast
 from pathlib import Path
 

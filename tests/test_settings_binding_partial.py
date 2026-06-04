@@ -6,9 +6,9 @@ asserts:
   - "上次绑定 YYYY-MM-DD" subtext appears only when bound_at is present
   - a11y attributes are present (role=status, aria-live=polite, aria-label)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 from unittest.mock import patch

@@ -11,9 +11,9 @@ server-rendered contract the panel JS depends on:
   * the interaction-state containers + locked Q&A markup are present,
   * no inline on* handler sneaks in via the included markup.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import re
 from pathlib import Path
 

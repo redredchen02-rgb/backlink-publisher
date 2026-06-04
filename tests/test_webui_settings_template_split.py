@@ -1,7 +1,7 @@
 """settings.html template split — Plan B2 (CSS, JS, card partials)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import re
 

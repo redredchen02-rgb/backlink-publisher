@@ -4,6 +4,7 @@ No Flask app context required.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import pytest
 

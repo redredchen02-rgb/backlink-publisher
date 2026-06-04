@@ -3,9 +3,9 @@
 Test scenarios trace Unit 3 of:
     docs/plans/2026-05-15-004-feat-telegraph-adapter-plan.md
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from pathlib import Path
 

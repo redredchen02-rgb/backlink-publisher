@@ -6,9 +6,9 @@ Asserts that:
   - Neither is called when ``start_scheduler=False`` (pytest default)
   - A raised exception in either hook does NOT crash ``create_app``
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 from unittest.mock import patch

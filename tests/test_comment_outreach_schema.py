@@ -1,7 +1,7 @@
 """Validation tests for comment_outreach entity schemas (plan Unit 2)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.comment_outreach import schema
 
 

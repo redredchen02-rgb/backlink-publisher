@@ -1,7 +1,7 @@
 """Tests for the self-fingerprint auditor."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import sys

@@ -4,9 +4,9 @@ Covers publish happy/draft paths, missing content, redirect failure,
 anti-bot challenge propagation, network error, and the fire-and-forget
 link verification hook. All HTTP is mocked — no real network.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest import mock
 
 import pytest

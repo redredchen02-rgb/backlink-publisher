@@ -18,9 +18,9 @@ Test scenarios from the plan, organised by category:
   rationale/referral_value pop-on-None pattern).
 - Legacy: legacy_platforms() counts platforms with no manifest kwargs.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

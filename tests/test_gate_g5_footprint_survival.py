@@ -1,7 +1,7 @@
 """Unit 4 — G5 footprint survival audit (plan 2026-06-01-005)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from backlink_publisher.gates import g5_footprint_survival as g5
 from backlink_publisher.gates import verdict as gv
 

@@ -13,9 +13,9 @@ Exit code reference (from _util/errors.py):
   4 — ExternalServiceError (partial or full publish failure)
   5 — PipelineError (no output / unexpected runtime failure)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import sys

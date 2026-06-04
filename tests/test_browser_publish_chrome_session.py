@@ -9,9 +9,9 @@ Coverage targets:
   - reap_orphan_publish_chrome (PID reuse defence)
   - ChromeAttachSession attach vs launch lifecycle, teardown
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import stat
 from pathlib import Path

@@ -13,9 +13,9 @@ O10 — CSRF token issued in request N must be accepted in request N+1 within
       the same client session. Proves itsdangerous session signer stability
       across the Werkzeug/Flask bump.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 

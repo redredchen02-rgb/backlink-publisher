@@ -12,9 +12,9 @@ Plan 2026-05-27-006 Unit 2 test scenarios:
 - Edge case: attribute-breakout anchor_text is escaped before the model sees it.
 - Error path: transient 5xx within retries → retried; token not in exception text.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import subprocess
 import sys
 import unittest.mock as mock

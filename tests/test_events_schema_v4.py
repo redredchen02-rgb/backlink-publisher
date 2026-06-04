@@ -5,9 +5,9 @@ verified_at, verify_error, migration_dedup_key), the partial UNIQUE index on
 migration_dedup_key, and two new event kinds (publish.verified,
 publish.verify_failed).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import sqlite3
 
 import pytest

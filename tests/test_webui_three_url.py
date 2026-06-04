@@ -20,9 +20,9 @@ Tests deliberately locate form fields by HTML attributes (input ``name``,
 form ``action``) rather than Chinese labels — avoids the
 feedback_jinja2-banner-text-collision.md failure mode.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 from unittest.mock import MagicMock, patch
 

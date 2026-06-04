@@ -1,6 +1,7 @@
 """Wave 1 Unit 3: GitLab Pages adapter tests (Plan 2026-06-01-007)."""
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from unittest.mock import MagicMock, patch

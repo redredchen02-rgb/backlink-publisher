@@ -3,6 +3,7 @@
 One canonical target backed by two history rows: recheck must iterate both,
 write each back via update_item, and recompute the target's row.
 """
+__tier__ = "integration"
 
 import json
 

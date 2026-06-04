@@ -6,9 +6,9 @@ Plan 2026-05-18-006 Unit 1:
 - main_domain normalization side effect on validate_input_payload
 - MAX_CONTENT_HTML_BYTES schema-time cap (Threat Model DoS row)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

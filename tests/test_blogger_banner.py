@@ -10,9 +10,9 @@ The dispatcher prepends ``![alt](data:...)`` markdown which
 alt="...">`` before it lands in Blogger's ``content_html`` field.
 ``TestRoundtripDataUriThroughMarkdown`` locks the no-escape invariant.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import base64
 from pathlib import Path
 

@@ -9,9 +9,9 @@ Covers:
 - known-cited vs known-uncited input → tier contract (integration with
   classify_verdict to verify the join feeds the gate correctly).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.geo.joins import build_brand_aliases, build_published_article_set

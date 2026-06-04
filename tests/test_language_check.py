@@ -3,9 +3,9 @@
 Plan reference: docs/plans/2026-05-14-001-feat-mandatory-linkcheck-lang-gate-plan.md
 Unit 1 — R1 (language_matches bug fix) and R3 (unknown handling).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.linkcheck.language import (

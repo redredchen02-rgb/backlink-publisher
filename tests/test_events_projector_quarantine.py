@@ -1,9 +1,9 @@
 """Unit 3: projector quarantines unmapped checkpoint statuses (the P0 class)
 and does NOT quarantine intentional NO_EMIT statuses (the false-positive guard).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import sqlite3
 from pathlib import Path

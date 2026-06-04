@@ -5,10 +5,10 @@ CLI publish-result row, transparently carrying the per-row ``status``
 (including ``*_unverified`` suffixes) and synthesising ``failed`` when an
 adapter returns no URL.
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 import pytest
 
 from webui_store import history_store

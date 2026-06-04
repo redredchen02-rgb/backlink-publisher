@@ -7,9 +7,9 @@ sync_playwright() were NOT called.
 Config isolation provided by the session-scoped autouse _isolate_user_dirs
 fixture in conftest.py (sets BACKLINK_PUBLISHER_CONFIG_DIR).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import os
 import time
 from unittest.mock import patch

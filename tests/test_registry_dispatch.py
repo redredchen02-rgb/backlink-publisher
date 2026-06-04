@@ -7,9 +7,9 @@ DependencyError, raises on unknown platform.
 Each test class registers its own stub adapter under a unique platform slug
 so tests are isolated and do not rely on patching conftest.FakeAdapter.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from contextlib import contextmanager
 from typing import Any, Generator
 

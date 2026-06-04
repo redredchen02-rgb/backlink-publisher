@@ -6,9 +6,9 @@ key, issues a single ``get_many``, then cross-references. These tests pin both
 the unchanged outcomes (auto-fix R2, stale-gap quarantine R3, R10 skip) and the
 batching (``get`` called 0x, ``get_many`` once).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from datetime import datetime, timedelta, timezone
 

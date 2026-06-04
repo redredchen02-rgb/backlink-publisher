@@ -4,9 +4,9 @@ Focused on the additive public wrapper. The existing
 ``_check_url_with_retry`` and ``check_urls_strict`` paths are not
 re-tested here — they're exercised via test_validate_backlinks.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

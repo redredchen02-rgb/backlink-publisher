@@ -7,9 +7,9 @@ card per ``registered_platforms()`` entry, each carrying the
 Companion: tests/test_generic_channel_api.py (Unit 4 — the API endpoints
 the dashboard JS calls).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import re
 
 import pytest

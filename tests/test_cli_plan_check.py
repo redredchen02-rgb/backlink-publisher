@@ -12,9 +12,9 @@ Tested surface:
 - ``_path_exists_on_main`` / ``_sha_reachable_from_main`` (Unit 2, R2/R3)
 - ``FetchOutcome`` dataclass shape (Unit 2)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import datetime as _dt
 import os
 import shutil

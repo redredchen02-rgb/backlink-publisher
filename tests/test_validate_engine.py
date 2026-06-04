@@ -6,9 +6,9 @@ both the CLI shell (``cli/validate_backlinks.py``) and the in-process
 ``PipelineAPI.validate``. The CLI-behavior guards live in
 ``tests/test_validate_backlinks.py``; these pin the pure contract.
 """
-
 from __future__ import annotations
 
+__tier__ = "e2e"
 import pytest
 
 from backlink_publisher._util import errors

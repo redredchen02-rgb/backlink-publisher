@@ -7,6 +7,7 @@ resolution matrix is covered without a real git repo. The resolvers themselves
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import importlib.util
 from pathlib import Path
 

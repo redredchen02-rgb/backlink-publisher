@@ -11,9 +11,9 @@ any src/ file > 500 SLOC and not in the budget emits a UserWarning (does not
 fail). Radon counter pinning: a hand-crafted fixture catches measurement-tool
 drift before it silently shifts ceiling math.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import tomllib
 import warnings
 from pathlib import Path

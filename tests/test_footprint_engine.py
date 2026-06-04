@@ -3,9 +3,9 @@
 These tests pin down the post-R11 contract: lex-smallest tie-break across every
 ``Counter.most_common(1)`` call site, plus ``SCHEMA_VERSION`` import.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import subprocess
 import sys

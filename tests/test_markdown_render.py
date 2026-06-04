@@ -1,4 +1,5 @@
 """Tests for render_to_html + _format_anchor_html rel parameterisation."""
+__tier__ = "unit"
 
 from backlink_publisher._util.markdown import (
     _format_anchor_html,

@@ -1,7 +1,7 @@
 """Tests for pr_outreach store, scorer, and CLI."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import sys

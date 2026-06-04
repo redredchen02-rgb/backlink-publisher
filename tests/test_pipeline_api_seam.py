@@ -12,9 +12,9 @@ someone re-introduces a raw ``run_pipe`` / ``subprocess.run`` into a route or
 service. The rest exercise the new capture-based methods that preserve stdout
 and exit-code on non-zero exits (``report-anchors`` exit-6, publish exit-4).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import ast
 from pathlib import Path
 from unittest import mock

@@ -10,9 +10,9 @@ Locks the contract:
   - Timeout: probe exceeds ``timeout_s`` → ``NEEDS_RECHECK``.
   - Atomic-write race: storage_state.json JSONDecodeError → single retry.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import time
 from datetime import datetime, timedelta, timezone

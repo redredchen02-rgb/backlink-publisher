@@ -8,9 +8,9 @@ Locks the contract for the binding state singleton:
 - get_status of unknown channel returns unbound default, not KeyError
 - BACKLINK_PUBLISHER_CONFIG_DIR env override honored
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import threading
 

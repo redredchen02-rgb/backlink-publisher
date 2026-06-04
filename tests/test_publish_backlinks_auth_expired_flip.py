@@ -8,9 +8,9 @@ the publish loop must:
   - preserve ``bound_at`` on the existing record (Unit 1 invariant)
   - NOT flip unrelated channels (isolation)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 from io import StringIO

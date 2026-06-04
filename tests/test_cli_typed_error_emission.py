@@ -16,9 +16,9 @@ Two layers:
    negative cases (argparse usage error → exit 2 with NO envelope; exit 0 → no
    envelope) that the WebUI bridge must distinguish.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import ast
 import io
 import json

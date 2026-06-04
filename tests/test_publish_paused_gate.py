@@ -5,9 +5,9 @@ acquisition and dispatch. Covers the pure partition helper plus an
 integration test through main() proving a paused platform never reaches
 adapter_publish.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 from io import StringIO

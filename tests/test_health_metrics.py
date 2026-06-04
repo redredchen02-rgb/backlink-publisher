@@ -5,9 +5,9 @@ platform / error_class / target / ts_utc) and asserts the four aggregates,
 with emphasis on the honesty rules: unverified-is-not-success, banner noise
 excluded, latest-outcome total order, and "no data" vs "0%".
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 from datetime import datetime, timezone
 
 import pytest

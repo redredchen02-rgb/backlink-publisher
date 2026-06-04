@@ -6,9 +6,9 @@ and surfaces the *full* message — the ``stderr[:200]`` truncation is gone — 
 falling back to the full banner-stripped text (QUARANTINE) when no envelope is
 present.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from unittest import mock
 

@@ -1,4 +1,5 @@
 """Tests for adapter base functionality (Stage 1 enhanced)."""
+__tier__ = "unit"
 
 from backlink_publisher.publishing.adapters.base import (
     AdapterResult,

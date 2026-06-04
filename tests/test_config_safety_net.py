@@ -6,9 +6,9 @@ the negative-shape pattern: write a config WITH the section, call
 save_config, then assert the section SURVIVED — not "config without it
 doesn't grow one".
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 from unittest.mock import patch
 

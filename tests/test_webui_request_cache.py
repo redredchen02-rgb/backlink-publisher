@@ -1,7 +1,7 @@
 """Plan E-perf — _g_cache per-request memoization tests."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import ast
 import inspect
 import pytest

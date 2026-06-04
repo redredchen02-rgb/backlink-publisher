@@ -6,9 +6,9 @@ Patch target for Playwright: backlink_publisher.publishing.adapters.medium_auth.
 Config isolation provided by the session-scoped autouse _isolate_user_dirs
 fixture in conftest.py.  Per-test isolation done via monkeypatch.setenv.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import time
 from unittest.mock import MagicMock, patch

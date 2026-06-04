@@ -4,9 +4,9 @@ Covers ``_publish_backend_for`` classification + ``get_channel_status``
 exposing the field + template macro rendering the expected pill class
 for each backend kind.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 import pytest

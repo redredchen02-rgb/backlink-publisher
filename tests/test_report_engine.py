@@ -16,9 +16,9 @@ Coverage goals (plan spec):
 - ReportOutcome fields: document, alarm_breach, breach_count, breach_lines, exit_code.
 - PipelineAPI.report_anchors: returns PipeResult, alarm → advisory error_class.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import MagicMock, patch
 import json
 import pytest

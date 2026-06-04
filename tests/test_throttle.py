@@ -1,7 +1,7 @@
 """Tests for Medium inter-row throttle in publish_backlinks."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

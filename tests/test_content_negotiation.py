@@ -10,11 +10,11 @@ Plan 2026-05-18-006 Unit 5 R9 + R10 (drift direction inverted by plan
   renders content_markdown otherwise
 - Tier sealing: adapters never need to know the tier vocabulary
 """
-
 from __future__ import annotations
 
 
 
+__tier__ = "unit"
 from backlink_publisher.publishing.content_negotiation import (
     ROUTE_TIER_MATRIX,
     extract_publish_html,

@@ -1,7 +1,7 @@
 """Tests for env-var override getters in linkcheck/http.py (Unit 4)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 import backlink_publisher.linkcheck.http as _http

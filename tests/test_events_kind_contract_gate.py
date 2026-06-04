@@ -9,9 +9,9 @@ or turning an intentional NO_EMIT into quarantine, fails here.
 The full R8a literal-ban lint + R8b bidirectional reader check land in the
 follow-up PR; this gate locks the Seam-B content that the anti-P0 core depends on.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.events import kinds

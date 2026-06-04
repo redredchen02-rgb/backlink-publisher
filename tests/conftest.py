@@ -18,6 +18,21 @@ from pathlib import Path
 
 import pytest
 
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-mark test items with their module-level __tier__ attribute.
+
+    Reads ``__tier__`` from each test module (set by the per-file marker
+    in U1 of the system-optimization plan) and applies the corresponding
+    ``pytest.mark`` so tests can be selected via ``-m unit``, ``-m integration``,
+    ``-m e2e``. Modules without ``__tier__`` are silently left unmarked.
+    """
+    for item in items:
+        tier = getattr(item.module, "__tier__", None)
+        if tier in ("unit", "integration", "e2e"):
+            item.add_marker(getattr(pytest.mark, tier))
+
+
 # ── Config-sandbox-escape guardrails (Plan 2026-05-27-005) ──────────────────
 # Sentinel env var that marks "we are inside a sandboxed test run".
 # Set by the HOME/override redirect (Unit 3) and propagated to spawned children.

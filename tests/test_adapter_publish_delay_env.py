@@ -7,9 +7,9 @@ Tests that each adapter's _post_publish_delay_s() getter:
   - Falls back to the default when the env var is set to a non-integer
   - qiita/zenn AdapterResult instances carry non-zero post_publish_delay_seconds (bug fix)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import importlib
 import os
 from unittest.mock import patch

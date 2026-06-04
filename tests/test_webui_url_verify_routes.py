@@ -11,9 +11,9 @@ Covers the security perimeter for the homepage URL auto-derive feature:
 
 Mirrors the fixture skeleton of ``tests/test_webui_bind_routes.py``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

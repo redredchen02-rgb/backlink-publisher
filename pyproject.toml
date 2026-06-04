@@ -27,7 +27,7 @@ dependencies = [
 # radon is pinned to exact version (deviates from house `>=` style) because SLOC counts
 # must be deterministic across CI matrix rows; bumping radon requires re-measuring all
 # 5 monolith ceilings in the same PR. See docs/plans/2026-05-18-006-feat-monolith-sloc-ceiling-plan.md.
-dev = ["pytest>=8.4", "pytest-mock>=3.15", "pytest-timeout>=2.4", "pytest-socket>=0.7", "pytest-env>=1.6", "pytest-asyncio>=1.1,<2", "pytest-xdist>=3.6", "hypothesis>=6.151", "radon==6.0.1", "mypy>=1.8"]
+dev = ["pytest>=8.4", "pytest-mock>=3.15", "pytest-timeout>=2.4", "pytest-socket>=0.7", "pytest-env>=1.6", "pytest-asyncio>=1.1,<2", "pytest-xdist>=3.6", "pytest-cov>=6.0", "hypothesis>=6.151", "radon==6.0.1", "mypy>=1.8"]
 # webwright is pinned to exact version — upstream is a 3-week-old project in rapid iteration;
 # loose constraints risk silent breaking changes. Upgrade manually after evaluating changelog.
 dev-webwright = ["webwright==0.0.7"]
@@ -63,6 +63,7 @@ recheck-overlay = "backlink_publisher.cli.recheck_overlay:main"
 canonical-expand = "backlink_publisher.cli.canonical_expand:main"
 pr-opportunities = "backlink_publisher.cli.pr_opportunities:main"
 click-track = "backlink_publisher.cli.click_track:main"
+debt-report = "backlink_publisher.cli.debt_report:main"
 probe-citations = "backlink_publisher.cli.probe_citations:main"
 
 [tool.setuptools.packages.find]
@@ -89,6 +90,9 @@ markers = [
     "real_content_fetch: exercise the real content_fetch.verify_urls_batch / verify_url_has_content path instead of the default-pass autouse fixture (tests/test_content_fetch.py applies this module-wide)",
     "real_image_gen: exercise the real FRW image-gen endpoint instead of mocking; opt-in operator-only, never runs in CI (Plan 2026-05-20-001 Unit 2)",
     "real_browser_publish_smoke: open live channel compose URL in attached Chrome and verify selectors against current DOM; opt-in operator-only (Plan 2026-05-21-001 Unit 4a+)",
+    "unit: fast, isolated tests with no external dependencies; run on every push (default tier)",
+    "integration: tests that touch disk, database, or external services; run on CI per-PR",
+    "e2e: full end-to-end tests requiring real network or browser; opt-in, run pre-merge or nightly",
 ]
 
 [tool.towncrier]
@@ -97,3 +101,18 @@ package_dir = "src"
 filename = "CHANGELOG.md"
 directory = "changelog.d"
 version = "0.3.0"
+
+[tool.coverage.run]
+source = ["backlink_publisher"]
+relative_files = true
+branch = true
+omit = ["*/tests/*", "*/.egg/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
+fail_under = 0
+
+[tool.coverage.json]
+pretty_print = true

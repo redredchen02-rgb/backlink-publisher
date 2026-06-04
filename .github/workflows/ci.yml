@@ -13,21 +13,31 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# ── Shared setup (composite action placeholder) ──────────────────────────────
+# Each tier reuses the same checkout → setup-python → pip-install prefix.
+# A composite action would deduplicate YAML but adds an indirection layer;
+# for 3 jobs the repetition is manageable and the WET YAML keeps the CI
+# workflow self-contained.
+#
+# PYTHONHASHSEED=0 is required by the Footprint Regression Gate (Plan Unit 6 /
+# R10) at interpreter startup. Setting it inside Python is a no-op — Python
+# freezes hash randomization at process start. pyproject's
+# [tool.pytest.ini_options].env also pins it via pytest-env, but the job-level
+# env here protects subprocess invocations.
+
+env:
+  PYTHONHASHSEED: "0"
+
 jobs:
-  test:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # U1U2: Unit tests — fast, isolated, no external dependencies
+  # ═══════════════════════════════════════════════════════════════════════════
+  unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
-
-    # Footprint Regression Gate (Plan Unit 6 / R10) requires PYTHONHASHSEED=0
-    # at interpreter startup. Setting it inside Python is a no-op — Python
-    # freezes hash randomization at process start. pyproject's
-    # [tool.pytest.ini_options].env also pins it via pytest-env, but the
-    # job-level env here protects subprocess invocations.
-    env:
-      PYTHONHASHSEED: "0"
 
     steps:
       - uses: actions/checkout@v4
@@ -45,22 +55,24 @@ jobs:
       - name: Print radon version
         run: python -m radon --version
 
-      - name: Run tests
-        # -n auto (pytest-xdist) parallelises across the runner's cores. The suite
-        # is determinism-verified under workers: PYTHONHASHSEED=0 is set per worker
-        # via pytest-env (+ job env above for subprocess tests), the footprint gate
-        # hard-fails on seed != 0, and every store/lock path resolves to a per-worker
-        # sandbox. --timeout=30 is per-test (pytest-timeout) and unaffected by xdist.
-        # --strict-markers + --strict-config are passed on the CLI here, NOT via
-        # pyproject [tool.pytest.ini_options] addopts: this repo's conftest does
-        # heavy module-level imports (HOME redirect + registry/adapters) that load
-        # before an addopts strict flag takes effect, so from addopts an unknown
-        # marker silently downgrades to a warning. On the CLI it correctly errors at
-        # collection. Verified 2026-06-01 (Wave 3 — test-framework maturation).
+      - name: Run unit tests
+        # -n auto (pytest-xdist) parallelises across the runner's cores. The unit
+        # tier is the biggest subset (8287 tests) but each test is fast and
+        # isolated — determinism-verified under workers (see PYTHONHASHSEED=0).
+        # --timeout=15 per-test (pytest-timeout) is shorter than integration/e2e.
+        # --strict-markers catches any module-level __tier__ drift.
+        # --cov includes branch coverage in report/json, excluding test files.
         run: |
-          python -m pytest tests/ -v --tb=short --timeout=30 -n auto --strict-markers --strict-config
+          python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit" --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:.coverage-unit.json
 
-      - name: Check code style
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit-${{ matrix.python-version }}
+          path: .coverage-unit.json
+          if-no-files-found: error
+
+      - name: Check code style (compile + AST parse)
         run: |
           python -m py_compile src/backlink_publisher/**/*.py
           python -c "
@@ -83,16 +95,62 @@ jobs:
           python -m mypy src/backlink_publisher --config-file mypy.ini || true
         continue-on-error: true
 
-      # NOTE: The 4-step `python -m` smoke pipeline (Generate / Validate / Dry-run
-      # publish / Show) that used to live here was deleted in 2026-05-20.
-      # Until commit 4a3ecf0 restored the `python -m backlink_publisher.cli.plan_backlinks`
-      # entry-point, all four steps silently exited 0 with empty stdout — the
-      # package's `__main__.py` had been left empty by the plan_backlinks decomp.
-      # When the entry-point was repaired, the real pipeline ran against the
-      # placeholder fixture URLs (example.com / blog.example.org / tech.ru), the
-      # content-gate dropped every row as unreachable, and the steps started
-      # exiting 2. The steps were never a meaningful smoke test — they only
-      # passed by accident — and the unit suite (`pytest tests/`) plus
-      # `plan-claims-gate` exercise the real contracts. End-to-end coverage
-      # belongs in a dedicated integration job with reachable fixture content,
-      # tracked separately (see Plan 008 follow-ups).
+  # ═══════════════════════════════════════════════════════════════════════════
+  # U2: Integration tests — touch disk, database, or external fakes
+  # ═══════════════════════════════════════════════════════════════════════════
+  integration:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run integration tests
+        # Longer per-test timeout (60s) — integration tests may touch SQLite,
+        # filesystem, or spawn subprocesses.
+        run: |
+          python -m pytest tests/ -v --tb=short --timeout=60 -n auto -m "integration" --strict-markers --strict-config
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # U2: E2E tests — full end-to-end requiring real network or browser
+  # ═══════════════════════════════════════════════════════════════════════════
+  e2e:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run e2e tests
+        # Single-core (no xdist) — e2e tests share state or hit real endpoints.
+        # Per-test timeout 120s for network-bound assertions.
+        run: |
+          python -m pytest tests/ -v --tb=short --timeout=120 -m "e2e" --strict-markers --strict-config

@@ -10,9 +10,9 @@ Scenarios
 - Starvation flag is False when M*N >= C.
 - Float staleness_days computed correctly from event timestamps.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path

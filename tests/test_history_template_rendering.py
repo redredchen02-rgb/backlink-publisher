@@ -1,7 +1,7 @@
 """Plan 2026-05-19-006 Unit 6 — index.html bulk UI rendering."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from webui_store import drafts_store, history_store

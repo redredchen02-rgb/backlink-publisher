@@ -7,9 +7,9 @@ Before the per-PID temp suffix, two processes writing the same ``path`` via
 target concurrently and asserts none crash, the final file is valid JSON, and
 no orphan temp is left behind. It fails on the pre-fix fixed-``.tmp`` naming.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import subprocess

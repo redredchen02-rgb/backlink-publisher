@@ -8,9 +8,9 @@ Locks the contract:
   prefix-confusion (``evilvelog.io``), suffix-confusion (``velog.io.attacker.tld``)
   and accepts case-insensitive + leading-dot ``.velog.io`` forms.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import dataclasses
 
 import pytest

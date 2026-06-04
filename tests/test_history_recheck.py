@@ -1,7 +1,7 @@
 """Plan 2026-05-19-006 Unit 5 — history recheck service + routes."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from urllib.parse import unquote
 from unittest.mock import patch
 

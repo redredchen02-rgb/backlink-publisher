@@ -6,9 +6,9 @@ All HTTP calls and probe_url are mocked; network is socket-blocked by conftest.
 Track B fail-closed: SSRF guard must be importable. In tests, _check_url_for_ssrf
 is patched to return None (safe) so guard is always "active" but non-blocking.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

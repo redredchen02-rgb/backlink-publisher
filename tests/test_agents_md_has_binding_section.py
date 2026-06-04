@@ -7,9 +7,9 @@ test fires before the agents lose the reference.
 Mirrors the pattern in ``tests/test_no_monolith_regrowth.py`` (file-as-text
 + substring assertion).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 

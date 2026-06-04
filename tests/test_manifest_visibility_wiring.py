@@ -8,9 +8,9 @@ Unit 2b: ``config._toml_utils._save_config_known_roots()`` (and its PEP
 562 ``_SAVE_CONFIG_KNOWN_ROOTS`` alias) derives from registered non-retired
 platforms + fixed non-platform roots (targets, image_gen).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

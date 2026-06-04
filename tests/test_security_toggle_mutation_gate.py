@@ -28,6 +28,7 @@ the exact-match assertion and forces a same-PR allowlist edit.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 import ast
 from pathlib import Path
 

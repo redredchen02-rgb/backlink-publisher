@@ -8,9 +8,9 @@ mounts comments purely client-side has no server-side marker, so detecting it ``
 the documented limitation, not a gate failure. Below this floor, escalate before
 broadening signatures (or descope ``discover`` to import-only).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 import pytest

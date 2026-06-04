@@ -3,10 +3,10 @@
 Plan: ``docs/plans/2026-05-14-005-feat-v1-verifier-asset-extraction-plan.md``
 Source: ``origin/pr/1:src/backlink_publisher/verifier.py``
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 from backlink_publisher.html_scope import ArticleScopedCollector, collect_article_text
 
 

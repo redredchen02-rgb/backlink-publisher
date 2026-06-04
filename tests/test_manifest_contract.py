@@ -26,9 +26,9 @@ Contract rules:
 Cross-checks the production registry only — synthetic test platforms
 created by other fixtures are excluded.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import inspect
 from pathlib import Path
 

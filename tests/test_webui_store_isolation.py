@@ -7,9 +7,9 @@ singletons captured paths at import time.
 Plan 2026-05-22 P7 C1: all module-level stores are now ``_LazyStore`` proxies
 that defer path resolution to first access.  ``_refresh_paths()`` is a no-op.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 from pathlib import Path
 

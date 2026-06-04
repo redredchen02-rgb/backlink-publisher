@@ -1,7 +1,7 @@
 """Tests for _group_history — run_id-based grouping of publish-history rows."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from webui_app.helpers.contexts import _group_history
 
 

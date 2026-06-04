@@ -13,9 +13,9 @@ Locks the contract:
 Mirrors test_velog_login_alias.py one-for-one; the only deltas are
 the channel name and the banner string.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.cli import medium_login

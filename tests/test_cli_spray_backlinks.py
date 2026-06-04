@@ -5,9 +5,9 @@ expansion + multi-seed loop + cross-seed governance + per-seed output + resume.
 The autouse conftest fixtures sandbox the config dir and block sockets, so no
 network is touched.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 

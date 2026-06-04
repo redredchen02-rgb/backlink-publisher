@@ -13,9 +13,9 @@ Tests cover:
     happens server-side via Set-Cookie which requests.Session captures
     in-memory only — verify must not persist anything back to disk)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 from pathlib import Path

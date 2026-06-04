@@ -4,9 +4,9 @@ Pure-function tests for ``recheck.overlay``: the latest-verdict reader
 (``build_discount_map``) and the ledger-row transform (``apply_discounts``).
 The end-to-end re-plan loop lives in ``test_recheck_overlay_replan_loop.py``.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 from datetime import datetime, timedelta, timezone
 
 import pytest

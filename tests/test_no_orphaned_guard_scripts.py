@@ -13,9 +13,9 @@ workspace root, outside ``REPO_ROOT``, and is not a CI surface for this purpose.
 Companion of ``test_no_monolith_regrowth.py``: both turn a repo invariant into a
 CI-executed gate rather than a prose convention.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

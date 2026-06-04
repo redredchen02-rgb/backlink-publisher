@@ -1,7 +1,7 @@
 """Integration tests for the zh-CN short-article scheduler path in plan_backlinks."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import random
 import re
 from unittest.mock import patch

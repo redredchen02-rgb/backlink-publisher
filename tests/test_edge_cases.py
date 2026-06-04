@@ -1,7 +1,7 @@
 """Additional edge case tests for the backlink pipeline."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import sys
 import copy

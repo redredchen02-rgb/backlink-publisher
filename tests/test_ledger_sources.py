@@ -4,6 +4,7 @@ Seeds events.db (articles + events), injects a history list, and writes an
 anchor profile into the sandboxed cache dir (autouse fixtures isolate both
 config and cache dirs), then asserts the join collapses correctly.
 """
+__tier__ = "integration"
 
 import json
 

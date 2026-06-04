@@ -4,10 +4,10 @@ Plan ref: docs/plans/2026-05-20-002-feat-homepage-url-autoderive-v1-plan.md (Uni
 
 Pure-function tests — no network, no fixtures beyond stdlib.
 """
-
 from __future__ import annotations
 
 
+__tier__ = "unit"
 from backlink_publisher._util.url_derive import derive_path_tiers, _CATEGORY_TOKEN
 
 

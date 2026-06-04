@@ -4,9 +4,9 @@ The safety property is the *conservatism* of the ladder, not the precision of th
 no social target, unknown/closed comment region, or non-indexed page ever reaches
 ``accept``; every decision carries reasons; the verb stays exit-0.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 

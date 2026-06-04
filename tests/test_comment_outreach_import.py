@@ -4,9 +4,9 @@
 malformed / schema-invalid rows are skipped with a stderr reason, and the process
 always exits 0 (zero valid rows is a legitimate result, not an error).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 

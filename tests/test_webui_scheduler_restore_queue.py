@@ -10,9 +10,9 @@ Scenarios (S1–S4):
   S3 — Multiple stuck + normal tasks → only processing ones reset
   S4 — Empty / corrupt queue → no crash, no-op
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import os
 import sys
 import types

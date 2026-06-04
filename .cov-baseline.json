@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "created": "2026-06-04",
+  "tier": "unit",
+  "tier_count": 8287,
+  "totals": {
+    "num_statements": 23053,
+    "covered_lines": 17952,
+    "percent_covered": 76.2,
+    "num_branches": 6598,
+    "covered_branches": 4643,
+    "percent_covered_branches": 70.4,
+    "missing_lines": 5101,
+    "missing_branches": 1955
+  },
+  "files_scanned": 320
+}

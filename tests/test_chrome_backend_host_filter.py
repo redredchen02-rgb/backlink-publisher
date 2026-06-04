@@ -18,9 +18,9 @@ This module's tests exercise:
   - Filter MISSING → fail-closed (raise ChromeLaunchError, no state file).
   - Malformed cookie dict skipped defensively (matches driver._apply_host_filter).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 from unittest.mock import MagicMock
 

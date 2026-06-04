@@ -16,9 +16,9 @@ terminal raise with registry delegation:
 See ``tests/conftest.py:_isolate_user_dirs`` (session autouse) for the
 sandboxed config dir.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 
 import pytest

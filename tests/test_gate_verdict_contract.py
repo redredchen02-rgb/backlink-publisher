@@ -4,9 +4,9 @@ Covers the three discipline rules: no GO without confirmed evidence + a recorded
 threshold (incl. first-run calibration), BLOCKED is Tier-2 only, and untrusted
 remote strings are capped + escaped before they can reach the committed ledger.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st

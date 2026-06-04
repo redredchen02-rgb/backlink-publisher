@@ -3,9 +3,9 @@
 Stdlib-only module; all functions are pure URL transforms.
 No mocking needed — every test is deterministic from input alone.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher._util.url import (

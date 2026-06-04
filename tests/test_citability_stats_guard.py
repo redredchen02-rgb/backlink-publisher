@@ -4,9 +4,9 @@ The rule is strict: if ``data_source`` is absent or empty from the seed row,
 the stat paragraph MUST NOT contain numeric statistics (%, ×, integer counts)
 and MUST emit exactly one WARN log call per article.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import re
 from unittest.mock import MagicMock, patch
 

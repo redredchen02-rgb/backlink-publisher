@@ -6,9 +6,9 @@ ExternalServiceError), the no-credential-leak-in-logs contract, the
 fire-and-forget verify hook, and concurrent bootstrap-vs-rotation credential
 writes. XML-RPC is fully mocked; no sockets.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import threading

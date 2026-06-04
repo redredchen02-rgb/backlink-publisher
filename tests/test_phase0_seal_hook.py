@@ -19,9 +19,9 @@ Plan v3 §417-429 test scenarios mapped:
   fetch (auto-fix v2-F4).
 - Non-Telegraph refs: hook stays out of the way.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import subprocess

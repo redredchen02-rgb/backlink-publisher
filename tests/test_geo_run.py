@@ -11,9 +11,9 @@ Scenarios
 - probe_many: D8 — raw_response is NOT written to events.db.
 - probe_many: run_id attached to each appended event for D11 dedup.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import time
 from datetime import datetime, timezone
 from pathlib import Path

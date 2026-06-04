@@ -13,9 +13,9 @@ Scenarios
 - float shares from different arithmetic paths compare equal after round(.,6).
 - Rolling window: only the W most-recent deduped events are used.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path

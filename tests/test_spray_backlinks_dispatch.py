@@ -4,9 +4,9 @@ publish_fn / sleep_fn / rng are all injected: no network, no real sleeps,
 reproducible jitter. Covers happy path, non-uniform spacing, continue-on-failure
 (incl. AuthExpired), and seeded reproducibility.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import random
 from dataclasses import dataclass
 

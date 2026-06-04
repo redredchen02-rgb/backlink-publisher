@@ -8,9 +8,9 @@ Asserts against the current implementation. The decomposition must keep every
 one of these green — it is the behaviour-identity net for a pure structural
 extraction.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 from backlink_publisher.schema import validate_input_payload

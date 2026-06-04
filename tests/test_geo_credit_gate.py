@@ -17,9 +17,9 @@ Scenarios:
 - Article-URL path match via canonicalization (utm stripped, trailing slash,
   http→https scheme differences).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.geo.engines import ProbeResult

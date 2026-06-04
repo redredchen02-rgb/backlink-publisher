@@ -6,6 +6,7 @@ credential leakage through rolling snapshots.
 """
 from __future__ import annotations
 
+__tier__ = "unit"
 from pathlib import Path
 
 

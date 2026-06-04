@@ -15,9 +15,9 @@ asserts each payload appears VERBATIM in the body sent to Google. We do not
 assert what Google does with the payload — that is the platform's contract;
 observe-it-quarterly TODO via a sandbox post (manual, not in CI).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 from unittest.mock import MagicMock, patch
 

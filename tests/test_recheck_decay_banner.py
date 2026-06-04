@@ -5,9 +5,9 @@ The helper is tested directly against a seeded events.db; the banner rendering
 tested by injecting decay values through the route's _g_cache, mirroring the
 reconciliation-gap banner tests.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import os
 import sys
 from unittest.mock import patch

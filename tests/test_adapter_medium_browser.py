@@ -18,6 +18,7 @@ All tests use the autouse ``_isolate_user_dirs`` fixture (from conftest)
 to point ``_config_dir()`` at a per-session tmp dir, and pre-create the
 ``medium-cookies.json`` file inside that dir.
 """
+__tier__ = "unit"
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch

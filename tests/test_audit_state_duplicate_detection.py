@@ -7,9 +7,9 @@ distinct keys whose ``done`` rows resolve to the same canonical ``live_url``.
 
 Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U4).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import io
 import json
 import sys

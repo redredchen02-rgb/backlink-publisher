@@ -12,9 +12,9 @@ Mirrors ``tests/test_no_monolith_regrowth.py`` structure: per-entry
 parametrize → schema test → value test, plus a synthetic red-path test
 that proves the gate fires when violated.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from typing import Any
 
 import pytest

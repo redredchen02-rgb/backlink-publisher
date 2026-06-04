@@ -10,9 +10,9 @@ The 渠道綁定總覽 macro reads ``status.auth_type``:
 
 U3 landed: inline forms for cardless channels now exist in the page.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.config import Config

@@ -5,9 +5,9 @@ Scenarios:
   2. LLM not configured → locked state rendered (#copilotQaForm absent).
   3. Unlocked panel has input, send button, and conversation area.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

@@ -10,9 +10,9 @@ against real files.
 Backfill for the codebase-optimization backlog (O-series safe-now pattern,
 sibling to ``test_exit_code_contract.py`` / ``test_webui_routes_oauth.py``).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import fcntl
 import json
 import os

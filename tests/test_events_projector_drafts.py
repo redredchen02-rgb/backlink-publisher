@@ -5,9 +5,9 @@ State machine (plan §U4 Design notes):
     drafted → scheduled  → draft.scheduled
     (any) → published    → publish.confirmed + article  (no fresh draft.*)
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from pathlib import Path
 from typing import Any

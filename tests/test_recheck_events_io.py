@@ -1,7 +1,7 @@
 """Unit 4: link.rechecked emission (WAL-safe) + decay-count derivation."""
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from datetime import datetime, timedelta, timezone
 

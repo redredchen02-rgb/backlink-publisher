@@ -18,9 +18,9 @@ Coverage (Unit 3 scenarios):
 Credential-shaped fixture values are assembled at runtime via concatenation so
 the literal ``api_key = "<value>"`` shape never lands in source (leak-check hook).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import pytest
 import requests
 

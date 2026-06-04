@@ -5,9 +5,9 @@ sandbox the config dir (so no money pages are configured) and block sockets, so
 ``--gate g2`` here resolves to an empty money-page set → INCONCLUSIVE, exit 0,
 without any network.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 
 import pytest

@@ -5,9 +5,9 @@ image_gen), distinct-record separation, queryability (R7), and the
 pre-existing-v2-DB migration that back-fills the dedup_key column + index on
 the connect path (the data-integrity finding).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import sqlite3
 
 

@@ -14,9 +14,9 @@ Scenarios covered (per plan U1 Test scenarios):
 * file lock prevents concurrent rotation collisions (single-process test
   with fcntl mock — true concurrency is integration-level)
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import logging
 import os

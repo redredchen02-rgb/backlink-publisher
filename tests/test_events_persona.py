@@ -6,9 +6,9 @@ than the operator's ``~/.config/backlink-publisher/``. The ``_load_salt``
 lru_cache is cleared in the autouse fixture so tests don't see each
 other's salts.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import os
 import sys
 from pathlib import Path

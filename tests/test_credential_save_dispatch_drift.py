@@ -11,6 +11,7 @@ Plus ``channel_bind_save._SKIP_CHANNELS`` (dedicated-route guard, in route).
 
 Authority is SUBSET, not equality.
 """
+__tier__ = "unit"
 
 import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 

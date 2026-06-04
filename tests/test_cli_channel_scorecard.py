@@ -1,5 +1,6 @@
 """channel-scorecard CLI verb. Fresh config/cache dir per test so the
 session-scoped sandbox doesn't bleed seeded state across tests."""
+__tier__ = "unit"
 
 import io
 import json

@@ -4,9 +4,9 @@ Test-first per plan §U4 Execution note. Each test seeds a checkpoint
 JSON file under ``tmp_path``, calls ``flush_for(path)``, then asserts
 event + article rows landed as documented in the design notes.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 from pathlib import Path
 from typing import Any

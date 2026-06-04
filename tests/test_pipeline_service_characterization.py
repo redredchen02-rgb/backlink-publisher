@@ -16,9 +16,9 @@ Language accept/reject is enforced downstream by the engine's
 PRE-EXISTING contract (ja/zh-TW/es/de/fr already rejected today) and is pinned
 separately at the schema layer, not introduced by Unit 2.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from webui_app import create_app

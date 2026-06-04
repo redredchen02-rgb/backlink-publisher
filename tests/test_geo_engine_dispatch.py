@@ -7,9 +7,9 @@ a clear ``UsageError`` (exit 1) — NOT a registry KeyError and NOT a
 Credential-shaped fixture values are assembled at runtime via concatenation so
 the literal ``api_key = "<value>"`` shape never lands in source (leak-check hook).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher._util.errors import UsageError

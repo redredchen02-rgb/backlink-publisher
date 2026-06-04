@@ -5,9 +5,9 @@ Each test corresponds to a contract claim in:
 
 Naming convention: test_contract_<step>_<property>
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import sys

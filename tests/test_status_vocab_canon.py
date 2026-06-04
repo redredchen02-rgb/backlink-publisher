@@ -6,6 +6,7 @@ Done-family: {completed, shipped}
 
 This test must stay green — it is the guard that keeps the vocab from drifting.
 """
+__tier__ = "unit"
 
 import re
 import pathlib

@@ -11,9 +11,9 @@ Three contracts:
 Companion infrastructure tests for `_verify.DryRunInterceptError` /
 `_verify.dry_run_intercept()` context manager live in this file.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

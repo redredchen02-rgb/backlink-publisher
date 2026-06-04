@@ -4,9 +4,9 @@ All tested functions are pure-parse (no git, no network, no DB).
 Tests cover _parse_frontmatter, _grandfathered, _validate_sha_format,
 _validate_claims_schema, _check_filename_date_lock, and _read_plan_text.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import datetime as dt
 from pathlib import Path
 

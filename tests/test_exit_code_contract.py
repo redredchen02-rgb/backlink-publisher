@@ -10,9 +10,9 @@ guard so the contract cannot drift silently -- e.g. the classic ``UsageError``
 (1) vs argparse (2) confusion, or a sibling error accidentally re-parented
 under ``AuthExpiredError`` and triggering ``mark_expired``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import inspect
 
 import pytest

@@ -12,9 +12,9 @@ Covers:
 - Autouse fixtures isolate from real network/time and from the user's
   profile cache.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import patch
 
 import pytest

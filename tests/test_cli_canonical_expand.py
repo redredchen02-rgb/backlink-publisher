@@ -1,7 +1,7 @@
 """Tests for cli/canonical_expand.py — canonical-mode row fan-out."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import io
 import json
 import sys

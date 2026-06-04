@@ -10,9 +10,9 @@ These tests verify:
 3. _build_credentials short-circuits (no refresh) when _near_expiry returns
    False after the re-read-inside-lock (peer already refreshed for us).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import fcntl
 import os
 import threading

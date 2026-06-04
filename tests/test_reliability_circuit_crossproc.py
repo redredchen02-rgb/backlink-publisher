@@ -16,9 +16,9 @@ OS-process boundary.
 children are unambiguously independent interpreters and never touch the
 socket layer that the test suite disables.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import subprocess

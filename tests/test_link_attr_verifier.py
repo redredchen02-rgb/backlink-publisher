@@ -1,7 +1,7 @@
 """Tests for the link-attribute verifier helper."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 from unittest.mock import MagicMock, patch
 
 

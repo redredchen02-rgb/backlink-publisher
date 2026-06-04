@@ -4,9 +4,9 @@ Test seam: patch this module's own ``_COMMENT_OPENER.open`` and ``_check_url_for
 (both imported into the module namespace), so no real network is touched. Mirrors
 ``tests/test_preflight_fetch.py``.
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import socket
 import ssl
 from unittest.mock import MagicMock, patch

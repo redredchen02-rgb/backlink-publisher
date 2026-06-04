@@ -1,6 +1,7 @@
 """plan-gap CLI verb. Each test gets a fresh config/cache dir. The registry is
 populated by importing the verb (its module-level adapter import), so these
 tests exercise the REAL active-dofollow roster (integration)."""
+__tier__ = "unit"
 
 import io
 import json

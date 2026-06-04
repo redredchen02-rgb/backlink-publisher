@@ -1,6 +1,7 @@
 """Unit 4: Token storage + config loaders for Notion + Dev.to (Plan 003 Phase 2)."""
 from __future__ import annotations
 
+__tier__ = "unit"
 import json
 import os
 import stat

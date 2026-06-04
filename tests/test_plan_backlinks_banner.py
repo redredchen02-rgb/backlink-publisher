@@ -8,9 +8,9 @@ no ``![](url)`` prepending — so older backlinks don't break when an
 upstream CDN's TTL expires (the per-platform CDN upload happens in
 Unit 5).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import base64
 import json
 from pathlib import Path

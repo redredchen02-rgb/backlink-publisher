@@ -10,6 +10,7 @@ slowdown, not noise.
 """
 from __future__ import annotations
 
+__tier__ = "integration"
 import json
 import statistics
 import subprocess

@@ -4,9 +4,9 @@ Covers: English, Chinese (simplified + traditional), Japanese, Russian patterns;
 site-suffix tolerance; case-insensitivity; empty-string guard; true-positive
 rejection (legitimate titles must not match).
 """
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 from backlink_publisher.content._soft404 import is_soft_404_title

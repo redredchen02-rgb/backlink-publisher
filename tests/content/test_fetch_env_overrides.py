@@ -1,7 +1,7 @@
 """Tests for env-var override getters in content/fetch.py (Unit 4)."""
-
 from __future__ import annotations
 
+__tier__ = "unit"
 import pytest
 
 import backlink_publisher.content.fetch as _fetch

@@ -11,9 +11,9 @@ actually agrees with real `git merge-base --is-ancestor` and real `git status
 --porcelain` semantics. `gh` is intentionally unavailable in the test harness
 so we exercise the graceful-degradation path (squash-merged detection skipped).
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import os
 import shutil
 import subprocess

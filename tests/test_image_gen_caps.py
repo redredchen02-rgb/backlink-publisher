@@ -7,9 +7,9 @@ persisted into the existing ``events.EventStore`` (SQLite under
 projector / event-registry changes are needed — ``EventStore.kind``
 is a free-form string column.
 """
-
 from __future__ import annotations
 
+__tier__ = "integration"
 import pytest
 
 from backlink_publisher.config import ImageGenConfig
