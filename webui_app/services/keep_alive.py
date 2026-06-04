@@ -51,16 +51,17 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
     now = now or datetime.now()
 
     ledger_rows = build_ledger(store=store, history=history)
+    # derive_per_target_status already keys by canonical target (merging
+    # canonically-equal raw variants), so a direct canonical lookup joins it to
+    # the ledger rows — no lossy re-key that could drop a bleeding target.
     per_target = derive_per_target_status(store)
-    # Re-key recheck status by canonical target so it joins to ledger rows.
-    recheck_by_canon = {canonicalize_url(t): s for t, s in per_target.items()}
 
     targets: list[dict] = []
     for row in ledger_rows:
         if _host(row.target_url) in _EXCLUDED_HOSTS:
             continue
         canon = canonicalize_url(row.target_url)
-        status = recheck_by_canon.get(canon)
+        status = per_target.get(canon)
         counts = status["counts"] if status else {v: 0 for v in verdicts.VERDICTS}
         rechecked = status["total"] if status else 0
         stripped = counts[verdicts.LINK_STRIPPED] + counts[verdicts.HOST_GONE]
@@ -75,7 +76,7 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
                 "stripped": stripped,
                 "decayed": counts[verdicts.DOFOLLOW_LOST],
                 "check_failed": counts[verdicts.PROBE_ERROR],
-                "unknown_follow": row.dofollow.get("unknown", 0) if isinstance(row.dofollow, dict) else 0,
+                "unknown_follow": row.dofollow.unknown,
                 "rechecked": rechecked,
                 "strip_rate": round(strip_rate, 3),
                 "last_verified": status["last_verified"] if status else None,
@@ -95,9 +96,11 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
     )
     stale_days = None
     if last_recheck is not None:
-        # ts may be tz-aware (UTC); now is naive local — fold to naive before
-        # subtracting, matching ledger._link_liveness.
-        lr = last_recheck.replace(tzinfo=None)
+        # last_recheck is tz-aware UTC; now is naive local. Convert the recheck
+        # ts to local *before* stripping tz (matching ledger/aggregate.py's
+        # verified.astimezone().replace(tzinfo=None)) so the day delta isn't
+        # skewed by the operator's UTC offset.
+        lr = last_recheck.astimezone().replace(tzinfo=None)
         stale_days = max(0, (now.replace(tzinfo=None) - lr).days)
 
     return {

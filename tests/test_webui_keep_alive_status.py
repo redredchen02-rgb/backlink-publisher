@@ -124,3 +124,47 @@ def test_route_renders():
     resp = client.get("/ce:keep-alive")
     assert resp.status_code == 200
     assert "保活".encode() in resp.data
+
+
+def test_canonically_equal_raw_targets_merge_not_overwrite(tmp_path):
+    # link.rechecked.target_url is stored raw — two canonically-equal raw
+    # variants (here a utm-tagged twin) must MERGE into one scorecard row with
+    # summed counts, not have one silently overwrite the other (which would let
+    # a healthy twin mask a bleeding page — the bug review caught).
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    raw_a = "https://51acgs.com/comic/999"
+    raw_b = "https://51acgs.com/comic/999?utm_source=x"   # canon-equal to raw_a
+    a1 = _article(s, "https://telegra.ph/a1", raw_a)
+    a2 = _article(s, "https://taiwanmanga2026.blogspot.com/a2", raw_b)
+    _recheck(s, target=raw_a, article_id=a1, verdict="alive", ts=RECENT)
+    _recheck(s, target=raw_b, article_id=a2, verdict="link_stripped", ts=RECENT)
+
+    per = derive_per_target_status(s)
+    canon = canonicalize_url(raw_a)
+    assert list(per.keys()) == [canon]                   # one merged row
+    assert per[canon]["total"] == 2
+    assert per[canon]["counts"]["alive"] == 1
+    assert per[canon]["counts"]["link_stripped"] == 1
+
+
+def test_equal_timestamp_latest_event_id_wins(tmp_path):
+    # Two verdicts on one link at the SAME ts_utc — the later-written event
+    # (higher events.id) must win, deterministically (mirrors overlay._is_newer).
+    # Without the id tiebreak the first-inserted alive would mask the stripped.
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/888"
+    a = _article(s, "https://telegra.ph/x", t)
+    same_ts = NOW.isoformat(timespec="seconds")
+    _recheck(s, target=t, article_id=a, verdict="alive", ts=same_ts)
+    _recheck(s, target=t, article_id=a, verdict="link_stripped", ts=same_ts)
+
+    row = derive_per_target_status(s)[canonicalize_url(t)]
+    assert row["counts"]["link_stripped"] == 1           # later write wins
+    assert row["counts"]["alive"] == 0
+    assert row["total"] == 1
