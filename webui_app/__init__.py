@@ -363,4 +363,18 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
         except Exception as exc:  # noqa: BLE001 — startup must not crash
             _log.warning("history_importer.import_history_to_events failed: %s", exc)
 
+        # Plan 2026-06-02-001 U5: start CampaignWorker for batch campaigns.
+        try:
+            from .campaign_worker import CampaignWorker
+            _worker = CampaignWorker()
+            app.config['CAMPAIGN_WORKER'] = _worker
+            _log.info("CampaignWorker started")
+        except Exception as exc:  # noqa: BLE001 — startup must not crash
+            _log.warning("CampaignWorker startup failed: %s", exc)
+
+    # Always register CAMPAIGN_WORKER (even when start_scheduler is False),
+    # defaulting to None so routes can check availability.
+    if 'CAMPAIGN_WORKER' not in app.config:
+        app.config['CAMPAIGN_WORKER'] = None
+
     return app

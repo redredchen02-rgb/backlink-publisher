@@ -29,6 +29,7 @@
             {# LITE edition (R7) shows keep-alive core only — 保活/发布/健康/设置. The
                Pro/secondary entries below are hidden when lite_edition is set. #}
             {% if not lite_edition %}
+            <a href="/batch-campaign" class="global-nav__item{% if (active_page | default('')) == 'batch_campaign' %} active{% endif %}">批量任务</a>
             <a href="/schedule" class="global-nav__item{% if (active_page | default('')) == 'schedule' %} active{% endif %}">排程</a>
             <a href="/ce:equity-ledger" class="global-nav__item{% if (active_page | default('')) == 'equity' %} active{% endif %}">权益</a>
             <a href="/sites" class="global-nav__item{% if (active_page | default('')) == 'sites' %} active{% endif %}">站点</a>

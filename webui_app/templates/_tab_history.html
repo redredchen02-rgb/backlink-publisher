@@ -5,9 +5,26 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-calendar-check me-2"></i>草稿队列</span>
                         {% set sched_settings = draft_queue | selectattr('status','equalto','scheduled') | list %}
+                        {% if filter_campaign_id and filter_campaign_id|length > 0 %}
+                        {% set _filtered_drafts = draft_queue | selectattr('campaign_id', 'equalto', filter_campaign_id) | list %}
+                        {% if _filtered_drafts %}
+                        {% set draft_queue = _filtered_drafts %}
+                        {% endif %}
                         <small class="text-muted">{{ draft_queue | length }} 项 · {{ sched_settings | length }} 已排程</small>
+                        {% else %}
+                        <small class="text-muted">{{ draft_queue | length }} 项 · {{ sched_settings | length }} 已排程</small>
+                        {% endif %}
                     </div>
                     <div class="card-body" id="draftCardBody">
+                        {% if filter_campaign_id and filter_campaign_id|length > 0 %}
+                        <div class="alert alert-info d-flex align-items-center py-2 px-3 mb-2" style="font-size:0.85rem;">
+                            <i class="bi bi-funnel me-2"></i>
+                            <span>筛选：批量任务 <code>{{ filter_campaign_id[:8] }}…</code></span>
+                            <a href="/?tab=draft" class="btn btn-sm btn-outline-secondary ms-auto">
+                                <i class="bi bi-x-lg me-1"></i>清除筛选
+                            </a>
+                        </div>
+                        {% endif %}
                         {% if draft_queue %}
                         <!-- Plan 2026-05-19-006 Unit 6: bulk-action bar -->
                         <form id="draftBulkForm" method="POST" style="margin:0;">

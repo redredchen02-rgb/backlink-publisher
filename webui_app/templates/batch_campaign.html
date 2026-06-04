@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}批量任务 · Campaign{% endblock %}
+{% block head_extra %}
+<style>
+    body { background: #f7f8fa; }
+    .container { max-width: 800px; }
+    .form-section { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1rem; }
+    .form-section h5 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .platform-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .platform-grid .form-check { margin-right: 0.75rem; }
+    .mode-tabs { display: flex; gap: 0; border: 1px solid #e5e7eb; border-radius: 0.375rem; overflow: hidden; width: fit-content; }
+    .mode-tab { padding: 0.5rem 1.25rem; cursor: pointer; border: none; background: #fff; font-size: 0.875rem; }
+    .mode-tab.active { background: var(--primary, #2563eb); color: #fff; }
+    .mode-tab:not(:last-child) { border-right: 1px solid #e5e7eb; }
+    .help-text { color: #6b7280; font-size: 0.8rem; margin-top: 0.25rem; }
+    .field-error { color: #b91c1c; font-size: 0.85rem; margin-top: 0.25rem; display: block; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h1 class="h3 mb-3"><i class="bi bi-stack me-2"></i>批量任务（Campaign）</h1>
+    <p class="text-muted mb-4" style="font-size:0.9rem;">
+        一次上传多条 seed，每条 seed 自动分发到所选平台。完成后可审稿并发布。
+    </p>
+
+    <form method="POST" action="/batch-campaign">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        {# ── Seeds JSONL ── #}
+        <div class="form-section">
+            <h5><i class="bi bi-input-cursor me-1"></i>Seed JSONL</h5>
+            <textarea name="seeds" class="form-control" rows="6"
+                placeholder='{"seed_text": "51acgs 漫画站 优质ACG内容聚合平台"}
+{"seed_text": "AnimeList 二次元番剧推荐"}
+{"seed_text": "MangaHub 汉化组作品目录"}'
+                style="font-family:monospace;font-size:13px;">{{ form.get('seeds', '') }}</textarea>
+            <div class="help-text">每行一条 JSON，必须包含 <code>seed_text</code> 字段。最多 10 条。</div>
+            {% if errors.get('seeds') %}
+            <span class="field-error">{{ errors.seeds }}</span>
+            {% endif %}
+        </div>
+
+        {# ── Platform multi-select ── #}
+        <div class="form-section">
+            <h5><i class="bi bi-grid-3x3-gap me-1"></i>分发平台</h5>
+            <div class="platform-grid">
+                {% set selected = form.get('platforms', []) %}
+                {% for p in platforms %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="platforms"
+                           value="{{ p }}" id="plat-{{ p }}"
+                           {% if p in selected %}checked{% endif %}>
+                    <label class="form-check-label" for="plat-{{ p }}">{{ p }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            {% if errors.get('platforms') %}
+            <span class="field-error">{{ errors.platforms }}</span>
+            {% endif %}
+        </div>
+
+        {# ── Mode: draft / publish ── #}
+        <div class="form-section">
+            <h5><i class="bi bi-file-earmark-text me-1"></i>模式</h5>
+            <div class="mode-tabs" role="group">
+                <button type="button" class="mode-tab {% if form.get('mode', 'draft') == 'draft' %}active{% endif %}"
+                        data-mode="draft" onclick="setMode('draft')">草稿模式</button>
+                <button type="button" class="mode-tab {% if form.get('mode', 'draft') == 'publish' %}active{% endif %}"
+                        data-mode="publish" onclick="setMode('publish')">直接发布</button>
+            </div>
+            <input type="hidden" name="mode" id="mode-input" value="{{ form.get('mode', 'draft') }}">
+            <div class="help-text">草稿模式：先审稿再发布；直接发布：跳过审稿直接上线。</div>
+            {% if errors.get('mode') %}
+            <span class="field-error">{{ errors.mode }}</span>
+            {% endif %}
+        </div>
+
+        {# ── Cap & Seed Delay ── #}
+        <div class="form-section" style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+            <div style="flex:1;min-width:140px;">
+                <h5><i class="bi bi-sliders2 me-1"></i>每篇上限</h5>
+                <input type="number" name="cap" class="form-control" min="1"
+                       value="{{ form.get('cap', '') }}" placeholder="默认不限">
+                <div class="help-text">每篇种子最多分发到 N 个平台（可选）</div>
+                {% if errors.get('cap') %}
+                <span class="field-error">{{ errors.cap }}</span>
+                {% endif %}
+            </div>
+            <div style="flex:1;min-width:140px;">
+                <h5><i class="bi bi-clock me-1"></i>Seed 间隔（秒）</h5>
+                <input type="number" name="seed_delay" class="form-control" min="0"
+                       value="{{ form.get('seed_delay', '0') }}" placeholder="0 = 无延迟">
+                <div class="help-text">每条 seed 之间的等待时间（可选）</div>
+                {% if errors.get('seed_delay') %}
+                <span class="field-error">{{ errors.seed_delay }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ── Submit ── #}
+        <div class="d-flex gap-3 mt-3">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-play-circle me-2"></i>创建批量任务
+            </button>
+            <a href="{% if campaign_id %}/campaign/{{ campaign_id }}{% else %}/{% endif %}"
+               class="btn btn-outline-secondary">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block page_data %}
+<script>
+function setMode(m) {
+    document.querySelectorAll('.mode-tab').forEach(function(t) {
+        t.classList.toggle('active', t.dataset.mode === m);
+    });
+    document.getElementById('mode-input').value = m;
+}
+</script>
+{% endblock %}

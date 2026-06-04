@@ -17,9 +17,11 @@ def index():
     flash_msg = request.args.get('flash_msg', '')
     flash = {'type': flash_type, 'msg': flash_msg} if flash_type else None
     history_active = tab == 'draft'
+    campaign_id = request.args.get('campaign_id', '') or ''
     return _render('index.html', config=config,
                    history_active=history_active, flash=flash,
-                   active_page='index')
+                   active_page='index',
+                   filter_campaign_id=campaign_id)
 
 
 @bp.route('/ce:clear', methods=['POST'])

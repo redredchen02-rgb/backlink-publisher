@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}批量任务进度{% endblock %}
+{% block head_extra %}
+<style>
+    body { background: #f7f8fa; }
+    .container { max-width: 720px; }
+    .progress-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1rem; }
+    .seed-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid #f3f4f6; font-size: 0.875rem; }
+    .seed-row:last-child { border-bottom: none; }
+    .seed-idx { width: 2rem; font-weight: 600; color: #6b7280; flex-shrink: 0; }
+    .seed-status { width: 5rem; flex-shrink: 0; text-align: center; }
+    .seed-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151; }
+    .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600; }
+    .status-badge.idle { background: #f3f4f6; color: #6b7280; }
+    .status-badge.processing { background: #dbeafe; color: #2563eb; }
+    .status-badge.success { background: #d1fae5; color: #059669; }
+    .status-badge.failed { background: #fee2e2; color: #b91c1c; }
+    .status-badge.skipped { background: #fef3c7; color: #d97706; }
+    .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem; }
+    .result-stat { background: #f9fafb; border-radius: 0.375rem; padding: 0.75rem; text-align: center; }
+    .result-stat .value { font-size: 1.5rem; font-weight: 700; color: var(--primary, #2563eb); }
+    .result-stat .label { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; }
+    {# Auto-refresh polling: fades the bar on updates #}
+    @keyframes pulse-bar { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .progress-bar.active { animation: pulse-bar 1s ease-in-out infinite; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    <a href="/batch-campaign" class="btn btn-primary"><i class="bi bi-arrow-left me-2"></i>返回创建任务</a>
+    {% elif campaign %}
+
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h4 mb-0"><i class="bi bi-stack me-2"></i>批量任务进度</h1>
+        <span class="status-badge {% if running %}processing{% elif campaign.status == 'completed' %}success{% elif campaign.status == 'failed' %}failed{% else %}idle{% endif %}">
+            {% if running %}执行中…
+            {% elif campaign.status == 'pending' %}等待中
+            {% elif campaign.status == 'running' %}执行中
+            {% elif campaign.status == 'draft_review' %}待审稿
+            {% elif campaign.status == 'completed' %}已完成
+            {% elif campaign.status == 'failed' %}失败
+            {% else %}{{ campaign.status }}{% endif %}
+        </span>
+    </div>
+
+    {# ── Overall progress ── #}
+    <div class="progress-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span style="font-size:0.85rem;font-weight:600;">总体进度</span>
+            <span style="font-size:0.85rem;color:#6b7280;">{{ "%.0f"|format(campaign.progress_pct|float) }}%</span>
+        </div>
+        <div class="progress" style="height:0.75rem;">
+            <div class="progress-bar {% if running %}active{% endif %}"
+                 role="progressbar"
+                 style="width:{{ campaign.progress_pct|float }}%;"
+                 aria-valuenow="{{ campaign.progress_pct|int }}" aria-valuemin="0" aria-valuemax="100">
+            </div>
+        </div>
+
+        <div class="result-grid">
+            <div class="result-stat">
+                <div class="value">{{ campaign.seeds|length }}</div>
+                <div class="label">种子数</div>
+            </div>
+            <div class="result-stat">
+                <div class="value">{{ campaign.platforms|length }}</div>
+                <div class="label">平台数</div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Per-seed status ── #}
+    <div class="progress-card">
+        <h5 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem;">
+            <i class="bi bi-list-check me-1"></i>种子明细
+        </h5>
+        {% for seed in campaign.seeds %}
+        <div class="seed-row">
+            <span class="seed-idx">#{{ seed.seed_index }}</span>
+            <span class="seed-text">{{ seed.seed_text }}</span>
+            <span class="seed-status">
+                <span class="status-badge {{ seed.status }}">
+                    {% if seed.status == 'idle' %}等待
+                    {% elif seed.status == 'processing' %}处理中
+                    {% elif seed.status == 'success' %}成功
+                    {% elif seed.status == 'failed' %}失败
+                    {% elif seed.status == 'skipped' %}跳过
+                    {% else %}{{ seed.status }}{% endif %}
+                </span>
+            </span>
+            {% if seed.draft_count %}
+            <span style="font-size:0.75rem;color:#6b7280;flex-shrink:0;">稿 {{ seed.draft_count }}</span>
+            {% endif %}
+            {% if seed.published_count %}
+            <span style="font-size:0.75rem;color:#6b7280;flex-shrink:0;">发 {{ seed.published_count }}</span>
+            {% endif %}
+            {% if seed.error %}
+            <span style="font-size:0.75rem;color:#b91c1c;flex-shrink:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="{{ seed.error }}">{{ seed.error[:40] }}{% if seed.error|length > 40 %}…{% endif %}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {# ── Actions ── #}
+    <div class="d-flex gap-3 mt-3">
+        {% if campaign.status == 'draft_review' %}
+        <a href="/?campaign_id={{ campaign.campaign_id }}#drafts-tab" class="btn btn-primary">
+            <i class="bi bi-file-earmark-text me-2"></i>审稿
+        </a>
+        {% endif %}
+        <a href="/batch-campaign" class="btn btn-outline-secondary">
+            <i class="bi bi-plus-circle me-2"></i>新建任务
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block page_data %}
+{% if running %}
+<script>
+(function poll() {
+    fetch('/api/campaign/{{ campaign.campaign_id }}/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.running && data.done) {
+                window.location.reload();
+                return;
+            }
+            setTimeout(poll, 2000);
+        })
+        .catch(function() {
+            setTimeout(poll, 5000);
+        });
+})();
+</script>
+{% endif %}
+{% endblock %}
