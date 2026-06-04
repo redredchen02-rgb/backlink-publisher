@@ -20,7 +20,7 @@ from backlink_publisher.config.loader import _resolve_config_dir
 from .base import JsonStore, Store, _LazyStore
 from .campaign_store import CampaignStore
 from .channel_status import channel_status_store
-from .drafts import DraftsStore
+from .drafts import DraftsSqliteStore, DraftsStore
 from .history import HistoryStore
 from .profiles import ProfilesSqliteStore
 from .queue_store import QueueSqliteStore
@@ -54,6 +54,13 @@ def _make_queue_store() -> QueueSqliteStore:
     return store
 
 
+def _make_drafts_store() -> DraftsSqliteStore:
+    config_dir = _resolve_config_dir()
+    store = DraftsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store.migrate_from_json(config_dir)
+    return store
+
+
 # Singleton bindings — lazily resolved on first access so test fixtures
 # that set BACKLINK_PUBLISHER_CONFIG_DIR before accessing these don't
 # need _refresh_paths().
@@ -61,9 +68,7 @@ history_store = _LazyStore(
     lambda: HistoryStore(_store_path("publish-history.json"))
 )
 profiles_store = _LazyStore(_make_profiles_store)
-drafts_store = _LazyStore(
-    lambda: DraftsStore(_store_path("draft-queue.json"))
-)
+drafts_store = _LazyStore(_make_drafts_store)
 schedule_store = _LazyStore(_make_schedule_store)
 queue_store = _LazyStore(_make_queue_store)
 campaign_store = _LazyStore(
@@ -92,6 +97,7 @@ __all__ = [
     "_store_path",
     "CampaignStore",
     "DraftsStore",
+    "DraftsSqliteStore",
     "HistoryStore",
     "ProfilesSqliteStore",
     "QueueSqliteStore",

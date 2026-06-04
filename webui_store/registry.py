@@ -20,7 +20,7 @@ from flask import Flask
 from backlink_publisher.config.loader import _config_dir
 
 from .base import JsonStore
-from .drafts import DraftsStore
+from .drafts import DraftsSqliteStore
 from .history import HistoryStore
 from .queue_store import QueueSqliteStore
 from .sqlite_base import WebUIDatabase
@@ -38,7 +38,7 @@ class WebUIStores:
         self._app: Flask | None = None
         self._history: HistoryStore | None = None
         self._profiles: JsonStore | None = None
-        self._drafts: DraftsStore | None = None
+        self._drafts: DraftsSqliteStore | None = None
         self._schedule: JsonStore | None = None
         self._queue: QueueSqliteStore | None = None
 
@@ -64,9 +64,12 @@ class WebUIStores:
         return self._profiles
 
     @property
-    def drafts(self) -> DraftsStore:
+    def drafts(self) -> DraftsSqliteStore:
         if self._drafts is None:
-            self._drafts = DraftsStore(_config_dir() / "draft-queue.json")
+            config_dir = _config_dir()
+            store = DraftsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+            store.migrate_from_json(config_dir)
+            self._drafts = store
         return self._drafts
 
     @property
