@@ -37,12 +37,19 @@ from backlink_publisher.recheck.probe import recheck_link
 
 #: ghpages is sticky by design but unusable while the GitHub account is
 #: suspended, so the runtime republish default is blogger-only. The engine
-#: constant stays {blogger, ghpages}; the job narrows it.
+#: constant stays {blogger, ghpages}; the job narrows it. Public alias so the
+#: scorecard view derives the SAME gap set the job will publish (no S2↔S3 drift).
 _RUNTIME_STICKY = ("blogger",)
+RUNTIME_STICKY_PLATFORMS = _RUNTIME_STICKY
 
 #: A worker exception or a probe that raises is recorded as this verdict —
 #: "check-failed", never a gap (R1-a; the gap engine excludes probe_error).
 _PROBE_ERROR = "probe_error"
+
+#: Verdicts that mean a freshly-published link was eaten immediately → S7
+#: treadmill. Mirrors ``gap.engine._DEAD_VERDICTS`` (same death taxonomy);
+#: ``probe_error`` is deliberately NOT here (indeterminate, never a re-strip).
+_DEAD_VERDICTS = ("link_stripped", "host_gone")
 
 
 def _default_candidates(store: EventStore) -> list[dict]:
@@ -77,8 +84,15 @@ class RepublishJob:
     published: int = 0
     failed: int = 0
     results: list[dict] = field(default_factory=list)
-    state: str = ""  # all_success | partial_success | all_failed (S6 / S6-partial)
+    state: str = ""  # all_success | partial_success | all_failed | treadmill (S6 / S6-partial / S7)
     error: str | None = None
+    # 7b auto-recheck phase: publishing (S5) → rechecking (S6 probe) → done.
+    phase: str = "publishing"
+    reverify_total: int = 0
+    reverify_done: int = 0
+    reverified: list[dict] = field(default_factory=list)  # {target_url, published_url, verdict}
+    restripped: int = 0        # fresh URLs already stripped on the confirming recheck → S7
+    confirmed_alive: int = 0   # fresh URLs proven live → S6
 
 
 def _default_republish_gaps(store: EventStore):
@@ -129,6 +143,28 @@ def _default_persist(entry: dict) -> None:
     crash between publish and recheck leaves a recoverable, honest record."""
     from webui_store import history_store
     history_store.update(lambda hist: [entry, *hist][:200])
+
+
+def _default_reverify(result: dict, store: EventStore) -> dict:
+    """7b: probe ONE freshly-published article URL to prove the new backlink went
+    live, and append the verdict to the ``link.rechecked`` series so the scorecard
+    reflects it. ``link_stripped``/``host_gone`` here means the new URL was eaten
+    immediately → S7 treadmill. Never raises; a probe failure is ``probe_error``."""
+    from urllib.parse import urlsplit
+
+    url = (result.get("published_url") or "").strip()
+    record = {
+        "live_url": url,
+        "target_url": result.get("target_url"),
+        "host": (urlsplit(url).hostname or "").lower(),
+        "platform": result.get("platform"),
+    }
+    verdict = recheck_link(record, probe=True)
+    try:
+        emit_recheck(store, [verdict])
+    except Exception:  # noqa: BLE001 — a write failure must not lose the verdict signal
+        pass
+    return verdict
 
 
 class KeepaliveJobRegistry:
@@ -263,6 +299,12 @@ class KeepaliveJobRegistry:
                 "failed": job.failed,
                 "results": list(job.results),
                 "state": job.state,
+                "phase": job.phase,
+                "reverify_total": job.reverify_total,
+                "reverify_done": job.reverify_done,
+                "reverified": list(job.reverified),
+                "restripped": job.restripped,
+                "confirmed_alive": job.confirmed_alive,
             })
         else:
             base.update({
@@ -297,6 +339,13 @@ class KeepaliveJobRegistry:
             "gap_fingerprint": fingerprint,
             "targets": sorted({s.get("target_url") for s in seeds}),
             "seed_count": len(seeds),
+            # per-seed destinations so the S4 confirm modal can line-item each
+            # republish as "<target deep page> → <sticky platform>" (the exact
+            # server-side plan, not a client guess).
+            "seeds": [
+                {"target_url": s.get("target_url"), "platform": s.get("platform")}
+                for s in seeds
+            ],
         }
 
     def start_republish(
@@ -308,6 +357,7 @@ class KeepaliveJobRegistry:
         gap_fn=None,
         publish_fn: Callable[[dict], dict] | None = None,
         persist_fn: Callable[[dict], None] | None = None,
+        recheck_fn: Callable[[dict], dict] | None = None,
         sticky_platforms=_RUNTIME_STICKY,
     ) -> RepublishJob:
         """Republish the selected stripped-link gaps to sticky platforms.
@@ -322,6 +372,7 @@ class KeepaliveJobRegistry:
         gap_fn = gap_fn or _default_republish_gaps
         publish_fn = publish_fn or _default_publish_seed
         persist_fn = persist_fn or _default_persist
+        recheck_fn = recheck_fn or (lambda result: _default_reverify(result, store))
         sticky = set(sticky_platforms)
         wanted = set(selected_targets or [])
 
@@ -360,14 +411,15 @@ class KeepaliveJobRegistry:
             self._jobs[job_id] = job
 
         worker = threading.Thread(
-            target=self._run_republish, args=(job, plan, publish_fn, persist_fn),
+            target=self._run_republish, args=(job, plan, publish_fn, persist_fn, recheck_fn),
             daemon=True, name=f"keepalive-republish-{job_id[:8]}",
         )
         worker.start()
         return job
 
-    def _run_republish(self, job, plan, publish_fn, persist_fn):
+    def _run_republish(self, job, plan, publish_fn, persist_fn, recheck_fn):
         try:
+            # ── publish phase (S5) ──────────────────────────────────────────
             for seed in plan:
                 try:
                     result = publish_fn(seed)
@@ -396,18 +448,53 @@ class KeepaliveJobRegistry:
                         job.published += 1
                     else:
                         job.failed += 1
+
+            # ── auto-recheck phase (7b / S6): prove the new URLs went live, or
+            # terminate in S7 (treadmill) if a fresh URL was eaten immediately.
+            # No auto-loop (D5) — one confirming recheck, then a terminal verdict.
             with self._lock:
-                if job.failed == 0:
-                    job.state = "all_success"
-                elif job.published == 0:
-                    job.state = "all_failed"
-                else:
-                    job.state = "partial_success"
+                job.phase = "rechecking"
+                ok_results = [r for r in job.results if (r.get("published_url") or "").strip()]
+                job.reverify_total = len(ok_results)
+            for res in ok_results:
+                try:
+                    verdict = recheck_fn(res)
+                except Exception as exc:  # noqa: BLE001
+                    verdict = {"verdict": _PROBE_ERROR, "reason": f"reverify error: {exc}"}
+                v = verdict.get("verdict") or _PROBE_ERROR
+                with self._lock:
+                    job.reverify_done += 1
+                    job.reverified.append({
+                        "target_url": res.get("target_url"),
+                        "published_url": res.get("published_url"),
+                        "verdict": v,
+                    })
+                    if v in _DEAD_VERDICTS:
+                        job.restripped += 1
+                    elif v == "alive":
+                        job.confirmed_alive += 1
+
+            with self._lock:
+                job.state = self._republish_state(job)
+                job.phase = "done"
                 job.status = "done"
         except Exception as exc:  # noqa: BLE001
             with self._lock:
                 job.status = "error"
                 job.error = f"republish job failed: {exc}"
+
+    @staticmethod
+    def _republish_state(job) -> str:
+        """Map publish + auto-recheck outcome to a terminal state (G1: no raw
+        codes). A fresh URL re-stripped (S7) outranks any publish partial — it's
+        the strongest signal that the destination is unreliable (D5)."""
+        if job.restripped > 0:
+            return "treadmill"          # S7
+        if job.published == 0:
+            return "all_failed"
+        if job.failed == 0:
+            return "all_success"        # S6
+        return "partial_success"        # S6-partial
 
     def reset_for_tests(self) -> None:
         with self._lock:
@@ -417,4 +504,7 @@ class KeepaliveJobRegistry:
 
 registry = KeepaliveJobRegistry()
 
-__all__ = ["KeepaliveJob", "RepublishJob", "KeepaliveJobRegistry", "registry"]
+__all__ = [
+    "KeepaliveJob", "RepublishJob", "KeepaliveJobRegistry", "registry",
+    "RUNTIME_STICKY_PLATFORMS",
+]

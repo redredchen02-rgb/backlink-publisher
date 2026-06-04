@@ -11,6 +11,9 @@
     .ka-attention > td { box-shadow: inset 3px 0 0 #dc3545; }   /* bleeding target */
     .ka-section-label td { background: #fbfbfd; font-weight: 600; }
     .ka-badge { font-size: 12px; }
+    .ka-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45);
+                  display: flex; align-items: center; justify-content: center; z-index: 1080; }
+    .ka-overlay-card { max-width: 560px; width: 92%; max-height: 82vh; overflow: auto; }
   </style>
 {% endblock %}
 {% block content %}
@@ -42,6 +45,50 @@
     </div>
   </div>
 
+  {# S3: republish gap selection — shown only after a fresh recheck reveals
+     bleeding links (never while S-stale, which gates the republish CTA). #}
+  <div id="republishPanel" class="card border-danger mb-3 d-none">
+    <div class="card-header bg-danger-subtle d-flex justify-content-between align-items-center">
+      <strong><i class="bi bi-bandaid me-1"></i>可重发的流血链 <span id="gapCount">0</span></strong>
+      <small class="text-muted" id="gapExcludedLine"></small>
+    </div>
+    <div class="card-body">
+      <label class="form-check small mb-2">
+        <input type="checkbox" class="form-check-input me-1" id="gapSelectAll" data-action="toggle-all-gaps">
+        全选
+      </label>
+      <ul class="list-group mb-3" id="gapList"></ul>
+      <button id="republishBtn" class="btn btn-danger btn-sm" data-action="open-confirm" disabled>
+        <i class="bi bi-arrow-repeat"></i> 重发选中 <span id="republishCount">0</span>
+      </button>
+    </div>
+  </div>
+
+  {# S2-healthy: recheck done, zero gaps → affirmative, no republish CTA. #}
+  <div id="healthyNote" class="alert alert-success d-none" role="status"></div>
+
+  {# S5: republish progress (publishing → auto-recheck of the new URLs). #}
+  <div id="republishProgress" class="card border-warning mb-3 d-none">
+    <div class="card-body">
+      <strong id="republishPhase"><i class="bi bi-cloud-upload me-1"></i>正在重发…</strong>
+      <div class="progress mt-2" style="height: 18px;">
+        <div id="republishBar" class="progress-bar bg-warning progress-bar-striped progress-bar-animated"
+             role="progressbar" style="width: 0%;"></div>
+      </div>
+      <p class="text-muted small mb-0 mt-2" id="republishLine"></p>
+    </div>
+  </div>
+
+  {# S6 / S6-partial / S7: republish result. #}
+  <div id="republishResult" class="card mb-3 d-none">
+    <div class="card-body">
+      <h6 id="republishResultTitle" class="mb-2"></h6>
+      <p id="republishResultMsg" class="mb-2"></p>
+      <ul class="list-group mb-3 d-none" id="republishResultList"></ul>
+      <button class="btn btn-sm btn-outline-secondary" data-action="republish-done">完成</button>
+    </div>
+  </div>
+
   <div id="emptyState" class="text-center text-muted py-5 d-none"></div>
 
   <div id="scorecard" class="d-none">
@@ -62,6 +109,28 @@
         </thead>
         <tbody id="keepAliveBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  {# S4: confirm modal — line-items each republish as target → sticky platform,
+     states irreversibility, and offers Publish / Back (Back preserves S3). #}
+  <div id="confirmOverlay" class="ka-overlay d-none">
+    <div class="card ka-overlay-card">
+      <div class="card-header"><strong><i class="bi bi-exclamation-octagon me-1"></i>确认重发</strong></div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">将向黏性平台为以下流血链各重新发布一条新文章：</p>
+        <ul class="list-group mb-3" id="confirmList"></ul>
+        <p class="mb-1 fw-semibold" id="confirmCounts"></p>
+        <p class="text-danger small mb-3">
+          <i class="bi bi-exclamation-triangle me-1"></i>这会真实发布到外部平台，无法撤销。
+        </p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-danger btn-sm" data-action="confirm-republish">
+            <i class="bi bi-cloud-upload"></i> 发布
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" data-action="cancel-confirm">返回</button>
+        </div>
+      </div>
     </div>
   </div>
 </main>

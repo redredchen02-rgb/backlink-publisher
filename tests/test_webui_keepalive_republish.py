@@ -37,6 +37,18 @@ def _fail_publish(seed):
             "published_url": "", "status": "failed", "error": "blogger 429"}
 
 
+def _alive_recheck(result):
+    # 7b: the freshly-published URL probes alive (the happy confirming recheck).
+    return {"verdict": "alive", "live_url": result.get("published_url"),
+            "target_url": result.get("target_url")}
+
+
+def _stripped_recheck(result):
+    # 7b: the new URL was eaten immediately → S7 treadmill.
+    return {"verdict": "link_stripped", "live_url": result.get("published_url"),
+            "target_url": result.get("target_url")}
+
+
 def _wait(reg, job_id, timeout=4.0):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -47,12 +59,14 @@ def _wait(reg, job_id, timeout=4.0):
     return reg.poll(job_id)
 
 
-def _issue_and_start(reg, seeds, targets, *, publish_fn, persist_fn=lambda e: None):
+def _issue_and_start(reg, seeds, targets, *, publish_fn, persist_fn=lambda e: None,
+                     recheck_fn=_alive_recheck):
     gap = _gap_fn(seeds)
     tok = reg.issue_confirm_token(store=None, gap_fn=gap)["confirm_token"]
     job = reg.start_republish(
         selected_targets=targets, confirm_token=tok, store=None,
-        gap_fn=gap, publish_fn=publish_fn, persist_fn=persist_fn, sticky_platforms=("blogger",),
+        gap_fn=gap, publish_fn=publish_fn, persist_fn=persist_fn,
+        recheck_fn=recheck_fn, sticky_platforms=("blogger",),
     )
     return _wait(reg, job.id)
 
@@ -119,7 +133,8 @@ def test_token_is_single_use():
     tok = reg.issue_confirm_token(store=None, gap_fn=gap)["confirm_token"]
     job = reg.start_republish(selected_targets=["https://51acgs.com/comic/117"],
                              confirm_token=tok, store=None, gap_fn=gap,
-                             publish_fn=_ok_publish, sticky_platforms=("blogger",))
+                             publish_fn=_ok_publish, recheck_fn=_alive_recheck,
+                             sticky_platforms=("blogger",))
     _wait(reg, job.id)
     with pytest.raises(UsageError, match="confirm token"):  # replay rejected
         reg.start_republish(selected_targets=["https://51acgs.com/comic/117"],
@@ -140,7 +155,8 @@ def test_concurrent_republish_conflicts():
     t1 = reg.issue_confirm_token(store=None, gap_fn=gap)["confirm_token"]
     job = reg.start_republish(selected_targets=["https://51acgs.com/comic/117"],
                              confirm_token=t1, store=None, gap_fn=gap,
-                             publish_fn=slow, sticky_platforms=("blogger",))
+                             publish_fn=slow, recheck_fn=_alive_recheck,
+                             sticky_platforms=("blogger",))
     t2 = reg.issue_confirm_token(store=None, gap_fn=gap)["confirm_token"]
     with pytest.raises(UsageError, match="already running"):
         reg.start_republish(selected_targets=["https://51acgs.com/comic/117"],
@@ -148,3 +164,61 @@ def test_concurrent_republish_conflicts():
                             publish_fn=slow, sticky_platforms=("blogger",))
     hold.set()
     _wait(reg, job.id)
+
+
+# ── 7b: auto-recheck of the freshly-published URLs (S6 confirm / S7 treadmill) ──
+
+def test_auto_recheck_confirms_new_url_alive_s6():
+    reg = KeepaliveJobRegistry()
+    seeds = [_seed("https://51acgs.com/comic/117")]
+    p = _issue_and_start(reg, seeds, ["https://51acgs.com/comic/117"],
+                         publish_fn=_ok_publish, recheck_fn=_alive_recheck)
+    assert p["state"] == "all_success" and p["phase"] == "done"
+    # the new URL was probed and proven live — not a blind "published" claim.
+    assert p["reverify_total"] == 1 and p["reverify_done"] == 1
+    assert p["confirmed_alive"] == 1 and p["restripped"] == 0
+    assert p["reverified"][0]["verdict"] == "alive"
+
+
+def test_fresh_url_restripped_terminates_in_treadmill_s7():
+    reg = KeepaliveJobRegistry()
+    seeds = [_seed("https://51acgs.com/comic/117")]
+    # publish succeeds, but the confirming recheck finds the new link already gone.
+    p = _issue_and_start(reg, seeds, ["https://51acgs.com/comic/117"],
+                         publish_fn=_ok_publish, recheck_fn=_stripped_recheck)
+    assert p["published"] == 1                 # the publish itself succeeded
+    assert p["state"] == "treadmill"           # S7: platform-unreliable terminal
+    assert p["restripped"] == 1 and p["confirmed_alive"] == 0
+
+
+def test_only_published_urls_are_rechecked():
+    reg = KeepaliveJobRegistry()
+    seeds = [_seed("https://51acgs.com/comic/117"), _seed("https://51acgs.com/comic/528")]
+    seen = []
+
+    def track(result):
+        seen.append(result["published_url"])
+        return _alive_recheck(result)
+
+    def mixed(seed):
+        return _ok_publish(seed) if "117" in seed["target_url"] else _fail_publish(seed)
+
+    p = _issue_and_start(reg, seeds, [s["target_url"] for s in seeds],
+                         publish_fn=mixed, recheck_fn=track)
+    # only the one successful publish is rechecked; the failed one never is.
+    assert p["reverify_total"] == 1 and len(seen) == 1
+    assert p["state"] == "partial_success"     # a publish failure still beats no-publish
+
+
+def test_reverify_error_is_probe_error_not_a_treadmill():
+    reg = KeepaliveJobRegistry()
+    seeds = [_seed("https://51acgs.com/comic/117")]
+
+    def boom(result):
+        raise RuntimeError("network down")
+
+    p = _issue_and_start(reg, seeds, ["https://51acgs.com/comic/117"],
+                         publish_fn=_ok_publish, recheck_fn=boom)
+    # a probe failure is indeterminate — it must NOT be read as a re-strip (S7).
+    assert p["restripped"] == 0 and p["state"] == "all_success"
+    assert p["reverified"][0]["verdict"] == "probe_error"
