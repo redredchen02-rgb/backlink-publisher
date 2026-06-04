@@ -46,8 +46,13 @@ PROTECTED_GLOBS: frozenset[str] = frozenset(
         "config.toml",
         "llm-settings.json",
         "events.db",
+        # Unified WebUI operational state (Plan 2026-06-03-008: 6 JSON stores
+        # → webui.db). Contains operator URLs, schedules, drafts, campaigns.
+        "webui.db",
         "persona.salt",
         # WebUI history / queue / settings (contain operator URLs and schedules)
+        # — the .json names below remain as the pre-migration source/.migrated
+        # artefacts; webui.db above is the live store.
         "publish-history.json",
         "campaign-profiles.json",
         "draft-queue.json",

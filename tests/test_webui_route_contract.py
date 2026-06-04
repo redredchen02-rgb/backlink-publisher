@@ -60,10 +60,13 @@ def _isolated_webui_state(tmp_path, monkeypatch):
 
     state_dir = tmp_path / "webui_state"
     state_dir.mkdir(parents=True, exist_ok=True)
+    # history_store stays JSON-backed (its events.db migration is parked).
     monkeypatch.setattr(ws.history_store, "path", state_dir / "publish-history.json")
-    monkeypatch.setattr(ws.profiles_store, "path", state_dir / "campaign-profiles.json")
-    monkeypatch.setattr(ws.drafts_store, "path", state_dir / "draft-queue.json")
-    monkeypatch.setattr(ws.schedule_store, "path", state_dir / "schedule-settings.json")
+    # profiles / drafts / schedule migrated to the unified webui.db
+    # (Plan 2026-06-03-008); they all share one SQLite file.
+    monkeypatch.setattr(ws.profiles_store, "path", state_dir / "webui.db")
+    monkeypatch.setattr(ws.drafts_store, "path", state_dir / "webui.db")
+    monkeypatch.setattr(ws.schedule_store, "path", state_dir / "webui.db")
 
 
 @pytest.fixture(autouse=True)
@@ -283,13 +286,15 @@ class TestGetRoutes:
         )
 
     def test_root_does_not_crash_with_missing_state_files(self, client, tmp_path):
-        """Edge case: first-time startup, none of the JSON state files exist
-        yet. The autouse fixture points stores at a fresh tmp_path so they're
-        guaranteed absent. Index must still render."""
+        """Edge case: first-time startup with no persisted state. history_store
+        is still JSON-backed so its file is genuinely absent; the SQLite-backed
+        stores (now sharing webui.db) start empty. Index must still render."""
         import webui_store as ws
 
         assert not ws.history_store.path.exists()
-        assert not ws.drafts_store.path.exists()
+        # drafts_store is SQLite-backed now: the db file may be created eagerly
+        # by the path redirect, but it must start empty.
+        assert ws.drafts_store.load() == []
 
         resp = client.get("/")
         assert resp.status_code == 200

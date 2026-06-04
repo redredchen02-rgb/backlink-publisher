@@ -107,7 +107,7 @@ class ProfilesSqliteStore(SqliteStore):
         try:
             text = json_path.read_text(encoding="utf-8")
             data = json.loads(text)
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError):
             _log.warning("profiles_store migration: skipping corrupt/unreadable %s", json_path)
             return
 
