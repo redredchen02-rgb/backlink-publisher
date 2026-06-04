@@ -9,6 +9,7 @@ beautifulsoup4<5,>=4.13
 flask<4,>=3.1
 flask-limiter<5,>=3.5
 apscheduler<4,>=3.11
+pydantic>=2.0
 pyyaml>=6.0.3
 google-analytics-data>=0.18
 
@@ -20,9 +21,10 @@ pytest-socket>=0.7
 pytest-env>=1.6
 pytest-asyncio<2,>=1.1
 pytest-xdist>=3.6
+pytest-cov>=6.0
 hypothesis>=6.151
 radon==6.0.1
 mypy>=1.8
 
 [dev-webwright]
-webwright==0.0.7
+webwright @ git+https://github.com/microsoft/Webwright.git@4a46f282ec37f27d6003cc498a977939d62d9015

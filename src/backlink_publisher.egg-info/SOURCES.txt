@@ -75,6 +75,7 @@ src/backlink_publisher/cli/channel_scorecard.py
 src/backlink_publisher/cli/click_track.py
 src/backlink_publisher/cli/comment.py
 src/backlink_publisher/cli/cull_channels.py
+src/backlink_publisher/cli/debt_report.py
 src/backlink_publisher/cli/dispatch_backlinks.py
 src/backlink_publisher/cli/equity_ledger.py
 src/backlink_publisher/cli/footprint.py
@@ -85,6 +86,7 @@ src/backlink_publisher/cli/medium_login.py
 src/backlink_publisher/cli/phase0_seal.py
 src/backlink_publisher/cli/plan_check.py
 src/backlink_publisher/cli/plan_gap.py
+src/backlink_publisher/cli/platform_health.py
 src/backlink_publisher/cli/pr_opportunities.py
 src/backlink_publisher/cli/preflight_targets.py
 src/backlink_publisher/cli/preview_manifest.py
@@ -154,9 +156,11 @@ src/backlink_publisher/config/parsers/image_gen.py
 src/backlink_publisher/config/parsers/llm.py
 src/backlink_publisher/config/parsers/target.py
 src/backlink_publisher/config/parsers/three_url.py
+src/backlink_publisher/config/parsers/throttle.py
 src/backlink_publisher/content/__init__.py
 src/backlink_publisher/content/_disk_cache.py
 src/backlink_publisher/content/_fetch_helpers.py
+src/backlink_publisher/content/_fetch_settings.py
 src/backlink_publisher/content/_html_utils.py
 src/backlink_publisher/content/_http.py
 src/backlink_publisher/content/_preflight_fetch.py
@@ -172,9 +176,12 @@ src/backlink_publisher/events/__init__.py
 src/backlink_publisher/events/_project_helpers.py
 src/backlink_publisher/events/_project_reducers.py
 src/backlink_publisher/events/_store_sqlite.py
+src/backlink_publisher/events/history_importer.py
+src/backlink_publisher/events/history_query.py
 src/backlink_publisher/events/kinds.py
 src/backlink_publisher/events/persona.py
 src/backlink_publisher/events/projector.py
+src/backlink_publisher/events/publish_writer.py
 src/backlink_publisher/events/reconcile.py
 src/backlink_publisher/events/reconciler.py
 src/backlink_publisher/events/schema.py
@@ -195,6 +202,15 @@ src/backlink_publisher/geo/run.py
 src/backlink_publisher/geo/selection.py
 src/backlink_publisher/geo/share.py
 src/backlink_publisher/geo/verdict.py
+src/backlink_publisher/health/__init__.py
+src/backlink_publisher/health/aggregate.py
+src/backlink_publisher/health/registry.py
+src/backlink_publisher/health/checkers/__init__.py
+src/backlink_publisher/health/checkers/config_checker.py
+src/backlink_publisher/health/checkers/credential_checker.py
+src/backlink_publisher/health/checkers/disk_checker.py
+src/backlink_publisher/health/persistence/__init__.py
+src/backlink_publisher/health/persistence/locked_store.py
 src/backlink_publisher/idempotency/__init__.py
 src/backlink_publisher/idempotency/_constants.py
 src/backlink_publisher/idempotency/_dedup_connection.py
@@ -279,6 +295,10 @@ src/backlink_publisher/publishing/adapters/image_gen/adapter.py
 src/backlink_publisher/publishing/adapters/image_gen/caps.py
 src/backlink_publisher/publishing/adapters/image_gen/storage.py
 src/backlink_publisher/publishing/adapters/image_gen/types.py
+src/backlink_publisher/publishing/adapters/velog/__init__.py
+src/backlink_publisher/publishing/adapters/velog/auth.py
+src/backlink_publisher/publishing/adapters/velog/constants.py
+src/backlink_publisher/publishing/adapters/velog/utils.py
 src/backlink_publisher/publishing/browser_publish/__init__.py
 src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py
 src/backlink_publisher/publishing/browser_publish/chrome_session.py
@@ -326,6 +346,7 @@ tests/test_adapter_qiita.py
 tests/test_adapter_retry.py
 tests/test_adapter_telegraph_api.py
 tests/test_adapter_telegraph_api_self_heal.py
+tests/test_adapter_telegraph_cdp_chain.py
 tests/test_adapter_txtfyi_api.py
 tests/test_adapter_velog_graphql.py
 tests/test_adapter_zenn.py
@@ -390,6 +411,7 @@ tests/test_cli_generate_backlink_text.py
 tests/test_cli_plan_backlinks_cell_gate.py
 tests/test_cli_plan_check.py
 tests/test_cli_plan_gap.py
+tests/test_cli_platform_health.py
 tests/test_cli_preflight_targets.py
 tests/test_cli_probe_citations.py
 tests/test_cli_python_m_entrypoints.py
@@ -424,6 +446,7 @@ tests/test_config_round_trip_mastodon.py
 tests/test_config_roundtrip.py
 tests/test_config_safety_net.py
 tests/test_config_three_url.py
+tests/test_config_throttle_round_trip.py
 tests/test_config_tokens_notion_devto.py
 tests/test_config_v2_pools.py
 tests/test_conftest_state_net.py
@@ -442,6 +465,7 @@ tests/test_credential_save_dispatch_drift.py
 tests/test_credential_service.py
 tests/test_credential_tripwire.py
 tests/test_csrf_guard_canary.py
+tests/test_debt_registry_format.py
 tests/test_dedup_adjudicate.py
 tests/test_dedup_enforce_gate.py
 tests/test_dedup_enforce_reconcile.py
@@ -471,6 +495,7 @@ tests/test_events_r10_alarm.py
 tests/test_events_r8_gates.py
 tests/test_events_r9_required_fields.py
 tests/test_events_schema.py
+tests/test_events_schema_v4.py
 tests/test_events_scrubber.py
 tests/test_events_store.py
 tests/test_events_store_lease.py
@@ -501,7 +526,9 @@ tests/test_geo_verdict.py
 tests/test_ghpages_banner.py
 tests/test_gitlabpages_adapter.py
 tests/test_hackmd_adapter.py
+tests/test_health_actions_route.py
 tests/test_health_channel_scorecard_card.py
+tests/test_health_checkers.py
 tests/test_health_dashboard_gaps.py
 tests/test_health_dashboard_route.py
 tests/test_health_metrics.py
@@ -535,6 +562,7 @@ tests/test_linkedin_api.py
 tests/test_llm_anchor_provider.py
 tests/test_llm_client.py
 tests/test_llm_parser.py
+tests/test_locked_health_store.py
 tests/test_logger_redactor.py
 tests/test_manifest_contract.py
 tests/test_manifest_drift.py
@@ -554,6 +582,7 @@ tests/test_merge_categories.py
 tests/test_no_complexity_regrowth.py
 tests/test_no_inner_import_shadowing.py
 tests/test_no_monolith_regrowth.py
+tests/test_no_orphan_code.py
 tests/test_no_orphaned_guard_scripts.py
 tests/test_no_raw_home_path_primitives.py
 tests/test_notion_adapter.py
@@ -586,6 +615,7 @@ tests/test_plan_cover_image_fields.py
 tests/test_plan_engine.py
 tests/test_plan_redrift.py
 tests/test_platform_discovery.py
+tests/test_platform_health_aggregate.py
 tests/test_platform_lookup.py
 tests/test_pr_outreach.py
 tests/test_preflight_fetch.py
@@ -600,6 +630,7 @@ tests/test_publish_backlinks_characterization.py
 tests/test_publish_backlinks_publish_time_linkcheck.py
 tests/test_publish_backlinks_resume.py
 tests/test_publish_backlinks_resume_revalidate.py
+tests/test_publish_paused_gate.py
 tests/test_publish_verify_integration.py
 tests/test_purge_removed_credentials.py
 tests/test_r9_extension_readiness.py
@@ -612,6 +643,7 @@ tests/test_recheck_probe.py
 tests/test_recheck_selection.py
 tests/test_recheck_verdicts.py
 tests/test_recipe_host_filter_registration.py
+tests/test_recon_events_against_schema.py
 tests/test_reconciler_batch_read.py
 tests/test_registration_drift_extension_proof.py
 tests/test_registry_auth_expired_fallthrough.py
@@ -622,8 +654,10 @@ tests/test_registry_manifest.py
 tests/test_registry_rejected_platforms.py
 tests/test_reliability_circuit.py
 tests/test_reliability_circuit_crossproc.py
+tests/test_reliability_circuit_expansion.py
 tests/test_reliability_events.py
 tests/test_reliability_policy.py
+tests/test_reliability_policy_live.py
 tests/test_rentry_api.py
 tests/test_report_anchors.py
 tests/test_report_anchors_tier_segmentation.py
@@ -709,7 +743,14 @@ tests/test_webui_settings_template_split.py
 tests/test_webui_static_css_served.py
 tests/test_webui_store.py
 tests/test_webui_store_bulk_helpers.py
+tests/test_webui_store_campaign_sqlite.py
+tests/test_webui_store_channel_status_sqlite.py
+tests/test_webui_store_drafts_sqlite.py
 tests/test_webui_store_isolation.py
+tests/test_webui_store_profiles_sqlite.py
+tests/test_webui_store_queue_sqlite.py
+tests/test_webui_store_schedule_sqlite.py
+tests/test_webui_store_sqlite_base.py
 tests/test_webui_strip_cli_banner.py
 tests/test_webui_three_url.py
 tests/test_webui_token_paste.py
