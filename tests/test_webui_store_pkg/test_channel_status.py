@@ -11,7 +11,6 @@ Locks the contract for the binding state singleton:
 
 from __future__ import annotations
 
-import json
 import os
 import threading
 
@@ -175,15 +174,14 @@ class TestConcurrentMarkBound:
 
 
 class TestStoreSerialization:
-    def test_persisted_json_is_valid(self):
+    def test_persisted_record_survives_reload(self):
         target = _config_dir() / "velog-cookies.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("{}")
         mark_bound("velog", target)
 
-        # Reload from disk and verify structure
-        with open(channel_status_store.path) as f:
-            data = json.load(f)
+        # Reload through the store (now SQLite-backed) and verify structure.
+        data = channel_status_store.load()
         assert "velog" in data
         assert data["velog"]["status"] == "bound"
 

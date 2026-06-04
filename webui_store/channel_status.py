@@ -8,6 +8,7 @@ on first access.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -17,7 +18,9 @@ from typing import Any
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.cli._bind.channels import CHANNELS
 from backlink_publisher.config.loader import _config_dir
-from webui_store.base import JsonStore, _LazyStore
+from backlink_publisher.events._store_sqlite import _retry_sqlite
+from webui_store.base import _LazyStore
+from webui_store.sqlite_base import SqliteStore, WebUIDatabase
 
 _log = logging.getLogger(__name__)
 
@@ -29,13 +32,188 @@ _UNBOUND_DEFAULT: dict[str, Any] = {
     "last_verified_at": None,
 }
 
-
-channel_status_store: _LazyStore = _LazyStore(
-    lambda: JsonStore(
-        _config_dir() / "channel-status.json",
-        default_factory=dict,
-    )
+# Columns that get their own dedicated SQLite column. Every other key in a
+# record (e.g. identity_mismatch_old / identity_mismatch_new) is folded into
+# the ``extra_json`` blob and merged back at the top level on load.
+_KNOWN_COLUMNS: tuple[str, ...] = (
+    "status",
+    "bound_at",
+    "storage_state_path",
+    "last_verified_at",
 )
+
+_SENTINEL_NAME = ".webui-channel-status-migrated-v1"
+_JSON_FILENAME = "channel-status.json"
+
+
+class ChannelStatusSqliteStore(SqliteStore):
+    """Row-table store for channel-binding status, backed by webui.db.
+
+    Replaces the ``channel-status.json`` JsonStore. Each channel is a row keyed
+    by its slug. The four common fields (``status``, ``bound_at``,
+    ``storage_state_path``, ``last_verified_at``) are dedicated columns; any
+    additional keys (the infrequent ``identity_mismatch_old`` /
+    ``identity_mismatch_new``) live in an ``extra_json`` blob and are merged
+    back at the top level on ``load()`` so the public ``dict[str, dict]``
+    contract is byte-for-byte preserved.
+
+    Table::
+
+        channel_status (
+          channel            TEXT PRIMARY KEY,
+          status             TEXT NOT NULL,
+          bound_at           TEXT,
+          storage_state_path TEXT,
+          last_verified_at   TEXT,
+          extra_json         TEXT
+        )
+
+    ``load()`` returns the full ``dict[str, dict]`` (``{}`` when empty).
+    ``save(value)`` is a full delete-all + bulk-insert rewrite (matches the
+    JsonStore whole-file rewrite semantics). ``update(fn)`` is inherited
+    (load → fn → save under RLock).
+    """
+
+    def __init__(self, db: WebUIDatabase) -> None:
+        super().__init__(db)
+        self._init_table()
+
+    def _init_table(self) -> None:
+        with self._db.connect() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS channel_status ("
+                "channel TEXT PRIMARY KEY, "
+                "status TEXT NOT NULL, "
+                "bound_at TEXT, "
+                "storage_state_path TEXT, "
+                "last_verified_at TEXT, "
+                "extra_json TEXT)"
+            )
+
+    def load(self) -> dict[str, dict[str, Any]]:
+        def _op() -> dict[str, dict[str, Any]]:
+            with self._db.connect() as conn:
+                rows = conn.execute(
+                    "SELECT channel, status, bound_at, storage_state_path, "
+                    "last_verified_at, extra_json FROM channel_status"
+                ).fetchall()
+            result: dict[str, dict[str, Any]] = {}
+            for (
+                channel,
+                status,
+                bound_at,
+                storage_state_path,
+                last_verified_at,
+                extra_json,
+            ) in rows:
+                rec: dict[str, Any] = {
+                    "status": status,
+                    "bound_at": bound_at,
+                    "storage_state_path": storage_state_path,
+                    "last_verified_at": last_verified_at,
+                }
+                if extra_json:
+                    try:
+                        extra = json.loads(extra_json)
+                        if isinstance(extra, dict):
+                            rec.update(extra)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                result[channel] = rec
+            return result
+
+        return _retry_sqlite(_op)
+
+    def save(self, value: dict[str, dict[str, Any]]) -> None:
+        records = value if isinstance(value, dict) else {}
+        rows: list[tuple[Any, ...]] = []
+        for channel, rec in records.items():
+            rec = rec if isinstance(rec, dict) else {}
+            extra = {k: v for k, v in rec.items() if k not in _KNOWN_COLUMNS}
+            rows.append(
+                (
+                    channel,
+                    rec.get("status"),
+                    rec.get("bound_at"),
+                    rec.get("storage_state_path"),
+                    rec.get("last_verified_at"),
+                    json.dumps(extra, ensure_ascii=False) if extra else None,
+                )
+            )
+
+        with self._lock:
+            def _op() -> None:
+                with self._db.connect() as conn:
+                    conn.execute("DELETE FROM channel_status")
+                    if rows:
+                        conn.executemany(
+                            "INSERT INTO channel_status (channel, status, "
+                            "bound_at, storage_state_path, last_verified_at, "
+                            "extra_json) VALUES (?, ?, ?, ?, ?, ?)",
+                            rows,
+                        )
+
+            _retry_sqlite(_op)
+
+    # ── Startup migration ─────────────────────────────────────────────────
+
+    def migrate_from_json(self, config_dir: Path) -> None:
+        """One-shot import from ``channel-status.json`` if not yet migrated.
+
+        Same load-bearing sequence as ``ScheduleSqliteStore.migrate_from_json``:
+        commit to webui.db → rename ``.json`` → chmod 0o600 → write sentinel.
+        Corrupt/absent JSON is silently skipped (sentinel NOT written so a
+        later-appearing file can still be imported).
+        """
+        sentinel = config_dir / _SENTINEL_NAME
+        json_path = config_dir / _JSON_FILENAME
+        migrated_path = json_path.with_suffix(".json.migrated")
+
+        if sentinel.exists():
+            return
+
+        # Crash-recovery: rename completed but sentinel not written
+        if migrated_path.exists() and not sentinel.exists():
+            sentinel.write_text("migrated", encoding="utf-8")
+            return
+
+        if not json_path.exists():
+            return
+
+        try:
+            text = json_path.read_text(encoding="utf-8")
+            data = json.loads(text)
+        except (json.JSONDecodeError, OSError):
+            _log.warning(
+                "channel_status_store migration: skipping corrupt/unreadable %s",
+                json_path,
+            )
+            return
+
+        self.save(data if isinstance(data, dict) else {})
+
+        try:
+            json_path.rename(migrated_path)
+        except OSError as exc:
+            _log.warning("channel_status_store migration: rename failed: %s", exc)
+            return
+
+        try:
+            os.chmod(migrated_path, 0o600)
+        except OSError:
+            pass
+
+        sentinel.write_text("migrated", encoding="utf-8")
+
+
+def _make_channel_status_store() -> ChannelStatusSqliteStore:
+    config_dir = _config_dir()
+    store = ChannelStatusSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store.migrate_from_json(config_dir)
+    return store
+
+
+channel_status_store: _LazyStore = _LazyStore(_make_channel_status_store)
 
 
 def _now_iso() -> str:
