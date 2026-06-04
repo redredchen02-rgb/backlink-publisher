@@ -8,9 +8,10 @@ this unit owns the read states (S0 / S2-static / S-stale / empty).
 """
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify
+from flask import Blueprint, abort, jsonify, request
 
 from backlink_publisher._util.errors import UsageError
+from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 
 from ..helpers.contexts import _render
 from ..helpers.security import _check_bind_origin_or_abort
@@ -67,5 +68,45 @@ def recheck_cancel(job_id: str):
     _check_bind_origin_or_abort()
     poll = keepalive_registry.cancel(job_id)
     if poll is None:
+        abort(404)
+    return jsonify(poll)
+
+
+@bp.route("/ce:keep-alive/republish-token", methods=["GET"])
+def republish_token():
+    # Mint a single-use confirm nonce bound to the CURRENT gap set (S3→S4). It
+    # only matters together with the Origin guard + CSRF on the republish POST.
+    return jsonify(keepalive_registry.issue_confirm_token())
+
+
+@bp.route("/ce:keep-alive/republish", methods=["POST"])
+def start_republish():
+    # Outbound publish — treat the body as hostile even from "the operator".
+    _check_bind_origin_or_abort()
+    body = request.get_json(silent=True) or {}
+    targets = body.get("targets")
+    confirm_token = body.get("confirm_token") or ""
+    platform = body.get("platform")
+    # Hard sticky allowlist: reject a forged non-sticky destination up front,
+    # before any plan/publish (the gap set is re-derived sticky-only anyway).
+    if platform is not None and platform not in set(KEEPALIVE_STICKY_PLATFORMS):
+        return jsonify({"status": "error", "error": "non_sticky_platform"}), 400
+    if not isinstance(targets, list) or not targets or not confirm_token:
+        return jsonify({"status": "error", "error": "missing targets or confirm_token"}), 400
+    try:
+        job = keepalive_registry.start_republish(
+            selected_targets=targets, confirm_token=confirm_token
+        )
+        return jsonify({"status": "started", "job_id": job.id}), 202
+    except UsageError as exc:
+        msg = str(exc)
+        code = 409 if "already running" in msg else 400
+        return jsonify({"status": "error", "error": msg}), code
+
+
+@bp.route("/ce:keep-alive/republish-status/<job_id>", methods=["GET"])
+def republish_status(job_id: str):
+    poll = keepalive_registry.poll(job_id)
+    if poll is None or poll.get("kind") != "republish":
         abort(404)
     return jsonify(poll)

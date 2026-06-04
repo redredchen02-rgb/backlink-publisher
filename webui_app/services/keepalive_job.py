@@ -20,6 +20,8 @@ recheck is simply re-run (recheck is idempotent / operator-triggered).
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -28,9 +30,15 @@ from typing import Any, Callable
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.events import EventStore
+from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 from backlink_publisher.recheck import selection
 from backlink_publisher.recheck.events_io import emit_recheck
 from backlink_publisher.recheck.probe import recheck_link
+
+#: ghpages is sticky by design but unusable while the GitHub account is
+#: suspended, so the runtime republish default is blogger-only. The engine
+#: constant stays {blogger, ghpages}; the job narrows it.
+_RUNTIME_STICKY = ("blogger",)
 
 #: A worker exception or a probe that raises is recorded as this verdict —
 #: "check-failed", never a gap (R1-a; the gap engine excludes probe_error).
@@ -59,12 +67,78 @@ class KeepaliveJob:
     cancel_requested: bool = False
 
 
+@dataclass
+class RepublishJob:
+    id: str
+    kind: str  # "republish"
+    status: str  # running|done|error
+    started_at: str
+    total: int = 0
+    published: int = 0
+    failed: int = 0
+    results: list[dict] = field(default_factory=list)
+    state: str = ""  # all_success | partial_success | all_failed (S6 / S6-partial)
+    error: str | None = None
+
+
+def _default_republish_gaps(store: EventStore):
+    """Re-derive the authoritative keep-alive gap set from fresh state.
+
+    Server-side truth (D6): never trust posted gap ids. ghpages is dropped from
+    the sticky set at runtime (GitHub suspended) → blogger-only seeds.
+    """
+    from backlink_publisher.gap.engine import GapOptions, plan_keepalive_gap
+    from backlink_publisher.ledger import build_ledger
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    rows = build_ledger(store=store)
+    status = derive_per_target_status(store)
+    return plan_keepalive_gap(
+        rows, status, GapOptions(desired=5, language="zh-CN"),
+        sticky_platforms=_RUNTIME_STICKY,
+    )
+
+
+def _default_publish_seed(seed: dict) -> dict:
+    """Plan → validate → publish one sticky seed (subprocess publish), returning a
+    structured per-item result (never raises; a failure is a row, not an abort)."""
+    from webui_app.api.pipeline_api import PipelineAPI, parse_publish_results
+
+    api = PipelineAPI()
+    target, platform = seed.get("target_url"), seed.get("platform")
+    base = {"target_url": target, "platform": platform, "published_url": "", "status": "failed", "error": None}
+    plan_res = api.plan(json.dumps(seed))
+    if not plan_res.success:
+        return {**base, "error": plan_res.error or "plan failed"}
+    val_res = api.validate(plan_res.stdout)
+    if not val_res.success:
+        return {**base, "error": val_res.error or "validate failed"}
+    # publish only the first generated variant — one new link per gap.
+    one = (val_res.stdout or "").splitlines()
+    pub_res = api.publish((one[0] + "\n") if one else "", platform, "publish")
+    rows = parse_publish_results(pub_res.stdout)
+    row = rows[0] if rows else {}
+    url = (row.get("published_url") or row.get("draft_url") or "").strip()
+    if url:
+        return {**base, "published_url": url, "status": "published", "error": None}
+    return {**base, "error": (row.get("error") or pub_res.error or "publish failed")}
+
+
+def _default_persist(entry: dict) -> None:
+    """Persist a published-but-unverified history row BEFORE auto-recheck, so a
+    crash between publish and recheck leaves a recoverable, honest record."""
+    from webui_store import history_store
+    history_store.update(lambda hist: [entry, *hist][:200])
+
+
 class KeepaliveJobRegistry:
     """In-memory keep-alive job registry (recheck today; republish in Unit 7)."""
 
     def __init__(self) -> None:
-        self._jobs: dict[str, KeepaliveJob] = {}
+        self._jobs: dict[str, Any] = {}
         self._lock = threading.Lock()
+        # confirm nonce → gap-set fingerprint it was issued for (single-use).
+        self._confirm_nonces: dict[str, str] = {}
 
     # ── recheck (Unit 5) ────────────────────────────────────────────────────
     def start_recheck(
@@ -174,24 +248,173 @@ class KeepaliveJobRegistry:
                     return self._poll_locked(job)
             return None
 
-    def _poll_locked(self, job: KeepaliveJob) -> dict[str, Any]:
-        return {
+    def _poll_locked(self, job: Any) -> dict[str, Any]:
+        base = {
             "job_id": job.id,
             "kind": job.kind,
             "status": job.status,
             "started_at": job.started_at,
             "total": job.total,
-            "checked": job.checked,
-            "verdict_counts": dict(job.verdict_counts),
-            "per_host": dict(job.per_host),
             "error": job.error,
         }
+        if job.kind == "republish":
+            base.update({
+                "published": job.published,
+                "failed": job.failed,
+                "results": list(job.results),
+                "state": job.state,
+            })
+        else:
+            base.update({
+                "checked": job.checked,
+                "verdict_counts": dict(job.verdict_counts),
+                "per_host": dict(job.per_host),
+            })
+        return base
+
+    # ── republish (Unit 7) ──────────────────────────────────────────────────
+    @staticmethod
+    def _gap_fingerprint(seeds: list[dict]) -> str:
+        key = sorted((s.get("target_url", ""), s.get("platform", "")) for s in seeds)
+        return hashlib.sha256(json.dumps(key).encode()).hexdigest()[:16]
+
+    def issue_confirm_token(self, *, store: EventStore | None = None, gap_fn=None) -> dict[str, Any]:
+        """Issue a single-use confirm nonce bound to the CURRENT gap set.
+
+        The nonce doubles as the anti-stale / anti-double-submit guard: if the
+        gap set changes before confirm (a link went live), the stale nonce no
+        longer matches the re-derived fingerprint and the republish is rejected.
+        """
+        store = store or EventStore()
+        gap_fn = gap_fn or _default_republish_gaps
+        seeds, gaps = gap_fn(store)
+        fingerprint = self._gap_fingerprint(seeds)
+        token = uuid.uuid4().hex
+        with self._lock:
+            self._confirm_nonces[token] = fingerprint
+        return {
+            "confirm_token": token,
+            "gap_fingerprint": fingerprint,
+            "targets": sorted({s.get("target_url") for s in seeds}),
+            "seed_count": len(seeds),
+        }
+
+    def start_republish(
+        self,
+        *,
+        selected_targets: list[str],
+        confirm_token: str,
+        store: EventStore | None = None,
+        gap_fn=None,
+        publish_fn: Callable[[dict], dict] | None = None,
+        persist_fn: Callable[[dict], None] | None = None,
+        sticky_platforms=_RUNTIME_STICKY,
+    ) -> RepublishJob:
+        """Republish the selected stripped-link gaps to sticky platforms.
+
+        Security: re-derives the gap set from fresh state (never trusts the
+        posted ids), drops any seed outside ``sticky_platforms``, and consumes a
+        single-use confirm nonce bound to the current gap fingerprint. Raises
+        :class:`UsageError` on a bad/stale nonce, a non-sticky destination, or a
+        second concurrent republish.
+        """
+        store = store or EventStore()
+        gap_fn = gap_fn or _default_republish_gaps
+        publish_fn = publish_fn or _default_publish_seed
+        persist_fn = persist_fn or _default_persist
+        sticky = set(sticky_platforms)
+        wanted = set(selected_targets or [])
+
+        seeds, _gaps = gap_fn(store)
+        fingerprint = self._gap_fingerprint(seeds)
+
+        with self._lock:
+            for job in self._jobs.values():
+                if job.kind == "republish" and job.status == "running":
+                    raise UsageError(f"keepalive: a republish job is already running ({job.id})")
+            # single-use nonce, bound to the freshly re-derived gap set
+            issued_for = self._confirm_nonces.pop(confirm_token, None)
+            if issued_for is None:
+                raise UsageError("keepalive: invalid or already-used confirm token")
+            if issued_for != fingerprint:
+                raise UsageError("keepalive: gap set changed since confirm — re-run the recheck")
+
+        # Re-derive: only seeds that are STILL a gap AND were selected AND are
+        # sticky survive (a now-live or forged target is dropped here).
+        plan = [
+            s for s in seeds
+            if s.get("target_url") in wanted and s.get("platform") in sticky
+        ]
+        non_sticky = [s for s in seeds if s.get("platform") not in sticky]
+        if non_sticky:
+            # Defense in depth: the engine should never emit a non-sticky seed.
+            raise UsageError("keepalive: refusing a non-sticky republish destination")
+
+        with self._lock:
+            job_id = uuid.uuid4().hex
+            job = RepublishJob(
+                id=job_id, kind="republish", status="running",
+                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                total=len(plan),
+            )
+            self._jobs[job_id] = job
+
+        worker = threading.Thread(
+            target=self._run_republish, args=(job, plan, publish_fn, persist_fn),
+            daemon=True, name=f"keepalive-republish-{job_id[:8]}",
+        )
+        worker.start()
+        return job
+
+    def _run_republish(self, job, plan, publish_fn, persist_fn):
+        try:
+            for seed in plan:
+                try:
+                    result = publish_fn(seed)
+                except Exception as exc:  # noqa: BLE001
+                    result = {
+                        "target_url": seed.get("target_url"), "platform": seed.get("platform"),
+                        "published_url": "", "status": "failed", "error": f"publish error: {exc}",
+                    }
+                ok = bool((result.get("published_url") or "").strip())
+                if ok:
+                    # persist-before-recheck: a recoverable record even on crash.
+                    try:
+                        persist_fn({
+                            "id": uuid.uuid4().hex,
+                            "status": "published_unverified",
+                            "platform": result.get("platform"),
+                            "target_url": result.get("target_url"),
+                            "article_urls": [result["published_url"]],
+                            "verified_at": None,
+                        })
+                    except Exception:  # noqa: BLE001
+                        pass
+                with self._lock:
+                    job.results.append(result)
+                    if ok:
+                        job.published += 1
+                    else:
+                        job.failed += 1
+            with self._lock:
+                if job.failed == 0:
+                    job.state = "all_success"
+                elif job.published == 0:
+                    job.state = "all_failed"
+                else:
+                    job.state = "partial_success"
+                job.status = "done"
+        except Exception as exc:  # noqa: BLE001
+            with self._lock:
+                job.status = "error"
+                job.error = f"republish job failed: {exc}"
 
     def reset_for_tests(self) -> None:
         with self._lock:
             self._jobs.clear()
+            self._confirm_nonces.clear()
 
 
 registry = KeepaliveJobRegistry()
 
-__all__ = ["KeepaliveJob", "KeepaliveJobRegistry", "registry"]
+__all__ = ["KeepaliveJob", "RepublishJob", "KeepaliveJobRegistry", "registry"]

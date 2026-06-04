@@ -1234,6 +1234,18 @@ class TestKeepAliveRoutes:
         resp = client.post("/ce:keep-alive/recheck-cancel/deadbeef")
         assert resp.status_code in (403, 404)   # origin guard, or unknown id
 
+    def test_get_republish_token(self, client):
+        resp = client.get("/ce:keep-alive/republish-token")
+        assert resp.status_code == 200
+
+    def test_post_start_republish(self, client):
+        resp = client.post("/ce:keep-alive/republish")
+        assert resp.status_code in (400, 403)   # origin guard, or missing body
+
+    def test_get_republish_status(self, client):
+        resp = client.get("/ce:keep-alive/republish-status/deadbeef")
+        assert resp.status_code == 404
+
 
 class TestChannelBindSaveRoutes:
     """Plan 2026-05-26-002 Unit 4 — generic credential save route smoke.
