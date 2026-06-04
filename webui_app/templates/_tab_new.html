@@ -203,12 +203,30 @@
                             <i class="bi bi-image-alt me-1"></i>封面降级
                         </span>
                         {% endif %}
+                        {% if plan.content_source == 'llm' %}
+                        <span class="badge bg-success" style="font-size:10px;"
+                              data-content-source="{{ loop.index0 }}">✦ AI 生成</span>
+                        {% elif plan.content_source == 'template' %}
+                        <span class="badge bg-secondary" style="font-size:10px;"
+                              data-content-source="{{ loop.index0 }}">模板</span>
+                        {% endif %}
                     </div>
                     
                     <div class="tag-list">
                         {% for tag in plan.tags %}<span class="tag-item">{{ tag }}</span>{% endfor %}
                     </div>
                     
+                    {% if plan.cover_image_url and plan.cover_image_url.startswith('https://') %}
+                    <div class="mt-2" style="font-size:12px;">
+                        <i class="bi bi-image me-1 text-success"></i>封面图已生成：
+                        <a href="{{ plan.cover_image_url }}" target="_blank" rel="noopener"
+                           style="color:var(--primary);">查看</a>
+                        <img src="{{ plan.cover_image_url }}" alt="cover"
+                             loading="lazy" style="display:block;max-height:80px;margin-top:4px;
+                                                   border-radius:4px;border:1px solid #e5e7eb;">
+                    </div>
+                    {% endif %}
+
                     <details>
                         <summary><i class="bi bi-eye me-1"></i>HTML 内容预览</summary>
                         <div class="content-preview mt-3" id="preview-{{ loop.index0 }}">
@@ -223,6 +241,17 @@
                                 id="editBtn-{{ loop.index0 }}">
                             <i class="bi bi-pencil me-1"></i>编辑内容
                         </button>
+                        <button type="button" class="btn btn-sm btn-outline-success"
+                                data-action="regen-body"
+                                data-idx="{{ loop.index0 }}"
+                                data-domain="{{ plan.main_domain }}"
+                                data-language="{{ plan.language }}"
+                                data-topic="{{ plan.topic | default('') }}"
+                                data-anchors='{{ plan.links | selectattr("anchor") | map(attribute="anchor") | list | tojson }}'
+                                id="regenBtn-{{ loop.index0 }}">
+                            <i class="bi bi-stars me-1"></i>重新生成
+                        </button>
+                        <small id="regenStatus-{{ loop.index0 }}" class="text-muted ms-2" style="line-height:30px;"></small>
                         <div id="editor-{{ loop.index0 }}" style="display:none;margin-top:10px;">
                             <textarea id="editorArea-{{ loop.index0 }}"
                                       rows="12" class="form-control"

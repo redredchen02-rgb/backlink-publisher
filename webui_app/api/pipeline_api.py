@@ -71,7 +71,14 @@ class PipeResult:
             if not line:
                 continue
             try:
-                result.append(json.loads(line))
+                row = json.loads(line)
+                # Map banner.source_url → cover_image_url when present.
+                banner = row.get("banner")
+                if isinstance(banner, dict):
+                    src = banner.get("source_url", "")
+                    if src and src.startswith("https://"):
+                        row["cover_image_url"] = src
+                result.append(row)
             except json.JSONDecodeError:
                 pass
         return result
