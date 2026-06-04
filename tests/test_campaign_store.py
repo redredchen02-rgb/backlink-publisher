@@ -342,20 +342,24 @@ class TestPersistence:
         assert c["status"] == "running"
         assert c["seeds"][0]["status"] == "success"
 
-    def test_file_on_disk_has_valid_json(self, tmp_path: Path):
-        path = tmp_path / "campaigns.json"
+    def test_persisted_row_roundtrips(self, tmp_path: Path):
+        # SQLite-backed: persistence is verified by reopening the store
+        # against the same db file rather than reading raw JSON off disk.
+        path = tmp_path / "webui.db"
         store = CampaignStore(path)
         cid = store.create(mode="draft", platforms=["blogger"], seeds=_make_seeds(2))
         store.update_status(cid, status="completed")
 
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        assert isinstance(raw, list)
-        assert len(raw) == 1
-        assert raw[0]["campaign_id"] == cid
+        reopened = CampaignStore(path)
+        rows = reopened.list()
+        assert isinstance(rows, list)
+        assert len(rows) == 1
+        assert rows[0]["campaign_id"] == cid
+        assert rows[0]["status"] == "completed"
 
-    def test_corrupt_file_falls_back_to_empty(self, tmp_path: Path):
-        path = tmp_path / "campaigns.json"
-        path.write_text("not-json", encoding="utf-8")
+    def test_empty_db_falls_back_to_empty(self, tmp_path: Path):
+        # A freshly-created db (no campaigns) loads as an empty list.
+        path = tmp_path / "webui.db"
         store = CampaignStore(path)
         assert store.list() == []
 

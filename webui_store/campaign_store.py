@@ -1,19 +1,46 @@
-"""CampaignStore — campaign-level state persistence for batch operations.
+"""CampaignSqliteStore — campaign-level state persistence backed by webui.db.
 
-Follows the same JSON-file pattern as ``DraftsStore``: a single JSON file
-holds a list of campaign dicts.  Thread safety via ``JsonStore.update``.
+Replaces the ``campaigns.json`` JsonStore with a proper row table keyed by
+campaign id, with mirrored ``mode`` / ``status`` / ``created_at`` /
+``updated_at`` / ``progress_pct`` columns (for querying + ordering) plus a
+``seeds_json`` blob (nested seed sub-records) and a ``data_json`` blob that
+holds the *whole* campaign dict (the source of truth on load).
 
-Plan 2026-06-02-001 U1.
+The public API (``create`` / ``get`` / ``update_status`` /
+``update_seed_status`` / ``list`` plus inherited ``load`` / ``save`` /
+``update``) is preserved exactly, including names, signatures, validation,
+return values, and the ``created_at`` DESC ordering of ``list()`` / ``load()``.
+
+``update_seed_status`` uses a single connection/transaction (SELECT → mutate →
+recompute progress → UPDATE) — it must NOT open a nested connection inside the
+transaction (WAL nested-connection deadlock rule).
+
+Startup migration: on first boot after this code is deployed, the existing
+``campaigns.json`` is imported and the original file is renamed to
+``.migrated``. A sentinel file prevents double-import on subsequent boots.
+
+Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
+Unit 7.
 """
 
 from __future__ import annotations
 
+import json
+import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .base import JsonStore
+from backlink_publisher.events._store_sqlite import _retry_sqlite
+
+from .sqlite_base import SqliteStore, WebUIDatabase
+
+_log = logging.getLogger(__name__)
+
+_SENTINEL_NAME = ".webui-campaign-migrated-v1"
+_JSON_FILENAME = "campaigns.json"
 
 # ── Schema helpers ────────────────────────────────────────────────────
 
@@ -43,10 +70,10 @@ def _validate_status(value: str, allowed: frozenset[str], label: str) -> None:
         )
 
 
-# ── CampaignStore ─────────────────────────────────────────────────────
+# ── CampaignSqliteStore ───────────────────────────────────────────────
 
-class CampaignStore(JsonStore):
-    """Persists a list of campaign dicts in a single JSON file.
+class CampaignSqliteStore(SqliteStore):
+    """Row-table store for campaigns, backed by webui.db.
 
     Schema (per campaign dict)::
 
@@ -69,22 +96,117 @@ class CampaignStore(JsonStore):
                 },
             ],
             "progress_pct": float,   # 0-100
-            "result_summary": {
-                "total_seeds": int,
-                "successful_seeds": int,
-                "failed_seeds": int,
-                "total_drafts": int,
-                "platform_breakdown": {str: {"success": int, "failed": int}},
-            } | None,
+            "result_summary": {...} | None,
         }
 
-    Thread safety: inherited from ``JsonStore.update`` (per-store lock).
+    Table::
+
+        campaigns (
+          id           TEXT PRIMARY KEY,
+          mode         TEXT,
+          status       TEXT NOT NULL,
+          created_at   TEXT,
+          updated_at   TEXT,
+          progress_pct REAL,
+          seeds_json   TEXT,
+          data_json    TEXT NOT NULL
+        )
+        CREATE INDEX campaigns_created ON campaigns(created_at DESC)
+
+    The campaign dict's primary key field is ``campaign_id``; it is mapped to
+    the ``id`` column. ``load()`` reconstructs each campaign from ``data_json``
+    (the source of truth) — the mirrored columns exist only for querying and
+    ``created_at`` DESC ordering.
+
+    Accepts either a :class:`WebUIDatabase` (the migrated factory path) or a
+    plain :class:`~pathlib.Path` (backward compat for callers/tests that still
+    pass a file path) — in the latter case a ``WebUIDatabase`` is wrapped
+    around it.
     """
 
-    def __init__(self, path: Path) -> None:
-        super().__init__(path, default_factory=list)
+    def __init__(self, db: WebUIDatabase | Path) -> None:
+        if not isinstance(db, WebUIDatabase):
+            db = WebUIDatabase(Path(db))
+        super().__init__(db)
+        self._init_table()
 
-    # ── Public API ────────────────────────────────────────────────────
+    def _init_table(self) -> None:
+        with self._db.connect() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS campaigns ("
+                "id TEXT PRIMARY KEY, "
+                "mode TEXT, "
+                "status TEXT NOT NULL, "
+                "created_at TEXT, "
+                "updated_at TEXT, "
+                "progress_pct REAL, "
+                "seeds_json TEXT, "
+                "data_json TEXT NOT NULL)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS campaigns_created "
+                "ON campaigns(created_at DESC)"
+            )
+
+    # ── Store protocol ─────────────────────────────────────────────────────
+
+    def load(self) -> list[dict[str, Any]]:
+        """Return all campaigns sorted by ``created_at`` DESC.
+
+        Reconstructed from ``data_json`` (the source of truth).
+        """
+        def _op() -> list[tuple[str]]:
+            with self._db.connect() as conn:
+                return conn.execute(
+                    "SELECT data_json FROM campaigns ORDER BY created_at DESC"
+                ).fetchall()
+
+        rows = _retry_sqlite(_op)
+        result: list[dict[str, Any]] = []
+        for (data_json,) in rows:
+            try:
+                campaign = json.loads(data_json)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(campaign, dict):
+                result.append(campaign)
+        return result
+
+    def save(self, value: Any) -> None:
+        """Replace the whole table: delete-all + bulk-insert in one transaction."""
+        campaigns = value if isinstance(value, list) else []
+        rows: list[tuple[Any, ...]] = []
+        for c in campaigns:
+            c = c if isinstance(c, dict) else {}
+            seeds = c.get("seeds", [])
+            rows.append(
+                (
+                    c.get("campaign_id"),
+                    c.get("mode"),
+                    c.get("status"),
+                    c.get("created_at"),
+                    c.get("updated_at"),
+                    c.get("progress_pct"),
+                    json.dumps(seeds, ensure_ascii=False),
+                    json.dumps(c, ensure_ascii=False),
+                )
+            )
+
+        with self._lock:
+            def _op() -> None:
+                with self._db.connect() as conn:
+                    conn.execute("DELETE FROM campaigns")
+                    if rows:
+                        conn.executemany(
+                            "INSERT INTO campaigns (id, mode, status, "
+                            "created_at, updated_at, progress_pct, seeds_json, "
+                            "data_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            rows,
+                        )
+
+            _retry_sqlite(_op)
+
+    # ── Public API ─────────────────────────────────────────────────────────
 
     def create(
         self,
@@ -133,15 +255,45 @@ class CampaignStore(JsonStore):
             "result_summary": None,
         }
 
-        self.update(lambda items: [*items, campaign])
+        with self._lock:
+            def _op() -> None:
+                with self._db.connect() as conn:
+                    conn.execute(
+                        "INSERT INTO campaigns (id, mode, status, created_at, "
+                        "updated_at, progress_pct, seeds_json, data_json) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            campaign_id,
+                            campaign["mode"],
+                            campaign["status"],
+                            campaign["created_at"],
+                            campaign["updated_at"],
+                            campaign["progress_pct"],
+                            json.dumps(campaign["seeds"], ensure_ascii=False),
+                            json.dumps(campaign, ensure_ascii=False),
+                        ),
+                    )
+
+            _retry_sqlite(_op)
         return campaign_id
 
     def get(self, campaign_id: str) -> dict[str, Any] | None:
-        """Return the campaign dict, or ``None`` if not found."""
-        for c in self.load():
-            if c.get("campaign_id") == campaign_id:
-                return c
-        return None
+        """Return the campaign dict, or ``None`` if not found. Read-only."""
+        def _op() -> tuple[str] | None:
+            with self._db.connect() as conn:
+                return conn.execute(
+                    "SELECT data_json FROM campaigns WHERE id = ?",
+                    (campaign_id,),
+                ).fetchone()
+
+        row = _retry_sqlite(_op)
+        if row is None:
+            return None
+        try:
+            campaign = json.loads(row[0])
+        except (json.JSONDecodeError, TypeError):
+            return None
+        return campaign if isinstance(campaign, dict) else None
 
     def update_status(
         self, campaign_id: str, **updates: Any,
@@ -155,7 +307,8 @@ class CampaignStore(JsonStore):
         - ``result_summary`` — dict or ``None``
         - Any other key is stored verbatim (future-proof).
 
-        Returns ``True`` if the campaign was found and updated.
+        Targeted SELECT-merge-UPDATE in one transaction. Returns ``True`` if
+        the campaign was found and updated.
         """
         if not updates:
             return False
@@ -170,19 +323,42 @@ class CampaignStore(JsonStore):
 
         updates["updated_at"] = _now_iso()
 
-        found = False
+        with self._lock:
+            def _op() -> bool:
+                with self._db.connect() as conn:
+                    row = conn.execute(
+                        "SELECT data_json FROM campaigns WHERE id = ?",
+                        (campaign_id,),
+                    ).fetchone()
+                    if row is None:
+                        return False
+                    try:
+                        campaign = json.loads(row[0])
+                    except (json.JSONDecodeError, TypeError):
+                        campaign = {}
+                    if not isinstance(campaign, dict):
+                        campaign = {}
+                    campaign.update(updates)
+                    conn.execute(
+                        "UPDATE campaigns SET mode = ?, status = ?, "
+                        "created_at = ?, updated_at = ?, progress_pct = ?, "
+                        "seeds_json = ?, data_json = ? WHERE id = ?",
+                        (
+                            campaign.get("mode"),
+                            campaign.get("status"),
+                            campaign.get("created_at"),
+                            campaign.get("updated_at"),
+                            campaign.get("progress_pct"),
+                            json.dumps(
+                                campaign.get("seeds", []), ensure_ascii=False
+                            ),
+                            json.dumps(campaign, ensure_ascii=False),
+                            campaign_id,
+                        ),
+                    )
+                    return True
 
-        def _fn(items: list[dict]) -> list[dict]:
-            nonlocal found
-            for c in items:
-                if c.get("campaign_id") == campaign_id:
-                    c.update(updates)
-                    found = True
-                    break
-            return items
-
-        self.update(_fn)
-        return found
+            return _retry_sqlite(_op)
 
     def update_seed_status(
         self, campaign_id: str, seed_index: int, **updates: Any,
@@ -199,7 +375,9 @@ class CampaignStore(JsonStore):
         After updating the seed, ``progress_pct`` is automatically
         recalculated from all seeds.
 
-        Returns ``True`` if the campaign + seed were found and updated.
+        Single connection/transaction: SELECT → mutate → recompute → UPDATE.
+        No nested connection is opened (WAL deadlock rule). Returns ``True`` if
+        the campaign + seed were found and updated.
         """
         if not updates:
             return False
@@ -208,41 +386,116 @@ class CampaignStore(JsonStore):
         if _status is not None:
             _validate_status(_status, _SEED_STATUS_VALUES, "seed status")
 
-        found = False
+        with self._lock:
+            def _op() -> bool:
+                with self._db.connect() as conn:
+                    row = conn.execute(
+                        "SELECT data_json FROM campaigns WHERE id = ?",
+                        (campaign_id,),
+                    ).fetchone()
+                    if row is None:
+                        return False
+                    try:
+                        campaign = json.loads(row[0])
+                    except (json.JSONDecodeError, TypeError):
+                        return False
+                    if not isinstance(campaign, dict):
+                        return False
 
-        def _fn(items: list[dict]) -> list[dict]:
-            nonlocal found
-            for c in items:
-                if c.get("campaign_id") != campaign_id:
-                    continue
-                for seed in c.get("seeds", []):
-                    if seed.get("seed_index") != seed_index:
-                        continue
-                    seed.update(updates)
-                    found = True
-                    break
-                if found:
+                    seeds = campaign.get("seeds", [])
+                    found = False
+                    for seed in seeds:
+                        if seed.get("seed_index") != seed_index:
+                            continue
+                        seed.update(updates)
+                        found = True
+                        break
+                    if not found:
+                        return False
+
                     # Recalculate progress from all seeds.
-                    seeds = c.get("seeds", [])
                     done = sum(
                         1 for s in seeds
                         if s.get("status") in ("success", "failed", "skipped")
                     )
-                    c["progress_pct"] = (
+                    campaign["progress_pct"] = (
                         (done / len(seeds)) * 100.0 if seeds else 0.0
                     )
-                    c["updated_at"] = _now_iso()
-                    break
-            return items
+                    campaign["updated_at"] = _now_iso()
 
-        self.update(_fn)
-        return found
+                    conn.execute(
+                        "UPDATE campaigns SET seeds_json = ?, progress_pct = ?, "
+                        "updated_at = ?, data_json = ? WHERE id = ?",
+                        (
+                            json.dumps(seeds, ensure_ascii=False),
+                            campaign["progress_pct"],
+                            campaign["updated_at"],
+                            json.dumps(campaign, ensure_ascii=False),
+                            campaign_id,
+                        ),
+                    )
+                    return True
+
+            return _retry_sqlite(_op)
 
     def list(self) -> list[dict[str, Any]]:
-        """Return all campaigns, sorted by ``created_at`` descending."""
-        items = self.load()
-        return sorted(
-            items,
-            key=lambda c: c.get("created_at", ""),
-            reverse=True,
-        )
+        """Return all campaigns, sorted by ``created_at`` descending.
+
+        Semantically explicit alias of ``load()`` (which already orders by
+        ``created_at`` DESC).
+        """
+        return self.load()
+
+    # ── Startup migration ─────────────────────────────────────────────────
+
+    def migrate_from_json(self, config_dir: Path) -> None:
+        """One-shot import from ``campaigns.json`` if not yet migrated.
+
+        Same load-bearing sequence as the other SqliteStore migrations:
+        commit to webui.db → rename ``.json`` → chmod 0o600 → write sentinel.
+        Corrupt/absent JSON is silently skipped (sentinel NOT written so a
+        later-appearing file can still be imported).
+        """
+        sentinel = config_dir / _SENTINEL_NAME
+        json_path = config_dir / _JSON_FILENAME
+        migrated_path = json_path.with_suffix(".json.migrated")
+
+        if sentinel.exists():
+            return
+
+        # Crash-recovery: rename completed but sentinel not written
+        if migrated_path.exists() and not sentinel.exists():
+            sentinel.write_text("migrated", encoding="utf-8")
+            return
+
+        if not json_path.exists():
+            return
+
+        try:
+            text = json_path.read_text(encoding="utf-8")
+            data = json.loads(text)
+        except (json.JSONDecodeError, OSError):
+            _log.warning(
+                "campaign_store migration: skipping corrupt/unreadable %s",
+                json_path,
+            )
+            return
+
+        self.save(data if isinstance(data, list) else [])
+
+        try:
+            json_path.rename(migrated_path)
+        except OSError as exc:
+            _log.warning("campaign_store migration: rename failed: %s", exc)
+            return
+
+        try:
+            os.chmod(migrated_path, 0o600)
+        except OSError:
+            pass
+
+        sentinel.write_text("migrated", encoding="utf-8")
+
+
+# Backward-compat alias: existing call sites / tests import ``CampaignStore``.
+CampaignStore = CampaignSqliteStore
