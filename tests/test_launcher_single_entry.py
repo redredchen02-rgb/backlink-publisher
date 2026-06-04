@@ -32,6 +32,14 @@ def test_launcher_pins_failsafe_debug_and_secret_key():
     assert "umask 077" in body          # secret file written 0600, not world-readable
 
 
+def test_launcher_activates_lite_edition():
+    # R7/R8: the canonical launcher is the one place that turns the LITE surface
+    # reduction on (edition.py documents the launcher as the activation point).
+    # Without this export the operator would silently get the full Pro surface.
+    body = _LAUNCHER.read_text(encoding="utf-8")
+    assert "export BACKLINK_PUBLISHER_LITE=1" in body
+
+
 def test_launcher_self_identifies_as_canonical():
     body = _LAUNCHER.read_text(encoding="utf-8")
     assert "canonical" in body.lower()

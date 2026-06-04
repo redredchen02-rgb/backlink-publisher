@@ -12,11 +12,7 @@ __tier__ = "unit"
 import pytest
 
 import webui
-from webui_app.helpers.security import (
-    _check_bind_origin_or_abort,
-    _check_csrf_or_abort,
-    _resolve_bind_host,
-)
+from webui_app.helpers.security import _resolve_bind_host
 
 # Every host an operator might reach for to expose the app to a colleague.
 _NON_LOOPBACK = ["0.0.0.0", "::", "192.168.1.10", "10.0.0.5", "0000:0000::0"]
@@ -56,17 +52,20 @@ def test_resolve_bind_host_is_the_one_webui_uses():
     assert webui._resolve_bind_host is _resolve_bind_host
 
 
-def test_csrf_and_bind_origin_guards_protect_future_post_routes():
-    # The keep-alive action routes (start-recheck / start-republish, Units 5/7)
-    # are not built yet, but they inherit two guards by construction:
-    #  1. the app-level CSRF guard runs on EVERY matched POST/PUT/PATCH/DELETE;
-    #  2. _check_bind_origin_or_abort is the documented per-route Origin guard.
-    # Assert both mechanisms exist so a future state-mutating POST is covered by
-    # default rather than depending on the new route remembering to opt in.
+def test_csrf_guard_runs_first_before_lite_gate():
+    # The app-level CSRF guard must be the FIRST before_request hook so every
+    # matched state-mutating POST is token-checked (E3 invariant — see
+    # tests/test_webui_csrf_ordering.py). The LITE surface gate is registered
+    # AFTER it: a 404-only denial is order-independent for security, and putting
+    # it first would displace the CSRF guard (the bug this branch's review found).
+    #
+    # NOTE the honest limit: the Origin/Referer guard (_check_bind_origin_or_abort)
+    # is per-route OPT-IN, not app-level — Units 5/7's future start-recheck /
+    # start-republish POSTs must call it explicitly; nothing here enforces that.
     from webui_app import create_app
 
     app = create_app()
-    registered = {f.__name__ for f in app.before_request_funcs.get(None, [])}
-    assert "_global_csrf_guard" in registered
-    assert callable(_check_bind_origin_or_abort)
-    assert callable(_check_csrf_or_abort)
+    hooks = [f.__name__ for f in app.before_request_funcs.get(None, [])]
+    assert hooks[0] == "_global_csrf_guard"
+    assert "_lite_surface_gate" in hooks
+    assert hooks.index("_global_csrf_guard") < hooks.index("_lite_surface_gate")

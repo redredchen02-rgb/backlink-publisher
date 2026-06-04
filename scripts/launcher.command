@@ -168,6 +168,9 @@ while true; do
   # 讓 webui.py route exception 真退出，restart loop 才觀察得到。
   # webui.py 預設已是 debug=0（fail-safe）；這裡顯式再設一次。
   export FLASK_DEBUG=0
+  # 啟用 LITE 內部版（R7/R8）：精簡導航到保活核心、伺服端 404 掉 Pro/未實作面。
+  # 這是 LITE 的唯一啟用點；不設則回退完整 Pro 介面。
+  export BACKLINK_PUBLISHER_LITE=1
   # 釘死持久 SECRET_KEY：裸跑用 ephemeral key 每次重啟洗掉 session/CSRF。
   # 首次生成存進 config dir（0600），之後沿用。
   SECRET_KEY_FILE="${BACKLINK_PUBLISHER_CONFIG_DIR:-$HOME/.config/backlink-publisher}/.webui_secret_key"

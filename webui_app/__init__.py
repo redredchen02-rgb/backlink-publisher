@@ -238,20 +238,13 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
 
     # Plan 2026-06-04-001 Unit 10 / R7+R8 — the LITE edition shows the operator
     # only the keep-alive core. ``lite_edition`` drives the nav trim in
-    # base.html; the gate below makes the hidden surfaces unreachable, not just
-    # unlinked. Registered before the CSRF guard so a hidden route returns 404
-    # for any method (a no-token POST would otherwise 403 on CSRF first).
+    # base.html; the surface gate (registered below, after the CSRF guard) makes
+    # the hidden blueprints unreachable, not just unlinked.
     from .helpers.edition import LITE_HIDDEN_BLUEPRINTS, is_lite_edition
 
     @app.context_processor
     def inject_lite_edition():
         return {"lite_edition": is_lite_edition()}
-
-    @app.before_request
-    def _lite_surface_gate():
-        from flask import abort, request as _req
-        if is_lite_edition() and _req.blueprint in LITE_HIDDEN_BLUEPRINTS:
-            abort(404)
 
     # Global CSRF enforcement. SameSite=Lax + loopback already block most
     # cross-site POST, but operators who flip BACKLINK_PUBLISHER_ALLOW_NETWORK
@@ -280,6 +273,18 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             return
         from .helpers.security import _check_csrf_or_abort
         _check_csrf_or_abort()
+
+    # Plan 2026-06-04-001 Unit 10 / R7+R8 — server-side LITE surface gate.
+    # Registered AFTER _global_csrf_guard so the CSRF guard stays the FIRST
+    # before_request hook (E3 invariant, tests/test_webui_csrf_ordering.py).
+    # Ordering is security-irrelevant for a 404-only denial gate: a GET to a
+    # hidden blueprint 404s here; a no-token POST 403s on the CSRF guard first —
+    # uniform with any unmatched path, so it leaks no hidden-route existence.
+    @app.before_request
+    def _lite_surface_gate():
+        from flask import abort, request as _req
+        if is_lite_edition() and _req.blueprint in LITE_HIDDEN_BLUEPRINTS:
+            abort(404)
 
     # Global rate limiting — POST/PUT/PATCH/DELETE capped at 60 req/min per IP.
     # GET/HEAD/OPTIONS and /api/url-verify/* are exempt (the latter carries its

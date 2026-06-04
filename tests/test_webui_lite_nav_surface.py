@@ -44,14 +44,20 @@ def test_full_nav_when_lite_off(client, lite_off):
 
 def test_nav_trimmed_to_core_when_lite_on(client, lite_on):
     html = client.get("/ce:keep-alive").get_data(as_text=True)
-    assert "保活" in html and "设置" in html          # core kept
+    # Assert the core nav *link* survives — not the bare '保活' label, which also
+    # renders in the page title + navbar-brand and would pass even if the nav
+    # anchor were deleted. '设置' is nav-unique, so its bare label is sound.
+    assert 'href="/ce:keep-alive" class="global-nav__item' in html   # 保活 nav link
+    assert "设置" in html
     for label in _TRIMMED_NAV_LABELS:
         assert label not in html                        # Pro/secondary gone
 
 
 @pytest.mark.parametrize("path", _HIDDEN_ROUTES)
 def test_pro_routes_404_when_lite_on(client, lite_on, path):
-    # Gated server-side, not merely unlinked — URL guessing yields 404.
+    # Gated server-side, not merely unlinked: a GET to a hidden blueprint 404s.
+    # (A no-token POST to these GET-only paths 403s on the CSRF guard first —
+    # uniform with any unmatched path, so it discloses no hidden-route existence.)
     assert client.get(path).status_code == 404
 
 
