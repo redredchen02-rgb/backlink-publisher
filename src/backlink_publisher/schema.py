@@ -199,6 +199,7 @@ from ._schema_input import (  # noqa: F401, E402
     _check_input_required_fields,
     _check_input_seed_keywords,
     _check_input_urls_and_normalize,
+    validate_and_convert_input,
     validate_input_payload,
     validate_input_payload_strict,
 )
@@ -211,6 +212,19 @@ from ._schema_output import (  # noqa: F401, E402
     _check_output_optional_field_types,
     _check_output_required_fields,
     _check_seo_structure,
+    validate_and_convert_output,
     validate_output_payload,
     validate_publish_payload,
+)
+
+# Pydantic v2 typed models (opt-in, additive — existing dict validation
+# unchanged). See :mod:`backlink_publisher._payload_types` for full docs.
+from ._payload_types import (  # noqa: F401, E402
+    LinkModel,
+    PlannedPayload,
+    SeedPayload,
+    SeoModel,
+    ValidationBlock,
+    plan_from_dict,
+    seed_from_dict,
 )

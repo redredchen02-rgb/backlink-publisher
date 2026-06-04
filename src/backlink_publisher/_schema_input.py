@@ -129,3 +129,39 @@ def validate_input_payload_strict(row: dict[str, Any]) -> list[str]:
     """Validate an input seed row strictly with exit code 2 semantics."""
     errors = validate_input_payload(row, 0)
     return errors
+
+
+def validate_and_convert_input(
+    row: dict[str, Any], line_num: int
+) -> tuple[SeedPayload | None, list[str]]:
+    """Validate an input seed row and return a typed :class:`SeedPayload`.
+
+    Runs the same ``_check_input_*`` helpers as :func:`validate_input_payload`
+    (same error-message contract), then on success constructs a :class:`SeedPayload`
+    via Pydantic :meth:`~pydantic.BaseModel.model_validate` as a type-safety
+    assertion.
+
+    Returns ``(model, [])`` on success, ``(None, errors)`` on failure.
+    The ``row`` dict is mutated in place (``main_domain_normalized`` side effect)
+    just like :func:`validate_input_payload`.
+    """
+    # Lazy import avoids circular dependency: _payload_types → .schema → ._schema_input
+    from ._payload_types import SeedPayload
+    from pydantic import ValidationError
+
+    errors: list[str] = []
+    errors.extend(_check_input_required_fields(row, line_num))
+    errors.extend(_check_input_optional_field_types(row, line_num))
+    errors.extend(_check_input_enumerated_values(row, line_num))
+    errors.extend(_check_input_urls_and_normalize(row, line_num))
+    errors.extend(_check_input_seed_keywords(row, line_num))
+    if errors:
+        return None, errors
+
+    try:
+        model = SeedPayload.model_validate(row)
+    except ValidationError as exc:
+        errors.append(f"line {line_num}: Pydantic validation failed: {exc}")
+        return None, errors
+
+    return model, []

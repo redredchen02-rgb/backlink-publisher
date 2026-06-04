@@ -180,3 +180,45 @@ def validate_publish_payload(row: dict[str, Any]) -> list[str]:
             errors.append(msg)
 
     return errors
+
+
+def validate_and_convert_output(
+    row: dict[str, Any],
+) -> tuple[PlannedPayload | None, list[str]]:
+    """Validate a planned output row and return a typed :class:`PlannedPayload`.
+
+    Runs the same ``_check_output_*`` helpers as :func:`validate_output_payload`
+    (same error-message contract), then on success constructs a
+    :class:`PlannedPayload` via Pydantic :meth:`~pydantic.BaseModel.model_validate`
+    as a type-safety assertion.
+
+    Returns ``(model, [])`` on success, ``(None, errors)`` on failure.
+    """
+    # Lazy import avoids circular dependency: _payload_types → .schema → ._schema_output
+    from ._payload_types import PlannedPayload
+    from pydantic import ValidationError
+
+    errors: list[str] = []
+    errors.extend(_check_output_required_fields(row))
+    errors.extend(_check_output_optional_field_types(row))
+    errors.extend(_check_output_one_of_groups(row))
+    errors.extend(_check_content_html_size(row))
+    errors.extend(_check_links_structure(row))
+    errors.extend(_check_seo_structure(row))
+    errors.extend(_check_link_count(row))
+    errors.extend(_check_nonempty_text_fields(row))
+
+    main_domain_error = _check_main_domain_presence(row)
+    if main_domain_error is not None:
+        errors.append(main_domain_error)
+
+    if errors:
+        return None, errors
+
+    try:
+        model = PlannedPayload.model_validate(row)
+    except ValidationError as exc:
+        errors.append(f"Pydantic validation failed: {exc}")
+        return None, errors
+
+    return model, []
