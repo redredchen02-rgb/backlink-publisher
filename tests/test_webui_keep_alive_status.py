@@ -150,6 +150,36 @@ def test_canonically_equal_raw_targets_merge_not_overwrite(tmp_path):
     assert per[canon]["counts"]["link_stripped"] == 1
 
 
+def test_view_exposes_republish_gaps_runtime_sticky(tmp_path):
+    # A stripped target with no blogger link is a republish gap; the view's S3
+    # gap set must use the SAME runtime sticky roster the job uses (blogger only,
+    # ghpages dropped while GitHub is suspended) — no S2↔S3 destination drift.
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/777"
+    a = _article(s, "https://telegra.ph/g", t)
+    _recheck(s, target=t, article_id=a, verdict="link_stripped", ts=RECENT)
+    history = [{"id": "g", "platform": "telegraph", "target_url": t,
+                "article_urls": ["https://telegra.ph/g"], "verified_at": RECENT}]
+    view = build_keepalive_view(store=s, history=history, now=NOW)
+    gap = next(g for g in view["gaps"] if g["target_url"] == t)
+    assert gap["platforms"] == ["blogger"]
+    assert gap["stripped"] == 1
+
+
+def test_view_live_target_excluded_from_gaps(tmp_path):
+    # A still-live target is never a gap; it's counted in live_excluded so S3 can
+    # show "N still live, excluded" alongside the bleeding list.
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/"
+    a = _article(s, "https://redredchen01.github.io/a", t)
+    _recheck(s, target=t, article_id=a, verdict="alive", ts=RECENT)
+    history = [{"id": "h", "platform": "ghpages", "target_url": t,
+                "article_urls": ["https://redredchen01.github.io/a"], "verified_at": RECENT}]
+    view = build_keepalive_view(store=s, history=history, now=NOW)
+    assert view["gaps"] == []
+    assert view["live_excluded"] == 1
+
+
 def test_equal_timestamp_latest_event_id_wins(tmp_path):
     # Two verdicts on one link at the SAME ts_utc — the later-written event
     # (higher events.id) must win, deterministically (mirrors overlay._is_newer).

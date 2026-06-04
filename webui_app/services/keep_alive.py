@@ -87,6 +87,35 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
     # Bleeding targets first: needs-attention by strip-rate desc, then the rest.
     targets.sort(key=lambda t: (not t["needs_attention"], -t["strip_rate"], -t["stripped"]))
 
+    # The authoritative S3 republish gap set (Unit 6), derived with the SAME
+    # runtime sticky roster the republish job will use (blogger-only while GitHub
+    # is suspended) so the count the operator selects from matches what publishes
+    # — no S2↔S3 drift. Channel-exhausted gaps (dead but no free sticky dest) are
+    # surfaced as a count, not as selectable rows.
+    from backlink_publisher.gap.engine import GapOptions, plan_keepalive_gap
+
+    from .keepalive_job import RUNTIME_STICKY_PLATFORMS
+
+    _seeds, gap_objs = plan_keepalive_gap(
+        ledger_rows, per_target, GapOptions(desired=5, language="zh-CN"),
+        sticky_platforms=RUNTIME_STICKY_PLATFORMS,
+    )
+    gaps = [
+        {
+            "target_url": g.target_url,
+            "stripped": g.stripped,
+            "platforms": g.emitted_platforms,
+        }
+        for g in gap_objs
+        if g.emitted_platforms
+    ]
+    gap_channel_exhausted = sum(1 for g in gap_objs if g.channel_exhausted)
+    # Still-live targets that were rechecked but are NOT a gap (the "excluded
+    # because still live" count the S3 panel shows alongside the gap list).
+    live_excluded = sum(
+        1 for t in targets if t["rechecked"] > 0 and t["stripped"] == 0
+    )
+
     last_recheck = _max_ts(store, LINK_RECHECKED)
     latest_publish = _max_ts(store, PUBLISH_CONFIRMED)
     # Stale = newer publishes exist that have never been rechecked.
@@ -110,4 +139,8 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
         "stale_days": stale_days,
         "last_recheck": last_recheck.isoformat() if last_recheck else None,
         "latest_publish": latest_publish.isoformat() if latest_publish else None,
+        # S3 republish surface (Unit 7): the deduped gap set + exclusion tallies.
+        "gaps": gaps,
+        "gap_channel_exhausted": gap_channel_exhausted,
+        "live_excluded": live_excluded,
     }

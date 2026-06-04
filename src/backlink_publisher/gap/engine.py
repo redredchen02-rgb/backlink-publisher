@@ -17,6 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from urllib.parse import urlsplit
+
+from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.bulk_input import derive_main_domain
 from backlink_publisher.publishing._registry_manifest import active_platforms
 from backlink_publisher.publishing.registry import dofollow_status
@@ -183,3 +186,105 @@ def plan_gap(
             counts.channel_exhausted_targets.append(target)
 
     return seeds, counts, {"as_of": as_of}
+
+
+#: Sticky republish destinations (D2 hard allowlist) — platforms measured at
+#: ~0% strip. telegra.ph is deliberately excluded (it causes most strips).
+#: Injectable so the runtime can narrow it (e.g. drop ghpages while GitHub is
+#: down) without the pure engine knowing about credential availability.
+KEEPALIVE_STICKY_PLATFORMS = ("blogger", "ghpages")
+
+#: Hosts that are test fixtures, never a real keep-alive target. The events.db
+#: is dominated by example.com test data (seed hygiene — see plan 2026-06-04-001
+#: Unit 1 gate finding); a keep-alive gap must never republish to one.
+KEEPALIVE_EXCLUDED_HOSTS = frozenset({"example.com"})
+
+#: A link is a republishable gap only when its latest verdict is deterministically
+#: dead. ``probe_error`` (timeout/unreachable) is NOT a gap (R1-a) and
+#: ``dofollow_lost`` is a separate signal — neither emits a republish seed.
+_DEAD_VERDICTS = ("link_stripped", "host_gone")
+
+
+def _row_get(row, key, default=None):
+    """Read ``key`` from a ledger row that may be a dict (CLI JSONL) OR a
+    ``LedgerRow`` dataclass (in-process ``build_ledger`` output)."""
+    if isinstance(row, dict):
+        return row.get(key, default)
+    return getattr(row, key, default)
+
+
+@dataclass
+class KeepaliveGap:
+    """One target with ≥1 deterministically-dead link, and where to republish it."""
+
+    target_url: str
+    stripped: int                       # link_stripped + host_gone on this target
+    emitted_platforms: list[str]        # sticky destinations chosen (may be empty)
+    channel_exhausted: bool             # dead links but no free sticky destination
+
+
+def plan_keepalive_gap(
+    rows,
+    per_target_status,
+    opts: GapOptions,
+    *,
+    sticky_platforms=KEEPALIVE_STICKY_PLATFORMS,
+    exclude_hosts=KEEPALIVE_EXCLUDED_HOSTS,
+):
+    """Per-link stripped-aware gap (D1): a gap is "a previously-live-dofollow
+    link is now stripped", not "page has < N links". Emits republish seeds onto
+    sticky platforms for each target with ≥1 dead link.
+
+    This is the **deduped, authoritative** S2 gap set: still-live targets are
+    excluded (D6) so the count the operator first sees is the real deficit, and
+    test-data hosts are dropped. Unit 7 consumes this set and re-derives it
+    server-side at publish time (defense in depth).
+
+    ``rows`` — equity-ledger dicts (``target_url``, ``live_dofollow_platforms``).
+    ``per_target_status`` — ``{canonical_target: {"counts": {verdict: n}, ...}}``
+    from :func:`recheck.events_io.derive_per_target_status` (the liveness
+    authority, keyed by canonical URL). Pure: no I/O, no raises on bad rows.
+    """
+    seeds: list[dict] = []
+    gaps: list[KeepaliveGap] = []
+
+    for row in rows:
+        target = _row_get(row, "target_url")
+        if not isinstance(target, str) or not target:
+            continue
+        if (urlsplit(target).hostname or "").lower() in exclude_hosts:
+            continue
+        status = per_target_status.get(canonicalize_url(target))
+        if not status:
+            continue  # never rechecked → not a known gap (probe_error is a no-op)
+        counts = status.get("counts", {})
+        stripped = sum(int(counts.get(v, 0)) for v in _DEAD_VERDICTS)
+        if stripped == 0:
+            continue  # D6: a still-live target is never in the gap set
+
+        already_live = set(_row_get(row, "live_dofollow_platforms") or [])
+        sticky_avail = [p for p in sticky_platforms if p not in already_live]
+        # One republish per dead link, cycling the free sticky destinations
+        # (multiple posts to one sticky platform are distinct articles).
+        emitted_platforms = (
+            [sticky_avail[i % len(sticky_avail)] for i in range(stripped)]
+            if sticky_avail else []
+        )
+        main_domain = derive_main_domain(target)
+        for platform in emitted_platforms:
+            seeds.append({
+                "target_url": target,
+                "platform": platform,
+                "main_domain": main_domain,
+                "language": opts.language,
+                "url_mode": opts.url_mode,
+                "publish_mode": opts.publish_mode,
+            })
+        gaps.append(KeepaliveGap(
+            target_url=target,
+            stripped=stripped,
+            emitted_platforms=emitted_platforms,
+            channel_exhausted=not sticky_avail,
+        ))
+
+    return seeds, gaps

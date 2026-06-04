@@ -8,10 +8,15 @@ this unit owns the read states (S0 / S2-static / S-stale / empty).
 """
 from __future__ import annotations
 
-from flask import Blueprint
+from flask import Blueprint, abort, jsonify, request
+
+from backlink_publisher._util.errors import UsageError
+from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 
 from ..helpers.contexts import _render
+from ..helpers.security import _check_bind_origin_or_abort
 from ..services.keep_alive import build_keepalive_view
+from ..services.keepalive_job import registry as keepalive_registry
 
 bp = Blueprint("keep_alive", __name__)
 
@@ -19,4 +24,89 @@ bp = Blueprint("keep_alive", __name__)
 @bp.route("/ce:keep-alive", methods=["GET"])
 def keep_alive():
     view = build_keepalive_view()
-    return _render("keep_alive.html", view=view, active_page="keep_alive")
+    running = keepalive_registry.running_job("recheck")  # G5a: rehydrate on reopen
+    return _render(
+        "keep_alive.html", view=view, active_page="keep_alive", running_job=running
+    )
+
+
+@bp.route("/ce:keep-alive/recheck", methods=["POST"])
+def start_recheck():
+    # A recheck fires ~70 outbound probes — an outbound action — so the Origin
+    # guard (sole DNS-rebinding / malicious-localhost defense) is enforced on
+    # top of the app-level CSRF guard (mirror routes/bind.py).
+    _check_bind_origin_or_abort()
+    try:
+        job = keepalive_registry.start_recheck()
+        return jsonify({"status": "started", "job_id": job.id}), 202
+    except UsageError:
+        # One running recheck at a time: return the existing job, never a
+        # second worker (a double-click must not run two sweeps). 409 is a
+        # deliberate route choice (the service raises UsageError).
+        running = keepalive_registry.running_job("recheck")
+        return jsonify({
+            "status": "running",
+            "job_id": running["job_id"] if running else None,
+            "message": "巡检已在进行中，请稍候。",
+        }), 409
+
+
+@bp.route("/ce:keep-alive/recheck-status/<job_id>", methods=["GET"])
+def recheck_status(job_id: str):
+    # Returns only progress/rollups — never credentials or the target
+    # inventory — and 404s on an unknown/guessed id (bind.py shape).
+    poll = keepalive_registry.poll(job_id)
+    if poll is None:
+        abort(404)
+    return jsonify(poll)
+
+
+@bp.route("/ce:keep-alive/recheck-cancel/<job_id>", methods=["POST"])
+def recheck_cancel(job_id: str):
+    # Cooperative cancel: flags the worker, which stops at the next probe
+    # boundary leaving a partial result. State-changing POST → Origin guard.
+    _check_bind_origin_or_abort()
+    poll = keepalive_registry.cancel(job_id)
+    if poll is None:
+        abort(404)
+    return jsonify(poll)
+
+
+@bp.route("/ce:keep-alive/republish-token", methods=["GET"])
+def republish_token():
+    # Mint a single-use confirm nonce bound to the CURRENT gap set (S3→S4). It
+    # only matters together with the Origin guard + CSRF on the republish POST.
+    return jsonify(keepalive_registry.issue_confirm_token())
+
+
+@bp.route("/ce:keep-alive/republish", methods=["POST"])
+def start_republish():
+    # Outbound publish — treat the body as hostile even from "the operator".
+    _check_bind_origin_or_abort()
+    body = request.get_json(silent=True) or {}
+    targets = body.get("targets")
+    confirm_token = body.get("confirm_token") or ""
+    platform = body.get("platform")
+    # Hard sticky allowlist: reject a forged non-sticky destination up front,
+    # before any plan/publish (the gap set is re-derived sticky-only anyway).
+    if platform is not None and platform not in set(KEEPALIVE_STICKY_PLATFORMS):
+        return jsonify({"status": "error", "error": "non_sticky_platform"}), 400
+    if not isinstance(targets, list) or not targets or not confirm_token:
+        return jsonify({"status": "error", "error": "missing targets or confirm_token"}), 400
+    try:
+        job = keepalive_registry.start_republish(
+            selected_targets=targets, confirm_token=confirm_token
+        )
+        return jsonify({"status": "started", "job_id": job.id}), 202
+    except UsageError as exc:
+        msg = str(exc)
+        code = 409 if "already running" in msg else 400
+        return jsonify({"status": "error", "error": msg}), code
+
+
+@bp.route("/ce:keep-alive/republish-status/<job_id>", methods=["GET"])
+def republish_status(job_id: str):
+    poll = keepalive_registry.poll(job_id)
+    if poll is None or poll.get("kind") != "republish":
+        abort(404)
+    return jsonify(poll)
