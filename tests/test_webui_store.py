@@ -197,10 +197,14 @@ class TestSingletons:
             drafts_store, history_store, profiles_store, schedule_store,
         )
 
+        # history_store stays JSON-backed (its events.db migration is a
+        # separate parked plan, 2026-05-28-007).
         assert "publish-history.json" in str(history_store.path)
-        assert "campaign-profiles.json" in str(profiles_store.path)
-        assert "draft-queue.json" in str(drafts_store.path)
-        assert "schedule-settings.json" in str(schedule_store.path)
+        # profiles / drafts / schedule migrated to the unified webui.db
+        # (Plan 2026-06-03-008 — 6 JSON stores → webui.db).
+        assert "webui.db" in str(profiles_store.path)
+        assert "webui.db" in str(drafts_store.path)
+        assert "webui.db" in str(schedule_store.path)
 
     def test_default_factories_match_legacy_types(self):
         from webui_store import (

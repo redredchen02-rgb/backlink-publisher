@@ -8,84 +8,74 @@ proper Flask extension pattern::
     stores = current_app.extensions['webui_stores']
     history = stores.history.load()
 
-Module-level singletons in ``webui_store/__init__.py`` are kept for
-CLI code (``publish_backlinks``, ``bind-channel``, …) that runs outside
-Flask context.  They share the same lazy-initialisation pattern.
+Each property **delegates to the module-level ``_LazyStore`` singleton** in
+``webui_store/__init__.py`` rather than constructing a fresh store instance.
+This is load-bearing for the SQLite migration (Plan 2026-06-03-008 Unit 8):
+all six operational stores now share a single ``webui.db``. If ``WebUIStores``
+built its own instances, each store would hold an independent
+``threading.RLock`` pointing at the same db file — the per-store in-process
+lock invariant would be broken and concurrent writes would only be serialised
+by SQLite's ``busy_timeout``, not by Python locks. Delegating to the singleton
+keeps exactly one lock per store across both access paths.
 """
 
 from __future__ import annotations
 
 from flask import Flask
 
-from backlink_publisher.config.loader import _config_dir
-
-from .base import JsonStore
-from .drafts import DraftsSqliteStore
-from .history import HistoryStore
-from .queue_store import QueueSqliteStore
-from .sqlite_base import WebUIDatabase
+from . import (
+    campaign_store,
+    channel_status_store,
+    drafts_store,
+    history_store,
+    profiles_store,
+    queue_store,
+    schedule_store,
+)
+from .base import Store
 
 
 class WebUIStores:
-    """Lazy-initialised container for all WebUI state stores.
+    """Flask-extension view over the module-level store singletons.
 
-    Each store is created on first property access so the config dir
-    (resolved from ``BACKLINK_PUBLISHER_CONFIG_DIR``) is read no earlier
-    than ``init_app()`` time.
+    Holds no store state of its own — every property returns the shared
+    ``_LazyStore`` singleton so there is exactly one backing instance (and
+    one lock) per store process-wide.
     """
 
     def __init__(self) -> None:
         self._app: Flask | None = None
-        self._history: HistoryStore | None = None
-        self._profiles: JsonStore | None = None
-        self._drafts: DraftsSqliteStore | None = None
-        self._schedule: JsonStore | None = None
-        self._queue: QueueSqliteStore | None = None
 
     def init_app(self, app: Flask) -> None:
         self._app = app
         app.extensions['webui_stores'] = self
 
-    # ── Store properties (lazily initialised) ─────────────────────────
+    # ── Store properties — all delegate to module-level singletons ────────
 
     @property
-    def history(self) -> HistoryStore:
-        if self._history is None:
-            self._history = HistoryStore(_config_dir() / "publish-history.json")
-        return self._history
+    def history(self) -> Store:
+        return history_store
 
     @property
-    def profiles(self) -> JsonStore:
-        if self._profiles is None:
-            self._profiles = JsonStore(
-                _config_dir() / "campaign-profiles.json",
-                default_factory=list,
-            )
-        return self._profiles
+    def profiles(self) -> Store:
+        return profiles_store
 
     @property
-    def drafts(self) -> DraftsSqliteStore:
-        if self._drafts is None:
-            config_dir = _config_dir()
-            store = DraftsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
-            store.migrate_from_json(config_dir)
-            self._drafts = store
-        return self._drafts
+    def drafts(self) -> Store:
+        return drafts_store
 
     @property
-    def schedule(self) -> JsonStore:
-        if self._schedule is None:
-            self._schedule = JsonStore(
-                _config_dir() / "schedule-settings.json",
-                default_factory=dict,
-            )
-        return self._schedule
+    def schedule(self) -> Store:
+        return schedule_store
 
     @property
-    def queue(self) -> QueueSqliteStore:
-        if self._queue is None:
-            config_dir = _config_dir()
-            store = QueueSqliteStore(WebUIDatabase(config_dir / "webui.db"))
-            store.migrate_from_json(config_dir)
-            self._queue = store
-        return self._queue
+    def queue(self) -> Store:
+        return queue_store
+
+    @property
+    def campaign(self) -> Store:
+        return campaign_store
+
+    @property
+    def channel_status(self) -> Store:
+        return channel_status_store
