@@ -38,7 +38,7 @@ from backlink_publisher.content import fetch as content_fetch
 from backlink_publisher.publishing.adapters.llm_anchor_provider import (
     OpenAICompatibleProvider,
 )
-from backlink_publisher.schema import validate_input_payload
+from backlink_publisher.schema import validate_and_convert_input
 
 from ._banners import _build_banner_runtime, _generate_banner_for_payload
 from ._links import (
@@ -234,7 +234,8 @@ def plan_rows(
     if fetch_verify_enabled:
         validated_rows: list[dict[str, Any]] = []
         for row in rows:
-            if not validate_input_payload(row, 0):
+            _, errs = validate_and_convert_input(row, 0)
+            if not errs:
                 validated_rows.append(row)
         prefetch_set: set[str] = set()
         for row in validated_rows:
@@ -250,8 +251,8 @@ def plan_rows(
 
     # ── Per-row generation loop ────────────────────────────────────────────
     for line_num, row in enumerate(rows, start=1):
-        errs = validate_input_payload(row, line_num)
-        if errs:
+        seed, errs = validate_and_convert_input(row, line_num)
+        if errs or seed is None:
             outcome.errors.extend(errs)
             outcome.validation_drops.append(line_num)
             continue

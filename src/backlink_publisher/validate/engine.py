@@ -38,7 +38,7 @@ from backlink_publisher.publishing.content_negotiation import route_tier_for
 from backlink_publisher.schema import (
     _is_field_present,
     reject_unsupported_platform,
-    validate_output_payload,
+    validate_and_convert_output,
 )
 
 from backlink_publisher.cli._validate_payload import (
@@ -172,8 +172,8 @@ def validate_rows(
             outcome.platform_drops.append(idx)
             continue
 
-        errs = validate_output_payload(row)
-        if errs:
+        plan, errs = validate_and_convert_output(row)
+        if errs or plan is None:
             outcome.errors.extend(f"row {idx}: {e}" for e in errs)
             outcome.validation_drops.append(idx)
             continue

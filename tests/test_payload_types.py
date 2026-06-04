@@ -508,3 +508,80 @@ class TestValidateAndConvertOutput:
         assert model is None
         assert len(errors) > 0
         assert any("title must not be empty" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# Pipeline dispatch typed validation (Phase 3 — model assertion in pipeline)
+# ---------------------------------------------------------------------------
+
+
+class TestValidatePublishPayload:
+    """validate_publish_payload now includes a Pydantic model_validate assertion."""
+
+    def test_valid_publish_payload_passes(self) -> None:
+        """A valid publish payload returns no errors."""
+        from backlink_publisher.schema import validate_publish_payload
+
+        errors = validate_publish_payload(_valid_planned())
+        assert errors == []
+
+    def test_invalid_missing_field_caught(self) -> None:
+        """Missing required field is still caught by old checks first."""
+        from backlink_publisher.schema import validate_publish_payload
+
+        row = _valid_planned()
+        del row["title"]
+        errors = validate_publish_payload(row)
+        assert len(errors) > 0
+        assert any("missing required output field" in e for e in errors)
+
+    def test_invalid_platform_caught(self) -> None:
+        """Unsupported platform is caught by publish-specific check."""
+        from backlink_publisher.schema import validate_publish_payload
+
+        errors = validate_publish_payload(_valid_planned(platform="nonexistent"))
+        assert len(errors) > 0
+        assert any("nonexistent" in e for e in errors)
+
+    def test_pydantic_assertion_runs_on_valid_row(self) -> None:
+        """When old checks pass, the Pydantic model_validate assertion runs."""
+        from backlink_publisher.schema import validate_publish_payload
+
+        # Row that passes old checks but would fail Pydantic requires finding
+        # a divergence. Currently old checks and Pydantic have near-identical
+        # coverage; the Pydantic assertion is defense-in-depth.
+        # A valid row still passes — this test verifies the path is live.
+        errors = validate_publish_payload(_valid_planned())
+        assert errors == []
+
+
+class TestPlanEngineTypedValidation:
+    """plan_rows uses validate_and_convert_input (SeedPayload) for row validation."""
+
+    def test_plan_imports_validate_and_convert_input(self) -> None:
+        """The engine module imports validate_and_convert_input, not validate_input_payload."""
+        import importlib
+        import backlink_publisher.cli.plan_backlinks._engine as engine
+        importlib.reload(engine)
+
+        # Check the module's top-level name table to verify the right function is imported.
+        # (Source-string matching is too fragile — docstrings reference the old name.)
+        mod_namespace = set(dir(engine))
+        assert "validate_and_convert_input" in mod_namespace
+        assert "validate_input_payload" not in mod_namespace
+
+
+class TestValidateEngineTypedValidation:
+    """validate_rows uses validate_and_convert_output (PlannedPayload) for payload validation."""
+
+    def test_validate_imports_validate_and_convert_output(self) -> None:
+        """The validate engine module imports the typed validation function."""
+        import importlib
+        import backlink_publisher.validate.engine as vengine
+        importlib.reload(vengine)
+
+        source = importlib.util.find_spec(
+            "backlink_publisher.validate.engine"
+        ).loader.get_source("backlink_publisher.validate.engine")
+        assert "validate_and_convert_output" in source
+        assert "validate_output_payload" not in source

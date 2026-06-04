@@ -179,6 +179,15 @@ def validate_publish_payload(row: dict[str, Any]) -> list[str]:
         if msg is not None:
             errors.append(msg)
 
+    if not errors:
+        from ._payload_types import PlannedPayload
+        from pydantic import ValidationError
+
+        try:
+            PlannedPayload.model_validate(row)
+        except ValidationError as exc:
+            errors.append(f"Pydantic validation failed: {exc}")
+
     return errors
 
 
