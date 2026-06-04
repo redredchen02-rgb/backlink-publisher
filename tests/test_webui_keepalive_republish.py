@@ -166,6 +166,54 @@ def test_concurrent_republish_conflicts():
     _wait(reg, job.id)
 
 
+def test_two_concurrent_tokens_cannot_both_start():
+    # P1 regression: conflict-check + nonce-pop + job-insert must be ONE atomic
+    # lock block. With a split (check in one block, insert in another) two
+    # distinct valid tokens fired concurrently could both pass the check and both
+    # start a worker → double-publish. Exactly one must win; the other rejected.
+    reg = KeepaliveJobRegistry()
+    seeds = [_seed("https://51acgs.com/comic/117")]
+    gap = _gap_fn(seeds)
+    barrier = threading.Barrier(2)
+    release = threading.Event()
+    results = []
+
+    def slow_pub(s):
+        release.wait(timeout=3)
+        return _ok_publish(s)
+
+    def fire():
+        tok = reg.issue_confirm_token(store=None, gap_fn=gap)["confirm_token"]
+        barrier.wait()  # align both threads at the start_republish call
+        try:
+            job = reg.start_republish(
+                selected_targets=["https://51acgs.com/comic/117"], confirm_token=tok,
+                store=None, gap_fn=gap, publish_fn=slow_pub, recheck_fn=_alive_recheck,
+                sticky_platforms=("blogger",),
+            )
+            results.append(("ok", job.id))
+        except UsageError as exc:
+            results.append(("rejected", str(exc)))
+
+    threads = [threading.Thread(target=fire) for _ in range(2)]
+    for t in threads:
+        t.start()
+    # keep the winner's worker blocked until BOTH threads have raced through
+    # start_republish, so the loser deterministically observes status=="running".
+    deadline = time.time() + 5
+    while len(results) < 2 and time.time() < deadline:
+        time.sleep(0.01)
+    release.set()
+    for t in threads:
+        t.join(timeout=5)
+
+    oks = [r for r in results if r[0] == "ok"]
+    rejected = [r for r in results if r[0] == "rejected"]
+    assert len(oks) == 1, f"expected exactly one start, got {results}"
+    assert len(rejected) == 1 and "already running" in rejected[0][1]
+    assert len([j for j in reg._jobs.values() if j.kind == "republish"]) == 1
+
+
 # ── 7b: auto-recheck of the freshly-published URLs (S6 confirm / S7 treadmill) ──
 
 def test_auto_recheck_confirms_new_url_alive_s6():

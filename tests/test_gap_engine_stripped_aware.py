@@ -117,6 +117,20 @@ def test_accepts_ledger_row_dataclass_not_just_dict():
     assert gaps[0].stripped == 1
 
 
+def test_malformed_port_target_is_skipped_not_raised():
+    # canonicalize_url raises ValueError on a bad port (urlsplit(...).port); a
+    # single malformed row must be skipped, never abort the whole batch (the
+    # engine's "no raises on bad rows" contract).
+    bad = "https://51acgs.com:notaport/comic/1"
+    good = "https://51acgs.com/comic/117"
+    status = {canonicalize_url(good): _status(link_stripped=1)}
+    seeds, gaps = plan_keepalive_gap(
+        [_row(bad), _row(good)], status, OPTS, sticky_platforms=("blogger",)
+    )
+    assert len(gaps) == 1 and gaps[0].target_url == good   # bad row silently dropped
+    assert len(seeds) == 1
+
+
 def test_emitted_seeds_are_valid_planbacklinks_shape():
     t = "https://51acgs.com/comic/117"
     status = {canonicalize_url(t): _status(link_stripped=1)}

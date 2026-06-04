@@ -254,7 +254,15 @@ def plan_keepalive_gap(
             continue
         if (urlsplit(target).hostname or "").lower() in exclude_hosts:
             continue
-        status = per_target_status.get(canonicalize_url(target))
+        # ``canonicalize_url`` reads ``urlsplit(...).port`` which raises ValueError
+        # on a malformed port (e.g. ``http://h:notaport/x``); guard it so one bad
+        # row can't abort the whole batch (honors the "no raises on bad rows"
+        # contract — mirrors recheck.overlay._canon_target).
+        try:
+            canon = canonicalize_url(target)
+        except ValueError:
+            continue
+        status = per_target_status.get(canon)
         if not status:
             continue  # never rechecked → not a known gap (probe_error is a no-op)
         counts = status.get("counts", {})

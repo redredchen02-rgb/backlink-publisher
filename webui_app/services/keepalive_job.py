@@ -379,29 +379,33 @@ class KeepaliveJobRegistry:
         seeds, _gaps = gap_fn(store)
         fingerprint = self._gap_fingerprint(seeds)
 
+        # Re-derive the plan from server truth (pure, no shared state): only seeds
+        # that are STILL a gap AND were selected AND are sticky survive (a now-live
+        # or forged target is dropped here). Done before the lock — local-only.
+        non_sticky = [s for s in seeds if s.get("platform") not in sticky]
+        if non_sticky:
+            # Defense in depth: the engine should never emit a non-sticky seed.
+            raise UsageError("keepalive: refusing a non-sticky republish destination")
+        plan = [
+            s for s in seeds
+            if s.get("target_url") in wanted and s.get("platform") in sticky
+        ]
+
+        # ONE atomic lock block (mirror start_recheck): conflict-check → consume
+        # nonce → insert running job. A split (check in one block, insert in
+        # another) is a TOCTOU — two concurrent calls with two distinct valid
+        # tokens could both pass the check and both start a worker → double-publish.
         with self._lock:
             for job in self._jobs.values():
                 if job.kind == "republish" and job.status == "running":
                     raise UsageError(f"keepalive: a republish job is already running ({job.id})")
-            # single-use nonce, bound to the freshly re-derived gap set
+            # single-use nonce, bound to the freshly re-derived gap set. The
+            # running-job check above is FIRST so a conflict doesn't burn the nonce.
             issued_for = self._confirm_nonces.pop(confirm_token, None)
             if issued_for is None:
                 raise UsageError("keepalive: invalid or already-used confirm token")
             if issued_for != fingerprint:
                 raise UsageError("keepalive: gap set changed since confirm — re-run the recheck")
-
-        # Re-derive: only seeds that are STILL a gap AND were selected AND are
-        # sticky survive (a now-live or forged target is dropped here).
-        plan = [
-            s for s in seeds
-            if s.get("target_url") in wanted and s.get("platform") in sticky
-        ]
-        non_sticky = [s for s in seeds if s.get("platform") not in sticky]
-        if non_sticky:
-            # Defense in depth: the engine should never emit a non-sticky seed.
-            raise UsageError("keepalive: refusing a non-sticky republish destination")
-
-        with self._lock:
             job_id = uuid.uuid4().hex
             job = RepublishJob(
                 id=job_id, kind="republish", status="running",
