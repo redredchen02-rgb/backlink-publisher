@@ -22,6 +22,7 @@ from .campaign_store import CampaignStore
 from .channel_status import channel_status_store
 from .drafts import DraftsStore
 from .history import HistoryStore
+from .profiles import ProfilesSqliteStore
 from .queue_store import QueueStore
 from .schedule import ScheduleSqliteStore
 from .sqlite_base import WebUIDatabase
@@ -39,17 +40,20 @@ def _make_schedule_store() -> ScheduleSqliteStore:
     return store
 
 
+def _make_profiles_store() -> ProfilesSqliteStore:
+    config_dir = _resolve_config_dir()
+    store = ProfilesSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store.migrate_from_json(config_dir)
+    return store
+
+
 # Singleton bindings — lazily resolved on first access so test fixtures
 # that set BACKLINK_PUBLISHER_CONFIG_DIR before accessing these don't
 # need _refresh_paths().
 history_store = _LazyStore(
     lambda: HistoryStore(_store_path("publish-history.json"))
 )
-profiles_store = _LazyStore(
-    lambda: JsonStore(
-        _store_path("campaign-profiles.json"), default_factory=list,
-    )
-)
+profiles_store = _LazyStore(_make_profiles_store)
 drafts_store = _LazyStore(
     lambda: DraftsStore(_store_path("draft-queue.json"))
 )
@@ -84,6 +88,7 @@ __all__ = [
     "CampaignStore",
     "DraftsStore",
     "HistoryStore",
+    "ProfilesSqliteStore",
     "QueueStore",
     "campaign_store",
     "history_store",
