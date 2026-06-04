@@ -1,7 +1,7 @@
 ---
 title: "fix: Enable keep-alive recheck button"
 type: fix
-status: active
+status: completed
 date: 2026-06-04
 origin: docs/plans/2026-06-04-001-feat-internal-edition-lite-keepalive-plan.md
 ---

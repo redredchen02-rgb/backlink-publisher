@@ -260,7 +260,8 @@ flowchart TB
 
 ### Phase 0 — Gate (must pass before the R1 build)
 
-- [ ] **Unit 1: Falsification gate (operator-run, not code)**
+- [x] **Unit 1: Falsification gate** → **GO (mechanics)** 2026-06-04. Real 1-post publish to blogger (`taiwanmanga2026.blogspot.com/2026/06/51_0466154121.html`, HTTP 200, dofollow `rel="noopener"` to 51acgs, `publish.confirmed` in events.db). The publish→live-dofollow loop on the sticky platform works.
+  **⚠️ GO with a hard caveat for U5–U7:** the gate also proved `plan-gap --emit-stale` emits **polluted seeds** — 8/14 blogger seeds were `example.com` test data, the rest 404 targets (`/article`, `/comic/5`); the proven-reachable real pages had **zero** seeds. So the loop *as-emitted today* would publish to fake/dead targets. **U5–U7 must (a) exclude `example.com`, (b) validate target reachability before publishing, (c) target the deep pages that actually bleed** — else the auto-loop spams test data. (ghpages is also out: GitHub account suspended.)
 
 **Goal:** Prove the loop is operator-reproducible before investing in the R1 build.
 
@@ -408,7 +409,7 @@ picture, bleeding deep pages at the top, deduped, with a visible "verified N day
 
 ### Phase 2 — LITE-core: the keep-alive loop (Units 5–8)
 
-- [ ] **Unit 5: R1 — async job infrastructure + recheck job (S1, poll, cancel, leave-return)**
+- [x] **Unit 5: R1 — async job infrastructure + recheck job (S1, poll, cancel, leave-return)**  ✅ shipped `1ec0471` (branch `feat/keepalive-loop-r1`). KeepaliveJobRegistry (in-process worker thread + append-only events), routes start-recheck/recheck-status/recheck-cancel (Origin guard + 409), JS S1 poll loop + G5a rehydrate. 11 tests.
 
 **Goal:** Run a full-portfolio recheck as a background job with progress, cancel, and
 leave-and-return — the largest net-new piece.
@@ -472,7 +473,7 @@ are auto-disabled under pytest); inject a fake `verify_fn` so no real network.
 **Verification:** Triggering a recheck shows live progress, is cancelable, rehydrates on tab-reopen within
 the live process, never silently hangs, and cannot be driven cross-origin or duplicated by double-click.
 
-- [ ] **Unit 6: R1 — per-link stripped-aware deficit in `gap/engine.py`**
+- [x] **Unit 6: R1 — per-link stripped-aware deficit in `gap/engine.py`**  ✅ shipped `c6f2ca8` (branch `feat/keepalive-loop-r1`). New pure `plan_keepalive_gap` (gap = stripped link, sticky republish, D6 dedup, probe_error≠gap) + seed-hygiene (example.com excluded) — folds in the U1-gate pollution finding. 9 tests.
 
 **Goal:** Make "gap" mean "a previously-live-dofollow link is now stripped," not "page has < N links."
 
@@ -515,7 +516,7 @@ server-side at publish time against fresh state — defense in depth, see Unit 7
 **Verification:** On the real 51acgs data, the stripped deep-page links surface as gaps where
 `--desired 5` previously found none; still-live links never appear in the gap set.
 
-- [ ] **Unit 7: R1 — republish flow (review → confirm → publish → auto-recheck)**
+- [~] **Unit 7: R1 — republish flow (review → confirm → publish → auto-recheck)**  ⚠️ **7a server spine shipped** `0ff9708` (branch `feat/keepalive-loop-r1`): `start_republish` re-derives gaps server-side (D6, never trusts posted ids), sticky-allowlist enforce, single-use confirm nonce bound to gap fingerprint (stale-gap rejects), persist-before-recheck, structured partial (no ok-on-partial); routes republish-token/republish/republish-status (Origin guard + sticky 400 + 409). 7 tests. **Remaining:** 7b auto-recheck of new URLs (S6→S2 / S7 treadmill terminal) + the S3–S7 frontend modal (select → confirm → progress → result).
 
 **Goal:** Close the loop: select gaps, confirm, republish to sticky platforms, prove they went live.
 
