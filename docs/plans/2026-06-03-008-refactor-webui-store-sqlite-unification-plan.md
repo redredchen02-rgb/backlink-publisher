@@ -1,7 +1,7 @@
 ---
 title: "refactor: Unify webui operational stores — 6 JSON stores → webui.db (SQLite)"
 type: refactor
-status: active
+status: completed
 date: 2026-06-03
 origin: (Route B — storage-layer-first, from brainstorm session 2026-06-03)
 ---
@@ -248,7 +248,7 @@ cleanup that runs after all six stores have landed.
 
 ## Implementation Units
 
-- [ ] **Unit 1: `webui_store/sqlite_base.py` — SqliteStore base class + webui.db init**
+- [x] **Unit 1: `webui_store/sqlite_base.py` — SqliteStore base class + webui.db init**
 
 **Goal:** Establish the shared SQLite plumbing for all webui stores. No store is
 migrated yet; this is the infrastructure prerequisite for all subsequent units.
@@ -309,7 +309,7 @@ migrated yet; this is the infrastructure prerequisite for all subsequent units.
 
 ---
 
-- [ ] **Unit 2: `schedule_store` → `webui.db` `settings` table**
+- [x] **Unit 2: `schedule_store` → `webui.db` `settings` table**
 
 **Goal:** Migrate the simplest store (plain dict, always accessed as a whole) to
 prove the end-to-end pattern before tackling richer stores.
@@ -362,7 +362,7 @@ prove the end-to-end pattern before tackling richer stores.
 
 ---
 
-- [ ] **Unit 3: `profiles_store` → `webui.db` `profiles` table**
+- [x] **Unit 3: `profiles_store` → `webui.db` `profiles` table**
 
 **Goal:** Migrate profiles_store (list of dicts, always accessed as whole) using the
 same blob-table pattern proven in Unit 2.
@@ -395,7 +395,7 @@ same blob-table pattern proven in Unit 2.
 
 ---
 
-- [ ] **Unit 4: `channel_status_store` → `webui.db` `channel_status` table**
+- [x] **Unit 4: `channel_status_store` → `webui.db` `channel_status` table**
 
 **Goal:** Migrate channel_status (keyed dict, functional API) to a proper row table
 with channel slug as primary key. The functional API (`mark_bound`, `mark_verified`,
@@ -457,7 +457,7 @@ etc.) stays unchanged.
 
 ---
 
-- [ ] **Unit 5: `queue_store` → `webui.db` `tasks` table**
+- [x] **Unit 5: `queue_store` → `webui.db` `tasks` table**
 
 **Goal:** Migrate queue_store (list of task dicts with datetime-based filtering) to a
 proper row table with an indexed `status` column.
@@ -507,7 +507,7 @@ proper row table with an indexed `status` column.
 
 ---
 
-- [ ] **Unit 6: `drafts_store` → `webui.db` `drafts` table**
+- [x] **Unit 6: `drafts_store` → `webui.db` `drafts` table**
 
 **Goal:** Migrate the richest-CRUD store (9 methods, `bulk_publish_now`) to a proper
 row table. Also removes the two pairs of duplicate method definitions in `drafts.py`.
@@ -580,7 +580,7 @@ row table. Also removes the two pairs of duplicate method definitions in `drafts
 
 ---
 
-- [ ] **Unit 7: `campaign_store` → `webui.db` `campaigns` table**
+- [x] **Unit 7: `campaign_store` → `webui.db` `campaigns` table**
 
 **Goal:** Migrate campaign_store (list of campaigns with nested seed records) to a
 row table. Seeds stored as JSON blob to preserve existing sub-record semantics.
@@ -642,7 +642,7 @@ row table. Seeds stored as JSON blob to preserve existing sub-record semantics.
 
 ---
 
-- [ ] **Unit 8: `_refresh_paths` + `_LazyStore` compat + `registry.py` fix**
+- [x] **Unit 8: `_refresh_paths` + `_LazyStore` compat + `registry.py` fix**
 
 **Goal:** Ensure `_refresh_paths()` resets all SQLite stores on env var change; confirm
 `_LazyStore` cache invalidation works for SQLite-backed stores; fix `WebUIStores` to
