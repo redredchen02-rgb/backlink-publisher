@@ -236,6 +236,23 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             llm_ok = False
         return {"llm_configured": llm_ok}
 
+    # Plan 2026-06-04-001 Unit 10 / R7+R8 — the LITE edition shows the operator
+    # only the keep-alive core. ``lite_edition`` drives the nav trim in
+    # base.html; the gate below makes the hidden surfaces unreachable, not just
+    # unlinked. Registered before the CSRF guard so a hidden route returns 404
+    # for any method (a no-token POST would otherwise 403 on CSRF first).
+    from .helpers.edition import LITE_HIDDEN_BLUEPRINTS, is_lite_edition
+
+    @app.context_processor
+    def inject_lite_edition():
+        return {"lite_edition": is_lite_edition()}
+
+    @app.before_request
+    def _lite_surface_gate():
+        from flask import abort, request as _req
+        if is_lite_edition() and _req.blueprint in LITE_HIDDEN_BLUEPRINTS:
+            abort(404)
+
     # Global CSRF enforcement. SameSite=Lax + loopback already block most
     # cross-site POST, but operators who flip BACKLINK_PUBLISHER_ALLOW_NETWORK
     # to bind off-loopback lose Lax's effective protection. Defence-in-depth

@@ -26,10 +26,14 @@
             <a href="/ce:keep-alive" class="global-nav__item{% if (active_page | default('')) == 'keep_alive' %} active{% endif %}">保活</a>
             <a href="/" class="global-nav__item{% if (active_page | default('')) == 'index' %} active{% endif %}">发布</a>
             <a href="/ce:health" class="global-nav__item{% if (active_page | default('')) == 'health' %} active{% endif %}">健康</a>
+            {# LITE edition (R7) shows keep-alive core only — 保活/发布/健康/设置. The
+               Pro/secondary entries below are hidden when lite_edition is set. #}
+            {% if not lite_edition %}
             <a href="/schedule" class="global-nav__item{% if (active_page | default('')) == 'schedule' %} active{% endif %}">排程</a>
             <a href="/ce:equity-ledger" class="global-nav__item{% if (active_page | default('')) == 'equity' %} active{% endif %}">权益</a>
             <a href="/sites" class="global-nav__item{% if (active_page | default('')) == 'sites' %} active{% endif %}">站点</a>
             <a href="/pr-queue" class="global-nav__item{% if (active_page | default('')) == 'pr_queue' %} active{% endif %}">PR队列</a>
+            {% endif %}
             <a href="/settings" class="global-nav__item{% if (active_page | default('')) == 'settings' %} active{% endif %}">设置</a>
         </div>
     </nav>
