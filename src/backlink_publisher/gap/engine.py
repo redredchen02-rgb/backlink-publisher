@@ -205,6 +205,14 @@ KEEPALIVE_EXCLUDED_HOSTS = frozenset({"example.com"})
 _DEAD_VERDICTS = ("link_stripped", "host_gone")
 
 
+def _row_get(row, key, default=None):
+    """Read ``key`` from a ledger row that may be a dict (CLI JSONL) OR a
+    ``LedgerRow`` dataclass (in-process ``build_ledger`` output)."""
+    if isinstance(row, dict):
+        return row.get(key, default)
+    return getattr(row, key, default)
+
+
 @dataclass
 class KeepaliveGap:
     """One target with ≥1 deterministically-dead link, and where to republish it."""
@@ -241,7 +249,7 @@ def plan_keepalive_gap(
     gaps: list[KeepaliveGap] = []
 
     for row in rows:
-        target = row.get("target_url")
+        target = _row_get(row, "target_url")
         if not isinstance(target, str) or not target:
             continue
         if (urlsplit(target).hostname or "").lower() in exclude_hosts:
@@ -254,7 +262,7 @@ def plan_keepalive_gap(
         if stripped == 0:
             continue  # D6: a still-live target is never in the gap set
 
-        already_live = set(row.get("live_dofollow_platforms") or [])
+        already_live = set(_row_get(row, "live_dofollow_platforms") or [])
         sticky_avail = [p for p in sticky_platforms if p not in already_live]
         # One republish per dead link, cycling the free sticky destinations
         # (multiple posts to one sticky platform are distinct articles).

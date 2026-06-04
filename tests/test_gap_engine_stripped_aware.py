@@ -104,6 +104,19 @@ def test_sticky_platforms_injectable_narrows_destinations():
     assert len(seeds) == 3
 
 
+def test_accepts_ledger_row_dataclass_not_just_dict():
+    # The real path passes build_ledger LedgerRow dataclasses (attribute access),
+    # not dicts — regression for the row.get() AttributeError.
+    from backlink_publisher.ledger.model import LedgerRow
+
+    t = "https://51acgs.com/comic/117"
+    row = LedgerRow(target_url=t, live_dofollow=5, live_dofollow_platforms=["telegraph"])
+    status = {canonicalize_url(t): _status(link_stripped=1)}
+    seeds, gaps = plan_keepalive_gap([row], status, OPTS, sticky_platforms=("blogger",))
+    assert len(seeds) == 1 and seeds[0]["target_url"] == t
+    assert gaps[0].stripped == 1
+
+
 def test_emitted_seeds_are_valid_planbacklinks_shape():
     t = "https://51acgs.com/comic/117"
     status = {canonicalize_url(t): _status(link_stripped=1)}

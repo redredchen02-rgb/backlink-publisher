@@ -1213,38 +1213,22 @@ class TestEquityLedgerRoutes:
 
 
 class TestKeepAliveRoutes:
-    """Plan 2026-06-04-001 Units 4–5 — keep-alive screen + recheck job routes.
-    Full behaviour in tests/test_webui_keep_alive_status.py and
-    tests/test_webui_keepalive_recheck_{job,route}.py; this satisfies the
-    route-coverage gate below."""
+    """Plan 2026-06-04-001 Units 4–7 — keep-alive screen + recheck/republish job
+    routes. Full behaviour in tests/test_webui_keep_alive_status.py and
+    tests/test_webui_keepalive_*.py; this satisfies the route-coverage gate."""
 
-    def test_get_keep_alive(self, client):
-        resp = client.get("/ce:keep-alive")
-        assert resp.status_code == 200
+    def test_get_keep_alive_renders(self, client):
+        assert client.get("/ce:keep-alive").status_code == 200
 
-    def test_post_start_recheck_missing_origin_or_csrf(self, client):
-        resp = client.post("/ce:keep-alive/recheck")
-        assert resp.status_code in (202, 403, 409)
-
-    def test_get_recheck_status(self, client):
-        resp = client.get("/ce:keep-alive/recheck-status/deadbeef")
-        assert resp.status_code == 404
-
-    def test_post_recheck_cancel(self, client):
-        resp = client.post("/ce:keep-alive/recheck-cancel/deadbeef")
-        assert resp.status_code in (403, 404)   # origin guard, or unknown id
-
-    def test_get_republish_token(self, client):
-        resp = client.get("/ce:keep-alive/republish-token")
-        assert resp.status_code == 200
-
-    def test_post_start_republish(self, client):
-        resp = client.post("/ce:keep-alive/republish")
-        assert resp.status_code in (400, 403)   # origin guard, or missing body
-
-    def test_get_republish_status(self, client):
-        resp = client.get("/ce:keep-alive/republish-status/deadbeef")
-        assert resp.status_code == 404
+    def test_action_routes_covered(self, client):
+        # Route-coverage gate: hit each action route once (guards + state
+        # machine asserted in the dedicated keepalive tests).
+        assert client.post("/ce:keep-alive/recheck").status_code in (202, 403, 409)
+        assert client.get("/ce:keep-alive/recheck-status/x").status_code == 404
+        assert client.post("/ce:keep-alive/recheck-cancel/x").status_code in (403, 404)
+        assert client.get("/ce:keep-alive/republish-token").status_code == 200
+        assert client.post("/ce:keep-alive/republish").status_code in (400, 403)
+        assert client.get("/ce:keep-alive/republish-status/x").status_code == 404
 
 
 class TestChannelBindSaveRoutes:
