@@ -1,7 +1,7 @@
 ---
 title: "fix: Rebase fix/keep-alive-recheck-button onto main and merge MR !11"
 type: fix
-status: active
+status: completed
 date: 2026-06-04
 ---
 
@@ -56,7 +56,7 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ## Implementation Units
 
-- [ ] **Unit 1: Clean working tree — commit docs to main, stage settings fix to feature branch**
+- [x] **Unit 1: Clean working tree — commit docs to main, stage settings fix to feature branch**
 
 **Goal:** Ensure rebase starts from a clean working tree; keep MR !11 diff free of unrelated docs
 
@@ -80,7 +80,7 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ---
 
-- [ ] **Unit 2: Sync local main with gitlab/main**
+- [x] **Unit 2: Sync local main with gitlab/main**
 
 **Goal:** Bring local `main` to `88e0a57`
 
@@ -101,7 +101,7 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ---
 
-- [ ] **Unit 3: Rebase fix/keep-alive-recheck-button onto main**
+- [x] **Unit 3: Rebase fix/keep-alive-recheck-button onto main**
 
 **Goal:** Land MR !11 docs commit on top of updated `main`; discard superseded sync-route code
 
@@ -130,7 +130,7 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ---
 
-- [ ] **Unit 4: Run tests**
+- [x] **Unit 4: Run tests**
 
 **Goal:** Verify rebased branch passes all tests
 
@@ -157,7 +157,7 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ---
 
-- [ ] **Unit 5: Force-push and merge MR !11**
+- [x] **Unit 5: Force-push and merge MR !11**
 
 **Goal:** Land `fix/keep-alive-recheck-button` on GitLab and close MR !11
 
@@ -181,7 +181,7 @@ Per project memory: non-interactive `git push gitlab` requires `git -c credentia
 
 ---
 
-- [ ] **Unit 6: Clean up local branches**
+- [x] **Unit 6: Clean up local branches**
 
 **Goal:** Remove stale local branches after merge
 
