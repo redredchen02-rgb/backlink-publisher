@@ -1,7 +1,7 @@
 ---
 title: "feat: Validation test suite — SQLite migration, LITE edition, bind-job completeness, payload typing"
 type: feat
-status: active
+status: completed
 date: 2026-06-04
 deepened: 2026-06-04
 claims: {}
@@ -121,7 +121,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ## Implementation Units
 
-- [ ] **Unit 1: SQLite store migration edge cases**
+- [x] **Unit 1: SQLite store migration edge cases**
 
 **Goal:** Corrupt/binary/non-UTF-8 input files, empty startup for all five stores, queue pending-task recovery.
 
@@ -159,7 +159,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ---
 
-- [ ] **Unit 2: Cross-process SQLite update() RMW safety**
+- [x] **Unit 2: Cross-process SQLite update() RMW safety**
 
 **Goal:** Document whether two OS processes calling `update()` (load→fn→save RMW) produce a lost update; confirm WAL integrity for non-conflicting row writes.
 
@@ -191,7 +191,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ---
 
-- [ ] **Unit 3: LITE edition host enforcement and network matrix**
+- [x] **Unit 3: LITE edition host enforcement and network matrix**
 
 **Goal:** `127.0.0.1`, `::1`, `localhost` accessible; LAN IP and `fe80::` blocked; `ALLOW_NETWORK=1` does not bypass; launcher consistency.
 
@@ -229,7 +229,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ---
 
-- [ ] **Unit 4: LITE route gating and CSRF behavioral enforcement**
+- [x] **Unit 4: LITE route gating and CSRF behavioral enforcement**
 
 **Goal:** Pro routes 404 regardless of fixture state; CSRF behaviorally enforced on real core routes (not just structurally ordered); nav/route gating consistent.
 
@@ -268,7 +268,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ---
 
-- [ ] **Unit 5: Bind job state machine completeness**
+- [x] **Unit 5: Bind job state machine completeness**
 
 **Goal:** `TimeoutExpired→kill`, concurrent poll safety, false-success prevention. Cancel does not exist in v1. Duplicate-start already tested in `test_webui_bind_job_service.py::TestRegistryStart::test_concurrent_bind_same_channel_rejected`.
 
@@ -309,7 +309,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ---
 
-- [ ] **Unit 6: Bind job in-memory limitation and reset boundary**
+- [x] **Unit 6: Bind job in-memory limitation and reset boundary**
 
 **Goal:** Assert v1 in-memory-only limitation; job state does not survive `reset_for_tests()`; `reap_orphans()` is true no-op. These tests are a v2 compliance gate.
 
@@ -344,7 +344,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ---
 
-- [ ] **Unit 7: url_mode divergence gap and typed error envelope**
+- [x] **Unit 7: url_mode divergence gap and typed error envelope**
 
 **Goal:** Test `url_mode='D'` divergence (passes legacy, fails Pydantic); confirm `ValidationError` paths emit typed `__BLP_ERR__` envelope.
 
@@ -384,7 +384,7 @@ Units 1, 2, 3, 4, 5, 7 are independent. Units 6 and 8 use preceding unit pattern
 
 ---
 
-- [ ] **Unit 8: WebUI pipeline payload round-trip and error surfacing**
+- [x] **Unit 8: WebUI pipeline payload round-trip and error surfacing**
 
 **Goal:** Typed error prefix present; error messages bounded and HTML-escaped; session guard prevents crashes.
 
