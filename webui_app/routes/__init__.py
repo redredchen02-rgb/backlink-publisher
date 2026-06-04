@@ -33,6 +33,7 @@ def register_blueprints(app: Flask) -> None:
     from .schedule import bp as schedule_bp
     from .pr_queue import bp as pr_queue_bp
     from .metrics import bp as metrics_bp
+    from .keep_alive import bp as keep_alive_bp
 
     for bp in (main_bp, pipeline_bp, batch_bp, checkpoint_bp,
                history_bp, drafts_bp, settings_basic_bp, llm_bp, oauth_bp,
@@ -40,5 +41,5 @@ def register_blueprints(app: Flask) -> None:
                medium_login_bp, bind_bp, token_paste_bp, url_verify_bp, image_gen_bp,
                seo_viz_bp, equity_ledger_bp, health_bp, health_actions_bp,
                channel_bind_save_bp,
-               copilot_bp, schedule_bp, pr_queue_bp, metrics_bp):
+               copilot_bp, schedule_bp, pr_queue_bp, metrics_bp, keep_alive_bp):
         app.register_blueprint(bp)

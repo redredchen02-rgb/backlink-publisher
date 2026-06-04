@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{# Keep-alive status screen (R3 / plan 2026-06-04-001 Unit 4).
+   <head>/Bootstrap/csrf-meta come from base.html. Read-once data island feeds
+   keep_alive.js, which owns the single-screen state controller (S0 / S0-empty /
+   S-stale / S2). Recheck + republish action states (S1, S3-S7) arrive in U5-U7. #}
+{% block title %}保活 — Keep-alive{% endblock %}
+{% block head_extra %}
+  <style>
+    body { background-color: var(--bs-light, #f8f9fa); }
+    .target-cell { max-width: 380px; font-family: ui-monospace, monospace; font-size: 13px; }
+    .ka-attention > td { box-shadow: inset 3px 0 0 #dc3545; }   /* bleeding target */
+    .ka-section-label td { background: #fbfbfd; font-weight: 600; }
+    .ka-badge { font-size: 12px; }
+  </style>
+{% endblock %}
+{% block content %}
+<nav class="navbar bg-white border-bottom px-3">
+  <span class="navbar-brand mb-0 h1"><i class="bi bi-shield-check me-2"></i>保活 Keep-alive</span>
+  <div class="d-flex align-items-center gap-2">
+    <button id="recheckBtn" class="btn btn-sm btn-primary" data-action="recheck" disabled
+            title="即时巡检在 Unit 5 接入异步任务后启用">
+      <i class="bi bi-arrow-repeat"></i> 立即巡检
+    </button>
+    <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> Home</a>
+  </div>
+</nav>
+
+<main class="container-fluid py-3">
+  <div id="staleBanner" class="alert alert-warning d-none" role="status"></div>
+
+  <div id="emptyState" class="text-center text-muted py-5 d-none"></div>
+
+  <div id="scorecard" class="d-none">
+    <p class="text-muted small mb-2" id="freshnessLine"></p>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle bg-white">
+        <thead class="table-light">
+          <tr>
+            <th>目标页 Target</th>
+            <th class="text-end">Live dofollow</th>
+            <th class="text-end">Strip 率</th>
+            <th class="text-end">已剥离</th>
+            <th class="text-end">降级</th>
+            <th class="text-end">检查失败</th>
+            <th>平台</th>
+            <th>最近验证</th>
+          </tr>
+        </thead>
+        <tbody id="keepAliveBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block page_data %}
+<script>window.__keepAliveBootstrap = {{ view | tojson }};</script>
+{% endblock %}
+
+{% block page_module %}
+<script type="module" src="{{ url_for('static', filename='js/keep_alive.js', v=asset_version) }}"></script>
+{% endblock %}
