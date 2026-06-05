@@ -155,6 +155,31 @@ def _opt_str_field(value: object) -> str | None:
     return value.strip() or None if isinstance(value, str) else None
 
 
+def _self_heal_sidecar_perms(sidecar: Path) -> None:
+    """Best-effort chmod the llm-settings sidecar back to ``0o600`` on read (006-U3).
+
+    Pre-#140 code hand-rolled the sidecar write without a chmod, leaving the
+    api-key file world-readable at ``0o644``. The WebUI loader
+    (``settings_service.load_llm_settings``) already self-heals on read, but a
+    pure-CLI operator who never opens the WebUI reaches the file only through
+    this backend fallback — so heal here too. Warn-don't-fail: a cp-induced
+    ``0o644`` is far likelier than tampering, and this must NEVER raise
+    (``load_config`` for unrelated pipeline runs would break). A read-only FS or
+    foreign-owned file degrades to an info log, not an exception.
+    """
+    try:
+        mode = os.stat(sidecar).st_mode & 0o777
+        if mode != 0o600:
+            _log.warning(
+                "%s loose perms %s — auto-chmod to 0o600",
+                _LLM_SIDECAR_FILENAME,
+                oct(mode),
+            )
+            os.chmod(sidecar, 0o600)
+    except OSError:
+        _log.info("could not chmod %s to 0o600 (continuing)", _LLM_SIDECAR_FILENAME)
+
+
 def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
     """Best-effort fallback: build ``LLMProviderConfig`` from the WebUI's
     ``llm-settings.json`` sidecar in ``config_dir``.
@@ -178,6 +203,8 @@ def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
     sidecar = config_dir / _LLM_SIDECAR_FILENAME
     if not sidecar.exists():
         return None
+
+    _self_heal_sidecar_perms(sidecar)
 
     try:
         data = json.loads(sidecar.read_text(encoding="utf-8"))

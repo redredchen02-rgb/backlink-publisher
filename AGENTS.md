@@ -196,6 +196,10 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 | **Velog throttle** ||
 | `VELOG_THROTTLE_MIN_S` | Velog inter-post jitter lower bound (default 60 s). If > `VELOG_THROTTLE_MAX_S`, both fall back to defaults. |
 | `VELOG_THROTTLE_MAX_S` | Velog inter-post jitter upper bound (default 180 s). Setting equal to `VELOG_THROTTLE_MIN_S` gives deterministic fixed-interval waits. |
+| **Reliability circuit breaker** — only active with `BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED=1` (default off = transparent passthrough) ||
+| `BACKLINK_PUBLISHER_CIRCUIT_ERROR_THRESHOLD` | **Live trip threshold**: consecutive non-ban `ExternalServiceError` before the circuit trips (default 5). Counted in the health-store `consecutive_failures` field by `publish_with_policy`. |
+| `BACKLINK_PUBLISHER_CIRCUIT_AUTH_THRESHOLD` | **Live trip threshold**: consecutive non-ban `AuthExpiredError` / session expiry before trip (default 3). |
+| `BACKLINK_PUBLISHER_CIRCUIT_CONSECUTIVE_ERRORS` | ⚠️ **Dead knob (006-U1)** — read only by `circuit.trip_on_error`, which nothing on the live publish path calls; it increments a *different* counter (circuit state-file `consecutive_errors`, not the health-store `consecutive_failures` the live path uses). Setting it does nothing to live trip behavior; `policy` warns once if set. Use `…_CIRCUIT_ERROR_THRESHOLD` instead. |
 | **Link-checker network** ||
 | `BACKLINK_LINKCHECK_REQUEST_TIMEOUT` | HTTP request timeout for URL checks (default 10 s) |
 | `BACKLINK_LINKCHECK_MAX_CONCURRENT` | Max concurrent URL check coroutines (default 10) |
