@@ -93,9 +93,11 @@ def test_publish_happy_returns_published_url():
     assert res._provider_meta["link_attr_verification"]["verification"] == "ok"
 
     # Verify the form was fetched and submitted with the right data.
-    mock_fetch.assert_called_once_with("https://txt.fyi/")
+    mock_fetch.assert_called_once_with("https://txt.fyi/", timeout=15.0)
     assert mock_submit.call_args.args[0] == "https://txt.fyi/edit.php"
     data = mock_submit.call_args.args[1]
+    # Verify the submit timeout was raised from 15s → 30s (C0 optimisation).
+    assert mock_submit.call_args.kwargs.get("timeout") == 30.0
     assert "nonce" in data
     assert "form_time" in data
     assert "txt" in data
@@ -161,7 +163,12 @@ def test_missing_hidden_fields_raises_external_service_error():
 
 
 def test_no_redirect_raises_external_service_error():
-    """If submit_form returns the submit URL instead of a redirect, raise."""
+    """If submit_form returns the submit URL instead of a redirect, raise.
+
+    C0 (2026-06-05): the retry loop exhausts 3 attempts (all no-redirect)
+    before surfacing the final "anti-spam dwell-time gate" message, since a
+    no-redirect at delay=0 is indistinguishable from a tarpit.
+    """
     form_resp = _mock_response(text=_FORM_HTML_WITH_TOKENS)
     # .url stays at the submit endpoint — no redirect happened.
     submit_resp = _mock_response(url="https://txt.fyi/edit.php")
@@ -169,7 +176,7 @@ def test_no_redirect_raises_external_service_error():
     with mock.patch(f"{_ADAPTER}.fetch_form", return_value=form_resp), mock.patch(
         f"{_ADAPTER}.submit_form", return_value=submit_resp
     ):
-        with pytest.raises(ExternalServiceError, match="did not redirect"):
+        with pytest.raises(ExternalServiceError, match="anti-spam dwell-time gate"):
             TxtfyiFormPostAdapter().publish(_PAYLOAD, mode="publish", config=Config())
 
 

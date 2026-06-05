@@ -54,6 +54,7 @@ from backlink_publisher.publishing.registry import Publisher
 from .base import AdapterResult
 from .http_form_post import attach_link_verification
 from .link_attr_verifier import required_link_urls
+from .retry import retry_transient_call
 
 log = logging.getLogger(__name__)
 
@@ -80,12 +81,19 @@ def _post_publish_delay_s() -> int:
 #: faultString fragments LiveJournal returns for credential failures. Matched
 #: case-insensitively. The raw faultString is never logged (it can echo the
 #: submitted auth params), only this boolean classification.
+#:
+#: C0 (2026-06-05): added ``"faultCode=100"`` — empirical evidence from events.db
+#: shows LiveJournal returning faultCode=100 for stale credentials. Prior to C0,
+#: this was classified as ``ExternalServiceError`` instead of ``DependencyError``,
+#: causing the publish to abort with a misleading error message rather than
+#: prompting the operator to re-store credentials.
 _AUTH_FAULT_MARKERS: tuple[str, ...] = (
     "invalid password",
     "invalid auth",
     "bad password",
     "client error: invalid",
     "incorrect password",
+    "faultcode=100",
 )
 
 
@@ -232,6 +240,50 @@ class LivejournalAPIAdapter(Publisher):
             allow_none=True,
         )
 
+    def _do_lj_publish(
+        self,
+        proxy: ServerProxy,
+        username: str,
+        hpassword: str,
+        body_html: str,
+        title: str,
+    ) -> Any:
+        """Call getchallenge + postevent, returning the XML-RPC result dict.
+
+        C0: wrapped by ``publish()`` via ``retry_transient_call`` so 5xx
+        transport errors (ProtocolError with errcode 502/503/504) are retried
+        with exponential backoff. ``Fault`` and credential errors are NOT
+        retried (they are permanent).
+        """
+        challenge_resp = proxy.LJ.XMLRPC.getchallenge()
+        challenge = str((challenge_resp or {}).get("challenge", ""))
+        if not challenge:
+            raise ExternalServiceError(
+                "LiveJournal getchallenge returned no challenge"
+            )
+        auth_response = hashlib.md5(
+            (challenge + hpassword).encode("utf-8")
+        ).hexdigest()
+        now = time.localtime()
+        event = {
+            "username": username,
+            "auth_method": "challenge",
+            "auth_challenge": challenge,
+            "auth_response": auth_response,
+            "event": body_html,
+            "subject": title,
+            "year": now.tm_year,
+            "mon": now.tm_mon,
+            "day": now.tm_mday,
+            "hour": now.tm_hour,
+            "min": now.tm_min,
+            "ver": 1,
+            "lineendings": "unix",
+            "security": "public",
+            "props": {},
+        }
+        return proxy.LJ.XMLRPC.postevent(event) or {}
+
     def publish(
         self,
         payload: dict[str, Any],
@@ -251,35 +303,20 @@ class LivejournalAPIAdapter(Publisher):
 
         proxy = self._proxy()
         log.info("livejournal_publish_start id=%s", article_id)
+
+        # C0: call the LJ publish sequence via retry_transient_call so 5xx
+        # ProtocolError (HTTP 502/503/504) is retried with exponential backoff.
+        # Fault (application-level XML-RPC error) and raw ExternalServiceError
+        # are NOT retried — they represent permanent failures or credential
+        # issues that retries cannot fix.
         try:
-            challenge_resp = proxy.LJ.XMLRPC.getchallenge()
-            challenge = str((challenge_resp or {}).get("challenge", ""))
-            if not challenge:
-                raise ExternalServiceError(
-                    "LiveJournal getchallenge returned no challenge"
-                )
-            auth_response = hashlib.md5(
-                (challenge + hpassword).encode("utf-8")
-            ).hexdigest()
-            now = time.localtime()
-            event = {
-                "username": username,
-                "auth_method": "challenge",
-                "auth_challenge": challenge,
-                "auth_response": auth_response,
-                "event": body_html,
-                "subject": title,
-                "year": now.tm_year,
-                "mon": now.tm_mon,
-                "day": now.tm_mday,
-                "hour": now.tm_hour,
-                "min": now.tm_min,
-                "ver": 1,
-                "lineendings": "unix",
-                "security": "public",
-                "props": {},
-            }
-            result = proxy.LJ.XMLRPC.postevent(event) or {}
+            result = retry_transient_call(
+                lambda: self._do_lj_publish(
+                    proxy, username, hpassword, body_html, title
+                ),
+                adapter="livejournal-api",
+                max_attempts=3,
+            )
         except Fault as fault:
             # Do NOT include fault.faultString — it can echo submitted auth params.
             if _is_auth_fault(fault):
@@ -292,6 +329,8 @@ class LivejournalAPIAdapter(Publisher):
                 f"LiveJournal postevent fault (faultCode="
                 f"{getattr(fault, 'faultCode', '?')})"
             ) from None
+        except (ExternalServiceError, DependencyError):
+            raise
         except ProtocolError as exc:
             raise ExternalServiceError(
                 f"LiveJournal XML-RPC protocol error (HTTP {exc.errcode})"
