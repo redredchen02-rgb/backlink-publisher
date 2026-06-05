@@ -1,7 +1,7 @@
 ---
 title: "opt: Backlink Equity Ledger — comprehension, action, and gap-closure optimization"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 claims: {}  # opt-out — branch not yet on origin/main
 ---
