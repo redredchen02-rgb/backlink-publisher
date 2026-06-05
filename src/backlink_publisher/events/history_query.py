@@ -88,6 +88,19 @@ def _latest_verdicts(conn) -> dict[int, tuple[str | None, bool]]:
 # ── history-shaped read API ────────────────────────────────────────────────
 
 
+def _apply_target_dofollow(
+    item: dict[str, Any],
+    article_id: int,
+    verdict_map: dict[int, tuple[str | None, bool]] | None,
+) -> None:
+    """Set ``item['target_dofollow']`` from the latest verdict for *article_id*
+    (no-op when no verdict map / no entry — the default stays 'unverified')."""
+    if not verdict_map or article_id not in verdict_map:
+        return
+    verdict, expected_nofollow = verdict_map[article_id]
+    item["target_dofollow"] = derive_target_dofollow(verdict, expected_nofollow)
+
+
 def _build_history_item(
     article_row: tuple | None,
     event_row: tuple | None,
@@ -137,9 +150,7 @@ def _build_history_item(
             _dedup_key,
         ) = article_row
         item["id"] = str(art_id)
-        if verdict_map and art_id in verdict_map:
-            verdict, expected_nofollow = verdict_map[art_id]
-            item["target_dofollow"] = derive_target_dofollow(verdict, expected_nofollow)
+        _apply_target_dofollow(item, art_id, verdict_map)
         item["created_at"] = pub_utc or ""
         item["platform"] = platform or ""
         item["language"] = lang or ""
