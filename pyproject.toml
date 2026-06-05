@@ -95,6 +95,7 @@ markers = [
     "real_content_fetch: exercise the real content_fetch.verify_urls_batch / verify_url_has_content path instead of the default-pass autouse fixture (tests/test_content_fetch.py applies this module-wide)",
     "real_image_gen: exercise the real FRW image-gen endpoint instead of mocking; opt-in operator-only, never runs in CI (Plan 2026-05-20-001 Unit 2)",
     "real_browser_publish_smoke: open live channel compose URL in attached Chrome and verify selectors against current DOM; opt-in operator-only (Plan 2026-05-21-001 Unit 4a+)",
+    "real_live_publish: run the real-credential non-author publish path against a throwaway account in draft mode; opt-in operator-only, never runs in CI (Plan 2026-06-05-008 R7/R8)",
     "unit: fast, isolated tests with no external dependencies; run on every push (default tier)",
     "integration: tests that touch disk, database, or external services; run on CI per-PR",
     "e2e: full end-to-end tests requiring real network or browser; opt-in, run pre-merge or nightly",

@@ -1,0 +1,9 @@
+{
+  "status": "published",
+  "adapter": "blogger-api",
+  "platform": "blogger",
+  "published_url": "https://throwaway-sample.blogspot.com/2026/06/sample-recorded-post.html",
+  "draft_url": "",
+  "target_url": "https://my.site/article",
+  "live_html_fixture": "blogger_dofollow.html"
+}

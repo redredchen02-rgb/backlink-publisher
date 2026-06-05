@@ -65,6 +65,24 @@ _PATTERNS: Final[list[tuple[str, re.Pattern[str]]]] = [
         "basic_auth_url",
         re.compile(r"https?://[^:/\s@]+:[^@/\s]+@[^\s\"'<>`)\]}\\]+"),
     ),
+    # Session-class secrets that the high-entropy fallback misses: a session id
+    # / CSRF token is often < 32 chars (below _HIGH_ENTROPY_MIN_LEN) and not
+    # base64-random, so only key-context matching catches it. Live publish
+    # captures (response headers, page HTML) routinely carry these — and they
+    # are exactly the secrets that survive past the 64 KiB truncation cap.
+    # Set-Cookie / Cookie header (case-insensitive), value to end of line.
+    ("cookie_header", re.compile(r"(?im)^[ \t]*(?:set-)?cookie:[ \t]*\S.*$")),
+    # Authorization header (non-Bearer schemes too: Basic/Digest/token).
+    ("auth_header", re.compile(r"(?im)^[ \t]*authorization:[ \t]*\S.*$")),
+    # Named session/refresh/CSRF secrets in JSON/query/form shape:
+    # ``refresh_token=...`` / ``"sid": "..."`` / ``xsrf=...`` with a value.
+    (
+        "session_token",
+        re.compile(
+            r"(?i)\b(?:refresh_token|access_token|session(?:id)?|sid|csrf|xsrf)"
+            r"['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9._\-+/=]{6,}"
+        ),
+    ),
 ]
 
 #: Minimum token length for the high-entropy fallback. Tokens shorter than
