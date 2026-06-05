@@ -33,6 +33,9 @@ def _default_verify(
     title: str = "",
     required_link_urls: Sequence[str] = (),
     max_wait: int = 10,
+    article_id: int | None = None,
+    platform: str | None = None,
+    host: str | None = None,
     **_kwargs,
 ) -> VerificationResult:
     """Route the WebUI recheck through the shared ``probe_liveness`` engine so
@@ -46,14 +49,62 @@ def _default_verify(
     ``ok=False``. ``title`` is accepted for signature compatibility; the anchor
     inspection (target present + its own ``rel``) is a stronger liveness signal
     than the old title-substring check.
+
+    The full verdict is also persisted as a ``link.rechecked`` event (when
+    ``article_id`` is known) so a manual WebUI recheck immediately feeds the R6
+    dofollow badge and the R5 survival dashboard, instead of waiting for the
+    weekly CLI job. ``platform`` is required for ``probe_liveness`` to classify
+    ``expected_nofollow`` (and the dofollow verdict) per the channel's norm.
     """
     from backlink_publisher.recheck import verdicts
     from backlink_publisher.recheck.probe import probe_liveness
 
     target = required_link_urls[0] if required_link_urls else ""
-    out = probe_liveness(url, target, timeout=max_wait)
+    out = probe_liveness(url, target, platform=platform, timeout=max_wait)
+    _persist_recheck_verdict(
+        out, live_url=url, target_url=target,
+        article_id=article_id, platform=platform, host=host,
+    )
     ok = out["verdict"] in (verdicts.ALIVE, verdicts.DOFOLLOW_LOST)
     return VerificationResult(ok=ok, reason=out.get("reason") or out["verdict"])
+
+
+def _persist_recheck_verdict(
+    out: dict,
+    *,
+    live_url: str,
+    target_url: str,
+    article_id: int | None,
+    platform: str | None,
+    host: str | None,
+) -> None:
+    """Append one ``link.rechecked`` event carrying the probe verdict so the R6
+    badge + R5 survival read it immediately. Best-effort: a write failure, a row
+    with no ``article_id`` (the badge join keys on it), or a liveness-only probe
+    (no operator link → ``probe_liveness`` short-circuits to ALIVE without a
+    dofollow check, which would render a false-green badge) all skip the write
+    and leave the row at its no-signal default. Payload mirrors
+    ``events_io.emit_recheck`` so the read side is identical to the CLI path.
+    """
+    if article_id is None or not target_url:
+        return
+    from backlink_publisher.events.kinds import LINK_RECHECKED
+    from backlink_publisher.events.publish_writer import write_event
+
+    write_event(
+        LINK_RECHECKED,
+        {
+            "verdict": out.get("verdict"),
+            "reason": out.get("reason"),
+            "live_url": live_url,
+            "platform": platform,
+            "expected_nofollow": bool(out.get("expected_nofollow")),
+            "confirmed_dofollow": bool(out.get("confirmed_dofollow", False)),
+            "confirmed_nofollow": bool(out.get("confirmed_nofollow", False)),
+            "source": "webui_recheck",
+        },
+        target_url=target_url or None, host=host, article_id=article_id,
+    )
 
 
 @dataclass
@@ -107,6 +158,15 @@ def recheck_one(
     title = item.get("title", "")
     required_links = _resolve_required_link(item)
     original_status = item.get("status", "")
+    # Identity for the link.rechecked event the verify_fn persists (so a manual
+    # recheck feeds the badge/survival). events.db rows carry an int article_id
+    # as ``id``; legacy/non-numeric ids → None → no write (badge stays default).
+    try:
+        article_id: int | None = int(item.get("id"))
+    except (TypeError, ValueError):
+        article_id = None
+    platform = item.get("platform") or None
+    host = item.get("host") or None
 
     if not article_urls:
         return {
@@ -124,6 +184,9 @@ def recheck_one(
                 title=title,
                 required_link_urls=required_links,
                 max_wait=max_wait_per_url,
+                article_id=article_id,
+                platform=platform,
+                host=host,
             )
         except Exception as exc:
             last_reason = f"verify error: {exc}"

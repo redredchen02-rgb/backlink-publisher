@@ -279,3 +279,104 @@ class TestBulkRecheckRoute:
         )
         assert resp.status_code == 302
         assert "未匹配到记录" in unquote(resp.location)
+
+
+# ── R6 follow-up: WebUI manual recheck feeds the badge + survival ────────────
+
+
+@pytest.fixture
+def events_store(tmp_path, monkeypatch):
+    """Sandboxed events.db so the persisted verdict and get_history_item share it."""
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    from backlink_publisher.events.store import EventStore
+    return EventStore()
+
+
+def _seed_article(store, *, live_url, target_url, platform="medium"):
+    aid = store.add_article({
+        "live_url": live_url,
+        "target_urls_json": f'["{target_url}"]',
+        "platform": platform,
+        "host": "medium.com",
+        "published_at_utc": "2026-05-19T00:00:00",
+    })
+    store.append(
+        "publish.confirmed",
+        {"live_url": live_url, "target_url": target_url, "platform": platform},
+        target_url=target_url, article_id=aid,
+    )
+    return aid
+
+
+class TestWebuiRecheckFeedsBadge:
+    """A manual WebUI recheck must persist a link.rechecked verdict so the R6
+    badge + R5 survival reflect it immediately (not only after the weekly job)."""
+
+    def _latest_recheck(self, store, aid):
+        import json
+        rows = store.query(
+            "SELECT payload_json FROM events WHERE kind=? AND article_id=? "
+            "ORDER BY id DESC LIMIT 1",
+            ("link.rechecked", aid),
+        )
+        return json.loads(rows[0]["payload_json"]) if rows else None
+
+    def test_persist_updates_badge_and_mirrors_emit_recheck(self, events_store):
+        from webui_app.services.recheck import _persist_recheck_verdict
+        from backlink_publisher.events.history_query import get_history_item
+        aid = _seed_article(events_store, live_url="https://medium.com/p/a",
+                            target_url="https://t.example/")
+        _persist_recheck_verdict(
+            {"verdict": "alive", "reason": None,
+             "confirmed_dofollow": True, "expected_nofollow": False},
+            live_url="https://medium.com/p/a", target_url="https://t.example/",
+            article_id=aid, platform="medium", host="medium.com",
+        )
+        # the per-target badge now reflects the freshly persisted verdict
+        assert get_history_item(aid)["target_dofollow"] == "dofollow"
+        # payload mirrors events_io.emit_recheck (confirmed_dofollow carried for parity)
+        payload = self._latest_recheck(events_store, aid)
+        assert payload["verdict"] == "alive"
+        assert payload["confirmed_dofollow"] is True
+        assert payload["source"] == "webui_recheck"
+
+    def test_empty_target_persists_nothing(self, events_store):
+        # No operator link → probe short-circuits to ALIVE; persisting it would
+        # render a false-green badge, so nothing is written (badge stays default).
+        from webui_app.services.recheck import _persist_recheck_verdict
+        aid = _seed_article(events_store, live_url="https://medium.com/p/e",
+                            target_url="https://t.example/")
+        _persist_recheck_verdict(
+            {"verdict": "alive", "confirmed_dofollow": False},
+            live_url="https://medium.com/p/e", target_url="",
+            article_id=aid, platform="medium", host="medium.com",
+        )
+        assert self._latest_recheck(events_store, aid) is None
+
+    def test_no_article_id_persists_nothing(self, events_store):
+        from webui_app.services.recheck import _persist_recheck_verdict
+        _persist_recheck_verdict(
+            {"verdict": "alive"}, live_url="https://x/", target_url="https://t/",
+            article_id=None, platform="medium", host=None,
+        )
+        # nothing keyed → no row to read back for any article
+        assert events_store.query(
+            "SELECT 1 FROM events WHERE kind=?", ("link.rechecked",)) == []
+
+    def test_recheck_one_threads_identity_to_verify_fn(self):
+        # recheck_one must forward article_id/platform/host so the verdict can be keyed.
+        captured: dict = {}
+
+        def _fake(url, **kw):
+            captured.update(kw)
+            return VerificationResult(ok=True, reason="")
+
+        recheck_one(
+            {"id": "42", "platform": "medium", "host": "medium.com",
+             "article_urls": ["https://medium.com/p/x"],
+             "target_url": "https://t.example/", "status": "published"},
+            verify_fn=_fake,
+        )
+        assert captured.get("article_id") == 42
+        assert captured.get("platform") == "medium"
+        assert captured.get("host") == "medium.com"
