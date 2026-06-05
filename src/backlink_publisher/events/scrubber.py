@@ -74,12 +74,16 @@ _PATTERNS: Final[list[tuple[str, re.Pattern[str]]]] = [
     ("cookie_header", re.compile(r"(?im)^[ \t]*(?:set-)?cookie:[ \t]*\S.*$")),
     # Authorization header (non-Bearer schemes too: Basic/Digest/token).
     ("auth_header", re.compile(r"(?im)^[ \t]*authorization:[ \t]*\S.*$")),
-    # Named session/refresh/CSRF secrets in JSON/query/form shape:
-    # ``refresh_token=...`` / ``"sid": "..."`` / ``xsrf=...`` with a value.
+    # Named session/refresh/CSRF secrets in JSON/query/form/header shape:
+    # ``refresh_token=...`` / ``csrf_token=...`` / ``"sid": "..."`` /
+    # ``X-CSRF-Token: ...`` / ``xsrf=...`` with a value. The ``[-_]?token``
+    # suffix and the ``-`` separator cover both snake_case keys and hyphenated
+    # HTTP header names (whose short values fall below the high-entropy floor).
     (
         "session_token",
         re.compile(
-            r"(?i)\b(?:refresh_token|access_token|session(?:id)?|sid|csrf|xsrf)"
+            r"(?i)\b(?:(?:refresh|access|session|csrf|xsrf|auth)[-_]?token"
+            r"|sessionid|session|sid|csrf|xsrf)"
             r"['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9._\-+/=]{6,}"
         ),
     ),
