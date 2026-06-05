@@ -270,3 +270,47 @@ def test_load_config_bad_sidecar_does_not_break_load(tmp_path):
     # Regression: a malformed sidecar must not make load_config raise.
     cfg = load_config(config_toml)
     assert cfg.llm_anchor_provider is None
+
+
+# ── 006-U3: backend sidecar permission self-heal ────────────────────────────
+
+
+def _mode(path):
+    return os.stat(path).st_mode & 0o777
+
+
+def test_sidecar_loose_perms_self_heal_to_0600_on_read(tmp_path):
+    path = _write_sidecar(tmp_path, _FULL_SETTINGS)
+    os.chmod(path, 0o644)
+    assert _mode(path) == 0o644
+    cfg = _llm_provider_from_sidecar(tmp_path)
+    # Read still succeeds...
+    assert cfg is not None
+    # ...and the world-readable file was healed back to owner-only.
+    assert _mode(path) == 0o600
+
+
+def test_sidecar_already_0600_is_untouched_and_silent(tmp_path, caplog):
+    import logging
+
+    path = _write_sidecar(tmp_path, _FULL_SETTINGS)
+    os.chmod(path, 0o600)
+    with caplog.at_level(logging.WARNING, logger="backlink_publisher.config.parsers.llm"):
+        cfg = _llm_provider_from_sidecar(tmp_path)
+    assert cfg is not None
+    assert _mode(path) == 0o600
+    assert "auto-chmod" not in caplog.text
+
+
+def test_sidecar_chmod_failure_does_not_raise(tmp_path, monkeypatch):
+    path = _write_sidecar(tmp_path, _FULL_SETTINGS)
+    os.chmod(path, 0o644)
+
+    def _boom(*_a, **_k):
+        raise OSError("read-only filesystem")
+
+    monkeypatch.setattr(os, "chmod", _boom)
+    # Best-effort: a chmod failure (e.g. read-only FS) must degrade, not raise,
+    # and the provider must still be parsed from the readable file.
+    cfg = _llm_provider_from_sidecar(tmp_path)
+    assert cfg is not None

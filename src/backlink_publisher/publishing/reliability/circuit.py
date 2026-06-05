@@ -149,6 +149,19 @@ def _now_iso() -> str:
 
 
 def _consecutive_errors_threshold() -> int:
+    """Threshold for the circuit-layer ``record_error`` trip counter.
+
+    .. note:: 006-U1 — NOT the live publish trip threshold. This reads
+       ``BACKLINK_PUBLISHER_CIRCUIT_CONSECUTIVE_ERRORS`` and is consumed only by
+       :func:`trip_on_error`, which has no src caller on the
+       ``publish_with_policy`` path (only a direct unit test). The live trip
+       threshold lives in ``reliability.policy``
+       (``CIRCUIT_ERROR_THRESHOLD`` / ``CIRCUIT_AUTH_THRESHOLD``); setting the
+       consecutive-errors env does nothing to live behavior. ``policy``
+       warns once if an operator sets it. Kept (not deleted) so the
+       lockless ``record_error`` state-machine layer stays self-consistent for
+       any future direct consumer.
+    """
     try:
         return int(
             os.environ.get(

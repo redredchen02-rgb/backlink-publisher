@@ -350,3 +350,56 @@ def test_event_emitted_with_external_error_outcome(cfg):
 
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][1] == Outcome.EXTERNAL_ERROR
+
+
+# ---------------------------------------------------------------------------
+# 006-U1: legacy CIRCUIT_CONSECUTIVE_ERRORS knob warns once (dead on live path)
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyConsecutiveEnvWarning:
+    """The circuit-layer consecutive-errors env is dead on the publish_with_policy
+    path; setting it must surface a one-shot warning, not silently do nothing."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_warn_flag(self):
+        import backlink_publisher.publishing.reliability.policy as pol
+
+        pol._legacy_consecutive_warned = False
+        yield
+        pol._legacy_consecutive_warned = False
+
+    def test_warns_once_and_points_at_real_knob(self, cfg, monkeypatch, capsys):
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CIRCUIT_CONSECUTIVE_ERRORS", "7")
+        result = _result(platform="blogger")
+        with patch(_ADAPTER_PUB, return_value=result), patch(_EMIT):
+            publish_with_policy("blogger", payload={"id": "1"}, config=cfg)
+            publish_with_policy("blogger", payload={"id": "2"}, config=cfg)
+        err = capsys.readouterr().err
+        # Exactly one warning across two publishes (one-shot)...
+        assert err.count("CIRCUIT_CONSECUTIVE_ERRORS is set but has NO effect") == 1
+        # ...and it redirects the operator to the live knob.
+        assert "CIRCUIT_ERROR_THRESHOLD" in err
+
+    def test_silent_when_legacy_env_unset(self, cfg, monkeypatch, capsys):
+        monkeypatch.delenv(
+            "BACKLINK_PUBLISHER_CIRCUIT_CONSECUTIVE_ERRORS", raising=False
+        )
+        result = _result(platform="blogger")
+        with patch(_ADAPTER_PUB, return_value=result), patch(_EMIT):
+            publish_with_policy("blogger", payload={"id": "1"}, config=cfg)
+        err = capsys.readouterr().err
+        assert "has NO effect" not in err
+
+    def test_no_warning_on_disabled_policy_passthrough(self, tmp_path, monkeypatch, capsys):
+        # Passthrough (policy disabled) never reaches the warn site.
+        monkeypatch.delenv("BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED", raising=False)
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CIRCUIT_CONSECUTIVE_ERRORS", "7")
+
+        class _Cfg:
+            config_dir = tmp_path
+
+        with patch(_ADAPTER_PUB, return_value=_result()):
+            publish_with_policy("medium", payload={"id": "1"}, config=_Cfg())
+        err = capsys.readouterr().err
+        assert "has NO effect" not in err

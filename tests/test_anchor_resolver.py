@@ -10,7 +10,10 @@ import pytest
 from backlink_publisher.publishing.adapters.llm_anchor_provider import LLMAnchorRequest
 from backlink_publisher.anchor.resolver import (
     FORBIDDEN_ANCHOR_TEXTS,
+    _KO_RATIO_BORDERLINE_MARGIN,
+    _MIN_KO_HANGUL_RATIO,
     _passes_filters,
+    _passes_ko_ratio,
     resolve_anchor,
 )
 from backlink_publisher.config import Config
@@ -490,6 +493,45 @@ class TestPassesFiltersKoNfcNormalization:
         assert nfd_syllable_count == 0
         # The function should recompose to NFC and accept
         assert _passes_filters(nfd, "ko") is True
+
+
+class TestKoRatioCalibration:
+    """006-U2: ko Hangul-ratio threshold boundary + borderline diagnostic.
+
+    Tests target ``_passes_ko_ratio`` directly (not ``_passes_filters``) to
+    isolate the ratio gate from the zh-CN-tuned length cap. The pass/fail
+    verdict is unchanged by U2 — only an observability log was added — so the
+    boundary assertions also serve as a regression lock on the 0.30 floor.
+    """
+
+    def test_just_above_threshold_passes(self) -> None:
+        # "안AB": hangul=1, denom=3 (L+M) → ratio≈0.333 ≥ 0.30 → pass
+        assert _passes_ko_ratio("안AB") is True
+
+    def test_just_below_threshold_fails(self) -> None:
+        # "안ABC": hangul=1, denom=4 → ratio=0.25 < 0.30 → fail
+        assert _passes_ko_ratio("안ABC") is False
+
+    def test_constants_define_a_band_around_threshold(self) -> None:
+        assert 0.0 < _KO_RATIO_BORDERLINE_MARGIN < _MIN_KO_HANGUL_RATIO
+
+    def test_borderline_verdict_emits_diagnostic(self, caplog) -> None:
+        import logging
+
+        with caplog.at_level(
+            logging.INFO, logger="backlink_publisher.anchor.resolver"
+        ):
+            _passes_ko_ratio("안AB")  # ratio≈0.333, within 0.05 of 0.30
+        assert "ko_hangul_ratio_borderline" in caplog.text
+
+    def test_non_borderline_verdict_is_silent(self, caplog) -> None:
+        import logging
+
+        with caplog.at_level(
+            logging.INFO, logger="backlink_publisher.anchor.resolver"
+        ):
+            _passes_ko_ratio("안녕")  # ratio=1.0, far above threshold
+        assert "ko_hangul_ratio_borderline" not in caplog.text
 
 
 class TestPassesFiltersOtherLanguages:

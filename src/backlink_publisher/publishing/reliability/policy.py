@@ -36,6 +36,7 @@ import os
 from typing import TYPE_CHECKING, Any, Callable
 
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
+from backlink_publisher._util.logger import opencli_logger as _log
 from backlink_publisher.publishing.adapters import publish as adapter_publish
 from backlink_publisher.publishing.adapters.base import AdapterResult
 
@@ -59,12 +60,48 @@ _BROWSER_TIER: frozenset[str] = frozenset({"medium", "velog", "devto", "mastodon
 #: When "1": full policy (health gate + circuit breaker + events) is active.
 POLICY_ENV = "BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED"
 
-#: Phase 3 — consecutive-failure trip thresholds (configurable). After this many
-#: consecutive non-ban AuthExpiredError / ExternalServiceError, the circuit trips.
+#: Phase 3 — consecutive-failure trip thresholds (configurable). These are the
+#: ONLY env vars that gate the live publish trip path: ``publish_with_policy``
+#: counts consecutive non-ban ``AuthExpiredError`` / ``ExternalServiceError`` in
+#: the health-store ``consecutive_failures`` field and trips ``circuit.trip``
+#: when the count reaches the matching threshold below.
 _AUTH_THRESHOLD_ENV = "BACKLINK_PUBLISHER_CIRCUIT_AUTH_THRESHOLD"
 _ERROR_THRESHOLD_ENV = "BACKLINK_PUBLISHER_CIRCUIT_ERROR_THRESHOLD"
 _DEFAULT_AUTH_THRESHOLD = 3
 _DEFAULT_ERROR_THRESHOLD = 5
+
+#: 006-U1: legacy circuit-layer knob. ``circuit._consecutive_errors_threshold``
+#: reads this env, but its sole consumer ``circuit.trip_on_error`` has **no src
+#: caller** on the ``publish_with_policy`` trip path (verified 2026-06-05; only a
+#: direct unit test invokes it) — and it increments a *different* counter (the
+#: circuit state-file ``consecutive_errors`` field, not the health-store
+#: ``consecutive_failures`` the live path uses). So setting this env does nothing
+#: to live trip behavior. We warn once when it is set so the dead knob never
+#: "silently does nothing" (success criterion U1). The active knobs are
+#: ``_ERROR_THRESHOLD_ENV`` / ``_AUTH_THRESHOLD_ENV`` above.
+_LEGACY_CONSECUTIVE_ENV = "BACKLINK_PUBLISHER_CIRCUIT_CONSECUTIVE_ERRORS"
+_legacy_consecutive_warned = False
+
+
+def _warn_legacy_consecutive_env_once() -> None:
+    """Emit a one-shot deprecation warning if the dead circuit knob is set.
+
+    Idempotent via the module-level ``_legacy_consecutive_warned`` flag so a
+    long publish run does not flood stderr. Tests reset the flag to re-arm it.
+    """
+    global _legacy_consecutive_warned
+    if _legacy_consecutive_warned:
+        return
+    if os.environ.get(_LEGACY_CONSECUTIVE_ENV) is not None:
+        _legacy_consecutive_warned = True
+        _log.warning(
+            f"{_LEGACY_CONSECUTIVE_ENV} is set but has NO effect on the live "
+            "publish trip path (it is read only by circuit.trip_on_error, which "
+            "nothing on the publish path calls). The active trip thresholds are "
+            f"{_ERROR_THRESHOLD_ENV} (default {_DEFAULT_ERROR_THRESHOLD}) and "
+            f"{_AUTH_THRESHOLD_ENV} (default {_DEFAULT_AUTH_THRESHOLD}).",
+            legacy_env=_LEGACY_CONSECUTIVE_ENV,
+        )
 
 
 def policy_enabled() -> bool:
@@ -153,6 +190,10 @@ def publish_with_policy(
         )
 
     # --- Policy active (BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED=1) ---
+
+    # 006-U1: surface the dead consecutive-errors knob (one-shot) before any
+    # trip bookkeeping, so an operator who set it learns it has no effect here.
+    _warn_legacy_consecutive_env_once()
 
     # 1. Health gate — browser-tier only. The "bound" status tracks a browser
     #    session binding that API-tier platforms do not have, so applying it to

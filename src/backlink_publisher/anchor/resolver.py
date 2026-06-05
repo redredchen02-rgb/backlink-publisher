@@ -93,14 +93,23 @@ _MIN_CJK_RATIO: float = 0.5
 
 #: Hangul ratio threshold for the ko branch. Lower than zh-CN's 0.5 because
 #: real-world ko anchors normatively mix Latin brand names (Apple, iPhone)
-#: and the strict 0.5 threshold would false-reject ``"Apple 한국 출시"``
-#: (Hangul ratio ≈ 0.30 over L+M denominator). Uncalibrated v1 default;
-#: corpus calibration spike deferred (plan 2026-05-18-006
-#: Deferred-to-Implementation).
-# TODO(ko-corpus-calibration): threshold=0.30 unvalidated against real ko
-# anchor corpora; revise after spike runs against ~50 Naver Blog / Tistory
-# samples (deferred to post-merge per plan 2026-05-18-006).
+#: with a short Hangul qualifier, so a strict 0.5 would false-reject common
+#: brand-led anchors like ``"Apple 한국 출시"``. Basis for the 0.30 floor: it
+#: is the conservative lower bound that still admits a latin-brand-heavy
+#: ko anchor (brand token + short ko qualifier) while rejecting a string that
+#: is latin-majority with only incidental Hangul. The value is derived from
+#: this mixed-anchor shape, not yet tuned against a measured ko corpus — the
+#: borderline diagnostic in :func:`_passes_ko_ratio` exists precisely to make
+#: a wrong floor visible: if it fires often on real input, re-derive against
+#: ~50 Naver Blog / Tistory samples (plan 2026-05-18-006 spike).
 _MIN_KO_HANGUL_RATIO: float = 0.30
+
+#: Half-width of the diagnostic band around :data:`_MIN_KO_HANGUL_RATIO`. A ko
+#: verdict whose ratio lands within ``±_KO_RATIO_BORDERLINE_MARGIN`` of the
+#: threshold is logged so chronic near-misses (a sign the floor is miscalibrated)
+#: surface instead of staying silent. Pure observability — the pass/fail verdict
+#: is unchanged (still ``ratio >= threshold``).
+_KO_RATIO_BORDERLINE_MARGIN: float = 0.05
 
 
 def _formal_denominator(text: str) -> int:
@@ -144,7 +153,16 @@ def _passes_ko_ratio(text: str) -> bool:
     if denom == 0:
         return False
     hangul_count = sum(1 for c in text if _HANGUL_BMP_START <= ord(c) <= _HANGUL_BMP_END)
-    return hangul_count / denom >= _MIN_KO_HANGUL_RATIO
+    ratio = hangul_count / denom
+    if abs(ratio - _MIN_KO_HANGUL_RATIO) <= _KO_RATIO_BORDERLINE_MARGIN:
+        _log.info(
+            "ko_hangul_ratio_borderline ratio=%.3f threshold=%.2f verdict=%s; "
+            "recurrent borderline hits signal _MIN_KO_HANGUL_RATIO needs corpus recalibration",
+            ratio,
+            _MIN_KO_HANGUL_RATIO,
+            "pass" if ratio >= _MIN_KO_HANGUL_RATIO else "fail",
+        )
+    return ratio >= _MIN_KO_HANGUL_RATIO
 
 
 #: Per-language ratio rules. Mirrors :data:`anchor_lang._LANGUAGE_RULES` —
