@@ -42,6 +42,44 @@
     font-weight: 600;
 }
 
+/* Pro Mode status pill (plan 2026-06-05-003 U3) — right-aligned 3-state
+ * indicator of the AI content engine. Token-driven state colors; no inline
+ * hex (keeps the R10 inline-style debt from growing). */
+.global-nav__pro {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 999px;
+    text-decoration: none;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: filter 0.15s ease;
+}
+
+.global-nav__pro:hover {
+    filter: brightness(1.08);
+}
+
+.global-nav__pro--inactive {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.global-nav__pro--pending {
+    color: #fff;
+    background: var(--warning);
+}
+
+.global-nav__pro--healthy {
+    color: #fff;
+    background: var(--success);
+}
+
 /* Ghost button — used in page-level navbars on index and settings pages */
 .nav-btn-ghost {
     background: rgba(255,255,255,0.2);
