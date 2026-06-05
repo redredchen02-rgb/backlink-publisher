@@ -308,6 +308,29 @@ def _reassert_config_isolation():
 
 
 @pytest.fixture(autouse=True)
+def _restore_logger_levels():
+    """Restore pipeline logger levels after each test.
+
+    CLI main() functions call set_log_level() with default "WARN", leaving
+    the global logger objects in WARN state for all subsequent tests. Any
+    test that uses capsys to capture INFO-level events (e.g. publish_attempt)
+    would see empty output. This fixture resets to "INFO" after each test
+    so isolation is maintained without requiring every _run() helper to do it.
+    """
+    from backlink_publisher._util.logger import (
+        opencli_logger,
+        plan_logger,
+        publish_logger,
+        validate_logger,
+    )
+    _loggers = (opencli_logger, plan_logger, publish_logger, validate_logger)
+    old_levels = [lg.level for lg in _loggers]
+    yield
+    for lg, lvl in zip(_loggers, old_levels):
+        lg.level = lvl
+
+
+@pytest.fixture(autouse=True)
 def _mock_publish_check_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Patch ``publish_backlinks.check_url`` at the consumer reference.
 

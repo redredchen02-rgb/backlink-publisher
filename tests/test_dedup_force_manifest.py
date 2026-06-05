@@ -18,6 +18,12 @@ from unittest.mock import patch
 import pytest
 
 from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher._util.logger import (
+    opencli_logger as _opencli_logger,
+    plan_logger as _plan_logger,
+    publish_logger as _publish_logger,
+    validate_logger as _validate_logger,
+)
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.idempotency import DedupKey, DedupStore
 from backlink_publisher.idempotency import audit_log
@@ -95,7 +101,9 @@ def _write_manifest(tmp_path, *, platform="medium", target=_TARGET, force=True, 
 def _run(rows, argv, enforce=True):
     if enforce:
         os.environ[_ENFORCE] = "1"
-    old = (sys.stdin, sys.stdout, sys.stderr)
+    _loggers = (_opencli_logger, _plan_logger, _publish_logger, _validate_logger)
+    old_levels = [lg.level for lg in _loggers]
+    old_io = (sys.stdin, sys.stdout, sys.stderr)
     try:
         sys.stdin = StringIO("\n".join(json.dumps(r) for r in rows))
         out, err = StringIO(), StringIO()
@@ -107,8 +115,10 @@ def _run(rows, argv, enforce=True):
             code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
         return out.getvalue(), err.getvalue(), code
     finally:
-        sys.stdin, sys.stdout, sys.stderr = old
+        sys.stdin, sys.stdout, sys.stderr = old_io
         os.environ.pop(_ENFORCE, None)
+        for lg, lvl in zip(_loggers, old_levels):
+            lg.level = lvl
 
 
 # --------------------------------------------------------------------------- #

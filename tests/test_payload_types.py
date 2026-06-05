@@ -560,12 +560,13 @@ class TestPlanEngineTypedValidation:
 
     def test_plan_imports_validate_and_convert_input(self) -> None:
         """The engine module imports validate_and_convert_input, not validate_input_payload."""
-        import importlib
         import backlink_publisher.cli.plan_backlinks._engine as engine
-        importlib.reload(engine)
 
         # Check the module's top-level name table to verify the right function is imported.
         # (Source-string matching is too fragile — docstrings reference the old name.)
+        # Do NOT call importlib.reload() here — reload() re-executes the module body,
+        # creating a NEW PlanOutcome class object that differs from the one bound in
+        # other test modules at collection time, breaking isinstance() checks.
         mod_namespace = set(dir(engine))
         assert "validate_and_convert_input" in mod_namespace
         assert "validate_input_payload" not in mod_namespace
@@ -576,10 +577,11 @@ class TestValidateEngineTypedValidation:
 
     def test_validate_imports_validate_and_convert_output(self) -> None:
         """The validate engine module imports the typed validation function."""
-        import importlib
-        import backlink_publisher.validate.engine as vengine
-        importlib.reload(vengine)
+        import importlib.util
 
+        # Use get_source() to check the source text — this avoids importlib.reload()
+        # which re-executes the module body and creates a new ValidateOutcome class
+        # object, breaking isinstance() checks in test_validate_engine.py tests.
         source = importlib.util.find_spec(
             "backlink_publisher.validate.engine"
         ).loader.get_source("backlink_publisher.validate.engine")
