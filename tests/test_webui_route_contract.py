@@ -489,24 +489,12 @@ class TestGetRoutes:
         assert resp.status_code == 200
         assert resp.headers["Content-Type"].startswith("application/json")
 
-    def test_sites_run_result_unknown_id_returns_404(self, client):
+    def test_sites_run_result_redirects_to_keep_alive(self, client):
+        # U8/R2: /sites/run/<id>/result is collapsed into the keep-alive flow
+        # (the in-memory result page is gone) — it now always 302-redirects.
         resp = client.get("/sites/run/00000000T000000-aaaaaaaa/result")
-        assert resp.status_code == 404
-
-    def test_sites_run_result_known_id_returns_200(self, client):
-        import webui
-
-        run_id = "20260518T000000-deadbeef"
-        webui._WORK_THEMED_RUNS[run_id] = {
-            "main_url": "https://x.com/",
-            "summary": {"total": 0, "generated": 0, "skipped": 0, "fail_empty": True},
-            "rows": [],
-        }
-        try:
-            resp = client.get(f"/sites/run/{run_id}/result")
-        finally:
-            webui._WORK_THEMED_RUNS.pop(run_id, None)
-        assert resp.status_code == 200
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/ce:keep-alive")
 
     def test_blogger_oauth_callback_missing_state_redirects(self, client):
         resp = client.get("/settings/blogger/oauth-callback")
@@ -1064,12 +1052,47 @@ class TestSitesPostRoutes:
         resp = csrf_client.post("/sites/run", data={"main_url": "https://x.com/"})
         assert resp.status_code == 403
 
-    def test_sites_run_unknown_domain_returns_400(self, client):
-        token = _fetch_csrf(client)
-        resp = client.post(
-            "/sites/run",
-            data={"csrf_token": token, "main_url": "https://never-saved.example/"},
-        )
+    def test_sites_run_redirects_to_keep_alive(self, client):
+        # U8/R2: POST /sites/run is collapsed into the keep-alive flow — it no
+        # longer runs a plan or 400s on unknown domains; it always 302-redirects.
+        resp = client.post("/sites/run", data={"main_url": "https://x.com/"})
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/ce:keep-alive")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Batch campaign + equity-ledger optimization routes (Plan 2026-06-02-001 /
+# 2026-06-05-001) — contract coverage so the route-contract gate stays green.
+# Functional behavior lives in their own dedicated test modules.
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+class TestCampaignRoutes:
+    def test_batch_campaign_form_returns_200(self, client):
+        resp = client.get("/batch-campaign")
+        assert resp.status_code == 200
+
+    def test_campaign_progress_unknown_id_returns_404(self, client):
+        resp = client.get("/campaign/nonexistent-campaign-id")
+        assert resp.status_code == 404
+
+    def test_campaign_status_api_unknown_id_returns_404(self, client):
+        resp = client.get("/api/campaign/nonexistent-campaign-id/status")
+        assert resp.status_code == 404
+        assert resp.headers["Content-Type"].startswith("application/json")
+
+
+class TestEquityLedgerOptRoutes:
+    def test_batch_recheck_invalid_filter_returns_400(self, client):
+        resp = client.post("/ce:equity-ledger/batch-recheck", json={"filter": "bogus"})
+        assert resp.status_code == 400
+
+    def test_batch_recheck_status_unknown_job_returns_404(self, client):
+        resp = client.get("/ce:equity-ledger/batch-recheck/nonexistent-job/status")
+        assert resp.status_code == 404
+
+    def test_fill_gaps_missing_target_returns_400(self, client):
+        resp = client.post("/ce:equity-ledger/fill-gaps", json={})
         assert resp.status_code == 400
 
 
