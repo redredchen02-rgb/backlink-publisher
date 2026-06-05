@@ -21,6 +21,7 @@ stages:
 
 # Shared install prefix (WET, mirroring the GitHub workflow's per-job repetition).
 .install: &install
+  - apt-get update -qq && apt-get install -y -qq git
   - python --version
   - pip install -e ".[dev]"
 
