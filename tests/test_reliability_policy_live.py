@@ -238,6 +238,18 @@ def _publish_attempts(captured_err: str):
 class TestPolicyBehaviorsEndToEnd:
     """R2–R5 observed through the real chain on a non-browser platform (R6)."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_fake_circuit(self):
+        """Reset the circuit breaker for 'fake' between tests.
+
+        test_r3 trips the circuit for ``fake``, which persists in the state
+        file. Without a reset, later tests (r5) inherit an open circuit and
+        skip publishing — no ``publish_attempt`` events → test pollution.
+        """
+        from backlink_publisher.config import load_config
+        circuit.reset_circuit("fake", load_config())
+        yield
+
     def test_r2_health_gate_browser_tier(self, monkeypatch):
         # velog is browser-tier; unbound channel_status → skipped_policy.
         monkeypatch.setenv(_POLICY_ENV, "1")
