@@ -159,14 +159,12 @@ class ZennGitHubAdapter(Publisher):
 
     @classmethod
     def available(cls, config: Config) -> bool:
-        if not config.zenn:
-            return False
-        if not config.zenn.github_repo or not config.zenn.username:
-            return False
         data = load_zenn_token(config.zenn_token_path)
-        if not data:
+        if not data or not (data.get("token") or "").strip():
             return False
-        return bool((data.get("token") or "").strip())
+        github_repo = (config.zenn and config.zenn.github_repo) or (data.get("github_repo") or "").strip()
+        username = (config.zenn and config.zenn.username) or (data.get("username") or "").strip()
+        return bool(github_repo) and bool(username)
 
     def publish(
         self,
@@ -178,16 +176,18 @@ class ZennGitHubAdapter(Publisher):
         article_id = payload.get("id", "")
         log.info(json.dumps(dict(adapter="zenn", phase="start", id=article_id)))
 
-        if not config.zenn or not config.zenn.github_repo or not config.zenn.username:
+        token_data = load_zenn_token(config.zenn_token_path) or {}
+        repo = (config.zenn and config.zenn.github_repo) or (token_data.get("github_repo") or "").strip()
+        branch = (config.zenn and config.zenn.branch) or "main"
+        zenn_username = (config.zenn and config.zenn.username) or (token_data.get("username") or "").strip()
+
+        if not repo or not zenn_username:
             raise DependencyError(
                 "Zenn not configured. Add [zenn] section to config.toml with "
-                "github_repo = \"owner/repo\" and username = \"your-zenn-username\"."
+                "github_repo and username, or bind via the WebUI Settings page."
             )
 
         token = _load_token(config)
-        repo = config.zenn.github_repo
-        branch = config.zenn.branch or "main"
-        zenn_username = config.zenn.username
 
         slug, markdown_content = _build_zenn_markdown(payload)
         file_path = f"articles/{slug}.md"

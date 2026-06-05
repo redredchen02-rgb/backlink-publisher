@@ -30,6 +30,7 @@ _TOKEN_FILES: list[tuple[str, str]] = [
     ("hackmd", "hackmd-token.json"),
     ("mataroa", "mataroa-token.json"),
     ("gitlabpages", "gitlabpages-token.json"),
+    ("hatena", "hatena-credentials.json"),
 ]
 
 
@@ -175,6 +176,14 @@ def save_hackmd_token(data: dict[str, Any], path: Path | None = None) -> None:
     Expected keys: token (str). Generate at HackMD → Settings → API → Create token.
     """
     _save_token(data, path, "hackmd-token.json")
+
+
+def save_hatena_token(data: dict[str, Any], path: Path | None = None) -> None:
+    """Save Hatena AtomPub credentials dict to JSON file with mode 0600.
+
+    Expected keys: hatena_id (str), blog_id (str), api_key (str).
+    """
+    _save_token(data, path, "hatena-credentials.json")
 
 
 def load_mataroa_token(path: Path | None = None) -> dict[str, Any] | None:

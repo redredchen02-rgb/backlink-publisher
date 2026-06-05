@@ -81,6 +81,7 @@ def settings_body(client):
 @pytest.mark.parametrize("channel,auth_type", [
     ("livejournal", "userpass"),
     ("wordpresscom", "token_fields"),
+    ("hatena", "token_fields"),
     ("substack", "paste_blob"),
     ("txtfyi", "anon"),
     # writeas removed: retired in plan 008, no longer rendered in settings UI
@@ -296,6 +297,108 @@ def test_token_fields_round_trip(client, tmp_path, monkeypatch):
     data = json.loads(token_path.read_text())
     assert data["token"] == "MY_WP_TOKEN"
     assert data["site"] == "https://myblog.wordpress.com"
+
+
+# ---------------------------------------------------------------------------
+# U4 TOKEN+FIELDS — hatena (plan 012)
+# ---------------------------------------------------------------------------
+
+
+def test_hatena_token_fields_round_trip(client, tmp_path, monkeypatch):
+    """Save hatena credentials → hatena-credentials.json written with all fields."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "myid",
+        "blog_id": "myid.hatenablog.com",
+        "api_key": "supersecret",
+    }, csrf=csrf)
+
+    assert resp.status_code == 302
+    assert "success" in resp.headers["Location"]
+    cred_path = config_dir / "hatena-credentials.json"
+    assert cred_path.exists()
+    data = json.loads(cred_path.read_text())
+    assert data["hatena_id"] == "myid"
+    assert data["blog_id"] == "myid.hatenablog.com"
+    assert data["api_key"] == "supersecret"
+
+
+def test_hatena_leave_as_is_partial_fields(client, tmp_path, monkeypatch):
+    """Submitting only hatena_id preserves existing blog_id and api_key."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+
+    # Pre-seed the file
+    cred_path = config_dir / "hatena-credentials.json"
+    cred_path.write_text('{"hatena_id": "old", "blog_id": "old.hatenablog.com", "api_key": "oldkey"}')
+    cred_path.chmod(0o600)
+
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "newid",
+        # blog_id and api_key intentionally omitted
+    }, csrf=csrf)
+
+    assert resp.status_code == 302
+    data = json.loads(cred_path.read_text())
+    assert data["hatena_id"] == "newid"
+    assert data["blog_id"] == "old.hatenablog.com"
+    assert data["api_key"] == "oldkey"
+
+
+def test_hatena_csrf_required(client):
+    """Missing CSRF token → 403."""
+    resp = client.post(
+        "/settings/save-channel-credential",
+        data={"channel": "hatena", "auth_type": "token_fields", "hatena_id": "x"},
+        headers=_origin_headers(),
+    )
+    assert resp.status_code == 403
+
+
+def test_hatena_non_loopback_origin_rejected(client):
+    """Off-loopback Origin → 403."""
+    csrf = _seed_csrf(client)
+    resp = client.post(
+        "/settings/save-channel-credential",
+        data={"channel": "hatena", "auth_type": "token_fields",
+              "hatena_id": "x", "csrf_token": csrf},
+        headers={"Origin": "http://evil.example.com"},
+    )
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# U4 TEMPLATE — hatena field rendering (plan 012 Unit 3)
+# ---------------------------------------------------------------------------
+
+
+def test_hatena_template_renders_three_inputs(settings_body):
+    """Settings page renders hatena_id, blog_id, api_key inputs for hatena."""
+    assert 'name="hatena_id"' in settings_body
+    assert 'name="blog_id"' in settings_body
+    assert 'name="api_key"' in settings_body
+
+
+def test_hatena_template_no_warning_box(settings_body):
+    """Hatena accordion must not show '字段配置尚未定义' warning."""
+    # Locate the hatena section (between channel-hatena open and next channel div)
+    # Simplest: just assert the warning key phrase absent (it would only appear
+    # if _FIELD_DEFS["hatena"] were missing)
+    assert "hatena 的字段配置尚未定义" not in settings_body
+
+
+def test_hatena_cred_filename_correct(settings_body):
+    """Credential file hint shows hatena-credentials.json, not hatena-token.json."""
+    assert "hatena-credentials.json" in settings_body
+    assert "hatena-token.json" not in settings_body
 
 
 # ---------------------------------------------------------------------------

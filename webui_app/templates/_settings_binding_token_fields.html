@@ -69,7 +69,59 @@
             "placeholder": "yourblog.tumblr.com",
             "help": "您的 Tumblr 博客地址。"
         }
+    ],
+    "zenn": [
+        {
+            "name": "token",
+            "label": "GitHub PAT",
+            "type": "password",
+            "placeholder": "ghp_...",
+            "help": "github.com → Settings → Developer settings → Personal access tokens，需要 contents:write 权限。"
+        },
+        {
+            "name": "github_repo",
+            "label": "GitHub 仓库",
+            "type": "text",
+            "placeholder": "owner/zenn-articles-repo",
+            "help": "已连接 Zenn 账号的 GitHub 仓库（owner/repo 格式）。"
+        },
+        {
+            "name": "username",
+            "label": "Zenn 用户名",
+            "type": "text",
+            "placeholder": "your-zenn-username",
+            "help": "您的 Zenn 账号用户名（zenn.dev/@username 中的部分）。"
+        }
+    ],
+    "hatena": [
+        {
+            "name": "hatena_id",
+            "label": "Hatena ID",
+            "type": "text",
+            "placeholder": "your-hatena-id",
+            "help": "Hatena 登录用的用户名（即 hatenablog.com 子域前缀）。"
+        },
+        {
+            "name": "blog_id",
+            "label": "博客 ID",
+            "type": "text",
+            "placeholder": "your-hatena-id.hatenablog.com",
+            "help": "博客完整域名，在 Hatena Blog → 管理 → 详细设置中可见。"
+        },
+        {
+            "name": "api_key",
+            "label": "AtomPub API Key",
+            "type": "password",
+            "placeholder": "Hatena Blog → 详细设置 → AtomPub → API Key",
+            "help": "高敏感密钥，请勿分享。在 Hatena Blog 设置页的 AtomPub 区段取得。"
+        }
     ]
+} %}
+
+{# Channels whose credential file name differs from the {channel}-token.json default. #}
+{% set _CRED_FILENAMES = {
+    "tumblr": "tumblr-credentials.json",
+    "hatena": "hatena-credentials.json"
 } %}
 
 {% set _fields = _FIELD_DEFS.get(channel, []) %}
@@ -78,7 +130,7 @@
     <p class="text-muted" style="font-size:13px; margin-bottom:8px;">
         <strong>🔑 Token + 配置字段绑定</strong>
         — 凭据写入
-        <code>~/.config/backlink-publisher/{{ channel }}-token.json</code>（0600 权限）。
+        <code>~/.config/backlink-publisher/{{ _CRED_FILENAMES.get(channel, channel ~ "-token.json") }}</code>（0600 权限）。
     </p>
 
     <div class="bind-status-row" style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
