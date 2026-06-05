@@ -1,9 +1,9 @@
 """Image-gen settings routes — Plan 2026-05-20-001 Unit 6.
 
-Provides ``/settings/test-image-gen`` so the operator can verify
-that the configured base_url + frw-token are reachable BEFORE
-running plan-backlinks (which would otherwise discover a broken
-key only after burning quota on retries).
+Provides:
+  * ``/settings/test-image-gen`` — connectivity probe (no generation cost).
+  * ``/settings/generate-sample-image`` — real generation call; returns the
+    image as a base64 data-URL for preview in the settings UI.
 
 Provider dispatch:
   * ``provider="openai"`` (default) — ``GET <base_url>/models`` probe
@@ -14,7 +14,9 @@ Provider dispatch:
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify
+import base64
+
+from flask import Blueprint, jsonify, request
 
 import requests
 
@@ -114,3 +116,71 @@ def settings_test_image_gen():
         return jsonify(result), 200
     except Exception as exc:
         return jsonify({"ok": False, "error": f"unexpected: {exc}"}), 200
+
+
+_SAMPLE_PROMPT = (
+    "Professional article banner image, clean gradient background, "
+    "modern typography style, blue and white color scheme, "
+    "wide format 1200x630"
+)
+
+
+@bp.route("/settings/generate-sample-image", methods=["POST"])
+def settings_generate_sample_image():
+    """Generate a real test banner and return it as a base64 data-URL.
+
+    Costs one API call.  The frontend shows the result inline so the
+    operator can confirm prompt→image quality before enabling
+    use_image_gen in config.toml.
+    """
+    try:
+        from backlink_publisher.config import load_config
+        from backlink_publisher._util.secrets import load_frw_token
+
+        try:
+            cfg = _g_cache('config', load_config)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"load_config failed: {exc}"}), 200
+
+        if cfg.image_gen is None:
+            return jsonify({
+                "ok": False,
+                "error": "no_image_gen_section: add [image_gen] to config.toml first",
+            }), 200
+
+        try:
+            api_key = load_frw_token()
+        except RuntimeError as exc:
+            return jsonify({"ok": False, "error": f"no_token: {exc}"}), 200
+
+        payload = request.get_json(silent=True) or {}
+        prompt = (payload.get("prompt") or "").strip() or _SAMPLE_PROMPT
+
+        from backlink_publisher.publishing.adapters.image_gen import ImageGenAdapter
+
+        adapter = ImageGenAdapter(
+            base_url=cfg.image_gen.base_url,
+            model=cfg.image_gen.model,
+            banner_size=cfg.image_gen.banner_size,
+            api_key=api_key,
+            timeout_s=cfg.image_gen.timeout_s,
+            max_retries=cfg.image_gen.max_retries,
+            provider=getattr(cfg.image_gen, "provider", "openai"),
+            frw_template_id=getattr(cfg.image_gen, "frw_template_id", ""),
+        )
+
+        artifact = adapter.generate(prompt)
+        b64 = base64.b64encode(artifact.data).decode("ascii")
+        data_url = f"data:{artifact.mime};base64,{b64}"
+
+        return jsonify({
+            "ok": True,
+            "data_url": data_url,
+            "mime": artifact.mime,
+            "size_kb": round(len(artifact.data) / 1024, 1),
+            "prompt": prompt,
+            "source_url": artifact.source_url,
+        }), 200
+
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"generate failed: {exc}"}), 200
