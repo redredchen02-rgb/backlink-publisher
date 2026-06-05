@@ -45,3 +45,12 @@ class TestDispatchWeightDynamic:
         """Unregistered platforms return 1.0."""
         w = registry.dispatch_weight("nonexistent_platform")
         assert w == pytest.approx(1.0)
+
+    def test_zero_dynamic_weight_clamped_above_zero(self, tmp_path: Path, monkeypatch):
+        """A legacy 0 in state must not route-exclude a platform (belt-and-suspenders clamp)."""
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+        state = OptimizationState()
+        state.set_weight("telegraph", 0.0, rule="aggregated_stats", reason="legacy zero")
+
+        w = registry.dispatch_weight("telegraph")
+        assert w > 0.0, "dispatch_weight must never return 0 — routing exclusion is irreversible"

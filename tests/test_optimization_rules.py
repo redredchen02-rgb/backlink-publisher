@@ -223,15 +223,25 @@ class TestAggregatedStats:
         assert results[0].applied is True
         assert results[0].new_weight == pytest.approx(0.25)  # 1.0 * 0.5 * 0.5
 
-    def test_already_at_minimum_no_further_change(self):
-        """Weight already 0 — applying multiplier leaves at 0."""
+    def test_weight_floor_prevents_routing_exclusion(self):
+        """min_weight=0.1 clamp: even with terrible signals, weight stays >= min_weight."""
         data = _make_state_data(
             stats={"blogger": {"total_published": 10, "alive_count": 1, "dofollow_count": 0}},
-            weights={"blogger": {"base": 0.0, "current": 0.0}},
+            weights={"blogger": {"base": 0.05, "current": 0.05}},
+            rules={"aggregated_stats": {"enabled": True, "min_weight": 0.1}},
         )
         results = evaluate_rules(data, rule_filter=RULE_AGGREGATED_STATS)
         assert len(results) == 1
-        assert results[0].new_weight == 0.0
+        assert results[0].new_weight >= 0.1
+
+    def test_min_weight_in_default_config_is_nonzero(self):
+        """default_state() must include aggregated_stats with min_weight > 0."""
+        from backlink_publisher.optimization.models import default_state as ds
+        state = ds()
+        agg = state["rules"].get("aggregated_stats", {})
+        assert agg, "aggregated_stats missing from default_state — P0 safety net not seeded"
+        assert agg.get("enabled") is True
+        assert float(agg.get("min_weight", 0)) > 0
 
     def test_canary_and_aggregated_independent(self):
         """Both rules evaluate without interference."""

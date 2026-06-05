@@ -542,7 +542,9 @@ def dispatch_weight(name: str) -> float:
         data = state.load()
         dynamic = data.get("weights", {}).get(name, {}).get("current")
         if dynamic is not None:
-            return float(dynamic)
+            # Clamp against legacy 0s: a weight of 0 permanently excludes a
+            # platform from routing, which is irreversible without a state edit.
+            return max(float(dynamic), 0.01)
     except Exception:
         pass
 

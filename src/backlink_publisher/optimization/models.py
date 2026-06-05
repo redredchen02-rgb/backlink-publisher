@@ -96,6 +96,14 @@ def default_state() -> dict:
                 "max_cap": 3.0,
                 "min_confirmations": 2,
             },
+            "aggregated_stats": {
+                "enabled": True,
+                "multiplier": 0.5,
+                "survival_low_threshold": 0.3,
+                "dofollow_low_threshold": 0.2,
+                "min_confirmations": 2,
+                "min_weight": 0.1,
+            },
         },
     }
 

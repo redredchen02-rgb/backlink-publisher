@@ -222,6 +222,7 @@ def _rule_aggregated_stats(
     survival_floor = float(config.get("survival_low_threshold", 0.3))
     dofollow_floor = float(config.get("dofollow_low_threshold", 0.2))
     min_confirmations = int(config.get("min_confirmations", 2))
+    min_weight = float(config.get("min_weight", 0.1))
 
     weights = state_data.get("weights", {})
     stats = state_data.get("stats", {})
@@ -250,6 +251,8 @@ def _rule_aggregated_stats(
             new_weight *= multiplier
             triggers.append(f"dofollow={dofollow_rate:.0%}<{dofollow_floor:.0%}")
 
+        new_weight = max(new_weight, min_weight)
+
         if not triggers:
             results.append(_make_result(
                 platform, RULE_AGGREGATED_STATS,
@@ -258,12 +261,12 @@ def _rule_aggregated_stats(
                 reason=f"survival={survival_rate:.0%} dofollow={dofollow_rate:.0%} — above floor",
                 applied=False,
             ))
-        elif new_weight < current_weight:
+        elif new_weight != current_weight:
             results.append(_make_result(
                 platform, RULE_AGGREGATED_STATS,
                 old_weight=current_weight, new_weight=new_weight,
                 multiplier=multiplier,
-                reason=f"{' & '.join(triggers)} — reduce",
+                reason=f"{' & '.join(triggers)} — reduce (floor={min_weight})",
                 applied=True,
             ))
         else:
@@ -271,7 +274,7 @@ def _rule_aggregated_stats(
                 platform, RULE_AGGREGATED_STATS,
                 old_weight=current_weight, new_weight=current_weight,
                 multiplier=1.0,
-                reason="already at minimum — no change",
+                reason=f"already at min_weight={min_weight} — no change",
                 applied=False,
             ))
 
