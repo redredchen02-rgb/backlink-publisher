@@ -20,10 +20,35 @@
 
     <p class="text-muted small mb-1">绑定后解锁：</p>
     <ul class="list-unstyled small mb-0">
-      <li class="{% if ps.article_gen %}text-success{% else %}text-muted{% endif %}">{% if ps.article_gen %}✓{% else %}○{% endif %} AI 全文生成</li>
-      <li class="{% if ps.image_gen %}text-success{% else %}text-muted{% endif %}">{% if ps.image_gen %}✓{% else %}○{% endif %} AI 封面图</li>
+      <li class="{% if ps.article_gen %}text-success{% else %}text-muted{% endif %}">
+        {% if ps.article_gen %}✓ AI 全文生成{% else %}
+        <button type="button" class="btn btn-link p-0 text-muted text-decoration-none small"
+                data-expand-pro-mode data-target-id="useArticleGen">○ AI 全文生成</button>
+        {% endif %}
+      </li>
+      <li class="{% if ps.image_gen %}text-success{% else %}text-muted{% endif %}">
+        {% if ps.image_gen %}✓ AI 封面图{% else %}
+        <button type="button" class="btn btn-link p-0 text-muted text-decoration-none small"
+                data-expand-pro-mode data-target-id="useImageGen">○ AI 封面图</button>
+        {% endif %}
+      </li>
       <li class="{% if ps.configured %}text-success{% else %}text-muted{% endif %}">{% if ps.configured %}✓{% else %}○{% endif %} Copilot 智能问答</li>
       <li class="{% if ps.configured %}text-success{% else %}text-muted{% endif %}">{% if ps.configured %}✓{% else %}○{% endif %} 锚文本智能建议</li>
     </ul>
   </div>
 </div>
+<script>
+document.querySelectorAll('[data-expand-pro-mode]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var collapseEl = document.getElementById('llm-pro-mode-collapse');
+    if (collapseEl) {
+      bootstrap.Collapse.getOrCreateInstance(collapseEl).show();
+    }
+    var targetId = btn.dataset.targetId;
+    setTimeout(function() {
+      var target = document.getElementById(targetId);
+      if (target) { target.scrollIntoView({behavior: 'smooth', block: 'center'}); }
+    }, 320);
+  });
+});
+</script>
