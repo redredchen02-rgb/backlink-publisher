@@ -43,8 +43,60 @@
         {# ── Platform multi-select ── #}
         <div class="form-section">
             <h5><i class="bi bi-grid-3x3-gap me-1"></i>分发平台</h5>
+            {% set selected = form.get('platforms', []) %}
+            {%- if publish_partition %}
+            {#- Plan 2026-06-05-007: only usable (bound + 免綁定) platforms are
+                selectable. Needs-reconnect platforms show disabled with a
+                reconnect link; never-connected ones fold into 拓展区 (disabled),
+                each with a path to the settings binding page (no dead ends). #}
             <div class="platform-grid">
-                {% set selected = form.get('platforms', []) %}
+                {% for name, status, needs_reconnect in publish_partition.main %}
+                {% if needs_reconnect %}
+                <div class="form-check" title="登入態失效,需重新綁定">
+                    <input class="form-check-input" type="checkbox" disabled id="plat-{{ name }}">
+                    <label class="form-check-label text-muted" for="plat-{{ name }}">
+                        {{ name }} <span class="badge text-bg-warning">需重連</span>
+                        <a href="/settings#section-channels">去重連</a>
+                    </label>
+                </div>
+                {% else %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="platforms"
+                           value="{{ name }}" id="plat-{{ name }}"
+                           {% if name in selected %}checked{% endif %}>
+                    <label class="form-check-label" for="plat-{{ name }}">{{ name }}</label>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% if errors.get('platforms') %}
+            <span class="field-error">{{ errors.platforms }}</span>
+            {% endif %}
+            <div class="mt-2">
+                <button type="button" class="btn btn-sm btn-link px-0"
+                        data-bs-toggle="collapse" data-bs-target="#campaign-ext-area"
+                        aria-expanded="false" aria-controls="campaign-ext-area">
+                    拓展區 ({{ publish_partition.extension_count }}) — 未串接平台
+                </button>
+                <div id="campaign-ext-area" class="collapse">
+                    <p class="text-muted small mb-2">這些平台尚未串接,需先到設定頁綁定後才能選用。</p>
+                    <div class="platform-grid">
+                        {% for g in publish_partition.extension_groups %}
+                        {% for name, status, ready in g.channels %}
+                        <div class="form-check" title="尚未綁定">
+                            <input class="form-check-input" type="checkbox" disabled id="extplat-{{ name }}">
+                            <label class="form-check-label text-muted" for="extplat-{{ name }}">
+                                {{ name }} <a href="/settings#section-channels">去綁定</a>
+                            </label>
+                        </div>
+                        {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {%- else %}
+            {#- Fallback: partition unavailable → flat selectable list (legacy). #}
+            <div class="platform-grid">
                 {% for p in platforms %}
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="platforms"
@@ -57,6 +109,7 @@
             {% if errors.get('platforms') %}
             <span class="field-error">{{ errors.platforms }}</span>
             {% endif %}
+            {%- endif %}
         </div>
 
         {# ── Mode: draft / publish ── #}

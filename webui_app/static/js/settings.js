@@ -433,20 +433,48 @@ function _initOverviewPersistence() {
   on(panel, 'hide.bs.collapse', () => { try { localStorage.removeItem('settings:overviewOpen'); } catch (e) { /* ignore */ } });
 }
 
-function _initTierPersistence() {
-  const overview = document.getElementById('overview-panel');
-  if (!overview || !window.bootstrap) return;
-  overview.querySelectorAll('.collapse[id^="tier-"]').forEach((panel) => {
-    const key = 'settings:collapse:' + panel.id;
-    on(panel, 'show.bs.collapse', () => { try { localStorage.setItem(key, '1'); } catch (e) { /* ignore */ } });
-    on(panel, 'hide.bs.collapse', () => { try { localStorage.setItem(key, '0'); } catch (e) { /* ignore */ } });
-    let saved = null;
-    try { saved = localStorage.getItem(key); } catch (e) { /* ignore */ }
-    if (saved === '1' && !panel.classList.contains('show')) {
-      try { window.bootstrap.Collapse.getOrCreateInstance(panel).show(); } catch (e) { /* ignore */ }
-    } else if (saved === '0' && panel.classList.contains('show')) {
-      try { window.bootstrap.Collapse.getOrCreateInstance(panel).hide(); } catch (e) { /* ignore */ }
-    }
+// Plan 2026-06-05-007 — persist the extension-area collapse across re-renders.
+// On cold start the server renders #ext-area with `show` + data-cold-start so
+// the bind entry isn't buried; in that case we skip the saved-state replay once
+// (don't let a stale "closed" value re-hide the onboarding fold).
+function _initExtensionPersistence() {
+  const panel = document.getElementById('ext-area');
+  if (!panel || !window.bootstrap) return;
+  const key = 'settings:collapse:ext-area';
+  on(panel, 'show.bs.collapse', () => { try { localStorage.setItem(key, '1'); } catch (e) { /* ignore */ } });
+  on(panel, 'hide.bs.collapse', () => { try { localStorage.setItem(key, '0'); } catch (e) { /* ignore */ } });
+  if (panel.dataset.coldStart === 'true') return;  // cold start: keep server state
+  let saved = null;
+  try { saved = localStorage.getItem(key); } catch (e) { /* ignore */ }
+  if (saved === '1' && !panel.classList.contains('show')) {
+    try { window.bootstrap.Collapse.getOrCreateInstance(panel).show(); } catch (e) { /* ignore */ }
+  } else if (saved === '0' && panel.classList.contains('show')) {
+    try { window.bootstrap.Collapse.getOrCreateInstance(panel).hide(); } catch (e) { /* ignore */ }
+  }
+}
+
+// Plan 2026-06-05-007 R15 — client-side filter for a large extension area.
+// Hides cards whose channel name doesn't match, hides tier sub-groups that end
+// up empty, and shows a "no match" message when nothing matches.
+function _initExtensionFilter() {
+  const input = document.querySelector('[data-action="filter-extension"]');
+  const panel = document.getElementById('ext-area');
+  if (!input || !panel) return;
+  const noMatch = panel.querySelector('.ext-no-match');
+  on(input, 'input', () => {
+    const q = input.value.trim().toLowerCase();
+    let anyVisible = false;
+    panel.querySelectorAll('.ext-tier-group').forEach((group) => {
+      let groupVisible = false;
+      group.querySelectorAll('.dashboard-channel-card').forEach((card) => {
+        const name = (card.getAttribute('data-channel') || '').toLowerCase();
+        const match = !q || name.includes(q);
+        card.hidden = !match;
+        if (match) { groupVisible = true; anyVisible = true; }
+      });
+      group.hidden = !groupVisible;  // hide orphaned tier sub-headers
+    });
+    if (noMatch) noMatch.hidden = anyVisible;
   });
 }
 
@@ -461,7 +489,8 @@ function _boot() {
   _initBindReopen();
   _openCollapseForHash();
   _initOverviewPersistence();
-  _initTierPersistence();
+  _initExtensionPersistence();
+  _initExtensionFilter();
   on(window, 'hashchange', () => {
     const key = _hashToPaneKey(window.location.hash);
     if (key) {

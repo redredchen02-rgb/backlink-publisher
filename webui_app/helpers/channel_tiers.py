@@ -118,3 +118,93 @@ def group_channels_by_tier(
             }
         )
     return tiers
+
+
+# Plan 2026-06-05-007 — connection-state partition (main / extension area).
+# A channel can only reach these two lifecycle states *after* a successful
+# bind, so they are the reliable "was once bound" signal that keeps a now-
+# failed channel in the main area (R2) instead of folding it away. Only ever
+# populated for the browser-binding channels in ``channel_status.CHANNELS``
+# (velog / medium / blogger); every other platform has no record.
+_RECONNECT_STATES: frozenset[str] = frozenset({"expired", "identity_mismatch"})
+
+
+def _needs_reconnect(
+    name: str, channel_statuses: dict[str, dict[str, Any]]
+) -> bool:
+    """True when ``name`` was bound before but its login state has failed."""
+    rec = channel_statuses.get(name)
+    return bool(rec) and rec.get("status") in _RECONNECT_STATES
+
+
+def _is_usable(status: dict[str, Any], needs_reconnect: bool) -> bool:
+    """A channel belongs in the main area when it is publishable now (anon or
+    bound) or was bound before and only needs reconnecting (R1/R2/R10).
+
+    Keyed on ``auth_type``/``bound`` (from ``get_channel_status``) plus the
+    reconnect flag (from the ``channel_status`` lifecycle store) — never on
+    ``bound_at`` truthiness or record existence, which an unbound-but-probed
+    channel can also carry.
+    """
+    return (
+        status.get("auth_type") == "anon"
+        or bool(status.get("bound"))
+        or needs_reconnect
+    )
+
+
+def partition_channels_by_connection(
+    dashboard_channels: list[tuple[str, dict[str, Any]]],
+    channel_statuses: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Split ``[(name, status), ...]`` into main vs extension by connection state.
+
+    Single reusable decision point (R13) shared by the settings overview and
+    the publish channel picker. Returns::
+
+        {
+          "main":            [(name, status, needs_reconnect), ...],
+          "extension_groups": [<tier dict>, ...],   # from group_channels_by_tier
+          "main_count": int,
+          "extension_count": int,
+          "cold_start": bool,
+        }
+
+    ``main`` lists usable channels (bound + anon + needs-reconnect), with the
+    normal ones first and needs-reconnect ones after, each segment preserving
+    input order. The extension area holds never-connected (``unbound``,
+    non-anon) channels, sub-grouped by automation tier via
+    ``group_channels_by_tier`` (R15). ``cold_start`` is True when the main area
+    has no genuinely bound or needs-reconnect channel (anon-only / empty),
+    so the UI can surface onboarding instead of burying the bind entry (R14).
+
+    ``channel_statuses`` is the ``channel_status.list_all()`` mapping; ``None``
+    or ``{}`` degrades safely to "no reconnect". Never cached.
+    """
+    statuses = channel_statuses or {}
+    main: list[tuple[str, dict[str, Any], bool]] = []
+    extension: list[tuple[str, dict[str, Any]]] = []
+    for name, status in dashboard_channels:
+        reconnect = _needs_reconnect(name, statuses)
+        if _is_usable(status, reconnect):
+            main.append((name, status, reconnect))
+        else:
+            extension.append((name, status))
+
+    # Normal-usable first, needs-reconnect after; stable sort keeps input order
+    # within each segment (R2 keeps reconnect visible, not buried by re-sorting).
+    main.sort(key=lambda item: item[2])
+
+    has_real = any(
+        reconnect or bool(status.get("bound")) for _, status, reconnect in main
+    )
+    # Cold start = there ARE channels but none are genuinely bound / reconnecting
+    # (anon-only). An empty partition (degraded / error path) is not cold start,
+    # so the onboarding banner never claims "these work" over nothing.
+    return {
+        "main": main,
+        "extension_groups": group_channels_by_tier(extension),
+        "main_count": len(main),
+        "extension_count": len(extension),
+        "cold_start": (not has_real) and bool(main or extension),
+    }

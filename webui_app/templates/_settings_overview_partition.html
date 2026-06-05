@@ -1,0 +1,82 @@
+{#- Plan 2026-06-05-007 — connection-state partition (main / extension area).
+
+    Renders ``dashboard_partition`` (built in _settings_context via
+    helpers/channel_tiers.partition_channels_by_connection):
+      - main area: usable channels now (bound + anon + needs-reconnect). The
+        helper sorts normal-usable first, needs-reconnect after, and attaches
+        the per-row ``needs_reconnect`` flag — this template only reads it.
+      - extension area: collapsible「拓展區(N)」of never-connected platforms,
+        sub-grouped by automation tier (``extension_groups``, same shape as
+        group_channels_by_tier output). Bind/Configure entries are preserved
+        so it stays an onboarding entry, not a dead list (R6).
+
+    Cold start (R14): when the main area has only免綁定 channels, settings.html
+    server-expands the parent #overview-panel and this #ext-area (data-cold-start),
+    and a banner leads with what already works before the bind CTA.
+
+    ``_carded_channels`` gates the "Configure ↓" anchor so cardless channels
+    never render a dead link. Card calls stay inline (not wrapped in a local
+    macro) because Jinja macros do not inherit ``binding_channels`` from the
+    include context. #}
+{% from '_channel_card_macro.html' import dashboard_channel_card %}
+{%- set _carded_channels = ['blogger', 'medium', 'velog', 'ghpages', 'devto', 'notion'] %}
+{% if dashboard_partition %}
+{%- set p = dashboard_partition %}
+
+{% if p.cold_start %}
+<div class="cold-start-banner" role="note">
+  <strong>這些免綁定渠道現在就能發布</strong>
+  <span class="cold-start-cta">—— 想擴大覆蓋,到下方「拓展區」綁定第一個渠道。</span>
+</div>
+{% endif %}
+
+{#- Main area: usable now (helper已排序:正常可用在前、需重連在後)。 #}
+<div class="channel-area channel-area--main">
+  {% for name, status, needs_reconnect in p.main %}
+    {% if needs_reconnect %}
+    <div class="dch-reconnect">
+      <div class="dch-reconnect-hint">
+        <span class="badge-status warn">需重連</span>
+        <span>登入態失效 —— <a href="#section-channels">前往重新綁定</a></span>
+      </div>
+      {{ dashboard_channel_card(name, status, bindable=(name in binding_channels),
+         has_card=(name in _carded_channels or status.auth_type not in ('live_browser', 'oauth', None))) }}
+    </div>
+    {% else %}
+    {{ dashboard_channel_card(name, status, bindable=(name in binding_channels),
+       has_card=(name in _carded_channels or status.auth_type not in ('live_browser', 'oauth', None))) }}
+    {% endif %}
+  {% endfor %}
+</div>
+
+{#- Extension area: never-connected, folded, tier-subgrouped (R5/R15). #}
+<div class="extension-area">
+  <button type="button" class="tier-toggle ext-toggle"
+          data-bs-toggle="collapse" data-bs-target="#ext-area"
+          aria-expanded="{{ 'true' if p.cold_start else 'false' }}" aria-controls="ext-area">
+    <span class="tier-title">
+      <span class="tier-label">拓展區</span>
+      <span class="tier-count">{{ p.extension_count }}</span>
+    </span>
+    <span class="tier-subtitle">未串接的平台,需要時展開綁定</span>
+    <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
+  </button>
+  <div id="ext-area" class="collapse{% if p.cold_start %} show{% endif %}"
+       {% if p.cold_start %}data-cold-start="true"{% endif %}>
+    {% if p.extension_count > 12 %}
+    <input type="text" class="ext-filter" data-action="filter-extension"
+           placeholder="篩選平台…" aria-label="篩選拓展區平台">
+    {% endif %}
+    {% for g in p.extension_groups %}
+    <div class="ext-tier-group">
+      <div class="ext-tier-subhead">{{ g.label }} <span class="tier-count">{{ g.total }}</span></div>
+      {% for name, status, ready in g.channels %}
+      {{ dashboard_channel_card(name, status, bindable=(name in binding_channels),
+         has_card=(name in _carded_channels or status.auth_type not in ('live_browser', 'oauth', None))) }}
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <div class="ext-no-match" hidden>無相符平台</div>
+  </div>
+</div>
+{% endif %}

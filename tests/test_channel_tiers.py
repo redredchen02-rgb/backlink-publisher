@@ -15,6 +15,7 @@ from webui_app.helpers.channel_tiers import (
     TIER_BY_AUTH_TYPE,
     _is_ready,
     group_channels_by_tier,
+    partition_channels_by_connection,
 )
 
 
@@ -184,3 +185,129 @@ class TestIsReady:
     )
     def test_is_ready(self, status, expected):
         assert _is_ready(status) is expected
+
+
+def _rec(status: str) -> dict[str, Any]:
+    """channel_status.list_all() record shape (only the status field matters)."""
+    return {"status": status, "bound_at": None, "storage_state_path": None}
+
+
+class TestPartitionByConnection:
+    """Plan 2026-06-05-007: connection-state main/extension partition."""
+
+    def test_usable_in_main_unconnected_in_extension(self):
+        """Happy path: anon + bound → main; unbound (api + browser) → extension."""
+        channels = [
+            ("telegraph", _status("anon")),
+            ("blogger", _status("oauth", bound=True)),
+            ("notion", _status("token_fields")),  # unbound api
+            ("medium", _status("live_browser")),  # unbound browser
+        ]
+        result = partition_channels_by_connection(channels, {})
+        main_names = {n for n, _, _ in result["main"]}
+        ext_names = {
+            n for g in result["extension_groups"] for n, _, _ in g["channels"]
+        }
+        assert main_names == {"telegraph", "blogger"}
+        assert ext_names == {"notion", "medium"}
+        assert result["main_count"] == 2
+        assert result["extension_count"] == 2
+
+    def test_expired_browser_channel_stays_in_main_with_reconnect(self):
+        """R2: expired (was bound, now failed) → main, needs_reconnect=True."""
+        channels = [("medium", _status("live_browser", bound=False))]
+        result = partition_channels_by_connection(channels, {"medium": _rec("expired")})
+        assert result["extension_count"] == 0
+        assert result["main"] == [("medium", channels[0][1], True)]
+
+    def test_identity_mismatch_stays_in_main_with_reconnect(self):
+        """R2: identity_mismatch also keeps the channel in main with a flag."""
+        channels = [("velog", _status("live_browser", bound=False))]
+        result = partition_channels_by_connection(
+            channels, {"velog": _rec("identity_mismatch")}
+        )
+        assert result["main"][0][2] is True
+        assert result["extension_count"] == 0
+
+    def test_anon_always_main_regardless_of_status_record(self):
+        """R1: anon platforms are usable even with an unbound status record."""
+        channels = [("rentry", _status("anon"))]
+        result = partition_channels_by_connection(channels, {"rentry": _rec("unbound")})
+        assert {n for n, _, _ in result["main"]} == {"rentry"}
+
+    def test_unbound_record_does_not_promote_to_main(self):
+        """R10: an unbound record (e.g. probed-but-never-bound) stays extension."""
+        channels = [("medium", _status("live_browser", bound=False))]
+        result = partition_channels_by_connection(channels, {"medium": _rec("unbound")})
+        assert result["extension_count"] == 1
+        assert result["main"] == []
+
+    def test_cold_start_true_when_only_anon_usable(self):
+        """R14: no bound and no reconnect → cold start."""
+        channels = [
+            ("telegraph", _status("anon")),
+            ("notion", _status("token_fields")),  # unbound
+        ]
+        result = partition_channels_by_connection(channels, {})
+        assert result["cold_start"] is True
+
+    def test_cold_start_false_when_a_real_binding_exists(self):
+        channels = [
+            ("telegraph", _status("anon")),
+            ("blogger", _status("oauth", bound=True)),
+        ]
+        result = partition_channels_by_connection(channels, {})
+        assert result["cold_start"] is False
+
+    def test_cold_start_false_when_only_reconnect_exists(self):
+        """A needs-reconnect channel counts as a real (prior) binding."""
+        channels = [("medium", _status("live_browser", bound=False))]
+        result = partition_channels_by_connection(channels, {"medium": _rec("expired")})
+        assert result["cold_start"] is False
+
+    def test_main_orders_normal_usable_before_reconnect_stably(self):
+        """R2: normal usable first, needs-reconnect after; input order preserved."""
+        channels = [
+            ("medium", _status("live_browser", bound=False)),  # reconnect
+            ("telegraph", _status("anon")),  # normal
+            ("blogger", _status("oauth", bound=True)),  # normal
+        ]
+        result = partition_channels_by_connection(channels, {"medium": _rec("expired")})
+        names = [n for n, _, _ in result["main"]]
+        assert names == ["telegraph", "blogger", "medium"]
+
+    def test_extension_groups_subgrouped_by_tier(self):
+        """R15: extension members are tier-subgrouped via group_channels_by_tier."""
+        channels = [
+            ("notion", _status("token_fields")),  # tier-2
+            ("medium", _status("live_browser")),  # tier-3
+        ]
+        result = partition_channels_by_connection(channels, {})
+        groups = {g["key"]: g for g in result["extension_groups"]}
+        assert set(groups) == {"tier-2", "tier-3"}
+        # main members must not leak into extension groups
+        assert all(
+            n in {"notion", "medium"}
+            for g in result["extension_groups"]
+            for n, _, _ in g["channels"]
+        )
+
+    def test_none_channel_statuses_degrades_to_no_reconnect(self):
+        """Edge: channel_statuses=None must not raise; no reconnect inferred."""
+        channels = [("medium", _status("live_browser", bound=False))]
+        result = partition_channels_by_connection(channels, None)
+        assert result["extension_count"] == 1
+
+    def test_missing_status_keys_do_not_raise(self):
+        """Edge: a status dict missing auth_type/bound → extension, no KeyError."""
+        result = partition_channels_by_connection([("x", {})], {})
+        assert result["extension_count"] == 1
+
+    def test_empty_input(self):
+        result = partition_channels_by_connection([], {})
+        assert result["main"] == []
+        assert result["extension_groups"] == []
+        assert result["main_count"] == 0
+        assert result["extension_count"] == 0
+        # Empty / degraded input is NOT cold start (no onboarding over nothing).
+        assert result["cold_start"] is False

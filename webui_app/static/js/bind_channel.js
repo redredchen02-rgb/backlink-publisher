@@ -29,6 +29,8 @@
     // Per-job mutable state — keyed by jobId so concurrent binds across
     // multiple channels don't interfere.
     var _pollState = {};
+    // Plan 2026-06-05-007 R8: at most one auto-reload may ever be armed.
+    var _reloadArmed = false;
     var BADGE_TEXTS = {
         bound:   '已绑定 ✓',
         expired: '已过期 ⚠',
@@ -79,9 +81,26 @@
         notice.className = 'alert alert-success py-2 px-3 mt-3 mb-0';
         notice.setAttribute('role', 'status');
         notice.innerHTML =
-            '<strong>授权已完成。</strong> 请刷新页面以更新当前状态。';
+            '<strong>授权已完成。</strong> 刷新后该渠道将移入「可用」区。';
         host.appendChild(notice);
         try { notice.scrollIntoView({behavior: 'smooth', block: 'nearest'}); } catch (e) {}
+    }
+
+    // Plan 2026-06-05-007 R8: the partition (main vs extension area) is
+    // recomputed server-side on render, so a just-bound channel only rises into
+    // the main area after a reload. Auto-trigger it — but guard against the
+    // races a blind reload would cause:
+    //   * never arm more than one reload;
+    //   * never reload while another bind job is still polling (would abort it);
+    //   * never reload while the operator is editing a field (would lose input).
+    // When any guard trips, the manual "刷新" notice already lets them refresh.
+    function maybeAutoReload() {
+        if (_reloadArmed) return;
+        if (Object.keys(_pollState).length > 0) return;
+        var ae = document.activeElement;
+        if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+        _reloadArmed = true;
+        setTimeout(function () { try { location.reload(); } catch (e) {} }, 1200);
     }
 
     function describeEvent(ev) {
@@ -131,10 +150,11 @@
                     showRefreshNotice(channel);
                     appendLog(
                         channel,
-                        '已取得授权，请刷新页面查看最新状态',
+                        '已取得授权，正在刷新以更新状态',
                         {scroll: true}
                     );
                     _clearState(jobId);
+                    maybeAutoReload();  // only after this job leaves _pollState
                 } else if (data.status === 'failed') {
                     setBadge(channel, 'failed');
                     if (data.error_message) appendLog(channel, data.error_message);
