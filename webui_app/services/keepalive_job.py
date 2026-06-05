@@ -161,9 +161,13 @@ def _ensure_article(store: EventStore, *, live_url: str, target_url, host, platf
     from backlink_publisher._util.url import canonicalize_url
     from backlink_publisher.events._project_helpers import article_payload
 
-    art = article_payload(live_url=live_url, target_url=target_url, host=host)
-    art["platform"] = platform
     try:
+        # article_payload → canonicalize_url raises ValueError on a malformed port
+        # (mirrors the guard at gap.engine.plan_keepalive_gap); keep it INSIDE the
+        # try so a bad live_url returns None per the contract and the verdict is
+        # still emitted unkeyed — never a raise that drops the recheck entirely.
+        art = article_payload(live_url=live_url, target_url=target_url, host=host)
+        art["platform"] = platform
         return store.add_article(art)
     except sqlite3.IntegrityError:
         try:

@@ -295,6 +295,35 @@ def test_ensure_article_empty_url_returns_none(tmp_path):
         s, live_url="", target_url="t", host="h", platform="blogger") is None
 
 
+def test_ensure_article_malformed_url_returns_none_not_raises(tmp_path):
+    # A malformed port trips canonicalize_url (ValueError) inside article_payload;
+    # _ensure_article must swallow it and return None per its "never raises"
+    # contract — NOT propagate and drop the confirming recheck before it's emitted.
+    from webui_app.services import keepalive_job
+
+    s = EventStore(path=tmp_path / "e.db")
+    aid = keepalive_job._ensure_article(
+        s, live_url="http://h:notaport/x", target_url="https://51acgs.com/x",
+        host="h", platform="blogger")
+    assert aid is None
+
+
+def test_reverify_malformed_url_still_emits_verdict_without_raising(tmp_path, monkeypatch):
+    # Even when the published_url can't be canonicalized, _default_reverify must
+    # not raise and must still emit the verdict (unkeyed) so the worker records a
+    # real outcome rather than a swallowed crash.
+    from webui_app.services import keepalive_job
+
+    s = EventStore(path=tmp_path / "e.db")
+    monkeypatch.setattr(keepalive_job, "recheck_link",
+                        lambda record, probe=True: {**record, "verdict": "alive"})
+    verdict = keepalive_job._default_reverify(
+        {"published_url": "http://h:notaport/x", "target_url": "https://51acgs.com/x",
+         "platform": "blogger"}, s)
+    assert verdict["verdict"] == "alive"
+    assert "article_id" not in verdict          # unkeyed fallback, no crash
+
+
 # ── U4: end-to-end net coverage through build_keepalive_view ──────────────────
 
 
