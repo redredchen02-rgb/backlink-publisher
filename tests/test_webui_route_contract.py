@@ -1525,6 +1525,14 @@ class TestSecretLeakRegression:
         body = resp.get_json()
         assert "ok" in body
 
+    def test_generate_sample_image_returns_json(self, client):
+        # No [image_gen] config in isolated fixture → ok=False with error key.
+        resp = client.post("/settings/generate-sample-image")
+        assert resp.status_code == 200
+        assert resp.is_json
+        body = resp.get_json()
+        assert "ok" in body
+
 
 class TestPreviewRoutes:
     def test_ce_preview_returns_200(self, client):

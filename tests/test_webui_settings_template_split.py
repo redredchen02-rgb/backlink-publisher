@@ -133,11 +133,11 @@ def test_settings_renders_diagnostics_section(client):
 
 
 def test_settings_renders_banner_section(client):
-    """GET /settings renders AI banner card from partial."""
+    """GET /settings renders AI banner/image-gen card from partial."""
     resp = client.get("/settings")
     assert resp.status_code == 200
     body = resp.data.decode()
-    assert "AI Banner" in body
+    assert "封面图状态快照" in body
 
 
 def test_settings_html_final_size():
