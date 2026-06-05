@@ -223,9 +223,35 @@ def api_velog_login():
 
     result = spawn_browser_login("backlink_publisher.cli.velog_login")
     if not result.ok:
+        # Extract error_code from structured log lines so the UI can show a
+        # specific message instead of raw JSON events.
+        import re as _re
+        error_code = "playwright_launch_failed"
+        if result.error:
+            m = _re.search(r'"error_code":\s*"([^"]+)"', result.error)
+            if m:
+                error_code = m.group(1)
+        _MESSAGES = {
+            "profile_in_use": (
+                "已有一个绑定窗口正在运行。"
+                "请关闭已打开的 Chromium 窗口后再试。"
+            ),
+            "playwright_not_installed": (
+                "Playwright 未安装。"
+                "请在终端运行：python -m playwright install chromium"
+            ),
+            "login_url_unreachable": (
+                "无法打开 velog.io，请检查网络连接后再试。"
+            ),
+        }
+        message = _MESSAGES.get(
+            error_code,
+            "启动失败，请在终端运行 velog-login 并查看输出。",
+        )
         return jsonify({
             "ok": False,
-            "error": result.error,
+            "error_code": error_code,
+            "message": message,
             "log_path": str(result.log_path),
         }), 500
 

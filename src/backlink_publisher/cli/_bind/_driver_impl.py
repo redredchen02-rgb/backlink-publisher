@@ -449,6 +449,12 @@ class _PlaywrightBrowserRunner:
                 pw.stop()
             except Exception:
                 pass
+            # "User data directory is already in use" means another Chromium
+            # instance is holding the profile lock — surface a distinct code
+            # so the UI can tell the operator to close the existing window.
+            msg = str(exc).lower()
+            if "already in use" in msg or "user data dir" in msg or "singleton" in msg:
+                raise PlaywrightLaunchError("profile_in_use") from exc
             raise PlaywrightLaunchError("playwright_launch_failed") from exc
 
         context.set_default_timeout(BIND_TIMEOUT_MS)
