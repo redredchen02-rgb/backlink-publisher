@@ -520,14 +520,19 @@ def credential_saver(name: str) -> Optional[Callable[..., Any]]:
 
 
 def dispatch_weight(name: str) -> float:
-    """Return the routing reliability discount for ``name`` (0.0, 1.0].
+    """Return the routing reliability discount for ``name``.
 
     1.0 means no discount (the default for all platforms). Values below 1.0
     reduce the Phase 2 routing score proportionally, causing the engine to
-    prefer more reliable alternatives when available.
+    prefer more reliable alternatives when available. Static registrations are
+    validated to ``(0.0, 1.0]``.
 
-    When optimisation state exists and contains a dynamic weight override for
-    *name*, that value is returned instead of the static registry weight.
+    When optimisation state has a dynamic weight override for *name*, that value
+    is returned instead of the static registry weight, floored at the
+    optimiser's configured ``min_weight`` so a legacy 0 cannot permanently
+    route-exclude a platform. A *locked* weight is the operator's explicit
+    choice (``lock_weight``) and is returned verbatim — even 0 (disable) — so
+    the dynamic range is ``{0.0}`` (locked disable) ∪ ``[min_weight, ...]``.
 
     Returns 1.0 for unregistered platforms (safe default = no discount).
     """
@@ -540,11 +545,25 @@ def dispatch_weight(name: str) -> float:
         from backlink_publisher.optimization import OptimizationState
         state = OptimizationState()
         data = state.load()
-        dynamic = data.get("weights", {}).get(name, {}).get("current")
+        weight_entry = data.get("weights", {}).get(name, {})
+        dynamic = weight_entry.get("current")
         if dynamic is not None:
-            # Clamp against legacy 0s: a weight of 0 permanently excludes a
-            # platform from routing, which is irreversible without a state edit.
-            return max(float(dynamic), 0.01)
+            dynamic = float(dynamic)
+            # A locked weight is the operator's explicit choice — return it
+            # verbatim, even 0 (manual disable), so the read-time floor never
+            # fights a deliberate lock_weight().
+            if weight_entry.get("locked", False):
+                return dynamic
+            # Otherwise floor against legacy 0s: a weight of 0 permanently
+            # excludes a platform from routing, irreversible without a state
+            # edit. Use the optimiser's configured floor so routing and the
+            # aggregated_stats rule agree on one min_weight.
+            min_weight = float(
+                data.get("rules", {})
+                .get("aggregated_stats", {})
+                .get("min_weight", 0.1)
+            )
+            return max(dynamic, min_weight)
     except Exception:
         pass
 
