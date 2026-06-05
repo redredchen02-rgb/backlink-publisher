@@ -318,6 +318,29 @@ class EventStore:
 
         return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
 
+    def update_article_verified(
+        self,
+        article_id: int,
+        *,
+        verified_at: str | None = None,
+        verify_error: str | None = None,
+    ) -> None:
+        """Set ``verified_at`` / ``verify_error`` on an existing article row.
+
+        Called by the equity-ledger recheck route after a liveness check so
+        ``get_history_item`` returns the updated verification state.
+        """
+        def _op() -> None:
+            with self.connect() as conn:
+                conn.execute(
+                    "UPDATE articles SET verified_at = ?, verify_error = ? "
+                    "WHERE article_id = ?",
+                    (verified_at, verify_error, article_id),
+                )
+                conn.commit()
+
+        _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+
     def query(
         self, sql: str, params: tuple[Any, ...] = ()
     ) -> list[sqlite3.Row]:

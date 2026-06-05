@@ -30,10 +30,13 @@ _RUN_PIPE_ALLOWED = {"helpers/cli_runner.py", "api/pipeline_api.py"}
 
 # subprocess.run / .Popen: cli_runner implements run_pipe_capture; the login &
 # bind services spawn their own (browser-login) processes — R5 out-of-scope.
+# keepalive_job spawns the full pipeline script (gap closure) as a background
+# process (similar isolation rationale to bind_job).
 _SUBPROCESS_ALLOWED = {
     "helpers/cli_runner.py",
     "services/browser_login.py",
     "services/bind_job.py",
+    "services/keepalive_job.py",
 }
 
 _RUN_PIPE_NAMES = {"run_pipe", "run_pipe_capture"}

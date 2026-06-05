@@ -81,13 +81,25 @@ def equity_ledger_recheck():
     """
     from webui_store import history_store
 
-    from backlink_publisher.events.history_query import get_history_item as _get_history_item
+    from backlink_publisher.events.history_query import get_history_item as _get_ev_item
+
+    def _get_history_item(item_id: str):
+        """Look up a history item from EventStore first, fallback to history_store.
+
+        history_item_ids from the ledger may be UUID8 strings (from history_store)
+        or integer strings (from EventStore); check both so items are never skipped.
+        """
+        item = _get_ev_item(item_id)
+        if item is None:
+            item = history_store.get_item(item_id)
+        return item
 
     from ..services.recheck import recheck_one
     from backlink_publisher.events.publish_writer import (
         map_history_entry,
         write_event,
     )
+    from backlink_publisher.events.store import EventStore as _EventStore
 
     data = request.get_json(silent=True) or {}
     target = data.get("target_url")
@@ -114,6 +126,10 @@ def equity_ledger_recheck():
             counts["skipped"] += 1  # deleted between snapshot and recheck
             continue
         try:
+            aid: int | None = int(item_id)
+        except (ValueError, TypeError):
+            aid = None
+        try:
             mutation = recheck_one(item)
         except Exception as exc:  # one bad item must not abort the whole batch
             history_store.update_item(item_id, status="failed", verify_error=str(exc))
@@ -122,7 +138,7 @@ def equity_ledger_recheck():
             mapped = map_history_entry(failed_entry)
             if mapped is not None:
                 write_event(mapped[0], mapped[1], target_url=failed_entry.get("target_url"),
-                            article_id=int(item_id))
+                            article_id=aid)
             continue
         outcome = mutation.pop("_outcome", None)
         history_store.update_item(item_id, **mutation)
@@ -131,7 +147,13 @@ def equity_ledger_recheck():
         mapped = map_history_entry(updated)
         if mapped is not None:
             write_event(mapped[0], mapped[1], target_url=updated.get("target_url"),
-                        article_id=int(item_id))
+                        article_id=aid)
+        if aid is not None:
+            _EventStore().update_article_verified(
+                aid,
+                verified_at=mutation.get("verified_at"),
+                verify_error=mutation.get("verify_error"),
+            )
 
     # Recompute the target's row from the freshly mutated history.
     refreshed = next((r for r in build_ledger(stale_days=stale_days) if r.target_url == canon), row)

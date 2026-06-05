@@ -32,6 +32,10 @@
 # into a thin shell (CC 9) plus phase helpers, the heaviest being _publish_one_resume_item at
 # CC 23 — all under the CC-30 backstop, so no entry is needed for any of them. Entry removed.
 
+[functions."src/backlink_publisher/cli/publish_backlinks/__init__.py::main"]
+ceiling = 33
+rationale = "publish-backlinks CLI entry point: orchestrates row validation, tier-1 filtering, platform lease acquisition, the dedup enforce/precondition/force-manifest flow, checkpoint creation, and the row-level publish loop. U5 added --tier-1 filtering (3 branches: skip/keep/empty) on top of an already-dense coordinator. Extracting the tier-filter block to a named helper would add indirection without reducing gateway logic — the block is a self-contained for-loop over rows that returns early on empty. CC 33 is the new baseline; keep at exact seed, no headroom per budget policy."
+
 [functions."src/backlink_publisher/cli/plan_backlinks/_payload.py::_generate_payload"]
 ceiling = 50
 rationale = "Deterministic-planning payload assembly: branches across language/anchor/link-density/zh-short variants and validation gating to build one plan row. Grandfathered at current CC; decomposed lazily when a feature next touches it (Plan 2026-05-29-005 R7), not in this initiative's active scope."
@@ -76,8 +80,8 @@ rationale = "spray-backlinks CLI entry point: orchestrates seed expansion, gate 
 # rationale update.
 
 [test_files."tests/test_webui_route_contract.py"]
-ceiling = 1100
-rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1080→1100 for the Unit 4–7 keep-alive routes (recheck/republish job start/status/cancel/token); the keep-alive coverage is already consolidated into 2 methods. Decompose parametrize tables into shared helpers when a new route makes this file grow further."
+ceiling = 1140
+rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes (4 new tests: GET /ce:command-center, POST gap-closure trigger, GET /jobs, GET /job/<id>) plus publish-chain and unlock-weight coverage. Decompose parametrize tables into shared helpers when a new route makes this file grow further."
 
 [test_files."tests/test_cli_generate_backlink_text.py"]
 ceiling = 1070
@@ -116,8 +120,8 @@ ceiling = 550
 rationale = "Work scraper tests: exercises the sitemap-based URL discovery pipeline across valid sitemaps, sitemapindex recursion, network errors, blocklist filtering, HTML fallback scraping, and url_category extraction. Large due to parsing-variant fixtures for each XML/HTML shape."
 
 [test_files."tests/conftest.py"]
-ceiling = 470
-rationale = "Root-level pytest conftest: houses 25+ fixtures spanning config isolation, mock HTTP responses, fake adapter registration, CSRF guard management, browser state simulation, and worktree sandboxes. Large because it is the single shared fixture surface across ~160 test files."
+ceiling = 490
+rationale = "Root-level pytest conftest: houses 25+ fixtures including _restore_logger_levels autouse (added 2026-06-05) that prevents CLI main() log-level pollution across tests. Shared fixture surface for ~160 test files."
 
 [test_files."tests/test_webui_url_verify_routes.py"]
 ceiling = 460

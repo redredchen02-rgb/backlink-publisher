@@ -16,6 +16,12 @@ from unittest.mock import patch
 
 import pytest
 
+from backlink_publisher._util.logger import (
+    opencli_logger as _opencli_logger,
+    plan_logger as _plan_logger,
+    publish_logger as _publish_logger,
+    validate_logger as _validate_logger,
+)
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
@@ -32,6 +38,8 @@ def _run_publish(
     env: dict[str, str] | None = None,
 ) -> tuple[str, str, int]:
     """Run publish-backlinks with given stdin. Returns (stdout, stderr, exit_code)."""
+    _loggers = (_opencli_logger, _plan_logger, _publish_logger, _validate_logger)
+    old_levels = [lg.level for lg in _loggers]
     old_stdin, old_stdout, old_stderr = sys.stdin, sys.stdout, sys.stderr
     old_env = dict(os.environ)
     try:
@@ -50,6 +58,8 @@ def _run_publish(
         sys.stdin, sys.stdout, sys.stderr = old_stdin, old_stdout, old_stderr
         os.environ.clear()
         os.environ.update(old_env)
+        for lg, lvl in zip(_loggers, old_levels):
+            lg.level = lvl
 
 
 def _parse_recon(stderr: str, event: str) -> dict:

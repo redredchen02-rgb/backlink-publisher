@@ -145,6 +145,26 @@ def _build_parser() -> Any:
         dest="max_rows",
         help="Maximum input rows to process; excess rows are truncated with a warning (default: 1000)",
     )
+    parser.add_argument(
+        "--optimize",
+        action="store_true",
+        default=False,
+        help="After publish, automatically collect outcome signals for weight optimisation",
+    )
+    parser.add_argument(
+        "--tier-1",
+        action="store_true",
+        default=False,
+        dest="tier_1",
+        help="Only dispatch to Tier 1 (dofollow=True) platforms",
+    )
+    parser.add_argument(
+        "--dofollow-only",
+        action="store_true",
+        default=False,
+        dest="tier_1",
+        help="Alias for --tier-1 — restrict dispatch to dofollow=True platforms",
+    )
     return parser
 
 

@@ -104,14 +104,12 @@ def test_resume_route_exit0_appends_history(client, tmp_path):
     capture = {"stdout": done_jsonl + "\n", "stderr": "", "returncode": 0}
 
     with patch("webui_app.api.pipeline_api.run_pipe_capture", return_value=capture):
-        with patch.object(__import__("webui_store").base.JsonStore, "update", return_value=[]) as mock_hist:
+        with patch.object(__import__("webui_store").history.HistoryStore, "update", return_value=[]) as mock_hist:
             resp = client.post("/checkpoint/resume", data={"run_id": "20260101T000000-abcdef01"})
             assert resp.status_code == 200
             mock_hist.assert_called_once()
-            # After Plan Unit 3, the route calls history_store.update(lambda hist: [...]).
-            # Patching JsonStore.update replaces the descriptor — the instance no
-            # longer binds, so call_args[0][0] is the updater lambda directly.
-            # Apply it to recover the dict that would have been prepended.
+            # history_store is a _LazyStore wrapping HistoryStore (not JsonStore).
+            # Mock replaces the class attribute; instance calls see Mock(fn) only.
             updater = mock_hist.call_args[0][0]
             result = updater([])
             assert result[0]["status"] == "published"

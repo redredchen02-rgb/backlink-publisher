@@ -14,6 +14,12 @@ from unittest.mock import patch
 
 import pytest
 
+from backlink_publisher._util.logger import (
+    opencli_logger as _opencli_logger,
+    plan_logger as _plan_logger,
+    publish_logger as _publish_logger,
+    validate_logger as _validate_logger,
+)
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.idempotency import DedupKey, DedupStore
 
@@ -54,6 +60,8 @@ def _payload(target: str, item_id: str, platform: str = "blogger") -> dict:
 
 
 def _run_manifest(rows: list[dict], argv=None) -> tuple[str, str, int]:
+    _loggers = (_opencli_logger, _plan_logger, _publish_logger, _validate_logger)
+    old_levels = [lg.level for lg in _loggers]
     old = (sys.stdin, sys.stdout, sys.stderr)
     try:
         sys.stdin = StringIO("\n".join(json.dumps(r) for r in rows))
@@ -67,6 +75,8 @@ def _run_manifest(rows: list[dict], argv=None) -> tuple[str, str, int]:
         return out.getvalue(), err.getvalue(), code
     finally:
         sys.stdin, sys.stdout, sys.stderr = old
+        for lg, lvl in zip(_loggers, old_levels):
+            lg.level = lvl
 
 
 _NEW = "https://example.com/new-post"

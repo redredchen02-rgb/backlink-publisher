@@ -110,6 +110,7 @@ def map_history_entry(
                 "live_url": live_url,
                 "target_url": entry.get("target_url", ""),
                 "platform": entry.get("platform", ""),
+                "ui_status": status,
             },
         )
 

@@ -38,7 +38,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED
+from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED, PUBLISH_UNVERIFIED
 from backlink_publisher.recheck import verdicts
 
 if TYPE_CHECKING:
@@ -260,6 +260,125 @@ def select_candidates(
     selected = candidates[:effective_cap]
     for r in selected:
         r.pop("_last_definitive_at", None)
+        r.pop("_published_at", None)
+    return selected
+
+
+def _unverified_universe(
+    store: "EventStore",
+    *,
+    since: datetime | None,
+    host: str | None,
+    run_id: str | None,
+) -> dict[int, dict]:
+    """Latest ``publish.unverified`` per article_id (equiv per live_url).
+
+    50% of prod events have article_id=NULL (written via publish_writer path
+    before projector wires article_id); for those with a live_url in the payload,
+    fall back to a live_url to article_id lookup in the articles table.
+    """
+    sql = (
+        "SELECT article_id, payload_json, target_url, host, ts_utc "
+        "FROM events WHERE kind = ?"
+    )
+    params: list[object] = [PUBLISH_UNVERIFIED]
+    if host:
+        sql += " AND host = ?"
+        params.append(host)
+    if run_id:
+        sql += " AND run_id = ?"
+        params.append(run_id)
+    sql += " ORDER BY ts_utc"  # ascending so last write per article_id wins
+
+    live_url_to_aid: dict[str, int] = {}
+    for row in store.query(
+        "SELECT article_id, live_url FROM articles WHERE live_url IS NOT NULL"
+    ):
+        live_url_to_aid[row["live_url"]] = row["article_id"]
+
+    universe: dict[int, dict] = {}
+    for row in store.query(sql, tuple(params)):
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (ValueError, TypeError):
+            payload = {}
+        live_url = payload.get("live_url")
+        if not live_url:
+            continue
+        published_at = _parse_ts(row["ts_utc"])
+        if since is not None and published_at is not None and published_at < since:
+            continue
+        article_id = row["article_id"]
+        if article_id is None:
+            article_id = live_url_to_aid.get(live_url)
+        if article_id is None:
+            continue
+        universe[article_id] = {
+            "live_url": live_url,
+            "target_url": row["target_url"] or payload.get("target_url"),
+            "host": row["host"] or _host_of(live_url),
+            "platform": payload.get("platform"),
+            "_published_at": published_at,
+        }
+    return universe
+
+
+DEFAULT_UNVERIFIED_CAP = 20
+DEFAULT_UNVERIFIED_MIN_RETRY_DAYS = 7
+
+
+def select_unverified_candidates(
+    store: "EventStore",
+    *,
+    now: datetime,
+    cap: int = DEFAULT_UNVERIFIED_CAP,
+    min_retry_days: int = DEFAULT_UNVERIFIED_MIN_RETRY_DAYS,
+    since: datetime | None = None,
+    host: str | None = None,
+    run_id: str | None = None,
+) -> list[dict]:
+    """Return unverified backlink records due for re-probe, oldest-first.
+
+    Eligibility: last_attempt_at is unset or older than min_retry_days.
+    No days/last_definitive_at gate: unverified articles have no prior definitive
+    recheck so only the retry floor is load-bearing.
+    """
+    universe = _unverified_universe(store, since=since, host=host, run_id=run_id)
+    cursors = _recheck_cursors(store)
+    baselines = _anchor_baselines(store)
+
+    now_utc = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+
+    candidates: list[dict] = []
+    retry_floor = timedelta(days=min_retry_days)
+    for article_id, info in universe.items():
+        _last_def, last_att = cursors.get(article_id, (None, None))
+        if last_att is not None and (now_utc - last_att) <= retry_floor:
+            continue
+        published_at = info["_published_at"]
+        candidates.append(
+            {
+                "live_url": info["live_url"],
+                "target_url": info["target_url"],
+                "host": info["host"],
+                "article_id": article_id,
+                "platform": info["platform"],
+                "baseline_anchor": _baseline_for(
+                    baselines, article_id, info.get("target_url")
+                ),
+                "published_age_days": (
+                    (now_utc - published_at).days if published_at else None
+                ),
+                "source": "events",
+                "_published_at": published_at,
+            }
+        )
+
+    candidates.sort(
+        key=lambda r: (r["_published_at"] is not None, r["_published_at"] or _EPOCH)
+    )
+    selected = candidates[:cap]
+    for r in selected:
         r.pop("_published_at", None)
     return selected
 

@@ -1,0 +1,55 @@
+#!/bin/bash
+# run-recheck-periodic.sh — Scheduled backlink-liveness re-verification
+# Called by launchd; logs to logs/recheck-periodic.log
+#
+# Gated behind --probe (no network by default).  Remove --probe once the
+# operator has reviewed the first few dry-run outputs.
+#
+# Usage:
+#   ./scripts/run-recheck-periodic.sh                 # dry-run (preview)
+#   ./scripts/run-recheck-periodic.sh --probe         # live probe
+#   PROBE=1 ./scripts/run-recheck-periodic.sh         # same via env
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+VENV="$REPO_DIR/.venv"
+LOG_DIR="$REPO_DIR/logs"
+TIMESTAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+
+mkdir -p "$LOG_DIR"
+
+log() { echo "[$TIMESTAMP] $*" >> "$LOG_DIR/recheck.log"; }
+
+log "=== recheck-backlinks run starting ==="
+
+cd "$REPO_DIR"
+
+if [ ! -f "$VENV/bin/python" ]; then
+    log "ERROR: venv not found at $VENV"
+    exit 1
+fi
+
+PYTHON="$VENV/bin/python"
+
+# Support both flag and env-var gating
+PROBE_FLAG=""
+if [[ "${PROBE:-}" == "1" ]]; then
+    PROBE_FLAG="--probe"
+fi
+for arg in "$@"; do
+    if [[ "$arg" == "--probe" ]]; then
+        PROBE_FLAG="--probe"
+    fi
+done
+
+log "recheck-backlinks $([ -n "$PROBE_FLAG" ] && echo '--probe' || echo '(dry-run)') …"
+if "$PYTHON" -m backlink_publisher.cli.recheck_backlinks $PROBE_FLAG >> "$LOG_DIR/recheck.log" 2>&1; then
+    log "recheck-backlinks OK"
+else
+    exit_code=$?
+    log "recheck-backlinks FAILED (exit $exit_code)"
+fi
+
+log "=== recheck-backlinks run complete ==="

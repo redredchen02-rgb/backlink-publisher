@@ -100,7 +100,7 @@ class HistoryAPI:
 
         # Server-side invariant guard (F22)
         if new_status in _REQUIRES_URL_STATUSES:
-            matched = get_history_item(item_id)
+            matched = self._get_item(item_id)
             if matched is not None and not matched.get("article_urls"):
                 abort(400, description=(
                     f"invariant_violation: cannot set status={new_status!r} "
@@ -146,13 +146,43 @@ class HistoryAPI:
             return {"ok": False, "flash_msg": "没有失败记录可清除"}
         return {"ok": True, "flash_msg": f"已清除 {removed} 条失败记录"}
 
+    # ── item lookup (events.db with fallback to JSON store) ───────────────
+
+    def _get_item(self, item_id: str) -> dict[str, Any] | None:
+        """Look up one history item from events.db, falling back to history_store.
+
+        events.db uses integer article_id; history_store uses UUID8 strings.
+        During the transitional dual-write period both stores may hold the
+        authoritative copy for a given item, so we check both.
+        """
+        item = get_history_item(item_id)
+        if item is None:
+            item = _history_store.get_item(item_id)
+        return item
+
+    def _all_items_by_id(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Return history items matching ``ids``, checking events.db then history_store."""
+        id_set = set(ids)
+        found: dict[str, dict] = {
+            str(it.get("id", "")): it
+            for it in list_history()
+            if str(it.get("id", "")) in id_set
+        }
+        missing = id_set - set(found)
+        if missing:
+            for it in _history_store.load():
+                key = str(it.get("id", ""))
+                if key in missing:
+                    found[key] = it
+        return list(found.values())
+
     # ── recheck ───────────────────────────────────────────────────────────
 
     def recheck(self, item_id: str) -> dict[str, Any]:
         """Re-verify a single history item."""
         if not item_id:
             return {"ok": False, "flash_msg": "参数缺失"}
-        item = get_history_item(item_id)
+        item = self._get_item(item_id)
         if not item:
             return {"ok": False, "flash_msg": "记录不存在"}
 
@@ -164,10 +194,14 @@ class HistoryAPI:
         updated = {**item, **mutation}
         mapped = map_history_entry(updated)
         if mapped is not None:
+            try:
+                aid: int | None = int(item_id)
+            except (ValueError, TypeError):
+                aid = None
             write_event(
                 mapped[0], mapped[1],
                 target_url=updated.get("target_url"),
-                article_id=int(item_id),
+                article_id=aid,
             )
         return {"ok": True, "flash_msg": f"已重新核实：状态 → {status}"}
 
@@ -175,8 +209,7 @@ class HistoryAPI:
         """Re-verify multiple history entries."""
         if not ids:
             return {"ok": False, "flash_msg": "未选择任何项"}
-        all_items = list_history()
-        items = [it for it in all_items if str(it.get("id", "")) in set(ids)]
+        items = self._all_items_by_id(ids)
         if not items:
             return {"ok": False, "flash_msg": "未匹配到记录"}
 

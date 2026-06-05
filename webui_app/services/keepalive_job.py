@@ -32,7 +32,7 @@ from backlink_publisher._util.errors import UsageError
 from backlink_publisher.events import EventStore
 from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 from backlink_publisher.recheck import selection
-from backlink_publisher.recheck.events_io import emit_recheck
+from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
 from backlink_publisher.recheck.probe import recheck_link
 
 #: ghpages is sticky by design but unusable while the GitHub account is
@@ -56,6 +56,10 @@ def _default_candidates(store: EventStore) -> list[dict]:
     return selection.select_candidates(store, now=datetime.now())
 
 
+def _default_unverified_candidates(store: EventStore) -> list[dict]:
+    return selection.select_unverified_candidates(store, now=datetime.now())
+
+
 def _default_probe(record: dict) -> dict:
     return recheck_link(record, probe=True)
 
@@ -72,6 +76,16 @@ class KeepaliveJob:
     per_host: dict[str, int] = field(default_factory=dict)
     error: str | None = None
     cancel_requested: bool = False
+
+
+@dataclass
+class GapClosureJob:
+    id: str
+    kind: str  # "gap_closure"
+    status: str  # running|done|error
+    started_at: str
+    output: str = ""
+    error: str | None = None
 
 
 @dataclass
@@ -273,7 +287,9 @@ class KeepaliveJobRegistry:
     ) -> None:
         try:
             if candidates is None:
-                candidates = _default_candidates(store)
+                confirmed = _default_candidates(store)
+                unverified = _default_unverified_candidates(store)
+                candidates = confirmed + unverified
             with self._lock:
                 job.total = len(candidates)
 
@@ -292,6 +308,10 @@ class KeepaliveJobRegistry:
                     emit_recheck(store, [result])
                 except Exception:  # noqa: BLE001
                     pass
+                try:
+                    write_verified_at(store, [result])
+                except Exception:  # noqa: BLE001
+                    pass
                 with self._lock:
                     job.checked += 1
                     verdict = result.get("verdict") or _PROBE_ERROR
@@ -306,6 +326,69 @@ class KeepaliveJobRegistry:
             with self._lock:
                 job.status = "error"
                 job.error = f"recheck job failed: {exc}"
+
+    # ── gap_closure (full pipeline trigger) ────────────────────────────────
+    def start_gap_closure(self) -> GapClosureJob:
+        """Spawn a background full-pipeline gap-closure run.
+
+        Runs ``run-full-pipeline.sh`` with the default gap options
+        (equity → plan-gap → plan → validate → publish). Only one
+        gap_closure job allowed at a time.
+        """
+        import subprocess
+        from pathlib import Path
+
+        with self._lock:
+            for job in self._jobs.values():
+                if job.kind == "gap_closure" and job.status == "running":
+                    raise UsageError(
+                        f"gap_closure: a job is already running ({job.id})"
+                    )
+            job_id = uuid.uuid4().hex
+            job = GapClosureJob(
+                id=job_id,
+                kind="gap_closure",
+                status="running",
+                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            )
+            self._jobs[job_id] = job
+
+        repo_root = Path(__file__).resolve().parents[3]
+
+        def _run():
+            try:
+                env = dict(os.environ, BP_DRY_RUN="0")
+                proc = subprocess.run(
+                    ["bash", "scripts/run-full-pipeline.sh"],
+                    cwd=str(repo_root),
+                    capture_output=True, text=True, timeout=7200,
+                    env=env,
+                )
+                combined = proc.stdout or ""
+                if proc.stderr:
+                    combined += "\n--- stderr ---\n" + (proc.stderr or "")
+                with self._lock:
+                    job.output = combined
+                    if proc.returncode != 0:
+                        job.status = "error"
+                        job.error = f"pipeline exited {proc.returncode}"
+                    else:
+                        job.status = "done"
+            except subprocess.TimeoutExpired:
+                with self._lock:
+                    job.status = "error"
+                    job.error = "pipeline timed out (2h limit)"
+            except Exception as exc:
+                with self._lock:
+                    job.status = "error"
+                    job.error = f"gap_closure failed: {exc}"
+
+        import os
+        import threading
+        worker = threading.Thread(target=_run, daemon=True,
+                                  name=f"gap-closure-{job_id[:8]}")
+        worker.start()
+        return job
 
     # ── poll / cancel ───────────────────────────────────────────────────────
     def cancel(self, job_id: str) -> dict[str, Any] | None:
@@ -341,7 +424,11 @@ class KeepaliveJobRegistry:
             "total": job.total,
             "error": job.error,
         }
-        if job.kind == "republish":
+        if job.kind == "gap_closure":
+            base.update({
+                "output": job.output,
+            })
+        elif job.kind == "republish":
             base.update({
                 "published": job.published,
                 "failed": job.failed,

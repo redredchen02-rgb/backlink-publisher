@@ -20,6 +20,12 @@ import pytest
 
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.adapters.retry import RETRYABLE_HTTP_STATUSES
+from backlink_publisher._util.logger import (
+    opencli_logger as _opencli_logger,
+    plan_logger as _plan_logger,
+    publish_logger as _publish_logger,
+    validate_logger as _validate_logger,
+)
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher._util.errors import (
     AuthExpiredError,
@@ -93,7 +99,9 @@ def _drafted(platform="medium", adapter="medium-api") -> AdapterResult:
 
 
 def _run(input_data: str, argv: list[str]) -> tuple[str, str, int]:
-    old = (sys.stdin, sys.stdout, sys.stderr)
+    _loggers = (_opencli_logger, _plan_logger, _publish_logger, _validate_logger)
+    old_levels = [lg.level for lg in _loggers]
+    old_io = (sys.stdin, sys.stdout, sys.stderr)
     try:
         sys.stdin = StringIO(input_data)
         out, err = StringIO(), StringIO()
@@ -105,7 +113,9 @@ def _run(input_data: str, argv: list[str]) -> tuple[str, str, int]:
             code = exc.code if isinstance(exc.code, int) else 1
         return out.getvalue(), err.getvalue(), code
     finally:
-        sys.stdin, sys.stdout, sys.stderr = old
+        sys.stdin, sys.stdout, sys.stderr = old_io
+        for lg, lvl in zip(_loggers, old_levels):
+            lg.level = lvl
 
 
 def _record(platform="medium"):

@@ -16,6 +16,12 @@ from io import StringIO
 import pytest
 
 import backlink_publisher.publishing.adapters  # noqa: F401  (triggers register())
+from backlink_publisher._util.logger import (
+    opencli_logger as _opencli_logger,
+    plan_logger as _plan_logger,
+    publish_logger as _publish_logger,
+    validate_logger as _validate_logger,
+)
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.events import EventStore
 from backlink_publisher.idempotency import DedupKey, DedupStore
@@ -220,7 +226,9 @@ def test_every_live_adapter_string_is_mapped():
 # CLI verb
 # --------------------------------------------------------------------------- #
 def _run(argv):
-    old = (sys.stdin, sys.stdout, sys.stderr)
+    _loggers = (_opencli_logger, _plan_logger, _publish_logger, _validate_logger)
+    old_levels = [lg.level for lg in _loggers]
+    old_io = (sys.stdin, sys.stdout, sys.stderr)
     try:
         sys.stdin = StringIO("")
         out, err = StringIO(), StringIO()
@@ -232,7 +240,9 @@ def _run(argv):
             code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
         return out.getvalue(), err.getvalue(), code
     finally:
-        sys.stdin, sys.stdout, sys.stderr = old
+        sys.stdin, sys.stdout, sys.stderr = old_io
+        for lg, lvl in zip(_loggers, old_levels):
+            lg.level = lvl
 
 
 def test_cli_backfill_dedup_summary_and_exit_0():

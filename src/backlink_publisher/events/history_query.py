@@ -131,8 +131,13 @@ def _build_history_item(
             title = payload.get("title") or ""
             if title:
                 item["title"] = title
-            ui_status = {KIND_CONFIRMED: "published", KIND_UNVERIFIED: "published_unverified"}
-            item["status"] = ui_status.get(kind, item["status"])
+            if kind == KIND_UNVERIFIED:
+                # Prefer the original ui_status from the payload to distinguish
+                # "drafted_unverified" from "published_unverified" — older rows
+                # without this key fall back to "published_unverified".
+                item["status"] = payload.get("ui_status") or "published_unverified"
+            else:
+                item["status"] = "published"
 
     return item
 

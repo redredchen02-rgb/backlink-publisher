@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dex.bp-full-pipeline</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/scripts/run-full-pipeline.sh</string>
+        <string>gap</string>
+    </array>
+    <!-- Run daily at 04:00 (after recheck completes) -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher</string>
+    <key>StandardOutPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/pipeline-launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/pipeline-launchd.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>BP_LANG</key>
+        <string>zh-CN</string>
+        <key>BP_DESIRED</key>
+        <string>3</string>
+        <key>BP_PUBLISH_MODE</key>
+        <string>draft</string>
+        <key>BP_OPTIMIZE</key>
+        <string>1</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

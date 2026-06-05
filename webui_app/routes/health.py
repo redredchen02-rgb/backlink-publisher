@@ -46,7 +46,8 @@ def _reconciliation_gaps():
 
         pending = len(list_failed_items())
         rows = EventStore().query(
-            "SELECT COUNT(*) FROM quarantine_log WHERE failure_type = ?",
+            "SELECT COUNT(*) FROM quarantine_log "
+            "WHERE json_extract(raw_payload_json, '$.failure_type') = ?",
             ("reconcile_gap",),
         )
         gaps = int(rows[0][0]) if rows else 0
@@ -115,8 +116,9 @@ def _pipeline_summary():
         result: dict = {}
         for wname, since_ts in windows.items():
             cur.execute(
-                "SELECT json_extract(data, '$.status') as status, COUNT(*) "
-                "FROM events WHERE kind='article.published' AND ts >= ? GROUP BY status",
+                "SELECT json_extract(payload_json, '$.status') as status, COUNT(*) "
+                "FROM events WHERE kind IN ('publish.confirmed','publish.unverified','publish.failed') "
+                "AND ts_utc >= ? GROUP BY status",
                 (since_ts,),
             )
             row_map: dict = {}
@@ -128,7 +130,7 @@ def _pipeline_summary():
             }
 
         # most recent recheck
-        cur.execute("SELECT MAX(ts) FROM events WHERE kind='link.rechecked'")
+        cur.execute("SELECT MAX(ts_utc) FROM events WHERE kind='link.rechecked'")
         row = cur.fetchone()
         last_ts = row[0] if row and row[0] else None
         if last_ts:

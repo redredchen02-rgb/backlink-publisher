@@ -17,6 +17,10 @@ from webui_store import history_store, drafts_store
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(history_store, "_path", tmp_path / "history.json")
     monkeypatch.setattr(drafts_store, "_path", tmp_path / "drafts.json")
+    # Isolate events.db to tmp_path so each test starts with a clean DB.
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    import backlink_publisher.events.publish_writer as _pw
+    monkeypatch.setattr(_pw, "_STORE", None)
     import webui
     webui.app.config["TESTING"] = True
     webui.app.config["WTF_CSRF_ENABLED"] = False
