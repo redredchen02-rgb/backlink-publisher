@@ -1,10 +1,11 @@
 ---
 title: "feat: Core upgrade — prove durable dofollow + prune the miscellany"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 deepened: 2026-06-05
 origin: docs/brainstorms/2026-06-05-core-upgrade-prove-and-prune-requirements.md
+claims: {}
 ---
 
 # Core upgrade: prove durable dofollow + prune the miscellany
@@ -165,7 +166,7 @@ graph TD
 
 **Verification:** Branch merges to main; full suite stays at the known-red baseline; a clean install changes no weights until real n≥2 signals exist.
 
-- [ ] **Unit R2: Consolidate 3 analytics CLIs into one `weights` dispatcher**
+- [x] **Unit R2: Consolidate 3 analytics CLIs into one `weights` dispatcher**
 
 **Goal:** Replace `collect-signals` + `optimize-weights` + `show-optimization-state` (pyproject `[project.scripts]` lines 69–71) with one `weights` entry exposing subcommands `collect`/`optimize`/`show`. Keep `click-track` separate.
 
@@ -224,7 +225,7 @@ graph TD
 
 ### Phase 2 — Prove durability
 
-- [ ] **Unit R4: Weekly automatic recheck, all-due-links coverage**
+- [x] **Unit R4: Weekly automatic recheck, all-due-links coverage**
 
 **Goal:** Change the existing recheck launchd agent from daily to weekly and widen selection to "all due links within budget," staying read-only and credential-free.
 
@@ -255,7 +256,7 @@ graph TD
 
 > **Known trap (verified):** weekly cron (P=7) × `DEFAULT_CAP=50` probes ~50 links/week; a live corpus > 50 starves oldest links and falsifies "all links." Raise the effective cap but keep `_BATCH_BUDGET_S=600` as the real bound, and label coverage honestly.
 
-- [ ] **Unit R5: 30-day survival-rate dashboard with sample-size honesty**
+- [x] **Unit R5: 30-day survival-rate dashboard with sample-size honesty**
 
 **Goal:** A new cohort query + read-only WebUI trio computing "% of links published ≥30 days ago whose latest `link.rechecked` verdict is alive," surfacing sample size and handling immature/insufficient-data states explicitly.
 
@@ -291,7 +292,7 @@ graph TD
 
 > **Trap (verified):** two existing "survival" concepts will confuse search — `optimization/rules.py` per-platform `survival_rate` (no cohort) and `gates/g5_footprint_survival.py` (DOM fingerprint). Neither is R5.
 
-- [ ] **Unit R6: Per-target dofollow history card**
+- [x] **Unit R6: Per-target dofollow history card**
 
 **Goal:** Surface a per-row badge distinguishing the operator's own required-link dofollow status from page-wide `nofollow_detected`; default no-signal/legacy rows to "unverified" (amber), never green/red.
 
@@ -339,7 +340,7 @@ Badges carry text + an `aria-label`/`title` (verdict in words), never color alon
 
 ### Phase 3 — Validate reality
 
-- [ ] **Unit R7+R8: Real-credential non-author publish (ratio) + scrubbed-replay e2e lock** — **test-first / CI-security**
+- [x] **Unit R7+R8: Real-credential non-author publish (ratio) + scrubbed-replay e2e lock** — **test-first / CI-security**
 
 **Goal:** Lock the real-credential, dofollow-verified publish path with an e2e split into (A) a default-running scrubbed-replay e2e covering all happy/edge/error/exit-code scenarios and a ≥2-platform dofollow **ratio**, and (B) an optional operator-local live half; plus a fixture-scrub CI guard. The operator runs the live half once against their non-author account(s).
 
@@ -398,7 +399,7 @@ Badges carry text + an `aria-label`/`title` (verdict in words), never color alon
 
 > Manual call deferred: the `ai-engine-empowerment` active plan (003) has no `source_brainstorm`/`origin` frontmatter, so a reference scan can't auto-protect its brainstorm — decide by hand.
 
-- [ ] **Unit R10: Demote `geo` / `click_track` / `pr_outreach` / `debt_report`**
+- [x] **Unit R10: Demote `geo` / `click_track` / `pr_outreach` / `debt_report`**
 
 **Goal:** Narrow these four peripheral surfaces out of the core narrative while keeping them importable (WebUI + config import them at runtime).
 
