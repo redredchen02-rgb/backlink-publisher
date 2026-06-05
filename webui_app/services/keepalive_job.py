@@ -79,6 +79,16 @@ class KeepaliveJob:
 
 
 @dataclass
+class GapClosureJob:
+    id: str
+    kind: str  # "gap_closure"
+    status: str  # running|done|error
+    started_at: str
+    output: str = ""
+    error: str | None = None
+
+
+@dataclass
 class RepublishJob:
     id: str
     kind: str  # "republish"
@@ -317,6 +327,69 @@ class KeepaliveJobRegistry:
                 job.status = "error"
                 job.error = f"recheck job failed: {exc}"
 
+    # ── gap_closure (full pipeline trigger) ────────────────────────────────
+    def start_gap_closure(self) -> GapClosureJob:
+        """Spawn a background full-pipeline gap-closure run.
+
+        Runs ``run-full-pipeline.sh`` with the default gap options
+        (equity → plan-gap → plan → validate → publish). Only one
+        gap_closure job allowed at a time.
+        """
+        import subprocess
+        from pathlib import Path
+
+        with self._lock:
+            for job in self._jobs.values():
+                if job.kind == "gap_closure" and job.status == "running":
+                    raise UsageError(
+                        f"gap_closure: a job is already running ({job.id})"
+                    )
+            job_id = uuid.uuid4().hex
+            job = GapClosureJob(
+                id=job_id,
+                kind="gap_closure",
+                status="running",
+                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            )
+            self._jobs[job_id] = job
+
+        repo_root = Path(__file__).resolve().parents[3]
+
+        def _run():
+            try:
+                env = dict(os.environ, BP_DRY_RUN="0")
+                proc = subprocess.run(
+                    ["bash", "scripts/run-full-pipeline.sh"],
+                    cwd=str(repo_root),
+                    capture_output=True, text=True, timeout=7200,
+                    env=env,
+                )
+                combined = proc.stdout or ""
+                if proc.stderr:
+                    combined += "\n--- stderr ---\n" + (proc.stderr or "")
+                with self._lock:
+                    job.output = combined
+                    if proc.returncode != 0:
+                        job.status = "error"
+                        job.error = f"pipeline exited {proc.returncode}"
+                    else:
+                        job.status = "done"
+            except subprocess.TimeoutExpired:
+                with self._lock:
+                    job.status = "error"
+                    job.error = "pipeline timed out (2h limit)"
+            except Exception as exc:
+                with self._lock:
+                    job.status = "error"
+                    job.error = f"gap_closure failed: {exc}"
+
+        import os
+        import threading
+        worker = threading.Thread(target=_run, daemon=True,
+                                  name=f"gap-closure-{job_id[:8]}")
+        worker.start()
+        return job
+
     # ── poll / cancel ───────────────────────────────────────────────────────
     def cancel(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:
@@ -351,7 +424,11 @@ class KeepaliveJobRegistry:
             "total": job.total,
             "error": job.error,
         }
-        if job.kind == "republish":
+        if job.kind == "gap_closure":
+            base.update({
+                "output": job.output,
+            })
+        elif job.kind == "republish":
             base.update({
                 "published": job.published,
                 "failed": job.failed,

@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% block title %}命令中心 — Backlink Publisher{% endblock %}
+
+{% block head_extra %}
+<style>
+.cc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+}
+.cc-card {
+    background: var(--bs-dark);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+    padding: 1.25rem;
+}
+.cc-card h5 {
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: 1rem;
+    color: var(--bs-info);
+}
+.cc-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: .3rem 0;
+    font-size: .9rem;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.cc-stat:last-child { border-bottom: none; }
+.cc-stat__label { color: var(--bs-secondary-color); }
+.cc-stat__value { font-weight: 600; }
+
+.job-badge {
+    display: inline-block;
+    padding: .2rem .5rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 600;
+}
+.job-badge.running { background: var(--bs-warning); color: #000; }
+.job-badge.done    { background: var(--bs-success); }
+.job-badge.error   { background: var(--bs-danger); }
+
+.action-bar {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center px-3 pt-3">
+        <h4 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>命令中心</h4>
+        <small class="text-secondary">{{ status.keepalive|default({}) }}</small>
+    </div>
+
+    <div class="cc-grid">
+        {# ── Keep-Alive ──────────────────────────────────────────────── #}
+        <div class="cc-card">
+            <h5><i class="bi bi-heart-pulse"></i> 存活监控</h5>
+            {% if status.keepalive.error %}
+                <div class="text-warning small">{{ status.keepalive.error }}</div>
+            {% else %}
+                <div class="cc-stat"><span class="cc-stat__label">目标数</span><span class="cc-stat__value">{{ status.keepalive.n_targets }}</span></div>
+                <div class="cc-stat"><span class="cc-stat__label">存活</span><span class="cc-stat__value text-success">{{ status.keepalive.alive }}</span></div>
+                <div class="cc-stat"><span class="cc-stat__label">剥离</span><span class="cc-stat__value text-danger">{{ status.keepalive.stripped }}</span></div>
+                <div class="cc-stat"><span class="cc-stat__label">未知</span><span class="cc-stat__value text-secondary">{{ status.keepalive.unknown }}</span></div>
+            {% endif %}
+            <div class="action-bar">
+                <a href="/ce:keep-alive" class="btn btn-sm btn-outline-info">详情</a>
+            </div>
+        </div>
+
+        {# ── Equity ──────────────────────────────────────────────────── #}
+        <div class="cc-card">
+            <h5><i class="bi bi-bar-chart"></i> 权益账簿</h5>
+            {% if status.equity.error %}
+                <div class="text-warning small">{{ status.equity.error }}</div>
+            {% else %}
+                <div class="cc-stat"><span class="cc-stat__label">总记录</span><span class="cc-stat__value">{{ status.equity.total_rows }}</span></div>
+            {% endif %}
+            <div class="action-bar">
+                <a href="/ce:equity-ledger" class="btn btn-sm btn-outline-info">详情</a>
+            </div>
+        </div>
+
+        {# ── Optimization ────────────────────────────────────────────── #}
+        <div class="cc-card">
+            <h5><i class="bi bi-tune"></i> 优化权重</h5>
+            {% if status.optimization.error %}
+                <div class="text-warning small">{{ status.optimization.error }}</div>
+            {% else %}
+                <div class="cc-stat"><span class="cc-stat__label">平台数</span><span class="cc-stat__value">{{ status.optimization.n_platforms }}</span></div>
+                {% for p in (status.optimization.platforms or [])[:6] %}
+                <div class="cc-stat">
+                    <span class="cc-stat__label">{{ p.platform }}</span>
+                    <span class="cc-stat__value">
+                        {{ p.weight }}
+                        {% if p.manual_lock %}<i class="bi bi-lock-fill text-warning" title="已锁定"></i>{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            {% endif %}
+            <div class="action-bar">
+                <a href="/optimization-status" class="btn btn-sm btn-outline-info">管理</a>
+            </div>
+        </div>
+
+        {# ── Recent Publish ──────────────────────────────────────────── #}
+        <div class="cc-card">
+            <h5><i class="bi bi-clock-history"></i> 近期发布</h5>
+            {% if status.history.error %}
+                <div class="text-warning small">{{ status.history.error }}</div>
+            {% else %}
+                <div class="cc-stat"><span class="cc-stat__label">总记录</span><span class="cc-stat__value">{{ status.history.total }}</span></div>
+                <div class="cc-stat"><span class="cc-stat__label">24h 内</span><span class="cc-stat__value">{{ status.history.recent_24h }}</span></div>
+            {% endif %}
+        </div>
+
+        {# ── Running Jobs ────────────────────────────────────────────── #}
+        <div class="cc-card">
+            <h5><i class="bi bi-gear-wide-connected"></i> 运行中任务</h5>
+            {% if status.jobs is mapping and status.jobs.error %}
+                <div class="text-warning small">{{ status.jobs.error }}</div>
+            {% elif status.jobs and status.jobs|length > 0 %}
+                {% for j in status.jobs %}
+                <div class="cc-stat">
+                    <span class="cc-stat__label">
+                        {% if j.kind == 'recheck' %}巡检
+                        {% elif j.kind == 'republish' %}再发布
+                        {% elif j.kind == 'gap_closure' %}管线补种
+                        {% else %}{{ j.kind }}{% endif %}
+                    </span>
+                    <span class="cc-stat__value">
+                        <span class="job-badge {{ j.status }}">{{ j.status }}</span>
+                        {% if j.total %}({{ j.checked or j.published or 0 }}/{{ j.total }}){% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-secondary small">无运行中任务</div>
+            {% endif %}
+        </div>
+
+        {# ── Gap Closure Trigger ─────────────────────────────────────── #}
+        <div class="cc-card">
+            <h5><i class="bi bi-link-45deg"></i> 管线补种</h5>
+            <p class="small text-secondary mb-2">
+                运行 equity-ledger → plan-gap → plan → validate → publish 管线，
+                为低权重目标自动补种外链。
+            </p>
+            {% set gc_running = status.jobs is not mapping and status.jobs|selectattr('kind', 'equalto', 'gap_closure')|selectattr('status', 'equalto', 'running')|list|length > 0 %}
+            <div class="action-bar">
+                <button type="button" class="btn btn-sm btn-warning" id="btn-gap-closure"
+                        {% if gc_running %}disabled{% endif %}>
+                    <i class="bi bi-play-fill me-1"></i>
+                    {% if gc_running %}运行中…{% else %}触发补种{% endif %}
+                </button>
+                <span id="gap-closure-msg" class="small text-secondary align-self-center"></span>
+            </div>
+        </div>
+    </div>
+
+    {# ── Gap Closure Output ─────────────────────────────────────────── #}
+    <div class="px-3 pb-3">
+        <div class="cc-card" id="gap-output-section" style="display:none;">
+            <h5><i class="bi bi-terminal"></i> 补种输出</h5>
+            <pre id="gap-output" class="small" style="max-height:400px;overflow:auto;background:var(--bs-body-bg);padding:.75rem;border-radius:var(--bs-border-radius);font-size:.8rem;"></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_module %}
+<script type="module">
+import { on, qs } from '{{ url_for("static", filename="js/lib/dom.js", v=asset_version) }}';
+import { readCsrf } from '{{ url_for("static", filename="js/lib/api.js", v=asset_version) }}';
+
+const btn = qs('#btn-gap-closure');
+const msg = qs('#gap-closure-msg');
+const outputSection = qs('#gap-output-section');
+const outputPre = qs('#gap-output');
+
+on(btn, 'click', async () => {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>启动中…';
+    msg.textContent = '';
+
+    try {
+        const resp = await fetch('/ce:command-center/gap-closure', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': readCsrf() },
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>运行中…';
+            msg.textContent = '管线已启动，请等候约 30–60 分钟。';
+            pollJob(data.job_id);
+        } else if (resp.status === 409) {
+            btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>触发补种';
+            btn.disabled = true;
+            msg.textContent = '已有运行中的补种任务。';
+            if (data.job_id) pollJob(data.job_id);
+        } else {
+            btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>触发补种';
+            btn.disabled = false;
+            msg.textContent = '启动失败: ' + (data.message || 'unknown');
+        }
+    } catch (err) {
+        btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>触发补种';
+        btn.disabled = false;
+        msg.textContent = '请求失败: ' + err.message;
+    }
+});
+
+async function pollJob(jobId) {
+    const poll = async () => {
+        try {
+            const resp = await fetch(`/ce:command-center/job/${jobId}`);
+            const j = await resp.json();
+            if (j.status === 'running') {
+                btn.innerHTML = `<i class="bi bi-play-fill me-1"></i>运行中…`;
+                msg.textContent = `已运行 ${j.started_at || ''}`;
+                if (j.output) {
+                    outputSection.style.display = 'block';
+                    outputPre.textContent = j.output;
+                }
+                setTimeout(poll, 10000);
+            } else if (j.status === 'done') {
+                btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>触发补种';
+                btn.disabled = false;
+                msg.textContent = '✅ 补种完成';
+                if (j.output) {
+                    outputSection.style.display = 'block';
+                    outputPre.textContent = j.output;
+                } else {
+                    outputSection.style.display = 'none';
+                }
+            } else {
+                btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>触发补种';
+                btn.disabled = false;
+                msg.textContent = '❌ 补种失败: ' + (j.error || 'unknown');
+                if (j.output) {
+                    outputSection.style.display = 'block';
+                    outputPre.textContent = j.output;
+                }
+            }
+        } catch {
+            setTimeout(poll, 15000);
+        }
+    };
+    setTimeout(poll, 3000);
+}
+</script>
+{% endblock %}

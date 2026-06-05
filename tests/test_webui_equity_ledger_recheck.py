@@ -33,11 +33,14 @@ def _seed_two_rows():
     store.add_article({"target_urls_json": json.dumps([T]), "live_url": "https://medium.com/l1"})
     store.add_article({"target_urls_json": json.dumps([T]), "live_url": "https://blog.ex/l2"})
     from webui_store import history_store
+    # Use string-of-integer IDs that match EventStore article_ids (1 and 2).
+    # This allows the recheck route to link write_event calls back to the right
+    # article row and for get_history_item(1/2) to see the updated status.
     history_store.save([
-        {"id": "h1", "platform": "medium", "target_url": T,
+        {"id": "1", "platform": "medium", "target_url": T,
          "article_urls": ["https://medium.com/l1"], "status": "published_unverified",
          "title": "t"},
-        {"id": "h2", "platform": "blogger", "target_url": T,
+        {"id": "2", "platform": "blogger", "target_url": T,
          "article_urls": ["https://blog.ex/l2"], "status": "published_unverified",
          "title": "t"},
     ])

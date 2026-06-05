@@ -181,9 +181,6 @@ def test_dashboard_redirects_to_health(client):
 
 def test_forward_path_drift_card_shows_when_data_present(client, monkeypatch):
     """Platform with forward-path drift record renders a distinct badge."""
-    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR",
-                       client.application.config.get("BACKLINK_PUBLISHER_CONFIG_DIR",
-                                                      "/tmp"))
     from backlink_publisher.canary import store as cstore
     cstore.canary_health_store.reset()
 

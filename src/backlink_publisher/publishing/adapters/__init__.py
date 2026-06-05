@@ -64,7 +64,7 @@ from ..browser_publish import BrowserPublishDispatcher
 from ..browser_publish.recipes import devto as _devto_recipe  # noqa: F401
 from ..browser_publish.recipes import mastodon as _mastodon_recipe  # noqa: F401
 from ..browser_publish.recipes import velog as _velog_recipe  # noqa: F401
-from ..registry import dispatch, register
+from ..registry import dispatch, register, registered_platforms
 from ._nofollow_rationales import NOFOLLOW_RATIONALES as _R
 from ._setup_checks import _verify_offline_setup
 from ._verify_live import _verify_dry_run, _verify_live
@@ -344,3 +344,42 @@ def verify_adapter_setup(
         return _verify_dry_run(platform, config, payload or {})
     _verify_offline_setup(platform, config)
     return None
+
+
+from pathlib import Path as _Path
+
+from .catalog.catalog_schema import load_all_entries as _load_catalog_entries
+from .config_driven import ConfigDrivenAdapter as _ConfigDrivenAdapter
+
+
+#: Cache of catalog-derived slugs auto-registered this import.
+#: Tests verify registration via this set.
+_CATALOG_AUTO_REGISTERED: set[str] = set()
+
+
+def register_catalog_entries(
+    built_in_dir: str = "",
+    user_config_dir: str = "",
+) -> None:
+    """Auto-register catalog YAML entries whose slug is not already claimed.
+    Hand-written adapters always win. Tests call with temp dirs."""
+    already = set(registered_platforms())
+    entries = _load_catalog_entries(
+        built_in_dir=built_in_dir,
+        user_config_dir=user_config_dir,
+    )
+    for slug, entry in entries.items():
+        if slug in already or slug in _CATALOG_AUTO_REGISTERED:
+            continue
+        register(
+            slug,
+            _ConfigDrivenAdapter(entry),
+            dofollow=entry["dofollow"],
+            rationale=entry.get("rationale") or None,
+            referral_value=entry.get("referral_value") or None,
+        )
+        _CATALOG_AUTO_REGISTERED.add(slug)
+
+
+_builtin_catalog = str(_Path(__file__).resolve().parent / "catalog")
+register_catalog_entries(built_in_dir=_builtin_catalog)

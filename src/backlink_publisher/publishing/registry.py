@@ -526,10 +526,27 @@ def dispatch_weight(name: str) -> float:
     reduce the Phase 2 routing score proportionally, causing the engine to
     prefer more reliable alternatives when available.
 
+    When optimisation state exists and contains a dynamic weight override for
+    *name*, that value is returned instead of the static registry weight.
+
     Returns 1.0 for unregistered platforms (safe default = no discount).
     """
     entry = _REGISTRY.get(name)
-    return entry.dispatch_weight if entry is not None else 1.0
+    static = entry.dispatch_weight if entry is not None else 1.0
+
+    # Check optimisation state for a dynamic override (lazy import to
+    # avoid circular dependency at module load time).
+    try:
+        from backlink_publisher.optimization import OptimizationState
+        state = OptimizationState()
+        data = state.load()
+        dynamic = data.get("weights", {}).get(name, {}).get("current")
+        if dynamic is not None:
+            return float(dynamic)
+    except Exception:
+        pass
+
+    return static
 
 
 # Re-export from extracted sub-module. All existing callers import from

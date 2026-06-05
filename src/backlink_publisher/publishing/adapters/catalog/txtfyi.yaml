@@ -1,0 +1,23 @@
+# txt.fyi — anonymous form-POST publishing platform
+# Reference catalog entry for the config-driven adapter framework.
+# This platform requires no login or API key — just a form submit.
+# --- DO NOT REMOVE --- committed as a U1 integration fixture.
+txtfyi:
+  endpoint: https://txt.fyi/~/new/
+  auth_type: none
+  content_field: body
+  csrf_prefetch: true
+  csrf_field_names:
+    - csrf_token
+  permalink_via: redirect
+  permalink_arg: Location
+  min_delay_s: 5.0
+  dofollow: uncertain
+  rationale: >
+    txt.fyi is an anonymous plain-text publishing service.
+    Backlinks may or may not carry dofollow — the platform
+    uses meta robots nofollow on some pages, and the
+    redirect-based permalink resolution means the dofollow
+    attribute of the final landing page should be verified
+    periodically via the verify-dofollow CLI.
+  referral_value: low

@@ -120,6 +120,27 @@ def main(argv: list[str] | None = None) -> None:
                     "InputValidationError", 2, f"row {idx}: payload validation failed"
                 )
 
+        if getattr(args, "tier_1", False):
+            from backlink_publisher.publishing.registry import dofollow_status
+            filtered: list[dict[str, Any]] = []
+            for row in rows:
+                plat = args.platform or row.get("platform", "")
+                ds = dofollow_status(plat)
+                if ds is True:
+                    filtered.append(row)
+                else:
+                    print(
+                        f"RECON info row={row.get('id', '')} platform={plat} "
+                        f"dofollow={ds!r} skipped reason=tier-filter",
+                        file=sys.stderr,
+                    )
+            rows = filtered
+            if not rows:
+                publish_logger.info(
+                    "publish-backlinks: --tier-1 filtered all rows; nothing to publish"
+                )
+                raise SystemExit(0)
+
         if args.preview_manifest:
             # Read-only dedup preview over the validated planned rows. Emits verdicts
             # and exits 0 before any lease/checkpoint/dispatch side effect (U3).
@@ -233,3 +254,17 @@ def main(argv: list[str] | None = None) -> None:
                 state.dedup_hold_count,
                 checkpoint_disabled=checkpoint_disabled,
         )
+
+    # W2: post-publish signal collection
+    if getattr(args, "optimize", False) and state.success_count > 0:
+        try:
+            from backlink_publisher.optimization import OptimizationState
+            from backlink_publisher.optimization.collector import collect_all_signals
+            _state = OptimizationState()
+            collected = collect_all_signals(_state, dry_run=args.dry_run)
+            plat_count = len(collected.get("merged", {}))
+            publish_logger.info(
+                f"post-publish optimisation: collected signals for {plat_count} platforms"
+            )
+        except Exception as exc:
+            publish_logger.warning(f"post-publish optimisation failed: {exc}")

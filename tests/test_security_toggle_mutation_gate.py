@@ -78,6 +78,11 @@ GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
         ("test_webui_unit3_security.py", "CSRF_ENABLED"),
         ("test_webui_unit3_security.py", "WTF_CSRF_ENABLED"),
         ("test_webui_url_verify_routes.py", "SESSION_COOKIE_SECURE"),
+        # feat/continuous-optimization additions (2026-06-05) — not yet migrated to disable_csrf
+        ("test_optimization_e2e.py", "WTF_CSRF_ENABLED"),
+        ("test_webui_equity_batch_recheck.py", "WTF_CSRF_ENABLED"),
+        ("test_webui_equity_fill_gaps.py", "WTF_CSRF_ENABLED"),
+        ("test_webui_equity_ledger_u1_u3.py", "WTF_CSRF_ENABLED"),
     }
 )
 

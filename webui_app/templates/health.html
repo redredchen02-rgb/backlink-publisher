@@ -493,6 +493,19 @@
     {% endif %}
   </div>
 
+  {# ── Optimisation status link card ────────────────────────────────────────── #}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold">Optimisation</div>
+    <div class="card-body text-center py-3">
+      <a href="/optimization-status" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-sliders2"></i> View optimisation state
+      </a>
+      <p class="text-muted small mt-2 mb-0">
+        Dynamic platform weights, rule adjustments and signal statistics.
+      </p>
+    </div>
+  </div>
+
 </main>
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}

@@ -317,6 +317,117 @@ def ce_publish():
                    n_ok=n_ok, n_total=len(publish_results),
                    config=config, history_active=True)
 
+@bp.route('/ce:publish-chain', methods=['POST'])
+def ce_publish_chain():
+    """One-click plan → validate → publish chain.
+
+    Takes the same form data as ``/ce:generate`` (URLs, platform, language,
+    etc.) plus the publish-mode override, and runs the full pipeline in a
+    single request, rendering the final publish result page.
+    """
+    stored_config = session.get('config', {})
+    urls_json = request.form.get('urls_json', session.get('urls_json', '[]'))
+
+    try:
+        urls = json.loads(urls_json)
+    except Exception:
+        urls = stored_config.get('urls', [])
+
+    if not urls:
+        return _render('index.html', error="没有有效的连结", config=stored_config)
+
+    platform = request.form.get('platform', stored_config.get('platform', 'blogger'))
+    url_mode = request.form.get('url_mode', stored_config.get('url_mode', 'C'))
+    publish_mode = request.form.get('publish_mode',
+                                    stored_config.get('publish_mode', 'draft'))
+    target_language = request.form.get('target_language',
+                                       stored_config.get('target_language', 'zh-CN'))
+    custom_title = request.form.get('custom_title', '').strip()
+    custom_tags = request.form.get('custom_tags', '').strip()
+    fetch_tdk = request.form.get('fetch_tdk', stored_config.get('fetch_tdk', 'no'))
+
+    main_url = urls[0]
+
+    if platform == 'velog':
+        velog_status = _get_velog_status()
+        if velog_status.get('state') not in ('ok', 'fresh'):
+            return _render('index.html',
+                error=f"Velog 凭证无效，请先在设置页重新绑定。{velog_status.get('guide', '')}",
+                config=stored_config)
+
+    tdk_data = {}
+    if fetch_tdk == 'yes':
+        tdk_data = fetch_full_tdk(main_url)
+
+    seed = build_generate_seed(
+        urls=urls,
+        platform=platform,
+        url_mode=url_mode,
+        publish_mode=publish_mode,
+        target_language=target_language,
+        custom_title=custom_title,
+        custom_tags=custom_tags,
+        tdk_data=tdk_data,
+    )
+    result = _api.plan(json.dumps(seed, ensure_ascii=False))
+    if not result.success:
+        return _render('index.html', error=result.error or "生成失败", config=stored_config)
+
+    plans = result.stdout
+    if not plans.strip():
+        return _render('index.html', error=result.stderr_cleaned or "生成失败，没有输出",
+                       config=stored_config)
+
+    validate_result = _api.validate(plans, no_check_urls=True)
+    if not validate_result.success:
+        return _render('index.html',
+                       error=validate_result.error or "验证失败",
+                       plans=plans, config=stored_config)
+
+    validated = validate_result.stdout
+    if not validated.strip():
+        return _render('index.html',
+                       error=validate_result.stderr_cleaned or "验证失败，没有输出",
+                       plans=plans, config=stored_config)
+
+    pub_result = _api.publish(validated, platform, publish_mode)
+    if not pub_result.success:
+        msg = pub_result.error or "发布失败"
+        display = (
+            f"[{pub_result.error_class}] {msg}"
+            if pub_result.error_class and pub_result.error_class != "unrecognized"
+            else msg
+        )
+        _push_history_single_failure(
+            target_url=main_url, platform=platform,
+            language=target_language, error=display,
+        )
+        return _render('index.html', plans=plans,
+                       error=f"发布失败: {display}", config=stored_config)
+
+    published = pub_result.stdout
+    publish_results = pub_result.rows
+
+    _push_history_per_row(
+        publish_results,
+        target_url_fallback=main_url,
+        platform_fallback=platform,
+        language_fallback=target_language,
+    )
+
+    summary = publish_state_summary(publish_results)
+    n_ok = summary["n_ok"]
+    n_total = len(publish_results)
+    publish_state = summary["state"]
+    publish_error = summary["failure_detail"]
+
+    return _render('index.html', published=published,
+                   publish_results=publish_results,
+                   publish_state=publish_state, publish_error=publish_error,
+                   n_ok=n_ok, n_total=n_total,
+                   config=stored_config, history_active=True)
+
+
 @bp.route('/ce:preview', methods=['POST'])
 def ce_preview():
     urls_json = request.form.get('urls_json', '[]')

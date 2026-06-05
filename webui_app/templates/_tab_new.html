@@ -187,6 +187,11 @@
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-rocket me-2"></i>生成发布计划
                         </button>
+                        <button type="submit" class="btn btn-primary"
+                                formaction="/ce:publish-chain"
+                                onclick="this.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>处理中…';this.disabled=true;">
+                            <i class="bi bi-lightning-charge me-1"></i>一键生成并发布
+                        </button>
                         <button type="button" class="btn btn-outline-secondary btn-sm"
                                 data-action="save-profile" title="将当前设置保存为命名配置">
                             <i class="bi bi-bookmark-plus me-1"></i>保存为配置

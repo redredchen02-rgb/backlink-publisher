@@ -66,7 +66,11 @@ recheck-overlay = "backlink_publisher.cli.recheck_overlay:main"
 canonical-expand = "backlink_publisher.cli.canonical_expand:main"
 pr-opportunities = "backlink_publisher.cli.pr_opportunities:main"
 click-track = "backlink_publisher.cli.click_track:main"
+collect-signals = "backlink_publisher.cli.collect_signals:main"
+show-optimization-state = "backlink_publisher.cli.show_optimization_state:main"
+optimize-weights = "backlink_publisher.cli.optimize_weights:main"
 debt-report = "backlink_publisher.cli.debt_report:main"
+verify-dofollow = "backlink_publisher.cli.verify_dofollow:main"
 probe-citations = "backlink_publisher.cli.probe_citations:main"
 
 [tool.setuptools.packages.find]
