@@ -15,6 +15,7 @@ from webui_app.helpers.channel_tiers import (
     TIER_BY_AUTH_TYPE,
     _is_ready,
     group_channels_by_tier,
+    merge_verify_health,
     partition_channels_by_connection,
 )
 
@@ -303,6 +304,14 @@ class TestPartitionByConnection:
         result = partition_channels_by_connection([("x", {})], {})
         assert result["extension_count"] == 1
 
+    def test_verify_health_overlay_forces_reconnect_in_main(self):
+        """Plan 008: an expired-token channel (overlay) lands in main, flagged."""
+        channels = [("devto", _status("token", bound=False))]  # would be extension
+        statuses = merge_verify_health({}, frozenset({"devto"}))
+        result = partition_channels_by_connection(channels, statuses)
+        assert result["main"] == [("devto", channels[0][1], True)]
+        assert result["extension_count"] == 0
+
     def test_empty_input(self):
         result = partition_channels_by_connection([], {})
         assert result["main"] == []
@@ -311,3 +320,27 @@ class TestPartitionByConnection:
         assert result["extension_count"] == 0
         # Empty / degraded input is NOT cold start (no onboarding over nothing).
         assert result["cold_start"] is False
+
+
+class TestMergeVerifyHealth:
+    """Plan 2026-06-05-008 — overlay live-verify expiry onto channel_statuses."""
+
+    def test_empty_expired_returns_input_unchanged(self):
+        base = {"medium": {"status": "bound"}}
+        assert merge_verify_health(base, frozenset()) is base
+        assert merge_verify_health(base, None) is base
+
+    def test_overlays_expired_as_status(self):
+        merged = merge_verify_health({}, frozenset({"devto", "notion"}))
+        assert merged["devto"] == {"status": "expired"}
+        assert merged["notion"] == {"status": "expired"}
+
+    def test_does_not_mutate_input(self):
+        base = {"medium": {"status": "bound"}}
+        merge_verify_health(base, frozenset({"devto"}))
+        assert "devto" not in base  # input untouched
+
+    def test_overrides_bound_browser_channel(self):
+        base = {"medium": {"status": "bound", "bound_at": "x"}}
+        merged = merge_verify_health(base, frozenset({"medium"}))
+        assert merged["medium"] == {"status": "expired"}

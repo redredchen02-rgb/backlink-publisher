@@ -335,6 +335,21 @@ class TestPartitionDom:
         assert 'dch-btn-verify' in ov
         assert 'badge-dofollow' in ov
 
+    def test_verify_health_expired_api_platform_shows_reconnect(self, client, monkeypatch):
+        """Plan 008: an API platform with a token_expired verdict renders in the
+        main area with 需重連, not folded into the extension. Monkeypatch the
+        overlay source (no shared-store write → no cross-test leak).
+        """
+        from webui_store import verify_health
+
+        monkeypatch.setattr(verify_health, "expired_channels", lambda: frozenset({"devto"}))
+        ov = self._overview(client)
+        main = ov[:ov.index('id="ext-area"')]
+        assert 'data-channel="devto"' in main, "expired devto must be in main area"
+        assert '需重連' in main
+        ext = ov[ov.index('id="ext-area"'):]
+        assert 'data-channel="devto"' not in ext, "expired devto must not be folded away"
+
 
 class TestPartitionPersistenceContract:
     """Plan 2026-06-05-007 Unit 4 — DOM contract the collapse-persistence JS

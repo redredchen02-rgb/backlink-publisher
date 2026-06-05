@@ -208,3 +208,25 @@ def partition_channels_by_connection(
         "extension_count": len(extension),
         "cold_start": (not has_real) and bool(main or extension),
     }
+
+
+def merge_verify_health(
+    channel_statuses: dict[str, dict[str, Any]],
+    expired: "frozenset[str] | set[str] | None",
+) -> dict[str, dict[str, Any]]:
+    """Overlay live-verify credential expiry onto the channel_status map
+    (Plan 2026-06-05-008).
+
+    Any channel whose last credential verdict was ``token_expired`` is forced to
+    ``status="expired"`` so ``partition_channels_by_connection`` flags it
+    ``needs_reconnect`` (keeps it in the main area with the 需重連 marker, and
+    non-selectable on the publish picker) — even when its offline ``bound`` reads
+    True because the token is present but server-rejected. Returns the input
+    unchanged when there is nothing expired. Never mutates the input dict.
+    """
+    if not expired:
+        return channel_statuses
+    merged = dict(channel_statuses or {})
+    for name in expired:
+        merged[name] = {"status": "expired"}
+    return merged

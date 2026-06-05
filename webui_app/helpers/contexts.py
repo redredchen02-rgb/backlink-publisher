@@ -214,9 +214,21 @@ def _settings_context(flash=None):
     # stay visible in main. Rendering must never fail because partitioning
     # failed: fall back to None (template renders no partition).
     try:
-        from .channel_tiers import partition_channels_by_connection
+        from .channel_tiers import (
+            merge_verify_health,
+            partition_channels_by_connection,
+        )
+        # Plan 2026-06-05-008: overlay live-verify credential expiry so an
+        # expired API/OAuth token surfaces as needs-reconnect, not "healthy".
+        try:
+            from webui_store import verify_health
+            _statuses = merge_verify_health(
+                channel_statuses, verify_health.expired_channels()
+            )
+        except Exception:
+            _statuses = channel_statuses
         dashboard_partition = partition_channels_by_connection(
-            dashboard_channels, channel_statuses
+            dashboard_channels, _statuses
         )
     except Exception:
         dashboard_partition = None
