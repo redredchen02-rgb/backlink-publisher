@@ -1,7 +1,11 @@
 # Memory Index
 
 ## Project
-- [backlink-publisher](.ai-memory/project_backlink_publisher.md) — Backlink publishing pipeline, main branch, Phases 1-3 (typed model validation) complete, GitLab SSH remote
+- [Optimization Gaps Implementation](.ai-memory/project_optimization_gaps.md) — 6 optimization gaps (A4/E1/E4/C4/F2/G4) implemented 2026-06-05
+- [CI Config](.ai-memory/project_ci_config.md) — CI/CD configuration notes
+- [Korean Language](.ai-memory/project_ko_language.md) — Korean language support details
 
 ## Feedback
-- [System Optimization Lessons](.ai-memory/feedback_system_tier_markers.md) — Test tier markers, CI split, coverage baseline, GitLab setup
+- [Gap Analysis Audit](.ai-memory/feedback_gap_analysis_audit.md) — False negatives from surface-level gap analysis
+- [Security Reminder Hook](.ai-memory/feedback_security_reminder_hook.md) — Security reminder hook behavior
+- [isHookDisabled Bug](.ai-memory/feedback_isHookDisabled_bug.md) — isHookDisabled check bug
