@@ -257,7 +257,7 @@ def plan_keepalive_gap(
         # ``canonicalize_url`` reads ``urlsplit(...).port`` which raises ValueError
         # on a malformed port (e.g. ``http://h:notaport/x``); guard it so one bad
         # row can't abort the whole batch (honors the "no raises on bad rows"
-        # contract — mirrors recheck.overlay._canon_target).
+        # contract — mirrors recheck.latest_verdicts._canon_target).
         try:
             canon = canonicalize_url(target)
         except ValueError:

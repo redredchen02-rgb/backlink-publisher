@@ -153,9 +153,9 @@ def derive_per_target_status(store: "EventStore") -> dict[str, dict]:
     # vintages) merge into ONE scorecard row instead of one silently overwriting
     # the other downstream — reusing the same _canon_target the ledger-overlay
     # join uses. events.id breaks same-ts_utc ties so the "latest verdict" read
-    # is deterministic (mirrors overlay._is_newer / R8), independent of SQL row
+    # is deterministic (mirrors latest_verdicts._is_newer / R8), independent of SQL row
     # order. Without it a same-second alive could mask a later link_stripped.
-    from .overlay import _canon_target, _is_newer
+    from .latest_verdicts import _canon_target, _is_newer
 
     # (canonical target, article_id) -> (ts, rid, verdict, platform); latest wins.
     # platform rides along so net-coverage (keep-alive gap) can tell WHERE a link
