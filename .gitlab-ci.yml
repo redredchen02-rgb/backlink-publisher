@@ -1,0 +1,97 @@
+# GitLab CI — mirrors the canonical GitHub Actions workflow
+# (.github/workflows/ci.yml) so merge requests and `main` are verified while
+# the GitHub pipeline is unavailable. Same three tiers, same marker selection,
+# same style / fixture / type gates.
+#
+# PYTHONHASHSEED=0 is required by the Footprint Regression Gate at interpreter
+# startup — Python freezes hash randomisation at process start, so it must be
+# set in the job environment (a no-op if set later inside Python).
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+variables:
+  PYTHONHASHSEED: "0"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+stages:
+  - test
+
+# Shared install prefix (WET, mirroring the GitHub workflow's per-job repetition).
+.install: &install
+  - python --version
+  - pip install -e ".[dev]"
+
+cache:
+  key:
+    files:
+      - pyproject.toml
+  paths:
+    - .cache/pip
+
+# ── Unit tier — fast, isolated; matrix 3.11 + 3.12. Carries the style + fixture
+#    gates. Runs on every MR and on pushes to main. ────────────────────────────
+unit:
+  stage: test
+  image: "python:${PY_VERSION}-slim"
+  parallel:
+    matrix:
+      - PY_VERSION: ["3.11", "3.12"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script: *install
+  script:
+    - python -m radon --version
+    - python -m pytest tests/ --tb=short --timeout=15 -n auto -m "unit" --strict-markers --strict-config
+    - echo "Style gate — py_compile + AST parse over src/"
+    - python -m py_compile $(find src/backlink_publisher -name '*.py')
+    - |
+      python -c "
+      import ast, sys, pathlib
+      for f in pathlib.Path('src').rglob('*.py'):
+          try:
+              ast.parse(f.read_text())
+          except SyntaxError as e:
+              print(f'SYNTAX ERROR in {f}: {e}')
+              sys.exit(1)
+      "
+    - echo "Fixture gate"
+    - python generate_fixtures.py
+    - test -f fixtures/seed.jsonl
+
+# ── Type check — non-blocking, mirrors the canonical continue-on-error step. ──
+typecheck:
+  stage: test
+  image: "python:3.12-slim"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script: *install
+  script:
+    - python -m mypy src/backlink_publisher --config-file mypy.ini
+  allow_failure: true
+
+# ── Integration tier — touches disk / db / fakes; MR only (matches GitHub
+#    `if: github.event_name == 'pull_request'`). ───────────────────────────────
+integration:
+  stage: test
+  image: "python:3.12-slim"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  before_script: *install
+  script:
+    - python -m pytest tests/ --tb=short --timeout=60 -n auto -m "integration" --strict-markers --strict-config
+
+# ── E2E tier — full end-to-end; MR only; single-core (shared state / real
+#    endpoints). Operator-only `real_*` tests skip via their env gates. ─────────
+e2e:
+  stage: test
+  image: "python:3.12-slim"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  before_script: *install
+  script:
+    - python -m pytest tests/ --tb=short --timeout=120 -m "e2e" --strict-markers --strict-config
