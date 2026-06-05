@@ -92,3 +92,26 @@ def test_route_renders_200_and_csrf():
     assert "存活率".encode() in resp.data
     # CSRF meta + asset versioning come from base.html.
     assert b"csrf-token" in resp.data or b"csrf_token" in resp.data
+
+
+def test_route_never_500s_when_render_raises(monkeypatch, caplog):
+    # The _render call must be inside the try: a template/render fault on the real
+    # view degrades to the unavailable render, never a 500 (the docstring's promise).
+    from webui_app import create_app
+    import webui_app.routes.survival_dashboard as route
+
+    calls = {"n": 0}
+    real_render = route._render
+
+    def _flaky_render(*a, **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("template boom")
+        return real_render(*a, **kw)
+
+    monkeypatch.setattr(route, "_render", _flaky_render)
+    app = create_app()
+    with caplog.at_level("WARNING"):
+        resp = app.test_client().get("/survival-dashboard")
+    assert resp.status_code == 200
+    assert calls["n"] == 2  # first (real-view) render raised; fallback render ran
