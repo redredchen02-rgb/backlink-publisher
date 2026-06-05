@@ -249,7 +249,8 @@ class TestJsonlShape:
     """Verify all required fields are present in the JSONL receipt."""
 
     REQUIRED = {"platform", "post_url", "target_url", "verdict", "rel_tokens",
-                "needs_browser_check", "delete_hint", "fetched_at", "duration_s"}
+                "needs_browser_check", "delete_hint", "delete_credential",
+                "fetched_at", "duration_s"}
 
     def test_all_fields_present(self):
         rc, stdout, _ = _run(["hashnode", "--target-url", "https://mysite.com"])
@@ -258,6 +259,23 @@ class TestJsonlShape:
         assert len(receipts) == 1
         missing = self.REQUIRED - set(receipts[0].keys())
         assert not missing, f"Missing fields: {missing}"
+
+    def test_delete_credential_none_when_adapter_exposes_no_meta(self):
+        rc, stdout, _ = _run(["hashnode", "--target-url", "https://mysite.com"])
+        assert _parse_jsonl(stdout)[0]["delete_credential"] is None
+
+    def test_delete_credential_surfaced_from_provider_meta(self):
+        """edit_code in _provider_meta → receipt carries it + delete_hint includes it."""
+        result = _adapter_result()
+        result._provider_meta = {"edit_code": "s3cr3t", "link_attr_verification": {"x": 1}}
+        rc, stdout, _ = _run(
+            ["hashnode", "--target-url", "https://mysite.com"],
+            publish_return=result,
+        )
+        receipt = _parse_jsonl(stdout)[0]
+        # Only the delete-relevant key is lifted, not the whole provider_meta.
+        assert receipt["delete_credential"] == {"edit_code": "s3cr3t"}
+        assert "s3cr3t" in receipt["delete_hint"]
 
     def test_platform_and_target_url_correct(self):
         rc, stdout, _ = _run(["hashnode", "--target-url", "https://mysite.com"])
@@ -348,7 +366,8 @@ class TestStderrFlipHint:
     """The new stderr summary + guided edit checklist must not regress stdout."""
 
     _STDOUT_KEYS = {"platform", "post_url", "target_url", "verdict", "rel_tokens",
-                    "needs_browser_check", "delete_hint", "fetched_at", "duration_s"}
+                    "needs_browser_check", "delete_hint", "delete_credential",
+                    "fetched_at", "duration_s"}
 
     def test_stdout_contract_unchanged(self):
         """Non-regression: stdout stays one JSONL line, same key set, same verdict,

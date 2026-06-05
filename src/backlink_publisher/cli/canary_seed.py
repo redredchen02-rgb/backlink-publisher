@@ -5,7 +5,10 @@ tool publishes a minimal hardcoded test post (no LLM, no plan-backlinks
 subprocess), waits for the post to index, then calls ``inspect_target_anchor``
 to check whether the target backlink is dofollow / nofollow / ambiguous.
 
-stdout = one JSONL line with the verdict.
+stdout = one JSONL line with the verdict. When the adapter exposes a per-post
+deletion secret (e.g. rentry's ``edit_code``, returned once at creation and
+never recoverable afterward), it is surfaced as ``delete_credential`` so the
+canary post can be cleaned up later instead of becoming an un-deletable orphan.
 stderr = a RECON summary plus a human-readable verdict summary and a guided edit
 checklist (Plan 2026-06-05-011) telling the operator exactly how to flip the
 ``dofollow=`` flag (and, on ``dofollow``, which kwargs/``_R`` entry to remove).
@@ -89,6 +92,42 @@ def _build_stub_payload(platform: str, target_url: str) -> dict:
         "url_mode": "direct",
         "publish_mode": "auto",
     }
+
+
+# Per-post secrets an adapter may stash in ``AdapterResult._provider_meta`` that
+# are required to delete the canary post later (rentry returns an ``edit_code``
+# at creation that is never recoverable afterward — without persisting it the
+# canary paste becomes an un-deletable orphan).
+_DELETE_CREDENTIAL_KEYS = ("edit_code", "delete_token", "delete_url", "deletetoken")
+
+
+def _extract_delete_credential(result: Any) -> Optional[dict[str, Any]]:
+    """Pull deletion secrets out of the adapter result's provider metadata.
+
+    Returns a dict of the delete-relevant keys present in ``_provider_meta``,
+    or None when the adapter exposes none. Kept generic so any adapter that
+    stashes a delete handle flows into the receipt without canary-seed changes.
+    """
+    meta = getattr(result, "_provider_meta", None)
+    if not meta:
+        return None
+    creds = {k: meta[k] for k in _DELETE_CREDENTIAL_KEYS if meta.get(k)}
+    return creds or None
+
+
+def _build_delete_hint(
+    post_url: str, delete_credential: Optional[dict[str, Any]]
+) -> Optional[str]:
+    """Human delete instruction; appends the delete credential when present."""
+    if not post_url:
+        return None
+    hint = f"Manual delete required: visit {post_url} and delete this canary post."
+    if delete_credential:
+        hint += (
+            f" Delete credential (keep secret, not recoverable later): "
+            f"{json.dumps(delete_credential)}"
+        )
+    return hint
 
 
 def _map_verdict(anchor: dict) -> tuple[str, bool, Optional[str]]:
@@ -192,11 +231,13 @@ def main(argv: list[str] | None = None) -> None:
         reason: Optional[str] = None
         rel_tokens: Optional[list[str]] = None
         needs_browser_check = False
+        delete_credential: Optional[dict[str, Any]] = None
 
         try:
             result = publish(payload, "auto", config)
             _sleep(args.wait_after_publish)
             post_url = result.published_url or result.draft_url
+            delete_credential = _extract_delete_credential(result)
         except PipelineError as exc:
             reason = "publish_failed"
             canary_logger.warn("publish_failed", platform=args.platform, error=str(exc))
@@ -235,10 +276,8 @@ def main(argv: list[str] | None = None) -> None:
             "verdict": verdict,
             "rel_tokens": rel_tokens,
             "needs_browser_check": needs_browser_check,
-            "delete_hint": (
-                f"Manual delete required: visit {post_url} and delete this canary post."
-                if post_url else None
-            ),
+            "delete_hint": _build_delete_hint(post_url, delete_credential),
+            "delete_credential": delete_credential,
             "fetched_at": fetched_at,
             "duration_s": duration_s,
         }

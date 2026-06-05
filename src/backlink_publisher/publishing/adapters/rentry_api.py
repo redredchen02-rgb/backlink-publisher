@@ -183,4 +183,8 @@ class RentryAPIAdapter(Publisher):
             platform="rentry",
             published_url=published_url,
             post_publish_delay_seconds=_post_publish_delay_s(),
+            # Rentry returns the edit_code only at creation; it is the sole
+            # credential that can later edit/delete the paste, so stash it for
+            # canary-seed cleanup. (carry_link_attr_verification ignores it.)
+            _provider_meta={"edit_code": edit_code} if edit_code else None,
         )
