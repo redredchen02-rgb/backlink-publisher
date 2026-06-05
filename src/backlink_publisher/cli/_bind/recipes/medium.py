@@ -455,19 +455,41 @@ def _medium_bound_predicate(page) -> None:
             raise BoundPredicateTimeout()
         if now - started_at > _ABSOLUTE_TIMEOUT_SECONDS:
             raise BoundPredicateTimeout()
+
+        # Primary signal: the tracked page URL transitioned off /m/signin.
+        matched_page = None
         try:
             page.wait_for_url(
                 _BOUND_URL_PATTERN, timeout=_INNER_WAIT_TIMEOUT_MS
             )
+            matched_page = page
         except PWTimeoutError:
-            # URL didn't transition within the inner window; loop and
-            # re-check idle / absolute timers.
+            pass
+
+        # Spike 7 fallback: cross-origin SSO (Google/GitHub) can orphan the
+        # original page reference so ``page.url`` never updates. Scan ALL
+        # open pages in the context — if any has transitioned off /m/signin,
+        # treat that as the positive signal. See module docstring §Spike 7.
+        if matched_page is None:
+            try:
+                for p in page.context.pages:
+                    try:
+                        if _BOUND_URL_PATTERN.match(p.url or ""):
+                            matched_page = p
+                            break
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        if matched_page is None:
+            # No page has transitioned yet; loop and re-check timers.
             continue
 
         # URL transitioned off /m/signin. Verify cookies look like a real
         # authenticated session before declaring success.
         try:
-            cookies = page.context.cookies("https://medium.com")
+            cookies = matched_page.context.cookies("https://medium.com")
         except Exception:
             cookies = []
         if not _cookie_sanity_passes(cookies):
@@ -476,7 +498,7 @@ def _medium_bound_predicate(page) -> None:
             continue
 
         # Cookies look authentic. Scrape @username.
-        username = _scrape_username(page)
+        username = _scrape_username(matched_page)
         if username is None:
             # Can't determine identity — refuse to commit. This is a
             # rare case; the driver maps it to a timeout-class failure
@@ -495,7 +517,7 @@ def _medium_bound_predicate(page) -> None:
         # still alive so the future ``MediumGraphQLAdapter`` can replay them
         # byte-for-byte (Cloudflare bot-score input). Best-effort — failure
         # here doesn't fail the bind.
-        _write_meta_tentative(page)
+        _write_meta_tentative(matched_page)
         return  # predicate success
 
 
