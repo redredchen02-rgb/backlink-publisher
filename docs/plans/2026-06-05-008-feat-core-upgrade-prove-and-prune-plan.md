@@ -129,7 +129,7 @@ graph TD
 
 ### Phase 1 — Land & make safe
 
-- [ ] **Unit R1: Land the dispatch-weight optimizer (inert)**
+- [x] **Unit R1: Land the dispatch-weight optimizer (inert)**
 
 **Goal:** Commit the already-written optimization subsystem + registry override + WebUI optimization-status/command-center as one cohesive landing on `feat/continuous-optimization`, then merge to main. It must land **genuinely inert** — including the strip-penalty rule being explicitly disabled until R3's floor exists.
 
@@ -192,7 +192,7 @@ graph TD
 
 **Verification:** `pip install -e .` exposes `weights`; the 3 old console scripts are gone; ported subprocess tests pass.
 
-- [ ] **Unit R3: `aggregated_stats` non-zero weight floor + publish-volume protection** — **test-first**
+- [x] **Unit R3: `aggregated_stats` non-zero weight floor + publish-volume protection** — **test-first**
 
 **Goal:** Flip `aggregated_stats` from the R1-disabled state to **enabled, behind a non-zero `min_weight` clamp**, so telegraph (≈86% of strips, dominant channel) cannot be driven to 0 → routing-drop. The `min_weight` clamp is the load-bearing safety mechanism; a `volume_floor` guard is an optional second layer (deferred, see below).
 
@@ -378,7 +378,7 @@ Badges carry text + an `aria-label`/`title` (verdict in words), never color alon
 
 ### Phase 4 — Prune
 
-- [ ] **Unit R9: Archive off-narrative brainstorms by keep-criterion**
+- [x] **Unit R9: Archive off-narrative brainstorms by keep-criterion**
 
 **Goal:** Build a keep-set and `git mv` (never delete) the complement to `docs/_archive/brainstorms/`, leaving the active list reflecting the core.
 

@@ -2,7 +2,7 @@
 date: 2026-06-05
 plan_id: 2026-06-05-005
 title: Config-Driven Lightweight Adapter Framework + Dofollow Priority Tier
-status: active
+status: completed
 source_brainstorm: docs/brainstorms/2026-06-05-config-driven-lightweight-adapters-requirements.md
 source_ideation: docs/ideation/2026-06-05-backlog-convergence-ideation.md (idea #2)
 claims: {}
