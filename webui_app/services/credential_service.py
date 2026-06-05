@@ -19,6 +19,7 @@ from backlink_publisher.config.tokens import (
     save_hackmd_token,
     save_mataroa_token,
     save_qiita_token,
+    save_tumblr_token,
     save_wordpresscom_token,
 )
 from backlink_publisher._util.io import atomic_write_json
@@ -54,6 +55,9 @@ _TOKEN_DISPATCH: dict[str, tuple] = {
 # (channel) → (save_fn, basename, [field_names])
 # ghpages uses a single "token" field but is registered as token_fields.
 _TOKEN_FIELDS_DISPATCH: dict[str, tuple] = {
+    "tumblr":       (save_tumblr_token,       "tumblr-credentials.json",
+                     ["consumer_key", "consumer_secret", "oauth_token",
+                      "oauth_token_secret", "blog_identifier"]),
     "wordpresscom": (save_wordpresscom_token, "wordpresscom-token.json",
                      ["token", "site"]),
     "ghpages":      (save_ghpages_token,      "ghpages-token.json",

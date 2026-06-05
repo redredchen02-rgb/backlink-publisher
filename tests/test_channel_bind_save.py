@@ -80,6 +80,7 @@ def settings_body(client):
 
 @pytest.mark.parametrize("channel,auth_type", [
     ("livejournal", "userpass"),
+    ("tumblr", "token_fields"),
     ("wordpresscom", "token_fields"),
     ("substack", "paste_blob"),
     ("txtfyi", "anon"),
@@ -296,6 +297,45 @@ def test_token_fields_round_trip(client, tmp_path, monkeypatch):
     data = json.loads(token_path.read_text())
     assert data["token"] == "MY_WP_TOKEN"
     assert data["site"] == "https://myblog.wordpress.com"
+
+
+def test_tumblr_token_fields_round_trip(client, tmp_path, monkeypatch):
+    """Save tumblr 5-field credentials → file written with correct content (0600)."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "tumblr", "auth_type": "token_fields",
+        "consumer_key": "CK123",
+        "consumer_secret": "CS!@#$%",
+        "oauth_token": "OT456",
+        "oauth_token_secret": "OTS&*()",
+        "blog_identifier": "myblog.tumblr.com",
+    }, csrf=csrf)
+
+    assert resp.status_code == 302
+    assert "success" in resp.headers["Location"]
+    cred_path = config_dir / "tumblr-credentials.json"
+    assert cred_path.exists()
+    import os, stat
+    if os.name != "nt":
+        assert stat.S_IMODE(cred_path.stat().st_mode) == 0o600
+    data = json.loads(cred_path.read_text())
+    assert data["consumer_key"] == "CK123"
+    assert data["consumer_secret"] == "CS!@#$%"
+    assert data["oauth_token"] == "OT456"
+    assert data["oauth_token_secret"] == "OTS&*()"
+    assert data["blog_identifier"] == "myblog.tumblr.com"
+
+
+def test_tumblr_token_fields_leave_as_is_empty(client):
+    """Submitting no tumblr fields → info flash, no file written."""
+    csrf = _seed_csrf(client)
+    resp = _post(client, {"channel": "tumblr", "auth_type": "token_fields"}, csrf=csrf)
+    assert resp.status_code == 302
+    assert "info" in resp.headers["Location"]
 
 
 # ---------------------------------------------------------------------------
