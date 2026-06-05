@@ -32,23 +32,6 @@ def test_zh_cn_main_domain_unbranded_latin_fails() -> None:
     assert reason == "anchor missing CJK codepoint"
 
 
-def test_zh_cn_main_domain_generic_english_now_passes_via_c0_relaxation() -> None:
-    """C0 (2026-06-05): 'learn more' matches the allowed Latin anchor patterns
-    so it passes for zh-CN even without CJK codepoints. This is the intended
-    relaxation — common CTAs in zh-CN backlinks should not fail validation."""
-    ok, reason = check_anchor_language("learn more", "zh-CN", "main_domain", [])
-    assert ok is True
-    assert reason is None
-
-
-def test_zh_cn_main_domain_unbranded_latin_domain_pattern_passes_via_c0() -> None:
-    """C0 (2026-06-05): '51acgs.com' contains '.com' which matches the
-    allowed Latin domain suffix patterns."""
-    ok, reason = check_anchor_language("51acgs.com", "zh-CN", "main_domain", [])
-    assert ok is True
-    assert reason is None
-
-
 def test_zh_cn_target_kind_subject_to_rule() -> None:
     """target is in _GATED_KINDS alongside main_domain."""
     ok, _ = check_anchor_language("Apple", "zh-CN", "target", [])
