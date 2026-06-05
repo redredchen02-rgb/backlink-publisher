@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  backlink-publisher:
+    build: .
+    container_name: backlink-publisher
+    ports:
+      - "8888:8888"
+    volumes:
+      - ~/.config/backlink-publisher:/config
+    environment:
+      - BACKLINK_PUBLISHER_CONFIG_DIR=/config
+      - PORT=8888
+      - BIND_HOST=0.0.0.0
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8888/ce:health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
