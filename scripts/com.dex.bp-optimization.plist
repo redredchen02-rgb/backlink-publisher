@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dex.bp-optimization</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/scripts/run-optimization.sh</string>
+    </array>
+    <!-- Every 6 hours = 21600 seconds -->
+    <key>StartInterval</key>
+    <integer>21600</integer>
+    <key>WorkingDirectory</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher</string>
+    <key>StandardOutPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/optimization-launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/optimization-launchd.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
