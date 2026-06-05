@@ -253,6 +253,15 @@ def save_qiita_token(data: dict[str, Any], path: Path | None = None) -> None:
     _save_token(data, path, "qiita-token.json")
 
 
+def save_tumblr_token(data: dict[str, Any], path: Path | None = None) -> None:
+    """Save Tumblr OAuth credentials dict to JSON file with mode 0600.
+
+    Expected keys: consumer_key (str), consumer_secret (str), oauth_token (str),
+    oauth_token_secret (str), blog_identifier (str). Obtain from Tumblr → Apps.
+    """
+    _save_token(data, path, "tumblr-credentials.json")
+
+
 def save_wordpresscom_token(data: dict[str, Any], path: Path | None = None) -> None:
     """Save WordPress.com OAuth token dict to JSON file with mode 0600.
 
