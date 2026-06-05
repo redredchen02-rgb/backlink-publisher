@@ -332,6 +332,9 @@ const HASH_TO_PANE = {
   '#section-channels': 'channels',
   '#section-global': 'global',
   '#section-llm': 'llm',
+  // Pro Mode CTAs (nav pill / index nudge) deep-link to the real section id
+  // so browser-native scroll works even without JS (plan 2026-06-05-003 U6).
+  '#pane-llm': 'llm',
 };
 
 function _hashToPaneKey(hash) {
@@ -354,11 +357,20 @@ function showPane(key) {
 }
 
 function _initActivePane() {
-  let key = null;
-  try { key = sessionStorage.getItem('settings:activePane'); } catch (e) { /* ignore */ }
-  if (!key) key = _hashToPaneKey(window.location.hash);
+  // An explicit deep-link hash (e.g. /settings#pane-llm from a Pro CTA) wins
+  // over the last-visited pane in sessionStorage, then scrolls the pane into
+  // view so the nudge→action loop lands on the Pro pane (plan 2026-06-05-003 U6).
+  const hashKey = _hashToPaneKey(window.location.hash);
+  let key = hashKey;
+  if (!key) {
+    try { key = sessionStorage.getItem('settings:activePane'); } catch (e) { /* ignore */ }
+  }
   if (!key) key = 'dashboard';
   showPane(key);
+  if (hashKey) {
+    const el = document.getElementById('pane-' + hashKey);
+    if (el) el.scrollIntoView();
+  }
 }
 
 function _initSidebarNav() {

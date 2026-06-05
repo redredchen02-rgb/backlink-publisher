@@ -54,6 +54,33 @@
         </div>
         {% endif %}
 
+        {# Pro Mode activation nudge (plan 2026-06-05-003 U4) — shown when AI
+           generation is not yet active. Dismissible via index.js (localStorage,
+           state-keyed so it reappears if state regresses). Deep-links to the Pro
+           pane. Uses alert-primary so the alert-info/success auto-dismiss does
+           not eat it. Copy is static template text — no innerHTML interpolation. #}
+        {% set _ps = pro_status | default({}, true) %}
+        {% if not _ps.configured or not _ps.article_gen %}
+        <div id="pro-activation-nudge"
+             class="alert alert-primary alert-dismissible d-flex align-items-center mb-3"
+             role="alert"
+             data-nudge-state="{% if not _ps.configured %}unconfigured{% else %}gen-off{% endif %}">
+          <i class="bi bi-stars me-2 flex-shrink-0"></i>
+          <div class="flex-grow-1">
+            {% if not _ps.configured %}
+            <strong>解锁 AI 全文生成</strong> — 绑定金钥即可让发布内容由 AI 撰写，并一并解锁封面图、Copilot 智能问答与锚文本建议。
+            {% else %}
+            <strong>已绑定 AI 引擎，但全文生成未开启</strong> — 开启后发布内容将由 AI 自动撰写。
+            {% endif %}
+          </div>
+          <a href="/settings#pane-llm" class="btn btn-sm btn-primary ms-2 flex-shrink-0">
+            {% if not _ps.configured %}去绑定{% else %}开启全文生成{% endif %}
+          </a>
+          <button type="button" class="btn-close ms-2" data-action="pro-nudge-dismiss"
+                  aria-label="关闭"></button>
+        </div>
+        {% endif %}
+
         {% if incomplete_run %}
         <div class="alert alert-warning alert-dismissible d-flex align-items-center mb-3" role="alert">
           <i class="bi bi-exclamation-triangle-fill me-2 flex-shrink-0"></i>

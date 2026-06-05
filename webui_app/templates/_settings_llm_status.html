@@ -1,0 +1,29 @@
+{# Pro Mode status header (plan 2026-06-05-003 U5) — live state + an explicit
+   "解锁清单" making the payoff legible: one binding empowers full-text
+   generation, cover images, Copilot Q&A, and anchor-text suggestions across the
+   product. Read-only, driven by pro_status. Bootstrap/utility classes only — no
+   inline hex (keeps the settings.html R10 inline-style debt from growing). The
+   api_key is never rendered: only endpoint host, model, and capability flags. #}
+{% set ps = pro_status | default({}, true) %}
+<div class="card mb-3" id="llm-status-header">
+  <div class="card-body">
+    {% if not ps.configured %}
+    <p class="mb-2"><span class="badge bg-secondary">未启用</span>
+      绑定金钥即可启用 AI 内容生成引擎。</p>
+    {% elif ps.article_gen and ps.last_test and ps.last_test.ok %}
+    <p class="mb-2"><span class="badge bg-success">已启用</span>
+      {{ ps.model or '模型未指定' }}{% if ps.endpoint_host %} · {{ ps.endpoint_host }}{% endif %}{% if ps.last_test %} · 上次测试 {{ ps.last_test.at }}{% endif %}</p>
+    {% else %}
+    <p class="mb-2"><span class="badge bg-warning text-dark">待激活</span>
+      {{ ps.model or '模型未指定' }}{% if ps.endpoint_host %} · {{ ps.endpoint_host }}{% endif %}{% if not ps.article_gen %} · 全文生成未开启{% elif not ps.last_test %} · 点击下方「测试连接」验证金钥{% elif not ps.last_test.ok %} · 上次测试失败，点击下方「测试连接」重试{% endif %}</p>
+    {% endif %}
+
+    <p class="text-muted small mb-1">绑定后解锁：</p>
+    <ul class="list-unstyled small mb-0">
+      <li class="{% if ps.article_gen %}text-success{% else %}text-muted{% endif %}">{% if ps.article_gen %}✓{% else %}○{% endif %} AI 全文生成</li>
+      <li class="{% if ps.image_gen %}text-success{% else %}text-muted{% endif %}">{% if ps.image_gen %}✓{% else %}○{% endif %} AI 封面图</li>
+      <li class="{% if ps.configured %}text-success{% else %}text-muted{% endif %}">{% if ps.configured %}✓{% else %}○{% endif %} Copilot 智能问答</li>
+      <li class="{% if ps.configured %}text-success{% else %}text-muted{% endif %}">{% if ps.configured %}✓{% else %}○{% endif %} 锚文本智能建议</li>
+    </ul>
+  </div>
+</div>
