@@ -197,6 +197,33 @@
         .tier-divider::before, .tier-divider::after {
             content:""; flex:1; height:1px; background:#e2e8f0;
         }
+        /* Plan 2026-06-05-007 — connection-state partition (main / extension area) */
+        .cold-start-banner {
+            background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
+            padding:10px 14px; margin-bottom:14px; font-size:13px; color:#1e3a5f;
+        }
+        .cold-start-cta { color:#475569; }
+        .channel-area--main { margin-bottom:14px; }
+        .extension-area { margin-top:4px; }
+        .ext-toggle { margin-bottom:0; }
+        .ext-tier-group { margin-top:10px; }
+        .ext-tier-subhead {
+            font-size:12px; font-weight:600; color:#64748b;
+            margin:8px 0 6px; display:flex; align-items:center; gap:6px;
+        }
+        .ext-filter {
+            width:100%; padding:7px 10px; margin:10px 0; font-size:13px;
+            border:1px solid #e2e8f0; border-radius:8px;
+        }
+        .ext-no-match { color:#94a3b8; font-size:13px; padding:8px 0; }
+        .dch-reconnect {
+            border-left:3px solid var(--warning, #f59e0b);
+            border-radius:4px; padding-left:8px; margin-bottom:8px;
+        }
+        .dch-reconnect-hint {
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            font-size:12px; color:#854d0e; margin-bottom:6px;
+        }
         /* Plan 2026-05-19-006 Unit 5 — channel binding dashboard */
         .dashboard-channel-card {
             padding:12px 16px; border:1px solid #e2e8f0; border-radius:8px;

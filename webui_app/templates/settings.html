@@ -46,15 +46,17 @@
                     </span>
                     <button type="button" class="overview-collapse-toggle"
                             data-bs-toggle="collapse" data-bs-target="#overview-panel"
-                            aria-expanded="false" aria-controls="overview-panel"
+                            aria-expanded="{{ 'true' if dashboard_partition and dashboard_partition.cold_start else 'false' }}" aria-controls="overview-panel"
                             title="折叠/展开">
                         <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
                     </button>
                 </h2>
-                <div id="overview-panel" class="collapse">
+                {#- Plan 2026-06-05-007: cold start (zero real bindings) server-expands
+                    the overview panel so the bind entry isn't buried under a fold. #}
+                <div id="overview-panel" class="collapse{% if dashboard_partition and dashboard_partition.cold_start %} show{% endif %}">
                     <div class="card mb-4">
                         <div class="card-body">
-                            {% include '_settings_overview_tiers.html' %}
+                            {% include '_settings_overview_partition.html' %}
                         </div>
                     </div>
                 </div>
@@ -323,6 +325,7 @@
 
             <section id="pane-llm" class="settings-pane">
                 <h2 class="section-heading">AI 内容生成引擎 (PRO Mode)</h2>
+                {% include '_settings_llm_status.html' %}
                 {% include '_settings_llm_integration.html' %}
                 {% include '_settings_diagnostics.html' %}
                 {% include '_settings_banner.html' %}

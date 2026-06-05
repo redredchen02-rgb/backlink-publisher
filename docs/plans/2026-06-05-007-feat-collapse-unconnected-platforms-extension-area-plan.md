@@ -1,7 +1,7 @@
 ---
 title: "feat: Collapse unconnected platforms into a folded extension area"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 origin: docs/brainstorms/2026-06-05-collapse-unconnected-platforms-extension-area-requirements.md
 deepened: 2026-06-05
@@ -142,7 +142,7 @@ graph TB
   U1 --> U5
 ```
 
-- [ ] **Unit 1: 分區判斷點 `partition_channels_by_connection`**
+- [x] **Unit 1: 分區判斷點 `partition_channels_by_connection`**
 
 **Goal:** 在 `channel_tiers.py` 新增純函式,把 `(dashboard_channels, channel_statuses)` 分成主區/拓展區,並用既有 `group_channels_by_tier` 建拓展區 tier 次分組。單一可重用判斷點(R13)。
 
@@ -176,7 +176,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 2: 設定 context 接上分區**
+- [x] **Unit 2: 設定 context 接上分區**
 
 **Goal:** `_settings_context` 改用分區結果餵模板,保留既有 keys 不破壞其他區塊。
 
@@ -206,7 +206,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 3: 設定模板 — 主區 / 拓展區**
+- [x] **Unit 3: 設定模板 — 主區 / 拓展區**
 
 **Goal:** 用分區結果渲染:扁平主區(needs_reconnect 帶警示)+ 折疊「拓展區(N)」(內按 tier 次分組,可 Bind/Configure)。冷啟動展開 + 引導。
 
@@ -245,7 +245,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 4: settings.js — 折疊持久化 / 冷啟動 / 過濾**
+- [x] **Unit 4: settings.js — 折疊持久化 / 冷啟動 / 過濾**
 
 **Goal:** 拓展區折疊持久化到新面板 id;冷啟動展開(含父層);綁定成功後重載使卡片升主區(R8 機制);拓展區數量多時 client-side 過濾。
 
@@ -273,7 +273,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 5: 發布/選渠道流程分區**
+- [x] **Unit 5: 發布/選渠道流程分區**
 
 **Goal:** `/batch-campaign` 表單按連線狀態分區:可勾(bound+anon)在主區、needs_reconnect disabled+提示、extension 折疊+disabled。
 

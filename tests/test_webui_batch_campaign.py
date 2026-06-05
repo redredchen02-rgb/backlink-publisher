@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import json
+import re
 import threading
 
 import pytest
@@ -178,6 +179,90 @@ def test_batch_campaign_get_renders(client):
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
     assert "批量创建" in html or "batch" in html.lower()
+
+
+# ── batch_campaign — connection-state partition (Plan 2026-06-05-007 U5) ──────
+
+
+def test_batch_campaign_get_shows_extension_area(client):
+    """The picker renders a folded 拓展区 for never-connected platforms."""
+    html = client.get("/batch-campaign").data.decode("utf-8")
+    assert "拓展區" in html
+    assert 'id="campaign-ext-area"' in html
+
+
+def test_batch_campaign_anon_platform_is_selectable(client):
+    """R1: an anon platform (telegraph) renders as an enabled, name=platforms
+    checkbox in the main area.
+    """
+    html = client.get("/batch-campaign").data.decode("utf-8")
+    assert re.search(
+        r'name="platforms"\s+value="telegraph"', html
+    ), "anon telegraph must be a selectable platform checkbox"
+
+
+def test_batch_campaign_unbound_platform_folded_and_disabled(client, monkeypatch):
+    """R3: a never-connected non-anon platform folds into the extension area as
+    a disabled checkbox with a path to the settings binding page.
+    """
+    from webui_app import binding_status
+
+    real = binding_status.get_channel_status
+
+    def _patched(name, config):
+        st = real(name, config)
+        if name == "notion":
+            return {**st, "bound": False}
+        return st
+
+    monkeypatch.setattr(binding_status, "get_channel_status", _patched)
+    html = client.get("/batch-campaign").data.decode("utf-8")
+    ext = html[html.index('id="campaign-ext-area"'):]
+    assert 'id="extplat-notion"' in ext, "unbound notion must fold into 拓展区"
+    assert "/settings#section-channels" in ext, "extension must link to binding page"
+    # An unbound non-anon platform must not be a selectable publish checkbox.
+    assert not re.search(r'name="platforms"\s+value="notion"', html)
+
+
+def test_batch_campaign_expired_platform_in_main_with_reconnect(client, monkeypatch):
+    """R2: an expired browser channel stays in the main picker area, disabled,
+    with a 需重連 marker — not folded away and not selectable.
+    """
+    from webui_app import binding_status
+    from webui_store import channel_status
+
+    real = binding_status.get_channel_status
+
+    def _patched(name, config):
+        st = real(name, config)
+        if name == "medium":
+            return {**st, "bound": False}
+        return st
+
+    monkeypatch.setattr(binding_status, "get_channel_status", _patched)
+    monkeypatch.setattr(
+        channel_status, "list_all", lambda: {"medium": {"status": "expired"}}
+    )
+    html = client.get("/batch-campaign").data.decode("utf-8")
+    main = html[:html.index('id="campaign-ext-area"')]
+    assert "需重連" in main
+    assert 'id="plat-medium"' in main, "expired medium must render in main area"
+    assert not re.search(r'name="platforms"\s+value="medium"', html), (
+        "expired medium must not be a selectable publish checkbox"
+    )
+
+
+def test_batch_campaign_post_error_preserves_partition(client):
+    """The POST validation-error re-render still shows the partitioned picker."""
+    resp = client.post("/batch-campaign", data={
+        "seeds": "",  # triggers a validation error
+        "platforms": ["telegraph"],
+        "mode": "draft",
+    })
+    assert resp.status_code == 422
+    html = resp.data.decode("utf-8")
+    assert "拓展區" in html
+    assert 'id="campaign-ext-area"' in html
 
 
 # ── batch_campaign route — POST ────────────────────────────────────────────────

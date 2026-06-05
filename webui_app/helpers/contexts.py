@@ -207,21 +207,26 @@ def _settings_context(flash=None):
     except Exception:
         dashboard_channels = []
 
-    # Plan 2026-05-29-003 Unit 2 — pre-group the overview channels into
-    # automation tiers for the settings overview panel. Rendering must never
-    # fail because grouping failed: fall back to [] (template renders no groups).
+    # Plan 2026-06-05-007 — partition the overview channels by connection state
+    # into a main area (usable: bound + anon + needs-reconnect) and a folded
+    # extension area (never-connected). Merges the channel_status lifecycle
+    # (expired / identity_mismatch, browser channels only) so failed bindings
+    # stay visible in main. Rendering must never fail because partitioning
+    # failed: fall back to None (template renders no partition).
     try:
-        from .channel_tiers import group_channels_by_tier
-        dashboard_channel_tiers = group_channels_by_tier(dashboard_channels)
+        from .channel_tiers import partition_channels_by_connection
+        dashboard_partition = partition_channels_by_connection(
+            dashboard_channels, channel_statuses
+        )
     except Exception:
-        dashboard_channel_tiers = []
+        dashboard_partition = None
 
     return dict(
         flash=flash,
         active_page='settings',
         csrf_token=csrf_token,
         dashboard_channels=dashboard_channels,
-        dashboard_channel_tiers=dashboard_channel_tiers,
+        dashboard_partition=dashboard_partition,
         medium_browser_status=_get_medium_browser_status(cfg, session=_flask_session),
         blogger_token=bool(token_data),
         blogger_client_id=cfg.blogger_oauth.client_id if cfg.blogger_oauth else "",

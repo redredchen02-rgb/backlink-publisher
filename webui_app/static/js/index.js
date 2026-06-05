@@ -31,6 +31,15 @@ const CLICK_ACTIONS = {
     const tagsEl = document.getElementsByName('custom_tags')[0];
     if (tagsEl) tagsEl.value += el.dataset.tag + ',';
   },
+  // Pro Mode activation nudge dismiss (plan 2026-06-05-003 U4). Hide + persist
+  // a state-keyed flag so the nudge stays gone for this state but reappears if
+  // the Pro state regresses (e.g. unconfigured → gen-off).
+  'pro-nudge-dismiss': () => {
+    const nudge = document.getElementById('pro-activation-nudge');
+    if (!nudge) return;
+    nudge.style.display = 'none';
+    try { localStorage.setItem('proNudgeDismissed', nudge.dataset.nudgeState || '1'); } catch (_) {}
+  },
 };
 const CHANGE_ACTIONS = {
   'load-profile': (e, el) => cf.loadProfile(el.value),
@@ -251,6 +260,19 @@ function _initFlashDismiss() {
   });
 }
 
+// ── Pro Mode activation nudge (U4) ───────────────────────────────
+function _initProNudge() {
+  const nudge = document.getElementById('pro-activation-nudge');
+  if (!nudge) return;
+  try {
+    // Hide only if previously dismissed for the *same* state; a regressed
+    // state writes a different key, so the nudge reappears.
+    if (localStorage.getItem('proNudgeDismissed') === (nudge.dataset.nudgeState || '1')) {
+      nudge.style.display = 'none';
+    }
+  } catch (_) { /* localStorage unavailable — show the nudge */ }
+}
+
 // ── boot ─────────────────────────────────────────────────────────
 function _boot() {
   _initActions();
@@ -260,6 +282,7 @@ function _boot() {
   _initUrlDerive();
   initModeToggle();
   _initFlashDismiss();
+  _initProNudge();
 }
 
 if (document.readyState === 'loading') on(document, 'DOMContentLoaded', _boot); else _boot();
