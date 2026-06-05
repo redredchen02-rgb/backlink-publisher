@@ -96,6 +96,20 @@ def test_happy_path_current_api_schema():
         result = RentryAPIAdapter().publish(_payload(), "publish", MagicMock())
     assert isinstance(result, AdapterResult)
     assert result.published_url == "https://rentry.co/noom4zt8"
+    # edit_code is the only credential that can delete the paste later; it must
+    # be stashed in _provider_meta for canary-seed cleanup.
+    assert result._provider_meta == {"edit_code": "75eymTRz"}
+
+
+def test_edit_code_absent_leaves_provider_meta_none():
+    """No edit_code in response → no provider_meta (no spurious empty dict)."""
+    post = MagicMock()
+    post.status_code = 200
+    post.json.return_value = {"status": "200", "url": "https://rentry.co/x", "url_short": "x"}
+    post.text = ""
+    with patch(_GET, return_value=_home_ok()), patch(_POST, return_value=post):
+        result = RentryAPIAdapter().publish(_payload(), "publish", MagicMock())
+    assert result._provider_meta is None
 
 
 class TestRegistration:
