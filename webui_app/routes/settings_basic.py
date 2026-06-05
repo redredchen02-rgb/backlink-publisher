@@ -69,6 +69,14 @@ def api_channel_verify(channel: str):
     _require_known_channel(channel)
     config = _g_cache('config', load_config)
     result = verify_adapter_setup(channel, config, mode='live')
+    # Plan 2026-06-05-008: persist the credential verdict so an expired token
+    # surfaces as needs-reconnect (plan-007 partition) across reloads. Only
+    # token_expired/ok mutate state. Never let a store hiccup break verify.
+    try:
+        from webui_store import verify_health
+        verify_health.record(channel, result.last_verify_result)
+    except Exception:
+        pass
     return jsonify(_verify_result_to_json(result))
 
 
