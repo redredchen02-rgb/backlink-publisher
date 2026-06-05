@@ -502,13 +502,15 @@ class TestErrorPaths:
         with mock.patch(
             "backlink_publisher.publishing.adapters.config_driven.submit_form",
             return_value=resp,
-        ):
-            with mock.patch(
-                "backlink_publisher.publishing.adapters.config_driven.time.sleep"
-            ) as msleep:
-                adapter.publish(
-                    _PAYLOAD, mode="publish", config=_FakeConfig()
-                )
+        ), mock.patch(
+            "backlink_publisher.publishing.adapters.config_driven.attach_link_verification",
+            return_value=None,
+        ), mock.patch(
+            "backlink_publisher.publishing.adapters.config_driven.time.sleep"
+        ) as msleep:
+            adapter.publish(
+                _PAYLOAD, mode="publish", config=_FakeConfig()
+            )
         msleep.assert_called_once_with(0.01)
 
     def test_adapter_available_always_true(self, adapter_form):
