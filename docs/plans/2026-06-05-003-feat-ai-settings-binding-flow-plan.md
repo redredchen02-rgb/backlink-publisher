@@ -1,7 +1,7 @@
 ---
 title: "feat: Fix AI settings binding UX flow (AI 全文生成 / AI 封面图)"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 ---
 
