@@ -80,8 +80,8 @@ rationale = "spray-backlinks CLI entry point: orchestrates seed expansion, gate 
 # rationale update.
 
 [test_files."tests/test_webui_route_contract.py"]
-ceiling = 1140
-rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes (4 new tests: GET /ce:command-center, POST gap-closure trigger, GET /jobs, GET /job/<id>) plus publish-chain and unlock-weight coverage. Decompose parametrize tables into shared helpers when a new route makes this file grow further."
+ceiling = 1148
+rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes, then 1140→1148 for the survival-dashboard route (GET /survival-dashboard, plan 2026-06-05-008 R5 — the contract gate requires a client.get in this file). Decompose parametrize tables into shared helpers when a new route makes this file grow further."
 
 [test_files."tests/test_cli_generate_backlink_text.py"]
 ceiling = 1070
