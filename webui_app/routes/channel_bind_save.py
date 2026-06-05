@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 _log = logging.getLogger(__name__)
 
@@ -47,6 +48,19 @@ _SKIP_CHANNELS: frozenset[str] = frozenset({"devto", "ghpages", "notion"})
 
 # URL fields that must pass SSRF validation (must be https, non-private).
 _URL_FIELDS: frozenset[str] = frozenset({"site", "site_url"})
+
+# Domain-fragment fields validated per-channel (hostname format, not full URL).
+# Per-channel dict avoids cross-channel pollution — a "blog_id" in another
+# channel may carry different semantics.
+_BLOG_ID_FIELDS: dict[str, frozenset[str]] = {
+    "hatena": frozenset({"blog_id"}),
+}
+
+_HOSTNAME_RE = re.compile(
+    r"^[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?"
+    r"(\.[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?)*"
+    r"\.[A-Za-z]{2,}$"
+)
 
 
 @bp.route("/settings/save-channel-credential", methods=["POST"])
@@ -211,6 +225,10 @@ def _save_token_fields(channel: str, is_clear: bool):
     for field_name, val in data.items():
         if field_name in _URL_FIELDS:
             err = _validate_url_field(channel, field_name, val)
+            if err:
+                return err
+        if field_name in _BLOG_ID_FIELDS.get(channel, frozenset()):
+            err = _validate_blog_id_field(channel, field_name, val)
             if err:
                 return err
 
@@ -392,6 +410,21 @@ def _validate_url_field(channel: str, field_name: str, val: str):
         return _safe_flash_redirect(
             "/settings", flash_type="danger",
             msg=f"{channel} {field_name} 地址被拒绝（安全校验）",
+            fragment=f"channel-{channel}",
+        )
+    return None
+
+
+def _validate_blog_id_field(channel: str, field_name: str, val: str):
+    """Validate a domain-fragment field (hostname, not a full URL).
+
+    Accepts valid hostnames (e.g. yourname.hatenablog.com, myblog.example.jp).
+    Rejects path traversal, IP addresses, and values containing URL metacharacters.
+    """
+    if not _HOSTNAME_RE.match(val):
+        return _safe_flash_redirect(
+            "/settings", flash_type="danger",
+            msg=f"{channel} {field_name} 格式无效（须为合法域名，如 yourname.hatenablog.com）",
             fragment=f"channel-{channel}",
         )
     return None

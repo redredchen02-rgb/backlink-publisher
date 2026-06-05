@@ -648,3 +648,98 @@ def test_anon_save_returns_info(client):
     resp = _post(client, {"channel": "telegraph", "auth_type": "anon"}, csrf=csrf)
     assert resp.status_code == 302
     assert "info" in resp.headers["Location"]
+
+
+# ---------------------------------------------------------------------------
+# blog_id domain-format validation (plan 014)
+# ---------------------------------------------------------------------------
+
+
+def test_hatena_blog_id_valid_hostname_accepted(client, tmp_path, monkeypatch):
+    """Valid Hatena blog_id hostname is accepted and credential file is written."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "testuser",
+        "blog_id": "testuser.hatenablog.com",
+        "api_key": "abc123",
+    }, csrf=csrf)
+    assert resp.status_code == 302
+    assert "danger" not in resp.headers["Location"]
+    assert (config_dir / "hatena-credentials.json").exists()
+
+
+@pytest.mark.parametrize("bad_blog_id", [
+    "../../evil.example.com",
+    "192.168.1.1",
+    "127.0.0.1",
+    "https://blog.example.com",
+    "hatena.ne.jp/attack",
+    "nodots",
+    "user@host.com",
+    "../relative",
+])
+def test_hatena_blog_id_invalid_format_rejected(client, bad_blog_id):
+    """Malformed blog_id values must be rejected with a danger flash; no credential written."""
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "u",
+        "blog_id": bad_blog_id,
+        "api_key": "k",
+    }, csrf=csrf)
+    assert resp.status_code == 302
+    assert "danger" in resp.headers["Location"]
+
+
+def test_hatena_blog_id_empty_is_leave_as_is(client, tmp_path, monkeypatch):
+    """Empty blog_id is skipped (leave-as-is); validation gate is not triggered."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "u",
+        "blog_id": "",
+        "api_key": "k",
+    }, csrf=csrf)
+    assert resp.status_code == 302
+    assert "danger" not in resp.headers["Location"]
+
+
+def test_hatena_blog_id_custom_domain_accepted(client, tmp_path, monkeypatch):
+    """Custom-domain blog_id (non-hatenablog.com) must also pass validation."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "u",
+        "blog_id": "myblog.custom-domain.jp",
+        "api_key": "k",
+    }, csrf=csrf)
+    assert resp.status_code == 302
+    assert "danger" not in resp.headers["Location"]
+
+
+def test_blog_id_validation_does_not_affect_other_channels(client, tmp_path, monkeypatch):
+    """tumblr's blog_identifier field is not subject to hatena blog_id validation."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "tumblr", "auth_type": "token_fields",
+        "consumer_key": "ck",
+        "consumer_secret": "cs",
+        "oauth_token": "ot",
+        "oauth_token_secret": "ots",
+        "blog_identifier": "yourblog.tumblr.com",
+    }, csrf=csrf)
+    assert resp.status_code == 302
+    assert "danger" not in resp.headers["Location"]
