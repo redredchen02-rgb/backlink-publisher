@@ -59,9 +59,9 @@ def test_csrf_guard_runs_first_before_lite_gate():
     # AFTER it: a 404-only denial is order-independent for security, and putting
     # it first would displace the CSRF guard (the bug this branch's review found).
     #
-    # NOTE the honest limit: the Origin/Referer guard (_check_bind_origin_or_abort)
-    # is per-route OPT-IN, not app-level — Units 5/7's future start-recheck /
-    # start-republish POSTs must call it explicitly; nothing here enforces that.
+    # The app-level _global_origin_guard (R6 follow-up, registered after the CSRF
+    # guard) now covers every mutating verb — see test_webui_lite_origin_guard_coverage.py
+    # for full-coverage assertions including hook-ordering and per-route 403 probes.
     from webui_app import create_app
 
     app = create_app()

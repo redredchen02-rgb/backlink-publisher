@@ -125,7 +125,8 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 64  # routes with CSRF but no Origin guard as of 2026-06-05
+_CSRF_ONLY_SNAPSHOT_COUNT = 65  # routes with CSRF but no inline Origin guard as of 2026-06-05
+# +1: /settings/test-image-gen added in feat(image-gen) b44040d; covered by _global_origin_guard.
 
 
 def test_csrf_only_route_count_snapshot(app):

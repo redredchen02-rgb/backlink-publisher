@@ -1,12 +1,12 @@
 """HistoryStore — publish-history specialised store (Plan 2026-05-28-007 U6).
 
 Hybrid mode:
-- When ``path`` is given (tests, singleton shim): JSON-file backed, identical
-  to the pre-U6 JsonStore behaviour.  All bulk helpers (bulk_delete,
+- When ``path`` is given (tests and production singleton): JSON-file backed,
+  identical to the pre-U6 JsonStore behaviour.  All bulk helpers (bulk_delete,
   bulk_update, purge_by_status, delete_item) operate on the JSON file.
-- When ``path`` is None (production singleton): reads delegate to events.db
-  via ``history_query``; writes are no-ops (dual-write handled by
-  ``publish_writer``).
+- When ``path`` is None (legacy no-op shim): reads delegate to events.db via
+  ``history_query``; writes are no-ops.  Kept for compatibility with callers
+  that construct ``HistoryStore()`` without a path; not used by the singleton.
 """
 
 from __future__ import annotations
