@@ -2,7 +2,7 @@
 date: 2026-06-05
 plan_id: 2026-06-05-006
 title: Reliability-config consolidation + anchor ko-ratio calibration + llm-settings perm migration
-status: active
+status: completed
 source_ideation: docs/ideation/2026-06-05-backlog-convergence-ideation.md (idea #5 bundle)
 claims: {}
 ---

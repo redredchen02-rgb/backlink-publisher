@@ -1,7 +1,7 @@
 ---
 title: "feat: Per-link liveness drill-down drawer under the channel scorecard"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 deepened: 2026-06-05
 origin: docs/brainstorms/2026-06-05-backlink-liveness-tracking-loop-requirements.md
