@@ -2,8 +2,8 @@
 
 Renders the same rows the ``equity-ledger`` CLI emits, from the same in-process
 ``ledger.build_ledger`` engine (no subprocess, no recomputation divergence).
-GET is read-only; the on-demand recheck POST (U6) is the only mutation.
-Plan 2026-05-25-004.
+GET is read-only; on-demand recheck POST (U6), Fill Gaps (U4), and batch
+recheck (U5) are the mutation endpoints. Plan 2026-05-25-004 + 2026-06-05-001.
 """
 
 from __future__ import annotations
@@ -15,6 +15,10 @@ from flask import Blueprint, jsonify, request
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.config import load_config
 from backlink_publisher.ledger import build_ledger
+from backlink_publisher.publishing.registry import (
+    dofollow_status,
+    registered_platforms,
+)
 
 from ..helpers._request_cache import _g_cache
 from ..helpers.contexts import _render
@@ -25,6 +29,19 @@ _STALE_DAYS_DEFAULT: int = 30
 
 # _outcome (from recheck_one) → delta-summary bucket.
 _OUTCOME_LABELS = {"confirmed": "confirmed", "downgraded": "failed", "skipped": "skipped"}
+
+
+def _active_dofollow_platforms() -> list[str]:
+    return sorted(
+        name for name in registered_platforms()
+        if dofollow_status(name) is True
+    )
+
+
+def _compute_missing(row: dict) -> list[str]:
+    live = set(row.get("live_dofollow_platforms") or [])
+    all_dofollow = _active_dofollow_platforms()
+    return [p for p in all_dofollow if p not in live]
 
 
 def _resolve_stale_days() -> int:
@@ -41,6 +58,8 @@ def equity_ledger():
     cfg = _g_cache('config', load_config)
     rows = [row.to_jsonl_dict() for row in build_ledger(stale_days=stale_days)]
     stale_count = sum(1 for r in rows if r["liveness"] in ("stale", "failed"))
+    for r in rows:
+        r["missing_dofollow_platforms"] = _compute_missing(r)
     return _render(
         "equity_ledger.html",
         rows=rows,

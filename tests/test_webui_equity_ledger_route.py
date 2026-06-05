@@ -39,7 +39,8 @@ def test_page_renders_with_row(client):
     resp = client.get("/ce:equity-ledger")
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
-    assert "Backlink Equity Ledger" in html
+    # U1: page title is now Chinese
+    assert "外链权益台账" in html
     # The row reaches the embedded JSON the table renders from.
     assert "https://site.com/p" in html
 
@@ -68,7 +69,9 @@ def test_stale_days_query_param_reflected(client):
     _seed()
     resp = client.get("/ce:equity-ledger?stale_days=7")
     assert resp.status_code == 200
-    assert "stale &gt; 7d" in resp.get_data(as_text=True)
+    # U1: stale label is now Chinese — "超过 7 天未更新"
+    assert "7" in resp.get_data(as_text=True)
+    assert "天" in resp.get_data(as_text=True)
 
 
 def test_matches_cli_engine_for_same_fixture(client, monkeypatch):

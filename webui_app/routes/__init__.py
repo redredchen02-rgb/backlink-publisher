@@ -36,6 +36,8 @@ def register_blueprints(app: Flask) -> None:
     from .batch_campaign import bp as batch_campaign_bp
     from .campaign_progress import bp as campaign_progress_bp
     from .keep_alive import bp as keep_alive_bp
+    from .equity_gap import bp as equity_gap_bp
+    from .equity_batch_recheck import bp as equity_batch_recheck_bp
 
     for bp in (main_bp, pipeline_bp, batch_bp, checkpoint_bp,
                history_bp, drafts_bp, settings_basic_bp, llm_bp, oauth_bp,
@@ -44,5 +46,6 @@ def register_blueprints(app: Flask) -> None:
                seo_viz_bp, equity_ledger_bp, health_bp, health_actions_bp,
                channel_bind_save_bp,
                copilot_bp, schedule_bp, pr_queue_bp, metrics_bp,
-               batch_campaign_bp, campaign_progress_bp, keep_alive_bp):
+               batch_campaign_bp, campaign_progress_bp, keep_alive_bp,
+               equity_gap_bp, equity_batch_recheck_bp):
         app.register_blueprint(bp)

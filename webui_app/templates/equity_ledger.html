@@ -2,8 +2,8 @@
 {# Equity ledger — base layout + ES module (Plan 2026-06-01-007 Unit 5).
    <head>/Bootstrap/csrf-meta come from base.html. The inline data island
    ({{ rows|tojson }} …) + render/recheck engine moved to equity.js, fed by the
-   read-once window.__equityLedgerBootstrap seam. #}
-{% block title %}Backlink Equity Ledger{% endblock %}
+   read-once window.__equityLedgerBootstrap seam. U1: Chinese UI + stats bar. #}
+{% block title %}外链权益台账{% endblock %}
 {% block head_extra %}
   <style>
     body { background-color: var(--bs-light, #f8f9fa); }
@@ -12,32 +12,69 @@
     th[data-sort]:hover { background: rgba(0,0,0,.04); }
     .detail-row > td { background: #fbfbfd; }
     .matrix td, .matrix th { padding: 2px 10px; font-size: 12px; }
-    .row-weak { box-shadow: inset 3px 0 0 #f59e0b; }   /* 0 live-dofollow */
+    .row-weak { box-shadow: inset 3px 0 0 #f59e0b; }
+    /* Summary stats bar */
+    #statsBar { margin-bottom: 12px; }
+    .stat-item { text-align: center; padding: 6px 14px; border-radius: 10px; background: #f8f9fa; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
+    .stat-label { font-size: 0.75rem; color: #6b7280; white-space: nowrap; }
+    .stat-weak .stat-value { color: var(--warning); }
+    .stat-healthy .stat-value { color: var(--success); }
+    .stat-total .stat-value { color: var(--primary); }
+    .stat-live .stat-value { color: var(--info); }
+    /* Platform badges */
+    .platform-badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; margin: 1px 2px; white-space: nowrap; }
+    .platform-badge.live { background: #d1fae5; color: #065f46; }
+    .platform-badge.stale { background: #fef3c7; color: #92400e; }
+    .platform-badge.missing { background: #e5e7eb; color: #6b7280; }
+    .gap-line { font-size: 12px; color: var(--danger); margin-top: 4px; }
+    /* Filter presets */
+    .preset-chip { cursor: pointer; user-select: none; }
+    /* Batch action bar */
+    .batch-bar { background: #f0f4ff; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
   </style>
 {% endblock %}
 {% block content %}
 <nav class="navbar bg-white border-bottom px-3">
-  <span class="navbar-brand mb-0 h1"><i class="bi bi-graph-up-arrow me-2"></i>Backlink Equity Ledger</span>
+  <span class="navbar-brand mb-0 h1"><i class="bi bi-graph-up-arrow me-2"></i>外链权益台账</span>
   <div class="d-flex align-items-center gap-2">
     <span id="staleBadge" class="badge text-bg-warning {% if stale_count == 0 %}d-none{% endif %}">
-      <i class="bi bi-clock-history"></i> {{ stale_count }} stale/failed
+      <i class="bi bi-clock-history"></i> {{ stale_count }} 待更新/失败
     </span>
-    <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> Home</a>
+    <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> 首页</a>
   </div>
 </nav>
 
 <main class="container-fluid py-3">
+  {# U1: Summary stats bar #}
+  <div id="statsBar" class="d-none"><div class="d-flex flex-wrap gap-2" id="statsInner"></div></div>
+
   <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-    <select id="livenessFilter" class="form-select form-select-sm" style="width:auto" aria-label="Filter by liveness">
-      <option value="all">All liveness</option>
-      <option value="has-failed">Has failed</option>
-      <option value="has-stale">Has stale</option>
-      <option value="live">Live</option>
-      <option value="unverified">Unverified</option>
+    {# U3: Preset filter chips #}
+    <div class="d-flex gap-1 flex-wrap" id="presetFilters">
+      <span class="filter-chip preset-chip active" data-preset="all">全部 <span class="chip-count" id="pcAll">0</span></span>
+      <span class="filter-chip preset-chip" data-preset="needs-attention">需关注 <span class="chip-count" id="pcNeeds">0</span></span>
+      <span class="filter-chip preset-chip" data-preset="weak">全部弱 <span class="chip-count" id="pcWeak">0</span></span>
+      <span class="filter-chip preset-chip" data-preset="healthy">健康 <span class="chip-count" id="pcHealthy">0</span></span>
+    </div>
+    <select id="livenessFilter" class="form-select form-select-sm" style="width:auto" aria-label="按活跃度筛选">
+      <option value="all">所有状态</option>
+      <option value="has-failed">有失败</option>
+      <option value="has-stale">有待更新</option>
+      <option value="live">活跃</option>
+      <option value="unverified">未验证</option>
     </select>
     <input id="urlFilter" type="search" class="form-control form-control-sm" style="width:240px"
-           placeholder="Filter target URL…" aria-label="Filter target URL">
-    <span class="text-muted small ms-auto">stale &gt; {{ stale_days }}d · sorted by weakest first</span>
+           placeholder="搜索目标 URL…" aria-label="搜索目标 URL">
+    <span class="text-muted small ms-auto">超过 {{ stale_days }} 天未更新 · 按最弱优先</span>
+  </div>
+
+  <div id="batchBar" class="batch-bar d-none d-flex gap-2 align-items-center">
+    <span class="small fw-semibold text-muted me-1">批量操作：</span>
+    <button class="btn btn-sm btn-outline-warning" id="batchRecheckWeak">重新检查全部弱目标</button>
+    <button class="btn btn-sm btn-outline-secondary" id="batchRecheckStale">重新检查待更新/失败</button>
+    <button class="btn btn-sm btn-outline-primary" id="batchRecheckAll">重新检查所有可见</button>
+    <span id="batchProgress" class="small text-muted ms-2 d-none"><span class="spinner-border spinner-border-sm me-1"></span><span id="batchProgressText">处理中…</span></span>
   </div>
 
   <div id="emptyState" class="text-center text-muted py-5 d-none"></div>
@@ -47,13 +84,13 @@
       <thead class="table-light">
         <tr>
           <th></th>
-          <th data-sort="target_url">Target</th>
-          <th data-sort="live_links" class="text-end">Live / Total</th>
-          <th data-sort="live_dofollow" class="text-end">Live dofollow</th>
-          <th class="text-end">Dofollow mix</th>
-          <th data-sort="exact_match_pct" class="text-end">Exact-match</th>
-          <th data-sort="platform_count" class="text-end">Platforms</th>
-          <th data-sort="liveness">Liveness</th>
+          <th data-sort="target_url">目标</th>
+          <th data-sort="live_links" class="text-end">有效/总计</th>
+          <th data-sort="live_dofollow" class="text-end">有效 dofollow</th>
+          <th class="text-end">Dofollow 构成</th>
+          <th data-sort="exact_match_pct" class="text-end">精确匹配</th>
+          <th data-sort="platform_count" class="text-end">平台</th>
+          <th data-sort="liveness">活跃度</th>
           <th></th>
         </tr>
       </thead>
