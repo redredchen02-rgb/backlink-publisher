@@ -48,6 +48,18 @@ def test_seeded_channel_appears_with_declared_signal(client):
     assert "dofollow" in body  # medium's declared dofollow status renders
 
 
+def test_per_link_drawer_scaffolding_present(client):
+    # U3: each channel row carries an expand control + a sibling detail row with a
+    # data-channel drawer container; the scorecard.js module is loaded.
+    body = client.get("/ce:health").get_data(as_text=True)
+    assert 'data-action="scorecard-expand"' in body
+    assert "scorecard-drawer" in body
+    assert 'colspan="7"' in body  # detail row spans the 7-column table
+    assert "js/scorecard.js" in body
+    # The per-link vs per-target explanation (two-truths framing) is shown.
+    assert "per-link" in body.lower()
+
+
 def test_card_fails_open_when_engine_raises(client, monkeypatch):
     # Fail-open: if the scorecard engine raises, the dashboard must not 500.
     import backlink_publisher.scorecard as sc

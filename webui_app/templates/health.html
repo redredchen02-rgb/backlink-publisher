@@ -246,8 +246,10 @@
         </thead>
         <tbody>
           {% for c in scorecard_rows %}
-          <tr>
+          <tr data-channel="{{ c.channel }}">
             <td class="target-cell">
+              <button class="btn btn-sm btn-link p-0 me-1 scorecard-expand" data-action="scorecard-expand"
+                      aria-expanded="false" title="per-link liveness"><i class="bi bi-chevron-right"></i></button>
               {{ c.channel }}
               {% if c.small_sample %}<span class="badge text-bg-secondary" title="low sample is not zero value">insufficient data</span>{% endif %}
               {% for d in c.divergence %}<span class="badge text-bg-warning" title="declared vs measured divergence">{{ d }}</span>{% endfor %}
@@ -259,6 +261,11 @@
             <td class="text-end">{{ c.live_dofollow }}</td>
             <td><span class="text-muted small" title="GA4/GSC/AI axes deferred (Wave-0 DESCOPE)">referral / discovery / AI: inert (not landed)</span></td>
           </tr>
+          <tr class="detail-row d-none">
+            <td colspan="7" class="bg-light">
+              <div class="scorecard-drawer small" data-channel="{{ c.channel }}" aria-live="polite"></div>
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -267,6 +274,10 @@
       Signal vector — no composite score. Realized-value axes (GA4 referral, GSC discovery, AI
       retrievability) are deferred until owned-target placement volume grows. Advisory only; nothing
       here gates publishing.
+      <span class="d-block mt-1">Expand a channel for its <strong>per-link</strong> liveness (each
+      link's current verdict). Platform-level survival is the aggregate row above; a single stripped
+      link can sit under a still-live platform — these are two correct granularities, not a conflict.
+      Shows only links that have been rechecked.</span>
     </div>
     {% else %}
     <div class="card-body text-muted text-center py-4">No channels to score yet.</div>
@@ -512,4 +523,5 @@
 {% endblock %}
 {% block page_module %}
 <script type="module" src="{{ url_for('static', filename='js/health.js', v=asset_version) }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/scorecard.js', v=asset_version) }}"></script>
 {% endblock %}
