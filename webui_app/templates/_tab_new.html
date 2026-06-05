@@ -40,6 +40,16 @@
             {% endfor %}
         </div>
 
+        {% if cur_step > 1 %}
+        <a class="wizard-chip" href="#wizardStep1Body" data-bs-toggle="collapse" aria-expanded="false">
+          <i class="bi bi-check-circle-fill wizard-chip-check"></i>
+          <span class="wizard-chip-label">① 输入网址</span>
+          <span class="wizard-chip-sep">·</span>
+          <span class="wizard-chip-summary">{{ config.target_url }}</span>
+          <i class="bi bi-chevron-down wizard-chip-toggle"></i>
+        </a>
+        {% endif %}
+        <div class="collapse {% if cur_step <= 1 %}show{% endif %}" id="wizardStep1Body">
         <div class="card">
             <div class="card-header">
                 <i class="bi bi-globe2 me-2"></i>输入目标网站连结
@@ -97,8 +107,19 @@
                 </form>
             </div>
         </div>
-        
+        </div>{# /wizardStep1Body #}
+
         {% if config %}
+        {% if cur_step > 2 %}
+        <a class="wizard-chip" href="#wizardStep2Body" data-bs-toggle="collapse" aria-expanded="false">
+          <i class="bi bi-check-circle-fill wizard-chip-check"></i>
+          <span class="wizard-chip-label">② 配置参数</span>
+          <span class="wizard-chip-sep">·</span>
+          <span class="wizard-chip-summary">{{ config.platform }} · {{ config.language }}{% if config.publish_mode == 'draft' %} · 草稿{% elif config.publish_mode == 'publish' %} · 正式发布{% endif %}</span>
+          <i class="bi bi-chevron-down wizard-chip-toggle"></i>
+        </a>
+        {% endif %}
+        <div class="collapse {% if cur_step <= 2 %}show{% endif %}" id="wizardStep2Body">
         <div class="card">
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                 <span><i class="bi bi-gear me-2"></i>配置参数</span>
@@ -174,9 +195,20 @@
                 </form>
             </div>
         </div>
+        </div>{# /wizardStep2Body #}
         {% endif %}
-        
+
         {% if plans %}
+        {% if cur_step > 3 %}
+        <a class="wizard-chip" href="#wizardStep3Body" data-bs-toggle="collapse" aria-expanded="false">
+          <i class="bi bi-check-circle-fill wizard-chip-check"></i>
+          <span class="wizard-chip-label">③ 文章预览</span>
+          <span class="wizard-chip-sep">·</span>
+          <span class="wizard-chip-summary">{{ plans_list | default([]) | length }} 篇已生成</span>
+          <i class="bi bi-chevron-down wizard-chip-toggle"></i>
+        </a>
+        {% endif %}
+        <div class="collapse {% if cur_step <= 3 %}show{% endif %}" id="wizardStep3Body">
         <div class="card">
             <div class="card-header">
                 <i class="bi bi-check-circle me-2"></i>生成完成 - 预览
@@ -321,8 +353,9 @@
                 </div>
             </div>
         </div>
+        </div>{# /wizardStep3Body #}
         {% endif %}
-        
+
         {% if validated %}
         <div class="card">
             <div class="card-header">
