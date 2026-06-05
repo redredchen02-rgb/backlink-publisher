@@ -59,6 +59,10 @@ class HistoryAPI:
         target_url = (normalized.get("target_url") or "").strip()
         if not target_url:
             normalized["target_url"] = article_urls[0] if article_urls else "unknown"
+        # Centralised no-signal default: legacy rows with no captured verdict
+        # read "unverified" (amber), never a misleading green/red.
+        if not normalized.get("target_dofollow"):
+            normalized["target_dofollow"] = "unverified"
         return normalized
 
     @staticmethod

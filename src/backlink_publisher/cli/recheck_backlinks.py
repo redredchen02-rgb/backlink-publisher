@@ -91,7 +91,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--limit", type=int, metavar="N",
-        help="cap candidates this run (in addition to the built-in per-run cap)",
+        help="cap candidates this run, overriding the built-in per-run cap "
+             "(may raise it for the weekly all-due-links sweep; the probe-batch "
+             "wall-clock budget remains the real bound)",
     )
     from backlink_publisher._util.profiling import add_profile_arg
     add_profile_arg(parser)

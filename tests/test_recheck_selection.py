@@ -102,6 +102,35 @@ def test_filters_host_since_runid_limit(store):
     assert len(limited) == 1
 
 
+def test_limit_overrides_cap_to_widen_weekly_coverage(store):
+    """R4: --limit overrides the built-in per-run cap so the weekly sweep can
+    cover more than DEFAULT_CAP (50) due links in one run (oldest-first)."""
+    for i in range(1, 61):  # 60 never-checked links, days_ago = 1..60
+        _confirm(store, i, f"https://medium.com/{i}", days_ago=i)
+
+    # Default cap truncates at 50 ...
+    default_run = select_candidates(store, now=NOW)
+    assert len(default_run) == 50
+    # ... while a high --limit widens coverage past the cap.
+    widened = select_candidates(store, now=NOW, limit=55)
+    assert len(widened) == 55
+    # Oldest-publish-first regardless of cap (never-checked all eligible).
+    assert widened[0]["article_id"] == 60  # oldest publish
+    assert widened[-1]["article_id"] == 6
+
+
+def test_starvation_never_checked_sort_ahead_of_recently_definitive(store):
+    """R4 coverage honesty: with a corpus larger than one run's cap, never-checked
+    links sort ahead of recently-definitively-checked ones, so a small cap never
+    permanently starves a fresh link in favour of a re-check."""
+    # 1: never checked, published recently. 2: checked long ago (due again).
+    _confirm(store, 1, "https://medium.com/new", days_ago=5)
+    _confirm(store, 2, "https://medium.com/old", days_ago=60)
+    _recheck(store, 2, verdicts.ALIVE, days_ago=20)  # definitive, but > age threshold
+    got = select_candidates(store, now=NOW, limit=1)
+    assert [c["article_id"] for c in got] == [1]  # never-checked wins the single slot
+
+
 def test_since_excludes_older_publishes(store):
     _confirm(store, 1, "https://medium.com/a", days_ago=5)
     _confirm(store, 2, "https://medium.com/b", days_ago=40)

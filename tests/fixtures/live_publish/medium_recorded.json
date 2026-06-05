@@ -1,0 +1,9 @@
+{
+  "status": "published",
+  "adapter": "medium-api",
+  "platform": "medium",
+  "published_url": "https://medium.com/@throwaway/sample-recorded-post-abc123",
+  "draft_url": "",
+  "target_url": "https://my.site/article",
+  "live_html_fixture": "medium_dofollow.html"
+}

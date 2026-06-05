@@ -11,6 +11,7 @@ import sys
 
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.optimization.rules import (
+    RULE_AGGREGATED_STATS,
     RULE_CANARY_DRIFT,
     RULE_RECHECK_SURVIVAL,
     apply_results,
@@ -31,7 +32,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--rule",
         type=str,
-        choices=[RULE_CANARY_DRIFT, RULE_RECHECK_SURVIVAL],
+        choices=[RULE_CANARY_DRIFT, RULE_RECHECK_SURVIVAL, RULE_AGGREGATED_STATS],
         default=None,
         help="Run a specific rule only (default: all enabled rules)",
     )

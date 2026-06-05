@@ -244,6 +244,18 @@
                                        {% if not item.article_urls %}data-no-urls="1"{% endif %}>
                                 <div style="flex:1;min-width:0;">
                                     <strong style="word-break:break-all;font-size:14px;">{{ item.target_url }}</strong>
+                                    {% set td = item.target_dofollow | default('unverified') %}
+                                    {# Per-target dofollow truth for the operator's own link — distinct
+                                       from the page-wide publish status badge on the right. #}
+                                    {% if td == 'dofollow' %}
+                                    <span class="status-badge success target-dofollow-badge" title="dofollow 正常" aria-label="本链接 dofollow 正常"><i class="bi bi-link-45deg"></i> dofollow</span>
+                                    {% elif td == 'dofollow_lost' %}
+                                    <span class="target-badge nofollow target-dofollow-badge" title="dofollow 已失效（rel=nofollow）" aria-label="本链接 dofollow 已失效"><i class="bi bi-link-45deg"></i> dofollow 已失效</span>
+                                    {% elif td == 'stripped' %}
+                                    <span class="status-badge error target-dofollow-badge" title="本链接已被移除" aria-label="本链接已被移除"><i class="bi bi-scissors"></i> 链接被移除</span>
+                                    {% else %}
+                                    <span class="status-badge unverified target-dofollow-badge" title="本链接 dofollow 状态未验证" aria-label="本链接未验证">未验证</span>
+                                    {% endif %}
                                     <br><small style="color:var(--secondary);">{{ item.created_at }}
                                     {% if item.platform %} · <i class="bi bi-broadcast"></i> {{ item.platform }}{% endif %}
                                     {% if item.language %} · {{ item.language }}{% endif %}

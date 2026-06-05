@@ -8,6 +8,8 @@ test names the expected pattern hit count rather than checking only
 from __future__ import annotations
 
 __tier__ = "unit"
+import pytest
+
 from backlink_publisher.events.scrubber import scrub_text
 
 #: Deterministic 64-char base64url token covering every symbol exactly once.
@@ -89,6 +91,38 @@ def test_google_api_key_redacted():
     cleaned, hits = scrub_text(text)
     assert key not in cleaned
     assert hits.get("google_api_key") == 1
+
+
+@pytest.mark.parametrize("text", [
+    "Set-Cookie: sessionid=abc12345xyz; Path=/",
+    "Cookie: sid=deadbeef99",
+    "Authorization: Basic dXNlcjpwYXNz",
+    "refresh_token=1a2b3c4d5e6f",
+    "csrf_token=a8Xk2Lp9mB",          # *_token suffix (regression: was missed)
+    "session_token=Qz4Rt7Yw99",       # *_token suffix (regression: was missed)
+    "X-CSRF-Token: a8Xk2Lp9mB",       # hyphenated header (regression: was missed)
+    "auth_token=abcdef123456",
+    '{"xsrf": "tok123456"}',
+])
+def test_session_class_secrets_redacted(text):
+    """R8: short session-class secrets (below the high-entropy floor) must be
+    caught by key-context matching, including *_token / hyphenated-header forms."""
+    cleaned, hits = scrub_text(text)
+    assert hits, f"session secret slipped through: {text!r}"
+    assert "<REDACTED>" in cleaned
+
+
+@pytest.mark.parametrize("text", [
+    "the session was active today",
+    "please log in again now",
+    "a normal sentence about cookies and sessions",
+])
+def test_session_words_in_prose_not_redacted(text):
+    """The session-secret patterns must not redact ordinary prose mentioning
+    'session'/'cookie' with no key=value secret shape."""
+    cleaned, hits = scrub_text(text)
+    assert hits == {}, f"false positive on prose: {text!r} → {hits}"
+    assert cleaned == text
 
 
 def test_google_api_key_ending_in_dash_redacted():

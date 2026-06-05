@@ -64,6 +64,43 @@ class TestHistoryUnverifiedRendering:
         assert "草稿·未核实" in body
 
 
+class TestTargetDofollowRendering:
+    """R6: per-target dofollow sub-badge renders the right value per verdict
+    state (assert the badge *value*, not just presence)."""
+
+    def _seed_and_render(self, client, target_dofollow):
+        history_store.save([
+            {"id": "x", "status": "published", "target_url": "https://my.site/",
+             "platform": "medium", "article_urls": ["https://x/"],
+             "created_at": "2026-05-19", "target_dofollow": target_dofollow},
+        ])
+        return client.get("/ce:history").data.decode("utf-8")
+
+    def test_dofollow_renders_green_ok(self, client):
+        body = self._seed_and_render(client, "dofollow")
+        assert "本链接 dofollow 正常" in body          # aria-label
+        assert "status-badge success target-dofollow-badge" in body
+
+    def test_dofollow_lost_renders_amber_not_alarm(self, client):
+        body = self._seed_and_render(client, "dofollow_lost")
+        assert "dofollow 已失效" in body
+        assert "target-badge nofollow" in body          # amber, not page-wide success
+
+    def test_stripped_renders_red(self, client):
+        body = self._seed_and_render(client, "stripped")
+        assert "链接被移除" in body
+        assert "status-badge error target-dofollow-badge" in body
+
+    def test_legacy_no_signal_defaults_unverified(self, client):
+        # No target_dofollow key at all → _normalize_item default → unverified.
+        history_store.save([
+            {"id": "y", "status": "published", "target_url": "https://my.site/",
+             "platform": "medium", "article_urls": ["https://x/"], "created_at": "2026-05-19"},
+        ])
+        body = client.get("/ce:history").data.decode("utf-8")
+        assert "本链接未验证" in body                    # amber neutral, not green/red
+
+
 class TestBulkActionBarRendering:
     def test_history_bulk_form_and_buttons_present(self, client):
         history_store.save([{"id": "a", "status": "published", "target_url": "https://t/",

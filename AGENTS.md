@@ -87,6 +87,20 @@ cat seeds.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --mode
 | `recheck-backlinks` | `cli/recheck_backlinks.py` | Post-publish survival re-probe: liveness / dofollow-drift / link-stripped over published backlinks → `link.rechecked` events + `/ce:health` decay banner. **Network gated behind `--probe` (default = zero-network dry preview).** Exit 0 by default (advisory); `--fail-on-dead` exits 6 only on deterministic dead (host_gone/link_stripped). `dofollow_lost` is advisory (cross-checked vs manifest dofollow truth, may be cloaked). Externally cron/remote-trigger driven; flock guards overlapping runs. Probe identity (preflight UA) is distinct from publish — keep recheck off the publish host's IP/cookies to avoid anti-bot reputation bleed. Runbook: `docs/operations/recheck-backlinks-runbook.md` |
 | `gate-probe` | `cli/gate_probe.py` (engines `gates/*`) | Phase-0 falsification gate (read-only premise probe): `--gate g2` (money-page silent-decay), `g3` (referer render-path audit + Tier-2 GA4 referral intake; static audit alone can KILL; credentials-unavailable → BLOCKED), `g5` (footprint-fingerprint survival re-fetch; anti-bot saturation → terminal INCONCLUSIVE). Emits one `GO`/`KILL`/`INCONCLUSIVE`/`BLOCKED` verdict JSONL on stdout for hand-curation into `docs/ideation/gate-verdicts.md`. First run per gate is a calibration pass (INCONCLUSIVE → set threshold → rerun). Exit 0 advisory. Plan 2026-06-01-005. |
 | `probe-citations` | `cli/probe_citations.py` (kernel `geo/run.py`) | GEO AI-citation closed-loop probe: selects stale (target, query) pairs from events.db (oldest-first, D5 cursor), queries an AI engine (Perplexity v1), classifies the answer tier (site_cited/article_cited/absent/refused), and appends `citation.observed` events. **Network gated behind `--probe` (default = zero-network dry preview).** Exit 0 by default (advisory); `--fail-on-low-share` exits 6 only for measured above-floor targets (warming_up/never_probed suppressed, D10). flock guards overlapping runs. No `--api-key` flag (S4 — key in config/env only). Plan 2026-05-29-006 Unit 7. |
+| `weights` | `cli/weights.py` (subcommands `collect`/`optimize`/`show`) | Dispatch-weight optimisation, consolidating the former `collect-signals` / `optimize-weights` / `show-optimization-state` scripts (Plan 2026-06-05-008 R2). Delegates to the per-subcommand modules (still `python -m` runnable). `weights optimize` runs the rules engine incl. the floored `aggregated_stats` strip penalty (R3). |
+
+### Peripheral / meta modules (not the core 4-stage pipeline)
+
+The product's core is the four-stage chain **plan → validate → publish → recheck**, whose durability number is surfaced by the **survival dashboard** (`/survival-dashboard`, % of mature links still live + dofollow; Plan 2026-06-05-008 R5) and the per-target dofollow history badge (R6). The following are **peripheral/meta** surfaces — kept importable and entrypoint-backed (so `test_no_orphan_code.py` stays green), but outside the core narrative (Plan 2026-06-05-008 R10). Demote ≠ remove: the WebUI health panel and config parser lazy-import them.
+
+| Package | Entrypoint (keeps it non-orphan) | Why peripheral |
+|---|---|---|
+| `geo/` | `probe-citations` | GEO AI-citation probing — an experimental measurement axis, not link publishing. |
+| `pr_outreach/` | `pr-opportunities` | Manual PR-outreach opportunity surfacing — advisory, no posting. |
+| `click_track/` | `click-track` | Click-tracking redirect bookkeeping — adjacent analytics, separate from dispatch. |
+| `debt_report/` (`cli/debt_report.py`) | `debt-report` | Engineering-debt reporting — meta/introspection, not the publish pipeline. |
+
+> `comment_outreach/` (`cli/comment.py` → `comment`) is **load-bearing** (the manual comment-outreach queue), not peripheral — do not demote it.
 
 ### Gate-first governance (R16, Plan 2026-06-01-005)
 
