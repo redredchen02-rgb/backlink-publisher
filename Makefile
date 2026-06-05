@@ -58,3 +58,45 @@ clean-pyc:
 clean-all: clean-pyc
 	@rm -rf .pytest_cache .mypy_cache htmlcov .coverage
 	@echo "Cleaned all build artifacts"
+
+# ── Static file optimization (C4) ──────────────────────────────
+
+.PHONY: optimize-static
+optimize-static:
+	@echo "Optimizing static assets..."
+	@python scripts/optimize_static.py
+
+# ── Mutation testing (G4) ──────────────────────────────────────
+
+.PHONY: mutate
+mutate:
+	@echo "Running mutation tests (mutmut)..."
+	@PYTHONHASHSEED=0 PYTHONPATH=src mutmut run \
+		--paths-to-mutate=src/backlink_publisher/_util/ \
+		--paths-to-exclude=tests/
+
+# ── Logging configuration check (E1) ──────────────────────────
+
+.PHONY: check-log
+check-log:
+	@python -c "\
+from backlink_publisher._util.structlog_config import configure_structlog; \
+configure_structlog(); \
+print('structlog configured OK')"
+	@python -c "\
+from backlink_publisher._util.logger import validate_logger; \
+validate_logger.info('PipelineLogger still works'); \
+print('PipelineLogger backward compat OK')"
+
+# ── Docker targets (F2) ──────────────────────────────────────
+
+.PHONY: docker-build docker-run
+
+docker-build:
+	@docker build -t backlink-publisher .
+
+docker-run:
+	@docker run -p 8888:8888 \
+		-v ~/.config/backlink-publisher:/config \
+		-e BACKLINK_PUBLISHER_CONFIG_DIR=/config \
+		backlink-publisher

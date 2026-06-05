@@ -29,6 +29,9 @@ ALLOWLIST: set[str] = {
     "publishing/adapters/medium_liveness.py",
     "publishing/adapters/velog/auth.py",
     "publishing/adapters/velog/utils.py",
+    # New opt-in modules (2026-06-05 optimization gaps)
+    "_util/http_client.py",
+    "_util/structlog_config.py",
 }
 
 
