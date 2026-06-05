@@ -1,23 +1,11 @@
-"""``weights`` — dispatch-weight optimisation CLI (single console_script).
+"""``weights`` — Optimization-weight management CLI (single console_script, subparsers).
 
-Consolidates the three former console scripts into subcommands:
+Subcommands:
+    weights collect   gather publishing outcome signals into optimization_state.json
+    weights optimize  apply rules engine and update platform weights
+    weights show      display current optimization state summary
 
-    weights collect    gather publishing-outcome signals  (was collect-signals)
-    weights optimize   run the rules engine, adjust weights (was optimize-weights)
-    weights show       display the current state summary   (was show-optimization-state)
-
-``click-track`` stays a separate console script (different concern).
-
-Each subcommand is a thin passthrough: the dispatcher routes the residual
-argv to the underlying module's ``main()`` (lazy-imported), which owns its own
-argparse (so ``--source``/``--rule`` ``choices=`` validation and ``--help``
-behave identically to the old scripts). The old modules stay importable and
-``python -m backlink_publisher.cli.<name>`` runnable; only their
-``[project.scripts]`` lines are dropped.
-
-The lazy imports below are written as module-level-style ``from ... import``
-statements (inside handlers) so the orphan-code scanner — which matches import
-text, not runtime imports — still sees the three modules as referenced.
+``click-track`` stays a separate console_script (distinct concern).
 """
 
 from __future__ import annotations
@@ -28,57 +16,116 @@ import sys
 EXIT_OK = 0
 
 
-def _handle_collect(rest: list[str]) -> int:
-    from backlink_publisher.cli import collect_signals
+# ---------------------------------------------------------------------------
+# Handlers — thin shims; bodies live in the three dedicated CLI modules.
+# ---------------------------------------------------------------------------
 
-    return collect_signals.main(rest) or EXIT_OK
+def _handle_collect(args: argparse.Namespace) -> int:
+    from backlink_publisher.cli.collect_signals import main as _collect_main
+    argv: list[str] = []
+    if args.dry_run:
+        argv.append("--dry-run")
+    if args.source:
+        argv += ["--source", args.source]
+    if args.as_json:
+        argv.append("--json")
+    _collect_main(argv)
+    return EXIT_OK
 
 
-def _handle_optimize(rest: list[str]) -> int:
-    from backlink_publisher.cli import optimize_weights
+def _handle_optimize(args: argparse.Namespace) -> int:
+    from backlink_publisher.cli.optimize_weights import main as _optimize_main
+    argv: list[str] = []
+    if args.dry_run:
+        argv.append("--dry-run")
+    if args.rule:
+        argv += ["--rule", args.rule]
+    if args.as_json:
+        argv.append("--json")
+    _optimize_main(argv)
+    return EXIT_OK
 
-    return optimize_weights.main(rest) or EXIT_OK
+
+def _handle_show(args: argparse.Namespace) -> int:
+    from backlink_publisher.cli.show_optimization_state import main as _show_main
+    argv: list[str] = []
+    if args.as_json:
+        argv.append("--json")
+    if args.platform:
+        argv += ["--platform", args.platform]
+    _show_main(argv)
+    return EXIT_OK
 
 
-def _handle_show(rest: list[str]) -> int:
-    from backlink_publisher.cli import show_optimization_state
-
-    return show_optimization_state.main(rest) or EXIT_OK
-
-
-_HANDLERS = {
-    "collect": _handle_collect,
-    "optimize": _handle_optimize,
-    "show": _handle_show,
-}
-
+# ---------------------------------------------------------------------------
+# Parser
+# ---------------------------------------------------------------------------
 
 def _build_parser() -> argparse.ArgumentParser:
+    from backlink_publisher.optimization.rules import (
+        RULE_AGGREGATED_STATS,
+        RULE_CANARY_DRIFT,
+        RULE_RECHECK_SURVIVAL,
+    )
+
     parser = argparse.ArgumentParser(
         prog="weights",
         description=(
-            "Dispatch-weight optimisation. Subcommands collect signals, run the "
-            "rules engine, and show state. (click-track is a separate command.)"
+            "Optimization-weight management — collect signals, run rules engine, "
+            "and inspect current platform weights."
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    # add_help=False so `weights <sub> --help` is forwarded to the underlying
-    # module's own --help rather than being swallowed by an empty subparser.
-    sub.add_parser("collect", add_help=False,
-                   help="Gather publishing-outcome signals into optimization_state.json")
-    sub.add_parser("optimize", add_help=False,
-                   help="Run the rules engine and update platform weights")
-    sub.add_parser("show", add_help=False,
-                   help="Display the current optimization state summary")
+
+    # --- collect ---
+    collect_p = sub.add_parser(
+        "collect",
+        help="Gather publishing outcome signals into optimization_state.json",
+    )
+    collect_p.add_argument("--dry-run", action="store_true",
+                           help="Preview without writing to state file")
+    collect_p.add_argument("--source", choices=["recheck", "canary", "equity"],
+                           default=None, help="Collect from a single source only")
+    collect_p.add_argument("--json", action="store_true", dest="as_json",
+                           help="Output raw signal data as JSON")
+    collect_p.set_defaults(handler=_handle_collect)
+
+    # --- optimize ---
+    optimize_p = sub.add_parser(
+        "optimize",
+        help="Run rules engine and update platform weights",
+    )
+    optimize_p.add_argument("--dry-run", action="store_true",
+                            help="Preview weight changes without writing")
+    optimize_p.add_argument(
+        "--rule",
+        choices=[RULE_CANARY_DRIFT, RULE_RECHECK_SURVIVAL, RULE_AGGREGATED_STATS],
+        default=None,
+        help="Run a specific rule only (default: all enabled rules)",
+    )
+    optimize_p.add_argument("--json", action="store_true", dest="as_json",
+                            help="Output results as JSON")
+    optimize_p.set_defaults(handler=_handle_optimize)
+
+    # --- show ---
+    show_p = sub.add_parser(
+        "show",
+        help="Display current optimization state summary",
+    )
+    show_p.add_argument("--json", action="store_true", dest="as_json",
+                        help="Output raw state as JSON")
+    show_p.add_argument("--platform", default=None,
+                        help="Filter to a single platform")
+    show_p.set_defaults(handler=_handle_show)
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Argparse dispatcher; returns an exit code (no ``sys.exit``) for in-process
-    tests. Unknown subcommands / missing subcommand exit 2 (argparse usage)."""
+    """Argparse dispatcher. Returns an exit code (never calls sys.exit directly)."""
     parser = _build_parser()
-    args, rest = parser.parse_known_args(argv)
-    return _HANDLERS[args.command](rest)
+    args = parser.parse_args(argv)
+    return args.handler(args)
 
 
 if __name__ == "__main__":  # pragma: no cover
