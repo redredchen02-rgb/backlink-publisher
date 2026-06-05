@@ -18,9 +18,15 @@ from ..helpers.history import (
     _push_history_single_failure,
 )
 from ..helpers.url_meta import get_main_domain
+from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("batch", __name__)
 _api = PipelineAPI()
+
+
+@bp.before_request
+def _enforce_bind_origin() -> None:
+    _check_bind_origin_or_abort()
 
 
 def _check_blogger_blog_id(domain: str) -> str | None:
