@@ -263,9 +263,66 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
                 f"workflow or update both fields"
             )
         elif not language_matches(detected, requested):
-            errors_list.append(
-                f"body language '{detected}' does not match requested '{requested}'"
-            )
+            # C0 (2026-06-05): zh-CN body language downgrade. When the
+            # requested language is zh-CN and the detected language doesn't
+            # strictly match (it may be "en" due to mixed English/Chinese
+            # content), apply a relaxation: if ≥30% of letter/mark codepoints
+            # are CJK, the body passes with a warning instead of failing.
+            # This handles the common case where a Chinese backlink targets
+            # a Latin-domain URL and the title/CTA is English while the body
+            # is Chinese, causing the strict detector to bias to English.
+            if requested == "zh-CN":
+                # Check CJK ratio in content_markdown or content_html
+                body_text = (
+                    row.get("content_markdown")
+                    or row.get("content_html")
+                    or ""
+                )
+                cjk_count = sum(
+                    1 for c in body_text
+                    if 0x4E00 <= ord(c) <= 0x9FFF
+                )
+                # Also count Hangul (some Chinese articles use Korean names)
+                hangul_count = sum(
+                    1 for c in body_text
+                    if 0xAC00 <= ord(c) <= 0xD7AF
+                )
+                latin_count = sum(
+                    1 for c in body_text
+                    if ("A" <= c <= "Z") or ("a" <= c <= "z")
+                )
+                # Use Latin-only denom (most CJK mix cases are Latin-dominant
+                # with CJK content, not the other way around).
+                total_latin_plus_cjk = latin_count + cjk_count + hangul_count
+                if total_latin_plus_cjk > 0:
+                    cjk_ratio = (cjk_count + hangul_count) / total_latin_plus_cjk
+                    if cjk_ratio >= 0.30:
+                        validate_logger.warn(
+                            f"body language '{detected}' != requested '{requested}', "
+                            f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
+                            f"downgraded from error to warning"
+                        )
+                        warnings_list.append(
+                            f"body language '{detected}' != requested 'zh-CN', "
+                            f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
+                            f"downgraded from error. Best practice: ensure ≥30% of "
+                            f"the body text uses CJK codepoints."
+                        )
+                        # Don't add to errors — skip to the anchor check.
+                        # Set a flag so the caller knows this was relaxed.
+                        row.setdefault("validation", {})["body_language_relaxed"] = True
+                    else:
+                        errors_list.append(
+                            f"body language '{detected}' does not match requested '{requested}'"
+                        )
+                else:
+                    errors_list.append(
+                        f"body language '{detected}' does not match requested '{requested}'"
+                    )
+            else:
+                errors_list.append(
+                    f"body language '{detected}' does not match requested '{requested}'"
+                )
 
         # R4/R5: per-anchor codepoint check for kind in {main_domain, target}.
         branded_pool = _resolve_branded_pool(row, config)

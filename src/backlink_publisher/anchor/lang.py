@@ -38,6 +38,67 @@ _CYR_START, _CYR_END = 0x0400, 0x04FF
 #: Link kinds whose anchor text is subject to R4. Anything else is exempt.
 _GATED_KINDS = frozenset({"main_domain", "target"})
 
+#: Latin-only anchor patterns that are allowed for zh-CN targets (C0
+#: optimisation 2026-06-05). These are domain-like anchors (bare domains,
+#: "click here", "visit site", "official website") that do not carry CJK
+#: codepoints but are legitimate anchor text for Chinese backlinks targeting
+#: a specific domain (e.g. "51acgs.com", "acgs").
+#: Extended via the env var ``BACKLINK_ANCHOR_ALLOWED_LATIN_PATTERNS``
+#: (comma-separated, applied as lowercased substring match).
+_ALLOWED_LATIN_ANCHOR_PATTERNS: tuple[str, ...] = (
+    # Domain patterns — bare domain anchors in zh-CN context
+    ".com", ".cn", ".net", ".org", ".io", ".co",
+    # Common CTAs used as anchor text across languages
+    "click here", "visit", "official website", "learn more",
+    "read more", "get started", "sign up", "homepage",
+    # Short brand/identifier anchors common in zh-CN backlinks
+    "官网", "官方网站", "首页",
+)
+
+#: The env var to extend ``_ALLOWED_LATIN_ANCHOR_PATTERNS`` at runtime.
+#: Comma-separated, lowercased substring match — e.g.
+#: ``BACKLINK_ANCHOR_ALLOWED_LATIN_PATTERNS=acgs,51acgs`` allows "51acgs" as
+#: a zh-CN anchor.
+_ALLOWED_LATIN_PATTERNS_ENV = "BACKLINK_ANCHOR_ALLOWED_LATIN_PATTERNS"
+
+#: Cached expanded patterns (computed once on first use).
+_extended_latin_patterns: tuple[str, ...] | None = None
+
+
+def _get_allowed_latin_patterns() -> tuple[str, ...]:
+    """Return the allowed Latin anchor patterns, including env var extensions.
+
+    Computed at most once; the env var is read on first call so an operator
+    can set it before the validate gate runs without restart.
+    """
+    global _extended_latin_patterns
+    if _extended_latin_patterns is not None:
+        return _extended_latin_patterns
+    import os
+    base = list(_ALLOWED_LATIN_ANCHOR_PATTERNS)
+    raw = os.environ.get(_ALLOWED_LATIN_PATTERNS_ENV, "")
+    if raw.strip():
+        for fragment in raw.split(","):
+            frag = fragment.strip().lower()
+            if frag:
+                base.append(frag)
+    _extended_latin_patterns = tuple(base)
+    return _extended_latin_patterns
+
+
+def _is_allowed_latin_anchor(anchor: str) -> bool:
+    """Return True if the anchor matches an allowed Latin pattern (C0 zh-CN relaxation).
+
+    Substring match is intentionally permissive: "51acgs.com→51acgs" would be
+    matched by a pattern "51acgs" or ".com". The env var is the operator's
+    escape hatch for domain-specific patterns not covered by the defaults.
+    """
+    anchor_lower = anchor.lower()
+    for pattern in _get_allowed_latin_patterns():
+        if pattern in anchor_lower:
+            return True
+    return False
+
 
 def _has_cjk(text: str) -> bool:
     return any(_CJK_BMP_START <= ord(c) <= _CJK_BMP_END for c in text)
@@ -57,6 +118,14 @@ def _has_hangul(text: str) -> bool:
 
 def _check_zh_cn(anchor: str) -> tuple[bool, str | None]:
     if _has_cjk(anchor):
+        return True, None
+    # C0 (2026-06-05): zh-CN anchor relaxation — allow Latin-only anchors
+    # that match known patterns (domain suffixes, common CTAs, brand names).
+    # This prevents valid anchors like "51acgs.com" or "acgs" from failing
+    # the CJK codepoint check when targeting Chinese sites with Latin-domain
+    # anchors. The operator can extend the pattern list via the env var
+    # ``BACKLINK_ANCHOR_ALLOWED_LATIN_PATTERNS`` (comma-separated).
+    if _is_allowed_latin_anchor(anchor):
         return True, None
     return False, "anchor missing CJK codepoint"
 
