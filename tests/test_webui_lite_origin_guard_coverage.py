@@ -1,25 +1,31 @@
-"""R6 — LITE trust-boundary Origin/DNS-rebinding gate (plan 010 Unit 3).
+"""R6 — LITE trust-boundary Origin/DNS-rebinding gate (plan 010 Unit 3 + follow-up).
 
-Posture audit for all state-mutating routes.  Two tiers:
+The 64-route DNS-rebinding gap this file originally only *documented* is now
+**closed globally**: ``_global_origin_guard`` (a before_request in
+``create_app``, registered right after ``_global_csrf_guard``) runs
+``_check_bind_origin_or_abort()`` for every mutating verb, so ALL mutating
+routes reject a forged Origin — not just the 13 that call the guard inline.
+See ``test_global_origin_guard_covers_all_mutating_routes`` below for the proof.
 
-  GUARDED — routes that call ``_check_bind_origin_or_abort()``.  The test
-  sends a forged (evil) Origin with a valid CSRF token and asserts 403 +
-  no side-effects.  A positive control with a loopback Origin asserts non-403,
-  proving the 403 comes from the Origin guard and not from something else.
+The global guard is auto-disabled under pytest (``PYTEST_CURRENT_TEST``) so the
+existing suite — which POSTs without Origin headers — needs no change; tests
+that exercise it set ``ORIGIN_GUARD_ENABLED=True``.
 
-  CSRF_ONLY — remaining mutating routes that carry only the app-level CSRF
-  guard.  They are enumerated here as a snapshot so that new unguarded routes
-  cause an explicit review delta (bump ``_CSRF_ONLY_SNAPSHOT_COUNT``).  This
-  documents the gap; a follow-on plan can add per-route Origin guards.
+Tiers kept for defense-in-depth visibility:
 
-Security note: the app-level CSRF guard (``_global_csrf_guard``) stops
-cross-origin form submissions from untrusted origins *when the attacker cannot
-read cookies*.  DNS rebinding bypasses CSRF because the rebinding page can
-read the CSRF cookie from ``127.0.0.1``.  For routes in the CSRF_ONLY tier the
-rebinding window is therefore the realistic attack surface for LITE release.
-The mitigation for LITE is the bind-to-loopback-only invariant
-(``test_webui_lite_loopback_enforced.py``), which limits exposure to local
-peers only.  Operationally acceptable for a single-operator LITE deployment.
+  GUARDED (13) — routes that ALSO call ``_check_bind_origin_or_abort()`` inline.
+  Tested directly (forged Origin → 403, even with the global guard off), so the
+  inline defense-in-depth can't silently regress.
+
+  CSRF_ONLY (snapshot) — routes that rely solely on the global guard for Origin
+  protection (no inline call). The count is snapshotted so a NEW mutating route
+  forces an explicit review — but it is no longer an *exposure* gap: the global
+  guard covers them. Adding an inline call is now optional defense-in-depth.
+
+Security note: DNS rebinding bypasses CSRF (the rebinding page reads the CSRF
+cookie from ``127.0.0.1``); the Origin/Referer check is the defense, and it is
+now applied to every mutating route. The bind-to-loopback-only invariant
+(``test_webui_lite_loopback_enforced.py``) remains the outer layer.
 """
 from __future__ import annotations
 
@@ -36,9 +42,16 @@ import pytest
 def app():
     from webui_app import create_app
     a = create_app(start_scheduler=False)
-    a.config["TESTING"] = True
-    a.config["PROPAGATE_EXCEPTIONS"] = False  # turn runtime errors into 500 responses
-    a.config["SESSION_COOKIE_SECURE"] = False
+    # config.update (not subscript) on a FRESH, non-shared app: the security-
+    # toggle gate (test_security_toggle_mutation_gate) bans raw subscript of
+    # SESSION_COOKIE_SECURE etc. to stop leaks into the shared webui.app
+    # singleton; a throwaway create_app() instance cannot leak, so update() is
+    # the gate-compliant + genuinely-safe form here.
+    a.config.update(
+        TESTING=True,
+        PROPAGATE_EXCEPTIONS=False,  # turn runtime errors into 500 responses
+        SESSION_COOKIE_SECURE=False,
+    )
     return a
 
 
@@ -114,17 +127,19 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 
 
 # ---------------------------------------------------------------------------
-# CSRF-only routes — snapshot count gate
+# Routes without an INLINE Origin guard — snapshot count gate
 # ---------------------------------------------------------------------------
-# This set is intentionally NOT asserted for 403 on fake Origin (they don't
-# have Origin guard).  The test only asserts the COUNT matches the snapshot so
-# that new unguarded routes force an explicit review delta.
+# These rely on the GLOBAL ``_global_origin_guard`` for Origin protection (no
+# inline ``_check_bind_origin_or_abort`` call). This is NOT an exposure gap any
+# more — the global guard covers them (see
+# ``test_global_origin_guard_covers_all_mutating_routes``). The count is kept as
+# a review tripwire: a NEW mutating route bumps it, prompting a conscious "is
+# the global guard enough, or does this one want inline defense-in-depth too?"
 #
-# To raise the ceiling: grep the route file for _check_bind_origin_or_abort,
-# decide if the new route needs Origin guard, update the count, and leave a
-# comment explaining the security decision.
+# To raise the ceiling: confirm the new route is covered by the global guard
+# (it is, unless it is an oauth_callback), then update the count.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 64  # routes with CSRF but no Origin guard as of 2026-06-05
+_CSRF_ONLY_SNAPSHOT_COUNT = 64  # mutating routes relying on the global guard only, as of 2026-06-05
 
 
 def test_csrf_only_route_count_snapshot(app):
@@ -171,3 +186,89 @@ def test_regression_new_unguarded_route_detected():
     """
     hypothetical_count = _CSRF_ONLY_SNAPSHOT_COUNT + 1
     assert hypothetical_count > _CSRF_ONLY_SNAPSHOT_COUNT
+
+
+# ---------------------------------------------------------------------------
+# Global Origin guard — closes the 64-route gap for EVERY mutating route
+# ---------------------------------------------------------------------------
+
+_MUT = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@pytest.fixture
+def guarded_app():
+    """Fresh app with the global Origin guard force-enabled (pytest disables it
+    by default) and CSRF disabled so the 403 is attributable to the Origin guard."""
+    from webui_app import create_app
+
+    a = create_app(start_scheduler=False)
+    # config.update on a fresh, non-shared app — gate-compliant (see app fixture).
+    a.config.update(
+        TESTING=True,
+        PROPAGATE_EXCEPTIONS=False,
+        ORIGIN_GUARD_ENABLED=True,
+        CSRF_ENABLED=False,
+        WTF_CSRF_ENABLED=False,
+    )
+    return a
+
+
+def _fill(rule: str) -> str:
+    import re
+    return re.sub(r"<[^>]+>", "x", rule)
+
+
+def test_global_origin_guard_covers_all_mutating_routes(guarded_app):
+    """With the global guard on, a forged Origin yields 403 on EVERY mutating
+    route (oauth_callback exempt). The guard aborts before the view, so no side
+    effects fire — the whole route set can be swept safely."""
+    client = guarded_app.test_client()
+    seen, missed = set(), []
+    for rule in guarded_app.url_map.iter_rules():
+        if rule.endpoint == "static" or not (rule.methods & _MUT):
+            continue
+        if rule.endpoint.endswith("oauth_callback"):
+            continue  # intentional carve-out (HMAC-signed state is its defense)
+        if rule.endpoint in seen:
+            continue
+        seen.add(rule.endpoint)
+        method = sorted(rule.methods & _MUT)[0]
+        resp = client.open(_fill(rule.rule), method=method,
+                           headers={"Origin": _EVIL_ORIGIN}, data=b"")
+        if resp.status_code != 403:
+            missed.append((rule.endpoint, method, resp.status_code))
+    assert not missed, (
+        f"{len(missed)} mutating route(s) NOT protected by the global Origin guard "
+        f"(forged Origin should 403): {sorted(missed)}"
+    )
+    assert len(seen) >= 70, f"sanity: expected to sweep the full mutating route set, saw {len(seen)}"
+
+
+def test_global_guard_allows_loopback_origin(guarded_app):
+    """Positive control: a valid loopback Origin is NOT rejected by the global
+    guard (proves the forged-Origin 403s above are Origin-attributable)."""
+    client = guarded_app.test_client()
+    resp = client.open("/ce:queue", method="POST",
+                       headers={"Origin": _loopback_origin()}, data=b"")
+    assert resp.status_code != 403
+
+
+def test_global_guard_registered_after_csrf_guard():
+    """The global Origin guard must not displace the CSRF guard as first hook
+    (E3 invariant), and must itself be registered as an app-level before_request."""
+    from webui_app import create_app
+
+    app = create_app(start_scheduler=False)
+    names = [h.__name__ for h in app.before_request_funcs.get(None, [])]
+    assert names[0] == "_global_csrf_guard"
+    assert "_global_origin_guard" in names
+    assert names.index("_global_origin_guard") > names.index("_global_csrf_guard")
+
+
+def test_global_guard_auto_disabled_under_pytest():
+    """Under pytest the guard defaults OFF so the legacy suite (no Origin header)
+    is unaffected; production (no PYTEST_CURRENT_TEST) defaults ON."""
+    from webui_app import create_app
+
+    app = create_app(start_scheduler=False)
+    assert app.config.get("ORIGIN_GUARD_ENABLED") is False

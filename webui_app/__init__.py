@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -277,6 +278,37 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             return
         from .helpers.security import _check_csrf_or_abort
         _check_csrf_or_abort()
+
+    # Global DNS-rebinding / cross-origin guard (plan 010 Unit 3 fix). The
+    # per-route _check_bind_origin_or_abort() was opt-in and only 13 of 77
+    # mutating routes called it (audited in test_webui_lite_origin_guard_coverage).
+    # This closes the gap globally, mirroring the _global_csrf_guard decision
+    # above — don't trust every blueprint to remember the inline call. Registered
+    # AFTER the CSRF guard so CSRF stays the FIRST before_request hook (E3
+    # invariant, tests/test_webui_csrf_ordering.py). The 13 inline calls remain
+    # as harmless defense-in-depth (the check is idempotent).
+    #
+    # Auto-disabled whenever pytest is loaded (``'pytest' in sys.modules`` holds
+    # for the whole test process — collection, fixture setup AND call — unlike
+    # PYTEST_CURRENT_TEST which is only set during the call phase and so leaks the
+    # guard ON for apps built in module/session-scoped fixtures). The legacy
+    # suite POSTs via test_client without Origin headers and would 403 en masse
+    # otherwise; tests that exercise the guard set ORIGIN_GUARD_ENABLED=True.
+    app.config.setdefault('ORIGIN_GUARD_ENABLED', 'pytest' not in sys.modules)
+
+    @app.before_request
+    def _global_origin_guard():
+        from flask import request as _req
+        if _req.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            return
+        if app.config.get('ORIGIN_GUARD_ENABLED', True) is False:
+            return
+        # OAuth callbacks are cross-origin 302s from the provider; their own
+        # HMAC-signed state is the replay defense (same carve-out as CSRF).
+        if _req.endpoint and _req.endpoint.endswith('oauth_callback'):
+            return
+        from .helpers.security import _check_bind_origin_or_abort
+        _check_bind_origin_or_abort()
 
     # Plan 2026-06-04-001 Unit 10 / R7+R8 — server-side LITE surface gate.
     # Registered AFTER _global_csrf_guard so the CSRF guard stays the FIRST
