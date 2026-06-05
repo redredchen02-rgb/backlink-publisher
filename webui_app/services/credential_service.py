@@ -17,9 +17,11 @@ from backlink_publisher.config.tokens import (
     save_devto_token,
     save_ghpages_token,
     save_hackmd_token,
+    save_hatena_token,
     save_mataroa_token,
     save_qiita_token,
     save_wordpresscom_token,
+    save_zenn_token,
 )
 from backlink_publisher._util.io import atomic_write_json
 
@@ -58,6 +60,10 @@ _TOKEN_FIELDS_DISPATCH: dict[str, tuple] = {
                      ["token", "site"]),
     "ghpages":      (save_ghpages_token,      "ghpages-token.json",
                      ["token"]),
+    "hatena":       (save_hatena_token,       "hatena-credentials.json",
+                     ["hatena_id", "blog_id", "api_key"]),
+    "zenn":         (save_zenn_token,         "zenn-token.json",
+                     ["token", "github_repo", "username"]),
 }
 
 # PASTE-BLOB — pasted {"cookies":[...]} JSON; domain advisory check.

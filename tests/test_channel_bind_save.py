@@ -299,6 +299,82 @@ def test_token_fields_round_trip(client, tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# U4 TOKEN+FIELDS — hatena (plan 012)
+# ---------------------------------------------------------------------------
+
+
+def test_hatena_token_fields_round_trip(client, tmp_path, monkeypatch):
+    """Save hatena credentials → hatena-credentials.json written with all fields."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "myid",
+        "blog_id": "myid.hatenablog.com",
+        "api_key": "supersecret",
+    }, csrf=csrf)
+
+    assert resp.status_code == 302
+    assert "success" in resp.headers["Location"]
+    cred_path = config_dir / "hatena-credentials.json"
+    assert cred_path.exists()
+    data = json.loads(cred_path.read_text())
+    assert data["hatena_id"] == "myid"
+    assert data["blog_id"] == "myid.hatenablog.com"
+    assert data["api_key"] == "supersecret"
+
+
+def test_hatena_leave_as_is_partial_fields(client, tmp_path, monkeypatch):
+    """Submitting only hatena_id preserves existing blog_id and api_key."""
+    config_dir = tmp_path / "cfg"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+
+    # Pre-seed the file
+    cred_path = config_dir / "hatena-credentials.json"
+    cred_path.write_text('{"hatena_id": "old", "blog_id": "old.hatenablog.com", "api_key": "oldkey"}')
+    cred_path.chmod(0o600)
+
+    csrf = _seed_csrf(client)
+    resp = _post(client, {
+        "channel": "hatena", "auth_type": "token_fields",
+        "hatena_id": "newid",
+        # blog_id and api_key intentionally omitted
+    }, csrf=csrf)
+
+    assert resp.status_code == 302
+    data = json.loads(cred_path.read_text())
+    assert data["hatena_id"] == "newid"
+    assert data["blog_id"] == "old.hatenablog.com"
+    assert data["api_key"] == "oldkey"
+
+
+def test_hatena_csrf_required(client):
+    """Missing CSRF token → 403."""
+    resp = client.post(
+        "/settings/save-channel-credential",
+        data={"channel": "hatena", "auth_type": "token_fields", "hatena_id": "x"},
+        headers=_origin_headers(),
+    )
+    assert resp.status_code == 403
+
+
+def test_hatena_non_loopback_origin_rejected(client):
+    """Off-loopback Origin → 403."""
+    csrf = _seed_csrf(client)
+    resp = client.post(
+        "/settings/save-channel-credential",
+        data={"channel": "hatena", "auth_type": "token_fields",
+              "hatena_id": "x", "csrf_token": csrf},
+        headers={"Origin": "http://evil.example.com"},
+    )
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
 # U4 PASTE-BLOB — schema validation + domain check + round-trip
 # ---------------------------------------------------------------------------
 
