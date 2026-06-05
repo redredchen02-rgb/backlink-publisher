@@ -68,7 +68,7 @@ def _mock_publish(monkeypatch, *, stdout="", stderr="", raise_exc=None):
     from webui_app.api.pipeline_api import PipeResult
     from webui_app.routes import pipeline as pipeline_mod
 
-    def _fake_publish(self, plans_jsonl, platform, mode):
+    def _fake_publish(self, plans_jsonl, platform, mode, **kwargs):
         if raise_exc is not None:
             return PipeResult(
                 success=False, error=str(raise_exc), stderr=str(raise_exc))

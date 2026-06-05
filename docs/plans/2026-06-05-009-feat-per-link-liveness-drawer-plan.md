@@ -224,7 +224,7 @@ U4 route ── R8 反查 events.db 成員 → 不存在則 404，不探測
 U1 (read fn + shared iterator) ──▶ U2 (GET drawer route) ──▶ U3 (drawer frontend) ──▶ U4 (single-link recheck)
 ```
 
-- [x] **Unit 1: Shared latest-verdict iterator + per-link read function** — done in clone `~/bp-per-link-u1` @ `0fbb787` (branch `feat/per-link-liveness-u1`), 15 tests green, regression-clean, push held.
+- [x] **Unit 1: Shared latest-verdict iterator + per-link read function** — done in clone `~/bp-per-link-u1` @ `9531f60` (branch `feat/per-link-liveness-u1`), 25 tests green, regression-clean (overlay/engine/keep-alive/gap/cli), ce:review passed (no P0/P1; type hints + coverage + stale-comment fixes applied), push held.
 
 **Goal:** 抽出共用的 latest-verdict-per-link iterator（含 NULL-article_id 不變式）到穩定位置，
 新增 `derive_links_by_channel`，落實 R5（dofollow 布林 + inspected 謂詞）與 R6（保留域集排除）。
@@ -297,6 +297,10 @@ U1 (read fn + shared iterator) ──▶ U2 (GET drawer route) ──▶ U3 (dra
 - config 走 `_g_cache('config', load_config)`。唯讀，無 CSRF/Origin（GET）。`<channel>` 須參數化
   查詢/字典查找，不可拼接 SQL。
 - server-side 算好所有判斷再注入（勿把 verdict 邏輯送 client）。
+- **效能（U1 ce:review advisory）**：`derive_links_by_channel` 一次回**全平台**（兩個全表掃描：
+  latest_link_verdicts + _platform_by_live_url）。route 須**一次呼叫拿所有 channel** 後按
+  `<channel>` 取該鍵，**勿**每個 channel 各呼叫一次；並用 `_g_cache('scorecard_links', …)` 快取
+  整個結果於請求生命週期，避免重複掃描。
 
 **Patterns to follow:** `routes/health.py` `_scorecard_rows()` fail-open + `_g_cache`。
 
