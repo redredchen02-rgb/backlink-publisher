@@ -278,6 +278,44 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
         from .helpers.security import _check_csrf_or_abort
         _check_csrf_or_abort()
 
+    # Plan 2026-06-05-010 R6 follow-up — app-level Origin/Referer guard.
+    #
+    # The per-route ``_check_bind_origin_or_abort`` was opt-in, leaving the large
+    # majority of mutating routes accepting a forged-Origin POST (the CSRF-only
+    # tier in tests/test_webui_lite_origin_guard_coverage.py). CSRF alone does not
+    # stop DNS rebinding — the rebinding page reads the CSRF cookie from
+    # 127.0.0.1. This guard closes the whole surface in one place, mirroring
+    # _global_csrf_guard, so every state-mutating verb is Origin/Referer-checked
+    # rather than trusting each blueprint to remember the inline call.
+    #
+    # Registered AFTER _global_csrf_guard so CSRF stays the FIRST before_request
+    # hook (E3 invariant, tests/test_webui_csrf_ordering.py). Auto-disabled under
+    # pytest so the existing suite — which POSTs without browser Origin headers —
+    # stays green; the coverage gate force-enables it to prove full coverage.
+    #
+    # Detect pytest via ``sys.modules``, NOT ``PYTEST_CURRENT_TEST``: webui.py
+    # builds the module-level ``app`` at import, and some test modules import
+    # ``webui`` at COLLECTION time when PYTEST_CURRENT_TEST is not yet set — that
+    # would default the singleton's guard ON and 403 every webui POST test. The
+    # ``pytest`` module is in sys.modules across both collection and call.
+    import sys as _sys
+    app.config.setdefault('ORIGIN_GUARD_ENABLED', 'pytest' not in _sys.modules)
+
+    @app.before_request
+    def _global_origin_guard():
+        from flask import request as _req
+        if _req.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            return
+        if app.config.get('ORIGIN_GUARD_ENABLED', True) is False:
+            return
+        # OAuth callbacks arrive via a cross-origin 302 from Google with no usable
+        # Origin; they carry their own HMAC-signed state param verified in-handler
+        # (the same carve-out the CSRF guard makes).
+        if _req.endpoint and _req.endpoint.endswith('oauth_callback'):
+            return
+        from .helpers.security import _check_bind_origin_or_abort
+        _check_bind_origin_or_abort()
+
     # Plan 2026-06-04-001 Unit 10 / R7+R8 — server-side LITE surface gate.
     # Registered AFTER _global_csrf_guard so the CSRF guard stays the FIRST
     # before_request hook (E3 invariant, tests/test_webui_csrf_ordering.py).

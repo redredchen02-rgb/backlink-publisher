@@ -7,19 +7,22 @@ Posture audit for all state-mutating routes.  Two tiers:
   no side-effects.  A positive control with a loopback Origin asserts non-403,
   proving the 403 comes from the Origin guard and not from something else.
 
-  CSRF_ONLY — remaining mutating routes that carry only the app-level CSRF
-  guard.  They are enumerated here as a snapshot so that new unguarded routes
-  cause an explicit review delta (bump ``_CSRF_ONLY_SNAPSHOT_COUNT``).  This
-  documents the gap; a follow-on plan can add per-route Origin guards.
+  CSRF_ONLY — remaining mutating routes that carry no *inline* Origin guard.
+  They are enumerated here as a snapshot (an inline-guard adoption inventory),
+  no longer a documented gap — see below.
+
+  FULL COVERAGE — the app-level ``_global_origin_guard`` (R6 follow-up) now
+  Origin-checks EVERY mutating verb. The gate at the bottom of this file forces
+  the guard on and asserts every mutating route 403s on a forged Origin, so the
+  CSRF_ONLY tier above is covered at runtime regardless of inline adoption.
 
 Security note: the app-level CSRF guard (``_global_csrf_guard``) stops
 cross-origin form submissions from untrusted origins *when the attacker cannot
 read cookies*.  DNS rebinding bypasses CSRF because the rebinding page can
-read the CSRF cookie from ``127.0.0.1``.  For routes in the CSRF_ONLY tier the
-rebinding window is therefore the realistic attack surface for LITE release.
-The mitigation for LITE is the bind-to-loopback-only invariant
-(``test_webui_lite_loopback_enforced.py``), which limits exposure to local
-peers only.  Operationally acceptable for a single-operator LITE deployment.
+read the CSRF cookie from ``127.0.0.1``.  That rebinding window — previously the
+realistic attack surface for the CSRF_ONLY tier — is now closed by the app-level
+Origin guard, on top of the bind-to-loopback-only invariant
+(``test_webui_lite_loopback_enforced.py``).
 """
 from __future__ import annotations
 
@@ -116,13 +119,11 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # ---------------------------------------------------------------------------
 # CSRF-only routes — snapshot count gate
 # ---------------------------------------------------------------------------
-# This set is intentionally NOT asserted for 403 on fake Origin (they don't
-# have Origin guard).  The test only asserts the COUNT matches the snapshot so
-# that new unguarded routes force an explicit review delta.
-#
-# To raise the ceiling: grep the route file for _check_bind_origin_or_abort,
-# decide if the new route needs Origin guard, update the count, and leave a
-# comment explaining the security decision.
+# This set tracks routes lacking an *inline* _check_bind_origin_or_abort. They
+# are NO LONGER an open DNS-rebinding gap: the app-level _global_origin_guard now
+# Origin-checks every mutating verb (proven by the full-coverage gate below). The
+# count is kept as an informational inventory of inline-guard adoption, not a
+# documented hole — the runtime protection is asserted unconditionally there.
 
 _CSRF_ONLY_SNAPSHOT_COUNT = 64  # routes with CSRF but no Origin guard as of 2026-06-05
 
@@ -171,3 +172,113 @@ def test_regression_new_unguarded_route_detected():
     """
     hypothetical_count = _CSRF_ONLY_SNAPSHOT_COUNT + 1
     assert hypothetical_count > _CSRF_ONLY_SNAPSHOT_COUNT
+
+
+# ---------------------------------------------------------------------------
+# App-level Origin guard — full-coverage gate (R6 follow-up)
+# ---------------------------------------------------------------------------
+# The CSRF_ONLY snapshot above counts routes lacking an *inline*
+# _check_bind_origin_or_abort. Those routes are NO LONGER an open DNS-rebinding
+# gap: the app-level _global_origin_guard (webui_app/__init__.py) Origin-checks
+# every mutating verb. This section proves it at runtime — with the guard forced
+# on, EVERY mutating route (inline-guarded or not) rejects a forged Origin.
+#
+# The guard auto-disables under pytest (so the existing suite, which POSTs
+# without browser Origin headers, stays green); these tests force it on via the
+# private app instance below, the only place that does so.
+
+_MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+# Exempt from the Origin guard. SNAPSHOT-CAPPED; every entry needs a named
+# alternative protection and NO state-writing / probe route may appear. Empty:
+# the only OAuth carve-out (``*oauth_callback``) is a GET redirect, outside the
+# mutating set.
+_ORIGIN_GUARD_ALLOWLIST: frozenset[str] = frozenset()
+
+
+@pytest.fixture
+def guard_on_app():
+    from webui_app import create_app
+    a = create_app(start_scheduler=False)
+    a.config["TESTING"] = True
+    a.config["PROPAGATE_EXCEPTIONS"] = False
+    a.config["SESSION_COOKIE_SECURE"] = False
+    a.config["ORIGIN_GUARD_ENABLED"] = True  # force-on (auto-off under pytest)
+    return a
+
+
+def _build_path(rule):
+    try:
+        built = rule.build({a: 1 for a in rule.arguments}, append_unknown=False)
+    except Exception:  # noqa: BLE001 — unbuildable rule, skip
+        return None
+    if built is None:
+        return None
+    return built[1] if isinstance(built, tuple) else built
+
+
+def _verb(rule):
+    if "POST" in rule.methods:
+        return "POST"
+    return next(iter(rule.methods & _MUTATING))
+
+
+def _open(client, path, verb, origin):
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "test-csrf-token"
+    return client.open(path, method=verb,
+                       headers={"X-CSRFToken": "test-csrf-token", "Origin": origin},
+                       data={"csrf_token": "test-csrf-token"})
+
+
+def test_global_guard_covers_every_mutating_route(guard_on_app):
+    """With the app-level guard on, EVERY mutating route 403s on a forged Origin.
+
+    Legal CSRF is supplied so the CSRF guard (first hook) passes and the Origin
+    guard is what is exercised; the 403 lands in before_request, so the view never
+    runs (no side effect by construction)."""
+    client = guard_on_app.test_client()
+    offenders, skipped = [], []
+    for rule in guard_on_app.url_map.iter_rules():
+        if not (rule.methods & _MUTATING) or rule.endpoint in _ORIGIN_GUARD_ALLOWLIST:
+            continue
+        path = _build_path(rule)
+        if path is None:
+            skipped.append(rule.endpoint)
+            continue
+        if _open(client, path, _verb(rule), _EVIL_ORIGIN).status_code != 403:
+            offenders.append(rule.endpoint)
+    assert not offenders, f"forged Origin NOT blocked on: {sorted(offenders)}"
+    assert not skipped, f"could not build a path to probe: {sorted(skipped)}"
+
+
+def test_global_guard_allows_loopback_origin(guard_on_app):
+    """Positive control: a legal loopback Origin passes the guard on >=1 route,
+    proving the 403s above are Origin-attributable (not some unrelated 403)."""
+    client = guard_on_app.test_client()
+    for rule in guard_on_app.url_map.iter_rules():
+        if (not (rule.methods & _MUTATING) or rule.arguments
+                or rule.endpoint in _ORIGIN_GUARD_ALLOWLIST):
+            continue
+        path = _build_path(rule)
+        if path is None:
+            continue
+        if _open(client, path, _verb(rule), _EVIL_ORIGIN).status_code != 403:
+            continue
+        if _open(client, path, _verb(rule), _loopback_origin()).status_code != 403:
+            return  # found a route the loopback Origin is allowed through
+    pytest.fail("no route accepted a legal loopback Origin under the guard")
+
+
+def test_global_guard_off_by_default_under_pytest():
+    """The guard auto-disables under pytest so the existing suite stays green;
+    only the gates above force it on."""
+    from webui_app import create_app
+    a = create_app(start_scheduler=False)
+    assert a.config.get("ORIGIN_GUARD_ENABLED") is False
+
+
+def test_origin_guard_registered_after_csrf_guard(guard_on_app):
+    hooks = [f.__name__ for f in guard_on_app.before_request_funcs.get(None, [])]
+    assert hooks[0] == "_global_csrf_guard"  # E3 invariant unchanged
+    assert "_global_origin_guard" in hooks
