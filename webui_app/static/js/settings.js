@@ -258,7 +258,7 @@ function runVelogLogin() {
       if (d.ok) {
         alert('velog-login 已启动。\n请在弹出的 Chromium 窗口完成登录，完成后刷新本页。');
       } else {
-        alert('启动失败：' + (d.error || '未知错误'));
+        alert(d.message || ('启动失败：' + (d.error_code || '未知错误')));
       }
     })
     .catch(() => alert('网络错误，请手动在终端运行：\nvelog-login'));
