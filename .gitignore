@@ -15,6 +15,9 @@ GEMINI.md
 # egg-info metadata
 *.egg-info/
 
+# Flask instance folder (per-deployment config, SQLite DBs)
+instance/
+
 # test artifacts
 test_payload.jsonl
 
