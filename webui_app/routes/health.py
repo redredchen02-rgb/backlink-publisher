@@ -12,7 +12,7 @@ import dataclasses
 import logging
 from datetime import datetime, timezone
 
-from flask import Blueprint
+from flask import Blueprint, jsonify
 
 from ..helpers.contexts import _render
 from ..helpers._request_cache import _g_cache
@@ -20,6 +20,30 @@ from ..helpers._request_cache import _g_cache
 bp = Blueprint("health", __name__)
 
 _log = logging.getLogger(__name__)
+
+
+@bp.route("/ce:health/scorecard/<channel>/links", methods=["GET"])
+def ce_health_scorecard_links(channel: str):
+    """Per-link drawer data for one channel (Plan 2026-06-05-009 U2).
+
+    GET-only, read-only. Returns the latest ``link.rechecked`` verdict of every
+    published link under ``channel`` (fetch-on-expand under the scorecard card).
+    Fail-open with an explicit ``ok`` flag so the client distinguishes a
+    legitimately-empty channel (``{ok:true, links:[]}``) from a backend error
+    (``{ok:false, links:[]}``). ``derive_links_by_channel`` is called once
+    (returns all channels) and indexed here, per the U1 perf advisory.
+    """
+    def _links():
+        from backlink_publisher.scorecard.links import derive_links_by_channel
+        return derive_links_by_channel()
+
+    try:
+        by_channel = _g_cache("scorecard_links", _links)
+        rows = by_channel.get(channel, [])
+        return jsonify({"ok": True, "links": [r.to_dict() for r in rows]})
+    except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
+        _log.warning("health: scorecard links read failed for %s: %s", channel, exc)
+        return jsonify({"ok": False, "links": []})
 
 # Last-resort body when even rendering the degraded dashboard fails (R5: a GET
 # of /ce:health must never 500 — an honest "unavailable" beats a stack trace).
