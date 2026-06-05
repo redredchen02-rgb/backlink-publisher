@@ -545,25 +545,23 @@ def dispatch_weight(name: str) -> float:
         from backlink_publisher.optimization import OptimizationState
         state = OptimizationState()
         data = state.load()
-        weight_entry = data.get("weights", {}).get(name, {})
-        dynamic = weight_entry.get("current")
+        wentry = data.get("weights", {}).get(name, {})
+        dynamic = wentry.get("current")
         if dynamic is not None:
-            dynamic = float(dynamic)
-            # A locked weight is the operator's explicit choice — return it
-            # verbatim, even 0 (manual disable), so the read-time floor never
-            # fights a deliberate lock_weight().
-            if weight_entry.get("locked", False):
-                return dynamic
-            # Otherwise floor against legacy 0s: a weight of 0 permanently
-            # excludes a platform from routing, irreversible without a state
-            # edit. Use the optimiser's configured floor so routing and the
-            # aggregated_stats rule agree on one min_weight.
-            min_weight = float(
-                data.get("rules", {})
-                .get("aggregated_stats", {})
-                .get("min_weight", 0.1)
-            )
-            return max(dynamic, min_weight)
+            value = float(dynamic)
+            # Clamp against legacy 0s: a weight of 0 permanently excludes a
+            # platform from routing, which is irreversible without a state edit.
+            # Only a NON-POSITIVE weight is lifted, so a legitimately-low
+            # positive weight set by another rule (e.g. canary_drift suppressing
+            # a low-base channel) is preserved rather than silently re-promoted.
+            # A deliberate operator lock wins over the floor — an operator may
+            # intentionally pin a platform to 0, and automation must not undo it.
+            if value <= 0 and not wentry.get("locked", False):
+                floor = float(
+                    data.get("rules", {}).get("aggregated_stats", {}).get("min_weight") or 0.0
+                ) or 0.01
+                value = max(value, floor)
+            return value
     except Exception:
         pass
 

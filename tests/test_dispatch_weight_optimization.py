@@ -55,29 +55,27 @@ class TestDispatchWeightDynamic:
         w = registry.dispatch_weight("telegraph")
         assert w > 0.0, "dispatch_weight must never return 0 — routing exclusion is irreversible"
 
-    def test_unlocked_zero_floors_to_configured_min_weight(self, tmp_path: Path, monkeypatch):
-        """An unlocked legacy 0 floors to the optimiser's min_weight, not a literal."""
+    def test_locked_zero_weight_respected(self, tmp_path: Path, monkeypatch):
+        """An operator's manual lock at 0 wins over the defensive floor — the
+        clamp must not undo a deliberate operator weight lock."""
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         state = OptimizationState()
-        state.set_weight("telegraph", 0.0, rule="aggregated_stats", reason="legacy zero")
-
-        # default_state seeds min_weight=0.1, so routing and the rule agree.
-        assert registry.dispatch_weight("telegraph") == pytest.approx(0.1)
-
-    def test_locked_zero_weight_returned_verbatim(self, tmp_path: Path, monkeypatch):
-        """A manually locked weight is the operator's choice — the floor must not fight it.
-
-        Same stored 0 → 0.1 when unlocked (floored, routable) but 0.0 when
-        locked (operator disable honoured). The 0.1-vs-0.0 delta pins the lock
-        branch; without it the floor would silently re-enable a disabled channel.
-        """
-        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-        state = OptimizationState()
-        state.set_weight("telegraph", 0.0, rule="manual", reason="operator disable")
-        assert registry.dispatch_weight("telegraph") == pytest.approx(0.1)  # unlocked: floored
-
+        state.set_weight("telegraph", 0.0, rule="manual", reason="operator off")
         state.lock_weight("telegraph", True)
-        assert registry.dispatch_weight("telegraph") == pytest.approx(0.0)  # locked: verbatim
+
+        w = registry.dispatch_weight("telegraph")
+        assert w == pytest.approx(0.0), "locked weight must be honoured over the floor"
+
+    def test_low_positive_weight_from_other_rule_preserved(self, tmp_path: Path, monkeypatch):
+        """The floor lifts only a non-positive (legacy-zero) weight; a
+        legitimately-low positive weight (e.g. canary_drift suppressing a
+        low-base channel) must NOT be re-promoted back up to the floor."""
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+        state = OptimizationState()
+        state.set_weight("telegraph", 0.05, rule="canary_drift", reason="low base suppress")
+
+        w = registry.dispatch_weight("telegraph")
+        assert w == pytest.approx(0.05), "low positive weight must be preserved, not floored"
 
     def test_read_time_floor_honors_tuned_min_weight(self, tmp_path: Path, monkeypatch):
         """The read-time floor uses the operator-tuned min_weight, not a hardcoded value."""
