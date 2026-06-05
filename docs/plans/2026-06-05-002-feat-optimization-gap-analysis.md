@@ -1,3 +1,10 @@
+---
+title: "Gap Analysis: 優化計畫落地盤點與缺口分析"
+type: analysis
+status: completed
+date: 2026-06-05
+---
+
 # Gap Analysis: 優化計畫落地盤點與缺口分析
 
 **建立**: 2026-06-05
