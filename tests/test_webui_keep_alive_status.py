@@ -29,10 +29,10 @@ def _article(store, live_url, target):
     )
 
 
-def _recheck(store, *, target, article_id, verdict, ts):
+def _recheck(store, *, target, article_id, verdict, ts, platform="telegraph"):
     store.append(
         LINK_RECHECKED,
-        {"verdict": verdict, "live_url": "x", "platform": "telegraph"},
+        {"verdict": verdict, "live_url": "x", "platform": platform},
         target_url=target,
         article_id=article_id,
         ts_utc=ts,
@@ -198,3 +198,52 @@ def test_equal_timestamp_latest_event_id_wins(tmp_path):
     assert row["counts"]["link_stripped"] == 1           # later write wins
     assert row["counts"]["alive"] == 0
     assert row["total"] == 1
+
+
+# ── U2: per-target alive_platforms (net-coverage input) ──────────────────────
+
+
+def test_alive_platforms_lists_platforms_with_latest_alive(tmp_path):
+    # The platform of each link whose LATEST verdict is alive is exposed, so the
+    # gap engine can tell whether a target is covered on a sticky platform.
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/501"
+    a_blog = _article(s, "https://taiwanmanga2026.blogspot.com/b", t)
+    a_tele = _article(s, "https://telegra.ph/t", t)
+    _recheck(s, target=t, article_id=a_blog, verdict="alive", ts=RECENT, platform="blogger")
+    _recheck(s, target=t, article_id=a_tele, verdict="alive", ts=RECENT, platform="telegraph")
+
+    row = derive_per_target_status(s)[canonicalize_url(t)]
+    assert row["alive_platforms"] == ["blogger", "telegraph"]   # sorted
+
+
+def test_alive_platforms_excludes_platform_whose_latest_is_stripped(tmp_path):
+    # A platform's link that was alive then stripped must NOT appear — only the
+    # link's freshest verdict counts (per-link, latest wins).
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/502"
+    a = _article(s, "https://taiwanmanga2026.blogspot.com/c", t)
+    _recheck(s, target=t, article_id=a, verdict="alive", ts=OLD, platform="blogger")
+    _recheck(s, target=t, article_id=a, verdict="link_stripped", ts=RECENT, platform="blogger")
+
+    row = derive_per_target_status(s)[canonicalize_url(t)]
+    assert row["alive_platforms"] == []                  # latest is stripped
+
+
+def test_alive_platforms_empty_when_no_alive(tmp_path):
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/503"
+    a = _article(s, "https://telegra.ph/d", t)
+    _recheck(s, target=t, article_id=a, verdict="link_stripped", ts=RECENT, platform="telegraph")
+
+    row = derive_per_target_status(s)[canonicalize_url(t)]
+    assert row["alive_platforms"] == []

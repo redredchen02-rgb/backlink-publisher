@@ -130,8 +130,11 @@ def derive_per_target_status(store: "EventStore") -> dict[str, dict]:
     # order. Without it a same-second alive could mask a later link_stripped.
     from .overlay import _canon_target, _is_newer
 
-    # (canonical target, article_id) -> (ts, rid, verdict); latest wins.
-    latest: dict[tuple[str, int], tuple[datetime | None, int, str]] = {}
+    # (canonical target, article_id) -> (ts, rid, verdict, platform); latest wins.
+    # platform rides along so net-coverage (keep-alive gap) can tell WHERE a link
+    # is currently alive — a republished sticky link confirmed alive resolves the
+    # gap, an alive link on a non-sticky platform (telegraph) does not.
+    latest: dict[tuple[str, int], tuple[datetime | None, int, str, str | None]] = {}
     last_seen: dict[str, tuple[datetime | None, int]] = {}
     sql = (
         "SELECT id, target_url, article_id, payload_json, ts_utc FROM events "
@@ -139,11 +142,13 @@ def derive_per_target_status(store: "EventStore") -> dict[str, dict]:
     )
     for row in store.query(sql, (LINK_RECHECKED,)):
         try:
-            verdict = json.loads(row["payload_json"] or "{}").get("verdict")
+            payload = json.loads(row["payload_json"] or "{}")
         except (ValueError, TypeError):
             continue
+        verdict = payload.get("verdict")
         if verdict not in verdicts.VERDICTS:
             continue
+        platform = payload.get("platform")
         target = _canon_target(row["target_url"])
         if target is None:
             continue
@@ -152,21 +157,29 @@ def derive_per_target_status(store: "EventStore") -> dict[str, dict]:
         key = (target, row["article_id"])
         prev = latest.get(key)
         if prev is None or _is_newer(ts, rid, prev[0], prev[1]):
-            latest[key] = (ts, rid, verdict)
+            latest[key] = (ts, rid, verdict, platform)
         seen = last_seen.get(target)
         if seen is None or _is_newer(ts, rid, seen[0], seen[1]):
             last_seen[target] = (ts, rid)
 
     out: dict[str, dict] = {}
-    for (target, _aid), (_ts, _rid, verdict) in latest.items():
+    alive_platforms: dict[str, set] = {}
+    for (target, _aid), (_ts, _rid, verdict, platform) in latest.items():
         entry = out.setdefault(
             target,
-            {"counts": {v: 0 for v in verdicts.VERDICTS}, "total": 0, "last_verified": None},
+            {"counts": {v: 0 for v in verdicts.VERDICTS}, "total": 0,
+             "last_verified": None, "alive_platforms": []},
         )
         entry["counts"][verdict] += 1
         entry["total"] += 1
+        # A link's LATEST verdict being alive means that platform currently
+        # covers the target (per-link, so only this article's freshest state).
+        if verdict == verdicts.ALIVE and platform:
+            alive_platforms.setdefault(target, set()).add(platform)
     for target, entry in out.items():
         seen = last_seen.get(target)
         ts = seen[0] if seen else None
         entry["last_verified"] = ts.isoformat() if ts is not None else None
+        # Sorted list (not set) keeps the entry JSON-serializable for the view.
+        entry["alive_platforms"] = sorted(alive_platforms.get(target, ()))
     return out

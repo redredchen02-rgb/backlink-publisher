@@ -270,6 +270,16 @@ def plan_keepalive_gap(
         if stripped == 0:
             continue  # D6: a still-live target is never in the gap set
 
+        # Net coverage (D6, sticky-scoped): a republished link confirmed alive on
+        # a sticky platform restores coverage, so the target leaves the gap set
+        # even though an older link is still stripped. An alive link on a
+        # NON-sticky platform (e.g. telegraph) does NOT resolve it — that is the
+        # partial-strip case D1 exists to surface. ``probe_error``/``dofollow_lost``
+        # are never in ``alive_platforms`` so they cannot mask a real gap.
+        alive_platforms = set(status.get("alive_platforms") or ())
+        if alive_platforms & set(sticky_platforms):
+            continue
+
         already_live = set(_row_get(row, "live_dofollow_platforms") or [])
         sticky_avail = [p for p in sticky_platforms if p not in already_live]
         # One republish per dead link, cycling the free sticky destinations
