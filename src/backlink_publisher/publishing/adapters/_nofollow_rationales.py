@@ -144,16 +144,6 @@ NOFOLLOW_RATIONALES: dict[str, str] = {
         "slated for retirement (PR #202) — coordinate before investing "
         'further. referral_value="low": minimalist low-DA blogging host.'
     ),
-    "rentry": (
-        'Registered dofollow="uncertain" pending an OUR-pipeline canary. A '
-        "2026-05 third-party live check found rentry.co paste links carry "
-        'only rel="noreferrer noopener" with no nofollow (= dofollow), but '
-        "a third-party spot-check does not discharge the canary burden "
-        "(livejournal/txtfyi precedent). Confirm by publishing a canary and "
-        "reading verify_link_attributes, then amend to dofollow=True. "
-        'referral_value="low": anonymous markdown paste with low DA and '
-        "frequent noindex, so equity is weak even if dofollow holds."
-    ),
     "livejournal": (
         "Pipeline canary 2026-05-29: link_attr_verification target_nofollow=True — "
         "LiveJournal platform-wide injects rel=nofollow on external body links. "
@@ -161,22 +151,14 @@ NOFOLLOW_RATIONALES: dict[str, str] = {
         "high-DA legacy blogging platform; nofollow does not eliminate referral or brand value."
     ),
     "hackmd": (
-        'Registered dofollow="uncertain" pending an OUR-pipeline canary. A '
-        "2026-06-01 third-party live check (verify_link_attributes on a real public "
-        'note) sampled 188 outbound anchors with 0 nofollow and <meta robots="index,'
-        'follow"> (DA ~71). A third-party spot-check does not discharge the canary '
-        "burden (hashnode/substack/hatena precedent): publish an OUR note, read "
-        'verify_link_attributes, then amend to dofollow=True. referral_value="high": '
-        "well-indexed high-DA docs host with real referral traffic."
-    ),
-    "mataroa": (
-        'Registered dofollow="uncertain" pending an OUR-pipeline canary. A '
-        "2026-06-01 third-party live check (verify_link_attributes on real posts) "
-        "found outbound external links carry no rel (= dofollow) and site:mataroa.blog "
-        "returns fresh indexed content. The platform currently tolerates marketing "
-        "posts, so it could tighten — confirm via an OUR canary and read "
-        "verify_link_attributes before amending to dofollow=True. referral_value="
-        '"high": indexed minimalist blog host with open token API.'
+        "OUR canary 2026-06-05: published an OUR note and read the rendered anchor — "
+        'HackMD injects rel="noopener ugc nofollow" on external body links. Registered '
+        "dofollow=False, overriding the 2026-06-01 third-party check (188/0 dofollow on "
+        "a sampled public note): HackMD applies ugc/nofollow to our pipeline's UGC links "
+        "even though some notes carry bare anchors. The static canary fetch reported "
+        "anchor_not_found because HackMD renders client-side; a browser DOM read "
+        'confirmed the nofollow. referral_value="high": well-indexed high-DA docs host '
+        "with real referral traffic; nofollow does not eliminate referral or brand value."
     ),
     "gitlabpages": (
         'Registered dofollow="uncertain" though the rel is operator-controlled '

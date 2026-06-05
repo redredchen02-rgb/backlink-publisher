@@ -137,14 +137,17 @@ class TestRegistration:
         from backlink_publisher.publishing.registry import registered_platforms
         assert "mataroa" in registered_platforms()
 
-    def test_dofollow_uncertain(self):
+    def test_dofollow_true(self):
+        # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty) → flipped True.
         from backlink_publisher.publishing.registry import dofollow_status
-        assert dofollow_status("mataroa") == "uncertain"
+        assert dofollow_status("mataroa") is True
 
-    def test_referral_value_high(self):
+    def test_referral_value_none(self):
+        # dofollow=True platforms carry no referral_value (last-call-wins clears it).
         from backlink_publisher.publishing.registry import referral_value
-        assert referral_value("mataroa") == "high"
+        assert referral_value("mataroa") is None
 
-    def test_rationale_min_length(self):
+    def test_rationale_none(self):
+        # dofollow=True drops the nofollow rationale.
         from backlink_publisher.publishing.registry import dofollow_rationale
-        assert len(dofollow_rationale("mataroa").strip()) >= 80
+        assert dofollow_rationale("mataroa") is None

@@ -96,3 +96,19 @@ def test_happy_path_current_api_schema():
         result = RentryAPIAdapter().publish(_payload(), "publish", MagicMock())
     assert isinstance(result, AdapterResult)
     assert result.published_url == "https://rentry.co/noom4zt8"
+
+
+class TestRegistration:
+    def test_registered(self):
+        from backlink_publisher.publishing.registry import registered_platforms
+        assert "rentry" in registered_platforms()
+
+    def test_dofollow_true(self):
+        # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty) → flipped True.
+        from backlink_publisher.publishing.registry import dofollow_status
+        assert dofollow_status("rentry") is True
+
+    def test_referral_value_none(self):
+        # dofollow=True platforms carry no referral_value.
+        from backlink_publisher.publishing.registry import referral_value
+        assert referral_value("rentry") is None

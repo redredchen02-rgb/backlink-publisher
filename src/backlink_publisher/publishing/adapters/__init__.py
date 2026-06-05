@@ -157,9 +157,7 @@ register(
 register(
     "rentry",
     RentryAPIAdapter,
-    dofollow="uncertain",  # 3rd-party live check = dofollow (rel=noreferrer); canary pending
-    rationale=_R["rentry"],
-    referral_value="low",
+    dofollow=True,  # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty)
     **RENTRY_MANIFEST,
 )
 register(
@@ -271,7 +269,7 @@ register(
 register(
     "hackmd",
     HackmdAPIAdapter,
-    dofollow="uncertain",  # 3rd-party check=dofollow (188/0); OUR canary pending
+    dofollow=False,  # OUR canary 2026-06-05: nofollow confirmed (rel="noopener ugc nofollow")
     rationale=_R["hackmd"],
     referral_value="high",
     **HACKMD_MANIFEST,
@@ -279,9 +277,7 @@ register(
 register(
     "mataroa",
     MataroaAPIAdapter,
-    dofollow="uncertain",  # 3rd-party check=dofollow (6/0, site: fresh); OUR canary pending
-    rationale=_R["mataroa"],
-    referral_value="high",
+    dofollow=True,  # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty)
     **MATAROA_MANIFEST,
 )
 register(
