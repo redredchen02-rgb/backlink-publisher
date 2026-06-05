@@ -39,21 +39,12 @@ _CYR_START, _CYR_END = 0x0400, 0x04FF
 _GATED_KINDS = frozenset({"main_domain", "target"})
 
 #: Latin-only anchor patterns that are allowed for zh-CN targets (C0
-#: optimisation 2026-06-05). These are domain-like anchors (bare domains,
-#: "click here", "visit site", "official website") that do not carry CJK
-#: codepoints but are legitimate anchor text for Chinese backlinks targeting
-#: a specific domain (e.g. "51acgs.com", "acgs").
-#: Extended via the env var ``BACKLINK_ANCHOR_ALLOWED_LATIN_PATTERNS``
-#: (comma-separated, applied as lowercased substring match).
-_ALLOWED_LATIN_ANCHOR_PATTERNS: tuple[str, ...] = (
-    # Domain patterns — bare domain anchors in zh-CN context
-    ".com", ".cn", ".net", ".org", ".io", ".co",
-    # Common CTAs used as anchor text across languages
-    "click here", "visit", "official website", "learn more",
-    "read more", "get started", "sign up", "homepage",
-    # Short brand/identifier anchors common in zh-CN backlinks
-    "官网", "官方网站", "首页",
-)
+#: optimisation 2026-06-05). No built-in generic TLD patterns — those were
+#: too broad (e.g. ".com" matched "example.com" for any zh-CN target, not
+#: just anchors for the actual target domain). Operators extend this list
+#: per-deployment via BACKLINK_ANCHOR_ALLOWED_LATIN_PATTERNS with specific
+#: brand/domain fragments (e.g. "51acgs" allows "51acgs.com" anchors).
+_ALLOWED_LATIN_ANCHOR_PATTERNS: tuple[str, ...] = ()
 
 #: The env var to extend ``_ALLOWED_LATIN_ANCHOR_PATTERNS`` at runtime.
 #: Comma-separated, lowercased substring match — e.g.
