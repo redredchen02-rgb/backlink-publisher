@@ -103,7 +103,13 @@ def pro_status_summary(settings: dict) -> dict:
             endpoint_host = ""
 
     last_test = settings.get("last_test")
-    if not isinstance(last_test, dict):
+    # Only surface a *complete* record. A partial/corrupt dict (e.g. from a manual
+    # file edit) would render empty fields in the pill/status-header templates and
+    # could falsely read as "healthy" — coerce it to None so the surfaces fall back
+    # to the pending/"未测试" state. record_llm_test_result always writes all three.
+    if not isinstance(last_test, dict) or not all(
+        k in last_test for k in ("ok", "at", "message")
+    ):
         last_test = None
 
     return {
@@ -132,7 +138,9 @@ def record_llm_test_result(ok: bool, message: str) -> None:
     settings["last_test"] = {
         "ok": bool(ok),
         "at": datetime.now().isoformat(timespec="seconds"),
-        "message": str(message),
+        # Cap length: the message echoes provider/exception strings — bound it so
+        # repeated tests can't bloat the credential file with a giant error body.
+        "message": str(message)[:500],
     }
     atomic_write(
         llm_settings_file(),

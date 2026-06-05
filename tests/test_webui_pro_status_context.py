@@ -68,6 +68,17 @@ def test_summary_malformed_last_test_coerced_to_none():
     assert out["last_test"] is None
 
 
+def test_summary_incomplete_last_test_dict_coerced_to_none():
+    # A dict missing required keys (e.g. from a manual file edit) must not be
+    # surfaced — it would render empty fields and falsely read as healthy.
+    out = settings_service.pro_status_summary({
+        "endpoint": "https://api.example.com",
+        "api_key": "k",
+        "last_test": {"ok": True},  # missing 'at' and 'message'
+    })
+    assert out["last_test"] is None
+
+
 def test_summary_never_contains_api_key():
     secret = "sk-super-secret-value"
     out = settings_service.pro_status_summary({

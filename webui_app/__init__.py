@@ -230,7 +230,10 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             summary = settings_service.pro_status_summary(
                 settings_service.load_llm_settings()
             )
-        except Exception:
+        except Exception as e:
+            # Fail-safe: a malformed llm-settings.json must never 500 every page.
+            # Log at debug so the degraded-to-inactive state is diagnosable.
+            app.logger.debug("inject_pro_status fell back to inactive: %s", e)
             summary = {
                 "configured": False, "endpoint_host": "", "model": "",
                 "article_gen": False, "image_gen": False, "last_test": None,

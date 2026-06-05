@@ -10,6 +10,7 @@ import requests
 # on Flask.  Re-imported here under the original private names so existing test
 # patches targeting ``webui_app.routes.llm._guard_llm_endpoint`` and
 # ``webui_app.routes.llm._safe_post_json`` continue to work without change.
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.llm.http_guard import (
     LLM_MAX_RESPONSE_BYTES as _LLM_TEST_MAX_BYTES,
     guard_llm_endpoint as _guard_llm_endpoint,
@@ -242,12 +243,15 @@ def settings_test_llm():
                 ok=(status == 'ok'),
                 message=payload.get('message', ''),
             )
-    except Exception:
-        pass
+    except Exception as e:
+        # Best-effort persistence — never break the test-connection response.
+        # Log so a recurring write failure (disk full, perms) is diagnosable
+        # rather than silently leaving the pill stuck on stale health.
+        plan_logger.warn("failed to persist llm test result", error=str(e))
     return result
 
 
-def _run_llm_connection_test():
+def _run_llm_connection_test() -> tuple:
     try:
         endpoint = request.form.get('endpoint', '').strip().rstrip('/')
         api_key = request.form.get('api_key', '').strip()

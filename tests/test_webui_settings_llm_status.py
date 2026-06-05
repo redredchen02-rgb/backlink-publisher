@@ -88,3 +88,6 @@ def test_header_never_renders_api_key(cfg_dir):
     })
     html = _settings_html(cfg_dir)
     assert secret not in html
+    # configured + article_gen but no last_test → pending with a verify hint
+    assert "待激活" in html
+    assert "测试连接" in html
