@@ -16,6 +16,7 @@ from backlink_publisher.config import Config
 from backlink_publisher.config.tokens import (
     save_devto_token,
     save_ghpages_token,
+    save_gitlabpages_token,
     save_hackmd_token,
     save_hatena_token,
     save_mataroa_token,
@@ -63,6 +64,8 @@ _TOKEN_FIELDS_DISPATCH: dict[str, tuple] = {
     "wordpresscom": (save_wordpresscom_token, "wordpresscom-token.json",
                      ["token", "site"]),
     "ghpages":      (save_ghpages_token,      "ghpages-token.json",
+                     ["token"]),
+    "gitlabpages":  (save_gitlabpages_token,  "gitlabpages-token.json",
                      ["token"]),
     "hatena":       (save_hatena_token,       "hatena-credentials.json",
                      ["hatena_id", "blog_id", "api_key"]),
