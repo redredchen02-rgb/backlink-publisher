@@ -270,3 +270,41 @@ def test_reverify_error_is_probe_error_not_a_treadmill():
     # a probe failure is indeterminate — it must NOT be read as a re-strip (S7).
     assert p["restripped"] == 0 and p["state"] == "all_success"
     assert p["reverified"][0]["verdict"] == "probe_error"
+
+
+# ── 7b: write_verified_at called by _default_reverify (Issue B fix) ──────────
+
+
+def test_default_reverify_updates_verified_at_on_alive(tmp_path):
+    """_default_reverify must call write_verified_at so the ledger sees the new
+    alive link on the next build_ledger call; without it liveness stays 'unverified'
+    and live_dofollow_platforms is never populated for the republished article."""
+    from unittest.mock import patch
+
+    from backlink_publisher.events import EventStore
+    from backlink_publisher.events.kinds import LINK_RECHECKED
+    from webui_app.services.keepalive_job import _default_reverify
+
+    store = EventStore(path=tmp_path / "events.db")
+    url = "https://taiwanmanga2026.blogspot.com/test-reverify.html"
+    target = "https://51acgs.com/comic/117"
+
+    def _fake_probe(record, probe):
+        return {**record, "verdict": "alive", "confirmed_dofollow": True, "reason": None}
+
+    with patch("webui_app.services.keepalive_job.recheck_link", _fake_probe):
+        verdict = _default_reverify(
+            {"target_url": target, "platform": "blogger", "published_url": url},
+            store,
+        )
+
+    assert verdict["verdict"] == "alive"
+
+    # emit_recheck must have written a link.rechecked event.
+    events = list(store.query("SELECT COUNT(*) AS n FROM events WHERE kind = ?", (LINK_RECHECKED,)))
+    assert events[0]["n"] == 1, "emit_recheck not called"
+
+    # write_verified_at must have set articles.verified_at for the alive verdict.
+    arts = list(store.query("SELECT verified_at FROM articles WHERE live_url LIKE ?", ("%test-reverify%",)))
+    assert arts, "article not registered by _ensure_article"
+    assert arts[0]["verified_at"], "write_verified_at was not called by _default_reverify"

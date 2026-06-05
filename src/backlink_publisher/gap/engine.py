@@ -280,7 +280,15 @@ def plan_keepalive_gap(
         if alive_platforms & set(sticky_platforms):
             continue
 
-        already_live = set(_row_get(row, "live_dofollow_platforms") or [])
+        # Use alive_platforms (fresh, from per_target_status recheck events) to
+        # determine which stickies are occupied — NOT live_dofollow_platforms from
+        # the ledger. The ledger field is only updated by write_verified_at (alive
+        # verdicts only), so a stripped link within the stale_days window would
+        # incorrectly block a sticky platform. After the D6 check above,
+        # alive_platforms & sticky_platforms is always empty, so every configured
+        # sticky platform is a candidate. R6 (ledger liveness writeback) will make
+        # the two sources consistent; until then this is the authoritative path.
+        already_live = alive_platforms
         sticky_avail = [p for p in sticky_platforms if p not in already_live]
         # One republish per dead link, cycling the free sticky destinations
         # (multiple posts to one sticky platform are distinct articles).

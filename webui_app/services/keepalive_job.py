@@ -226,6 +226,14 @@ def _default_reverify(result: dict, store: EventStore) -> dict:
         emit_recheck(store, [verdict])
     except Exception:  # noqa: BLE001 — a write failure must not lose the verdict signal
         pass
+    # Mirror the regular recheck job: update articles.verified_at so the ledger
+    # reflects the new alive link on the next build_ledger call. Without this,
+    # liveness stays "unverified" and the link never enters live_dofollow_platforms
+    # until the next scheduled recheck job runs write_verified_at itself.
+    try:
+        write_verified_at(store, [verdict])
+    except Exception:  # noqa: BLE001
+        pass
     return verdict
 
 

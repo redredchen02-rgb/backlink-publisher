@@ -79,14 +79,31 @@ def test_never_rechecked_target_is_not_a_gap():
     assert seeds == [] and gaps == []
 
 
-def test_already_live_on_all_sticky_is_channel_exhausted():
+def test_stale_ledger_platforms_do_not_block_sticky_candidates():
+    # Regression for the stale-ledger bug: if the ledger shows blogger+ghpages in
+    # live_dofollow_platforms but recheck verdicts say both are stripped (not alive),
+    # the engine must still emit seeds — it uses alive_platforms (fresh, from
+    # per_target_status) to determine which stickies are occupied, not the ledger
+    # field (which is only updated by write_verified_at on alive verdicts).
+    # live_dofollow_platforms = ["blogger", "ghpages"] is deliberately stale here.
     t = "https://51acgs.com/comic/117"
-    rows = [_row(t, platforms=("blogger", "ghpages"))]      # live on both sticky
+    rows = [_row(t, platforms=("blogger", "ghpages"))]
     status = {canonicalize_url(t): _status(link_stripped=2)}
     seeds, gaps = plan_keepalive_gap(rows, status, OPTS)
+    # Both stickies are available (none are alive per per_target_status) → 2 seeds.
+    assert len(seeds) == 2
+    assert {s["platform"] for s in seeds} == {"blogger", "ghpages"}
+    assert gaps[0].channel_exhausted is False
+
+
+def test_no_sticky_platforms_gives_channel_exhausted():
+    # channel_exhausted is True only when the runtime sticky roster is empty.
+    t = "https://51acgs.com/comic/117"
+    rows = [_row(t)]
+    status = {canonicalize_url(t): _status(link_stripped=2)}
+    seeds, gaps = plan_keepalive_gap(rows, status, OPTS, sticky_platforms=())
     assert seeds == []
     assert gaps[0].channel_exhausted is True
-    assert gaps[0].emitted_platforms == []
 
 
 def test_example_com_test_data_excluded():
