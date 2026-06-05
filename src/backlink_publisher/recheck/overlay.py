@@ -37,16 +37,20 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import TYPE_CHECKING
 
-from backlink_publisher._util.errors import DependencyError
-from backlink_publisher._util.url import canonicalize_url
-from backlink_publisher.events.kinds import LINK_RECHECKED
 from backlink_publisher.recheck import verdicts
-from backlink_publisher.recheck.selection import _parse_ts
+# Canonical latest-verdict primitives live in the stable ``latest_verdicts``
+# module; re-exported here so existing call sites (``events_io``, the
+# ``gap/engine`` comment) and any ``overlay._canon_target`` reference keep
+# resolving while the NULL-article_id-safe invariant lives in one place.
+from backlink_publisher.recheck.latest_verdicts import (  # noqa: F401
+    LatestVerdict,
+    _canon_target,
+    _is_newer,
+    latest_link_verdicts,
+)
 
 if TYPE_CHECKING:
     from backlink_publisher.events.store import EventStore
@@ -106,45 +110,6 @@ class TransformTally:
     unmatched_discount: int = 0  # discounts whose target matched no ledger row
 
 
-def _canon_target(value: object) -> str | None:
-    """Canonicalize a target_url for matching; ``None`` for null/blank/unparseable.
-
-    ``link.rechecked.target_url`` is stored raw (not pre-canonicalized), while the
-    ledger's ``LedgerRow.target_url`` is canonical — so both sides must pass
-    through ``canonicalize_url`` to match. Defensive against a malformed URL whose
-    invalid port makes ``urlsplit``/``port`` raise (the url-parse-never-raises
-    lesson): such a target is reported as unusable, never a crash.
-    """
-    if not isinstance(value, str) or not value.strip():
-        return None
-    try:
-        return canonicalize_url(value)
-    except ValueError:
-        return None
-
-
-def _is_newer(
-    ts: datetime | None,
-    rid: int,
-    prev_ts: datetime | None,
-    prev_rid: int,
-) -> bool:
-    """True if ``(ts, rid)`` is a later verdict than ``(prev_ts, prev_rid)``.
-
-    ``ts_utc`` is primary (a real timestamp beats ``None``); ``events.id`` breaks a
-    same-``ts_utc`` tie. Deterministic given a fixed event set (R8).
-    """
-    if ts is None and prev_ts is None:
-        return rid > prev_rid
-    if prev_ts is None:
-        return True
-    if ts is None:
-        return False
-    if ts != prev_ts:
-        return ts > prev_ts
-    return rid > prev_rid
-
-
 def _articles_targets(store: "EventStore", article_ids: set) -> dict:
     """Best-effort ``article_id`` → canonical target_url, for recheck events whose
     own ``target_url`` column is NULL but that carry an ``article_id`` (F3).
@@ -179,55 +144,23 @@ def build_discount_map(store: "EventStore") -> DiscountResult:
     Raises ``DependencyError`` (exit 3) when an existing events.db is unreadable.
     """
     result = DiscountResult()
-    # Absent events.db → nothing to discount. Check before any connect() so the
-    # read-only verb never materializes an empty database as a side effect.
-    if not store.path.exists():
-        return result
-
-    try:
-        rows = store.query(
-            "SELECT article_id, target_url, payload_json, ts_utc, id "
-            "FROM events WHERE kind = ?",
-            (LINK_RECHECKED,),
-        )
-    except sqlite3.Error as exc:
-        raise DependencyError(
-            f"recheck-overlay: events.db unreadable: {exc}"
-        ) from exc
-
-    # Latest verdict per LINK, keyed on canonical live_url (article_id fallback).
-    # Value: (ts, rid, payload, target_col, article_id).
-    latest: dict = {}
-    for row in rows:
-        try:
-            payload = json.loads(row["payload_json"] or "{}")
-        except (ValueError, TypeError):
-            payload = {}
-        live_url = payload.get("live_url")
-        key = _canon_target(live_url) if isinstance(live_url, str) else None
-        if key is None:
-            aid = row["article_id"]
-            key = f"aid:{aid}" if aid is not None else None
-        if key is None:
-            # No live_url AND no article_id — the link is unidentifiable. Loud, not
-            # a silent drop (projector-silent-drop lesson).
-            result.tally.unkeyable += 1
-            continue
-        ts = _parse_ts(row["ts_utc"])
-        rid = row["id"]
-        prev = latest.get(key)
-        if prev is None or _is_newer(ts, rid, prev[0], prev[1]):
-            latest[key] = (ts, rid, payload, row["target_url"], row["article_id"])
+    # Latest verdict per LINK, keyed on canonical live_url (article_id fallback),
+    # read through the shared reader so the NULL-article_id-safe invariant is not
+    # duplicated. Unkeyable rows are counted loudly, never silently dropped.
+    latest, result.tally.unkeyable = latest_link_verdicts(store)
 
     # Recover NULL-target latest verdicts that still carry an article_id (F3).
     need_recovery = {
-        aid
-        for (_t, _r, _p, target_col, aid) in latest.values()
-        if _canon_target(target_col) is None and aid is not None
+        lv.article_id
+        for lv in latest.values()
+        if _canon_target(lv.target_url) is None and lv.article_id is not None
     }
     recovered = _articles_targets(store, need_recovery)
 
-    for _ts, _rid, payload, target_col, aid in latest.values():
+    for lv in latest.values():
+        payload = lv.payload
+        target_col = lv.target_url
+        aid = lv.article_id
         verdict = payload.get("verdict")
         if verdict == verdicts.PROBE_ERROR:
             continue  # indeterminate — re-probed later, no discount

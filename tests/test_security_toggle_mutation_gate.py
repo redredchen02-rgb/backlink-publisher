@@ -83,6 +83,8 @@ GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
         ("test_webui_equity_batch_recheck.py", "WTF_CSRF_ENABLED"),
         ("test_webui_equity_fill_gaps.py", "WTF_CSRF_ENABLED"),
         ("test_webui_equity_ledger_u1_u3.py", "WTF_CSRF_ENABLED"),
+        # plan 009 per-link liveness drawer (2026-06-05)
+        ("test_webui_scorecard_recheck_link_route.py", "CSRF_ENABLED"),
         # feat/ai-engine-empowerment + feat/collapse-unconnected-platforms (merged 2026-06-05)
         ("test_webui_llm_test_persist.py", "CSRF_ENABLED"),
         ("test_webui_llm_test_persist.py", "WTF_CSRF_ENABLED"),

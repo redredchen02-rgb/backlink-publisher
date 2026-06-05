@@ -9,17 +9,137 @@ the read-only aggregations (U2), and renders them with honest empty / freshness
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
-from flask import Blueprint
+from flask import Blueprint, jsonify, request
 
 from ..helpers.contexts import _render
 from ..helpers._request_cache import _g_cache
+from ..helpers.security import _check_bind_origin_or_abort
+
+if TYPE_CHECKING:
+    from backlink_publisher.events.store import EventStore
 
 bp = Blueprint("health", __name__)
 
 _log = logging.getLogger(__name__)
+
+
+@bp.route("/ce:health/scorecard/<channel>/links", methods=["GET"])
+def ce_health_scorecard_links(channel: str):
+    """Per-link drawer data for one channel (Plan 2026-06-05-009 U2).
+
+    GET-only, read-only. Returns the latest ``link.rechecked`` verdict of every
+    published link under ``channel`` (fetch-on-expand under the scorecard card).
+    Fail-open with an explicit ``ok`` flag so the client distinguishes a
+    legitimately-empty channel (``{ok:true, links:[]}``) from a backend error
+    (``{ok:false, links:[]}``). ``derive_links_by_channel`` is called once
+    (returns all channels) and indexed here, per the U1 perf advisory.
+    """
+    def _links():
+        from backlink_publisher.scorecard.links import derive_links_by_channel
+        return derive_links_by_channel()
+
+    try:
+        by_channel = _g_cache("scorecard_links", _links)
+        rows = by_channel.get(channel, [])
+        return jsonify({"ok": True, "links": [r.to_dict() for r in rows]})
+    except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
+        _log.warning("health: scorecard links read failed for %s: %s", channel, exc)
+        return jsonify({"ok": False, "links": []})
+
+
+def _published_candidate(store: "EventStore", live_url: str) -> dict[str, Any] | None:
+    """``live_url`` → an already-published recheck candidate, or ``None`` (R8).
+
+    Anti-SSRF membership gate: only links that already carry a
+    ``publish.confirmed`` / ``publish.unverified`` event are probeable. The
+    candidate's URLs come from the STORED event row, never the client string —
+    the client supplies ``live_url`` only as a lookup key. Mirrors the
+    ``equity_ledger_recheck`` precedent (client value is a key, not a probe target).
+    """
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.events import kinds
+
+    try:
+        target = canonicalize_url(live_url)
+    except ValueError:
+        return None
+    kinds_t = (kinds.PUBLISH_CONFIRMED, kinds.PUBLISH_UNVERIFIED)
+    placeholders = ",".join("?" for _ in kinds_t)
+    rows = store.query(
+        "SELECT article_id, target_url, host, payload_json FROM events "
+        f"WHERE kind IN ({placeholders})",
+        kinds_t,
+    )
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (ValueError, TypeError):
+            continue
+        raw = payload.get("live_url")
+        if not isinstance(raw, str):
+            continue
+        try:
+            if canonicalize_url(raw) != target:
+                continue
+        except ValueError:
+            continue
+        return {
+            "live_url": raw,
+            "target_url": row["target_url"],
+            "host": row["host"],
+            "article_id": row["article_id"],
+            "platform": payload.get("platform"),
+        }
+    return None
+
+
+@bp.route("/ce:health/scorecard/recheck-link", methods=["POST"])
+def ce_health_scorecard_recheck_link():
+    """Re-probe ONE already-published link, writing a ``link.rechecked`` event
+    (Plan 2026-06-05-009 U4).
+
+    Outbound probe → the Origin guard (DNS-rebinding / malicious-localhost defense)
+    is enforced on top of the app-level CSRF guard (mirror ``keep_alive``). R8
+    anti-SSRF: the client ``live_url`` is a lookup key only; an unpublished URL is
+    rejected with NO probe fired. Goes through the keepalive ``emit_recheck`` path
+    (the sole ``link.rechecked`` writer) — NOT the binary ``recheck_one``. Honest
+    structured result: a PROBE_ERROR *verdict* (``ok:true``) is distinct from a
+    call *failure* (``ok:false``); failures never 500 and never half-write.
+    """
+    _check_bind_origin_or_abort()
+    data = request.get_json(silent=True) or {}
+    live_url = (data.get("live_url") or "").strip()
+    if not live_url:
+        return jsonify({"ok": False, "error_code": "live_url_required"}), 400
+
+    from backlink_publisher.events import EventStore
+
+    store = EventStore()
+    record = _published_candidate(store, live_url)
+    if record is None:
+        return jsonify({"ok": False, "error_code": "not_published"}), 404
+
+    try:
+        from backlink_publisher.recheck import events_io
+        from backlink_publisher.recheck.probe import recheck_link
+
+        result = recheck_link(record, probe=True, timeout=5.0)
+        events_io.emit_recheck(store, [result])
+    except Exception as exc:  # noqa: BLE001 — honest failure, never 500, no half-write
+        _log.warning("health: scorecard recheck-link failed for %s: %s", live_url, exc)
+        return jsonify({"ok": False, "error_code": "probe_failed"}), 200
+
+    return jsonify({
+        "ok": True,
+        "verdict": result.get("verdict"),
+        "live_url": record["live_url"],
+        "last_recheck_ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    })
 
 # Last-resort body when even rendering the degraded dashboard fails (R5: a GET
 # of /ce:health must never 500 — an honest "unavailable" beats a stack trace).

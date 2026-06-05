@@ -1706,6 +1706,20 @@ class TestHealthActionRoutes:
         assert resp.status_code == 200
         assert resp.get_json()["ok"] is True
 
+    def test_scorecard_links_drawer_data(self, client):
+        # Plan 2026-06-05-009 U2 — per-link drawer data, read-only, fail-open.
+        resp = client.get("/ce:health/scorecard/telegraph/links")
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_scorecard_recheck_link_requires_origin(self, client):
+        # Plan 2026-06-05-009 U4 — outbound probe; Origin guard rejects a
+        # request with no Origin header (non-5xx contract).
+        resp = client.post(
+            "/ce:health/scorecard/recheck-link", json={"live_url": "https://x/1"}
+        )
+        assert resp.status_code == 403
+
 
 class TestOptimizationStatusRoutes:
     def test_get_optimization_status_page(self, client):
