@@ -19,6 +19,35 @@ from ..helpers.security import _ensure_csrf_token
 bp = Blueprint("batch_campaign", __name__)
 
 
+def _build_publish_partition():
+    """Partition the publishable platforms by connection state for the picker.
+
+    Plan 2026-06-05-007 — shared by the GET form and the POST validation-error
+    re-render so the two paths never drift. Mirrors the settings-page data
+    source: per-platform offline status + the channel_status lifecycle merged
+    through ``partition_channels_by_connection``. Returns ``None`` on any
+    failure so the template falls back to the flat list (rendering never 500s).
+    """
+    try:
+        from backlink_publisher.config import load_config
+        from backlink_publisher.publishing.registry import active_platforms
+        from webui_store import channel_status
+        from ..binding_status import get_channel_status
+        from ..helpers.channel_tiers import partition_channels_by_connection
+
+        cfg = _g_cache("config", load_config)
+        dashboard_channels = [
+            (name, get_channel_status(name, cfg)) for name in active_platforms()
+        ]
+        try:
+            statuses = channel_status.list_all()
+        except Exception:
+            statuses = {}
+        return partition_channels_by_connection(dashboard_channels, statuses)
+    except Exception:
+        return None
+
+
 @bp.route("/batch-campaign", methods=["GET"])
 def batch_campaign_form():
     csrf_token = _ensure_csrf_token()
@@ -27,6 +56,7 @@ def batch_campaign_form():
         "batch_campaign.html",
         csrf_token=csrf_token,
         platforms=sorted(platforms),
+        publish_partition=_build_publish_partition(),
         errors={},
         form={},
         active_page="batch_campaign",
@@ -104,6 +134,7 @@ def batch_campaign_submit():
             "batch_campaign.html",
             csrf_token=csrf_token,
             platforms=all_platforms,
+            publish_partition=_build_publish_partition(),
             errors=errors,
             form={
                 "seeds": seed_text,
