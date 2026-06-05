@@ -19,11 +19,12 @@ OPTS = GapOptions(desired=5, language="zh-CN")
 _REQUIRED_SEED_KEYS = {"target_url", "platform", "main_domain", "language", "url_mode", "publish_mode"}
 
 
-def _status(**verdict_counts):
+def _status(*, alive_platforms=(), **verdict_counts):
     return {
         "counts": dict(verdict_counts),
         "total": sum(verdict_counts.values()),
         "last_verified": "2026-06-04T00:00:00",
+        "alive_platforms": list(alive_platforms),
     }
 
 
@@ -141,3 +142,51 @@ def test_emitted_seeds_are_valid_planbacklinks_shape():
                 "live_dofollow_platforms": [], "liveness": "live"}
     page_seeds, _, _ = plan_gap([page_row], OPTS, active_dofollow=["blogger"])
     assert set(seeds[0]) == set(page_seeds[0])
+
+
+# ── U3 / D6: sticky-scoped net coverage ──────────────────────────────────────
+
+
+def test_stripped_but_alive_on_sticky_is_not_a_gap():
+    # A republished link confirmed alive on a sticky platform restores coverage —
+    # the target leaves the gap set even though the old link is still stripped.
+    t = "https://51acgs.com/comic/117"
+    status = {canonicalize_url(t): _status(link_stripped=1, alive=1,
+                                           alive_platforms=("blogger",))}
+    seeds, gaps = plan_keepalive_gap([_row(t)], status, OPTS,
+                                     sticky_platforms=("blogger",))
+    assert seeds == [] and gaps == []
+
+
+def test_stripped_with_alive_only_on_nonsticky_is_still_a_gap():
+    # D1 preserved: a partial-strip whose surviving live link is on a NON-sticky
+    # platform (telegraph) must still surface — net coverage is sticky-scoped.
+    t = "https://51acgs.com/comic/117"
+    status = {canonicalize_url(t): _status(link_stripped=1, alive=4,
+                                           alive_platforms=("telegraph",))}
+    seeds, gaps = plan_keepalive_gap([_row(t)], status, OPTS,
+                                     sticky_platforms=("blogger",))
+    assert len(gaps) == 1 and gaps[0].stripped == 1
+    assert len(seeds) == 1 and seeds[0]["platform"] == "blogger"
+
+
+def test_restripped_new_sticky_link_stays_a_gap():
+    # S7 treadmill: the new sticky link was eaten immediately (latest verdict
+    # stripped, not alive) → no sticky coverage → still a gap.
+    t = "https://51acgs.com/comic/117"
+    status = {canonicalize_url(t): _status(link_stripped=2, alive_platforms=())}
+    seeds, gaps = plan_keepalive_gap([_row(t)], status, OPTS,
+                                     sticky_platforms=("blogger",))
+    assert len(gaps) == 1 and len(seeds) == 2
+
+
+def test_net_coverage_respects_injected_sticky_roster():
+    # Alive on ghpages resolves the gap only if ghpages is in the runtime sticky
+    # roster; with blogger-only runtime sticky, a ghpages-alive target is NOT
+    # considered covered on the active repair channel.
+    t = "https://51acgs.com/comic/117"
+    status = {canonicalize_url(t): _status(link_stripped=1, alive=1,
+                                           alive_platforms=("ghpages",))}
+    seeds, gaps = plan_keepalive_gap([_row(t)], status, OPTS,
+                                     sticky_platforms=("blogger",))
+    assert len(gaps) == 1   # ghpages not in active sticky roster → still a gap

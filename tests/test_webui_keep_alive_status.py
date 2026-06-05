@@ -29,10 +29,10 @@ def _article(store, live_url, target):
     )
 
 
-def _recheck(store, *, target, article_id, verdict, ts):
+def _recheck(store, *, target, article_id, verdict, ts, platform="telegraph"):
     store.append(
         LINK_RECHECKED,
-        {"verdict": verdict, "live_url": "x", "platform": "telegraph"},
+        {"verdict": verdict, "live_url": "x", "platform": platform},
         target_url=target,
         article_id=article_id,
         ts_utc=ts,
@@ -198,3 +198,164 @@ def test_equal_timestamp_latest_event_id_wins(tmp_path):
     assert row["counts"]["link_stripped"] == 1           # later write wins
     assert row["counts"]["alive"] == 0
     assert row["total"] == 1
+
+
+# ── U2: per-target alive_platforms (net-coverage input) ──────────────────────
+
+
+def test_alive_platforms_lists_platforms_with_latest_alive(tmp_path):
+    # The platform of each link whose LATEST verdict is alive is exposed, so the
+    # gap engine can tell whether a target is covered on a sticky platform.
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/501"
+    a_blog = _article(s, "https://taiwanmanga2026.blogspot.com/b", t)
+    a_tele = _article(s, "https://telegra.ph/t", t)
+    _recheck(s, target=t, article_id=a_blog, verdict="alive", ts=RECENT, platform="blogger")
+    _recheck(s, target=t, article_id=a_tele, verdict="alive", ts=RECENT, platform="telegraph")
+
+    row = derive_per_target_status(s)[canonicalize_url(t)]
+    assert row["alive_platforms"] == ["blogger", "telegraph"]   # sorted
+
+
+def test_alive_platforms_excludes_platform_whose_latest_is_stripped(tmp_path):
+    # A platform's link that was alive then stripped must NOT appear — only the
+    # link's freshest verdict counts (per-link, latest wins).
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/502"
+    a = _article(s, "https://taiwanmanga2026.blogspot.com/c", t)
+    _recheck(s, target=t, article_id=a, verdict="alive", ts=OLD, platform="blogger")
+    _recheck(s, target=t, article_id=a, verdict="link_stripped", ts=RECENT, platform="blogger")
+
+    row = derive_per_target_status(s)[canonicalize_url(t)]
+    assert row["alive_platforms"] == []                  # latest is stripped
+
+
+def test_alive_platforms_empty_when_no_alive(tmp_path):
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/503"
+    a = _article(s, "https://telegra.ph/d", t)
+    _recheck(s, target=t, article_id=a, verdict="link_stripped", ts=RECENT, platform="telegraph")
+
+    row = derive_per_target_status(s)[canonicalize_url(t)]
+    assert row["alive_platforms"] == []
+
+
+# ── U1: republished link becomes a tracked article (reaches the scorecard) ───
+
+
+def test_reverify_registers_article_so_recheck_reaches_scorecard(tmp_path, monkeypatch):
+    # U1: a confirmed-alive republished link must reach derive_per_target_status.
+    # Before, its recheck carried no article_id and was silently dropped.
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import derive_per_target_status
+    from webui_app.services import keepalive_job
+
+    s = EventStore(path=tmp_path / "e.db")
+    target = "https://51acgs.com/comic/601"
+    live = "https://taiwanmanga2026.blogspot.com/new"
+    # hermetic probe — no network; echo the record with an alive verdict.
+    monkeypatch.setattr(keepalive_job, "recheck_link",
+                        lambda record, probe=True: {**record, "verdict": "alive"})
+
+    result = {"published_url": live, "target_url": target, "platform": "blogger"}
+    verdict = keepalive_job._default_reverify(result, s)
+    assert verdict["verdict"] == "alive" and verdict.get("article_id")
+
+    per = derive_per_target_status(s)[canonicalize_url(target)]
+    assert per["counts"]["alive"] == 1
+    assert per["alive_platforms"] == ["blogger"]   # sticky coverage now visible
+
+
+def test_ensure_article_is_idempotent_on_duplicate_live_url(tmp_path):
+    from webui_app.services import keepalive_job
+
+    s = EventStore(path=tmp_path / "e.db")
+    live = "https://taiwanmanga2026.blogspot.com/dup"
+    kw = dict(live_url=live, target_url="https://51acgs.com/x",
+              host="taiwanmanga2026.blogspot.com", platform="blogger")
+    a1 = keepalive_job._ensure_article(s, **kw)
+    a2 = keepalive_job._ensure_article(s, **kw)
+    assert a1 is not None and a1 == a2          # second call reuses the row
+
+
+def test_ensure_article_empty_url_returns_none(tmp_path):
+    from webui_app.services import keepalive_job
+
+    s = EventStore(path=tmp_path / "e.db")
+    assert keepalive_job._ensure_article(
+        s, live_url="", target_url="t", host="h", platform="blogger") is None
+
+
+def test_ensure_article_malformed_url_returns_none_not_raises(tmp_path):
+    # A malformed port trips canonicalize_url (ValueError) inside article_payload;
+    # _ensure_article must swallow it and return None per its "never raises"
+    # contract — NOT propagate and drop the confirming recheck before it's emitted.
+    from webui_app.services import keepalive_job
+
+    s = EventStore(path=tmp_path / "e.db")
+    aid = keepalive_job._ensure_article(
+        s, live_url="http://h:notaport/x", target_url="https://51acgs.com/x",
+        host="h", platform="blogger")
+    assert aid is None
+
+
+def test_reverify_malformed_url_still_emits_verdict_without_raising(tmp_path, monkeypatch):
+    # Even when the published_url can't be canonicalized, _default_reverify must
+    # not raise and must still emit the verdict (unkeyed) so the worker records a
+    # real outcome rather than a swallowed crash.
+    from webui_app.services import keepalive_job
+
+    s = EventStore(path=tmp_path / "e.db")
+    monkeypatch.setattr(keepalive_job, "recheck_link",
+                        lambda record, probe=True: {**record, "verdict": "alive"})
+    verdict = keepalive_job._default_reverify(
+        {"published_url": "http://h:notaport/x", "target_url": "https://51acgs.com/x",
+         "platform": "blogger"}, s)
+    assert verdict["verdict"] == "alive"
+    assert "article_id" not in verdict          # unkeyed fallback, no crash
+
+
+# ── U4: end-to-end net coverage through build_keepalive_view ──────────────────
+
+
+def test_view_drops_target_repaired_on_sticky(tmp_path):
+    # E2E: a target whose old telegraph link is stripped but which now has a
+    # blogger (sticky) link confirmed alive must leave the gap set — the repair
+    # is reflected at the view level the operator actually sees.
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/702"
+    a_old = _article(s, "https://telegra.ph/old", t)
+    a_new = _article(s, "https://taiwanmanga2026.blogspot.com/new", t)
+    _recheck(s, target=t, article_id=a_old, verdict="link_stripped", ts=RECENT, platform="telegraph")
+    _recheck(s, target=t, article_id=a_new, verdict="alive", ts=RECENT, platform="blogger")
+    history = [{"id": "o", "platform": "telegraph", "target_url": t,
+                "article_urls": ["https://telegra.ph/old"], "verified_at": RECENT}]
+
+    view = build_keepalive_view(store=s, history=history, now=NOW)
+    assert all(g["target_url"] != t for g in view["gaps"])   # repaired → not a gap
+
+
+def test_view_keeps_partial_strip_on_nonsticky_as_gap(tmp_path):
+    # Counterpart (D1 preserved): same shape but the surviving alive link is on a
+    # NON-sticky platform — the target must STILL surface as a republish gap.
+    s = EventStore(path=tmp_path / "e.db")
+    t = "https://51acgs.com/comic/703"
+    a_old = _article(s, "https://telegra.ph/s1", t)
+    a_alive = _article(s, "https://telegra.ph/s2", t)
+    _recheck(s, target=t, article_id=a_old, verdict="link_stripped", ts=RECENT, platform="telegraph")
+    _recheck(s, target=t, article_id=a_alive, verdict="alive", ts=RECENT, platform="telegraph")
+    history = [{"id": "s", "platform": "telegraph", "target_url": t,
+                "article_urls": ["https://telegra.ph/s1"], "verified_at": RECENT}]
+
+    view = build_keepalive_view(store=s, history=history, now=NOW)
+    gap = next(g for g in view["gaps"] if g["target_url"] == t)
+    assert gap["platforms"] == ["blogger"]   # still needs a sticky repair
