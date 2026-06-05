@@ -67,6 +67,10 @@ def derive_target_dofollow(verdict: str | None, expected_nofollow: bool = False)
     return TARGET_UNVERIFIED
 
 
+# Private alias used by tests (verdict-only, no expected_nofollow path).
+_verdict_to_target_dofollow = derive_target_dofollow
+
+
 def _latest_verdicts(conn) -> dict[int, tuple[str | None, bool]]:
     """Return ``{article_id: (latest_verdict, expected_nofollow)}`` from the
     ``link.rechecked`` time series (latest id wins per article)."""
