@@ -226,6 +226,28 @@ def settings_save_llm_config():
 
 @bp.route('/settings/test-llm-connection', methods=['POST'])
 def settings_test_llm():
+    # Thin wrapper over the connection-test logic: run it, then persist the
+    # outcome to llm-settings.json so the nav pill / status header reflect
+    # "last known" health across reloads (plan 2026-06-05-003 U2). Persistence
+    # is best-effort — a write failure must never break the JSON response the
+    # client's "测试连接" button is waiting on.
+    result = _run_llm_connection_test()
+    try:
+        response = result[0] if isinstance(result, tuple) else result
+        payload = response.get_json(silent=True) or {}
+        status = payload.get('status')
+        if status in ('ok', 'failed', 'error'):
+            from ..services import settings_service
+            settings_service.record_llm_test_result(
+                ok=(status == 'ok'),
+                message=payload.get('message', ''),
+            )
+    except Exception:
+        pass
+    return result
+
+
+def _run_llm_connection_test():
     try:
         endpoint = request.form.get('endpoint', '').strip().rstrip('/')
         api_key = request.form.get('api_key', '').strip()
