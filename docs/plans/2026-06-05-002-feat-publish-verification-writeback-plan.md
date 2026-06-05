@@ -1,7 +1,7 @@
 ---
 title: "feat: Publish verification writeback and uncertain-platform dofollow resolution"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 ---
 
