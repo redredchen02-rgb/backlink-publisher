@@ -81,6 +81,7 @@ def settings_body(client):
 @pytest.mark.parametrize("channel,auth_type", [
     ("livejournal", "userpass"),
     ("wordpresscom", "token_fields"),
+    ("hatena", "token_fields"),
     ("substack", "paste_blob"),
     ("txtfyi", "anon"),
     # writeas removed: retired in plan 008, no longer rendered in settings UI
@@ -372,6 +373,32 @@ def test_hatena_non_loopback_origin_rejected(client):
         headers={"Origin": "http://evil.example.com"},
     )
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# U4 TEMPLATE — hatena field rendering (plan 012 Unit 3)
+# ---------------------------------------------------------------------------
+
+
+def test_hatena_template_renders_three_inputs(settings_body):
+    """Settings page renders hatena_id, blog_id, api_key inputs for hatena."""
+    assert 'name="hatena_id"' in settings_body
+    assert 'name="blog_id"' in settings_body
+    assert 'name="api_key"' in settings_body
+
+
+def test_hatena_template_no_warning_box(settings_body):
+    """Hatena accordion must not show '字段配置尚未定义' warning."""
+    # Locate the hatena section (between channel-hatena open and next channel div)
+    # Simplest: just assert the warning key phrase absent (it would only appear
+    # if _FIELD_DEFS["hatena"] were missing)
+    assert "hatena 的字段配置尚未定义" not in settings_body
+
+
+def test_hatena_cred_filename_correct(settings_body):
+    """Credential file hint shows hatena-credentials.json, not hatena-token.json."""
+    assert "hatena-credentials.json" in settings_body
+    assert "hatena-token.json" not in settings_body
 
 
 # ---------------------------------------------------------------------------
