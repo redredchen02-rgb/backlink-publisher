@@ -6,12 +6,14 @@ subprocess), waits for the post to index, then calls ``inspect_target_anchor``
 to check whether the target backlink is dofollow / nofollow / ambiguous.
 
 stdout = one JSONL line with the verdict.
-stderr = a RECON summary.
+stderr = a RECON summary plus a human-readable verdict summary and a guided edit
+checklist (Plan 2026-06-05-011) telling the operator exactly how to flip the
+``dofollow=`` flag (and, on ``dofollow``, which kwargs/``_R`` entry to remove).
 exit 0 always — advisory diagnostic, NOT a gate.
 
 Operator acts on the verdict by manually editing the ``dofollow=`` flag in
-``src/backlink_publisher/publishing/adapters/__init__.py``. This tool never
-auto-modifies that file (A5).
+``src/backlink_publisher/publishing/adapters/__init__.py`` following the printed
+checklist. This tool never auto-modifies that file (A5) — it only prints text.
 
 SSRF guard: fail-open (Track A). The post_url comes from the adapter we just
 called with our own credentials — it is operator-controlled, not machine-sourced.
@@ -37,6 +39,7 @@ from backlink_publisher.config import load_config
 from backlink_publisher.publishing.adapters import publish, verify_adapter_setup
 from backlink_publisher.publishing.adapters.link_attr_verifier import inspect_target_anchor
 from backlink_publisher.publishing.registry import dofollow_status, registered_platforms
+from backlink_publisher.cli._canary_flip_hint import format_canary_hint
 
 canary_logger = PipelineLogger("canary-seed")
 
@@ -259,6 +262,21 @@ def main(argv: list[str] | None = None) -> None:
                 reason=reason,
                 hint="Inspect post manually or retry with a browser-capable tool.",
             )
+
+        # Operator-facing guided edit checklist (Plan 2026-06-05-011) — stderr only,
+        # never mutates source (A5). stdout JSONL above is the unchanged contract.
+        # Wrapped so a formatter error can never suppress the verdict or the exit-0
+        # advisory contract (the JSONL is already on stdout by this point).
+        try:
+            print(
+                format_canary_hint(
+                    args.platform, verdict, post_url, rel_tokens,
+                    reason=reason, date=fetched_at[:10],
+                ),
+                file=sys.stderr,
+            )
+        except Exception as exc:  # noqa: BLE001 — advisory hint must never break exit 0
+            canary_logger.warn("flip_hint_failed", platform=args.platform, error=repr(exc))
 
     except PipelineError as exc:
         handle_error(exc)

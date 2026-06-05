@@ -339,3 +339,64 @@ class TestCiCleanImport:
         import importlib
         importlib.reload(cs)
         assert hasattr(cs, "main")
+
+
+# ── Stderr flip-hint (Plan 2026-06-05-011 Unit 2) ─────────────────────────────
+
+
+class TestStderrFlipHint:
+    """The new stderr summary + guided edit checklist must not regress stdout."""
+
+    _STDOUT_KEYS = {"platform", "post_url", "target_url", "verdict", "rel_tokens",
+                    "needs_browser_check", "delete_hint", "fetched_at", "duration_s"}
+
+    def test_stdout_contract_unchanged(self):
+        """Non-regression: stdout stays one JSONL line, same key set, same verdict,
+        same non-timestamp values, exit 0 — regardless of the new stderr output."""
+        rc, stdout, _ = _run(
+            ["hashnode", "--target-url", "https://mysite.com"],
+            anchor_return=_anchor(target_is_nofollow=False),
+        )
+        assert rc == 0
+        receipts = _parse_jsonl(stdout)
+        assert len(receipts) == 1
+        r = receipts[0]
+        assert set(r.keys()) == self._STDOUT_KEYS
+        assert r["verdict"] == "dofollow"
+        assert r["platform"] == "hashnode"
+        assert r["target_url"] == "https://mysite.com"
+
+    def test_dofollow_emits_checklist_on_stderr(self):
+        rc, _, stderr = _run(
+            ["hashnode", "--target-url", "https://mysite.com"],
+            anchor_return=_anchor(target_is_nofollow=False),
+        )
+        assert rc == 0
+        assert "dofollow=True" in stderr
+        assert "register(" in stderr
+        assert "re-run" in stderr.lower()  # R5 caution
+
+    def test_nofollow_emits_false_checklist_on_stderr(self):
+        rc, _, stderr = _run(
+            ["hashnode", "--target-url", "https://mysite.com"],
+            anchor_return=_anchor(target_anchor_found=True, target_is_nofollow=True),
+        )
+        assert rc == 0
+        assert "dofollow=False" in stderr
+
+    def test_ambiguous_no_checklist_on_stderr(self):
+        rc, _, stderr = _run(
+            ["hashnode", "--target-url", "https://mysite.com"],
+            anchor_return=_anchor(page_readable=False),
+        )
+        assert rc == 0
+        assert "register(" not in stderr  # no edit checklist for ambiguous
+
+    def test_formatter_error_cannot_break_exit0_or_stdout(self):
+        """A5/contract guard: a formatter exception must not suppress the stdout
+        JSONL verdict nor the exit-0 advisory contract."""
+        with patch.object(cs, "format_canary_hint", side_effect=RuntimeError("boom")):
+            rc, stdout, _ = _run(["hashnode", "--target-url", "https://mysite.com"])
+        assert rc == 0
+        receipts = _parse_jsonl(stdout)
+        assert receipts and receipts[0]["verdict"] in {"dofollow", "nofollow", "ambiguous"}
