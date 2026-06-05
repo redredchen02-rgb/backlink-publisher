@@ -431,13 +431,13 @@ function _initActions() {
 
 // ── Settings sidebar pane switch (U4, replaces _initStickyTabBar) ─
 const HASH_TO_PANE = {
-  '#channel-medium': 'channels',
-  '#channel-blogger': 'channels',
-  '#channel-velog': 'channels',
-  '#channel-telegraph': 'channels',
-  '#channel-ghpages': 'channels',
-  '#channel-devto': 'channels',
-  '#channel-notion': 'channels',
+  '#channel-medium': 'channel--medium',
+  '#channel-blogger': 'channel--blogger',
+  '#channel-velog': 'channel--velog',
+  '#channel-telegraph': 'channel--telegraph',
+  '#channel-ghpages': 'channel--ghpages',
+  '#channel-devto': 'channel--devto',
+  '#channel-notion': 'channel--notion',
   '#section-channels': 'channels',
   '#section-global': 'global',
   '#section-llm': 'llm',
@@ -450,9 +450,24 @@ function _hashToPaneKey(hash) {
   return HASH_TO_PANE[hash] || null;
 }
 
+// Expand a channel accordion and scroll it into view.
+function _expandAndScrollChannel(name) {
+  const panel = document.getElementById('channel-' + name);
+  if (!panel) return;
+  if (!panel.classList.contains('show') && window.bootstrap) {
+    const col = window.bootstrap.Collapse.getOrCreateInstance(panel);
+    col.show();
+    on(panel, 'shown.bs.collapse', () => panel.scrollIntoView({ block: 'start', behavior: 'smooth' }), { once: true });
+  } else {
+    panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+}
+
 function showPane(key) {
   document.querySelectorAll('.settings-pane').forEach((el) => el.classList.remove('active'));
-  const target = document.getElementById('pane-' + key);
+  // keys prefixed with "channel--" render inside pane-channels; strip the prefix to find the DOM id.
+  const paneKey = key.startsWith('channel--') ? 'channels' : key;
+  const target = document.getElementById('pane-' + paneKey);
   if (target) {
     target.classList.add('active');
   } else {
@@ -463,6 +478,9 @@ function showPane(key) {
   document.querySelectorAll('[data-pane]').forEach((el) => {
     el.classList.toggle('active', el.dataset.pane === key);
   });
+  if (key.startsWith('channel--')) {
+    _expandAndScrollChannel(key.slice('channel--'.length));
+  }
 }
 
 function _initActivePane() {
@@ -476,7 +494,7 @@ function _initActivePane() {
   }
   if (!key) key = 'dashboard';
   showPane(key);
-  if (hashKey) {
+  if (hashKey && !hashKey.startsWith('channel--')) {
     const el = document.getElementById('pane-' + hashKey);
     if (el) el.scrollIntoView();
   }
