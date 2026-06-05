@@ -16,9 +16,20 @@
     drives presentation. ANON channels render a "免绑定·就绪" badge instead of
     bound/unbound; ``has_card`` gates the "Configure ↓" anchor so cardless
     channels no longer show a dead link. #}
+{%- set _tier_info = {
+  'anon':         ('tier-1', 'T1', '開箱即用'),
+  'token':        ('tier-2', 'T2', '填憑證'),
+  'token_fields': ('tier-2', 'T2', '填憑證'),
+  'oauth':        ('tier-2', 'T2', 'OAuth'),
+  'userpass':     ('tier-2', 'T2', '填憑證'),
+  'paste_blob':   ('tier-3', 'T3', '瀏覽器'),
+  'live_browser': ('tier-3', 'T3', '瀏覽器'),
+} -%}
+{%- set _ti = _tier_info.get(status.auth_type or '', ('tier-2', 'T2', '填憑證')) -%}
 <div class="dashboard-channel-card" data-channel="{{ name }}" data-auth-type="{{ status.auth_type or '' }}">
   <div class="dch-header">
     <strong class="dch-name">{{ name }}</strong>
+    <span class="badge-tier tier-chip-{{ _ti[0] }}" title="Tier {{ _ti[1][-1] }} · {{ _ti[2] }}">{{ _ti[1] }}</span>
     {%- if status.auth_type == "anon" %}
       <span class="badge-status ok" data-field="bound" title="此渠道無需憑證，可直接發布">免綁定 · 就緒</span>
     {%- elif status.bound %}

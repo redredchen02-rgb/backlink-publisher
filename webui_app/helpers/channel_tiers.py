@@ -153,6 +153,33 @@ def _is_usable(status: dict[str, Any], needs_reconnect: bool) -> bool:
     )
 
 
+def _group_main_by_tier(
+    main_channels: list[tuple[str, dict[str, Any], bool]],
+) -> list[dict[str, Any]]:
+    """Group main-area ``[(name, status, needs_reconnect), ...]`` by automation tier.
+
+    Returns the same meta shape as ``group_channels_by_tier`` but ``channels``
+    entries are ``(name, status, needs_reconnect)`` — empty tiers omitted.
+    """
+    buckets: dict[str, list[tuple[str, dict[str, Any], bool]]] = {
+        meta["key"]: [] for meta in _TIER_META
+    }
+    for name, status, needs_reconnect in main_channels:
+        buckets[_tier_for(status.get("auth_type"))].append((name, status, needs_reconnect))
+    result = []
+    for meta in _TIER_META:
+        members = buckets[meta["key"]]
+        if not members:
+            continue
+        result.append({
+            "key": meta["key"],
+            "label": meta["label"],
+            "subtitle": meta["subtitle"],
+            "channels": members,
+        })
+    return result
+
+
 def partition_channels_by_connection(
     dashboard_channels: list[tuple[str, dict[str, Any]]],
     channel_statuses: dict[str, dict[str, Any]] | None = None,
@@ -203,6 +230,7 @@ def partition_channels_by_connection(
     # so the onboarding banner never claims "these work" over nothing.
     return {
         "main": main,
+        "main_groups": _group_main_by_tier(main),
         "extension_groups": group_channels_by_tier(extension),
         "main_count": len(main),
         "extension_count": len(extension),
