@@ -87,14 +87,14 @@
                                     class="llm-pro-toggle btn btn-link p-0 text-decoration-none text-secondary d-flex align-items-center gap-2"
                                     data-bs-toggle="collapse"
                                     data-bs-target="#llm-pro-mode-collapse"
-                                    aria-expanded="{{ 'true' if llm_settings.use_article_gen or llm_settings.use_image_gen else 'false' }}"
+                                    aria-expanded="{{ 'true' if llm_settings.use_article_gen or llm_settings.use_image_gen or (llm_settings.endpoint and llm_settings.api_key) else 'false' }}"
                                     aria-controls="llm-pro-mode-collapse">
                                 <span style="font-size:13px;font-weight:500;">Pro Mode AI 生成</span>
                                 <span class="badge bg-warning text-dark" style="font-size:10px;">Pro</span>
                                 <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
                             </button>
                             <div id="llm-pro-mode-collapse"
-                                 class="collapse{% if llm_settings.use_article_gen or llm_settings.use_image_gen %} show{% endif %}">
+                                 class="collapse{% if llm_settings.use_article_gen or llm_settings.use_image_gen or (llm_settings.endpoint and llm_settings.api_key) %} show{% endif %}">
                                 <div class="mt-3">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" name="use_article_gen" id="useArticleGen" {% if llm_settings.use_article_gen %}checked{% endif %}>
@@ -107,35 +107,37 @@
                                                   placeholder="留空则使用内置默认...">{{ llm_settings.article_system_prompt }}</textarea>
                                     </div>
                                     <div class="mt-3">
-                                        <label class="form-label">AI Cover Image Generation (FRW API)</label>
-                                        <div class="input-group mb-2">
-                                            <input type="password" class="form-control" name="image_gen_api_key"
-                                                   placeholder="{% if llm_settings.image_gen_api_key %}已设置 (留空保留现值){% else %}输入 FRW API Key{% endif %}"
-                                                   value="">
-                                        </div>
-                                        <div class="row g-2 mb-2">
-                                            <div class="col-md-6">
-                                                <label class="form-label">Image Endpoint</label>
-                                                <input type="text" class="form-control" name="image_gen_endpoint"
-                                                       placeholder="默认使用 LLM Endpoint"
-                                                       value="{{ llm_settings.image_gen_endpoint }}">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label">Image Model</label>
-                                                <input type="text" class="form-control" name="image_gen_model"
-                                                       placeholder="gpt-image-1 / banner-m"
-                                                       value="{{ llm_settings.image_gen_model }}">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Size</label>
-                                                <input type="text" class="form-control" name="image_gen_banner_size"
-                                                       placeholder="1200x630"
-                                                       value="{{ llm_settings.image_gen_banner_size }}">
-                                            </div>
-                                        </div>
-                                        <div class="form-check form-switch">
+                                        <div class="form-check form-switch mb-2">
                                             <input class="form-check-input" type="checkbox" name="use_image_gen" id="useImageGen" {% if llm_settings.use_image_gen %}checked{% endif %}>
                                             <label class="form-check-label" for="useImageGen">启用 AI 封面生成</label>
+                                        </div>
+                                        <div id="image-gen-fields" style="display:{% if llm_settings.use_image_gen %}block{% else %}none{% endif %}">
+                                            <label class="form-label">AI Cover Image Generation (FRW API)</label>
+                                            <div class="input-group mb-2">
+                                                <input type="password" class="form-control" name="image_gen_api_key"
+                                                       placeholder="{% if llm_settings.image_gen_api_key %}已设置 (留空保留现值){% else %}输入 FRW API Key{% endif %}"
+                                                       value="">
+                                            </div>
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Image Endpoint</label>
+                                                    <input type="text" class="form-control" name="image_gen_endpoint"
+                                                           placeholder="https://api.example.com/v1"
+                                                           value="{{ llm_settings.image_gen_endpoint }}">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Image Model</label>
+                                                    <input type="text" class="form-control" name="image_gen_model"
+                                                           placeholder="gpt-image-1 / banner-m"
+                                                           value="{{ llm_settings.image_gen_model }}">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Size</label>
+                                                    <input type="text" class="form-control" name="image_gen_banner_size"
+                                                           placeholder="1200x630"
+                                                           value="{{ llm_settings.image_gen_banner_size }}">
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -156,7 +158,7 @@
                     </div>
                     <div class="mt-3" style="font-size: 11px; color: #64748b;">
                         <i class="bi bi-info-circle me-1"></i> 提示：
-                        获取 API Key: 
+                        获取 API Key:
                         <a href="https://platform.openai.com/api-keys" target="_blank" class="text-decoration-none me-2">OpenAI</a>
                         <a href="https://platform.deepseek.com/api_keys" target="_blank" class="text-decoration-none me-2">DeepSeek</a>
                         <a href="https://openrouter.ai/keys" target="_blank" class="text-decoration-none me-2">OpenRouter</a>
@@ -164,3 +166,23 @@
                 </form>
             </div>
         </div>
+<script>
+(function() {
+  // Unit 3: toggle image-gen fields based on checkbox state
+  var imgCb = document.getElementById('useImageGen');
+  var imgFields = document.getElementById('image-gen-fields');
+  if (imgCb && imgFields) {
+    imgCb.addEventListener('change', function() {
+      imgFields.style.display = imgCb.checked ? 'block' : 'none';
+    });
+  }
+
+  // Unit 2: auto-expand Pro Mode when redirected back with #sect-ai (flash error)
+  if (location.hash === '#sect-ai') {
+    var collapseEl = document.getElementById('llm-pro-mode-collapse');
+    if (collapseEl) {
+      bootstrap.Collapse.getOrCreateInstance(collapseEl).show();
+    }
+  }
+})();
+</script>
