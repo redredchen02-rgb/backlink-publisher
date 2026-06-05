@@ -17,6 +17,7 @@ Requires-Dist: apscheduler<4,>=3.11
 Requires-Dist: pydantic>=2.0
 Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: google-analytics-data>=0.18
+Requires-Dist: structlog>=24.1
 Provides-Extra: dev
 Requires-Dist: pytest>=8.4; extra == "dev"
 Requires-Dist: pytest-mock>=3.15; extra == "dev"
@@ -29,5 +30,6 @@ Requires-Dist: pytest-cov>=6.0; extra == "dev"
 Requires-Dist: hypothesis>=6.151; extra == "dev"
 Requires-Dist: radon==6.0.1; extra == "dev"
 Requires-Dist: mypy>=1.8; extra == "dev"
+Requires-Dist: mutmut>=2.4; extra == "dev"
 Provides-Extra: dev-webwright
 Requires-Dist: webwright @ git+https://github.com/microsoft/Webwright.git@4a46f282ec37f27d6003cc498a977939d62d9015 ; extra == "dev-webwright"

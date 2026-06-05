@@ -1,5 +1,6 @@
 [console_scripts]
 audit-state = backlink_publisher.cli.audit_state:main
+backup-state = backlink_publisher.cli.state_backup:backup_main
 bind-channel = backlink_publisher.cli.bind_channel:main
 canary-seed = backlink_publisher.cli.canary_seed:main
 canary-targets = backlink_publisher.cli.canary_targets:main
@@ -28,6 +29,9 @@ publish-backlinks = backlink_publisher.cli.publish_backlinks:main
 recheck-backlinks = backlink_publisher.cli.recheck_backlinks:main
 recheck-overlay = backlink_publisher.cli.recheck_overlay:main
 report-anchors = backlink_publisher.cli.report_anchors:main
+restore-state = backlink_publisher.cli.state_backup:restore_main
 spray-backlinks = backlink_publisher.cli.spray_backlinks:main
 validate-backlinks = backlink_publisher.cli.validate_backlinks:main
 velog-login = backlink_publisher.cli.velog_login:main
+verify-dofollow = backlink_publisher.cli.verify_dofollow:main
+weights = backlink_publisher.cli.weights:main
