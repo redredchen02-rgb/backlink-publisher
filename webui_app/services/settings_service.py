@@ -82,6 +82,64 @@ def load_llm_settings() -> dict:
     return defaults
 
 
+def pro_status_summary(settings: dict) -> dict:
+    """Pure dict→dict summary of LLM Pro Mode status for visibility surfaces.
+
+    Single source of truth for the nav pill, index nudge, and settings status
+    header (plan 2026-06-05-003). Flask-free and file-IO-free so it is unit
+    testable without an app. **Never includes the api_key** — only the endpoint
+    host, model label, capability toggles, and the (already redaction-safe)
+    last_test block are exposed to templates.
+    """
+    endpoint = str(settings.get("endpoint") or "").strip()
+    api_key = str(settings.get("api_key") or "").strip()
+
+    endpoint_host = ""
+    if endpoint:
+        from urllib.parse import urlparse
+        try:
+            endpoint_host = urlparse(endpoint).hostname or ""
+        except Exception:
+            endpoint_host = ""
+
+    last_test = settings.get("last_test")
+    if not isinstance(last_test, dict):
+        last_test = None
+
+    return {
+        "configured": bool(endpoint and api_key),
+        "endpoint_host": endpoint_host,
+        "model": str(settings.get("model") or "").strip(),
+        "article_gen": bool(settings.get("use_article_gen")),
+        "image_gen": bool(settings.get("use_image_gen")),
+        "last_test": last_test,
+    }
+
+
+def record_llm_test_result(ok: bool, message: str) -> None:
+    """Persist the outcome of a manual LLM connection test (plan 2026-06-05-003 U2).
+
+    Merges an additive ``last_test = {ok, at, message}`` block into
+    llm-settings.json so the nav pill / status header reflect "last known"
+    health across reloads instead of an ephemeral toast. Read-modify-write
+    preserves every existing key and the ``0o600`` mode (CLAUDE.md trap — the
+    file holds the api_key). Best-effort: callers must not let a write failure
+    break the test-connection response.
+    """
+    from backlink_publisher.persistence.safe_write import atomic_write
+
+    settings = load_llm_settings()
+    settings["last_test"] = {
+        "ok": bool(ok),
+        "at": datetime.now().isoformat(timespec="seconds"),
+        "message": str(message),
+    }
+    atomic_write(
+        llm_settings_file(),
+        json.dumps(settings, ensure_ascii=False, indent=2),
+    )
+
+
 # ── Schedule settings ─────────────────────────────────────────────────────────
 
 def load_schedule_settings() -> dict:

@@ -216,25 +216,26 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             app.config["ASSET_VERSION"] = version
         return {"asset_version": version}
 
-    # Plan U6: tell the copilot panel whether the LLM is configured so it can
-    # show the Q&A form unlocked. This is a cheap file-existence check, not a
-    # health probe — a missing api_key or endpoint is caught at POST time with a
-    # 400 json response.
+    # Plan 2026-06-05-003 U1: one enriched ``pro_status`` object is the single
+    # source of truth for every Pro-Mode visibility surface (nav pill, index
+    # nudge, settings status header). It is a cheap "last known" summary, NOT a
+    # live health probe — no network call fires on render; a missing api_key or
+    # endpoint is caught at POST time with a 400. ``llm_configured`` is kept as a
+    # derived alias so the shipped copilot panel (`_copilot_panel.html`) needs
+    # no change (back-compat).
     @app.context_processor
-    def inject_llm_configured():
+    def inject_pro_status():
+        from .services import settings_service
         try:
-            from .helpers.contexts import _llm_settings_file
-            import json
-            path = _llm_settings_file()
-            if path.exists():
-                raw = json.loads(path.read_text(encoding="utf-8"))
-                llm_ok = bool(raw.get("endpoint", "").strip()
-                              and raw.get("api_key", "").strip())
-            else:
-                llm_ok = False
+            summary = settings_service.pro_status_summary(
+                settings_service.load_llm_settings()
+            )
         except Exception:
-            llm_ok = False
-        return {"llm_configured": llm_ok}
+            summary = {
+                "configured": False, "endpoint_host": "", "model": "",
+                "article_gen": False, "image_gen": False, "last_test": None,
+            }
+        return {"pro_status": summary, "llm_configured": summary["configured"]}
 
     # Plan 2026-06-04-001 Unit 10 / R7+R8 — the LITE edition shows the operator
     # only the keep-alive core. ``lite_edition`` drives the nav trim in
