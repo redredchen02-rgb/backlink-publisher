@@ -1,38 +1,36 @@
         <!-- ⑥ 进阶 LLM 整合 -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-cpu me-2"></i>进阶 LLM 整合 (可选)</span>
-                <div class="btn-group">
-                    <button type="button" class="btn btn-outline-secondary btn-xs dropdown-toggle" data-bs-toggle="dropdown" style="font-size:11px;padding:2px 8px;">
-                        快速填入预设
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" style="font-size:12px;">
-                        <li><a class="dropdown-item" href="#" data-action="llm-preset" data-preset="openai">OpenAI (gpt-4o)</a></li>
-                        <li><a class="dropdown-item" href="#" data-action="llm-preset" data-preset="deepseek">DeepSeek (deepseek-chat)</a></li>
-                        <li><a class="dropdown-item" href="#" data-action="llm-preset" data-preset="openrouter">OpenRouter (auto)</a></li>
-                        <li><a class="dropdown-item" href="#" data-action="llm-preset" data-preset="groq">Groq (llama3-70b)</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" data-action="llm-preset" data-preset="local">Local (Ollama/LMStudio)</a></li>
-                    </ul>
-                </div>
+        <div class="card" id="sect-ai">
+            <div class="card-header">
+                <i class="bi bi-cpu me-2"></i>进阶 LLM 整合 (可选)
             </div>
             <div class="card-body">
-                <p class="text-muted" style="font-size:13px;">
-                    配置自定义 LLM 端口以获得更优质的文章生成效果。支持所有 OpenAI 兼容格式的 API。
-                </p>
                 <form method="POST" action="/settings/save-llm-config">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="action" id="llmFormAction" value="">
-                    <div class="row g-3">
+
+                    {# ── ① 连接配置 ─────────────────────────────────── #}
+                    <div class="llm-section-label">① 连接配置</div>
+                    <p class="text-muted mb-2 small">支持所有 OpenAI 兼容 API。选预设自动填入，再粘贴 API Key 即可。</p>
+
+                    <div class="llm-preset-row mb-3">
+                        <span class="llm-preset-hint">快速填入：</span>
+                        <a href="#" class="llm-preset-btn" data-action="llm-preset" data-preset="openai">OpenAI</a>
+                        <a href="#" class="llm-preset-btn" data-action="llm-preset" data-preset="deepseek">DeepSeek</a>
+                        <a href="#" class="llm-preset-btn" data-action="llm-preset" data-preset="openrouter">OpenRouter</a>
+                        <a href="#" class="llm-preset-btn" data-action="llm-preset" data-preset="groq">Groq</a>
+                        <a href="#" class="llm-preset-btn text-muted" data-action="llm-preset" data-preset="local">本地 Ollama</a>
+                    </div>
+
+                    <div class="row g-3 mb-2">
                         <div class="col-12">
-                            <label class="form-label">LLM Endpoint (Base URL)</label>
+                            <label class="form-label fw-medium">LLM Endpoint</label>
                             <input type="text" class="form-control" name="endpoint" id="llmEndpointInput"
                                    placeholder="https://api.openai.com/v1"
                                    value="{{ llm_settings.endpoint }}">
-                            <div class="form-text">LLM 服务的基础 API 地址，末尾通常包含 <code>/v1</code></div>
+                            <div class="form-text">API 基础地址，末尾通常含 <code>/v1</code></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">API Key</label>
+                            <label class="form-label fw-medium">API Key</label>
                             <div class="input-group">
                                 <input type="password" class="form-control" name="api_key"
                                        id="llmApiKeyInput"
@@ -45,143 +43,175 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Model Name</label>
+                            <label class="form-label fw-medium">Model</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" name="model"
                                        id="llmModelInput"
                                        placeholder="gpt-4o"
                                        value="{{ llm_settings.model }}">
-                                <button type="button" class="btn btn-outline-secondary d-none" 
+                                <button type="button" class="btn btn-outline-secondary d-none"
                                         id="modelSelectBtn" data-bs-toggle="dropdown">
                                     <i class="bi bi-chevron-down"></i>
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end" id="modelDropdownList" style="max-height:300px;overflow-y:auto;">
-                                    <!-- Populated via JS -->
+                                <ul class="dropdown-menu dropdown-menu-end model-dropdown-menu" id="modelDropdownList">
+                                    <!-- Populated via JS after test-connection -->
                                 </ul>
                             </div>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label d-flex justify-content-between">
-                                <span>Temperature (创造力)</span>
-                                <span id="tempValue" class="fw-bold text-primary">{{ llm_settings.temperature }}</span>
-                            </label>
-                            <input type="range" class="form-range" name="temperature" 
-                                   min="0" max="2" step="0.1" 
-                                   value="{{ llm_settings.temperature }}"
-                                   data-action="temp-slider">
-                            <div class="form-text">0 = 严谨稳定，2 = 极具创意。建议 0.7 左右。</div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <button type="button" class="btn btn-outline-info btn-sm" data-action="llm-test">
+                            <i class="bi bi-broadcast me-1"></i>测试连接
+                        </button>
+                        <span id="llmTestResult" class="small"></span>
+                    </div>
+                    <div class="mb-3 small text-muted">
+                        <i class="bi bi-info-circle me-1"></i>获取 Key：
+                        <a href="https://platform.openai.com/api-keys" target="_blank" class="text-decoration-none me-2">OpenAI</a>
+                        <a href="https://platform.deepseek.com/api_keys" target="_blank" class="text-decoration-none me-2">DeepSeek</a>
+                        <a href="https://openrouter.ai/keys" target="_blank" class="text-decoration-none">OpenRouter</a>
+                    </div>
+
+                    {# ── ② 功能开关 ─────────────────────────────────── #}
+                    <hr class="my-3">
+                    <div class="llm-section-label">② 功能开关</div>
+                    <p class="text-muted mb-3 small">填好连接配置并保存后，这两项功能可以独立启用。</p>
+
+                    {# 全文生成 #}
+                    <div class="llm-feature-card mb-3">
+                        <div class="llm-feature-header">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" name="use_article_gen"
+                                       id="useArticleGen" {% if llm_settings.use_article_gen %}checked{% endif %}>
+                                <label class="form-check-label fw-medium" for="useArticleGen">
+                                    <i class="bi bi-file-text me-1 text-primary"></i>AI 全文生成
+                                </label>
+                            </div>
+                            <span class="small text-muted">每次发布自动生成完整文章正文</span>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label d-flex justify-content-between">
-                                <span>Custom System Prompt (系统提示词)</span>
-                                <a href="#" class="btn-xs text-primary text-decoration-none" style="font-size:12px;" data-action="llm-reset-prompt">
-                                    <i class="bi bi-arrow-counterclockwise"></i> 恢复默认
-                                </a>
-                            </label>
-                            <textarea class="form-control" name="system_prompt" id="llmPromptInput"
-                                      rows="4" style="font-size:13px;font-family:monospace;"
-                                      placeholder="留空则使用内置默认提示词...">{{ llm_settings.system_prompt }}</textarea>
+                        <div class="llm-feature-body">
+                            <label class="form-label small fw-medium">文章生成提示词 <span class="text-muted fw-normal">(留空使用内置默认)</span></label>
+                            <textarea name="article_system_prompt" rows="3"
+                                      class="form-control font-monospace small"
+                                      placeholder="留空则使用内置默认...">{{ llm_settings.article_system_prompt }}</textarea>
                         </div>
-                        <div class="col-12">
-                            <button type="button"
-                                    class="llm-pro-toggle btn btn-link p-0 text-decoration-none text-secondary d-flex align-items-center gap-2"
-                                    data-bs-toggle="collapse"
-                                    data-bs-target="#llm-pro-mode-collapse"
-                                    aria-expanded="{{ 'true' if llm_settings.use_article_gen or llm_settings.use_image_gen or (llm_settings.endpoint and llm_settings.api_key) else 'false' }}"
-                                    aria-controls="llm-pro-mode-collapse">
-                                <span style="font-size:13px;font-weight:500;">Pro Mode AI 生成</span>
-                                <span class="badge bg-warning text-dark" style="font-size:10px;">Pro</span>
-                                <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
-                            </button>
-                            <div id="llm-pro-mode-collapse"
-                                 class="collapse{% if llm_settings.use_article_gen or llm_settings.use_image_gen or (llm_settings.endpoint and llm_settings.api_key) %} show{% endif %}">
-                                <div class="mt-3">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" name="use_article_gen" id="useArticleGen" {% if llm_settings.use_article_gen %}checked{% endif %}>
-                                        <label class="form-check-label" for="useArticleGen">启用 AI 全文生成</label>
-                                    </div>
-                                    <div class="mt-3">
-                                        <label class="form-label" style="font-size:12px;">文章生成系统提示词 (Article System Prompt)</label>
-                                        <textarea name="article_system_prompt" rows="3" class="form-control"
-                                                  style="font-size:12px;font-family:monospace;"
-                                                  placeholder="留空则使用内置默认...">{{ llm_settings.article_system_prompt }}</textarea>
-                                    </div>
-                                    <div class="mt-3">
-                                        <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox" name="use_image_gen" id="useImageGen" {% if llm_settings.use_image_gen %}checked{% endif %}>
-                                            <label class="form-check-label" for="useImageGen">启用 AI 封面生成</label>
-                                        </div>
-                                        <div id="image-gen-fields" style="display:{% if llm_settings.use_image_gen %}block{% else %}none{% endif %}">
-                                            <label class="form-label">AI Cover Image Generation (FRW API)</label>
-                                            <div class="input-group mb-2">
-                                                <input type="password" class="form-control" name="image_gen_api_key"
-                                                       placeholder="{% if llm_settings.image_gen_api_key %}已设置 (留空保留现值){% else %}输入 FRW API Key{% endif %}"
-                                                       value="">
-                                            </div>
-                                            <div class="row g-2 mb-2">
-                                                <div class="col-md-6">
-                                                    <label class="form-label">Image Endpoint</label>
-                                                    <input type="text" class="form-control" name="image_gen_endpoint"
-                                                           placeholder="https://api.example.com/v1"
-                                                           value="{{ llm_settings.image_gen_endpoint }}">
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <label class="form-label">Image Model</label>
-                                                    <input type="text" class="form-control" name="image_gen_model"
-                                                           placeholder="gpt-image-1 / banner-m"
-                                                           value="{{ llm_settings.image_gen_model }}">
-                                                </div>
-                                                <div class="col-md-2">
-                                                    <label class="form-label">Size</label>
-                                                    <input type="text" class="form-control" name="image_gen_banner_size"
-                                                           placeholder="1200x630"
-                                                           value="{{ llm_settings.image_gen_banner_size }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                    </div>
+
+                    {# AI 封面图生成 #}
+                    <div class="llm-feature-card mb-3">
+                        <div class="llm-feature-header">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" name="use_image_gen"
+                                       id="useImageGen" {% if llm_settings.use_image_gen %}checked{% endif %}>
+                                <label class="form-check-label fw-medium" for="useImageGen">
+                                    <i class="bi bi-image me-1 text-success"></i>AI 封面图生成
+                                </label>
+                            </div>
+                            <span class="small text-muted">自动生成 1200×630 OG banner 图</span>
+                        </div>
+                        <div id="image-gen-fields" class="llm-feature-body{% if not llm_settings.use_image_gen %} d-none{% endif %}">
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <label class="form-label small fw-medium">Image API Key</label>
+                                    <input type="password" class="form-control" name="image_gen_api_key"
+                                           placeholder="{% if llm_settings.image_gen_api_key %}已设置 (留空保留现值){% else %}输入 Image Gen API Key{% endif %}"
+                                           value="">
+                                    <div class="form-text small">可与上方 LLM API Key 不同（如使用专用图像生成服务）</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-medium">Image Endpoint</label>
+                                    <input type="text" class="form-control" name="image_gen_endpoint"
+                                           placeholder="https://api.example.com/v1"
+                                           value="{{ llm_settings.image_gen_endpoint }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-medium">Image Model</label>
+                                    <input type="text" class="form-control" name="image_gen_model"
+                                           placeholder="gpt-image-1"
+                                           value="{{ llm_settings.image_gen_model }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-medium">尺寸</label>
+                                    <input type="text" class="form-control" name="image_gen_banner_size"
+                                           placeholder="1200x630"
+                                           value="{{ llm_settings.image_gen_banner_size }}">
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="d-flex gap-2 mt-3">
+
+                    {# ── ③ 进阶调优 (collapsed by default) ────────── #}
+                    <hr class="my-3">
+                    <button type="button"
+                            class="llm-advanced-toggle btn btn-link p-0 text-decoration-none text-secondary d-flex align-items-center gap-2 mb-1"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#llm-advanced-collapse"
+                            aria-expanded="{{ 'true' if llm_settings.system_prompt or (llm_settings.temperature != 0.7 and llm_settings.temperature) else 'false' }}"
+                            aria-controls="llm-advanced-collapse">
+                        <span class="llm-section-label mb-0">③ 进阶调优</span>
+                        <span class="small text-muted">（temperature、自定义提示词）</span>
+                        <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
+                    </button>
+                    <div id="llm-advanced-collapse"
+                         class="collapse{% if llm_settings.system_prompt or (llm_settings.temperature and llm_settings.temperature != 0.7) %} show{% endif %}">
+                        <div class="mt-2 row g-3">
+                            <div class="col-12">
+                                <label class="form-label d-flex justify-content-between">
+                                    <span class="fw-medium">Temperature (创造力)</span>
+                                    <span id="tempValue" class="fw-bold text-primary">{{ llm_settings.temperature }}</span>
+                                </label>
+                                <input type="range" class="form-range" name="temperature"
+                                       min="0" max="2" step="0.1"
+                                       value="{{ llm_settings.temperature }}"
+                                       data-action="temp-slider">
+                                <div class="form-text">0 = 严谨稳定，2 = 极具创意。建议 0.7。</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label d-flex justify-content-between">
+                                    <span class="fw-medium">锚文本生成提示词</span>
+                                    <a href="#" class="small text-primary text-decoration-none" data-action="llm-reset-prompt">
+                                        <i class="bi bi-arrow-counterclockwise"></i> 恢复默认
+                                    </a>
+                                </label>
+                                <textarea class="form-control font-monospace small" name="system_prompt" id="llmPromptInput"
+                                          rows="4"
+                                          placeholder="留空则使用内置默认提示词...">{{ llm_settings.system_prompt }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── 保存 / 清除 ─────────────────────────────────── #}
+                    <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary btn-sm">
                             <i class="bi bi-floppy me-1"></i>保存 LLM 设定
-                        </button>
-                        <button type="button" class="btn btn-outline-info btn-sm" data-action="llm-test">
-                            <i class="bi bi-broadcast me-1"></i>测试连接
                         </button>
                         <button type="button" class="btn btn-outline-danger btn-sm" data-action="llm-clear">
                             <i class="bi bi-x-circle me-1"></i>清除配置
                         </button>
-                        <span id="llmTestResult" class="ms-2" style="font-size:13px;align-self:center;"></span>
-                    </div>
-                    <div class="mt-3" style="font-size: 11px; color: #64748b;">
-                        <i class="bi bi-info-circle me-1"></i> 提示：
-                        获取 API Key:
-                        <a href="https://platform.openai.com/api-keys" target="_blank" class="text-decoration-none me-2">OpenAI</a>
-                        <a href="https://platform.deepseek.com/api_keys" target="_blank" class="text-decoration-none me-2">DeepSeek</a>
-                        <a href="https://openrouter.ai/keys" target="_blank" class="text-decoration-none me-2">OpenRouter</a>
                     </div>
                 </form>
             </div>
         </div>
 <script>
 (function() {
-  // Unit 3: toggle image-gen fields based on checkbox state
+  // Toggle image-gen fields when checkbox changes
   var imgCb = document.getElementById('useImageGen');
   var imgFields = document.getElementById('image-gen-fields');
   if (imgCb && imgFields) {
     imgCb.addEventListener('change', function() {
-      imgFields.style.display = imgCb.checked ? 'block' : 'none';
+      imgFields.classList.toggle('d-none', !imgCb.checked);
     });
   }
 
-  // Unit 2: auto-expand Pro Mode when redirected back with #sect-ai (flash error)
+  // When redirected back with #sect-ai (validation failure), reveal image-gen fields
+  // so the user can see and correct whatever caused the error.
   if (location.hash === '#sect-ai') {
-    var collapseEl = document.getElementById('llm-pro-mode-collapse');
-    if (collapseEl) {
-      bootstrap.Collapse.getOrCreateInstance(collapseEl).show();
+    var igFields = document.getElementById('image-gen-fields');
+    if (igFields && igFields.classList.contains('d-none')) {
+      igFields.classList.remove('d-none');
+      var igCb = document.getElementById('useImageGen');
+      if (igCb) { igCb.checked = true; }
     }
   }
 })();

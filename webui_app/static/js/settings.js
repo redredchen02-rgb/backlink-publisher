@@ -255,6 +255,107 @@ async function testImageGenConnection(btn) {
   }
 }
 
+// ── Banner 测试图：localStorage 快取 ────────────────────────────
+const _LS_BANNER_KEY = 'bp:banner_last_image';
+
+function _renderBannerResult(result, data, { cached = false } = {}) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'border:1px solid var(--border,#dee2e6);border-radius:8px;overflow:hidden;';
+  if (cached) {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'padding:5px 12px;font-size:11px;color:#6b7280;background:#fffbeb;border-bottom:1px solid var(--border,#dee2e6);display:flex;justify-content:space-between;align-items:center;';
+    const ts = new Date(data.generated_at).toLocaleString();
+    const lbl = document.createElement('span');
+    lbl.textContent = `上次生成于 ${ts}`;
+    const clr = document.createElement('button');
+    clr.type = 'button';
+    clr.className = 'btn btn-link btn-sm p-0';
+    clr.style.cssText = 'font-size:11px;color:#9ca3af;';
+    clr.dataset.action = 'clear-banner-cache';
+    clr.textContent = '清除';
+    bar.append(lbl, clr);
+    wrap.append(bar);
+  }
+  const img = document.createElement('img');
+  img.src = data.data_url;
+  img.alt = 'Sample banner';
+  img.style.cssText = 'width:100%;max-height:280px;object-fit:contain;display:block;background:#f8f9fa;';
+  const meta = document.createElement('div');
+  meta.style.cssText = 'padding:8px 12px;font-size:12px;color:#6b7280;background:#f8f9fa;border-top:1px solid var(--border,#dee2e6);';
+  meta.textContent = `${data.mime} · ${data.size_kb} KB · prompt: ${data.prompt}`;
+  if (data.source_url) {
+    const a = document.createElement('a');
+    a.href = data.source_url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = ' · 原始链接';
+    meta.append(a);
+  }
+  wrap.append(img, meta);
+  result.replaceChildren(wrap);
+  result.style.display = 'block';
+}
+
+function _saveBannerToCache(data) {
+  try {
+    localStorage.setItem(_LS_BANNER_KEY, JSON.stringify({
+      data_url: data.data_url, mime: data.mime, size_kb: data.size_kb,
+      prompt: data.prompt, source_url: data.source_url || null,
+      generated_at: Date.now(),
+    }));
+  } catch (e) { /* QuotaExceededError — skip */ }
+}
+
+function _clearBannerCache() {
+  try { localStorage.removeItem(_LS_BANNER_KEY); } catch (e) { /* ignore */ }
+  const result = document.getElementById('imageGenSampleResult');
+  if (result) { result.replaceChildren(); result.style.display = 'none'; }
+}
+
+function _restoreCachedBannerImage() {
+  const result = document.getElementById('imageGenSampleResult');
+  if (!result) return;
+  let cached;
+  try {
+    const raw = localStorage.getItem(_LS_BANNER_KEY);
+    if (!raw) return;
+    cached = JSON.parse(raw);
+  } catch (e) { return; }
+  if (!cached || !cached.data_url) return;
+  _renderBannerResult(result, cached, { cached: true });
+}
+
+async function generateSampleImage(btn) {
+  const result = document.getElementById('imageGenSampleResult');
+  const promptEl = document.getElementById('imageGenPromptInput');
+  if (!btn || !result) return;
+  const customPrompt = promptEl ? promptEl.value.trim() : '';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>生成中…';
+  result.style.display = 'block';
+  result.replaceChildren();
+  try {
+    const resp = await fetch('/settings/generate-sample-image', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': readCsrf(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(customPrompt ? { prompt: customPrompt } : {}),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      data.generated_at = Date.now();
+      _renderBannerResult(result, data);
+      _saveBannerToCache(data);
+    } else {
+      _alertBox(result, 'alert-danger', 'bi bi-x-circle', data.error || 'generation failed');
+    }
+  } catch (e) {
+    _alertBox(result, 'alert-danger', 'bi bi-x-circle', 'fetch failed: ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-image me-1"></i>生成测试图';
+  }
+}
+
 // ── velog login (moved out of the _settings_channel_velog inline <script>) ──
 // Reached from the velog dashboard card via a DOM CustomEvent (not the old
 // `typeof runVelogLogin` global probe — that would silently fail under ESM).
@@ -285,6 +386,8 @@ const _CLICK_ACTIONS = {
   'llm-select-model': (e, el) => selectLlmModel(el.dataset.model),
   'preview-generation': () => previewGeneration(),
   'test-image-gen': (e, el) => testImageGenConnection(el),
+  'generate-sample-image': (e, el) => generateSampleImage(el),
+  'clear-banner-cache': () => _clearBannerCache(),
   'velog-login': () => runVelogLogin(),
   'submit-revoke': () => { const f = document.getElementById('revokeForm'); if (f) f.submit(); },
   'copy-localhost': (e, el) => {
@@ -509,6 +612,7 @@ function _boot() {
   _initOverviewPersistence();
   _initExtensionPersistence();
   _initExtensionFilter();
+  _restoreCachedBannerImage();
   on(window, 'hashchange', () => {
     const key = _hashToPaneKey(window.location.hash);
     if (key) {

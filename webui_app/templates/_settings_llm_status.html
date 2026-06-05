@@ -40,15 +40,10 @@
 <script>
 document.querySelectorAll('[data-expand-pro-mode]').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var collapseEl = document.getElementById('llm-pro-mode-collapse');
-    if (collapseEl) {
-      bootstrap.Collapse.getOrCreateInstance(collapseEl).show();
-    }
+    // Pro Mode features are now always visible; just scroll to the target checkbox
     var targetId = btn.dataset.targetId;
-    setTimeout(function() {
-      var target = document.getElementById(targetId);
-      if (target) { target.scrollIntoView({behavior: 'smooth', block: 'center'}); }
-    }, 320);
+    var target = document.getElementById(targetId);
+    if (target) { target.scrollIntoView({behavior: 'smooth', block: 'center'}); }
   });
 });
 </script>
