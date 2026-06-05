@@ -1,69 +1,59 @@
-"""Survival-rate dashboard view (R5).
+"""Survival-rate view builder (plan 008 R5).
 
-Thin presentation layer over ``events.survival_query.compute_survival``: adds a
-zh-CN headline + sub-label per state so loading/empty/insufficient/maturing/
-stale read visually distinct (not one gray panel), and keeps everything
-JSON-serializable. ``store``/``now`` are injectable for tests.
+Mirrors keep_alive.py: injectable ``store``/``now`` for tests; JSON-serializable
+dict with no sets; degrade to unavailable/empty without raising.
 """
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
-from typing import Any
 
-logger = logging.getLogger(__name__)
-
-# Per-state zh-CN copy. Kept here (presentation) so survival_query stays a pure
-# data layer. Headline + sub must always differ across states (Deferred design
-# note: loading vs empty vs insufficient vs stale are not one panel).
-_COPY = {
-    "ok": ("存活率", "已成熟链接中仍 live + dofollow 的占比"),
-    "insufficient": ("样本不足", "已成熟链接太少，暂不计算百分比（继续累积中）"),
-    "maturing": ("成熟中", "链接尚未满 {days} 天，存活率需等待样本成熟"),
-    "empty": ("暂无数据", "还没有已成熟的链接可统计"),
-    "unavailable": ("暂时不可用", "读取存活数据时出错，请稍后再试"),
-}
+from backlink_publisher.events.survival_query import compute_survival
+from backlink_publisher.events.store import EventStore
 
 
-def build_survival_view(*, store=None, now: datetime | None = None) -> dict[str, Any]:
-    """Return the survival dashboard payload for the screen bootstrap.
+def _display_fields(data: dict) -> dict:
+    """Add presentation-layer fields to the raw compute_survival output."""
+    state = data.get("state", "empty")
+    rate = data.get("survival_rate")
+    has_rate = state == "ok" and rate is not None
+    display = f"{rate * 100:.1f}%" if has_rate else "—"
+    if state == "ok":
+        headline = f"{display} 链接仍存活"
+        sub = f"样本量 {data.get('sample_size', 0)} 条（≥30天成熟外链）"
+    elif state == "insufficient":
+        headline = "样本量不足"
+        sub = f"已审计 {data.get('sample_size', 0)} 条，需 ≥2 条才能计算存活率"
+    else:
+        headline = "暂无成熟外链"
+        sub = "发布 30 天后的外链将纳入统计"
+    return {**data, "has_rate": has_rate, "display": display,
+            "headline": headline, "sub": sub}
 
-    Never raises: a query failure degrades to an honest ``unavailable`` state so
-    the route can render without 500ing.
+
+def build_survival_view(*, store: EventStore | None = None, now: datetime | None = None) -> dict:
+    """Return the survival-dashboard payload with display fields.
+
+    Never raises — callers rely on this to render an honest unavailable state.
     """
     try:
-        from backlink_publisher.events.survival_query import compute_survival
-
-        data = compute_survival(store=store, now=now)
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("survival view: compute failed: %s", exc)
-        data = {
-            "state": "unavailable",
+        data = compute_survival(store, now=now)
+        return _display_fields(data)
+    except Exception:  # noqa: BLE001
+        return {
+            "state": "empty",
             "survival_rate": None,
-            "survival_pct": None,
             "sample_size": 0,
             "survived": 0,
             "mature_count": 0,
             "maturing_count": 0,
-            "stale_count": 0,
             "stale": False,
-            "stale_days": None,
+            "stale_count": 0,
             "partial": False,
-            "cohort_days": 30,
+            "stale_days": None,
+            "has_rate": False,
+            "display": "—",
+            "headline": "暂无数据",
+            "sub": "",
+            "unavailable": True,
         }
-
-    state = data.get("state", "unavailable")
-    headline, sub = _COPY.get(state, _COPY["unavailable"])
-    days = data.get("cohort_days", 30)
-
-    view = dict(data)
-    view["headline"] = headline
-    view["sub"] = sub.format(days=days)
-    # Display string for the rate (percentage or an em-dash placeholder).
-    view["display"] = (
-        f"{data['survival_pct']}%" if data.get("survival_pct") is not None else "—"
-    )
-    # A single boolean the template uses to decide whether to show the big number.
-    view["has_rate"] = data.get("survival_rate") is not None
-    return view
