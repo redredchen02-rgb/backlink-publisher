@@ -121,7 +121,7 @@ Prior convergence passes that are now superseded or folded:
 
 | gate | tier | premise | verdict | rate / evidence | sample-n | date | downstream-blocked |
 |---|---|---|---|---|---|---|---|
-| G1 | T1 | source/host pages carrying our backlinks go noindex/blocked at a "false-success" rate | INCONCLUSIVE | detection shipped (plan 002 completed); verdict needs a live `recheck-backlinks` over a real corpus (writes events.db); current corpus test-dominated + saturated (cf. G5 5/14) → unmeasurable | — | 2026-06-02 | seo-indexability build-out — pending a non-test published corpus; not run here (avoids events.db mutation); resample when corpus is real |
+| G1 | T1 | source/host pages carrying our backlinks go noindex/blocked at a "false-success" rate | INCONCLUSIVE (measured 2026-06-05) | detection shipped (plan 002 completed); resampled read-only on real corpus (events.db, latest-per-`live_url`): blocked **1/84 ≈ 1.2%** (one non-workhorse host, `meta_noindex`); workhorse dofollow channels all `ok` (telegra.ph n=57, blogspot n=18, x.com n=4, medium n=2); probe readable on main channels (not all-`unknown`) | 84 | 2026-06-05 | R7/R8 ledger-bridge (exclude `blocked` from `live_dofollow`) **UNJUSTIFIED at 1.2%** — net-new field+join+writeback carrying cost ≫ yield; detection + `--fail-on-unindexable` already surface it. Resample when blocked ≥5 OR a dofollow channel ≥10% |
 | G2 | T1 | the operator's own money pages silently decay (noindex/4xx/soft-404/off-host) at a build-justifying rate | INCONCLUSIVE | decay 1/3=0.33 (calib, no thr); readable 3/3; lone failure=transient http_503; n=3 too small | 3 | 2026-06-01 | destination-decay machine (D1/D2) — UNJUSTIFIED at n=3 (on-demand probe suffices); resample when universe grows OR a definitive noindex/404 decay appears |
 | G3 | T2 | any channel ever delivers a real referral session; render paths preserve `referer` | KILL | strip 1/2 = 0.50 (thr 0.50); preserving=work_themed; referral=absent | 2 | 2026-06-01 | Program B (GA4 referral attribution) PARKED |
 | G4 | T2 | adult-site channel articles are surfaced/cited by AI engines (RG-kill) | BLOCKED | probe-citations CLI deferred (geo-ai-citation plan status:parked, U5–U8); no AI-citation tooling/creds available | — | 2026-06-02 | GEO machine PARKED (cf. geo-ai-citation plan decision); resume trigger = AI-citation corpus volume non-trivial |
@@ -192,6 +192,19 @@ Prior convergence passes that are now superseded or folded:
   which plan 002's own Phase-0 GO/NO-GO criterion already flags as "do not build yet."
 - **Resample trigger:** a non-test published corpus of real channel pages exists; then run
   `BACKLINK_PUBLISHER_CONFIG_DIR=<prod> recheck-backlinks …` and read the `blocked` / `unknown` rates.
+- **Resample (2026-06-05) — now measured:** the real corpus matured (51acgs-target rechecks over
+  telegra.ph / blogspot / x.com / medium / github.io / livejournal). Read-only scan of `events.db`
+  `link.rechecked` (latest-per-`live_url`, n=84): **blocked 1/84 ≈ 1.2%** — a single `meta_noindex`
+  page on a non-workhorse host; the workhorse dofollow channels are all `ok` (telegra.ph 57, blogspot 18,
+  x.com 4, medium 2). The probe **reads** the main channels (only a few `unknown`), so the low rate is a
+  real measurement, not an all-`unknown` blind spot.
+- **Build implication (mirrors G2):** the **R7/R8 ledger-bridge** — a net-new `LinkRecord.indexability`
+  field + a `build_target_buckets` join (or history-store writeback) so `equity-ledger` excludes
+  `blocked` from `live_dofollow` — is **UNJUSTIFIED at 1.2%**: its carrying cost dwarfs the yield of
+  correctly discounting one link, and the operator already sees that link via the shipped detection
+  (`_indexability_summary`, `_alive_blocked_count`) and the opt-in `--fail-on-unindexable` gate (exit 6).
+  Detection-first was the right call; the equity-loop stays deferred. **Resample trigger:** `alive`-but-
+  `blocked` real links reach ≥5, **or** any single dofollow channel's blocked rate reaches ≥10%.
 
 ### G4 — GEO / AI-citation → BLOCKED (2026-06-02)
 

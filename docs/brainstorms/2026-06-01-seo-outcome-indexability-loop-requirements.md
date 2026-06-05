@@ -267,3 +267,15 @@ the equity-loop unit.
 ## Outcome (2026-06-01)
 
 Shipped → `docs/plans/2026-06-01-002-feat-source-indexability-detection-plan.md` (status: completed); `docs/plans/2026-06-01-005-feat-gate-first-validation-and-deficit-overlay-plan.md` (status: active).
+
+## Outcome (2026-06-05) — R7/R8 gate resampled → DEFER
+
+The detection scope (R1–R6b, R9) is shipped. The R7/R8 ledger-bridge gate (G1) was **resampled
+read-only** against the now-real corpus (`events.db` `link.rechecked`, latest-per-`live_url`, n=84):
+**blocked 1/84 ≈ 1.2%** — one `meta_noindex` page on a non-workhorse host; the workhorse dofollow
+channels (telegra.ph 57, blogspot 18, x.com 4, medium 2) are all `ok`, and the probe reads them (not an
+all-`unknown` blind spot). Per this brainstorm's own "Resolve Before Planning" gate, that rate does **not**
+justify building the net-new `LinkRecord.indexability` field + `build_target_buckets` join — carrying cost
+≫ yield, and the operator already sees the one blocked link via the shipped `--fail-on-unindexable` gate.
+**R7/R8 DEFERRED.** Resume trigger: `alive`-but-`blocked` real links ≥5, or any dofollow channel's blocked
+rate ≥10%. Recorded as G1 in `docs/ideation/gate-verdicts.md` (2026-06-05).
