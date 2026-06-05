@@ -41,7 +41,7 @@ from backlink_publisher._util.logger import PipelineLogger, set_log_level
 from backlink_publisher.config import load_config
 from backlink_publisher.publishing.adapters import publish, verify_adapter_setup
 from backlink_publisher.publishing.adapters.link_attr_verifier import inspect_target_anchor
-from backlink_publisher.publishing.registry import dofollow_status, registered_platforms
+from backlink_publisher.publishing.registry import dofollow_status, registered_platforms, visibility
 from backlink_publisher.cli._canary_flip_hint import format_canary_hint
 
 canary_logger = PipelineLogger("canary-seed")
@@ -194,14 +194,24 @@ def main(argv: list[str] | None = None) -> None:
                 file=sys.stderr,
             )
 
-        # A1: validate platform is in uncertain cohort
+        # A1: validate platform is canary-eligible.
+        # Eligible = dofollow="uncertain" AND not retired. Retired platforms
+        # (e.g. writeas, hashnode) keep a stale "uncertain" flag but must never
+        # be canaried: they have no bound credentials, so publish raises and the
+        # run reports a misleading `publish_failed` verdict. Exclude retired both
+        # from eligibility and from the hint list — mirrors the
+        # `visibility(name) != "retired"` filter in config/_toml_utils.py.
         status = dofollow_status(args.platform)
-        if status != "uncertain":
-            uncertain = sorted(p for p in registered_platforms() if dofollow_status(p) == "uncertain")
+        eligible = sorted(
+            p for p in registered_platforms()
+            if dofollow_status(p) == "uncertain" and visibility(p) != "retired"
+        )
+        if status != "uncertain" or visibility(args.platform) == "retired":
             raise UsageError(
                 f"canary-seed: platform {args.platform!r} is not in the "
-                f"dofollow='uncertain' cohort (status={status!r}). "
-                f"Eligible platforms: {uncertain}."
+                f"canary-eligible dofollow='uncertain' cohort "
+                f"(status={status!r}, visibility={visibility(args.platform)!r}). "
+                f"Eligible platforms: {eligible}."
             )
 
         config = load_config()

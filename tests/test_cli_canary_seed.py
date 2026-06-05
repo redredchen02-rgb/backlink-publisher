@@ -65,6 +65,7 @@ def _run(
     argv: list[str],
     *,
     dofollow_status_map: dict | None = None,
+    visibility_map: dict | None = None,
     publish_return=None,
     publish_side_effect=None,
     anchor_return=None,
@@ -73,9 +74,17 @@ def _run(
     """Run cs.main(argv) with all network calls mocked.
 
     Returns (exit_code, stdout, stderr).
+
+    ``visibility_map`` mocks ``registry.visibility`` per-platform; any platform
+    not listed defaults to ``"active"`` so the canary-eligibility gate only
+    rejects platforms explicitly marked ``"retired"`` here. This mirrors the
+    ``dofollow_status_map`` pattern and keeps the unit isolated from registry
+    visibility churn.
     """
     if dofollow_status_map is None:
         dofollow_status_map = {"hashnode": "uncertain", "substack": "uncertain"}
+    if visibility_map is None:
+        visibility_map = {}
 
     publish_kw = {}
     if publish_side_effect is not None:
@@ -94,6 +103,7 @@ def _run(
         verify_kw["return_value"] = None  # offline check passes silently
 
     with patch.object(cs, "dofollow_status", side_effect=lambda p: dofollow_status_map.get(p)), \
+         patch.object(cs, "visibility", side_effect=lambda p: visibility_map.get(p, "active")), \
          patch.object(cs, "verify_adapter_setup", **verify_kw), \
          patch.object(cs, "publish", **publish_kw), \
          patch.object(cs, "inspect_target_anchor", **anchor_kw), \
@@ -226,6 +236,34 @@ class TestCohortGate:
         assert rc == 0
         assert _parse_jsonl(stdout)
 
+    def test_retired_uncertain_platform_rejected(self):
+        """A platform still flagged dofollow='uncertain' but visibility='retired'
+        (e.g. writeas, hashnode) is NOT canary-eligible — publishing it would
+        fail on missing credentials and surface a misleading publish_failed."""
+        rc, stdout, stderr = _run(
+            ["writeas", "--target-url", "https://mysite.com"],
+            dofollow_status_map={"writeas": "uncertain"},
+            visibility_map={"writeas": "retired"},
+        )
+        assert rc == 1
+        assert "retired" in stderr.lower()
+        assert _parse_jsonl(stdout) == []
+
+    def test_eligible_hint_excludes_retired(self):
+        """The 'Eligible platforms' hint omits retired-but-uncertain platforms."""
+        rc, _, stderr = _run(
+            ["blogger", "--target-url", "https://mysite.com"],
+            dofollow_status_map={
+                "blogger": True,
+                "substack": "uncertain",
+                "writeas": "uncertain",
+            },
+            visibility_map={"writeas": "retired"},
+        )
+        assert rc == 1
+        assert "substack" in stderr
+        assert "writeas" not in stderr
+
 
 # ── Credential gate ───────────────────────────────────────────────────────────
 
@@ -309,6 +347,7 @@ class TestWaitAfterPublish:
     def test_default_sleep_called(self):
         calls = []
         with patch.object(cs, "dofollow_status", return_value="uncertain"), \
+             patch.object(cs, "visibility", return_value="active"), \
              patch.object(cs, "verify_adapter_setup", return_value=None), \
              patch.object(cs, "publish", return_value=_adapter_result()), \
              patch.object(cs, "inspect_target_anchor", return_value=_anchor()), \
@@ -329,6 +368,7 @@ class TestWaitAfterPublish:
     def test_custom_wait_respected(self):
         calls = []
         with patch.object(cs, "dofollow_status", return_value="uncertain"), \
+             patch.object(cs, "visibility", return_value="active"), \
              patch.object(cs, "verify_adapter_setup", return_value=None), \
              patch.object(cs, "publish", return_value=_adapter_result()), \
              patch.object(cs, "inspect_target_anchor", return_value=_anchor()), \

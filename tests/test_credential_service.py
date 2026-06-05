@@ -142,6 +142,22 @@ def test_token_field_names_ghpages_single_field():
     assert credential_service.token_field_names("ghpages") == ["token"]
 
 
+def test_token_field_names_gitlabpages_single_field():
+    assert credential_service.token_field_names("gitlabpages") == ["token"]
+
+
+def test_save_token_fields_gitlabpages_writes_file(cfg, tmp_path):
+    """GitLab Pages binding (active, dofollow='uncertain', canary-pending) is
+    now WebUI-bindable: save writes the single-token gitlabpages-token.json."""
+    path = credential_service.save_token_fields(
+        "gitlabpages", cfg, {"token": "glpat-XXXX"}
+    )
+    assert path.name == "gitlabpages-token.json"
+    assert path.exists()
+    data = json.loads(path.read_text())
+    assert data["token"] == "glpat-XXXX"
+
+
 def test_token_field_names_unknown_returns_none():
     assert credential_service.token_field_names("ghostcms") is None
 

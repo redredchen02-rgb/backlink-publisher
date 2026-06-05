@@ -138,6 +138,15 @@
             "placeholder": "Hatena Blog → 详细设置 → AtomPub → API Key",
             "help": "高敏感密钥，请勿分享。在 Hatena Blog 设置页的 AtomPub 区段取得。"
         }
+    ],
+    "gitlabpages": [
+        {
+            "name": "token",
+            "label": "GitLab PAT",
+            "type": "password",
+            "placeholder": "glpat-...",
+            "help": "GitLab → Settings → Access Tokens，需要 <code>api</code> scope（或项目级 write_repository）。注意：目标项目必须已有发布 public/ 的 Pages CI 任务，否则提交文件不会触发发布。"
+        }
     ]
 } %}
 
