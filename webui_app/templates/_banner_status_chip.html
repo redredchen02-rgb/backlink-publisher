@@ -1,0 +1,29 @@
+{# Banner status chip — inline near publish buttons.
+   Requires image_gen_status in template context (auto-injected by _render()).
+   Shows nothing when [image_gen] is not configured at all. #}
+{% if image_gen_status is defined and image_gen_status.configured %}
+  {% set _igs = image_gen_status %}
+  <div class="mt-2" style="font-size:11px;">
+    {% if _igs.token_present and _igs.config and _igs.config.use_image_gen %}
+      <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle"
+            style="padding:3px 8px;font-weight:500;">
+        <i class="bi bi-image me-1"></i>AI 封面图已启用
+      </span>
+      <span class="text-muted ms-1">· 发布时将自动生成封面</span>
+    {% elif _igs.token_present and _igs.config and not _igs.config.use_image_gen %}
+      <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"
+            style="padding:3px 8px;font-weight:500;"
+            title="封面图已配置，但 use_image_gen = false，如需自动生成请在设置中启用">
+        <i class="bi bi-image me-1"></i>封面图未启用
+      </span>
+      <a href="/settings#section-pro" class="text-muted ms-1" style="font-size:11px;">前往启用 →</a>
+    {% elif not _igs.token_present %}
+      <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle"
+            style="padding:3px 8px;font-weight:500;"
+            title="Token 缺失，请运行 frw-login 写入密钥">
+        <i class="bi bi-key me-1"></i>封面 Token 缺失
+      </span>
+      <span class="text-muted ms-1">· 运行 <code>frw-login</code> 写入密钥</span>
+    {% endif %}
+  </div>
+{% endif %}

@@ -90,7 +90,7 @@
                             </div>
                             <span class="small text-muted">每次发布自动生成完整文章正文</span>
                         </div>
-                        <div class="llm-feature-body">
+                        <div id="article-gen-fields" class="llm-feature-body{% if not llm_settings.use_article_gen %} d-none{% endif %}">
                             <label class="form-label small fw-medium">文章生成提示词 <span class="text-muted fw-normal">(留空使用内置默认)</span></label>
                             <textarea name="article_system_prompt" rows="3"
                                       class="form-control font-monospace small"
@@ -195,24 +195,25 @@
         </div>
 <script>
 (function() {
-  // Toggle image-gen fields when checkbox changes
-  var imgCb = document.getElementById('useImageGen');
-  var imgFields = document.getElementById('image-gen-fields');
-  if (imgCb && imgFields) {
-    imgCb.addEventListener('change', function() {
-      imgFields.classList.toggle('d-none', !imgCb.checked);
-    });
-  }
-
-  // When redirected back with #sect-ai (validation failure), reveal image-gen fields
-  // so the user can see and correct whatever caused the error.
-  if (location.hash === '#sect-ai') {
-    var igFields = document.getElementById('image-gen-fields');
-    if (igFields && igFields.classList.contains('d-none')) {
-      igFields.classList.remove('d-none');
-      var igCb = document.getElementById('useImageGen');
-      if (igCb) { igCb.checked = true; }
+  // Toggle feature card body when checkbox changes
+  function wireToggle(cbId, fieldsId) {
+    var cb = document.getElementById(cbId);
+    var fields = document.getElementById(fieldsId);
+    if (cb && fields) {
+      cb.addEventListener('change', function() {
+        fields.classList.toggle('d-none', !cb.checked);
+      });
     }
+  }
+  wireToggle('useArticleGen', 'article-gen-fields');
+  wireToggle('useImageGen', 'image-gen-fields');
+
+  // When redirected back with #sect-ai (validation failure), reveal relevant fields
+  if (location.hash === '#sect-ai') {
+    ['image-gen-fields', 'article-gen-fields'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && el.classList.contains('d-none')) { el.classList.remove('d-none'); }
+    });
   }
 })();
 </script>

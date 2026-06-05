@@ -314,4 +314,13 @@ def _render(template_name: str, **kwargs):
         kwargs['incomplete_run'] = _load_incomplete_run()
     if 'active_page' not in kwargs and template_name == 'index.html':
         kwargs['active_page'] = 'index'
+    if 'image_gen_status' not in kwargs:
+        try:
+            cfg = _g_cache('config', load_config)
+            kwargs['image_gen_status'] = _image_gen_status(cfg)
+        except Exception:
+            kwargs['image_gen_status'] = {
+                'configured': False, 'token_present': False,
+                'config': None, 'token_path': '', 'token_mtime': None,
+            }
     return render_template(template_name, **kwargs)
