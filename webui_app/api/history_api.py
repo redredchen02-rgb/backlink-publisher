@@ -19,7 +19,11 @@ from webui_store import history_store as _history_store
 from webui_store import queue_store as _queue_store
 
 from ..helpers.history import _REQUIRES_URL_STATUSES
-from backlink_publisher.events.history_query import get_history_item, list_history
+from backlink_publisher.events.history_query import (
+    get_history_item,
+    list_history,
+    purge_failed_from_db,
+)
 from backlink_publisher.events.publish_writer import (
     map_history_entry,
     write_event,
@@ -142,10 +146,11 @@ class HistoryAPI:
     def purge_failed(self) -> dict[str, Any]:
         """Delete every history entry whose status is exactly ``failed``.
 
-        Returns ``ok=False`` when no records were removed so callers can
-        set ``flash_type=info`` instead of ``flash_type=success``.
+        Clears both the JSON history_store and events.db (the authoritative
+        read source).  Returns ``ok=False`` when no records were removed.
         """
         removed = _history_store.purge_by_status("failed")
+        purge_failed_from_db()  # mirror cleanup; not counted to avoid double-counting
         if removed == 0:
             return {"ok": False, "flash_msg": "没有失败记录可清除"}
         return {"ok": True, "flash_msg": f"已清除 {removed} 条失败记录"}

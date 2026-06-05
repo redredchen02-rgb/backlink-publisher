@@ -433,6 +433,58 @@ def count_publish_events() -> int:
         return row[0] if row else 0
 
 
+def purge_failed_from_db(store: _EventStore | None = None) -> int:
+    """Delete all 'failed' history rows from events.db.
+
+    Removes:
+    1. Articles whose latest event is KIND_FAILED, plus their linked events.
+    2. Orphan events (no article row) of kind KIND_FAILED.
+
+    Returns the total number of rows removed (articles + orphan events).
+    """
+    s = store or _EventStore()
+    removed = 0
+    with s.connect_immediate() as conn:
+        # 1. Find articles whose latest event is a publish.failed event.
+        failed_article_ids = [
+            row[0]
+            for row in conn.execute("""
+                SELECT a.article_id
+                FROM articles a
+                JOIN events e
+                  ON e.article_id = a.article_id
+                 AND e.id = (
+                   SELECT MAX(e2.id) FROM events e2
+                   WHERE e2.article_id = a.article_id
+                 )
+                WHERE e.kind = ?
+            """, (KIND_FAILED,)).fetchall()
+        ]
+        if failed_article_ids:
+            placeholders = ",".join("?" * len(failed_article_ids))
+            conn.execute(
+                f"DELETE FROM events WHERE article_id IN ({placeholders})",
+                failed_article_ids,
+            )
+            cur = conn.execute(
+                f"DELETE FROM articles WHERE article_id IN ({placeholders})",
+                failed_article_ids,
+            )
+            removed += cur.rowcount
+
+        # 2. Orphan KIND_FAILED events (no article row).
+        # article_id IS NULL must be explicit — NULL NOT IN (...) is UNKNOWN in SQL.
+        cur = conn.execute("""
+            DELETE FROM events
+            WHERE kind = ?
+              AND (article_id IS NULL
+                   OR article_id NOT IN (SELECT article_id FROM articles))
+        """, (KIND_FAILED,))
+        removed += cur.rowcount
+
+    return removed
+
+
 def get_article_by_live_url(live_url: str) -> dict[str, Any] | None:
     """Look up an article row by its ``live_url``."""
     store = _EventStore()
