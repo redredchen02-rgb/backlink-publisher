@@ -212,7 +212,10 @@ def select_candidates(
     Eligibility: ``last_definitive_at`` is unset or older than ``days`` AND
     ``last_attempt_at`` is unset or older than ``min_retry_days``. Ordered
     never-checked-first then oldest-definitive-check-first then oldest-publish
-    -first; capped at ``min(cap, limit)``.
+    -first. ``limit`` (when given) *overrides* the built-in per-run ``cap`` —
+    it may raise it above ``DEFAULT_CAP`` (the weekly job passes a high limit so
+    "all due links" are covered, with the probe-batch wall-clock budget as the
+    real bound and oldest-first leftovers deferred to next run) or lower it.
     """
     universe = _confirmed_universe(store, since=since, host=host, run_id=run_id)
     cursors = _recheck_cursors(store)
@@ -256,7 +259,9 @@ def select_candidates(
         )
     )
 
-    effective_cap = cap if limit is None else min(cap, limit)
+    # limit overrides the built-in cap (may raise above DEFAULT_CAP for the
+    # weekly all-due-links sweep, or lower it for a scoped run).
+    effective_cap = cap if limit is None else limit
     selected = candidates[:effective_cap]
     for r in selected:
         r.pop("_last_definitive_at", None)

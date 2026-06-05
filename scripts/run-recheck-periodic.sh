@@ -44,8 +44,13 @@ for arg in "$@"; do
     fi
 done
 
-log "recheck-backlinks $([ -n "$PROBE_FLAG" ] && echo '--probe' || echo '(dry-run)') …"
-if "$PYTHON" -m backlink_publisher.cli.recheck_backlinks $PROBE_FLAG >> "$LOG_DIR/recheck.log" 2>&1; then
+# Weekly sweep covers ALL due links, oldest-first, bounded by the CLI's
+# probe-batch wall-clock budget (_BATCH_BUDGET_S, ~600s); leftovers defer to
+# next week. Raise the per-run cap via --limit (override RECHECK_LIMIT to tune).
+RECHECK_LIMIT="${RECHECK_LIMIT:-1000}"
+
+log "recheck-backlinks $([ -n "$PROBE_FLAG" ] && echo '--probe' || echo '(dry-run)') --limit $RECHECK_LIMIT …"
+if "$PYTHON" -m backlink_publisher.cli.recheck_backlinks $PROBE_FLAG --limit "$RECHECK_LIMIT" >> "$LOG_DIR/recheck.log" 2>&1; then
     log "recheck-backlinks OK"
 else
     exit_code=$?

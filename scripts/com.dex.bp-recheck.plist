@@ -10,9 +10,19 @@
         <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/scripts/run-recheck-periodic.sh</string>
         <string>--probe</string>
     </array>
-    <!-- Every 24 hours -->
-    <key>StartInterval</key>
-    <integer>86400</integer>
+    <!-- Weekly: Monday 04:30 local. Calendar scheduling is the in-repo
+         convention (see com.dex.bp-full-pipeline.plist). The weekly sweep
+         covers all due links oldest-first within the probe-batch budget;
+         leftovers defer to the next run. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
     <key>WorkingDirectory</key>
     <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher</string>
     <key>StandardOutPath</key>
