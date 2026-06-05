@@ -13,6 +13,15 @@ is treated as a bot and silently tarpitted (200 "Thank you" page, no permalink),
 so the adapter waits ``_SUBMIT_DELAY_SECONDS`` before submitting. See
 :data:`_SUBMIT_DELAY_ENV`.
 
+C0 optimisation (2026-06-05): added tarpit retry with exponential backoff
+(max 3 attempts). The default delay was raised from 4.0s to 6.0s based on
+empirical observations that the anti-spam gate sometimes clears later.
+``http_form_post.submit_form`` is always called EXACTLY ONCE per attempt —
+the retry here is an outer loop that re-fetches the form + waits + re-submits,
+which is safe because the first attempt silently dropped the post (tarpit) so
+no duplicate was created. A successful publish returns immediately without
+further retries.
+
 SEO note (Phase 0 find): txt.fyi serves raw static HTML pages with no dynamic
 link processing, so outbound ``<a>`` elements carry no ``rel="nofollow"``
 decoration server-side.  The ``dofollow="uncertain"`` registration below is
@@ -36,6 +45,7 @@ from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
 from .base import AdapterResult
 from .http_form_post import (
+    DEFAULT_TIMEOUT,
     attach_link_verification,
     extract_hidden_fields,
     fetch_form,
@@ -58,12 +68,24 @@ _HIDDEN_FIELDS = ("nonce", "form_time")
 # tarpit page with NO redirect and NO permalink — the post is silently dropped,
 # never published — instead of the 302→permalink a real browser receives.
 # Empirically (probed 2026-05-29) the gate clears by ~3s; we wait a margin above
-# that. Overridable via env for tuning, and set to 0 in tests for zero wait.
+# that. C0 (2026-06-05) raised from 4.0s to 6.0s based on empirical evidence of
+# false tarpit triggers at 4.0s during Phase 0 re-runs.
 _SUBMIT_DELAY_ENV = "BACKLINK_TXTFYI_SUBMIT_DELAY_SECONDS"
-_DEFAULT_SUBMIT_DELAY_SECONDS = 4.0
+_DEFAULT_SUBMIT_DELAY_SECONDS = 6.0
 # Lowercased body marker of the tarpit page (see above) — distinguishes an
 # anti-spam rejection from a generic no-redirect failure.
 _TARPIT_MARKER = "thank you for your submission"
+
+# C0: tarpit retry with exponential backoff (max 3 attempts).
+# Each retry re-fetches the form, re-waits the dwell gate, and re-submits.
+# This is safe because a tarpit response means the post was NOT created server-side
+# (the "Thank you" page is a decoy — the real edit.php skips the insert).
+_TARPIT_RETRY_MAX = 3
+_TARPIT_RETRY_BACKOFF_BASE = 1.5
+
+# C0: raised from DEFAULT_TIMEOUT (15s) to 30s for the submit POST, to handle
+# transient slow responses from txt.fyi's shared hosting backend.
+_TXTFYI_SUBMIT_TIMEOUT = 30.0
 
 
 def _submit_delay_seconds() -> float:
@@ -81,10 +103,77 @@ def _submit_delay_seconds() -> float:
         return _DEFAULT_SUBMIT_DELAY_SECONDS
 
 
+def _detect_tarpit(response: Any) -> bool:
+    """Return True iff the submit response indicates the anti-spam tarpit.
+
+    The tarpit page returns HTTP 200 with a "Thank you for your submission" body
+    and no redirect — indistinguishable from success except the missing redirect
+    and the tarpit marker in the body.
+    """
+    body_text = (getattr(response, "text", "") or "").lower()
+    return _TARPIT_MARKER in body_text
+
+
+def _publish_attempt(
+    title: str,
+    content_md: str,
+    delay: float,
+) -> tuple[str, Any]:
+    """Single publish attempt: fetch form → wait → submit → return (url, resp).
+
+    Raises ExternalServiceError on transport / challenge / missing fields /
+    non-tarpit no-redirect failure. Returns (published_url, submit_resp) on
+    success. The caller retries on tarpit detection.
+
+    ``submit_form`` is called exactly ONCE per attempt (non-idempotent create).
+    """
+    # 1. Fetch the form page and extract CSRF tokens.
+    form_resp = fetch_form(_TXTFYI_FORM, timeout=DEFAULT_TIMEOUT)
+    hidden = extract_hidden_fields(form_resp.text, _HIDDEN_FIELDS)
+    missing = [f for f in _HIDDEN_FIELDS if f not in hidden]
+    if missing:
+        raise ExternalServiceError(
+            f"txt.fyi form missing hidden fields: {', '.join(missing)}"
+        )
+
+    # 2. Compose the body from markdown content.
+    body = f"# {title}\n\n{content_md}" if title else content_md
+
+    # 3. Submit the form.
+    post_data: dict[str, str] = {
+        "txt": body,
+        "url": "",  # anti-spam / unused; content carries the backlink
+        "go": "PUBLISH",
+        **hidden,
+    }
+    # Clear txt.fyi's dwell-time gate before submitting (see
+    # _SUBMIT_DELAY_ENV). Without this wait the POST is flagged as a bot and
+    # silently dropped to the tarpit page, never publishing.
+    if delay > 0:
+        time.sleep(delay)
+    submit_resp = submit_form(_TXTFYI_SUBMIT, post_data, timeout=_TXTFYI_SUBMIT_TIMEOUT)
+
+    # 4. Capture the published URL from the final redirect target.
+    published_url = (submit_resp.url or "").strip()
+    if not published_url or published_url == _TXTFYI_SUBMIT:
+        # Not a redirect — check if tarpit or other failure.
+        raise ExternalServiceError(
+            "txt.fyi did not redirect to a published URL after submit"
+        )
+
+    return published_url, submit_resp
+
+
 class TxtfyiFormPostAdapter(Publisher):
     """Anonymous form-POST publisher for txt.fyi.
 
     No config, credentials, or browser needed — pure HTTP form submission.
+
+    C0 (2026-06-05): ``publish()`` now wraps the single-attempt logic in a
+    tarpit-aware retry loop. If the submit is tarpitted (anti-spam dwell-time
+    gate), the adapter re-fetches the form with a fresh CSRF token + longer
+    dwell wait, up to ``_TARPIT_RETRY_MAX`` attempts. A successful publish
+    returns immediately.
     """
 
     def publish(
@@ -102,69 +191,68 @@ class TxtfyiFormPostAdapter(Publisher):
         content_md = payload.get("content_markdown") or payload.get("content_md") or ""
         if not content_md.strip():
             raise ExternalServiceError("txt.fyi payload has no content_markdown")
-        # txt.fyi has no dedicated title field — prepend as a heading.
-        body = f"# {title}\n\n{content_md}" if title else content_md
 
-        # 2. Fetch the form page and extract CSRF tokens.
-        form_resp = fetch_form(_TXTFYI_FORM)
-        hidden = extract_hidden_fields(form_resp.text, _HIDDEN_FIELDS)
-        missing = [f for f in _HIDDEN_FIELDS if f not in hidden]
-        if missing:
-            raise ExternalServiceError(
-                f"txt.fyi form missing hidden fields: {', '.join(missing)}"
-            )
+        # 2. Publish with tarpit retry.
+        base_delay = _submit_delay_seconds()
+        saw_tarpit: bool = False
 
-        # 3. Submit the form.
-        post_data: dict[str, str] = {
-            "txt": body,
-            "url": "",  # anti-spam / unused; content carries the backlink
-            "go": "PUBLISH",
-            **hidden,
-        }
-        # Clear txt.fyi's dwell-time gate before submitting (see
-        # _SUBMIT_DELAY_ENV). Without this wait the POST is flagged as a bot and
-        # silently dropped to the tarpit page, never publishing.
-        delay = _submit_delay_seconds()
-        if delay > 0:
-            time.sleep(delay)
-        submit_resp = submit_form(_TXTFYI_SUBMIT, post_data)
-
-        # 4. Capture the published URL from the final redirect target.
-        published_url = (submit_resp.url or "").strip()
-        if not published_url or published_url == _TXTFYI_SUBMIT:
-            body_text = (getattr(submit_resp, "text", "") or "").lower()
-            if _TARPIT_MARKER in body_text:
-                # Anti-spam rejection, not a transport hiccup: edit.php served
-                # the "Thank you" tarpit. Surface the cause + the knob to turn.
-                raise ExternalServiceError(
-                    "txt.fyi rejected the submission as automated (anti-spam "
-                    "dwell-time gate); the post was NOT published. Raise "
-                    f"{_SUBMIT_DELAY_ENV} above the current {delay:g}s and retry."
+        for attempt in range(1, _TARPIT_RETRY_MAX + 1):
+            try:
+                # Use increased delay on retry (exponential backoff).
+                delay = base_delay * (_TARPIT_RETRY_BACKOFF_BASE ** (attempt - 1))
+                published_url, submit_resp = _publish_attempt(
+                    title, content_md, delay
                 )
-            raise ExternalServiceError(
-                "txt.fyi did not redirect to a published URL after submit"
+            except ExternalServiceError as exc:
+                is_tarpit = "did not redirect" in str(exc)
+                if is_tarpit:
+                    saw_tarpit = True
+                    if attempt < _TARPIT_RETRY_MAX:
+                        log.warn(
+                            "txtfyi_tarpit_retry",
+                            id=article_id,
+                            attempt=attempt,
+                            max_attempts=_TARPIT_RETRY_MAX,
+                            delay_seconds=round(delay, 1),
+                        )
+                        continue
+                    # Last attempt was also tarpit → surface clear message.
+                    raise ExternalServiceError(
+                        f"txt.fyi rejected the submission as automated after "
+                        f"{_TARPIT_RETRY_MAX} attempts (anti-spam dwell-time gate). "
+                        f"Raise {_SUBMIT_DELAY_ENV} above the current "
+                        f"{base_delay:g}s and retry."
+                    ) from None
+                # Non-tarpit ExternalServiceError — propagate immediately.
+                raise
+
+            # Successful publish — emit elapsed time and build result.
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+            log.info(
+                "txtfyi_publish_done",
+                id=article_id,
+                url=published_url,
+                elapsed_ms=elapsed_ms,
+                attempt=attempt,
             )
 
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
-        log.info(
-            "txtfyi_publish_done",
-            id=article_id,
-            url=published_url,
-            elapsed_ms=elapsed_ms,
-        )
-
-        if mode == "draft":
+            if mode == "draft":
+                return AdapterResult(
+                    status="drafted",
+                    adapter=_ADAPTER,
+                    platform=_PLATFORM,
+                    draft_url=published_url,
+                )
+            meta = attach_link_verification(
+                published_url, target_urls=required_link_urls(payload)
+            )
             return AdapterResult(
-                status="drafted",
+                status="published",
                 adapter=_ADAPTER,
                 platform=_PLATFORM,
-                draft_url=published_url,
+                published_url=published_url,
+                _provider_meta=meta,
             )
-        meta = attach_link_verification(published_url, target_urls=required_link_urls(payload))
-        return AdapterResult(
-            status="published",
-            adapter=_ADAPTER,
-            platform=_PLATFORM,
-            published_url=published_url,
-            _provider_meta=meta,
-        )
+
+        # Unreachable — all paths return or raise inside the loop.
+        raise AssertionError("unreachable")  # pragma: no cover
