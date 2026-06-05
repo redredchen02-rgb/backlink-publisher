@@ -1741,6 +1741,14 @@ class TestOptimizationStatusRoutes:
         assert resp.status_code in (200, 302, 400)
 
 
+class TestSurvivalDashboardRoutes:
+    def test_get_survival_dashboard_page(self, client):
+        """GET /survival-dashboard returns 200 (never 500 on empty store)."""
+        resp = client.get("/survival-dashboard")
+        assert resp.status_code == 200
+        assert "存活率".encode() in resp.data
+
+
 class TestCommandCenterRoutes:
     def test_get_command_center_page(self, client):
         """GET /ce:command-center returns 200."""
