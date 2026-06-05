@@ -224,7 +224,7 @@ U4 route ── R8 反查 events.db 成員 → 不存在則 404，不探測
 U1 (read fn + shared iterator) ──▶ U2 (GET drawer route) ──▶ U3 (drawer frontend) ──▶ U4 (single-link recheck)
 ```
 
-- [ ] **Unit 1: Shared latest-verdict iterator + per-link read function**
+- [x] **Unit 1: Shared latest-verdict iterator + per-link read function** — done in clone `~/bp-per-link-u1` @ `0fbb787` (branch `feat/per-link-liveness-u1`), 15 tests green, regression-clean, push held.
 
 **Goal:** 抽出共用的 latest-verdict-per-link iterator（含 NULL-article_id 不變式）到穩定位置，
 新增 `derive_links_by_channel`，落實 R5（dofollow 布林 + inspected 謂詞）與 R6（保留域集排除）。

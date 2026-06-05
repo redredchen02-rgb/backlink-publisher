@@ -238,6 +238,7 @@ def ce_publish():
 
     platform = request.form.get('platform', config.get('platform', 'blogger'))
     publish_mode = request.form.get('publish_mode', config.get('publish_mode', 'publish'))
+    tier_1 = request.form.get('tier_1') in ('1', 'true')
     target_url = config.get('target_url', 'unknown')
     language = config.get('target_language', 'zh-CN')
 
@@ -249,7 +250,7 @@ def ce_publish():
                 error=f"Velog 凭证无效，请先在设置页重新绑定。{detail}",
                 config=config, history_active=True)
 
-    result = _api.publish(plans, platform, publish_mode)
+    result = _api.publish(plans, platform, publish_mode, tier_1=tier_1)
 
     if not result.success:
         # ``result.error`` is the full typed message (or banner-stripped stderr on
@@ -340,6 +341,7 @@ def ce_publish_chain():
     url_mode = request.form.get('url_mode', stored_config.get('url_mode', 'C'))
     publish_mode = request.form.get('publish_mode',
                                     stored_config.get('publish_mode', 'draft'))
+    tier_1 = request.form.get('tier_1') in ('1', 'true')
     target_language = request.form.get('target_language',
                                        stored_config.get('target_language', 'zh-CN'))
     custom_title = request.form.get('custom_title', '').strip()
@@ -390,7 +392,7 @@ def ce_publish_chain():
                        error=validate_result.stderr_cleaned or "验证失败，没有输出",
                        plans=plans, config=stored_config)
 
-    pub_result = _api.publish(validated, platform, publish_mode)
+    pub_result = _api.publish(validated, platform, publish_mode, tier_1=tier_1)
     if not pub_result.success:
         msg = pub_result.error or "发布失败"
         display = (

@@ -410,9 +410,16 @@ class PipelineAPI:
         plans_jsonl: str,
         platform: str,
         mode: str,
+        tier_1: bool = False,
     ) -> PipeResult:
-        """Run ``publish-backlinks --platform <p> --mode <m>``."""
+        """Run ``publish-backlinks --platform <p> --mode <m>``.
+
+        When ``tier_1=True``, appends ``--tier-1`` to restrict publishing to
+        dofollow (Tier-1) platforms only (Plan 2026-06-05-005 U6).
+        """
         cmd = ["publish-backlinks", "--platform", platform, "--mode", mode]
+        if tier_1:
+            cmd.append("--tier-1")
         return self._invoke_capture(cmd, plans_jsonl, "publish-backlinks failed")
 
     def publish_seed(self, seed_jsonl: str) -> PipeResult:

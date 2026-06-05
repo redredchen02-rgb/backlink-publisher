@@ -136,8 +136,9 @@ def main(argv: list[str] | None = None) -> None:
                     )
             rows = filtered
             if not rows:
-                publish_logger.info(
-                    "publish-backlinks: --tier-1 filtered all rows; nothing to publish"
+                print(
+                    "RECON info reason=tier-filter result=all-filtered",
+                    file=sys.stderr,
                 )
                 raise SystemExit(0)
 

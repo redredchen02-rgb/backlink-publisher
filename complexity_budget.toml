@@ -32,6 +32,10 @@
 # into a thin shell (CC 9) plus phase helpers, the heaviest being _publish_one_resume_item at
 # CC 23 — all under the CC-30 backstop, so no entry is needed for any of them. Entry removed.
 
+[functions."src/backlink_publisher/cli/publish_backlinks/__init__.py::main"]
+ceiling = 33
+rationale = "publish-backlinks CLI entry point: orchestrates row validation, tier-1 filtering, platform lease acquisition, the dedup enforce/precondition/force-manifest flow, checkpoint creation, and the row-level publish loop. U5 added --tier-1 filtering (3 branches: skip/keep/empty) on top of an already-dense coordinator. Extracting the tier-filter block to a named helper would add indirection without reducing gateway logic — the block is a self-contained for-loop over rows that returns early on empty. CC 33 is the new baseline; keep at exact seed, no headroom per budget policy."
+
 [functions."src/backlink_publisher/cli/plan_backlinks/_payload.py::_generate_payload"]
 ceiling = 50
 rationale = "Deterministic-planning payload assembly: branches across language/anchor/link-density/zh-short variants and validation gating to build one plan row. Grandfathered at current CC; decomposed lazily when a feature next touches it (Plan 2026-05-29-005 R7), not in this initiative's active scope."

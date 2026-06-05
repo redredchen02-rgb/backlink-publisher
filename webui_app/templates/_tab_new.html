@@ -192,6 +192,10 @@
                                 onclick="this.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>处理中…';this.disabled=true;">
                             <i class="bi bi-lightning-charge me-1"></i>一键生成并发布
                         </button>
+                        <label class="btn btn-sm btn-outline-info tier-1-toggle" style="margin:0;padding:4px 10px;font-size:13px;border-radius:8px;">
+                            <input type="checkbox" name="tier_1" value="1" style="margin-right:4px;vertical-align:text-bottom;">
+                            <i class="bi bi-star-fill" style="font-size:11px;"></i> 仅优先渠道
+                        </label>
                         <button type="button" class="btn btn-outline-secondary btn-sm"
                                 data-action="save-profile" title="将当前设置保存为命名配置">
                             <i class="bi bi-bookmark-plus me-1"></i>保存为配置
@@ -345,11 +349,15 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="hidden" name="plans" value="{{ plans }}">
                         <input type="hidden" name="platform" value="{{ config.platform }}">
-                        <div class="input-group" style="display:inline-flex;gap:0;">
+                        <div class="input-group" style="display:inline-flex;gap:4px;align-items:center;">
                             <select name="publish_mode" class="form-select" style="width:110px;border-radius:10px 0 0 10px;">
                                 <option value="draft">存草稿</option>
                                 <option value="publish">正式发布</option>
                             </select>
+                            <label class="tier-1-check-label" style="font-size:12px;white-space:nowrap;cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid #d1d5db;background:#f9fafb;">
+                                <input type="checkbox" name="tier_1" value="1" style="margin-right:3px;vertical-align:text-bottom;">
+                                <i class="bi bi-star-fill" style="font-size:10px;color:#f59e0b;"></i> 仅Tier1
+                            </label>
                             <button type="submit" class="btn btn-success" style="border-radius:0 10px 10px 0;">
                                 <i class="bi bi-upload me-2"></i>发布
                             </button>
@@ -374,11 +382,15 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="plans" value="{{ validated }}">
                     <input type="hidden" name="platform" value="{{ config.platform }}">
-                    <div class="input-group" style="max-width:320px;">
+                    <div class="input-group" style="max-width:400px;">
                         <select name="publish_mode" class="form-select" style="border-radius:10px 0 0 10px;">
                             <option value="draft">存草稿</option>
                             <option value="publish">正式发布</option>
                         </select>
+                        <label class="tier-1-check-label" style="font-size:12px;white-space:nowrap;cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid #d1d5db;background:#f9fafb;">
+                            <input type="checkbox" name="tier_1" value="1" style="margin-right:3px;vertical-align:text-bottom;">
+                            <i class="bi bi-star-fill" style="font-size:10px;color:#f59e0b;"></i> 仅Tier1
+                        </label>
                         <button type="submit" class="btn btn-success" style="border-radius:0 10px 10px 0;">
                             <i class="bi bi-upload me-2"></i>发布到 {{ config.platform }}
                         </button>
