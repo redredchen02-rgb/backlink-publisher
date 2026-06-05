@@ -102,7 +102,7 @@ def build_target_buckets(
     # 1. Articles → one LinkRecord per canonical live_url, grouped by canonical target.
     live_index: dict[str, tuple[str, LinkRecord]] = {}  # canonical live_url -> (target, link)
     for row in store.query(
-        "SELECT target_urls_json, live_url FROM articles"
+        "SELECT target_urls_json, live_url, platform FROM articles"
     ):
         try:
             targets = json.loads(row["target_urls_json"] or "[]")
@@ -114,6 +114,9 @@ def build_target_buckets(
             continue
         b = bucket_for(target)
         link = b.links.setdefault(live, LinkRecord(live_url=live))
+        # Pre-populate platform from article row; step 3 (history) overrides if present.
+        if row["platform"]:
+            link.platform = canonical_platform(row["platform"])
         live_index[live] = (target, link)
 
     # 2. R1a universe: every attempted target appears, even with zero links.

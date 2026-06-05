@@ -1,7 +1,7 @@
 ---
 title: "feat: Internal Edition LITE — keep-alive operator loop + launch hardening"
 type: feat
-status: active
+status: completed
 date: 2026-06-04
 deepened: 2026-06-04
 origin: docs/brainstorms/2026-06-04-internal-edition-launch-requirements.md
@@ -516,7 +516,7 @@ server-side at publish time against fresh state — defense in depth, see Unit 7
 **Verification:** On the real 51acgs data, the stripped deep-page links surface as gaps where
 `--desired 5` previously found none; still-live links never appear in the gap set.
 
-- [~] **Unit 7: R1 — republish flow (review → confirm → publish → auto-recheck)**  ⚠️ **7a server spine shipped** `0ff9708` (branch `feat/keepalive-loop-r1`): `start_republish` re-derives gaps server-side (D6, never trusts posted ids), sticky-allowlist enforce, single-use confirm nonce bound to gap fingerprint (stale-gap rejects), persist-before-recheck, structured partial (no ok-on-partial); routes republish-token/republish/republish-status (Origin guard + sticky 400 + 409). 7 tests. **Remaining:** 7b auto-recheck of new URLs (S6→S2 / S7 treadmill terminal) + the S3–S7 frontend modal (select → confirm → progress → result).
+- [x] **Unit 7: R1 — republish flow (review → confirm → publish → auto-recheck)**  ✅ fully shipped (branch `feat/keepalive-loop-r1`): 7a server spine `0ff9708` (re-derive/sticky/nonce/persist) + 7b auto-recheck + S3–S7 frontend modal `cb9938f`. 11 tests in `test_webui_keepalive_republish.py`.
 
 **Goal:** Close the loop: select gaps, confirm, republish to sticky platforms, prove they went live.
 
@@ -596,7 +596,7 @@ server-side allowlist + origin guard.
 live — with partial failures and re-strips surfaced honestly, never as raw codes or false success, and
 no forged `platform`/gap-id can publish outside the sticky allowlist.
 
-- [ ] **Unit 8: R2 — collapse `/sites/run` into the keep-alive flow**
+- [x] **Unit 8: R2 — collapse `/sites/run` into the keep-alive flow**  ✅ shipped: both POST `/sites/run` and GET `/sites/run/<id>/result` redirect to `/ce:keep-alive`. 2 tests in `test_webui_sites_run_redirect.py`.
 
 **Goal:** Remove the dead-end second pipeline path.
 
