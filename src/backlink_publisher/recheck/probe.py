@@ -179,6 +179,14 @@ def probe_liveness(
             out["reason"] = "rel_nofollow"
             return out
         out["expected_nofollow"] = True
+        if platform and dofollow_status(platform) == "uncertain":
+            out["confirmed_nofollow"] = True
+    else:
+        # target_anchor_found AND NOT target_is_nofollow — execution cannot reach
+        # here on liveness-only probes (those return at the `if not target` check
+        # above); no need to re-check target_anchor_found.
+        if platform and dofollow_status(platform) == "uncertain":
+            out["confirmed_dofollow"] = True
 
     out["verdict"] = verdicts.ALIVE
     return out

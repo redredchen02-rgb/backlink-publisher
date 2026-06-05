@@ -32,7 +32,7 @@ from backlink_publisher._util.errors import UsageError
 from backlink_publisher.events import EventStore
 from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 from backlink_publisher.recheck import selection
-from backlink_publisher.recheck.events_io import emit_recheck
+from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
 from backlink_publisher.recheck.probe import recheck_link
 
 #: ghpages is sticky by design but unusable while the GitHub account is
@@ -54,6 +54,10 @@ _DEAD_VERDICTS = ("link_stripped", "host_gone")
 
 def _default_candidates(store: EventStore) -> list[dict]:
     return selection.select_candidates(store, now=datetime.now())
+
+
+def _default_unverified_candidates(store: EventStore) -> list[dict]:
+    return selection.select_unverified_candidates(store, now=datetime.now())
 
 
 def _default_probe(record: dict) -> dict:
@@ -273,7 +277,9 @@ class KeepaliveJobRegistry:
     ) -> None:
         try:
             if candidates is None:
-                candidates = _default_candidates(store)
+                confirmed = _default_candidates(store)
+                unverified = _default_unverified_candidates(store)
+                candidates = confirmed + unverified
             with self._lock:
                 job.total = len(candidates)
 
@@ -290,6 +296,10 @@ class KeepaliveJobRegistry:
                 # failure must not crash the worker or lose progress.
                 try:
                     emit_recheck(store, [result])
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
+                    write_verified_at(store, [result])
                 except Exception:  # noqa: BLE001
                     pass
                 with self._lock:

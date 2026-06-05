@@ -30,6 +30,31 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+def write_verified_at(store: "EventStore", results: list[dict]) -> int:
+    """Update articles.verified_at for each alive-verdict result with an article_id.
+
+    Returns the number of rows updated. Skips results with no article_id (stdin
+    candidates) or non-alive verdicts. Call AFTER emit_recheck; failure must not
+    abort the keepalive worker (caller wraps in try/except).
+    """
+    now = datetime.now().isoformat(timespec="seconds")
+    updated = 0
+    with store.connect() as conn:
+        for r in results:
+            if r.get("verdict") != verdicts.ALIVE:
+                continue
+            article_id = r.get("article_id")
+            if article_id is None:
+                continue
+            conn.execute(
+                "UPDATE articles SET verified_at = ?, verify_error = NULL"
+                " WHERE article_id = ?",
+                (now, int(article_id)),
+            )
+            updated += 1
+    return updated
+
+
 def emit_recheck(store: "EventStore", results: list[dict]) -> int:
     """Append one ``link.rechecked`` event per probed result. Returns the number
     of events written (floor-misses are quarantined, not counted).
@@ -63,6 +88,8 @@ def emit_recheck(store: "EventStore", results: list[dict]) -> int:
                     else None
                 ),
                 "source": r.get("source", "events"),
+                "confirmed_dofollow": bool(r.get("confirmed_dofollow", False)),
+                "confirmed_nofollow": bool(r.get("confirmed_nofollow", False)),
             }
             event_id = store.append(
                 LINK_RECHECKED,

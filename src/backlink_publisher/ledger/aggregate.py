@@ -16,9 +16,12 @@ worst-status-wins per target.
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from datetime import datetime
+from typing import TYPE_CHECKING
 
+from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.anchor.metrics import exact_match_ratio
 from backlink_publisher.publishing import registry
 
@@ -31,8 +34,62 @@ import backlink_publisher.publishing.adapters  # noqa: F401,E402
 from .model import DofollowBreakdown, LedgerRow, worst_liveness
 from .sources import LinkRecord, build_target_buckets
 
+if TYPE_CHECKING:
+    from backlink_publisher.events.store import EventStore
 
-def _classify(platform: str | None) -> tuple[str, str | None]:
+
+def _load_confirmed_dofollow_urls(store: "EventStore") -> frozenset:
+    """Return canonical live_urls whose latest ``link.rechecked`` event has
+    ``confirmed_dofollow=True``.
+
+    One full-table scan per ``build_ledger()`` call (same pattern as
+    ``overlay.py``). Recency is determined by ``ts_utc`` with ``events.id`` as
+    a same-timestamp tiebreaker. Returns empty frozenset when store is None.
+    """
+    from backlink_publisher.events.kinds import LINK_RECHECKED
+    from backlink_publisher.recheck.selection import _parse_ts
+
+    if store is None:
+        return frozenset()
+
+    latest: dict[str, tuple] = {}
+    sql = "SELECT id, payload_json, ts_utc FROM events WHERE kind = ?"
+    for row in store.query(sql, (LINK_RECHECKED,)):
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (ValueError, TypeError):
+            continue
+        raw_url = payload.get("live_url")
+        if not raw_url:
+            continue
+        try:
+            canon = canonicalize_url(raw_url)
+        except Exception:  # noqa: BLE001
+            continue
+        ts = _parse_ts(row["ts_utc"])
+        rid = row["id"]
+        prev = latest.get(canon)
+        if prev is None:
+            latest[canon] = (ts, rid, bool(payload.get("confirmed_dofollow", False)))
+        else:
+            prev_ts, prev_rid, _ = prev
+            is_newer = (
+                (ts is not None and prev_ts is None)
+                or (ts is not None and prev_ts is not None and ts > prev_ts)
+                or (ts == prev_ts and rid > prev_rid)
+            )
+            if is_newer:
+                latest[canon] = (ts, rid, bool(payload.get("confirmed_dofollow", False)))
+
+    return frozenset(url for url, (_ts, _rid, cd) in latest.items() if cd)
+
+
+def _classify(
+    platform: str | None,
+    *,
+    confirmed_dofollow_urls: frozenset = frozenset(),
+    live_url: str | None = None,
+) -> tuple[str, str | None]:
     """Return ``(dofollow_class, nofollow_referral)`` for a link's platform."""
     if not platform:
         return "unknown", None
@@ -42,6 +99,8 @@ def _classify(platform: str | None) -> tuple[str, str | None]:
     if status is True:
         return "dofollow", None
     if status == "uncertain":
+        if live_url and live_url in confirmed_dofollow_urls:
+            return "dofollow", None  # probe confirmed: no nofollow attr
         return "uncertain", None
     # Explicit nofollow → carry the high/low referral sub-grade.
     return "nofollow", registry.referral_value(platform)
@@ -76,6 +135,14 @@ def build_ledger(
     Default sort surfaces weak targets first (live-dofollow ascending), a raw
     dimension — not a composite index (plan R6a).
     """
+    from backlink_publisher.events import EventStore as _EventStore
+
+    # Resolve store before any call so _load_confirmed_dofollow_urls receives a
+    # real EventStore (build_target_buckets resolves store internally but does
+    # NOT reassign the caller's local variable).
+    store = store or _EventStore()
+    confirmed_dofollow_urls = _load_confirmed_dofollow_urls(store)
+
     now = datetime.now()
     buckets = build_target_buckets(store=store, history=history)
     rows: list[LedgerRow] = []
@@ -95,7 +162,11 @@ def build_ledger(
         row_level = False
 
         for link in bucket.links.values():
-            cls, referral = _classify(link.platform)
+            cls, referral = _classify(
+                link.platform,
+                confirmed_dofollow_urls=confirmed_dofollow_urls,
+                live_url=link.live_url,
+            )
             if cls == "dofollow":
                 breakdown.dofollow += 1
             elif cls == "uncertain":
