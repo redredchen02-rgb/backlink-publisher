@@ -145,6 +145,39 @@ def _default_persist(entry: dict) -> None:
     history_store.update(lambda hist: [entry, *hist][:200])
 
 
+def _ensure_article(store: EventStore, *, live_url: str, target_url, host, platform) -> int | None:
+    """Return the ``article_id`` for ``live_url``, registering the republished link
+    as a tracked article if it isn't one yet.
+
+    The keep-alive scorecard authority (``derive_per_target_status``) filters
+    ``article_id IS NOT NULL``, so a recheck on a brand-new republished link is
+    invisible until that link is a real article. Idempotent: a duplicate
+    ``live_url`` reuses the existing row. Never raises — returns ``None`` on an
+    empty url or any store failure (the verdict is still emitted, just unkeyed)."""
+    if not live_url:
+        return None
+    import sqlite3
+
+    from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.events._project_helpers import article_payload
+
+    art = article_payload(live_url=live_url, target_url=target_url, host=host)
+    art["platform"] = platform
+    try:
+        return store.add_article(art)
+    except sqlite3.IntegrityError:
+        try:
+            rows = list(store.query(
+                "SELECT article_id FROM articles WHERE live_url = ?",
+                (canonicalize_url(live_url),),
+            ))
+            return rows[0]["article_id"] if rows else None
+        except Exception:  # noqa: BLE001
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _default_reverify(result: dict, store: EventStore) -> dict:
     """7b: probe ONE freshly-published article URL to prove the new backlink went
     live, and append the verdict to the ``link.rechecked`` series so the scorecard
@@ -153,13 +186,24 @@ def _default_reverify(result: dict, store: EventStore) -> dict:
     from urllib.parse import urlsplit
 
     url = (result.get("published_url") or "").strip()
+    target = result.get("target_url")
+    platform = result.get("platform")
     record = {
         "live_url": url,
-        "target_url": result.get("target_url"),
+        "target_url": target,
         "host": (urlsplit(url).hostname or "").lower(),
-        "platform": result.get("platform"),
+        "platform": platform,
     }
     verdict = recheck_link(record, probe=True)
+    # Register the new link as a tracked article so its confirming verdict carries
+    # a real article_id (the verdict already carries target_url + platform) and
+    # reaches the scorecard / net-coverage gap — an article_id-less recheck is
+    # silently dropped by derive_per_target_status.
+    article_id = _ensure_article(
+        store, live_url=url, target_url=target, host=record["host"], platform=platform
+    )
+    if article_id is not None:
+        verdict = {**verdict, "article_id": article_id}
     try:
         emit_recheck(store, [verdict])
     except Exception:  # noqa: BLE001 — a write failure must not lose the verdict signal
