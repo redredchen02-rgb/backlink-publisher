@@ -158,12 +158,13 @@ class TestDashboardDriftWithRegistry:
         )
 
 
-class TestChannelTierContext:
-    """Plan 2026-05-29-003 Unit 2 — _settings_context() exposes
-    ``dashboard_channel_tiers`` whose members are exactly active_platforms().
+class TestChannelPartitionContext:
+    """Plan 2026-06-05-007 — _settings_context() exposes ``dashboard_partition``
+    (main / extension area) whose members are exactly active_platforms().
+    Replaces the old tier-grouping context tests.
     """
 
-    def _tiers(self):
+    def _partition(self):
         """Build the real settings context via an app/request context."""
         from webui_app import create_app
         from webui_app.helpers.contexts import _settings_context
@@ -171,26 +172,35 @@ class TestChannelTierContext:
         app = create_app()
         app.config["TESTING"] = True
         with app.test_request_context("/settings"):
-            return _settings_context()["dashboard_channel_tiers"]
+            return _settings_context()["dashboard_partition"]
 
-    def test_tiers_present_and_partition_active_platforms(self):
-        tiers = self._tiers()
-        assert tiers, "expected at least one tier group"
-        members = [name for g in tiers for name, _, _ in g["channels"]]
-        # No channel appears in more than one tier.
-        assert len(members) == len(set(members)), "channel duplicated across tiers"
+    @staticmethod
+    def _members(partition):
+        names = [n for n, _, _ in partition["main"]]
+        names += [
+            n for g in partition["extension_groups"] for n, _, _ in g["channels"]
+        ]
+        return names
+
+    def test_partition_present_and_covers_active_platforms(self):
+        partition = self._partition()
+        assert partition is not None, "expected a partition dict"
+        members = self._members(partition)
+        # No channel appears in more than one area.
+        assert len(members) == len(set(members)), "channel duplicated across areas"
         # Union == active_platforms() (no channel lost, none invented).
         assert set(members) == set(active_platforms())
+        # Counts agree with the rendered lists.
+        assert partition["main_count"] == len(partition["main"])
 
-    def test_tier_keys_are_ordered_subset(self):
-        keys = [g["key"] for g in self._tiers()]
+    def test_extension_tier_keys_are_ordered_subset(self):
+        keys = [g["key"] for g in self._partition()["extension_groups"]]
         # Order preserved (tier-1 before tier-2 before tier-3), no duplicates.
         assert keys == sorted(set(keys), key=["tier-1", "tier-2", "tier-3"].index)
 
-    def test_none_auth_type_channel_stays_in_tier_2(self, monkeypatch):
-        """R4a integration: a live channel with auth_type=None lands in tier-2,
-        never vanishing from every group. Patch the registry auth_type so the
-        first active platform reports None.
+    def test_none_auth_type_channel_not_lost(self, monkeypatch):
+        """R10 integration: a live channel with auth_type=None never vanishes —
+        it lands in either area (here: extension, since unbound + non-anon).
         """
         from backlink_publisher.publishing import registry
 
@@ -200,32 +210,28 @@ class TestChannelTierContext:
         def _fake_auth_type(name):
             return None if name == target else real_auth_type(name)
 
-        # get_channel_status imports auth_type lazily from the registry module,
-        # so patching the module attribute is enough.
         monkeypatch.setattr(registry, "auth_type", _fake_auth_type)
 
-        tiers = self._tiers()
-        members_by_tier = {g["key"]: {n for n, _, _ in g["channels"]} for g in tiers}
-        # target must still be present somewhere, specifically tier-2.
-        all_members = {n for s in members_by_tier.values() for n in s}
-        assert target in all_members, f"{target} vanished from all tiers"
-        assert target in members_by_tier.get("tier-2", set())
+        members = set(self._members(self._partition()))
+        assert target in members, f"{target} vanished from both areas"
 
-    def test_csdn_juejin_absent_from_all_tiers(self):
-        members = {name for g in self._tiers() for name, _, _ in g["channels"]}
+    def test_csdn_juejin_absent_from_all_areas(self):
+        members = set(self._members(self._partition()))
         assert "csdn" not in members
         assert "juejin" not in members
 
-    def test_grouping_failure_falls_back_to_empty(self, monkeypatch):
-        """Error path: if group_channels_by_tier raises, the key is [] and
-        _settings_context() does not propagate the error.
+    def test_partition_failure_falls_back_to_none(self, monkeypatch):
+        """Error path: if partition_channels_by_connection raises, the key is
+        None and _settings_context() does not propagate the error.
         """
         from webui_app.helpers import channel_tiers
 
-        def _boom(_channels):
-            raise RuntimeError("intentional grouping failure")
+        def _boom(*_args, **_kwargs):
+            raise RuntimeError("intentional partition failure")
 
-        monkeypatch.setattr(channel_tiers, "group_channels_by_tier", _boom)
+        monkeypatch.setattr(
+            channel_tiers, "partition_channels_by_connection", _boom
+        )
 
         from webui_app import create_app
         from webui_app.helpers.contexts import _settings_context
@@ -234,12 +240,13 @@ class TestChannelTierContext:
         app.config["TESTING"] = True
         with app.test_request_context("/settings"):
             ctx = _settings_context()
-        assert ctx["dashboard_channel_tiers"] == []
+        assert ctx["dashboard_partition"] is None
 
 
-class TestTierGroupingDom:
-    """Plan 2026-05-29-003 Unit 3 — the overview panel renders 3 automation
-    tiers as independent collapses with same-source show/aria-expanded.
+class TestPartitionDom:
+    """Plan 2026-06-05-007 Unit 3 — the overview panel renders a flat main area
+    (usable now) plus a folded extension area (never-connected), instead of
+    automation-tier accordions.
     """
 
     def _overview(self, client):
@@ -249,145 +256,117 @@ class TestTierGroupingDom:
         end = body.index('id="section-channels"')
         return body[start:end]
 
-    def test_three_tier_panels_render(self, client):
+    def test_extension_area_panel_renders(self, client):
         ov = self._overview(client)
-        for key in ("tier-1", "tier-2", "tier-3"):
-            assert re.search(rf'id="{key}"\s+class="collapse', ov), f"missing panel {key}"
+        assert re.search(r'id="ext-area"\s+class="collapse', ov), "missing #ext-area panel"
+        assert 'data-bs-target="#ext-area"' in ov, "missing extension collapse toggle"
 
-    def test_tier1_open_others_collapsed_same_source(self, client):
-        """R2: tier-1 panel has `show` + toggle aria-expanded=true; tier-2/3 not."""
+    def test_extension_header_shows_label(self, client):
         ov = self._overview(client)
-        # Panel show-class state.
-        assert re.search(r'id="tier-1"\s+class="collapse show"', ov)
-        assert re.search(r'id="tier-2"\s+class="collapse"(?!\s*show)', ov)
-        assert re.search(r'id="tier-3"\s+class="collapse"(?!\s*show)', ov)
-        # Toggle aria-expanded must match the panel state (same source).
-        assert re.search(
-            r'data-bs-target="#tier-1"\s+aria-expanded="true"', ov
-        ), "tier-1 toggle must be aria-expanded=true to match its show panel"
-        assert re.search(r'data-bs-target="#tier-2"\s+aria-expanded="false"', ov)
-        assert re.search(r'data-bs-target="#tier-3"\s+aria-expanded="false"', ov)
-
-    def test_each_tier_header_shows_ready_count(self, client):
-        """R3: every tier header carries a '就緒 X/Y' count (not '已綁定')."""
-        ov = self._overview(client)
-        counts = re.findall(r'就緒\s+(\d+)/(\d+)', ov)
-        assert len(counts) == 3, f"expected 3 ready-count headers, got {counts}"
-        for ready, total in counts:
-            assert int(ready) <= int(total)
+        assert '拓展區' in ov, "extension area header label missing"
 
     def test_cards_partition_active_platforms_exactly(self, client):
-        """R12 (mandatory): every active platform renders exactly once across
-        the three tier panels — no loss, no duplication.
+        """R13 (mandatory drift): every active platform renders exactly once
+        across main + extension — no loss, no duplication. Cards stay in the DOM
+        even when the extension area is collapsed.
         """
         ov = self._overview(client)
-        carded = re.findall(r'<div class="dashboard-channel-card" data-channel="([^"]+)"', ov)
-        assert len(carded) == len(set(carded)), "a channel rendered in two tiers"
+        carded = re.findall(
+            r'<div class="dashboard-channel-card" data-channel="([^"]+)"', ov
+        )
+        assert len(carded) == len(set(carded)), "a channel rendered twice"
         assert set(carded) == set(active_platforms())
 
-    def test_anon_channels_in_tier1(self, client):
-        """telegraph (anon) must live in the tier-1 panel."""
-        ov = self._overview(client)
-        tier1 = ov[ov.index('id="tier-1"'):ov.index('id="tier-2"')]
-        assert 'data-channel="telegraph"' in tier1
-
-    def test_badges_and_buttons_preserved(self, client):
-        """R7: regrouping doesn't strip the per-card badges/action buttons."""
-        ov = self._overview(client)
-        assert 'dch-btn-verify' in ov
-        assert 'dch-btn-dry-run' in ov
-        assert 'badge-dofollow' in ov
-
-    def test_divider_separates_ready_from_unconfigured(self, client, monkeypatch):
-        """R5: in a mixed tier, ready cards precede the divider, unconfigured
-        cards follow it. Force devto (tier-2) ready and notion (tier-2)
-        unconfigured to make the boundary deterministic regardless of which
-        other channels happen to verify offline.
+    def test_anon_channel_in_main_area_above_extension(self, client):
+        """R1: telegraph (anon) is usable → renders in the main area, which sits
+        above the extension panel.
         """
+        ov = self._overview(client)
+        ext_pos = ov.index('id="ext-area"')
+        telegraph_pos = ov.index('data-channel="telegraph"')
+        assert telegraph_pos < ext_pos, "anon telegraph must render in main, above #ext-area"
+
+    def test_unbound_channel_in_extension_area(self, client, monkeypatch):
+        """R3: a never-connected non-anon platform renders inside #ext-area."""
         from webui_app import binding_status
 
         real = binding_status.get_channel_status
 
         def _patched(name, config):
             st = real(name, config)
-            if name == "devto":
-                return {**st, "bound": True}
             if name == "notion":
                 return {**st, "bound": False}
             return st
 
         monkeypatch.setattr(binding_status, "get_channel_status", _patched)
         ov = self._overview(client)
-        tier2 = ov[ov.index('id="tier-2"'):ov.index('id="tier-3"')]
-        assert 'tier-divider' in tier2, "mixed tier must render a divider"
-        devto_pos = tier2.index('data-channel="devto"')
-        divider_pos = tier2.index('tier-divider')
-        notion_pos = tier2.index('data-channel="notion"')
-        assert devto_pos < divider_pos, "ready channel must precede the divider"
-        assert notion_pos > divider_pos, "unconfigured channel must follow the divider"
+        ext = ov[ov.index('id="ext-area"'):]
+        assert 'data-channel="notion"' in ext, "unbound notion must render inside extension"
 
-    def test_all_ready_tier_has_no_divider(self, client):
-        """R5: tier-1 (all anon = all ready) renders no divider."""
-        ov = self._overview(client)
-        tier1 = ov[ov.index('id="tier-1"'):ov.index('id="tier-2"')]
-        assert 'tier-divider' not in tier1, "all-ready tier must not render a divider"
-
-    def test_homogeneous_tier_has_no_divider(self, client, monkeypatch):
-        """R5/R12: a tier whose members are all unready renders no divider.
-        Force every tier-2 channel unbound so tier-2 is homogeneous.
+    def test_expired_channel_stays_in_main_with_reconnect(self, client, monkeypatch):
+        """R2: an expired browser channel stays in main with a 需重連 marker,
+        not folded into the extension area.
         """
-        from backlink_publisher.publishing.registry import auth_type
         from webui_app import binding_status
+        from webui_store import channel_status
 
         real = binding_status.get_channel_status
-        tier2_auth = {"token", "token_fields", "oauth", "userpass", None}
 
         def _patched(name, config):
             st = real(name, config)
-            if auth_type(name) in tier2_auth:
+            if name == "medium":
                 return {**st, "bound": False}
             return st
 
         monkeypatch.setattr(binding_status, "get_channel_status", _patched)
+        monkeypatch.setattr(
+            channel_status,
+            "list_all",
+            lambda: {"medium": {"status": "expired", "bound_at": None}},
+        )
         ov = self._overview(client)
-        tier2 = ov[ov.index('id="tier-2"'):ov.index('id="tier-3"')]
-        assert 'tier-divider' not in tier2, "homogeneous (all-unready) tier needs no divider"
+        main = ov[:ov.index('id="ext-area"')]
+        assert 'data-channel="medium"' in main, "expired medium must stay in main area"
+        assert '需重連' in main, "expired channel must show a reconnect marker"
+
+    def test_badges_and_buttons_preserved(self, client):
+        """R7: re-partitioning doesn't strip the per-card badges/action buttons."""
+        ov = self._overview(client)
+        assert 'dch-btn-verify' in ov
+        assert 'badge-dofollow' in ov
 
 
-class TestTierPersistenceContract:
-    """Plan 2026-05-29-003 Unit 4 — structural proxy for the JS that persists
-    tier collapse state across verify/dry-run re-renders (R10). JS behavior
-    itself is exercised by manual smoke (recorded in the PR); here we assert
-    the DOM contract the JS depends on, and that the JS is actually wired.
+class TestPartitionPersistenceContract:
+    """Plan 2026-06-05-007 Unit 4 — DOM contract the collapse-persistence JS
+    depends on, plus a check that the JS is actually wired to #ext-area.
     """
 
-    def test_each_tier_has_a_collapse_toggle(self, client):
+    def test_extension_has_collapse_toggle(self, client):
         body = client.get("/settings").get_data(as_text=True)
-        for key in ("tier-1", "tier-2", "tier-3"):
-            assert re.search(
-                rf'data-bs-toggle="collapse"\s+data-bs-target="#{key}"', body
-            ), f"missing collapse toggle for {key}"
-            assert re.search(rf'id="{key}"\s+class="collapse', body)
+        assert re.search(
+            r'data-bs-toggle="collapse"\s+data-bs-target="#ext-area"', body
+        ), "missing collapse toggle for #ext-area"
+        assert re.search(r'id="ext-area"\s+class="collapse', body)
 
-    def test_tier_panels_nested_inside_overview_panel(self, client):
-        """The persistence JS scopes to '#overview-panel .collapse[id^="tier-"]',
-        so the tier panels must live inside #overview-panel (not just exist).
+    def test_extension_panel_nested_inside_overview_panel(self, client):
+        """The persistence JS scopes to #overview-panel, so #ext-area must live
+        inside it (not just exist).
         """
         body = client.get("/settings").get_data(as_text=True)
-        overview = body[body.index('id="overview-panel"'):body.index('id="section-channels"')]
-        for key in ("tier-1", "tier-2", "tier-3"):
-            assert f'id="{key}"' in overview, f"{key} not nested in #overview-panel"
+        overview = body[
+            body.index('id="overview-panel"'):body.index('id="section-channels"')
+        ]
+        assert 'id="ext-area"' in overview, "#ext-area not nested in #overview-panel"
 
-    def test_settings_js_generalizes_persistence_to_tiers(self):
+    def test_settings_js_persists_extension_collapse(self):
         from pathlib import Path
 
         js = (
             Path(__file__).resolve().parents[1]
             / "webui_app" / "static" / "js" / "settings.js"
         ).read_text(encoding="utf-8")
-        # Per-tier key namespace + tier-scoped selector.
         assert "settings:collapse:" in js
-        assert '[id^="tier-"]' in js
+        assert "ext-area" in js
 
 
 class TestGracefulDegradation:
