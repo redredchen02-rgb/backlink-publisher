@@ -49,7 +49,14 @@ class ChannelScoreRow:
     #: contributes). Always ``<= live_links``.
     live_dofollow: int = 0
     #: counts by per-link liveness status: failed / stale / live / unverified.
+    #: Source: **ledger verify-signal** (``_link_liveness``, timestamp-aged).
     liveness_breakdown: dict[str, int] = field(default_factory=dict)
+    #: counts by latest **recheck verdict**: link_stripped / host_gone /
+    #: dofollow_lost. Source: ``link.rechecked`` events (NOT the ledger) — a
+    #: link can read ``live`` in ``liveness_breakdown`` yet ``link_stripped``
+    #: here (two correct granularities). Kept as a SEPARATE field on purpose:
+    #: different provenance, never summed with ``liveness_breakdown``.
+    strip_breakdown: dict[str, int] = field(default_factory=dict)
 
     # --- Sample honesty (plan R12: low sample ≠ zero value) ---
     small_sample: bool = True
