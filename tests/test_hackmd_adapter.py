@@ -184,9 +184,11 @@ class TestRegistration:
         from backlink_publisher.publishing.registry import registered_platforms
         assert "hackmd" in registered_platforms()
 
-    def test_dofollow_uncertain(self):
+    def test_dofollow_false(self):
+        # OUR canary 2026-06-05: browser DOM read showed rel="noopener ugc nofollow"
+        # on our published note → flipped to dofollow=False (nofollow confirmed).
         from backlink_publisher.publishing.registry import dofollow_status
-        assert dofollow_status("hackmd") == "uncertain"
+        assert dofollow_status("hackmd") is False
 
     def test_referral_value_high(self):
         from backlink_publisher.publishing.registry import referral_value
