@@ -1,6 +1,6 @@
 ---
 date: 2026-06-05
-status: active
+status: completed
 type: fix
 topic: keepalive-net-coverage
 supersedes_note: "Refines shipped keep-alive loop (plan 2026-06-04-001). Gate-first exempt: refinement of an existing shipped feature, not a new Phase machine."
