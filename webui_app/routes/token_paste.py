@@ -22,14 +22,8 @@ from backlink_publisher.publishing.registry import auth_type as _registry_auth_t
 
 from ..helpers.security import _safe_flash_redirect
 from ..services import credential_service
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("token_paste", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    _check_bind_origin_or_abort()
-
 
 # Channels handled by this route: token (devto) + token_fields/single-field (ghpages).
 _PASTE_ROUTE_CHANNELS: frozenset[str] = frozenset(

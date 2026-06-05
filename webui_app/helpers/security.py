@@ -14,7 +14,7 @@ import re
 import secrets
 from urllib.parse import urlparse
 
-from flask import abort, current_app, request, session
+from flask import abort, request, session
 
 
 _FLASK_PORT = int(os.environ.get('PORT', 8888))
@@ -164,11 +164,6 @@ def _check_bind_origin_or_abort() -> None:
     if referer is not None and not referer_ok:
         abort(403)
     if origin is None and referer is None:
-        # Non-browser clients (CLI tools, test clients) don't send Origin.
-        # DNS rebinding only applies to browser requests, which always send Origin.
-        # Skip the no-header check in test mode so existing tests keep passing.
-        if current_app.config.get("TESTING"):
-            return
         abort(403)
 
 

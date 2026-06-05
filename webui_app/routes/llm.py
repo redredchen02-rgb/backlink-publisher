@@ -20,14 +20,8 @@ from backlink_publisher.persistence.safe_write import atomic_write
 
 from ..helpers.contexts import _llm_settings_file, _load_llm_settings
 from ..helpers.security import _safe_flash_redirect
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("llm", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    _check_bind_origin_or_abort()
-
 
 
 def _safe_get_json(url: str, headers: dict, timeout: int = 10):

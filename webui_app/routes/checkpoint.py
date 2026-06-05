@@ -13,14 +13,8 @@ from ..helpers.contexts import _render
 from ..api.pipeline_api import PipelineAPI
 from ..helpers.security import _check_localhost, _validate_webui_run_id
 from ..helpers.history import _parse_publish_results, _push_history_aggregate
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("checkpoint", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    _check_bind_origin_or_abort()
-
 
 
 @bp.route("/checkpoint/resume", methods=["POST"])

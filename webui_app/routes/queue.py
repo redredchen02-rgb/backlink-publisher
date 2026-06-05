@@ -7,14 +7,8 @@ import json
 from flask import Blueprint, request, jsonify
 from webui_store import queue_store
 from datetime import datetime, timezone
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("queue", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    _check_bind_origin_or_abort()
-
 
 @bp.route('/ce:queue-task', methods=['POST'])
 def ce_queue_task():

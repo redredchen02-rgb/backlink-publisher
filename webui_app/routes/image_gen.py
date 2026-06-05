@@ -18,14 +18,8 @@ from flask import Blueprint, jsonify
 import requests
 
 from ..helpers._request_cache import _g_cache
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("image_gen", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    _check_bind_origin_or_abort()
-
 
 
 @bp.route("/settings/test-image-gen", methods=["POST"])

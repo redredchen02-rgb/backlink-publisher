@@ -5,15 +5,8 @@ from flask import Blueprint, jsonify, request
 from backlink_publisher._util.errors import UsageError
 from ..helpers.contexts import _render
 from ..services.keepalive_job import registry as keepalive_registry
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("command_center", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-        _check_bind_origin_or_abort()
-
 
 
 def _collect_subsystem_status():

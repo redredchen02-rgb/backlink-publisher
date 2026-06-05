@@ -26,14 +26,8 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from ..helpers.security import _LOOPBACK_HOSTS
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("health_actions", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    _check_bind_origin_or_abort()
-
 
 _log = logging.getLogger(__name__)
 

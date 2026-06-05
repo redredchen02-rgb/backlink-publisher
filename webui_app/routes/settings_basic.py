@@ -16,15 +16,8 @@ from ..binding_status import get_channel_status
 from ..helpers._request_cache import _g_cache
 from ..helpers.contexts import _save_schedule_settings, _settings_context
 from ..helpers.security import _safe_flash_redirect
-from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("settings_basic", __name__)
-
-@bp.before_request
-def _enforce_bind_origin() -> None:
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-        _check_bind_origin_or_abort()
-
 
 
 @bp.route('/settings')
