@@ -1,18 +1,19 @@
-"""notes.io adapter — anonymous form-POST publishing (Plan 2026-06-02-002 Unit 2).
+"""notes.io adapter — anonymous AJAX publishing (Plan 2026-06-05-015).
 
-notes.io is a minimalist anonymous publishing platform. No accounts, no CSRF tokens —
-a single form POST at ``https://notes.io/`` with a ``text`` field and an empty ``token``
-publishes a public note and redirects to its permalink.
+notes.io migrated from a server-rendered form-POST (→ redirect) to a client-side
+AJAX flow.  Live contract as of 2026-06-05 diagnostic:
+  POST https://notes.io/short.php  application/x-www-form-urlencoded
+  field: txt=<content>             (no token field)
+  response: 200 + HTML fragment injected into #sonuc — first href is the permalink.
 
-dofollow confirmed 12/0 on 3rd-party posts (2026-06-01 discovery run, scripts/channel_probe.py);
-server-rendered static HTML with no rel="nofollow" decoration on outbound links.
-OUR-pipeline canary pending — registered dofollow="uncertain" until verify_link_attributes
-confirms our own placed link renders dofollow.
+dofollow confirmed 12/0 on 3rd-party posts (2026-06-01 discovery run);
+OUR-pipeline canary pending — registered dofollow="uncertain".
 """
 
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any
 
@@ -24,7 +25,8 @@ from .base import AdapterResult
 from .http_form_post import attach_link_verification, submit_form
 from .link_attr_verifier import required_link_urls
 
-_NOTESIO_ENDPOINT = "https://notes.io/"
+_NOTESIO_ENDPOINT = "https://notes.io/short.php"
+_PERMALINK_RE = re.compile(r'href="(https://notes\.io/[^"]+)"')
 _ADAPTER = "notesio-form-post"
 _PLATFORM = "notesio"
 _DEFAULT_POST_PUBLISH_DELAY_S: int = 10
@@ -68,17 +70,16 @@ class NotesioFormPostAdapter(Publisher):
 
         body = f"# {title}\n\n{content_md}" if title else content_md
 
-        post_data: dict[str, str] = {
-            "text": body,
-            "token": "",
-        }
+        post_data: dict[str, str] = {"txt": body}
         submit_resp = submit_form(_NOTESIO_ENDPOINT, post_data)
 
-        published_url = (submit_resp.url or "").strip()
-        if not published_url or published_url == _NOTESIO_ENDPOINT:
+        html = submit_resp.text or ""
+        m = _PERMALINK_RE.search(html)
+        if not m:
             raise ExternalServiceError(
-                "notes.io did not redirect to a published URL after submit"
+                f"notes.io /short.php returned no permalink: {html[:200]!r}"
             )
+        published_url = m.group(1)
 
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         log.info(

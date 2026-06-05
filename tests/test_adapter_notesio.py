@@ -1,8 +1,11 @@
-"""notes.io form-POST adapter — Plan 2026-06-02-002 Unit 2.
+"""notes.io AJAX adapter — Plan 2026-06-05-015.
 
-Covers publish happy/draft paths, missing content, redirect failure,
+Covers publish happy/draft paths, missing content, no-permalink failure,
 anti-bot challenge propagation, network error, and the fire-and-forget
 link verification hook. All HTTP is mocked — no real network.
+
+Live contract (2026-06-05): POST https://notes.io/short.php, field txt=<body>,
+200 + HTML fragment; permalink in first href inside .shortURL div.
 """
 from __future__ import annotations
 
@@ -26,7 +29,18 @@ _PAYLOAD = {
 }
 
 
-def _mock_response(*, status=200, text="", url="https://notes.io/"):
+# Real fragment captured from https://notes.io/short.php on 2026-06-05
+_FRAGMENT_FIXTURE = (
+    '<div class="shortURL">'
+    '<a href="https://notes.io/e1hTm">'
+    '<div class="http">https://</div>'
+    '<div class="website">notes.io<div class="http">/</div></div>'
+    '<div class="key">e1hTm</div>'
+    "</a></div>"
+)
+
+
+def _mock_response(*, status=200, text=_FRAGMENT_FIXTURE, url="https://notes.io/short.php"):
     resp = mock.MagicMock()
     resp.status_code = status
     resp.text = text
@@ -39,7 +53,11 @@ def _mock_response(*, status=200, text="", url="https://notes.io/"):
 
 
 def test_publish_happy_returns_published_url():
-    submit_resp = _mock_response(url="https://notes.io/abc123")
+    fragment = (
+        '<div class="shortURL"><a href="https://notes.io/abc123">'
+        '<div class="key">abc123</div></a></div>'
+    )
+    submit_resp = _mock_response(text=fragment)
 
     with mock.patch(
         f"{_ADAPTER}.submit_form", return_value=submit_resp
@@ -56,15 +74,19 @@ def test_publish_happy_returns_published_url():
     assert res._provider_meta["link_attr_verification"]["ok"] is True
 
     call_args = mock_submit.call_args
-    assert call_args.args[0] == "https://notes.io/"
+    assert call_args.args[0] == "https://notes.io/short.php"
     data = call_args.args[1]
-    assert "text" in data
-    assert "# Hello notes.io" in data["text"]
-    assert data["token"] == ""
+    assert "txt" in data
+    assert "# Hello notes.io" in data["txt"]
+    assert "token" not in data
 
 
 def test_publish_draft_mode_returns_draft_url():
-    submit_resp = _mock_response(url="https://notes.io/draft456")
+    fragment = (
+        '<div class="shortURL"><a href="https://notes.io/draft456">'
+        '<div class="key">draft456</div></a></div>'
+    )
+    submit_resp = _mock_response(text=fragment)
 
     with mock.patch(
         f"{_ADAPTER}.submit_form", return_value=submit_resp
@@ -81,13 +103,12 @@ def test_publish_draft_mode_returns_draft_url():
 
 
 def test_publish_without_title_no_heading_prefix():
-    submit_resp = _mock_response(url="https://notes.io/notitle")
     payload_no_title = dict(_PAYLOAD, title="")
 
-    with mock.patch(f"{_ADAPTER}.submit_form", return_value=submit_resp) as mock_submit:
+    with mock.patch(f"{_ADAPTER}.submit_form", return_value=_mock_response()) as mock_submit:
         NotesioFormPostAdapter().publish(payload_no_title, mode="publish", config=Config())
 
-    sent_body = mock_submit.call_args.args[1]["text"]
+    sent_body = mock_submit.call_args.args[1]["txt"]
     assert not sent_body.startswith("# \n"), "empty title must not add '# ' prefix"
     assert "# Hi" in sent_body
 
@@ -101,11 +122,20 @@ def test_empty_content_raises_external_service_error():
         NotesioFormPostAdapter().publish(payload_empty, mode="publish", config=Config())
 
 
-def test_no_redirect_raises_external_service_error():
-    submit_resp = _mock_response(url="https://notes.io/")
+def test_publish_parses_real_fixture_permalink():
+    """Parser works against the actual HTML fragment captured 2026-06-05."""
+    with mock.patch(
+        f"{_ADAPTER}.submit_form", return_value=_mock_response()
+    ), mock.patch(f"{_ADAPTER}.attach_link_verification", return_value={}):
+        res = NotesioFormPostAdapter().publish(_PAYLOAD, mode="publish", config=Config())
+    assert res.published_url == "https://notes.io/e1hTm"
+
+
+def test_no_permalink_in_fragment_raises_external_service_error():
+    submit_resp = _mock_response(text="<div>some unexpected response</div>")
 
     with mock.patch(f"{_ADAPTER}.submit_form", return_value=submit_resp):
-        with pytest.raises(ExternalServiceError, match="did not redirect"):
+        with pytest.raises(ExternalServiceError, match="no permalink"):
             NotesioFormPostAdapter().publish(_PAYLOAD, mode="publish", config=Config())
 
 

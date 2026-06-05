@@ -1,7 +1,7 @@
 ---
 title: "fix: notes.io migrated to AJAX /save endpoint — adapter publishes via dead form-POST path"
 type: fix
-status: active
+status: completed
 date: 2026-06-05
 origin: dofollow-flip-assist backlog (notesio publish_failed canary verdict)
 claims: {}
