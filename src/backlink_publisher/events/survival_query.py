@@ -1,151 +1,206 @@
-"""30-day survival-rate cohort query (R5) — sibling to ``history_query.py``.
+"""30-day link survival cohort query (plan 008 R5).
 
-Computes "% of links published >= ``cohort_days`` ago whose latest definitive
-``link.rechecked`` verdict is ``alive`` (live + dofollow)". Deliberately small
-and self-contained: it does **not** overload ``events_io.py`` or the optimisation
-rules engine, and it derives survival from the ``link.rechecked`` time series
-(which the weekly CLI job writes) — never from ``articles.verified_at`` (which
-the CLI does not write).
+Computes the survival rate for links published ≥ 30 days ago — the percentage
+whose *latest definitive* ``link.rechecked`` verdict is "alive".  Distinct from:
 
-Honesty is the contract, not a non-empty number: immature links are surfaced
-separately (not folded into the rate), an ``n < MIN_SAMPLE`` cohort suppresses
-the percentage, mature links with no definitive verdict are flagged ``stale``
-(rate marked partial), and ``example.com`` test hosts never count.
+- ``optimization/rules.py``  per-platform ``survival_rate``  (no cohort)
+- ``gates/g5_footprint_survival.py``  (DOM fingerprint gate)
+- keep-alive scorecard  (per-target strip counts)
+
+Derives survival from ``link.rechecked`` verdicts written by the CLI weekly
+job; does NOT read ``articles.verified_at`` (stale — CLI doesn't write it).
+
+``probe_error`` is indeterminate and does NOT clobber a prior definitive verdict;
+the latest DEFINITIVE verdict wins per article.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
-from urllib.parse import urlsplit
+from datetime import datetime, timezone
 from typing import Any
 
-from . import kinds as _kinds
-from .store import EventStore
-from backlink_publisher.recheck import verdicts
-from backlink_publisher.recheck.selection import _parse_ts
+from backlink_publisher.events.store import EventStore
+from backlink_publisher.recheck import verdicts as _v
 
-#: Test-fixture hosts, never counted in the operator-facing rate.
+#: Hosts excluded from the operator dashboard (test fixtures).
 _EXCLUDED_HOSTS = frozenset({"example.com"})
 
-#: Default maturity window: a link must be at least this old to enter the rate.
-COHORT_DAYS = 30
+#: Minimum days since publish for a link to count as "mature".
+MATURITY_DAYS = 30
 
-#: Below this many *judged* links the percentage is statistically meaningless
-#: and is suppressed (the sample size is still surfaced).
-MIN_SAMPLE = 2
+#: Minimum cohort size to show a meaningful percentage.
+MIN_COHORT_N = 2
 
-#: Verdicts that constitute a definitive judgement (probe_error is indeterminate
-#: and never overwrites a real verdict nor counts toward the denominator).
-_DEFINITIVE = frozenset(
-    {verdicts.ALIVE, verdicts.HOST_GONE, verdicts.LINK_STRIPPED, verdicts.DOFOLLOW_LOST}
-)
+KIND_CONFIRMED = "publish.confirmed"
+KIND_RECHECKED = "link.rechecked"
 
-
-def _host(url: str | None) -> str:
-    if not url:
-        return ""
-    return (urlsplit(url).hostname or "").lower()
+#: Indeterminate verdicts that don't clobber a prior definitive verdict.
+_INDETERMINATE = frozenset({_v.PROBE_ERROR})
 
 
-def _loads(raw: str | None) -> dict:
-    try:
-        data = json.loads(raw or "{}")
-        return data if isinstance(data, dict) else {}
-    except (ValueError, TypeError):
-        return {}
+def _utcnow() -> datetime:
+    return datetime.now(tz=timezone.utc)
 
 
-def _aware(ts: datetime | None) -> datetime | None:
-    if ts is None:
+def _parse_ts(ts_str: str | None) -> datetime | None:
+    if not ts_str:
         return None
-    return ts if ts.tzinfo is not None else ts.replace(tzinfo=timezone.utc)
+    try:
+        dt = datetime.fromisoformat(ts_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
 
 
 def compute_survival(
     store: EventStore | None = None,
     *,
     now: datetime | None = None,
-    cohort_days: int = COHORT_DAYS,
 ) -> dict[str, Any]:
-    """Return the survival cohort summary (JSON-serializable, no sets).
+    """Return the 30-day survival payload for the dashboard.
 
-    ``store``/``now`` are injectable for tests.
+    ``store`` may be positional for test convenience.
+
+    Return shape::
+
+        {
+            "state": "ok" | "insufficient" | "empty",
+            "survival_rate": float | None,   # None when state != "ok"
+            "sample_size": int,              # mature articles with any recheck event
+            "survived": int,                 # latest-definitive alive count
+            "mature_count": int,             # all mature articles (incl. stale)
+            "maturing_count": int,           # published < MATURITY_DAYS old
+            "stale": bool,                   # any mature articles never rechecked
+            "stale_count": int,              # count of never-rechecked mature articles
+            "partial": bool,                 # same as stale
+            "stale_days": int | None,        # age (days) of oldest stale article
+        }
     """
     store = store or EventStore()
-    now = _aware(now) or datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=cohort_days)
+    now = now or _utcnow()
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
 
-    # 1. Latest publish.confirmed per article_id → cohort anchor (ts + host).
-    confirmed: dict[int, dict] = {}
-    for row in store.query(
-        "SELECT ts_utc, host, article_id, payload_json FROM events "
-        "WHERE kind = ? ORDER BY ts_utc, id",
-        (_kinds.PUBLISH_CONFIRMED,),
-    ):
-        aid = row["article_id"]
-        if aid is None:
-            continue
-        payload = _loads(row["payload_json"])
-        host = (row["host"] or _host(payload.get("live_url")) or "").lower()
-        confirmed[aid] = {"ts": _aware(_parse_ts(row["ts_utc"])), "host": host}
+    with store.connect() as conn:
+        # Anchor cohort on publish.confirmed events. Group by article_id to get
+        # the earliest confirmed publish per article (some articles may have
+        # multiple confirmed events after republish cycles).
+        # Exclude test-fixture hosts in the query to avoid picking up example.com
+        # article_ids that might appear in recheck events too.
+        placeholder = ",".join("?" * len(_EXCLUDED_HOSTS))
+        article_rows = conn.execute(
+            f"""
+            SELECT
+                article_id,
+                host,
+                MIN(ts_utc) AS publish_ts
+            FROM events
+            WHERE kind = ?
+              AND article_id IS NOT NULL
+              AND (host IS NULL OR host NOT IN ({placeholder}))
+            GROUP BY article_id
+            """,
+            (KIND_CONFIRMED, *_EXCLUDED_HOSTS),
+        ).fetchall()
 
-    # 2. Latest *definitive* link.rechecked verdict per article_id (latest-wins;
-    #    probe_error is skipped so it never clobbers a real verdict).
-    verdict_by_aid: dict[int, str] = {}
-    for row in store.query(
-        "SELECT ts_utc, article_id, payload_json FROM events "
-        "WHERE kind = ? ORDER BY ts_utc, id",
-        (_kinds.LINK_RECHECKED,),
-    ):
-        aid = row["article_id"]
-        if aid is None:
-            continue
-        v = _loads(row["payload_json"]).get("verdict")
-        if v in _DEFINITIVE:
-            verdict_by_aid[aid] = v
+        # All link.rechecked events ordered by id (ascending) for definitive-wins logic.
+        recheck_rows = conn.execute(
+            """
+            SELECT article_id, payload_json, ts_utc
+            FROM events
+            WHERE kind = ? AND article_id IS NOT NULL
+            ORDER BY id
+            """,
+            (KIND_RECHECKED,),
+        ).fetchall()
 
-    # 3. Classify the cohort.
-    mature_total = maturing = survived = definitive = 0
-    stale_days_max = 0
-    for aid, info in confirmed.items():
-        if info["host"] in _EXCLUDED_HOSTS:
-            continue
-        ts = info["ts"]
-        if ts is None:
-            continue
-        if ts > cutoff:
-            maturing += 1
-            continue
-        mature_total += 1
-        v = verdict_by_aid.get(aid)
-        if v is None:
-            stale_days_max = max(stale_days_max, (now - ts).days)
-            continue
-        definitive += 1
-        if v == verdicts.ALIVE:
-            survived += 1
+    # Build per-article recheck index:
+    # {article_id: (has_any_recheck, latest_definitive_verdict)}
+    # Indeterminate verdicts (probe_error) do NOT clobber a prior definitive one.
+    _any_recheck: set[int] = set()
+    _definitive: dict[int, str | None] = {}
+    for aid, pj, _ in recheck_rows:
+        _any_recheck.add(aid)
+        try:
+            payload = json.loads(pj) if pj else {}
+        except (ValueError, TypeError):
+            payload = {}
+        verdict = payload.get("verdict")
+        if verdict not in _INDETERMINATE:
+            _definitive[aid] = verdict
 
-    stale_count = mature_total - definitive
+    # Classify articles by maturity.
+    mature: list[tuple[int, int]] = []  # (article_id, age_days)
+    maturing_count = 0
+    for aid, host, publish_ts_str in article_rows:
+        publish_ts = _parse_ts(publish_ts_str)
+        if publish_ts is None:
+            continue
+        age_days = (now - publish_ts).days
+        if age_days >= MATURITY_DAYS:
+            mature.append((aid, age_days))
+        else:
+            maturing_count += 1
 
-    if mature_total == 0:
-        state, rate = ("empty" if maturing == 0 else "maturing"), None
-    elif definitive < MIN_SAMPLE:
-        state, rate = "insufficient", None
-    else:
-        state, rate = "ok", survived / definitive
+    mature_count = len(mature)
 
+    if mature_count == 0:
+        return {
+            "state": "empty",
+            "survival_rate": None,
+            "sample_size": 0,
+            "survived": 0,
+            "mature_count": 0,
+            "maturing_count": maturing_count,
+            "stale": False,
+            "stale_count": 0,
+            "partial": False,
+            "stale_days": None,
+        }
+
+    # Among mature articles, separate rechecked (in sample) from stale (never rechecked).
+    rechecked_ids = [aid for aid, _ in mature if aid in _any_recheck]
+    stale_articles = [(aid, age) for aid, age in mature if aid not in _any_recheck]
+
+    sample_size = len(rechecked_ids)
+    stale_count = len(stale_articles)
+    stale = stale_count > 0
+    partial = stale
+    stale_days = max((age for _, age in stale_articles), default=None)
+
+    survived = sum(1 for aid in rechecked_ids if _definitive.get(aid) == _v.ALIVE)
+
+    if sample_size < MIN_COHORT_N:
+        return {
+            "state": "insufficient",
+            "survival_rate": None,
+            "sample_size": sample_size,
+            "survived": survived,
+            "mature_count": mature_count,
+            "maturing_count": maturing_count,
+            "stale": stale,
+            "stale_count": stale_count,
+            "partial": partial,
+            "stale_days": stale_days,
+        }
+
+    survival_rate = round(survived / sample_size, 4)
     return {
-        "state": state,
-        "cohort_days": cohort_days,
-        "survival_rate": rate,
-        "survival_pct": None if rate is None else round(rate * 100, 1),
+        "state": "ok",
+        "survival_rate": survival_rate,
+        "sample_size": sample_size,
         "survived": survived,
-        "sample_size": definitive,      # the rate denominator (judged links)
-        "mature_count": mature_total,
-        "maturing_count": maturing,
+        "mature_count": mature_count,
+        "maturing_count": maturing_count,
+        "stale": stale,
         "stale_count": stale_count,
-        "stale": stale_count > 0,
-        "stale_days": stale_days_max if stale_count > 0 else None,
-        "partial": stale_count > 0,     # rate computed over a partial cohort
+        "partial": partial,
+        "stale_days": stale_days,
     }
+
+
+# Alias for service layer — keeps backward-compat without a re-export shim.
+query_survival = compute_survival
