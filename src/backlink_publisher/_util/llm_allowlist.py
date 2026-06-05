@@ -39,6 +39,8 @@ _LLM_HOST_ALLOWLIST: frozenset[str] = frozenset({
     "api.cohere.ai",
     "api.perplexity.ai",
     "api.x.ai",
+    # inaiai.com — OpenAI-compatible gateway (e.g. la-sealion.inaiai.com)
+    "la-sealion.inaiai.com",
     # Local development convenience — Ollama / LM Studio default loopback.
     # Operators running on localhost separately need to opt-in via
     # BACKLINK_PUBLISHER_LLM_ALLOW_LOOPBACK=1 because SSRF gate rejects

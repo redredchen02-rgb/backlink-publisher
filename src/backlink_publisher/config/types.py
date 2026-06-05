@@ -166,6 +166,14 @@ class ImageGenConfig:
     """Operator toggle. When ``False`` the adapter is wired but never
     invoked — useful for staging endpoints where banner generation is
     not yet authorized."""
+    provider: str = "openai"
+    """API protocol.  ``"openai"`` (default) uses the OpenAI-compatible
+    ``/images/generations`` endpoint.  ``"frw"`` uses the FRW native
+    submit+poll flow (``POST /api/frwapi/v1/tasks``, auth via
+    ``X-Api-Key`` header) and requires ``frw_template_id``."""
+    frw_template_id: str = ""
+    """FRW text-to-image template ID.  Required when ``provider="frw"``.
+    Find available templates via ``GET /api/frwapi/v1/templates``."""
 
 
 @dataclass(frozen=True)

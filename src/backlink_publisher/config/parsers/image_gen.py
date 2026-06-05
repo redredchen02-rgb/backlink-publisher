@@ -85,6 +85,23 @@ def _parse_image_gen(section: Any) -> ImageGenConfig | None:
     strict = bool(section.get("strict", False))
     use_image_gen = bool(section.get("use_image_gen", True))
 
+    provider = section.get("provider", "openai")
+    if not isinstance(provider, str) or provider not in ("openai", "frw"):
+        raise InputValidationError(
+            f"[image_gen].provider must be 'openai' or 'frw', got {provider!r}"
+        )
+
+    frw_template_id = section.get("frw_template_id", "")
+    if not isinstance(frw_template_id, str):
+        raise InputValidationError(
+            "[image_gen].frw_template_id must be a string"
+        )
+    if provider == "frw" and not frw_template_id.strip():
+        raise InputValidationError(
+            "[image_gen].frw_template_id is required when provider='frw'. "
+            "Find template IDs via GET /api/frwapi/v1/templates."
+        )
+
     return ImageGenConfig(
         base_url=base_url,
         model=model,
@@ -96,6 +113,8 @@ def _parse_image_gen(section: Any) -> ImageGenConfig | None:
         strict=strict,
         auto_disable_threshold=auto_disable_threshold,
         use_image_gen=use_image_gen,
+        provider=provider,
+        frw_template_id=frw_template_id,
     )
 
 

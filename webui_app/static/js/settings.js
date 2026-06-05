@@ -227,12 +227,18 @@ async function testImageGenConnection(btn) {
     });
     const data = await resp.json();
     if (data.ok) {
-      const line = (data.model_count !== undefined)
-        ? `endpoint reachable; ${data.model_count} models advertised`
-        : 'endpoint reachable';
+      let line;
+      if (data.frw_credits_remaining !== undefined) {
+        line = `FRW endpoint reachable; credits remaining: ${data.frw_credits_remaining}`;
+      } else if (data.model_count !== undefined) {
+        line = `endpoint reachable; ${data.model_count} models advertised`;
+      } else if (data.note) {
+        line = esc(data.note);
+      } else {
+        line = 'endpoint reachable';
+      }
       let extra = null;
       if (data.configured_model) {
-        // configured_model is server-echoed config; escape defensively.
         const small = document.createElement('small');
         small.innerHTML = '<br>Configured model: <code>' + esc(data.configured_model) + '</code>';
         extra = small;

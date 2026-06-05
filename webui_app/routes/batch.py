@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 
-from flask import Blueprint, request, session
+from flask import current_app, Blueprint, request, session
 
 from backlink_publisher.config import load_config as _load_cfg, resolve_blog_id as _resolve
 

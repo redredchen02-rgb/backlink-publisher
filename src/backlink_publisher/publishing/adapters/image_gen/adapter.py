@@ -1,18 +1,24 @@
-"""OpenAI-compatible image-gen adapter — Plan 2026-05-20-001 Unit 2.
+"""Image-gen adapter — Plan 2026-05-20-001 Unit 2.
 
-Replaces the legacy 28-line ``frw_image_gen.py`` stub. POSTs to
-``<base_url>/images/generations`` with the OpenAI body shape
-(``model``, ``prompt``, ``size``, ``n``, ``response_format``) and
-returns a ``BannerArtifact`` containing the raw image bytes after
+Supports two provider protocols:
+
+  * ``provider="openai"`` (default) — POSTs to ``<base_url>/images/generations``
+    with the OpenAI body shape (``model``, ``prompt``, ``size``, ``n``,
+    ``response_format``).  Auth: ``Authorization: Bearer <api_key>``.
+
+  * ``provider="frw"`` — submits a task via ``POST <base_url>/api/frwapi/v1/tasks``
+    then polls ``GET <base_url>/api/frwapi/v1/tasks/{taskId}`` until complete.
+    Auth: ``X-Api-Key: <api_key>`` header.
+
+Returns a ``BannerArtifact`` containing the raw image bytes after
 MIME sniffing and a 5 MB size cap.
 
-Error taxonomy:
+Error taxonomy (both providers):
   * ``401`` → ``RuntimeError`` naming ``frw-login`` (fail-loud, NOT retryable).
   * ``429`` / ``5xx`` / ``Timeout`` / ``ConnectionError`` → wrapped in
     ``_ImageGenTransient`` and retried via ``retry_transient_call``.
   * Other ``4xx`` → ``ExternalServiceError`` (fail-loud, not retryable).
-  * Response missing ``data`` / empty ``data`` / unrecognized magic
-    bytes → ``RuntimeError``.
+  * Response missing result / unrecognized magic bytes → ``RuntimeError``.
   * Response over 5 MB → ``ExternalServiceError``.
 """
 
@@ -21,7 +27,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-import time  # noqa: F401 — referenced by tests via mock.patch
+import time
 from typing import Any
 
 import requests
@@ -66,6 +72,8 @@ class ImageGenAdapter:
         api_key: str,
         timeout_s: float = 30.0,
         max_retries: int = 3,
+        provider: str = "openai",
+        frw_template_id: str = "",
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -73,9 +81,17 @@ class ImageGenAdapter:
         self._api_key = api_key
         self.timeout_s = timeout_s
         self.max_retries = max_retries
+        self.provider = provider
+        self.frw_template_id = frw_template_id
 
     def generate(self, prompt: str) -> BannerArtifact:
         """Generate a banner for ``prompt`` and return its artifact."""
+        if self.provider == "frw":
+            return self._generate_frw(prompt)
+        return self._generate_openai(prompt)
+
+    def _generate_openai(self, prompt: str) -> BannerArtifact:
+        """OpenAI-compatible ``/images/generations`` path."""
         prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
         url = f"{self.base_url}/images/generations"
         headers = {
@@ -92,18 +108,11 @@ class ImageGenAdapter:
 
         def _do_post() -> dict[str, Any]:
             try:
-                resp = http_post(
-                    url,
-                    headers=headers,
-                    json=body,
-                    timeout=self.timeout_s,
-                )
+                resp = http_post(url, headers=headers, json=body, timeout=self.timeout_s)
             except (requests.Timeout, requests.ConnectionError) as exc:
                 raise _ImageGenTransient(str(exc)) from exc
 
             if resp.status_code == 401:
-                # NOT retryable — operator must rotate.  Mention frw-login
-                # in the message so the fix path is grep-able.
                 raise RuntimeError(
                     "image-gen 401: api_key rejected by gateway. "
                     "Rotate via `frw-login` and rerun."
@@ -111,43 +120,25 @@ class ImageGenAdapter:
             if resp.status_code == 429 or 500 <= resp.status_code < 600:
                 raise _ImageGenTransient(f"HTTP {resp.status_code}")
             if 400 <= resp.status_code < 500:
-                raise ExternalServiceError(
-                    f"image-gen {resp.status_code}: {resp.text[:200]}"
-                )
+                raise ExternalServiceError(f"image-gen {resp.status_code}: {resp.text[:200]}")
             try:
                 return resp.json()
             except ValueError as exc:
-                raise ExternalServiceError(
-                    f"image-gen response not JSON: {exc}"
-                ) from exc
+                raise ExternalServiceError(f"image-gen response not JSON: {exc}") from exc
 
         try:
             data = retry_transient_call(
-                _do_post,
-                is_retryable=_is_retryable,
-                max_attempts=self.max_retries,
-                adapter="image-gen",
+                _do_post, is_retryable=_is_retryable, max_attempts=self.max_retries, adapter="image-gen"
             )
         except _ImageGenTransient as exc:
-            # Re-wrap the internal marker exception at the public
-            # boundary — callers should only see one of the two
-            # well-known fail modes (RuntimeError for fail-loud,
-            # ExternalServiceError for transient-after-retries).
-            raise ExternalServiceError(
-                f"image-gen exhausted retries: {exc}"
-            ) from exc
+            raise ExternalServiceError(f"image-gen exhausted retries: {exc}") from exc
 
         items = data.get("data") if isinstance(data, dict) else None
         if not isinstance(items, list) or not items:
-            raise RuntimeError(
-                f"image-gen response missing 'data' or empty: "
-                f"{str(data)[:200]}"
-            )
+            raise RuntimeError(f"image-gen response missing 'data' or empty: {str(data)[:200]}")
         first = items[0]
         if not isinstance(first, dict):
-            raise RuntimeError(
-                f"image-gen response data[0] not an object: {first!r}"
-            )
+            raise RuntimeError(f"image-gen response data[0] not an object: {first!r}")
 
         b64 = first.get("b64_json")
         src_url = first.get("url")
@@ -159,24 +150,116 @@ class ImageGenAdapter:
             source_url = src_url
         else:
             raise RuntimeError(
-                f"image-gen response data[0] has neither 'url' nor "
-                f"'b64_json': {first!r}"
+                f"image-gen response data[0] has neither 'url' nor 'b64_json': {first!r}"
             )
 
         if len(raw) > _MAX_RESPONSE_BYTES:
             raise ExternalServiceError(
-                f"image-gen banner exceeds 5MB cap "
-                f"({len(raw)} > {_MAX_RESPONSE_BYTES} bytes); "
+                f"image-gen banner exceeds 5MB cap ({len(raw)} > {_MAX_RESPONSE_BYTES} bytes); "
                 "refusing to persist."
             )
+        return BannerArtifact(data=raw, mime=_sniff_mime(raw), source_url=source_url, prompt_sha=prompt_sha)
 
-        mime = _sniff_mime(raw)
-        return BannerArtifact(
-            data=raw,
-            mime=mime,
-            source_url=source_url,
-            prompt_sha=prompt_sha,
-        )
+    def _generate_frw(self, prompt: str) -> BannerArtifact:
+        """FRW native submit+poll path (``/api/frwapi/v1/tasks``)."""
+        if not self.frw_template_id:
+            raise RuntimeError(
+                "image-gen FRW provider requires frw_template_id in config. "
+                "List templates: GET /api/frwapi/v1/templates"
+            )
+        prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
+        headers = {"X-Api-Key": self._api_key, "Content-Type": "application/json"}
+
+        w, h = self.banner_size.split("x") if "x" in self.banner_size else ("1200", "630")
+        body: dict[str, Any] = {
+            "templateId": self.frw_template_id,
+            "clientUserId": "backlink-publisher",
+            "parameters": {
+                "prompt": prompt,
+                "width": w,
+                "height": h,
+            },
+        }
+
+        def _do_submit() -> str:
+            try:
+                resp = http_post(
+                    f"{self.base_url}/api/frwapi/v1/tasks",
+                    headers=headers,
+                    json=body,
+                    timeout=self.timeout_s,
+                )
+            except (requests.Timeout, requests.ConnectionError) as exc:
+                raise _ImageGenTransient(str(exc)) from exc
+
+            if resp.status_code == 401:
+                raise RuntimeError(
+                    "image-gen FRW 401: api_key rejected. Rotate via `frw-login` and rerun."
+                )
+            if resp.status_code == 429 or 500 <= resp.status_code < 600:
+                raise _ImageGenTransient(f"HTTP {resp.status_code}")
+            if 400 <= resp.status_code < 500:
+                raise ExternalServiceError(f"image-gen FRW {resp.status_code}: {resp.text[:200]}")
+            try:
+                payload = resp.json()
+            except ValueError as exc:
+                raise ExternalServiceError(f"image-gen FRW response not JSON: {exc}") from exc
+            task_id = (payload.get("data") or {}).get("taskId") or (payload.get("data") or {}).get("id")
+            if not task_id:
+                raise ExternalServiceError(f"image-gen FRW submit returned no taskId: {payload}")
+            return str(task_id)
+
+        try:
+            task_id = retry_transient_call(
+                _do_submit, is_retryable=_is_retryable, max_attempts=self.max_retries, adapter="image-gen-frw"
+            )
+        except _ImageGenTransient as exc:
+            raise ExternalServiceError(f"image-gen FRW submit exhausted retries: {exc}") from exc
+
+        # Poll until completed or failed
+        poll_headers = {"X-Api-Key": self._api_key}
+        deadline = time.time() + self.timeout_s
+        result_url: str | None = None
+        while time.time() < deadline:
+            time.sleep(6)
+            try:
+                resp = http_get(
+                    f"{self.base_url}/api/frwapi/v1/tasks/{task_id}",
+                    headers=poll_headers,
+                    timeout=15,
+                )
+            except (requests.Timeout, requests.ConnectionError):
+                continue
+            if resp.status_code != 200:
+                continue
+            try:
+                poll_data = resp.json().get("data") or {}
+            except ValueError:
+                continue
+            status = poll_data.get("status")
+            if status == "completed":
+                results = poll_data.get("results") or []
+                if results and isinstance(results[0], dict):
+                    result_url = results[0].get("url") or results[0].get("imageUrl")
+                elif isinstance(results, list) and results:
+                    result_url = str(results[0])
+                break
+            if status in ("failed", "error"):
+                raise ExternalServiceError(
+                    f"image-gen FRW task failed: {poll_data.get('errorMessage', status)}"
+                )
+
+        if not result_url:
+            raise ExternalServiceError(
+                f"image-gen FRW task {task_id} did not complete within {self.timeout_s}s"
+            )
+
+        raw = _download_with_cap(result_url)
+        if len(raw) > _MAX_RESPONSE_BYTES:
+            raise ExternalServiceError(
+                f"image-gen FRW banner exceeds 5MB cap ({len(raw)} bytes)"
+            )
+        return BannerArtifact(data=raw, mime=_sniff_mime(raw), source_url=result_url, prompt_sha=prompt_sha)
 
 
 def _download_with_cap(src_url: str) -> bytes:

@@ -346,16 +346,33 @@ client_secret = "your-client-secret"
 # Feature is fully opt-in — leave this section commented out for
 # text-only backlinks.
 #
+# Option A — OpenAI-compatible gateway (default)
 # [image_gen]
 # base_url = "https://api.openai.com/v1"      # any OpenAI-compatible /images/generations endpoint
 # model = "dall-e-3"                          # provider-specific; check your gateway's /models
-# banner_size = "1200x630"                    # OG default; fall back to 1024x1024 if endpoint rejects non-square
-# daily_cap = 50                              # image-gen calls per UTC day; soft fail (skip + warn) past cap
-# per_run_cap = 10                            # image-gen calls per plan-backlinks invocation
+# banner_size = "1200x630"
+# daily_cap = 50
+# per_run_cap = 10
 # timeout_s = 30
 # max_retries = 3
-# auto_disable_threshold = 5                  # consecutive 401/5xx before auto-disable for the rest of the run
-# strict = false                              # true: banner upload failure fails the publish; false: skip banner + publish body anyway
+# auto_disable_threshold = 5
+# strict = false
+
+# Option B — FRW native API (aiaiartist.com)
+# Probe: GET /api/frwapi/v1/balance  Auth: X-Api-Key header
+# List templates first: GET /api/frwapi/v1/templates (no auth needed)
+# [image_gen]
+# provider = "frw"
+# base_url = "https://frw-dreamaiai-api.aiaiartist.com"
+# frw_template_id = "<id from /api/frwapi/v1/templates>"  # required for provider=frw
+# model = "sdxl"                              # label only; FRW uses templateId for routing
+# banner_size = "1200x630"
+# daily_cap = 50
+# per_run_cap = 10
+# timeout_s = 60
+# max_retries = 3
+# auto_disable_threshold = 5
+# strict = false
 
 # ─── Mastodon (Plan 2026-05-21-001 Unit 4c) ────────────────────────────────
 #

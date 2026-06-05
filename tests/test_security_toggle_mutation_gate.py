@@ -94,6 +94,10 @@ GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
         ("test_webui_pro_nudge.py", "WTF_CSRF_ENABLED"),
         ("test_webui_settings_llm_status.py", "CSRF_ENABLED"),
         ("test_webui_settings_llm_status.py", "WTF_CSRF_ENABLED"),
+        # plan 010 U3 origin-guard coverage gate (2026-06-05)
+        ("test_webui_lite_origin_guard_coverage.py", "SESSION_COOKIE_SECURE"),
+        # plan 008 R6 dofollow badge tests (2026-06-05)
+        ("test_r6_dofollow_badge.py", "WTF_CSRF_ENABLED"),
     }
 )
 

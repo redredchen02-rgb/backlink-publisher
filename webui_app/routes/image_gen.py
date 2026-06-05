@@ -5,10 +5,11 @@ that the configured base_url + frw-token are reachable BEFORE
 running plan-backlinks (which would otherwise discover a broken
 key only after burning quota on retries).
 
-The test deliberately calls ``GET <base_url>/models`` — the cheapest
-OpenAI-compatible probe that doesn't generate (and bill for) an
-image.  Falls back to a minimal ``/chat/completions`` probe when
-the gateway doesn't expose ``/models``.
+Provider dispatch:
+  * ``provider="openai"`` (default) — ``GET <base_url>/models`` probe
+    (cheapest OpenAI-compatible endpoint that doesn't bill for generation).
+  * ``provider="frw"`` — ``GET <base_url>/api/frwapi/v1/balance`` probe
+    using ``X-Api-Key`` header (FRW native API, returns credit balance).
 """
 
 from __future__ import annotations
@@ -22,10 +23,65 @@ from ..helpers._request_cache import _g_cache
 bp = Blueprint("image_gen", __name__)
 
 
+def _probe_openai(base_url: str, api_key: str, model: str) -> dict:
+    """Probe OpenAI-compatible gateway via GET /models."""
+    headers = {"Authorization": f"Bearer {api_key}"}
+    try:
+        resp = requests.get(f"{base_url}/models", headers=headers, timeout=10)
+    except requests.RequestException as exc:
+        return {"ok": False, "error": f"network error: {exc}"}
+
+    if resp.status_code == 401:
+        return {"ok": False, "error": "auth_failed: api_key rejected — rotate via `frw-login`"}
+    if resp.status_code == 200:
+        try:
+            payload = resp.json()
+            if isinstance(payload, dict) and "data" in payload:
+                return {"ok": True, "model_count": len(payload["data"]), "configured_model": model}
+        except Exception:
+            pass
+        return {"ok": True, "model_count": 0, "configured_model": model}
+    if resp.status_code == 404:
+        # Gateway reachable but doesn't expose /models (common with private
+        # OpenAI-compatible proxies). Report ok — auth is implicitly valid
+        # since a real 401 would have been returned instead.
+        return {"ok": True, "configured_model": model, "note": "endpoint reachable (no /models)"}
+    return {"ok": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+
+
+def _probe_frw(base_url: str, api_key: str, model: str) -> dict:
+    """Probe FRW native API via GET /api/frwapi/v1/balance (X-Api-Key auth)."""
+    headers = {"X-Api-Key": api_key}
+    try:
+        resp = requests.get(
+            f"{base_url}/api/frwapi/v1/balance", headers=headers, timeout=10
+        )
+    except requests.RequestException as exc:
+        return {"ok": False, "error": f"network error: {exc}"}
+
+    if resp.status_code == 401:
+        return {"ok": False, "error": "auth_failed: api_key rejected — rotate via `frw-login`"}
+    if resp.status_code == 403:
+        return {"ok": False, "error": "forbidden: key disabled, expired, or IP not whitelisted"}
+    if resp.status_code == 200:
+        try:
+            payload = resp.json()
+            data = payload.get("data") or {}
+            credits = data.get("creditsRemaining")
+            return {
+                "ok": True,
+                "configured_model": model,
+                "frw_credits_remaining": credits,
+            }
+        except Exception:
+            pass
+        return {"ok": True, "configured_model": model}
+    return {"ok": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+
+
 @bp.route("/settings/test-image-gen", methods=["POST"])
 def settings_test_image_gen():
-    """Probe ``<base_url>/models`` using the current ``Config.image_gen``
-    + ``frw-token.json`` and return ``{ok, model_count?, error?}``."""
+    """Probe the configured image-gen endpoint and return connection status."""
     try:
         from backlink_publisher.config import load_config
         from backlink_publisher._util.secrets import load_frw_token
@@ -33,10 +89,7 @@ def settings_test_image_gen():
         try:
             cfg = _g_cache('config', load_config)
         except Exception as exc:
-            return jsonify({
-                "ok": False,
-                "error": f"load_config failed: {exc}",
-            }), 200
+            return jsonify({"ok": False, "error": f"load_config failed: {exc}"}), 200
 
         if cfg.image_gen is None:
             return jsonify({
@@ -47,48 +100,17 @@ def settings_test_image_gen():
         try:
             api_key = load_frw_token()
         except RuntimeError as exc:
-            return jsonify({
-                "ok": False,
-                "error": f"no_token: {exc}",
-            }), 200
+            return jsonify({"ok": False, "error": f"no_token: {exc}"}), 200
 
         base_url = cfg.image_gen.base_url.rstrip("/")
-        headers = {"Authorization": f"Bearer {api_key}"}
+        model = cfg.image_gen.model
+        provider = getattr(cfg.image_gen, "provider", "openai")
 
-        try:
-            resp = requests.get(
-                f"{base_url}/models",
-                headers=headers,
-                timeout=10,
-            )
-        except requests.RequestException as exc:
-            return jsonify({
-                "ok": False,
-                "error": f"network error: {exc}",
-            }), 200
+        if provider == "frw":
+            result = _probe_frw(base_url, api_key, model)
+        else:
+            result = _probe_openai(base_url, api_key, model)
 
-        if resp.status_code == 401:
-            return jsonify({
-                "ok": False,
-                "error": "auth_failed: api_key rejected — rotate via `frw-login`",
-            }), 200
-
-        if resp.status_code == 200:
-            try:
-                payload = resp.json()
-                if isinstance(payload, dict) and "data" in payload:
-                    return jsonify({
-                        "ok": True,
-                        "model_count": len(payload["data"]),
-                        "configured_model": cfg.image_gen.model,
-                    }), 200
-            except Exception:
-                pass
-            return jsonify({"ok": True, "model_count": 0}), 200
-
-        return jsonify({
-            "ok": False,
-            "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
-        }), 200
+        return jsonify(result), 200
     except Exception as exc:
         return jsonify({"ok": False, "error": f"unexpected: {exc}"}), 200

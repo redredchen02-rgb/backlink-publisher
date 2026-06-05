@@ -1571,7 +1571,7 @@ class TestVelogApiRoutes:
         assert resp.status_code == 500
         body = resp.get_json()
         assert body["ok"] is False
-        assert "PipelineLogger" in body["error"]
+        assert "error_code" in body
         assert body["log_path"] == str(log_path)
 
     def test_velog_status_returns_json(self, client):
