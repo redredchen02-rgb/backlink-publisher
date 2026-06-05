@@ -20,8 +20,15 @@ from ..services.oauth_service import (
     is_loopback_uri as _is_loopback_uri,
     oauthlib_insecure_transport as _oauthlib_insecure_transport,
 )
+from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("oauth", __name__)
+
+@bp.before_request
+def _enforce_bind_origin() -> None:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        _check_bind_origin_or_abort()
+
 
 
 # ── Medium OAuth ────────────────────────────────────────────────────────────

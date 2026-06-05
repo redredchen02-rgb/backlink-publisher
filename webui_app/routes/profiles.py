@@ -7,8 +7,14 @@ from flask import Blueprint, jsonify, request
 from webui_store import profiles_store as _profiles_store
 
 from ..helpers.security import _safe_referrer_redirect
+from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("profiles", __name__)
+
+@bp.before_request
+def _enforce_bind_origin() -> None:
+    _check_bind_origin_or_abort()
+
 
 
 @bp.route('/profiles/save', methods=['POST'])

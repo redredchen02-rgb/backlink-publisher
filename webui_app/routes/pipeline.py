@@ -36,8 +36,14 @@ from ..services.pipeline_service import (
     build_plan_config,
     validate_plan_inputs,
 )
+from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("pipeline", __name__)
+
+@bp.before_request
+def _enforce_bind_origin() -> None:
+    _check_bind_origin_or_abort()
+
 _api = PipelineAPI()
 
 

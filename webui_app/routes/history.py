@@ -13,8 +13,15 @@ from flask import Blueprint, jsonify, redirect, request, session
 
 from ..api import HistoryAPI
 from ..helpers.contexts import _draft_tab_extra, _render
+from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("history", __name__)
+
+@bp.before_request
+def _enforce_bind_origin() -> None:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        _check_bind_origin_or_abort()
+
 _history = HistoryAPI()
 
 

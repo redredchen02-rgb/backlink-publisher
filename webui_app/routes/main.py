@@ -5,8 +5,15 @@ from __future__ import annotations
 from flask import Blueprint, request, session
 
 from ..helpers.contexts import _render
+from ..helpers.security import _check_bind_origin_or_abort
 
 bp = Blueprint("main", __name__)
+
+@bp.before_request
+def _enforce_bind_origin() -> None:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        _check_bind_origin_or_abort()
+
 
 
 @bp.route('/')
