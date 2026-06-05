@@ -26,11 +26,11 @@ _TOKEN_FILES: list[tuple[str, str]] = [
     ("hashnode", "hashnode-token.json"),
     ("writeas", "writeas-token.json"),
     ("tumblr", "tumblr-credentials.json"),
+    ("hatena", "hatena-credentials.json"),
     ("linkedin", "linkedin-token.json"),
     ("hackmd", "hackmd-token.json"),
     ("mataroa", "mataroa-token.json"),
     ("gitlabpages", "gitlabpages-token.json"),
-    ("hatena", "hatena-credentials.json"),
 ]
 
 
@@ -176,14 +176,6 @@ def save_hackmd_token(data: dict[str, Any], path: Path | None = None) -> None:
     Expected keys: token (str). Generate at HackMD → Settings → API → Create token.
     """
     _save_token(data, path, "hackmd-token.json")
-
-
-def save_hatena_token(data: dict[str, Any], path: Path | None = None) -> None:
-    """Save Hatena AtomPub credentials dict to JSON file with mode 0600.
-
-    Expected keys: hatena_id (str), blog_id (str), api_key (str).
-    """
-    _save_token(data, path, "hatena-credentials.json")
 
 
 def load_mataroa_token(path: Path | None = None) -> dict[str, Any] | None:
@@ -335,3 +327,19 @@ def save_medium_integration_token(
     Expected keys: integration_token (str).
     """
     _save_token(data, path, "medium-integration-token.json")
+
+
+def load_hatena_token(path: Path | None = None) -> dict[str, Any] | None:
+    """Load Hatena AtomPub credentials JSON ({hatena_id, blog_id, api_key}).
+
+    Returns None if the file is absent — callers treat None as unbound.
+    """
+    return _load_token(path, "hatena-credentials.json")
+
+
+def save_hatena_token(data: dict[str, Any], path: Path | None = None) -> None:
+    """Save Hatena AtomPub credentials dict to JSON file with mode 0600.
+
+    Expected keys: hatena_id (str), blog_id (str), api_key (str).
+    """
+    _save_token(data, path, "hatena-credentials.json")

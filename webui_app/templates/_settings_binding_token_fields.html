@@ -17,6 +17,29 @@
    "token" is always rendered first (the secret).  Extra fields follow.
 #}
 {% set _FIELD_DEFS = {
+    "hatena": [
+        {
+            "name": "hatena_id",
+            "label": "Hatena ID",
+            "type": "text",
+            "placeholder": "yourname",
+            "help": "您的 Hatena 用户名（非密码）。见 <a href=\"https://www.hatena.ne.jp/my/config/account\" target=\"_blank\" rel=\"noopener\">账户设置</a>。"
+        },
+        {
+            "name": "blog_id",
+            "label": "Blog ID",
+            "type": "text",
+            "placeholder": "yourname.hatenablog.com",
+            "help": "博客域名（如 yourname.hatenablog.com）。见 Hatena Blog → 设置 → 基本信息。"
+        },
+        {
+            "name": "api_key",
+            "label": "API Key",
+            "type": "password",
+            "placeholder": "Hatena AtomPub API Key",
+            "help": "来自 <a href=\"https://blog.hatena.ne.jp/-/config/detail\" target=\"_blank\" rel=\"noopener\">博客详细设置 → API 密钥</a>。"
+        }
+    ],
     "wordpresscom": [
         {
             "name": "token",
@@ -118,19 +141,18 @@
     ]
 } %}
 
-{# Channels whose credential file name differs from the {channel}-token.json default. #}
-{% set _CRED_FILENAMES = {
-    "tumblr": "tumblr-credentials.json",
-    "hatena": "hatena-credentials.json"
+{% set _CRED_FILES = {
+    "hatena": "hatena-credentials.json",
+    "tumblr": "tumblr-credentials.json"
 } %}
-
 {% set _fields = _FIELD_DEFS.get(channel, []) %}
+{% set _cred_file = _CRED_FILES.get(channel, channel ~ "-token.json") %}
 
 <div class="bind-section" id="bind-section-{{ channel }}" data-channel="{{ channel }}">
     <p class="text-muted" style="font-size:13px; margin-bottom:8px;">
         <strong>🔑 Token + 配置字段绑定</strong>
         — 凭据写入
-        <code>~/.config/backlink-publisher/{{ _CRED_FILENAMES.get(channel, channel ~ "-token.json") }}</code>（0600 权限）。
+        <code>~/.config/backlink-publisher/{{ _cred_file }}</code>（0600 权限）。
     </p>
 
     <div class="bind-status-row" style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">

@@ -8,7 +8,14 @@ import stat
 
 import pytest
 
-from backlink_publisher.config.tokens import _TOKEN_FILES, save_hatena_token
+from backlink_publisher.config.tokens import (
+    load_hatena_token,
+    save_hatena_token,
+)
+from backlink_publisher.config.tokens import _TOKEN_FILES
+
+
+_CRED = {"hatena_id": "testuser", "blog_id": "testuser.hatenablog.com", "api_key": "abc123"}
 
 
 @pytest.fixture
@@ -17,18 +24,18 @@ def config_dir(tmp_path, monkeypatch):
     return tmp_path
 
 
-class TestSaveHatenaToken:
-    def test_save_writes_correct_json(self, config_dir):
-        save_hatena_token({"hatena_id": "myid", "blog_id": "myid.hatenablog.com", "api_key": "secret"})
+class TestHatenaToken:
+    def test_save_writes_correct_fields(self, config_dir):
+        save_hatena_token(_CRED)
         cred_file = config_dir / "hatena-credentials.json"
         assert cred_file.exists()
         data = json.loads(cred_file.read_text())
-        assert data["hatena_id"] == "myid"
-        assert data["blog_id"] == "myid.hatenablog.com"
-        assert data["api_key"] == "secret"
+        assert data["hatena_id"] == "testuser"
+        assert data["blog_id"] == "testuser.hatenablog.com"
+        assert data["api_key"] == "abc123"
 
     def test_save_sets_0600_permissions(self, config_dir):
-        save_hatena_token({"hatena_id": "u", "blog_id": "u.hatenablog.com", "api_key": "k"})
+        save_hatena_token(_CRED)
         cred_file = config_dir / "hatena-credentials.json"
         if os.name != "nt":
             assert stat.S_IMODE(cred_file.stat().st_mode) == 0o600
@@ -39,8 +46,55 @@ class TestSaveHatenaToken:
         data = json.loads((config_dir / "hatena-credentials.json").read_text())
         assert data["api_key"] == key
 
-    def test_token_files_contains_hatena(self):
-        names = {plat for plat, _ in _TOKEN_FILES}
-        assert "hatena" in names
-        filenames = {fname for _, fname in _TOKEN_FILES}
+    def test_load_roundtrip(self, config_dir):
+        save_hatena_token(_CRED)
+        loaded = load_hatena_token()
+        assert loaded is not None
+        assert loaded["hatena_id"] == "testuser"
+        assert loaded["blog_id"] == "testuser.hatenablog.com"
+        assert loaded["api_key"] == "abc123"
+
+    def test_load_returns_none_when_missing(self, config_dir):
+        assert load_hatena_token() is None
+
+    def test_token_files_includes_hatena(self):
+        platforms = {p for p, _ in _TOKEN_FILES}
+        assert "hatena" in platforms
+        filenames = {f for _, f in _TOKEN_FILES}
         assert "hatena-credentials.json" in filenames
+
+
+@pytest.fixture
+def cfg(tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    from backlink_publisher.config import load_config
+    return load_config()
+
+
+class TestHatenaDispatch:
+    def test_dispatch_entry_exists(self):
+        from webui_app.services.credential_service import _TOKEN_FIELDS_DISPATCH
+        assert "hatena" in _TOKEN_FIELDS_DISPATCH
+        _, basename, fields = _TOKEN_FIELDS_DISPATCH["hatena"]
+        assert basename == "hatena-credentials.json"
+        assert set(fields) == {"hatena_id", "blog_id", "api_key"}
+
+    def test_save_token_fields_roundtrip(self, cfg, tmp_path, monkeypatch):
+        from webui_app.services.credential_service import save_token_fields
+        path = save_token_fields(
+            "hatena", cfg,
+            {"hatena_id": "u1", "blog_id": "u1.hatenablog.com", "api_key": "k1"},
+        )
+        assert path == cfg.config_dir / "hatena-credentials.json"
+        data = json.loads(path.read_text())
+        assert data["hatena_id"] == "u1"
+        assert data["api_key"] == "k1"
+
+    def test_save_token_fields_leave_as_is_semantics(self, cfg, tmp_path, monkeypatch):
+        from webui_app.services.credential_service import save_token_fields
+        save_token_fields("hatena", cfg, {"hatena_id": "orig", "blog_id": "orig.blog.com", "api_key": "origkey"})
+        save_token_fields("hatena", cfg, {"hatena_id": "updated", "blog_id": "orig.blog.com", "api_key": "origkey"})
+        data = json.loads((cfg.config_dir / "hatena-credentials.json").read_text())
+        assert data["hatena_id"] == "updated"
+        assert data["blog_id"] == "orig.blog.com"
+        assert data["api_key"] == "origkey"
