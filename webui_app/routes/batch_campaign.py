@@ -33,7 +33,10 @@ def _build_publish_partition():
         from backlink_publisher.publishing.registry import active_platforms
         from webui_store import channel_status
         from ..binding_status import get_channel_status
-        from ..helpers.channel_tiers import partition_channels_by_connection
+        from ..helpers.channel_tiers import (
+            merge_verify_health,
+            partition_channels_by_connection,
+        )
 
         cfg = _g_cache("config", load_config)
         dashboard_channels = [
@@ -43,6 +46,13 @@ def _build_publish_partition():
             statuses = channel_status.list_all()
         except Exception:
             statuses = {}
+        # Plan 2026-06-05-008: overlay live-verify credential expiry so an
+        # expired API platform is non-selectable here, not silently publishable.
+        try:
+            from webui_store import verify_health
+            statuses = merge_verify_health(statuses, verify_health.expired_channels())
+        except Exception:
+            pass
         return partition_channels_by_connection(dashboard_channels, statuses)
     except Exception:
         return None

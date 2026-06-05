@@ -252,6 +252,22 @@ def test_batch_campaign_expired_platform_in_main_with_reconnect(client, monkeypa
     )
 
 
+def test_batch_campaign_expired_api_platform_not_selectable(client):
+    """Plan 008: an API platform with a persisted token_expired verdict shows in
+    the main picker area as 需重連 and is NOT a selectable publish checkbox.
+    """
+    from webui_store import verify_health
+
+    verify_health.record("devto", "token_expired")
+    html = client.get("/batch-campaign").data.decode("utf-8")
+    main = html[:html.index('id="campaign-ext-area"')]
+    assert "需重連" in main
+    assert 'id="plat-devto"' in main, "expired devto must render in the main picker area"
+    assert not re.search(r'name="platforms"\s+value="devto"', html), (
+        "expired devto must not be a selectable publish checkbox"
+    )
+
+
 def test_batch_campaign_post_error_preserves_partition(client):
     """The POST validation-error re-render still shows the partitioned picker."""
     resp = client.post("/batch-campaign", data={
