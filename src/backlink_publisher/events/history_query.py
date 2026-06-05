@@ -25,6 +25,16 @@ KIND_FAILED = _kinds.PUBLISH_FAILED
 # ── helpers ────────────────────────────────────────────────────────────────
 
 
+KIND_RECHECKED = _kinds.LINK_RECHECKED
+
+#: The closed set of per-target dofollow badge values. Distinct from the
+#: page-wide publish status: this is the *operator's own required link* truth.
+TARGET_DOFOLLOW = "dofollow"
+TARGET_DOFOLLOW_LOST = "dofollow_lost"
+TARGET_STRIPPED = "stripped"
+TARGET_UNVERIFIED = "unverified"
+
+
 def _status_from_kind(kind: str | None) -> str:
     """Derive a ``history_store``-style status string from an event kind."""
     if kind in (KIND_CONFIRMED, KIND_UNVERIFIED):
@@ -34,17 +44,62 @@ def _status_from_kind(kind: str | None) -> str:
     return "unknown"
 
 
+def derive_target_dofollow(verdict: str | None, expected_nofollow: bool = False) -> str:
+    """Map a latest ``link.rechecked`` verdict to the per-target dofollow badge.
+
+    The probe already cross-checks the channel manifest (``dofollow_lost`` is
+    only emitted when ``dofollow_status(platform) is True``), so an
+    expected-nofollow channel arrives here as ``alive`` + ``expected_nofollow``
+    — which must read **neutral "unverified"**, never a ``dofollow_lost`` alarm.
+    No signal (legacy rows / probe_error) is "unverified", never green/red.
+    """
+    from backlink_publisher.recheck import verdicts
+
+    if verdict is None:
+        return TARGET_UNVERIFIED
+    if verdict == verdicts.ALIVE:
+        return TARGET_UNVERIFIED if expected_nofollow else TARGET_DOFOLLOW
+    if verdict == verdicts.DOFOLLOW_LOST:
+        return TARGET_DOFOLLOW_LOST
+    if verdict in (verdicts.LINK_STRIPPED, verdicts.HOST_GONE):
+        return TARGET_STRIPPED
+    # probe_error and anything indeterminate → no confident truth.
+    return TARGET_UNVERIFIED
+
+
+def _latest_verdicts(conn) -> dict[int, tuple[str | None, bool]]:
+    """Return ``{article_id: (latest_verdict, expected_nofollow)}`` from the
+    ``link.rechecked`` time series (latest id wins per article)."""
+    rows = conn.execute(
+        "SELECT article_id, payload_json FROM events "
+        "WHERE kind = ? AND article_id IS NOT NULL ORDER BY id",
+        (KIND_RECHECKED,),
+    ).fetchall()
+    out: dict[int, tuple[str | None, bool]] = {}
+    for aid, payload_json in rows:
+        try:
+            payload = json.loads(payload_json) if payload_json else {}
+        except (ValueError, TypeError):
+            payload = {}
+        out[aid] = (payload.get("verdict"), bool(payload.get("expected_nofollow")))
+    return out
+
+
 # ── history-shaped read API ────────────────────────────────────────────────
 
 
 def _build_history_item(
     article_row: tuple | None,
     event_row: tuple | None,
+    verdict_map: dict[int, tuple[str | None, bool]] | None = None,
 ) -> dict[str, Any]:
     """Reconstruct a history-shaped dict from optional article + event rows.
 
     Returns a dict with keys compatible with the WebUI templates
     (``_tab_history.html``) and ``HistoryAPI._normalize_item``.
+
+    ``verdict_map`` (``{article_id: (verdict, expected_nofollow)}``) joins the
+    latest per-target ``link.rechecked`` verdict into ``item['target_dofollow']``.
     """
     item: dict[str, Any] = {
         "id": "",
@@ -58,6 +113,9 @@ def _build_history_item(
         "error": "",
         "verified_at": None,
         "publish_mode": "draft",
+        # Operator-link dofollow truth (distinct from page-wide status). The
+        # no-signal default is centralised in HistoryAPI._normalize_item too.
+        "target_dofollow": TARGET_UNVERIFIED,
     }
 
     # ── article fields ────────────────────────────────────────────────
@@ -79,6 +137,9 @@ def _build_history_item(
             _dedup_key,
         ) = article_row
         item["id"] = str(art_id)
+        if verdict_map and art_id in verdict_map:
+            verdict, expected_nofollow = verdict_map[art_id]
+            item["target_dofollow"] = derive_target_dofollow(verdict, expected_nofollow)
         item["created_at"] = pub_utc or ""
         item["platform"] = platform or ""
         item["language"] = lang or ""
@@ -182,6 +243,7 @@ def list_history(
             ORDER BY a.published_at_utc DESC
             LIMIT ?
         """, (limit,)).fetchall()
+        verdict_map = _latest_verdicts(conn)
 
     for row in rows:
         # Split the wide row into article (cols 0-13) and event (cols 14-22) halves.
@@ -192,6 +254,7 @@ def list_history(
         out.append(_build_history_item(
             article_cols,
             event_cols if has_event else None,
+            verdict_map,
         ))
 
     # 2. Orphan events — publish failed before an article row was created.
@@ -248,6 +311,7 @@ def get_history_item(
              )
             WHERE a.article_id = ?
         """, (aid,)).fetchone()
+        verdict_map = _latest_verdicts(conn) if row is not None else None
 
     if row is None:
         return None
@@ -255,7 +319,7 @@ def get_history_item(
     article_cols = row[:14]
     event_cols = row[14:]
     has_event = event_cols[0] is not None
-    return _build_history_item(article_cols, event_cols if has_event else None)
+    return _build_history_item(article_cols, event_cols if has_event else None, verdict_map)
 
 
 # ── low-level event query helpers ──────────────────────────────────────────

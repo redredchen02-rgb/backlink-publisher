@@ -648,7 +648,28 @@
             background: #fef3c7;
             color: #92400e;
         }
-        
+
+        /* Per-target dofollow sub-badge (R6): smaller than the page-wide status
+           badge and inline beside the target URL. */
+        .target-dofollow-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        /* Amber "dofollow lost" — present but rel strips weight on a dofollow
+           channel. Not a page-wide success, not a hard error. */
+        .target-badge.nofollow {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
         @media (max-width: 768px) {
             body { padding: 10px; }
             .card-body { padding: 16px; }
