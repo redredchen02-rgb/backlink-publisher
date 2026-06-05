@@ -210,3 +210,64 @@ def derive_per_target_status(store: "EventStore") -> dict[str, dict]:
         # Sorted list (not set) keeps the entry JSON-serializable for the view.
         entry["alive_platforms"] = sorted(alive_platforms.get(target, ()))
     return out
+
+
+#: Recheck verdicts surfaced as the per-platform "strip diagnosis" (R2c.a).
+STRIP_VERDICTS: tuple[str, ...] = (
+    verdicts.LINK_STRIPPED,
+    verdicts.HOST_GONE,
+    verdicts.DOFOLLOW_LOST,
+)
+
+
+def derive_strip_counts_by_platform(
+    store: "EventStore",
+) -> dict[str | None, dict[str, int]]:
+    """Per-platform counts of dead/degraded latest recheck verdicts (R2c.a).
+
+    Mirrors :func:`derive_per_target_status`' latest-verdict-per-link reduction
+    (``_canon_target`` + ``_is_newer`` same-ts tiebreak), but — unlike that
+    function, which keeps ``platform`` only for ``alive`` links — retains the
+    platform for **every** verdict, then groups by it. Returns, per platform
+    (``None`` when the recheck payload had no platform), a ``{link_stripped,
+    host_gone, dofollow_lost}`` count of links whose **latest** verdict is that
+    state. Each link (``article_id``) is counted at most once, so a link
+    re-probed twice never double-counts.
+
+    Read-only. The platform key is the recheck payload's own ``platform`` slug;
+    callers presenting this alongside the channel scorecard map ``None`` to
+    their own unattributed bucket.
+    """
+    from .latest_verdicts import _canon_target, _is_newer
+
+    # (canonical target, article_id) -> (ts, rid, verdict, platform); latest wins.
+    latest: dict[tuple[str, int], tuple[datetime | None, int, str, str | None]] = {}
+    sql = (
+        "SELECT id, target_url, article_id, payload_json, ts_utc FROM events "
+        "WHERE kind = ? AND article_id IS NOT NULL AND target_url IS NOT NULL"
+    )
+    for row in store.query(sql, (LINK_RECHECKED,)):
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (ValueError, TypeError):
+            continue
+        verdict = payload.get("verdict")
+        if verdict not in verdicts.VERDICTS:
+            continue
+        target = _canon_target(row["target_url"])
+        if target is None:
+            continue
+        ts = _parse_ts(row["ts_utc"])
+        rid = row["id"]
+        key = (target, row["article_id"])
+        prev = latest.get(key)
+        if prev is None or _is_newer(ts, rid, prev[0], prev[1]):
+            latest[key] = (ts, rid, verdict, payload.get("platform"))
+
+    out: dict[str | None, dict[str, int]] = {}
+    for _ts, _rid, verdict, platform in latest.values():
+        if verdict not in STRIP_VERDICTS:
+            continue
+        bucket = out.setdefault(platform, {k: 0 for k in STRIP_VERDICTS})
+        bucket[verdict] += 1
+    return out

@@ -241,11 +241,13 @@
             <th class="text-end">Total</th>
             <th class="text-end">Live</th>
             <th class="text-end">Live·df</th>
+            <th class="text-end" title="links whose latest recheck verdict is stripped / host-gone / dofollow-lost">Stripped</th>
             <th>Realized value</th>
           </tr>
         </thead>
         <tbody>
           {% for c in scorecard_rows %}
+          {% set strip_total = (c.strip_breakdown.values() | sum) if c.strip_breakdown else 0 %}
           <tr data-channel="{{ c.channel }}">
             <td class="target-cell">
               <button class="btn btn-sm btn-link p-0 me-1 scorecard-expand" data-action="scorecard-expand"
@@ -259,10 +261,18 @@
             <td class="text-end">{{ c.total_links }}</td>
             <td class="text-end">{{ c.live_links }}</td>
             <td class="text-end">{{ c.live_dofollow }}</td>
+            <td class="text-end">
+              {% if strip_total > 0 %}
+              <span class="text-danger fw-semibold"
+                    title="stripped {{ c.strip_breakdown.link_stripped }} · host-gone {{ c.strip_breakdown.host_gone }} · dofollow-lost {{ c.strip_breakdown.dofollow_lost }} (latest recheck verdict; recheck-derived, not the ledger live count)">{{ strip_total }}</span>
+              {% else %}
+              <span class="text-muted">0</span>
+              {% endif %}
+            </td>
             <td><span class="text-muted small" title="GA4/GSC/AI axes deferred (Wave-0 DESCOPE)">referral / discovery / AI: inert (not landed)</span></td>
           </tr>
           <tr class="detail-row d-none">
-            <td colspan="7" class="bg-light">
+            <td colspan="8" class="bg-light">
               <div class="scorecard-drawer small" data-channel="{{ c.channel }}" aria-live="polite"></div>
             </td>
           </tr>

@@ -38,6 +38,7 @@ import backlink_publisher.publishing.adapters  # noqa: F401,E402
 
 from ..ledger.aggregate import _classify, _link_liveness
 from ..ledger.sources import build_target_buckets
+from ..recheck.events_io import STRIP_VERDICTS, derive_strip_counts_by_platform
 from .model import AXIS_INERT, ChannelScoreRow
 
 #: Confirmed-publish kinds whose payload carries the authoritative ``platform``.
@@ -127,6 +128,16 @@ def build_channel_scorecard(
     store = store or EventStore()
     buckets = build_target_buckets(store=store, history=history)
     plat_index = _platform_by_live_url(store)
+    # Recheck-derived strip diagnosis (R2c.a) — separate provenance from the
+    # ledger liveness above; mapped onto channels by the recheck payload's own
+    # platform slug. None (unattributed recheck) folds into UNATTRIBUTED.
+    strip_raw = derive_strip_counts_by_platform(store)
+    strip_by_channel: dict[str, dict[str, int]] = {}
+    for plat, counts in strip_raw.items():
+        ch = plat or UNATTRIBUTED
+        acc = strip_by_channel.setdefault(ch, {k: 0 for k in STRIP_VERDICTS})
+        for k in STRIP_VERDICTS:
+            acc[k] += counts.get(k, 0)
 
     # Pivot every link by its resolved channel.
     seen: dict[str, dict] = {}
@@ -150,8 +161,14 @@ def build_channel_scorecard(
                 if _classify(resolved)[0] == "dofollow":
                     acc["live_dofollow"] += 1
 
-    # Union of registered channels (declared half) and observed channels.
-    channels = set(registry.registered_platforms()) | set(seen.keys())
+    # Union of registered channels (declared half), observed channels, and any
+    # channel that only appears in recheck-strip data (so a platform with strip
+    # events but zero ledger links still surfaces a row).
+    channels = (
+        set(registry.registered_platforms())
+        | set(seen.keys())
+        | set(strip_by_channel.keys())
+    )
 
     rows: list[ChannelScoreRow] = []
     for ch in channels:
@@ -171,6 +188,9 @@ def build_channel_scorecard(
             live_pct=(round(live / total, 3) if total else None),
             live_dofollow=live_dofollow,
             liveness_breakdown=dict(breakdown),
+            strip_breakdown=dict(
+                strip_by_channel.get(ch, {k: 0 for k in STRIP_VERDICTS})
+            ),
             small_sample=small,
             sample_note="insufficient-data" if small else "ok",
             divergence=_divergence(

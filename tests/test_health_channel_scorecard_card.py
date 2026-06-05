@@ -54,7 +54,7 @@ def test_per_link_drawer_scaffolding_present(client):
     body = client.get("/ce:health").get_data(as_text=True)
     assert 'data-action="scorecard-expand"' in body
     assert "scorecard-drawer" in body
-    assert 'colspan="7"' in body  # detail row spans the 7-column table
+    assert 'colspan="8"' in body  # detail row spans the 8-column table (R2c.a added a Stripped column)
     assert "js/scorecard.js" in body
     # The per-link vs per-target explanation (two-truths framing) is shown.
     assert "per-link" in body.lower()
