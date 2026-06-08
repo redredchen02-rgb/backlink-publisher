@@ -32,16 +32,9 @@ from webui_store.channel_status import (
 # Reset store between tests since the singleton persists across runs.
 @pytest.fixture(autouse=True)
 def _reset_store(tmp_path, monkeypatch):
-    """Point channel_status_store at a fresh tmp dir per test.
-
-    After the SQLite migration (webui.db), the old `path` attribute patch
-    is a no-op — ChannelStatusSqliteStore doesn't have a settable .path.
-    The correct isolation is to redirect BACKLINK_PUBLISHER_CONFIG_DIR so
-    the _LazyStore's env-change guard recreates the SQLite instance against
-    the fresh tmp_path webui.db.
-    """
-    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    channel_status_store._instance = None  # force immediate recreation
+    """Point channel_status_store at a fresh tmp file per test."""
+    fresh = tmp_path / "channel-status.json"
+    monkeypatch.setattr(channel_status_store, "path", fresh, raising=False)
 
 
 class TestMarkBoundHappyPath:
