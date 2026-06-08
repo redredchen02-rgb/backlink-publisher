@@ -23,6 +23,7 @@ from typing import Sequence
 from urllib.request import Request, urlopen
 import ssl
 
+from backlink_publisher._util.net_safety import _check_url_for_ssrf
 from backlink_publisher._util.url import normalize_url_for_fetch
 
 _VERIFY_TIMEOUT = 12  # seconds per individual request
@@ -44,13 +45,16 @@ class VerificationResult:
 def _get_body(url: str) -> tuple[int, str]:
     """Fetch URL body. Returns (status_code, body_text). Never raises."""
     try:
+        ssrf_reason = _check_url_for_ssrf(url)
+        if ssrf_reason is not None:
+            return 0, f"SSRF blocked: {ssrf_reason}"
         # Velog Korean @username + CJK url_slug are legal upstream but crash
         # urllib's ASCII request-line encoder. See Plan 2026-05-21-005.
         req = Request(normalize_url_for_fetch(url))
         req.add_header("User-Agent", _USER_AGENT)
         with urlopen(req, timeout=_VERIFY_TIMEOUT, context=_get_ssl_context()) as resp:
             code = resp.getcode()
-            body = resp.read().decode("utf-8", errors="replace")
+            body = resp.read(512 * 1024).decode("utf-8", errors="replace")
         return code, body
     except Exception as exc:
         return 0, str(exc)

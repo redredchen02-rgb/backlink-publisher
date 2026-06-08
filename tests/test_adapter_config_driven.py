@@ -345,8 +345,8 @@ class TestApiKeyAuth:
         assert kwargs["headers"]["Authorization"] == "Bearer sk-secret-123"
         assert kwargs["json"]["content"] == "# Test Article\n\nHello **world** with [link](https://example.com/)"
 
-    def test_api_key_query_appends_key(self):
-        """api_key_query appends api_key as query parameter."""
+    def test_api_key_query_uses_header(self):
+        """api_key_query sends the key via X-Api-Key header (not URL query param)."""
         entry = dict(_API_ENTRY)
         entry["auth_type"] = "api_key_query"
         entry["permalink_via"] = "redirect"
@@ -370,7 +370,9 @@ class TestApiKeyAuth:
 
         assert result.status == "published"
         args, kwargs = mpost.call_args
-        assert "api_key=q-key-789" in args[0]
+        # Key must appear in header, NOT in the URL query string.
+        assert kwargs["headers"].get("X-Api-Key") == "q-key-789"
+        assert "api_key=" not in args[0]
 
     def test_missing_api_key_raises_dependency(self, adapter_api):
         """No API key in config raises DependencyError."""

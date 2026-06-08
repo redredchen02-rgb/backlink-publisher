@@ -684,6 +684,13 @@ RENTRY_MANIFEST: dict[str, Any] = dict(
 )
 SUBSTACK_MANIFEST: dict[str, Any] = dict(
     ui=UiMeta(display_name="Substack", domain="substack.com", category="newsletter"),
+    session=SessionDescriptor(
+        credential_type="cookie",
+        config_path="<config_dir>/substack-credentials.json",
+        # No probe: Substack has no documented liveness endpoint; the adapter
+        # detects expired cookies from HTTP 401/403 during publish.
+        refresh=RefreshConfig(method="cookie-implicit"),
+    ),
 )
 TUMBLR_MANIFEST: dict[str, Any] = dict(
     ui=UiMeta(display_name="Tumblr", domain="tumblr.com", category="social"),

@@ -208,16 +208,17 @@ class TestNonAsciiUrls:
                     return False
                 def getcode(self_inner):
                     return 200
-                def read(self_inner):
+                def read(self_inner, size=-1):
                     return body.encode("utf-8")
             return _Resp()
 
-        with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
-            result = verify_published(
-                "https://velog.io/@한글유저/제목-슬러그",
-                title="제목",
-                required_link_urls=["https://example.com"],
-            )
+        with patch("backlink_publisher.linkcheck.verify._check_url_for_ssrf", return_value=None):
+            with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
+                result = verify_published(
+                    "https://velog.io/@한글유저/제목-슬러그",
+                    title="제목",
+                    required_link_urls=["https://example.com"],
+                )
 
         assert result.ok is True, f"expected ok=True, got reason={result.reason!r}"
         assert len(captured) == 1
@@ -256,16 +257,17 @@ class TestNonAsciiUrls:
                     return False
                 def getcode(self_inner):
                     return 200
-                def read(self_inner):
+                def read(self_inner, size=-1):
                     return _good_body("T", "https://example.com").encode("utf-8")
             return _Resp()
 
-        with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
-            verify_published(
-                "https://blog.example.com/post/1",
-                title="T",
-                required_link_urls=["https://example.com"],
-            )
+        with patch("backlink_publisher.linkcheck.verify._check_url_for_ssrf", return_value=None):
+            with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
+                verify_published(
+                    "https://blog.example.com/post/1",
+                    title="T",
+                    required_link_urls=["https://example.com"],
+                )
         assert captured == ["https://blog.example.com/post/1"]
 
 

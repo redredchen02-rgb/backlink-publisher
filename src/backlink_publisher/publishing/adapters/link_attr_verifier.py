@@ -15,8 +15,6 @@ from typing import Optional, Sequence
 from urllib.parse import parse_qsl, unquote, urlparse
 from urllib.request import Request
 
-from backlink_publisher import http as _http
-
 _A_TAG_RE = re.compile(r"<a\s[^>]*>", re.IGNORECASE)
 # Full <a ...>inner</a> element — used only when a caller opts into anchor-text
 # capture (recheck anchor-drift). Kept separate from _A_TAG_RE so the default
@@ -91,22 +89,13 @@ def verify_link_attributes(
     empty) yields the exact pre-Unit-1 return shape (back-compat for the
     page-wide consumers).
     """
-    try:
-        resp = _http.get(
-            url,
-            timeout=timeout,
-            headers={"User-Agent": "backlink-publisher-verifier/0.1"},
-        )
-    except Exception as exc:
-        return {"verification": "skipped", "reason": str(exc)}
+    from backlink_publisher.content import _preflight_fetch as _pf
 
-    if not resp.ok:
-        return {
-            "verification": "skipped",
-            "reason": f"HTTP {resp.status_code}",
-        }
+    body, reason = _fetch_body_via_preflight(url, _pf, timeout)
+    if reason is not None:
+        return {"verification": "skipped", "reason": reason}
 
-    html = resp.text
+    html = body.decode("utf-8", errors="replace")
     tags = _A_TAG_RE.findall(html)
     total = len(tags)
     blank = sum(1 for t in tags if _BLANK_RE.search(t))

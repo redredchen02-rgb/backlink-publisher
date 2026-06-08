@@ -440,9 +440,63 @@ def _load_blogger_oauth(
     )
 
 
+def _load_substack_cookies(
+    provider: DefaultCredentialProvider,
+    config: Config,
+    descriptor: SessionDescriptor,
+) -> Credential:
+    """Load Substack cookies from Playwright storage-state JSON.
+
+    Reads ``substack-credentials.json`` which stores cookies exported from
+    a logged-in ``substack.com`` session (same format as velog-cookies.json).
+    """
+    cookies_path = provider._resolve_config_path(
+        descriptor.config_path, config
+    )
+    if not cookies_path.exists():
+        raise DependencyError(
+            f"Substack cookies not found: {cookies_path}\n"
+            "Export cookies from a logged-in substack.com session.\n"
+            "Save as 'substack-credentials.json' (chmod 600)."
+        )
+
+    mode = os.stat(cookies_path).st_mode & 0o777
+    if mode != 0o600:
+        raise DependencyError(
+            f"substack-credentials.json must be 0600 (found {oct(mode)})\n"
+            f"Run: chmod 600 {cookies_path}"
+        )
+
+    try:
+        raw = json.loads(cookies_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        raise DependencyError(
+            "Cannot read Substack credentials: file missing, corrupt, or unreadable"
+        ) from None
+
+    cookie_list = raw.get("cookies", [])
+    if not isinstance(cookie_list, list):
+        raise DependencyError("Substack credentials missing 'cookies' array")
+
+    cookies: dict[str, str] = {
+        c["name"]: c["value"]
+        for c in cookie_list
+        if isinstance(c, dict) and "name" in c and "value" in c
+    }
+
+    if not cookies:
+        raise DependencyError(
+            "substack-credentials.json has no usable cookies.\n"
+            "Re-export cookies from a logged-in substack.com session."
+        )
+
+    return Credential(type="cookie", cookies=cookies)
+
+
 # Registration table for load() dispatch
 _LOADERS: dict[str, Any] = {
     "velog": _load_velog_cookies,
     "medium": _load_medium_token,
     "blogger": _load_blogger_oauth,
+    "substack": _load_substack_cookies,
 }

@@ -14,6 +14,22 @@ from flask import Blueprint, redirect, request, session
 
 from backlink_publisher.config import load_config, save_config
 
+# Blogger API scope — defined here so the publish-path adapter (blogger_api.py)
+# no longer needs to export it after the plan-016 SessionManager migration.
+_BLOGGER_SCOPES = ["https://www.googleapis.com/auth/blogger"]
+
+
+def _json_from_creds(creds) -> dict:
+    """Serialize google-auth Credentials to the blogger-token.json dict format."""
+    return {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": list(creds.scopes) if creds.scopes else _BLOGGER_SCOPES,
+    }
+
 from ..helpers.security import _oauth_callback_uri, _safe_flash_redirect
 from ..services.oauth_service import (
     build_blogger_client_config as _build_blogger_client_config,
@@ -112,11 +128,10 @@ def settings_blogger_oauth_start():
     try:
         with _oauthlib_insecure_transport(cb_uri):
             from google_auth_oauthlib.flow import Flow
-            from backlink_publisher.publishing.adapters.blogger_api import _SCOPES
 
             client_config = _build_blogger_client_config(client_id, client_secret, cb_uri)
 
-            flow = Flow.from_client_config(client_config, scopes=_SCOPES,
+            flow = Flow.from_client_config(client_config, scopes=_BLOGGER_SCOPES,
                                            redirect_uri=cb_uri)
             auth_url, state = flow.authorization_url(
                 access_type='offline', prompt='consent')
@@ -174,14 +189,13 @@ def settings_blogger_oauth_callback():
             fragment='channel-blogger')
     try:
         from google_auth_oauthlib.flow import Flow
-        from backlink_publisher.publishing.adapters.blogger_api import _SCOPES, json_from_creds
         from backlink_publisher.config import save_blogger_token
 
         # Plan 2026-05-21-006 Unit 3.2 — same loopback-asserting context
         # manager wraps the token-exchange call that needs the bypass. The
         # loopback precondition is verified above, so the gate never raises here.
         with _oauthlib_insecure_transport(cb_uri):
-            flow = Flow.from_client_config(client_config, scopes=_SCOPES,
+            flow = Flow.from_client_config(client_config, scopes=_BLOGGER_SCOPES,
                                            redirect_uri=cb_uri, state=state)
             code_verifier = session.get('oauth_code_verifier')
             if code_verifier:
@@ -192,7 +206,7 @@ def settings_blogger_oauth_callback():
 
         cfg = load_config()
         cfg.blogger_token_path.parent.mkdir(parents=True, exist_ok=True)
-        save_blogger_token(json_from_creds(creds), cfg.blogger_token_path)
+        save_blogger_token(_json_from_creds(creds), cfg.blogger_token_path)
         session.pop('oauth_state', None)
         session.pop('oauth_client_config', None)
         session.pop('oauth_code_verifier', None)  # PKCE verifier — clear it too
