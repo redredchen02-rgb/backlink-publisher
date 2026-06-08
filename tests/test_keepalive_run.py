@@ -335,3 +335,56 @@ def test_probe_error_reverify_no_attempt_increment(state_dir):
     assert result["reverified_error"] == 1
     rs = KeepaliveRunState(data_dir=state_dir)
     assert not rs.is_exhausted("https://target.example.com/page")
+
+
+def test_publish_failure_records_attempt_prevents_infinite_retry(state_dir):
+    """P0-3: publish failure (empty published_url) must call record_attempt so broken
+    adapters exhaust and stop retrying indefinitely."""
+    target = "https://target.example.com/page"
+    seeds = [{"target_url": target, "platform": "blogger"}]
+
+    def _publish_fail(seed):
+        return {
+            "target_url": seed["target_url"], "platform": seed["platform"],
+            "published_url": "", "status": "failed", "error": "adapter error",
+        }
+
+    reverify_called = []
+
+    def _reverify(result):
+        reverify_called.append(result)
+        return {"verdict": "alive"}
+
+    result = _run(state_dir=state_dir, seeds=seeds,
+                  publish_fn=_publish_fail, reverify_fn=_reverify)
+
+    # publish failed — nothing to reverify
+    assert not reverify_called
+    # but record_attempt must have been called so the target can exhaust
+    rs = KeepaliveRunState(data_dir=state_dir)
+    state = rs.load()
+    assert state["retry_counts"][target]["attempts"] == 1
+
+
+def test_publish_failure_exhaustion_skips_on_next_cycle(state_dir):
+    """After MAX_ATTEMPTS publish failures the target is exhausted and skipped."""
+    target = "https://target.example.com/page"
+    rs = KeepaliveRunState(data_dir=state_dir)
+    # Exhaust by recording publish_failed attempts
+    for _ in range(3):
+        rs.record_attempt(target, "blogger", "publish_failed")
+
+    assert rs.is_exhausted(target)
+
+    publish_called = []
+
+    def _publish(seed):
+        publish_called.append(seed)
+        return {"published_url": "", "status": "failed",
+                "target_url": seed["target_url"], "platform": seed["platform"]}
+
+    seeds = [{"target_url": target, "platform": "blogger"}]
+    result = _run(state_dir=state_dir, seeds=seeds, publish_fn=_publish)
+
+    assert not publish_called
+    assert result["exhausted_skipped"] == 1

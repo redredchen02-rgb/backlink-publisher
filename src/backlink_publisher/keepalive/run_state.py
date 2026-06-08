@@ -159,8 +159,9 @@ class KeepaliveRunState:
             entry["last_outcome"] = outcome
             if platform not in entry.get("platforms_tried", []):
                 entry.setdefault("platforms_tried", []).append(platform)
-            # Only definitive-dead verdicts count toward exhaustion.
-            if outcome in ("link_stripped", "host_gone", "reverify_dead"):
+            # Definitive-dead verdicts and publish failures count toward exhaustion.
+            # publish_failed: broken adapter credentials; would retry infinitely otherwise.
+            if outcome in ("link_stripped", "host_gone", "reverify_dead", "publish_failed"):
                 entry["attempts"] = entry.get("attempts", 0) + 1
             self.save(data)
 

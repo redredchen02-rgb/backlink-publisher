@@ -9,8 +9,9 @@
          The cycle-level lock (.keepalive-run.lock) prevents concurrent runs if
          a cycle exceeds 24h; each step has its own internal budget (_BATCH_BUDGET_S).
 
-         Scheduling note: keepalive-run (05:00) runs BEFORE collect-signals (06:00)
-         so reverify stat contributions are present when the optimizer reads them.
+         Scheduling note: keepalive-run fires at 06:30, after full-pipeline (04:00).
+         collect-signals uses StartInterval (interval-based, not calendar-pinned) so
+         no strict ordering between keepalive and collect-signals is guaranteed.
 
          Install:
            cp scripts/com.dex.bp-keepalive.plist ~/Library/LaunchAgents/

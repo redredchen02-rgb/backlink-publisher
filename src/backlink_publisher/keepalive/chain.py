@@ -385,6 +385,11 @@ def run_cycle(
             ok = bool((result.get("published_url") or "").strip())
             if ok:
                 summary.published += 1
+            else:
+                _t = result.get("target_url") or ""
+                _p = result.get("platform") or ""
+                if _t and _p:
+                    run_state.record_attempt(_t, _p, "publish_failed")
             published_results.append(result)
 
         _log.recon("keepalive_publish_done",
