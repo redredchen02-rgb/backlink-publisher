@@ -46,6 +46,8 @@ import mimetypes
 import os
 import random
 import time
+
+mimetypes.add_type("image/webp", ".webp")
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
