@@ -66,6 +66,7 @@ def test_get_health_unknown_returns_minimal_default():
         "last_drift_at": None,
         "consecutive_oks": 0,
         "quarantined": False,
+        "consecutive_advisory": 0,
     }
     # Read default must not have written a file.
     assert not _health_path().exists()
@@ -73,7 +74,6 @@ def test_get_health_unknown_returns_minimal_default():
 
 def test_health_record_has_quarantine_fields():
     rec = store.record_verdict("velog", store.STATUS_DRIFT_CONFIRMED)
-    # Unit 4 adds quarantined + consecutive_oks alongside the Unit 1 minimal set.
     assert set(rec) == {
         "status",
         "consecutive_failures",
@@ -81,6 +81,7 @@ def test_health_record_has_quarantine_fields():
         "last_drift_at",
         "consecutive_oks",
         "quarantined",
+        "consecutive_advisory",
     }
     # A single drift is below QUARANTINE_AFTER_N → not yet quarantined.
     assert rec["consecutive_failures"] == 1
@@ -104,15 +105,66 @@ def test_consecutive_drift_increments_then_link_alive_resets():
     assert r3["last_drift_at"] == r2["last_drift_at"]
 
 
-def test_advisory_preserves_counters_and_timestamps():
+def test_advisory_preserves_drift_counters_and_timestamps():
     store.record_verdict("ghpages", store.STATUS_DRIFT_CONFIRMED)
     before = store.get_health("ghpages")
     after = store.record_verdict("ghpages", store.STATUS_ADVISORY)
-    # advisory is neither OK nor confirmed drift → counters untouched.
+    # advisory neither confirms OK nor drift → failures/oks/timestamps untouched.
     assert after["consecutive_failures"] == before["consecutive_failures"]
     assert after["last_ok_at"] == before["last_ok_at"]
     assert after["last_drift_at"] == before["last_drift_at"]
     assert after["status"] == store.STATUS_ADVISORY
+    # consecutive_advisory increments on each advisory run.
+    assert after["consecutive_advisory"] == 1
+
+
+def test_consecutive_advisory_increments_and_resets_on_link_alive():
+    store.record_verdict("blogger", store.STATUS_ADVISORY)
+    store.record_verdict("blogger", store.STATUS_ADVISORY)
+    r3 = store.record_verdict("blogger", store.STATUS_ADVISORY)
+    assert r3["consecutive_advisory"] == 3
+
+    # A link-alive verdict resets the counter.
+    r4 = store.record_verdict("blogger", store.STATUS_LINK_ALIVE)
+    assert r4["consecutive_advisory"] == 0
+
+
+def test_consecutive_advisory_resets_on_drift_confirmed():
+    store.record_verdict("velog", store.STATUS_ADVISORY)
+    store.record_verdict("velog", store.STATUS_ADVISORY)
+    assert store.get_health("velog")["consecutive_advisory"] == 2
+
+    r3 = store.record_verdict("velog", store.STATUS_DRIFT_CONFIRMED)
+    assert r3["consecutive_advisory"] == 0
+
+
+def test_consecutive_advisory_backward_compat_missing_key():
+    # Simulate an old on-disk record without the consecutive_advisory field.
+    import json
+    hp = _health_path()
+    old_record = {
+        "medium": {
+            "status": "advisory",
+            "consecutive_failures": 0,
+            "last_ok_at": None,
+            "last_drift_at": None,
+            "consecutive_oks": 0,
+            "quarantined": False,
+            # NOTE: no consecutive_advisory
+        }
+    }
+    hp.write_text(json.dumps(old_record), encoding="utf-8")
+    hp.chmod(0o600)
+    store.canary_health_store.reset()
+
+    # Reading must not raise; get_health fills the default (0) via .get().
+    rec = store.get_health("medium")
+    assert rec.get("consecutive_advisory", 0) == 0
+
+    # Subsequent advisory write must work and initialize the counter to 1.
+    r2 = store.record_verdict("medium", store.STATUS_ADVISORY)
+    assert r2["consecutive_advisory"] == 1
+    store.canary_health_store.reset()
 
 
 def test_multiple_platforms_keyed_independently():

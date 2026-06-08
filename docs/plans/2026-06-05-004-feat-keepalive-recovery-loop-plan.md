@@ -1,7 +1,7 @@
 ---
 title: "feat: Keep-alive Recovery Loop — Closed-Loop CLI Chain"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 ---
 

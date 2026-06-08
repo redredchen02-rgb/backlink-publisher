@@ -334,6 +334,82 @@ def test_integration_health_store_updated_for_whole_cohort(tmp_path, monkeypatch
 
 
 # --------------------------------------------------------------------------
+# Stale canary detection (consecutive_advisory >= _STALE_ADVISORY_RUNS)
+# --------------------------------------------------------------------------
+
+def test_three_consecutive_advisories_triggers_stale(tmp_path, monkeypatch, capsys):
+    """After _STALE_ADVISORY_RUNS advisory runs the receipt carries needs-reseed."""
+    _seed_config(tmp_path, monkeypatch,
+                 {"blogger": {"post_url": "https://b.example/p", "expected_target": "https://t.example/"}})
+    advisory_fetch = _facts(status=404, reason="http_404")
+    advisory_anchor = _anchor(page_readable=False, marker_present=None,
+                               target_anchor_found=False, reason="http_404")
+
+    # Two runs → below threshold, no stale note.
+    for _ in range(2):
+        _run(["blogger"], fetch_return=advisory_fetch, anchor_return=advisory_anchor)
+
+    receipts_before, _ = _receipts(capsys)
+    assert receipts_before[-1].get("note") != "canary-stale/needs-reseed"
+
+    # Third run → threshold crossed, receipt must carry stale note.
+    _run(["blogger"], fetch_return=advisory_fetch, anchor_return=advisory_anchor)
+    receipts, stderr = _receipts(capsys)
+    assert receipts[0]["verdict"] == "advisory"
+    assert receipts[0].get("note") == "canary-stale/needs-reseed"
+    assert "canary_stale_needs_reseed" in stderr
+    assert "blogger" in stderr
+
+
+def test_link_alive_resets_stale_counter(tmp_path, monkeypatch, capsys):
+    """A link-alive verdict clears the consecutive_advisory streak so the next
+    three-advisory sequence must re-cross the threshold from scratch."""
+    _seed_config(tmp_path, monkeypatch,
+                 {"blogger": {"post_url": "https://b.example/p", "expected_target": "https://t.example/"}})
+    advisory_fetch = _facts(status=404, reason="http_404")
+    advisory_anchor = _anchor(page_readable=False, marker_present=None,
+                               target_anchor_found=False, reason="http_404")
+
+    for _ in range(3):
+        _run(["blogger"], fetch_return=advisory_fetch, anchor_return=advisory_anchor)
+    receipts, _ = _receipts(capsys)
+    # receipts[-1] is the third run, which tips over the threshold.
+    assert receipts[-1].get("note") == "canary-stale/needs-reseed"
+
+    # link-alive resets the streak.
+    _run(["blogger"],
+         fetch_return=_facts(status=200),
+         anchor_return=_anchor(marker_present=True, target_anchor_found=True))
+    from backlink_publisher.canary.store import get_health
+    assert get_health("blogger")["consecutive_advisory"] == 0
+
+    # Two more advisories: should NOT be stale (streak restarted).
+    for _ in range(2):
+        _run(["blogger"], fetch_return=advisory_fetch, anchor_return=advisory_anchor)
+    receipts_after, _ = _receipts(capsys)
+    assert receipts_after[-1].get("note") != "canary-stale/needs-reseed"
+
+
+def test_drift_confirmed_resets_stale_counter(tmp_path, monkeypatch, capsys):
+    """A drift-confirmed verdict also clears the advisory streak."""
+    _seed_config(tmp_path, monkeypatch,
+                 {"blogger": {"post_url": "https://b.example/p", "expected_target": "https://t.example/"}})
+    advisory_fetch = _facts(status=404, reason="http_404")
+    advisory_anchor = _anchor(page_readable=False, marker_present=None,
+                               target_anchor_found=False, reason="http_404")
+
+    for _ in range(3):
+        _run(["blogger"], fetch_return=advisory_fetch, anchor_return=advisory_anchor)
+
+    # Drift resets the streak.
+    _run(["blogger"],
+         fetch_return=_facts(status=200),
+         anchor_return=_anchor(marker_present=True, target_anchor_found=True, target_is_nofollow=True))
+    from backlink_publisher.canary.store import get_health
+    assert get_health("blogger")["consecutive_advisory"] == 0
+
+
+# --------------------------------------------------------------------------
 # Contract: stdout pure JSONL, stderr is recon, main() returns None (exit 0)
 # --------------------------------------------------------------------------
 

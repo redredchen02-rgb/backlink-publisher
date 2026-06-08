@@ -55,11 +55,8 @@ VERDICTS = (STATUS_LINK_ALIVE, STATUS_DRIFT_CONFIRMED, STATUS_ADVISORY, STATUS_N
 MODE = "evergreen"
 
 #: Consecutive-advisory runs after which a canary post is presumed rotted and a
-#: ``canary-stale/needs-reseed`` note is surfaced. v1 only has the minimal Unit 1
-#: fields, so this thresholds on ``consecutive_failures`` is NOT available for
-#: advisory (advisory preserves counters by design). TODO(Unit 4): track
-#: consecutive-advisory in the health store; until then stale-detection is a
-#: best-effort note keyed off whatever the store exposes.
+#: ``canary-stale/needs-reseed`` note is surfaced (consecutive_advisory counter
+#: in the health store; cleared by any link-alive or drift-confirmed verdict).
 _STALE_ADVISORY_RUNS = 3
 
 #: Inter-platform jitter bounds (seconds). Kept tiny; zeroed in tests via the
@@ -201,17 +198,18 @@ def _build_cohort() -> list[str]:
 
 
 def _is_stale(platform: str, verdict: str) -> bool:
-    """Best-effort canary-stale detection.
+    """True iff this advisory verdict tips the consecutive-advisory streak past
+    the stale threshold.
 
-    v1 health store carries only minimal fields (Unit 1); it does NOT track
-    consecutive-advisory runs (advisory preserves counters by design). So we can
-    only flag stale when the store ALREADY reflects a long advisory streak via
-    a field it exposes. Until Unit 4 adds ``consecutive_advisory`` tracking,
-    this returns False for the advisory path and is a documented gap.
-    TODO(Unit 4): wire consecutive-advisory tracking into the store and
-    threshold on ``_STALE_ADVISORY_RUNS`` here.
+    Reads the POST-write health record (record_verdict has already updated
+    ``consecutive_advisory``) so the check reflects the current run, not the
+    prior state. Only meaningful for advisory verdicts; always returns False
+    for link-alive / drift-confirmed (their record_verdict call resets the
+    advisory counter).
     """
-    return False
+    if verdict != STATUS_ADVISORY:
+        return False
+    return get_health(platform).get("consecutive_advisory", 0) >= _STALE_ADVISORY_RUNS
 
 
 def main(argv: list[str] | None = None) -> None:

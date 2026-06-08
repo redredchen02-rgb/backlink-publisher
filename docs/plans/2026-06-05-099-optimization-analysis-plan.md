@@ -1,6 +1,6 @@
 ---
 title: "Optimization Analysis Plan"
 type: analysis
-status: active
+status: completed
 date: 2026-06-05
 ---

@@ -1,7 +1,7 @@
 ---
 title: "feat: session cookie auto-management — shared SessionManager + CredentialProvider"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 origin: docs/brainstorms/2026-06-05-session-cookie-auto-management-requirements.md
 claims:

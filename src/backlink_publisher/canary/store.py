@@ -65,6 +65,7 @@ _HEALTH_DEFAULT: dict[str, Any] = {
     "last_drift_at": None,
     "consecutive_oks": 0,
     "quarantined": False,
+    "consecutive_advisory": 0,
 }
 
 #: Sibling top-level key for the forward-path (publish-time) drift stream
@@ -149,6 +150,7 @@ def record_verdict(platform: str, status: str) -> dict[str, Any]:
         existing = current.get(platform) or {}
         failures = int(existing.get("consecutive_failures", 0) or 0)
         oks = int(existing.get("consecutive_oks", 0) or 0)
+        advisory_runs = int(existing.get("consecutive_advisory", 0) or 0)
         quarantined = bool(existing.get("quarantined", False))
         last_ok_at = existing.get("last_ok_at")
         last_drift_at = existing.get("last_drift_at")
@@ -156,16 +158,21 @@ def record_verdict(platform: str, status: str) -> dict[str, Any]:
         if status == STATUS_LINK_ALIVE:
             failures = 0
             oks += 1
+            advisory_runs = 0
             last_ok_at = _now_iso()
             if quarantined and oks >= REARM_AFTER_M:
                 quarantined = False  # re-arm
         elif status == STATUS_DRIFT_CONFIRMED:
             failures += 1
             oks = 0
+            advisory_runs = 0
             last_drift_at = _now_iso()
             if failures >= QUARANTINE_AFTER_N:
                 quarantined = True
-        # advisory / not-configured: preserve counters, timestamps, quarantine.
+        else:
+            # advisory / not-configured: increment advisory streak;
+            # other counters, timestamps, and quarantine flag are unchanged.
+            advisory_runs += 1
 
         current[platform] = {
             "status": status,
@@ -174,6 +181,7 @@ def record_verdict(platform: str, status: str) -> dict[str, Any]:
             "last_drift_at": last_drift_at,
             "consecutive_oks": oks,
             "quarantined": quarantined,
+            "consecutive_advisory": advisory_runs,
         }
         return current
 
