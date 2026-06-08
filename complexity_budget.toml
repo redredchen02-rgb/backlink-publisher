@@ -84,8 +84,8 @@ rationale = "keepalive-run chain coordinator (plan 2026-06-05-004 U1): sequences
 # rationale update.
 
 [test_files."tests/test_webui_route_contract.py"]
-ceiling = 1148
-rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes, then 1140→1148 for the survival-dashboard route (GET /survival-dashboard, plan 2026-06-05-008 R5 — the contract gate requires a client.get in this file). Decompose parametrize tables into shared helpers when a new route makes this file grow further."
+ceiling = 1160
+rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes, then 1140→1148 for the survival-dashboard route, then 1148→1160 for the R8 cycle-panel routes (GET /ce:keep-alive/cycle-status + POST /ce:keep-alive/reset-exhausted, plan 2026-06-08-001). Decompose parametrize tables into shared helpers when a new route makes this file grow further."
 
 [test_files."tests/test_cli_generate_backlink_text.py"]
 ceiling = 1070

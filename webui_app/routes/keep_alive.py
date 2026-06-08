@@ -18,7 +18,7 @@ from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 from ..api import HistoryAPI
 from ..helpers.contexts import _render
 from ..helpers.security import _check_bind_origin_or_abort
-from ..services.keep_alive import build_keepalive_view
+from ..services.keep_alive import build_cycle_status_view, build_keepalive_view
 from ..services.keepalive_job import registry as keepalive_registry
 
 bp = Blueprint("keep_alive", __name__)
@@ -117,3 +117,35 @@ def republish_status(job_id: str):
     if poll is None or poll.get("kind") != "republish":
         abort(404)
     return jsonify(poll)
+
+
+@bp.route("/ce:keep-alive/cycle-status", methods=["GET"])
+def cycle_status():
+    """Return last automated keepalive-run cycle data for the WebUI panel.
+
+    Read-only; no auth required beyond app-level origin guard.
+    Cross-process read race with keepalive-run is accepted (same precedent as
+    /optimization-status which reads optimization_state.json the same way).
+    """
+    return jsonify(build_cycle_status_view())
+
+
+@bp.route("/ce:keep-alive/reset-exhausted", methods=["POST"])
+def reset_exhausted():
+    """Reset a single exhausted target so it can be retried again.
+
+    Requires Origin guard (state-changing POST, matches start_recheck pattern).
+    Returns {status: "ok", was_present: bool}.
+    """
+    _check_bind_origin_or_abort()
+    body = request.get_json(silent=True) or {}
+    target_url = (body.get("target_url") or "").strip()
+    if not target_url:
+        return jsonify({"status": "error", "error": "target_url required"}), 400
+
+    from backlink_publisher.keepalive.run_state import KeepaliveRunState
+    rs = KeepaliveRunState()
+    data = rs.load()
+    was_present = target_url in data.get("retry_counts", {})
+    rs.reset_exhausted(target_url)
+    return jsonify({"status": "ok", "was_present": was_present})

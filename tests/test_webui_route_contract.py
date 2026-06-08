@@ -1264,6 +1264,9 @@ class TestKeepAliveRoutes:
         assert client.get("/ce:keep-alive/republish-token").status_code == 200
         assert client.post("/ce:keep-alive/republish").status_code in (400, 403)
         assert client.get("/ce:keep-alive/republish-status/x").status_code == 404
+        # R8: cycle panel routes (plan 2026-06-08-001).
+        assert client.get("/ce:keep-alive/cycle-status").status_code == 200
+        assert client.post("/ce:keep-alive/reset-exhausted").status_code in (400, 403)
 
 
 class TestChannelBindSaveRoutes:
