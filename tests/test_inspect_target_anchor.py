@@ -298,14 +298,14 @@ def test_verify_link_attributes_signature():
     assert sig.parameters["target_urls"].default is None
 
 
-def test_verify_link_attributes_still_uses_http_get():
-    """verify_link_attributes must still fetch via backlink_publisher.http.get
-    (the 6 post-publish callers depend on its semantics)."""
-    fake_resp = MagicMock()
-    fake_resp.ok = True
-    fake_resp.text = '<html><body><a href="x" rel="nofollow">l</a></body></html>'
-    with patch.object(lav._http, "get", return_value=fake_resp) as mock_get:
+def test_verify_link_attributes_uses_preflight_fetch():
+    """verify_link_attributes must fetch via the preflight SSRF-guarded opener
+    (_fetch_body_via_preflight), not backlink_publisher.http.get directly.
+    The 6 post-publish callers share this path after the plan-016 migration."""
+    html = '<html><body><a href="x" rel="nofollow">l</a></body></html>'
+    _patch = "backlink_publisher.publishing.adapters.link_attr_verifier._fetch_body_via_preflight"
+    with patch(_patch, return_value=(html.encode("utf-8"), None)) as mock_fetch:
         result = lav.verify_link_attributes("https://blog.example/post")
-    assert mock_get.called
+    assert mock_fetch.called
     assert result["verification"] == "ok"
     assert result["nofollow_detected"] is True
