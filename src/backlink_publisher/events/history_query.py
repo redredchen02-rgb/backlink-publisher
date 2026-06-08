@@ -214,6 +214,8 @@ def _build_history_item(
                 item["status"] = payload.get("ui_status") or "published_unverified"
             else:
                 item["status"] = "published"
+            if payload.get("adapter"):
+                item["adapter"] = payload["adapter"]
 
     return item
 

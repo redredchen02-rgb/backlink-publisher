@@ -8,15 +8,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from backlink_publisher._util.logger import plan_logger
 
 from webui_store import drafts_store as _drafts_store
-from webui_store import history_store as _history_store
 from webui_store import queue_store as _queue_store
 
 from .api.pipeline_api import PipelineAPI
 from .helpers.cli_runner import strip_cli_diagnostic_banner
-from backlink_publisher.events.publish_writer import (
-    map_history_entry,
-    write_event,
-)
 from .helpers.history import (
     _parse_publish_results,
     _push_history_per_row,
@@ -106,22 +101,6 @@ def _publish_draft_job(item_id: str) -> None:
     platform = item.get('platform', 'medium')
     publish_mode = item.get('publish_mode', 'draft')
     plans_jsonl = item.get('plans_jsonl', '')
-
-    def _push_history(status, article_urls=None, error=None):
-        entry = {
-            'id': str(uuid.uuid4())[:8],
-            'target_url': item.get('target_url', 'unknown'),
-            'platform': platform,
-            'language': item.get('language', 'zh-CN'),
-            'status': status,
-            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
-            'article_urls': article_urls or [],
-            **({'error': error} if error else {}),
-        }
-        _history_store.update(lambda hist: [entry, *hist][:100])
-        mapped = map_history_entry(entry)
-        if mapped is not None:
-            write_event(mapped[0], mapped[1], target_url=entry.get("target_url"))
 
     try:
         result = PipelineAPI().publish(plans_jsonl, platform, publish_mode)

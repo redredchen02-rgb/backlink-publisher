@@ -51,8 +51,9 @@ class TestFullStackFlow:
         ]
         _push_history_per_row(rows)
 
-        # Stage 2: history shape
-        items = {it["target_url"]: it for it in history_store.load()}
+        # Stage 2: history shape — post-U2, reads come from events.db.
+        from backlink_publisher.events.history_query import list_history
+        items = {it["target_url"]: it for it in list_history()}
         assert items["https://a/"]["status"] == "published"
         assert items["https://b/"]["status"] == "published_unverified"
         assert items["https://c/"]["status"] == "drafted_unverified"
@@ -67,11 +68,13 @@ class TestFullStackFlow:
         assert "已发布·未核实" in body
         assert "草稿·未核实" in body
 
-        # Stage 4: bulk-recheck the two unverified rows. The default verify_fn
-        # routes through the shared probe_liveness engine (Plan 2026-05-29-004
-        # U2), so patch the underlying inspect_target_anchor (host_gone → 404).
-        unverified_ids = [it["id"] for it in history_store.load()
-                          if it["status"].endswith("_unverified")]
+        # Stage 4: bulk-recheck the two unverified rows.
+        # Post-U2: items are in events.db with integer article_ids.
+        # Recheck/purge (U3/U6) still operate on history_store for legacy items;
+        # seed history_store with ALL four rows so stages 4-5 find them.
+        all_items = list_history()
+        history_store.update(lambda h: all_items + h)
+        unverified_ids = [it["id"] for it in all_items if it["status"].endswith("_unverified")]
         assert len(unverified_ids) == 2
         with patch(
             "backlink_publisher.publishing.adapters.link_attr_verifier.inspect_target_anchor",

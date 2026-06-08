@@ -95,7 +95,12 @@ def test_banner_absent_when_no_incomplete_run(client):
 
 # ── /checkpoint/resume ─────────────────────────────────────────────────────────
 
-def test_resume_route_exit0_appends_history(client, tmp_path):
+def test_resume_route_exit0_appends_history(client, tmp_path, monkeypatch):
+    # Redirect events.db to an isolated tmp dir so the write is verifiable.
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    import backlink_publisher.events.publish_writer as _pw
+    _pw._STORE = None  # clear cached store so the new env takes effect
+
     done_jsonl = json.dumps({
         "id": "r0", "platform": "blogger", "status": "done",
         "title": "T", "draft_url": "", "published_url": "https://x.com",
@@ -104,15 +109,14 @@ def test_resume_route_exit0_appends_history(client, tmp_path):
     capture = {"stdout": done_jsonl + "\n", "stderr": "", "returncode": 0}
 
     with patch("webui_app.api.pipeline_api.run_pipe_capture", return_value=capture):
-        with patch.object(__import__("webui_store").history.HistoryStore, "update", return_value=[]) as mock_hist:
-            resp = client.post("/checkpoint/resume", data={"run_id": "20260101T000000-abcdef01"})
-            assert resp.status_code == 200
-            mock_hist.assert_called_once()
-            # history_store is a _LazyStore wrapping HistoryStore (not JsonStore).
-            # Mock replaces the class attribute; instance calls see Mock(fn) only.
-            updater = mock_hist.call_args[0][0]
-            result = updater([])
-            assert result[0]["status"] == "published"
+        resp = client.post("/checkpoint/resume", data={"run_id": "20260101T000000-abcdef01"})
+        assert resp.status_code == 200
+
+    # Post-U2: history is written to events.db, not history_store.
+    from backlink_publisher.events.history_query import list_history
+    items = list_history()
+    assert items, "events.db should contain the published row"
+    assert items[0]["status"] == "published"
 
 
 def test_resume_route_exit0_empty_stdout_does_not_persist_fake_published(client):
