@@ -7,18 +7,17 @@ import time
 from typing import Any
 
 import requests
-from backlink_publisher.http import get as http_get, post as http_post
 
 from backlink_publisher.config import Config
 from backlink_publisher.config.types import MEDIUM_API_BASE, MEDIUM_API_TIMEOUT
 from backlink_publisher._util.errors import (
     AuthExpiredError,
-    DependencyError,
     ExternalServiceError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 from .base import AdapterResult
 from .link_attr_verifier import required_link_urls, verify_link_attributes
 from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
@@ -58,49 +57,10 @@ def _json_log(**kwargs: Any) -> str:
     return json.dumps(kwargs)
 
 
-def _resolve_medium_token_data(config: Config) -> tuple[str, dict | None]:
-    """Return (token, medium_token_data); raise DependencyError if no token found.
-
-    Priority: OAuth access_token → Integration Token file → TOML ``medium_integration_token``.
-    ``medium_token_data`` is ``None`` for non-OAuth sources (Integration Token / TOML).
-    """
-    from backlink_publisher.config import load_medium_token
-    from backlink_publisher.config.tokens import load_medium_integration_token
-
-    medium_token_data = load_medium_token()
-    token = medium_token_data.get("access_token") if medium_token_data else None
-    if not token:
-        it_data = load_medium_integration_token()
-        token = (it_data or {}).get("integration_token", "").strip() or None
-    if not token:
-        token = config.medium_integration_token
-    if not token:
-        raise DependencyError(
-            "medium access token or integration token not configured"
-            " — please authorize via Settings → Medium 授权"
-        )
-    return token, medium_token_data
-
-
-def _check_medium_token_expiry(medium_token_data: dict | None) -> None:
-    """Raise ExternalServiceError if the OAuth token expires within 5 minutes.
-
-    No-ops for non-OAuth sources (``medium_token_data`` is None) and for
-    tokens whose ``expires_at`` is 0 (the "unknown" sentinel) or absent.
-    """
-    if not medium_token_data or "expires_at" not in medium_token_data:
-        return
-    expires_at = medium_token_data["expires_at"]
-    if expires_at > 0 and time.time() >= expires_at - 300:
-        raise ExternalServiceError(
-            "Medium OAuth token expires in < 5 minutes — re-authorize via Settings → Medium 授权"
-        )
-
-
-def _fetch_medium_user_id(headers: dict) -> str:
+def _fetch_medium_user_id(session: requests.Session) -> str:
     """Call ``GET /me``, retrying transient errors; return ``user_id`` or raise."""
     def _do_me() -> requests.Response:
-        resp = http_get(f"{_API_BASE}/me", headers=headers, timeout=_TIMEOUT)
+        resp = session.get(f"{_API_BASE}/me", timeout=_TIMEOUT)
         if resp.status_code in RETRYABLE_HTTP_STATUSES:
             raise _TransientHTTPError(resp.status_code)
         return resp
@@ -131,7 +91,7 @@ def _fetch_medium_user_id(headers: dict) -> str:
 
 def _create_medium_post(
     user_id: str,
-    headers: dict,
+    session: requests.Session,
     body: dict,
 ) -> requests.Response:
     """POST to ``/users/{user_id}/posts``; retry only on 429; raise on errors.
@@ -141,9 +101,8 @@ def _create_medium_post(
     Only a 429 rate-limit rejection (pre-create refusal) is safe to retry.
     """
     def _do_post() -> requests.Response:
-        resp = http_post(
+        resp = session.post(
             f"{_API_BASE}/users/{user_id}/posts",
-            headers=headers,
             json=body,
             timeout=_TIMEOUT,
         )
@@ -192,20 +151,13 @@ class MediumAPIAdapter(Publisher):
         mode: str,
         config: Config,
     ) -> AdapterResult:
-        token, medium_token_data = _resolve_medium_token_data(config)
-        _check_medium_token_expiry(medium_token_data)
+        session = SessionManager(DefaultCredentialProvider()).get_session("medium", config)
 
         t0 = time.monotonic()
         article_id = payload.get("id", "")
         log.info(_json_log(adapter="medium-api", phase="start", id=article_id))
 
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-        user_id = _fetch_medium_user_id(headers)
+        user_id = _fetch_medium_user_id(session)
         log.info(_json_log(adapter="medium-api", phase="lookup", id=article_id))
 
         tags = payload.get("tags", [])[:5]
@@ -231,7 +183,7 @@ class MediumAPIAdapter(Publisher):
         if canonical_url:
             body["canonicalUrl"] = canonical_url
 
-        post_resp = _create_medium_post(user_id, headers, body)
+        post_resp = _create_medium_post(user_id, session, body)
 
         data = post_resp.json().get("data", {})
         url = data.get("url", "")

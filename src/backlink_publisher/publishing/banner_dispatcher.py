@@ -94,7 +94,14 @@ def apply(
         emit(kinds.BANNER_SKIPPED_NO_METHOD, {"platform": platform})
         return body
 
-    artifact_path = Path(banner["path"])
+    raw_path = banner["path"]
+    artifact_path = Path(raw_path).resolve()
+    if artifact_path.suffix.lower() not in {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    }:
+        raise BannerUploadError(
+            f"banner path has disallowed extension: {artifact_path.suffix!r}"
+        )
 
     try:
         uploaded_url = embed_banner(artifact_path, alt)

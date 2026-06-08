@@ -87,7 +87,8 @@ class TestGhpagesCanonical:
 
 
 def _capture_blogger_body(payload: dict[str, Any]) -> dict[str, Any]:
-    """Capture the body passed to ``service.posts().insert()``."""
+    """Capture the JSON body passed to session.post() for a Blogger publish."""
+    from unittest.mock import MagicMock, patch
     from backlink_publisher.config import BloggerOAuthConfig, Config
     from backlink_publisher.publishing.adapters.blogger_api import BloggerAPIAdapter
 
@@ -105,28 +106,25 @@ def _capture_blogger_body(payload: dict[str, Any]) -> dict[str, Any]:
         }
     )
 
-    captured: dict[str, Any] = {}
-
-    def fake_insert(*, blogId, isDraft, body):
-        captured["body"] = body
-        insert_call = MagicMock()
-        insert_call.execute.return_value = {
-            "url": "https://test.blogspot.com/2026/05/post.html",
-            "id": "post-001",
-        }
-        return insert_call
+    mock_sess = MagicMock()
+    post_resp = MagicMock()
+    post_resp.ok = True
+    post_resp.status_code = 200
+    post_resp.json.return_value = {
+        "url": "https://test.blogspot.com/2026/05/post.html",
+        "id": "post-001",
+    }
+    mock_sess.post.return_value = post_resp
 
     with patch(
-        "backlink_publisher.publishing.adapters.blogger_api._build_credentials"
-    ), patch("googleapiclient.discovery.build") as mock_build:
-        mock_service = MagicMock()
-        mock_service.posts.return_value.insert.side_effect = fake_insert
-        mock_build.return_value = mock_service
+        "backlink_publisher.publishing.adapters.blogger_api.SessionManager"
+    ) as MockSM:
+        MockSM.return_value.get_session.return_value = mock_sess
 
         adapter = BloggerAPIAdapter()
         adapter.publish(blogger_payload, "draft", config)
 
-    return captured["body"]
+    return mock_sess.post.call_args[1]["json"]
 
 
 class TestBloggerCanonical:

@@ -372,7 +372,18 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
         banner_path = banner.get("path")
         if isinstance(banner_path, str) and banner_path:
             from pathlib import Path as _P
-            if not _P(banner_path).exists():
+            from backlink_publisher.config import _config_dir as _cfg_dir_module
+            banner_resolved = _P(banner_path).resolve()
+            allowed = (_cfg_dir_module() / "banners").resolve()
+            if not banner_resolved.is_relative_to(allowed):
+                errors_list.append(
+                    f"banner_path outside allowed directory: {banner_path}"
+                )
+            elif not banner_resolved.exists():
+                errors_list.append(
+                    f"banner.path points to a file that does not exist: {banner_path}"
+                )
+            elif not banner.exists():
                 errors_list.append(
                     f"banner.path points to a file that does not exist: {banner_path}"
                 )

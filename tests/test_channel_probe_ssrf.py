@@ -165,19 +165,22 @@ class TestSsrfRedirectHop:
         assert hit.error == ""
 
 
-# ── Unit 3: guard absent (package not installed) ──────────────────────────────
+# ── Unit 3: guard is always active (fail-closed) ──────────────────────────────
 
 
-class TestSsrfGuardAbsent:
-    """When _ssrf_check is None (package not installed), probe still works."""
+class TestSsrfGuardActive:
+    """SSRF guard is fail-closed: _SSRF_GUARD_ACTIVE is always True after import."""
 
-    def test_probe_works_without_guard(self):
-        with patch.object(http_probe, "_ssrf_check", None), patch(
-            "requests.get", return_value=_make_response(200, "https://example.com/")
+    def test_guard_active_flag_is_true(self):
+        assert http_probe._SSRF_GUARD_ACTIVE is True
+
+    def test_ssrf_url_blocked_by_probe(self):
+        with patch.object(
+            http_probe, "_ssrf_check", return_value="private_ip"
         ):
-            hit = http_probe._probe("https://example.com/", "browser", "UA")
-        assert hit.status == 200
-        assert hit.error == ""
+            hit = http_probe._probe("http://169.254.169.254/", "browser", "UA")
+        assert hit.status is None
+        assert "ssrf-blocked" in hit.error
 
 
 # ── Unit 4: relative redirects resolved correctly ────────────────────────────

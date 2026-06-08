@@ -21,6 +21,10 @@ from .schema import (
     supported_platforms,
 )
 
+MAX_SEED_KEYWORDS = 100
+MAX_EXTRA_URLS = 200
+MAX_ITEM_LENGTH = 500
+
 
 def _check_input_required_fields(row: dict[str, Any], line_num: int) -> list[str]:
     errors: list[str] = []
@@ -97,12 +101,38 @@ def _check_input_urls_and_normalize(row: dict[str, Any], line_num: int) -> list[
 
 
 def _check_input_seed_keywords(row: dict[str, Any], line_num: int) -> list[str]:
-    # Validate seed_keywords item types (list type already checked above)
+    # Validate seed_keywords item types and length caps.
     errors: list[str] = []
     if "seed_keywords" in row and isinstance(row["seed_keywords"], list):
-        for kw in row["seed_keywords"]:
+        if len(row["seed_keywords"]) > MAX_SEED_KEYWORDS:
+            errors.append(
+                f"line {line_num}: 'seed_keywords' exceeds {MAX_SEED_KEYWORDS} items"
+            )
+        for i, kw in enumerate(row["seed_keywords"][:MAX_SEED_KEYWORDS]):
             if not isinstance(kw, str):
                 errors.append(f"line {line_num}: 'seed_keywords' items must be strings")
+            elif len(kw) > MAX_ITEM_LENGTH:
+                errors.append(
+                    f"line {line_num}: seed_keywords[{i}] exceeds {MAX_ITEM_LENGTH} chars"
+                )
+    return errors
+
+
+def _check_input_extra_urls(row: dict[str, Any], line_num: int) -> list[str]:
+    # Validate extra_urls item types and length caps.
+    errors: list[str] = []
+    if "extra_urls" in row and isinstance(row["extra_urls"], list):
+        if len(row["extra_urls"]) > MAX_EXTRA_URLS:
+            errors.append(
+                f"line {line_num}: 'extra_urls' exceeds {MAX_EXTRA_URLS} items"
+            )
+        for i, url in enumerate(row["extra_urls"][:MAX_EXTRA_URLS]):
+            if not isinstance(url, str):
+                errors.append(f"line {line_num}: 'extra_urls' items must be strings")
+            elif len(url) > MAX_ITEM_LENGTH:
+                errors.append(
+                    f"line {line_num}: extra_urls[{i}] exceeds {MAX_ITEM_LENGTH} chars"
+                )
     return errors
 
 
@@ -122,6 +152,7 @@ def validate_input_payload(row: dict[str, Any], line_num: int) -> list[str]:
     errors.extend(_check_input_enumerated_values(row, line_num))
     errors.extend(_check_input_urls_and_normalize(row, line_num))
     errors.extend(_check_input_seed_keywords(row, line_num))
+    errors.extend(_check_input_extra_urls(row, line_num))
     return errors
 
 
@@ -155,6 +186,7 @@ def validate_and_convert_input(
     errors.extend(_check_input_enumerated_values(row, line_num))
     errors.extend(_check_input_urls_and_normalize(row, line_num))
     errors.extend(_check_input_seed_keywords(row, line_num))
+    errors.extend(_check_input_extra_urls(row, line_num))
     if errors:
         return None, errors
 

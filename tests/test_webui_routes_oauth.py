@@ -348,7 +348,7 @@ def _callback_mocks():
     return flow_cls, [
         patch("google_auth_oauthlib.flow.Flow", flow_cls),
         patch("backlink_publisher.config.save_blogger_token"),
-        patch("backlink_publisher.publishing.adapters.blogger_api.json_from_creds",
+        patch("webui_app.routes.oauth._json_from_creds",
               return_value={"token": "t"}),
     ]
 

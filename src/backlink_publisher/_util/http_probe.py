@@ -4,9 +4,9 @@ Provides the ``probe_url()`` public function and lower-level ``_probe``/
 ``_triage`` internals used by both ``channel_probe.py`` (now a thin wrapper)
 and ``scripts/platform_discovery.py``.
 
-SSRF guard is **fail-open** at this layer: callers requiring fail-closed
-behaviour (Track B: ``platform_discovery.py``) must verify guard availability
-themselves via ``_SSRF_GUARD_ACTIVE`` before processing machine-sourced URLs.
+SSRF guard is **fail-closed**: import failure raises ``RuntimeError`` rather
+than silently allowing unguarded requests.  ``_SSRF_GUARD_ACTIVE`` remains
+as a diagnostic flag but is always True in practice.
 """
 
 from __future__ import annotations
@@ -17,15 +17,10 @@ from urllib.parse import urljoin
 
 import requests
 
-# SSRF guard — same function used by the production pipeline's preflight fetch.
-# Fail-open: when the guard cannot be imported, _validate_url_ssrf returns None
-# (pass-through). Callers that need fail-closed must inspect _SSRF_GUARD_ACTIVE.
-try:
-    from backlink_publisher._util.net_safety import _check_url_for_ssrf as _ssrf_check
-    _SSRF_GUARD_ACTIVE = True
-except Exception:  # noqa: BLE001
-    _ssrf_check = None  # type: ignore[assignment]
-    _SSRF_GUARD_ACTIVE = False
+# SSRF guard — fail-closed: import failure is a hard error, not a silent bypass.
+from backlink_publisher._util.net_safety import _check_url_for_ssrf as _ssrf_check
+
+_SSRF_GUARD_ACTIVE = True
 
 # Real verifier UA imported live so probes match what the pipeline's
 # link_attr_verifier preflight fetch actually sends.
@@ -74,12 +69,7 @@ class UrlResult:
 
 
 def _validate_url_ssrf(url: str) -> Optional[str]:
-    """Return blocked reason if URL is SSRF-dangerous, else None.
-
-    Returns None (safe pass-through) when the guard is not active.
-    """
-    if _ssrf_check is None:
-        return None
+    """Return blocked reason if URL is SSRF-dangerous, else None."""
     return _ssrf_check(url)
 
 

@@ -212,20 +212,16 @@ def canonicalize_url(url: str) -> str:
     if scheme not in _DEFAULT_PORTS:
         return url
 
-    # netloc = userinfo@host:port. We lowercase host but preserve userinfo as-is
-    # (basic-auth credentials in URLs are a Threat-Model T1 concern, not a
-    # canonicalization concern — scrubber removes them in U6).
+    # netloc = userinfo@host:port. We lowercase host but strip userinfo
+    # (basic-auth credentials in URLs must not enter cache keys or log entries).
     host = parts.hostname or ""
     host_lower = host.lower()
     port = parts.port
-    userinfo_at = ""
-    if "@" in parts.netloc:
-        userinfo_at = parts.netloc.split("@", 1)[0] + "@"
 
     if port is None or port == _DEFAULT_PORTS[scheme]:
-        netloc = f"{userinfo_at}{host_lower}"
+        netloc = host_lower
     else:
-        netloc = f"{userinfo_at}{host_lower}:{port}"
+        netloc = f"{host_lower}:{port}"
 
     # Path: strip trailing slash except for root "/".
     path = parts.path

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._manifest_types import BindDescriptor, Policy, UiMeta
+from ._manifest_types import BindDescriptor, Policy, ProbeConfig, RefreshConfig, SessionDescriptor, UiMeta
 
 # ── velog ──────────────────────────────────────────────────────────────────
 #
@@ -74,6 +74,19 @@ VELOG_MANIFEST: dict[str, Any] = dict(
         retry_id="default",
         liveness_probe_sec=900,
         language_whitelist=("ko", "en"),
+    ),
+    session=SessionDescriptor(
+        credential_type="cookie",
+        config_path="<config_dir>/velog-cookies.json",
+        probe=ProbeConfig(
+            endpoint="https://v3.velog.io/graphql",
+            http_method="POST",
+            graphql_query="{ currentUser { id username } }",
+            shape=("data", "currentUser", "id"),
+            timeout_sec=10,
+            headers={"content-type": "application/json"},
+        ),
+        refresh=RefreshConfig(method="cookie-implicit"),
     ),
     # visibility defaults to "active" — explicit kwarg omitted.
 )
@@ -156,6 +169,18 @@ BLOGGER_MANIFEST: dict[str, Any] = dict(
         retry_id="default",
         liveness_probe_sec=None,
         language_whitelist=(),
+    ),
+    session=SessionDescriptor(
+        credential_type="oauth",
+        config_path="<config_dir>/blogger-token.json",
+        # No liveness probe: Google's Blogger API returns 401 on expired tokens —
+        # the adapter catches AuthExpiredError directly. A probe call would add
+        # an extra round-trip on every publish with no benefit.
+        refresh=RefreshConfig(
+            method="oauth-refresh-token",
+            token_endpoint="https://oauth2.googleapis.com/token",
+            expiration_window_sec=300,
+        ),
     ),
 )
 
@@ -632,6 +657,14 @@ MEDIUM_MANIFEST: dict[str, Any] = dict(
         liveness_probe_sec=None,
         language_whitelist=(),
     ),
+    session=SessionDescriptor(
+        credential_type="bearer",
+        config_path="<config_dir>/medium-token.json",
+        # No probe: Medium's /me endpoint requires OAuth scope we don't always
+        # have; the adapter falls back to MediumBrave/MediumBrowser on failure.
+        # No refresh: Integration Token never expires; OAuth token refresh is
+        # handled in the Medium SSO bind flow, not the publish path.
+    ),
 )
 
 # ── Phase-2 placeholder stubs ──────────────────────────────────────────────
@@ -651,6 +684,13 @@ RENTRY_MANIFEST: dict[str, Any] = dict(
 )
 SUBSTACK_MANIFEST: dict[str, Any] = dict(
     ui=UiMeta(display_name="Substack", domain="substack.com", category="newsletter"),
+    session=SessionDescriptor(
+        credential_type="cookie",
+        config_path="<config_dir>/substack-credentials.json",
+        # No probe: Substack has no documented liveness endpoint; the adapter
+        # detects expired cookies from HTTP 401/403 during publish.
+        refresh=RefreshConfig(method="cookie-implicit"),
+    ),
 )
 TUMBLR_MANIFEST: dict[str, Any] = dict(
     ui=UiMeta(display_name="Tumblr", domain="tumblr.com", category="social"),

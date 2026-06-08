@@ -44,7 +44,7 @@ def test_settings_page_shows_image_gen_card_when_configured(client, tmp_path, mo
     resp = client.get("/settings")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
-    assert "AI Banner 图生成" in body
+    assert "AI 封面图状态快照" in body
     assert "gateway.example.com" in body
     assert "1200x630" in body
     assert "frw-token.json" in body
@@ -57,8 +57,8 @@ def test_settings_page_shows_unconfigured_message(client, tmp_path, monkeypatch)
     resp = client.get("/settings")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
-    assert "AI Banner 图生成" in body
-    assert "[image_gen]</code> section 未配置" in body
+    assert "AI 封面图状态快照" in body
+    assert "未配置" in body
 
 
 # ── /settings/test-image-gen route ──────────────────────────────────────────
