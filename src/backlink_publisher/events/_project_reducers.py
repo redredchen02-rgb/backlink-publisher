@@ -242,7 +242,20 @@ def _handle_checkpoint_confirmed(
     try:
         article_id = store.add_article(art, conn=conn)
     except sqlite3.IntegrityError:
-        return (0, 0)
+        # Duplicate article (live_url UNIQUE collision): emit a reconcile.swallowed
+        # event so the equity ledger can account for the drop instead of losing
+        # it silently in the int counter.
+        store.append(
+            kinds.RECONCILE_SWALLOWED,
+            {"live_url": published_url, "target_url": target_url},
+            run_id=run_id,
+            target_url=target_url,
+            host=live_host,
+            ts_raw=ts_raw,
+            ts_utc=ts_utc,
+            conn=conn,
+        )
+        return (0, 1)
     _verified = item.get("verified", True)
     _kind = kinds.PUBLISH_CONFIRMED if _verified else kinds.PUBLISH_UNVERIFIED
     store.append(

@@ -62,6 +62,13 @@ CITATION_OBSERVED: Final = "citation.observed"
 #: through the projector, so it has no Seam B (STATUS_MAP) entry. Carries the
 #: 5-verdict taxonomy in ``payload["verdict"]`` (see ``recheck.verdicts``).
 LINK_RECHECKED: Final = "link.rechecked"
+#: A CONFIRMED_FAMILY checkpoint row was silently dropped by the reconcile
+#: projector because the article's ``live_url`` already exists in
+#: ``articles`` (UNIQUE constraint). Emitted in place of a silent int-counter
+#: increment so operators can audit dedup-collision rate via the equity ledger.
+#: ``live_url`` is the load-bearing field (the exact key that caused the
+#: collision). Written directly by ``_project_reducers._handle_checkpoint_confirmed``.
+RECONCILE_SWALLOWED: Final = "reconcile.swallowed"
 
 #: Every kind ever written to events.db. The R8a CI gate asserts no writer
 #: emits a kind outside this set.
@@ -85,6 +92,7 @@ KINDS: Final[frozenset[str]] = frozenset(
         IMAGE_GEN_DISABLED_AUTO,
         CITATION_OBSERVED,
         LINK_RECHECKED,
+        RECONCILE_SWALLOWED,
     }
 )
 
@@ -144,6 +152,9 @@ REQUIRED_FIELDS: Final[dict[str, frozenset[str]]] = {
     # field so the projector can update articles.verified_at/verify_error.
     PUBLISH_VERIFIED: frozenset({"article_id"}),
     PUBLISH_VERIFY_FAILED: frozenset({"article_id", "error_message"}),
+    # live_url is the UNIQUE key that caused the collision — the load-bearing
+    # field for any downstream reader correlating swallowed rows to articles.
+    RECONCILE_SWALLOWED: frozenset({"live_url"}),
 }
 
 

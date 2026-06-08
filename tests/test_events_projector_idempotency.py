@@ -122,9 +122,11 @@ def test_succeeded_to_reset_to_succeeded_only_emits_one_publish_confirmed(tmp_pa
     }))
     result = flush_for(ckpt)
 
-    # Article UNIQUE caught the second insert.
+    # Article UNIQUE caught the second insert: a reconcile.swallowed event is
+    # emitted instead of silently incrementing skipped_due_to_dedup.
     assert result.articles_inserted == 0
-    assert result.skipped_due_to_dedup >= 1
+    assert result.skipped_due_to_dedup == 0
+    assert _count_kind(EventStore(), "reconcile.swallowed") == 1
     assert _count(EventStore(), "articles") == 1
     confirmed = _count_kind(EventStore(), "publish.confirmed")
     assert confirmed == 1
@@ -135,6 +137,58 @@ def _count_kind(store: EventStore, kind: str) -> int:
         return conn.execute(
             "SELECT COUNT(*) FROM events WHERE kind = ?", (kind,)
         ).fetchone()[0]
+
+
+# ── reconcile.swallowed: checkpoint UNIQUE collision emits audit event ─
+
+
+def test_reconcile_swallowed_event_emitted_on_unique_collision(tmp_path):
+    """A checkpoint duplicate (live_url UNIQUE collision) must emit a
+    ``reconcile.swallowed`` event with ``live_url`` in the payload so that the
+    equity ledger can account for the dropped row."""
+    live_url = "https://blog.example.org/swallow-test"
+    target_url = "https://example.com/swallow"
+    base_item = {
+        "id": "a", "status": "succeeded", "title": "t",
+        "platform": "blogger", "adapter": None,
+        "published_url": live_url,
+        "error": None, "error_class": None,
+        "completed_at": "2026-05-18T12:05:00+00:00",
+        "payload": {"target_url": target_url},
+    }
+    ckpt = _make_checkpoint(tmp_path, [base_item])
+    flush_for(ckpt)
+
+    # Force a replay by resetting the cursor (write a fresh checkpoint with the
+    # same item; the reset → succeeded cycle tricks the cursor state diff).
+    reset_item = dict(base_item, status="pending", published_url=None, completed_at=None)
+    ckpt.write_text(json.dumps({
+        "run_id": "20260518T120000-abcd1234",
+        "started_at": "2026-05-18T12:00:00+00:00",
+        "platform": "blogger", "mode": "publish", "status": None,
+        "items": [reset_item], "flags": {},
+    }))
+    flush_for(ckpt)
+    ckpt.write_text(json.dumps({
+        "run_id": "20260518T120000-abcd1234",
+        "started_at": "2026-05-18T12:00:00+00:00",
+        "platform": "blogger", "mode": "publish", "status": None,
+        "items": [base_item], "flags": {},
+    }))
+    flush_for(ckpt)
+
+    # The swallow event carries live_url and target_url in the payload.
+    store = EventStore()
+    with store.connect() as conn:
+        row = conn.execute(
+            "SELECT payload_json, target_url FROM events WHERE kind = ?",
+            ("reconcile.swallowed",),
+        ).fetchone()
+    assert row is not None, "reconcile.swallowed event not emitted"
+    import json as _json
+    payload = _json.loads(row[0])
+    assert payload.get("live_url") == live_url
+    assert row[1] == target_url  # events.target_url column
 
 
 # ── Cross-source dedup: checkpoint wins, history skips article ────
