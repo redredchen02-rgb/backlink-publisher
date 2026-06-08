@@ -70,10 +70,9 @@ class TestFullStackFlow:
 
         # Stage 4: bulk-recheck the two unverified rows.
         # Post-U2: items are in events.db with integer article_ids.
-        # Recheck/purge (U3/U6) still operate on history_store for legacy items;
-        # seed history_store with ALL four rows so stages 4-5 find them.
+        # update_item falls back to _update_item_events_db for events.db items
+        # (U3); write_event appends updated status event; list_history() reflects both.
         all_items = list_history()
-        history_store.update(lambda h: all_items + h)
         unverified_ids = [it["id"] for it in all_items if it["status"].endswith("_unverified")]
         assert len(unverified_ids) == 2
         with patch(
@@ -91,16 +90,17 @@ class TestFullStackFlow:
         assert resp.status_code == 302
         msg = unquote(resp.location)
         assert "已核实 2 条" in msg
-        # Both unverified now failed
-        after = {it["target_url"]: it for it in history_store.load()}
+        # Both unverified now failed — read from events.db (U5 read path)
+        after = {it["target_url"]: it for it in list_history()}
         assert after["https://b/"]["status"] == "failed"
         assert after["https://c/"]["status"] == "failed"
         assert after["https://b/"]["verify_error"] == "http_404"
 
-        # Stage 5: purge-failed wipes them + the original 'd' coerced failure
+        # Stage 5: purge-failed wipes them + the original 'd' coerced failure.
+        # purge_failed counts events.db purges too (U6 shim).
         resp = client.post("/ce:history/purge-failed")
         assert "已清除 3 条" in unquote(resp.location)
-        remaining = history_store.load()
+        remaining = list_history()
         # Only the originally-clean 'published' row 'a' survives
         assert len(remaining) == 1
         assert remaining[0]["target_url"] == "https://a/"

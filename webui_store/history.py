@@ -89,7 +89,8 @@ class HistoryStore:
             items = self.load()
             matched = any(str(it.get("id", "")) == str(item_id) for it in items)
             if not matched:
-                return False
+                # Item may be in events.db (post-U2 integer article_id).
+                return self._update_item_events_db(item_id, **fields)
             self.save(_fn(items))
             return True
 
