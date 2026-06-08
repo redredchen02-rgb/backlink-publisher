@@ -80,8 +80,10 @@ def _link_attr_from_fixture(html_name: str, target: str = _TARGET) -> dict:
     from backlink_publisher.publishing.adapters import link_attr_verifier as lav
 
     html = (_FIXTURES / html_name).read_text(encoding="utf-8")
-    fake = SimpleNamespace(ok=True, status_code=200, text=html)
-    with patch.object(lav._http, "get", return_value=fake):
+    with patch(
+        "backlink_publisher.publishing.adapters.link_attr_verifier._fetch_body_via_preflight",
+        return_value=(html.encode(), None),
+    ):
         return lav.verify_link_attributes(
             "https://recorded.example/post", target_urls=[target]
         )

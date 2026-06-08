@@ -11,6 +11,9 @@ from backlink_publisher.publishing.adapters.link_attr_verifier import (
 )
 
 
+_FETCH = "backlink_publisher.publishing.adapters.link_attr_verifier._fetch_body_via_preflight"
+_SM_MEDIUM = "backlink_publisher.publishing.adapters.medium_api.SessionManager"
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -38,7 +41,7 @@ def test_all_anchors_have_blank_target():
         '<a href="https://b.com" target="_blank">link2</a>',
         '<a href="https://c.com" target="_blank">link3</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
 
     assert result["verification"] == "ok"
@@ -54,7 +57,7 @@ def test_half_anchors_have_blank_target():
         '<a href="https://c.com">link3</a>',
         '<a href="https://d.com">link4</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
 
     assert result["verification"] == "ok"
@@ -62,7 +65,7 @@ def test_half_anchors_have_blank_target():
 
 
 def test_no_anchors_in_html():
-    with patch("backlink_publisher.http.get", return_value=_mock_resp("<html><body>no links</body></html>")):
+    with patch(_FETCH, return_value=("<html><body>no links</body></html>".encode(), None)):
         result = verify_link_attributes("https://example.com")
 
     assert result["verification"] == "ok"
@@ -72,14 +75,14 @@ def test_no_anchors_in_html():
 
 def test_single_quote_target_matches():
     html = _html("<a href='https://a.com' target='_blank'>link</a>")
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["blank_anchors"] == 1
 
 
 def test_uppercase_target_matches():
     html = _html('<a href="https://a.com" TARGET="_BLANK">link</a>')
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["blank_anchors"] == 1
 
@@ -90,34 +93,34 @@ def test_uppercase_target_matches():
 
 def test_connection_error_returns_skipped():
     import requests as req_lib
-    with patch("backlink_publisher.http.get", side_effect=req_lib.ConnectionError("refused")):
+    with patch(_FETCH, return_value=(b"", "network_error")):
         result = verify_link_attributes("http://127.0.0.1:19999/nonexistent", timeout=0.1)
     assert result["verification"] == "skipped"
     assert "reason" in result
 
 
 def test_http_5xx_returns_skipped():
-    with patch("backlink_publisher.http.get", return_value=_mock_resp("", status_code=503)):
+    with patch(_FETCH, return_value=(b"", "http_503")):
         result = verify_link_attributes("https://example.com")
     assert result["verification"] == "skipped"
     assert "503" in result["reason"]
 
 
 def test_http_4xx_returns_skipped():
-    with patch("backlink_publisher.http.get", return_value=_mock_resp("", status_code=404)):
+    with patch(_FETCH, return_value=(b"", "http_404")):
         result = verify_link_attributes("https://example.com")
     assert result["verification"] == "skipped"
 
 
 def test_timeout_returns_skipped():
     import requests as req_lib
-    with patch("backlink_publisher.http.get", side_effect=req_lib.Timeout("timed out")):
+    with patch(_FETCH, return_value=(b"", "network_error")):
         result = verify_link_attributes("https://example.com", timeout=0.001)
     assert result["verification"] == "skipped"
 
 
 def test_non_html_response_does_not_crash():
-    with patch("backlink_publisher.http.get", return_value=_mock_resp('{"not": "html"}')):
+    with patch(_FETCH, return_value=('{"not": "html"}'.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["verification"] == "ok"
     assert result["total_anchors"] == 0
@@ -137,7 +140,7 @@ def test_nofollow_clean_html_flags_nothing():
     html = _html(
         '<a href="https://a.com" target="_blank" rel="noopener">link</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["verification"] == "ok"
     assert result["nofollow_detected"] is False
@@ -149,7 +152,7 @@ def test_nofollow_injected_by_platform_is_detected():
     html = _html(
         '<a href="https://a.com" target="_blank" rel="nofollow noopener">link</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["verification"] == "ok"
     assert result["nofollow_detected"] is True
@@ -162,7 +165,7 @@ def test_sponsored_rel_is_not_misclassified_as_nofollow():
     html = _html(
         '<a href="https://a.com" target="_blank" rel="sponsored noopener">link</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["nofollow_detected"] is False
     assert result["nofollow_anchors"] == 0
@@ -175,7 +178,7 @@ def test_any_single_nofollow_anchor_flips_detection():
         '<a href="https://b.com" target="_blank" rel="noopener">link b</a>',
         '<a href="https://c.com" target="_blank" rel="nofollow noopener">link c</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["nofollow_detected"] is True
     assert result["nofollow_anchors"] == 1
@@ -195,7 +198,7 @@ def test_nofollow_substring_match_does_not_falsely_trigger():
         # alert.
         '<a href="https://c.com" rel="nofollowed">link c</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["nofollow_detected"] is False
     assert result["nofollow_anchors"] == 0
@@ -206,7 +209,7 @@ def test_uppercase_rel_attribute_still_matches():
     html = _html(
         '<a href="https://a.com" REL="NOFOLLOW NOOPENER">link</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["nofollow_detected"] is True
     assert result["nofollow_anchors"] == 1
@@ -218,7 +221,7 @@ def test_multiple_nofollow_anchors_count_correctly():
         '<a href="https://b.com" rel="nofollow noopener">b</a>',
         '<a href="https://c.com" rel="noopener">c</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://example.com")
     assert result["nofollow_detected"] is True
     assert result["nofollow_anchors"] == 2
@@ -229,7 +232,7 @@ def test_skipped_result_has_no_nofollow_keys():
     be present — callers reading meta['nofollow_detected'] must check the
     verification status first."""
     import requests as req_lib
-    with patch("backlink_publisher.http.get", side_effect=req_lib.ConnectionError("refused")):
+    with patch(_FETCH, return_value=(b"", "network_error")):
         result = verify_link_attributes("http://127.0.0.1:1/x", timeout=0.1)
     assert result["verification"] == "skipped"
     assert "nofollow_detected" not in result
@@ -276,19 +279,16 @@ def test_medium_api_publish_hook_wires_meta():
     me_resp.ok = True
     me_resp.status_code = 200
     me_resp.json.return_value = {"data": {"id": "me123"}}
-    page_resp = _mock_resp(html)
 
-    def _requests_get(url, **kw):
-        if "v1/me" in url:
-            return me_resp
-        return page_resp
-
-    cfg = Config(medium_integration_token="dummy-token")
+    cfg = Config()
     adapter = MediumAPIAdapter()
 
-    with patch("backlink_publisher.publishing.adapters.medium_api.http_get", side_effect=_requests_get), \
-         patch("backlink_publisher.http.get", side_effect=_requests_get), \
-         patch("backlink_publisher.publishing.adapters.medium_api.http_post", return_value=api_resp):
+    with patch(_SM_MEDIUM) as MockSM, \
+         patch(_FETCH, return_value=(html.encode(), None)):
+        sess = MagicMock()
+        sess.get.return_value = me_resp
+        sess.post.return_value = api_resp
+        MockSM.return_value.get_session.return_value = sess
         result = adapter.publish(_make_payload("publish"), mode="publish", config=cfg)
 
     assert result.status == "published"
@@ -312,14 +312,17 @@ def test_medium_api_draft_mode_skips_verifier():
     me_resp.status_code = 200
     me_resp.json.return_value = {"data": {"id": "me456"}}
 
-    cfg = Config(medium_integration_token="dummy-token")
+    cfg = Config()
     adapter = MediumAPIAdapter()
 
-    with patch("backlink_publisher.publishing.adapters.medium_api.http_get", return_value=me_resp), \
-         patch("backlink_publisher.publishing.adapters.medium_api.http_post", return_value=api_resp), \
+    with patch(_SM_MEDIUM) as MockSM, \
          patch(
              "backlink_publisher.publishing.adapters.medium_api.verify_link_attributes"
          ) as mock_verify:
+        sess = MagicMock()
+        sess.get.return_value = me_resp
+        sess.post.return_value = api_resp
+        MockSM.return_value.get_session.return_value = sess
         result = adapter.publish(_make_payload("draft", "draft01"), mode="draft", config=cfg)
 
     assert result.status == "drafted"
@@ -342,15 +345,18 @@ def test_verifier_skipped_result_no_warn(caplog):
 
     skipped = {"verification": "skipped", "reason": "timeout"}
 
-    cfg = Config(medium_integration_token="dummy-token")
+    cfg = Config()
     adapter = MediumAPIAdapter()
 
-    with patch("backlink_publisher.publishing.adapters.medium_api.http_get", return_value=me_resp), \
-         patch("backlink_publisher.publishing.adapters.medium_api.http_post", return_value=api_resp), \
+    with patch(_SM_MEDIUM) as MockSM, \
          patch(
              "backlink_publisher.publishing.adapters.medium_api.verify_link_attributes",
              return_value=skipped,
          ):
+        sess = MagicMock()
+        sess.get.return_value = me_resp
+        sess.post.return_value = api_resp
+        MockSM.return_value.get_session.return_value = sess
         result = adapter.publish(_make_payload("publish", "p2"), mode="publish", config=cfg)
 
     assert result.status == "published"
@@ -374,7 +380,7 @@ def test_target_found_dofollow():
         f'<a href="{_TARGET}" target="_blank" rel="noopener">myblog</a>',
         '<a href="https://other.com" rel="noopener">other</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[_TARGET])
 
     assert result["verification"] == "ok"
@@ -391,7 +397,7 @@ def test_target_nofollow_drift_detected():
     html = _html(
         f'<a href="{_TARGET}" rel="nofollow noopener">myblog</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[_TARGET])
 
     assert result["target_found"] is True
@@ -406,7 +412,7 @@ def test_target_missing_drift_detected():
     html = _html(
         '<a href="https://unrelated.com" target="_blank">something</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[_TARGET])
 
     assert result["target_found"] is False
@@ -427,7 +433,7 @@ def test_target_rewritten_via_interstitial():
     html = _html(
         f'<a href="{shim}" rel="noopener">myblog via shim</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[_TARGET])
 
     assert result["target_found"] is True
@@ -443,7 +449,7 @@ def test_unrelated_page_nofollow_does_not_taint_target():
         f'<a href="{_TARGET}" rel="noopener">myblog</a>',
         '<a href="https://nav.example.com" rel="nofollow">nav</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[_TARGET])
 
     assert result["nofollow_detected"] is True      # page-wide fire
@@ -458,7 +464,7 @@ def test_target_dofollow_wins_over_same_nofollow_duplicate():
         f'<a href="{_TARGET}" rel="nofollow">nofollow copy</a>',
         f'<a href="{_TARGET}" rel="noopener">dofollow copy</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[_TARGET])
 
     assert result["target_nofollow"] is False  # dofollow copy survives
@@ -467,7 +473,7 @@ def test_target_dofollow_wins_over_same_nofollow_duplicate():
 def test_back_compat_no_target_fields_when_target_urls_none():
     """Back-compat: target_urls=None → no target_* keys in result."""
     html = _html('<a href="https://a.com" target="_blank">link</a>')
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com")  # no target_urls
 
     assert "target_found" not in result
@@ -478,7 +484,7 @@ def test_back_compat_no_target_fields_when_target_urls_none():
 def test_back_compat_no_target_fields_when_target_urls_empty():
     """Back-compat: target_urls=[] → no target_* keys in result."""
     html = _html('<a href="https://a.com" target="_blank">link</a>')
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[])
 
     assert "target_found" not in result
@@ -488,7 +494,7 @@ def test_back_compat_no_target_fields_when_target_urls_empty():
 def test_skipped_result_has_no_target_fields():
     """verification=skipped → no target_* fields (target_urls present but unused)."""
     import requests as req_lib
-    with patch("backlink_publisher.http.get", side_effect=req_lib.ConnectionError("refused")):
+    with patch(_FETCH, return_value=(b"", "network_error")):
         result = verify_link_attributes("http://127.0.0.1:1/x", timeout=0.1,
                                         target_urls=[_TARGET])
 
@@ -505,7 +511,7 @@ def test_multiple_required_links_all_dofollow():
         f'<a href="{t1}" rel="noopener">one</a>',
         f'<a href="{t2}" rel="noopener">two</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[t1, t2])
 
     assert result["target_found"] is True
@@ -521,7 +527,7 @@ def test_multiple_required_links_one_missing_one_nofollow():
         f'<a href="{present}" rel="nofollow">one</a>',
         '<a href="https://unrelated.com">x</a>',
     )
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com",
                                         target_urls=[present, missing])
 
@@ -579,7 +585,7 @@ def test_target_nofollow_interstitial_appears_in_both_lists():
     target = "https://myblog.example.com/post/one"
     shim = "https://shim.example.com/?url=" + target
     html = _html(f'<a href="{shim}" rel="nofollow">link via nofollow shim</a>')
-    with patch("backlink_publisher.http.get", return_value=_mock_resp(html)):
+    with patch(_FETCH, return_value=(html.encode(), None)):
         result = verify_link_attributes("https://pub.example.com", target_urls=[target])
 
     assert result["target_found"] is True  # found via effective (unwrapped) href
