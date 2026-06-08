@@ -71,7 +71,10 @@ class KeepaliveRunState:
     @property
     def MAX_RETRY(self) -> int:
         try:
-            return int(os.environ.get(_ENV_MAX_RETRY, _DEFAULT_MAX_RETRY))
+            # Clamp to >= 1: KEEPALIVE_MAX_RETRY=0 would mark every target
+            # immediately exhausted (attempts=0 >= 0), turning each cycle into
+            # a no-op that skips all gaps.
+            return max(1, int(os.environ.get(_ENV_MAX_RETRY, _DEFAULT_MAX_RETRY)))
         except (ValueError, TypeError):
             return _DEFAULT_MAX_RETRY
 

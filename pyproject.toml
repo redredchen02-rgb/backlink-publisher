@@ -75,6 +75,7 @@ backup-state = "backlink_publisher.cli.state_backup:backup_main"
 restore-state = "backlink_publisher.cli.state_backup:restore_main"
 keepalive-run = "backlink_publisher.cli.keepalive_run:main"
 keepalive-status = "backlink_publisher.cli.keepalive_status:main"
+keepalive-reset-exhausted = "backlink_publisher.cli.keepalive_reset_exhausted:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

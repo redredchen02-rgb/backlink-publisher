@@ -13,6 +13,7 @@ from __future__ import annotations
 from flask import Blueprint, abort, jsonify, request
 
 from backlink_publisher._util.errors import UsageError
+from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.gap.engine import KEEPALIVE_STICKY_PLATFORMS
 
 from ..api import HistoryAPI
@@ -142,6 +143,9 @@ def reset_exhausted():
     target_url = (body.get("target_url") or "").strip()
     if not target_url:
         return jsonify({"status": "error", "error": "target_url required"}), 400
+    # Normalize so agents/scripts calling with trailing-slash or encoding variants
+    # still match the key stored by record_attempt() via chain.py.
+    target_url = canonicalize_url(target_url)
 
     from backlink_publisher.keepalive.run_state import KeepaliveRunState
     rs = KeepaliveRunState()

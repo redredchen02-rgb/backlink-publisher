@@ -1,7 +1,7 @@
 ---
 title: "feat: Keep-alive WebUI Cycle Metrics Panel"
 type: feat
-status: active
+status: completed
 date: 2026-06-08
 deepened: 2026-06-08
 origin: docs/plans/2026-06-05-004-feat-keepalive-recovery-loop-plan.md
@@ -162,7 +162,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 1: `build_cycle_status_view()` in `services/keep_alive.py`**
+- [x] **Unit 1: `build_cycle_status_view()` in `services/keep_alive.py`**
 
 **Goal**: Service function that reads `KeepaliveRunState` and `OptimizationState` and returns a clean dict for the cycle panel.
 
@@ -206,7 +206,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 2: JSON endpoints in `routes/keep_alive.py`**
+- [x] **Unit 2: JSON endpoints in `routes/keep_alive.py`**
 
 **Goal**: `GET /ce:keep-alive/cycle-status` and `POST /ce:keep-alive/reset-exhausted` routes.
 
@@ -241,7 +241,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 3: HTML panel scaffold in `keep_alive.html`**
+- [x] **Unit 3: HTML panel scaffold in `keep_alive.html`**
 
 **Goal**: Add the `#cyclePanel` placeholder div and the "Reset exhausted" confirm mini-modal to the template.
 
@@ -275,7 +275,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 4: JS fetch + render in `keep_alive.js`**
+- [x] **Unit 4: JS fetch + render in `keep_alive.js`**
 
 **Goal**: `loadCyclePanel()` function that fetches `/ce:keep-alive/cycle-status`, renders the panel, and handles reset-exhausted interactions.
 
@@ -315,7 +315,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 5: Route contract assertion + SLOC ceiling bump**
+- [x] **Unit 5: Route contract assertion + SLOC ceiling bump**
 
 **Goal**: Add `GET /ce:keep-alive/cycle-status → 200` to the route contract test and bump the `complexity_budget.toml` SLOC ceiling to cover the added line.
 

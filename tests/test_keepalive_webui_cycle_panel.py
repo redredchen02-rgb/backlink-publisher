@@ -4,6 +4,9 @@ Covers:
   - build_cycle_status_view() unit tests (service layer, injectable state)
   - GET /ce:keep-alive/cycle-status route (200, JSON shape)
   - POST /ce:keep-alive/reset-exhausted route (origin guard, was_present)
+  - MAX_RETRY=0 clamp (R1 downstream fix)
+  - 403 origin-guard returns JSON (R3 downstream fix)
+  - keepalive-reset-exhausted CLI (R4 downstream fix)
 """
 from __future__ import annotations
 
@@ -15,6 +18,7 @@ from unittest.mock import patch
 import pytest
 
 import webui
+from backlink_publisher.cli.keepalive_reset_exhausted import main as reset_cli_main
 from backlink_publisher.keepalive.run_state import KeepaliveRunState
 from backlink_publisher.optimization.state import OptimizationState
 from webui_app.services.keep_alive import build_cycle_status_view
@@ -271,3 +275,121 @@ class TestCycleStatusRoutes:
         assert body["was_present"] is True
         # Confirm reset actually removed the entry.
         assert target not in rs.load().get("retry_counts", {})
+
+
+# ── R1: MAX_RETRY clamp ───────────────────────────────────────────────────────
+
+
+class TestMaxRetryClamp:
+    def test_max_retry_zero_clamps_to_one(self, monkeypatch):
+        monkeypatch.setenv("KEEPALIVE_MAX_RETRY", "0")
+        rs = KeepaliveRunState()
+        assert rs.MAX_RETRY == 1
+
+    def test_max_retry_negative_clamps_to_one(self, monkeypatch):
+        monkeypatch.setenv("KEEPALIVE_MAX_RETRY", "-5")
+        rs = KeepaliveRunState()
+        assert rs.MAX_RETRY == 1
+
+    def test_max_retry_positive_unchanged(self, monkeypatch):
+        monkeypatch.setenv("KEEPALIVE_MAX_RETRY", "5")
+        rs = KeepaliveRunState()
+        assert rs.MAX_RETRY == 5
+
+    def test_max_retry_zero_does_not_exhaust_all_targets(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("KEEPALIVE_MAX_RETRY", "0")
+        retry_counts = {
+            "https://example.com/": {"attempts": 0, "last_attempt_at": None,
+                                     "last_outcome": None},
+        }
+        rs = _rs_with_data(tmp_path, retry_counts=retry_counts)
+        result = build_cycle_status_view(run_state=rs)
+        # With MAX_RETRY clamped to 1, attempts=0 < 1 → not exhausted.
+        assert result["exhausted_total"] == 0
+
+
+# ── R3: 403 returns JSON ──────────────────────────────────────────────────────
+
+
+class TestOriginGuard403Json:
+    def test_missing_origin_returns_json_not_html(self, client):
+        resp = client.post(
+            "/ce:keep-alive/reset-exhausted",
+            json={"target_url": "https://example.com/"},
+        )
+        assert resp.status_code == 403
+        body = resp.get_json()
+        assert body is not None, "403 response should be JSON, not HTML"
+        assert body.get("status") == "error"
+
+    def test_403_content_type_is_json(self, client):
+        resp = client.post(
+            "/ce:keep-alive/reset-exhausted",
+            json={"target_url": "https://example.com/"},
+        )
+        assert resp.status_code == 403
+        assert "application/json" in resp.content_type
+
+
+# ── R4: keepalive-reset-exhausted CLI ────────────────────────────────────────
+
+
+class TestKeepaliveResetExhaustedCli:
+    def test_cli_removes_present_url(self, tmp_path, monkeypatch, capsys):
+        target = "https://51acgs.com/comic/117"
+        rs = KeepaliveRunState(data_dir=tmp_path)
+        state = {
+            "version": 1,
+            "last_run_at": _NOW,
+            "last_cycle_summary": {},
+            "retry_counts": {
+                target: {"attempts": 3, "last_attempt_at": None, "last_outcome": "err"}
+            },
+        }
+        rs.save(state)
+
+        with patch(
+            "backlink_publisher.keepalive.run_state.KeepaliveRunState",
+            return_value=rs,
+        ):
+            reset_cli_main([target])
+
+        assert target not in rs.load().get("retry_counts", {})
+
+    def test_cli_json_output_was_present_true(self, tmp_path, monkeypatch, capsys):
+        target = "https://51acgs.com/comic/118"
+        rs = KeepaliveRunState(data_dir=tmp_path)
+        state = {
+            "version": 1,
+            "last_run_at": _NOW,
+            "last_cycle_summary": {},
+            "retry_counts": {
+                target: {"attempts": 3, "last_attempt_at": None, "last_outcome": "err"}
+            },
+        }
+        rs.save(state)
+
+        with patch(
+            "backlink_publisher.keepalive.run_state.KeepaliveRunState",
+            return_value=rs,
+        ):
+            reset_cli_main([target, "--json"])
+
+        out = json.loads(capsys.readouterr().out)
+        assert out["status"] == "ok"
+        assert out["was_present"] is True
+
+    def test_cli_absent_url_json_was_present_false(self, tmp_path, capsys):
+        rs = KeepaliveRunState(data_dir=tmp_path)
+        rs.save({"version": 1, "last_run_at": None, "last_cycle_summary": {},
+                 "retry_counts": {}})
+
+        with patch(
+            "backlink_publisher.keepalive.run_state.KeepaliveRunState",
+            return_value=rs,
+        ):
+            reset_cli_main(["https://nothere.example.com/", "--json"])
+
+        out = json.loads(capsys.readouterr().out)
+        assert out["status"] == "ok"
+        assert out["was_present"] is False
