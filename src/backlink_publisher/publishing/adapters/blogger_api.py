@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import base64
-import fcntl
+import html as _html
 import mimetypes
-import os
-import random
 import time
-from contextlib import contextmanager
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
-from backlink_publisher.config import Config, resolve_blog_id, load_blogger_token, save_blogger_token
-from backlink_publisher.config.types import BLOGGER_LOCK_TIMEOUT_S
+from backlink_publisher.config import Config, resolve_blog_id
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     BannerUploadError,
@@ -24,141 +19,24 @@ from backlink_publisher._util.errors import (
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 from .base import AdapterResult, BaseAdapter
 from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
 
-_SCOPES = ["https://www.googleapis.com/auth/blogger"]
+_BLOGGER_API = "https://www.googleapis.com/blogger/v3"
 
 
-_LOCK_TIMEOUT_S = BLOGGER_LOCK_TIMEOUT_S
-_LOCK_JITTER_MIN_S: float = 0.05  # flock retry jitter lower bound (s)
-_LOCK_JITTER_MAX_S: float = 0.15  # flock retry jitter upper bound (s)
+class _TransientHTTPError(Exception):
+    """Sentinel raised when an HTTP response status warrants a retry.
 
-
-@contextmanager
-def _refresh_lock(token_path: Path) -> Iterator[None]:
-    """Serialize concurrent access token refreshes around ``token_path``.
-
-    Two simultaneous publish-backlinks processes both calling creds.refresh()
-    causes a token-rotation race: the second refresh invalidates the first
-    access token, turning half the batch rows into AuthExpiredError even
-    though the run started with a valid token.
-
-    Lock file lives next to the token file with a ``.lock`` suffix, same
-    convention as telegraph_api (canonical credential-rotation pattern).
+    Module-private — not exported. Does not extend ExternalServiceError so it
+    is not caught by the retry guard in retry_transient_call.
     """
-    lock_path = token_path.with_suffix(token_path.suffix + ".lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
-    try:
-        deadline = time.monotonic() + _LOCK_TIMEOUT_S
-        while True:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.monotonic() > deadline:
-                    raise ExternalServiceError(
-                        f"Could not acquire blogger token lock "
-                        f"(waited {_LOCK_TIMEOUT_S}s): {lock_path}"
-                    )
-                time.sleep(random.uniform(_LOCK_JITTER_MIN_S, _LOCK_JITTER_MAX_S))
-        yield
-    finally:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-        finally:
-            os.close(fd)
 
-
-def _near_expiry(creds, window_secs: int) -> bool:
-    """Return True when creds are already expired or expire within window_secs.
-
-    Uses datetime.now(timezone.utc).replace(tzinfo=None) to produce a naive UTC
-    datetime that is safe to subtract from google-auth's naive creds.expiry.
-    Returns False when creds.expiry is None (no expiry info → no proactive refresh).
-    """
-    if creds.expired:
-        return True
-    if creds.expiry is None:
-        return False
-    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-    return (creds.expiry - now_naive).total_seconds() <= window_secs
-
-
-def _build_credentials(config: Config):
-    """Return valid google.oauth2.credentials.Credentials, running OAuth if needed."""
-    from google.oauth2.credentials import Credentials
-    from google.auth.transport.requests import Request
-    from google_auth_oauthlib.flow import InstalledAppFlow
-
-    token_data = load_blogger_token(config.blogger_token_path)
-
-    creds: Credentials | None = None
-    if token_data:
-        try:
-            creds = Credentials.from_authorized_user_info(token_data, _SCOPES)
-        except Exception as exc:
-            log.warn("Failed to load Blogger credentials from config token: %s", exc)
-            creds = None
-
-    if creds and _near_expiry(creds, 300) and creds.refresh_token:
-        # Serialize concurrent refreshes to prevent the race where two
-        # simultaneous publish processes both call creds.refresh() and
-        # the second rotation invalidates the first's access token.
-        with _refresh_lock(Path(config.blogger_token_path)):
-            # Re-read inside the lock — a peer may have already refresced.
-            fresh = load_blogger_token(config.blogger_token_path)
-            if fresh:
-                try:
-                    creds = Credentials.from_authorized_user_info(fresh, _SCOPES)
-                except Exception as exc:  # noqa: BLE001
-                    log.debug("blogger credential refresh failed silently: %s", exc)
-            if not _near_expiry(creds, 300):
-                return creds  # peer refreshed while we waited on the lock
-            try:
-                creds.refresh(Request())
-                save_blogger_token(json_from_creds(creds), config.blogger_token_path)
-                return creds
-            except Exception as exc:
-                log.warn(f"Token refresh failed: {exc}. Re-authenticating.")
-                creds = None
-
-    if not creds or not creds.valid:
-        oauth = config.blogger_oauth
-        if oauth is None:
-            raise DependencyError(
-                "Blogger OAuth credentials not configured. "
-                "Add [blogger.oauth] client_id and client_secret to "
-                "~/.config/backlink-publisher/config.toml"
-            )
-        client_config = {
-            "installed": {
-                "client_id": oauth.client_id,
-                "client_secret": oauth.client_secret,
-                "redirect_uris": ["http://localhost"],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        }
-        flow = InstalledAppFlow.from_client_config(client_config, _SCOPES)
-        creds = flow.run_local_server(port=0)
-        config.blogger_token_path.parent.mkdir(parents=True, exist_ok=True)
-        save_blogger_token(json_from_creds(creds), config.blogger_token_path)
-
-    return creds
-
-
-def json_from_creds(creds) -> dict[str, Any]:
-    return {
-        "token": creds.token,
-        "refresh_token": creds.refresh_token,
-        "token_uri": creds.token_uri,
-        "client_id": creds.client_id,
-        "client_secret": creds.client_secret,
-        "scopes": list(creds.scopes) if creds.scopes else _SCOPES,
-    }
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        super().__init__(f"HTTP {status_code}")
 
 
 class BloggerAPIAdapter(BaseAdapter, Publisher):
@@ -223,8 +101,10 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
         blog_id = resolve_blog_id(config, payload.get("main_domain", ""))
 
         try:
-            creds = _build_credentials(config)
-        except DependencyError:
+            session = SessionManager(DefaultCredentialProvider()).get_session(
+                "blogger", config
+            )
+        except (DependencyError, AuthExpiredError):
             raise
         except Exception as exc:
             raise ExternalServiceError(
@@ -233,80 +113,68 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
 
         log.info(self._json_log(adapter="blogger-api", phase="auth", id=article_id))
 
-        try:
-            from googleapiclient.discovery import build
-            from googleapiclient.errors import HttpError
+        # Plan 2026-05-18-006 Unit 5 R9: extract_publish_html selects the
+        # source format per platform tier. blogger is tier (a) — accepts
+        # operator-supplied content_html directly. Sanitize is delegated
+        # to Google Blogger's server-side filter (locked by
+        # tests/test_adapter_blogger_api_xss_contract.py). If
+        # content_html is absent, falls back to rendering content_markdown.
+        content_html = extract_publish_html(payload, "blogger")
+        # Mixed canonical (Plan 003 R2): prepend ``<link rel=canonical>``
+        # to the post body when payload carries a non-empty schema-
+        # validated URL. NOTE: Blogger Posts v3 API has no post-level
+        # head-meta field; body-level canonical is a cosmetic marker
+        # — Google's canonical resolver requires the tag in <head>, so
+        # the SEO impact here is intentional best-effort, not guaranteed.
+        # Forwarder contract preserved: escape canonical URL to prevent
+        # HTML attribute breakout (defense-in-depth; schema gate already
+        # rejected control chars but a well-formed URL containing '"'
+        # would break out of the attribute).
+        canonical = payload.get("seo", {}).get("canonical_url") or None
+        if canonical:
+            safe_canonical = _html.escape(canonical, quote=True)
+            content_html = (
+                f'<link rel="canonical" href="{safe_canonical}">\n{content_html}'
+            )
+        body = {
+            "title": payload.get("title", ""),
+            "content": content_html,
+            "labels": payload.get("tags", [])[:20],
+        }
+        is_draft = mode == "draft"
+        url_api = f"{_BLOGGER_API}/blogs/{blog_id}/posts/"
+        params = {"isDraft": "true"} if is_draft else {}
 
-            service = build("blogger", "v3", credentials=creds)
-            # Plan 2026-05-18-006 Unit 5 R9: extract_publish_html selects the
-            # source format per platform tier. blogger is tier (a) — accepts
-            # operator-supplied content_html directly. Sanitize is delegated
-            # to Google Blogger's server-side filter (locked by
-            # tests/test_adapter_blogger_api_xss_contract.py). If
-            # content_html is absent, falls back to rendering content_markdown.
-            content_html = extract_publish_html(payload, "blogger")
-            # Mixed canonical (Plan 003 R2): prepend ``<link rel=canonical>``
-            # to the post body when payload carries a non-empty schema-
-            # validated URL. NOTE: Blogger Posts v3 API has no post-level
-            # head-meta field; body-level canonical is a cosmetic marker
-            # — Google's canonical resolver requires the tag in <head>, so
-            # the SEO impact here is intentional best-effort, not guaranteed.
-            # Forwarder contract preserved: no adapter-side escaping of the
-            # URL (schema gate already rejected control chars / quotes /
-            # angle brackets / non-http schemes).
-            canonical = payload.get("seo", {}).get("canonical_url") or None
-            if canonical:
-                content_html = (
-                    f'<link rel="canonical" href="{canonical}">\n{content_html}'
+        def _do_post():
+            resp = session.post(url_api, params=params, json=body, timeout=30)
+            if resp.status_code in (401, 403):
+                raise AuthExpiredError(
+                    channel="blogger",
+                    reason=f"Blogger HTTP {resp.status_code}",
                 )
-            body = {
-                "title": payload.get("title", ""),
-                "content": content_html,
-                "labels": payload.get("tags", [])[:20],
-            }
-            is_draft = mode == "draft"
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise _TransientHTTPError(resp.status_code)
+            if not resp.ok:
+                raise ExternalServiceError(
+                    f"Blogger API error HTTP {resp.status_code}: {resp.text[:200]}"
+                )
+            return resp.json()
 
-            # Wrap execute() with timeout for consistency with Medium adapter (30 seconds)
-            def execute_with_timeout():
-                import socket
-                old_timeout = socket.getdefaulttimeout()
-                try:
-                    socket.setdefaulttimeout(30)
-                    return service.posts().insert(blogId=blog_id, isDraft=is_draft, body=body).execute()
-                finally:
-                    socket.setdefaulttimeout(old_timeout)
-
+        try:
             result = retry_transient_call(
-                execute_with_timeout,
-                is_retryable=lambda exc: (
-                    isinstance(exc, HttpError)
-                    and exc.resp is not None
-                    and exc.resp.status in RETRYABLE_HTTP_STATUSES
-                ),
+                _do_post,
+                is_retryable=lambda exc: isinstance(exc, _TransientHTTPError),
                 adapter="blogger-api",
             )
-        except Exception as exc:
-            _class = type(exc).__name__
-            try:
-                from googleapiclient.errors import HttpError
-                if isinstance(exc, HttpError):
-                    status = exc.resp.status if exc.resp else 0
-                    if status in (401, 403):
-                        raise AuthExpiredError(
-                            channel="blogger",
-                            reason=f"Blogger HTTP {status}",
-                        ) from exc
-                    if status == 429:
-                        raise ExternalServiceError(
-                            "Blogger API rate-limited (HTTP 429)"
-                        ) from exc
-                    raise ExternalServiceError(
-                        f"Blogger API error (HTTP {status}): {exc}"
-                    ) from exc
-            except ImportError:
-                pass
+        except _TransientHTTPError as exc:
             raise ExternalServiceError(
-                f"Blogger publish failed ({_class}): {exc}"
+                f"Blogger API rate-limited (HTTP {exc.status_code})"
+            ) from exc
+        except (AuthExpiredError, ExternalServiceError):
+            raise
+        except Exception as exc:
+            raise ExternalServiceError(
+                f"Blogger publish failed ({type(exc).__name__}): {exc}"
             ) from exc
 
         url = result.get("url", "")
@@ -328,8 +196,3 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
             platform=platform,
             published_url=url,
         )
-
-
-def json_log(**kwargs: Any) -> str:
-    import json
-    return json.dumps(kwargs)

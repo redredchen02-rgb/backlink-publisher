@@ -259,10 +259,9 @@ class TestBloggerLiveVerifyReadOnly:
         mock_save.assert_not_called()
         assert token_file.read_text() == contents_before
 
-    def test_verify_does_not_invoke_build_credentials(self, tmp_path, monkeypatch):
-        """``_build_credentials`` triggers OAuth refresh + save when token is
-        near expiry. Live verify must bypass it entirely, reading the raw
-        token dict instead."""
+    def test_verify_does_not_invoke_session_manager(self, tmp_path, monkeypatch):
+        """Live verify reads the raw token directly without going through
+        SessionManager (which would trigger OAuth refresh + save on near-expiry)."""
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         _seed_blogger_token(tmp_path)
         cfg = _config_with_blogger_oauth(tmp_path)
@@ -271,9 +270,9 @@ class TestBloggerLiveVerifyReadOnly:
         with (
             patch("backlink_publisher.http.get", return_value=_ok_response()),
             patch(
-                "backlink_publisher.publishing.adapters.blogger_api._build_credentials"
-            ) as mock_build,
+                "backlink_publisher.publishing.adapters.blogger_api.SessionManager"
+            ) as mock_sm,
         ):
             verify_adapter_setup("blogger", cfg, mode="live")
 
-        mock_build.assert_not_called()
+        mock_sm.assert_not_called()

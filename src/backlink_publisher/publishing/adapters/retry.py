@@ -67,6 +67,10 @@ DEFAULT_JITTER: float = _DEFAULT_JITTER
 # those creates retry an ambiguous failure → duplicate published posts.
 RETRYABLE_HTTP_STATUSES: frozenset[int] = frozenset({429})
 
+STATUS_BACKOFF_MULTIPLIER: dict[int, float] = {
+    429: 2.0,
+}
+
 
 class ErrorClass(str, Enum):
     TRANSIENT = "transient"

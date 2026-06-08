@@ -54,6 +54,7 @@ from backlink_publisher.publishing._manifest_types import (
     _VISIBILITY_VALUES,
     BindDescriptor,
     Policy,
+    SessionDescriptor,
     UiMeta,
     Visibility,
 )
@@ -134,6 +135,9 @@ class RegistryEntry:
     # Applied to Phase 2 Score in dispatch routing. Platforms with empirically
     # confirmed anchor-loss rates should declare a weight < 1.0 here.
     dispatch_weight: float = 1.0
+    # Session descriptor for credential lifecycle management. ``None`` for
+    # channels that do not use session-based credential management.
+    session: SessionDescriptor | None = None
 
 _REGISTRY: dict[str, RegistryEntry] = {}
 
@@ -304,6 +308,7 @@ def register(
     visibility: Visibility = "active",   # noqa: F811 — shadows re-exported manifest helper
     credential_saver: Optional[Callable[..., Any]] = None,  # U3a
     dispatch_weight: float = 1.0,
+    session: SessionDescriptor | None = None,
 ) -> None:
     """Register the fallback chain for one platform. Last call wins.
 
@@ -432,6 +437,7 @@ def register(
         visibility=visibility,
         credential_saver=credential_saver,
         dispatch_weight=dispatch_weight,
+        session=session,
     )
 
 
