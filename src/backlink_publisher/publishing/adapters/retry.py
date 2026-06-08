@@ -68,7 +68,10 @@ DEFAULT_JITTER: float = _DEFAULT_JITTER
 RETRYABLE_HTTP_STATUSES: frozenset[int] = frozenset({429})
 
 STATUS_BACKOFF_MULTIPLIER: dict[int, float] = {
-    429: 2.0,
+    429: 5.0,
+    502: 1.5,
+    503: 2.0,
+    504: 2.0,
 }
 
 
