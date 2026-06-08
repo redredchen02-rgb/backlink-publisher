@@ -6,6 +6,8 @@ import base64
 import html as _html
 import mimetypes
 import time
+
+mimetypes.add_type("image/webp", ".webp")
 from pathlib import Path
 from typing import Any
 

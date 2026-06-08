@@ -77,7 +77,8 @@ def test_check_url_once_normalizes_cjk_url_before_request() -> None:
         captured.append(req.full_url)
         return _FakeResp(200)
 
-    with patch("backlink_publisher.linkcheck.http.urlopen", side_effect=fake_urlopen):
+    _ssrf = patch("backlink_publisher.linkcheck.http._check_url_for_ssrf", return_value=None)
+    with _ssrf, patch("backlink_publisher.linkcheck.http.urlopen", side_effect=fake_urlopen):
         ok, err = linkcheck._check_url_once("https://velog.io/@한글/슬러그")
 
     assert ok is True
@@ -97,7 +98,8 @@ def test_check_url_once_get_fallback_also_normalizes() -> None:
             raise OSError("simulated head failure")
         return _FakeResp(200)
 
-    with patch("backlink_publisher.linkcheck.http.urlopen", side_effect=fake_urlopen):
+    _ssrf = patch("backlink_publisher.linkcheck.http._check_url_for_ssrf", return_value=None)
+    with _ssrf, patch("backlink_publisher.linkcheck.http.urlopen", side_effect=fake_urlopen):
         ok, err = linkcheck._check_url_once("https://velog.io/@한글/슬러그")
 
     assert ok is True
@@ -114,7 +116,8 @@ def test_check_url_once_ascii_url_passthrough() -> None:
         captured.append(req.full_url)
         return _FakeResp(200)
 
-    with patch("backlink_publisher.linkcheck.http.urlopen", side_effect=fake_urlopen):
+    _ssrf = patch("backlink_publisher.linkcheck.http._check_url_for_ssrf", return_value=None)
+    with _ssrf, patch("backlink_publisher.linkcheck.http.urlopen", side_effect=fake_urlopen):
         linkcheck._check_url_once("https://example.com/api/v1?q=1")
 
     assert captured == ["https://example.com/api/v1?q=1"]

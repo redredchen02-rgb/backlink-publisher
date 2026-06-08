@@ -78,6 +78,9 @@ def stubbed_session(monkeypatch):
             return False
 
     monkeypatch.setattr(disp_mod, "ChromeAttachSession", FakeSession)
+    # CI runners may not have Chrome; stub available() so dispatch tests
+    # are environment-independent.
+    monkeypatch.setattr(disp_mod.BrowserPublishDispatcher, "available", classmethod(lambda cls, config: True))
     return {"page": page, "captured": captured}
 
 

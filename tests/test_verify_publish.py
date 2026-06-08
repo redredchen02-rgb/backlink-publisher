@@ -230,16 +230,17 @@ class TestNonAsciiUrls:
         def fake_urlopen(*a, **kw):
             raise ConnectionRefusedError("connection refused")
 
-        with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
-            with patch("backlink_publisher.linkcheck.verify.time.sleep"):
-                with patch("backlink_publisher.linkcheck.verify.time.monotonic") as mock_mono:
-                    mock_mono.side_effect = [0, 0, 0, 100]
-                    result = verify_published(
-                        "https://velog.io/@한글/some-slug",
-                        title="t",
-                        required_link_urls=[],
-                        max_wait=30,
-                    )
+        with patch("backlink_publisher.linkcheck.verify._check_url_for_ssrf", return_value=None):
+            with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
+                with patch("backlink_publisher.linkcheck.verify.time.sleep"):
+                    with patch("backlink_publisher.linkcheck.verify.time.monotonic") as mock_mono:
+                        mock_mono.side_effect = [0, 0, 0, 100]
+                        result = verify_published(
+                            "https://velog.io/@한글/some-slug",
+                            title="t",
+                            required_link_urls=[],
+                            max_wait=30,
+                        )
         assert result.ok is False
         assert "'ascii' codec" not in result.reason
         assert "connection refused" in result.reason

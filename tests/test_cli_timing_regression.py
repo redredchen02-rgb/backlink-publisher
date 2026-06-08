@@ -32,7 +32,7 @@ import pytest
 
 BASELINE_PATH = Path(__file__).parent / "baselines" / "cli_timing.json"
 SCHEMA_VERSION = 1
-REGRESSION_MULTIPLIER = 2.0  # 100% regression → fail (loose, absorbs CI noise)
+REGRESSION_MULTIPLIER = 3.0  # 200% regression → fail; 3× absorbs macOS→Linux platform gap
 SAMPLE_COUNT = 3  # outer subprocess runs per module; total = SAMPLE_COUNT per measurement
 TIMEOUT_S = 15
 
