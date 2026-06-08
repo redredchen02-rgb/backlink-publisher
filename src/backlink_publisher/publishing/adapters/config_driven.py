@@ -290,6 +290,11 @@ class ConfigDrivenAdapter(Publisher):
         }
         if auth_type == "api_key_header":
             headers["Authorization"] = f"Bearer {api_key}"
+        elif auth_type == "api_key_query":
+            # Prefer X-Api-Key header to avoid exposing the key in URLs and
+            # server access logs. The query-param fallback is intentionally
+            # removed: keys in URLs appear in proxy logs and Referer headers.
+            headers["X-Api-Key"] = api_key
 
         body_dict: dict[str, Any] = {content_field: body}
         # Optionally include the title.
@@ -299,11 +304,7 @@ class ConfigDrivenAdapter(Publisher):
         if title:
             body_dict["title"] = title
 
-        # Build URL with query-param key if needed.
         url = endpoint
-        if auth_type == "api_key_query":
-            separator = "&" if "?" in url else "?"
-            url = f"{url}{separator}api_key={api_key}"
 
         # Honour min_delay_s.
         min_delay = entry.get("min_delay_s", 0.0)

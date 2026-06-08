@@ -318,16 +318,16 @@ class LivejournalAPIAdapter(Publisher):
                 max_attempts=3,
             )
         except Fault as fault:
-            # Do NOT include fault.faultString — it can echo submitted auth params.
+            # Never include fault.faultString — it can echo submitted credentials.
             if _is_auth_fault(fault):
                 raise DependencyError(
-                    "LiveJournal rejected credentials (invalid username/password) — "
-                    "re-store via livejournal_api.store_credentials. "
+                    "LiveJournal rejected credentials — re-store via "
+                    "livejournal_api.store_credentials "
                     f"(faultCode={getattr(fault, 'faultCode', '?')})"
                 ) from None
             raise ExternalServiceError(
-                f"LiveJournal postevent fault (faultCode="
-                f"{getattr(fault, 'faultCode', '?')})"
+                "LiveJournal publish rejected "
+                f"(faultCode={getattr(fault, 'faultCode', '?')})"
             ) from None
         except (ExternalServiceError, DependencyError):
             raise

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
-
-import requests
 
 from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 from .base import AdapterResult
 from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
@@ -32,36 +30,6 @@ def _post_publish_delay_s() -> int:
     if toml_val is not None:
         return int(toml_val)
     return _DEFAULT_POST_PUBLISH_DELAY_S
-
-
-def _load_cookies(config: Config) -> dict[str, str]:
-    cred_file = config.config_dir / "substack-credentials.json"
-    if not cred_file.exists():
-        raise DependencyError(
-            f"Substack credentials not found: {cred_file}\n"
-            "Save cookies from a logged-in substack.com session. "
-            "Format: {\"cookies\": [{\"name\": \"...\", \"value\": \"...\"}, ...]}"
-        )
-    mode = os.stat(cred_file).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"substack-credentials.json must be 0600 (found {oct(mode)})"
-        )
-    try:
-        raw = json.loads(cred_file.read_text())
-    except (json.JSONDecodeError, OSError):
-        raise DependencyError(
-            "Cannot read Substack credentials: file missing, corrupt, or unreadable"
-        ) from None
-
-    cookie_list = raw.get("cookies", [])
-    if not isinstance(cookie_list, list):
-        raise DependencyError("Substack credentials missing 'cookies' array")
-    return {
-        c["name"]: c["value"]
-        for c in cookie_list
-        if isinstance(c, dict) and "name" in c and "value" in c
-    }
 
 
 _UA = (
@@ -105,7 +73,7 @@ class SubstackAPIAdapter(Publisher):
         article_id = payload.get("id", "")
         log.info(json.dumps(dict(adapter="substack", phase="start", id=article_id)))
 
-        cookies = _load_cookies(config)
+        session = SessionManager(DefaultCredentialProvider()).get_session("substack", config)
 
         title = payload.get("title", "Untitled")
         content = extract_publish_html(payload, "substack") or ""
@@ -139,10 +107,9 @@ class SubstackAPIAdapter(Publisher):
         api_url = "https://substack.com/api/v1/drafts"
 
         def execute():
-            resp = requests.post(
+            resp = session.post(
                 api_url,
                 headers=headers,
-                cookies=cookies,
                 json=body_json,
                 timeout=_HTTP_TIMEOUT_S,
             )

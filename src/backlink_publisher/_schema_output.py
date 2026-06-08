@@ -16,6 +16,7 @@ from typing import Any
 from .schema import (
     LINK_KINDS,
     MAX_CONTENT_HTML_BYTES,
+    MAX_PAYLOAD_SIZE_BYTES,
     OUTPUT_ONE_OF_GROUPS,
     OUTPUT_OPTIONAL_FIELDS,
     OUTPUT_REQUIRED_FIELDS,
@@ -144,6 +145,16 @@ def _check_nonempty_text_fields(row: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _check_payload_size(row: dict[str, Any]) -> list[str]:
+    # Enforce MAX_PAYLOAD_SIZE_BYTES on the serialized row size (JSON bytes).
+    # Defends against memory-pressure DoS from giant output rows.
+    raw_json = __import__("json").dumps(row, ensure_ascii=False)
+    size = len(raw_json.encode("utf-8"))
+    if size > MAX_PAYLOAD_SIZE_BYTES:
+        return [f"payload size {size} bytes exceeds {MAX_PAYLOAD_SIZE_BYTES} byte cap"]
+    return []
+
+
 def validate_output_payload(row: dict[str, Any]) -> list[str]:
     """Validate a planned output payload. Returns list of error messages.
 
@@ -159,6 +170,7 @@ def validate_output_payload(row: dict[str, Any]) -> list[str]:
     errors.extend(_check_seo_structure(row))
     errors.extend(_check_link_count(row))
     errors.extend(_check_nonempty_text_fields(row))
+    errors.extend(_check_payload_size(row))
 
     # Validate main_domain appears in content (markdown substring; HTML host-parse
     # lives in cli.validate_backlinks per Unit 6).
@@ -216,6 +228,7 @@ def validate_and_convert_output(
     errors.extend(_check_seo_structure(row))
     errors.extend(_check_link_count(row))
     errors.extend(_check_nonempty_text_fields(row))
+    errors.extend(_check_payload_size(row))
 
     main_domain_error = _check_main_domain_presence(row)
     if main_domain_error is not None:

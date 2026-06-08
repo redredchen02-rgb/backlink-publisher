@@ -410,4 +410,7 @@ class TestEmbedBannerSignature:
 
         artifact_path, _ = adapter.calls[0]
         assert isinstance(artifact_path, Path)
-        assert str(artifact_path) == "/tmp/foo.png"
+        # resolve() is applied by dispatcher (path traversal guard); on macOS
+        # /tmp symlinks to /private/tmp, so compare resolved paths.
+        from pathlib import Path as _Path
+        assert artifact_path == _Path("/tmp/foo.png").resolve()

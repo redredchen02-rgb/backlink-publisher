@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger
+from backlink_publisher._util.net_safety import _check_url_for_ssrf
 from backlink_publisher._util.url import (
     canonicalize_url,
     normalize_url_for_fetch,
@@ -64,6 +65,10 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
     parsed = safe_urlparse(url)
     if parsed is None or not parsed.scheme or not parsed.netloc:
         return False, f"invalid URL: {url}"
+
+    ssrf_reason = _check_url_for_ssrf(url)
+    if ssrf_reason is not None:
+        return False, f"SSRF blocked: {ssrf_reason}"
 
     # Defend the request-line ASCII encoder against legitimately non-ASCII
     # URLs (Velog Korean @username, CJK url_slug). See Plan 2026-05-21-005.
