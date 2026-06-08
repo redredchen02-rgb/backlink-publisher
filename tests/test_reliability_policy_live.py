@@ -252,6 +252,12 @@ class TestPolicyBehaviorsEndToEnd:
 
     def test_r2_health_gate_browser_tier(self, monkeypatch):
         # velog is browser-tier; unbound channel_status → skipped_policy.
+        # Patch get_status so xdist workers that had a prior binding test
+        # don't pollute the channel_status singleton with status="bound".
+        monkeypatch.setattr(
+            "webui_store.channel_status.get_status",
+            lambda ch: {},
+        )
         monkeypatch.setenv(_POLICY_ENV, "1")
         state = _run_one(_fake_row(platform="velog"), _make_args())
         assert state.outputs[-1]["status"] == "skipped_policy"
