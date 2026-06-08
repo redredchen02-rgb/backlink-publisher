@@ -13,6 +13,9 @@ from webui_store import history_store
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(history_store, "_path", tmp_path / "history.json")
+    # Isolate events.db so purge_failed_from_db() sees an empty store,
+    # not records left by other tests running on the shared session config dir.
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     import webui
     webui.app.config["TESTING"] = True
     webui.app.config["WTF_CSRF_ENABLED"] = False
