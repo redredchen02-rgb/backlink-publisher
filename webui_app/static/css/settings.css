@@ -101,6 +101,7 @@
         }
         .sidebar-item.disabled { color: #d1d5db; cursor: default; }
         .sidebar-item.disabled:hover { background: none; }
+        .sidebar-item--all-channels { color: #6b7280; font-size: 12px; margin-bottom: 2px; }
         
         .card {
             background: var(--glass-bg);

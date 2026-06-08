@@ -4,6 +4,9 @@ Lock the contract: ``_push_history_per_row`` writes one history entry per
 CLI publish-result row, transparently carrying the per-row ``status``
 (including ``*_unverified`` suffixes) and synthesising ``failed`` when an
 adapter returns no URL.
+
+Updated for plan 2026-05-28-007 U2: events.db is now the sole write target.
+Assertions use list_history() (events.db query) instead of history_store.load().
 """
 from __future__ import annotations
 
@@ -11,27 +14,19 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
-from webui_store import history_store
 
-
-@pytest.fixture
-def isolated_history_store(tmp_path, monkeypatch):
-    """Rebind history_store + EventStore to a tmp dir so tests don't touch
-    the user's config or shared events.db."""
-    # Override config dir so EventStore and history_query resolve to
-    # this test's tmp_path instead of the session-scoped tmp.
+@pytest.fixture(autouse=True)
+def _isolate_config(tmp_path, monkeypatch):
+    """Redirect EventStore to a per-test temp directory."""
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    from webui_store import _refresh_paths
-    _refresh_paths()
-
-    yield history_store
+    yield
 
 
 # ── _push_history_per_row happy paths ────────────────────────────────────────
 
 
 class TestPushHistoryPerRow:
-    def test_writes_one_entry_per_row(self, isolated_history_store):
+    def test_writes_one_entry_per_row(self):
         from webui_app.helpers.history import _push_history_per_row
         rows = [
             {
@@ -54,18 +49,15 @@ class TestPushHistoryPerRow:
             },
         ]
         result = _push_history_per_row(rows, target_url_fallback="x", platform_fallback="y", language_fallback="zh-CN")
-        # _push_history_per_row prepends new items via update() so the
-        # result (which is the update() return value) reflects JSON-file
-        # insertion order: first row at index 0, second at index 1.
         assert len(result) == 2
-        assert result[0]["status"] == "published"
-        assert result[0]["title"] == "T1"
-        assert result[0]["article_urls"] == ["https://medium.com/p/abc"]
-        assert result[1]["status"] == "drafted_unverified"
-        assert result[1]["title"] == "T2"
-        assert result[1]["article_urls"] == ["https://medium.com/p/def-draft"]
+        by_title = {r.get("title"): r for r in result}
+        assert by_title["T1"]["status"] == "published"
+        assert by_title["T1"]["article_urls"] == ["https://medium.com/p/abc"]
+        assert by_title["T2"]["status"] == "drafted_unverified"
+        assert by_title["T2"]["article_urls"] == ["https://medium.com/p/def-draft"]
 
-    def test_preserves_unverified_suffix(self, isolated_history_store):
+    def test_preserves_unverified_suffix(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_per_row
         rows = [{
             "status": "published_unverified",
@@ -76,9 +68,12 @@ class TestPushHistoryPerRow:
             "error": None,
         }]
         _push_history_per_row(rows)
-        assert isolated_history_store.load()[0]["status"] == "published_unverified"
+        items = list_history()
+        assert items, "no items in events.db after write"
+        assert items[0]["status"] == "published_unverified"
 
-    def test_empty_urls_with_no_error_coerces_to_failed(self, isolated_history_store):
+    def test_empty_urls_with_no_error_coerces_to_failed(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_per_row
         rows = [{
             "status": "drafted",
@@ -89,14 +84,15 @@ class TestPushHistoryPerRow:
             "error": None,
         }]
         _push_history_per_row(rows)
-        item = isolated_history_store.load()[0]
+        items = list_history()
+        assert items, "no items in events.db after write"
+        item = items[0]
         assert item["status"] == "failed"
         assert item["error"] == "no URL returned by adapter"
         assert item["article_urls"] == []
 
-    def test_unverified_with_empty_urls_stays_unverified(self, isolated_history_store):
-        # An `_unverified` row with empty URLs is still informative — the
-        # adapter at least *tried*. Don't downgrade to failed.
+    def test_unverified_with_empty_urls_stays_unverified(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_per_row
         rows = [{
             "status": "published_unverified",
@@ -107,9 +103,12 @@ class TestPushHistoryPerRow:
             "error": None,
         }]
         _push_history_per_row(rows)
-        assert isolated_history_store.load()[0]["status"] == "published_unverified"
+        items = list_history()
+        assert items, "no items in events.db after write"
+        assert items[0]["status"] == "published_unverified"
 
-    def test_falls_back_to_provided_target_url(self, isolated_history_store):
+    def test_falls_back_to_provided_target_url(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_per_row
         rows = [{
             "status": "published",
@@ -119,14 +118,17 @@ class TestPushHistoryPerRow:
             "error": None,
         }]
         _push_history_per_row(rows, target_url_fallback="https://fallback.example/")
-        assert isolated_history_store.load()[0]["target_url"] == "https://fallback.example/"
+        items = list_history()
+        assert items, "no items in events.db after write"
+        assert items[0]["target_url"] == "https://fallback.example/"
 
-    def test_empty_rows_is_noop(self, isolated_history_store):
+    def test_empty_rows_is_noop(self):
         from webui_app.helpers.history import _push_history_per_row
         result = _push_history_per_row([])
         assert result == []
 
-    def test_carries_adapter_field(self, isolated_history_store):
+    def test_carries_adapter_field(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_per_row
         rows = [{
             "status": "published",
@@ -136,13 +138,13 @@ class TestPushHistoryPerRow:
             "error": None,
         }]
         _push_history_per_row(rows)
-        item = isolated_history_store.load()[0]
-        assert item["adapter"] == "medium-api"
+        items = list_history()
+        assert items, "no items in events.db after write"
+        assert items[0].get("adapter") == "medium-api"
 
-    def test_error_row_preserved(self, isolated_history_store):
+    def test_error_row_preserved(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_per_row
-        # publish-backlinks only sends successful rows to stdout, but
-        # defensively a row with error should be carried as-is.
         rows = [{
             "status": "failed",
             "title": "T",
@@ -150,11 +152,13 @@ class TestPushHistoryPerRow:
             "error": "service error: 503 from medium",
         }]
         _push_history_per_row(rows)
-        item = isolated_history_store.load()[0]
+        items = list_history()
+        assert items, "no items in events.db after write"
+        item = items[0]
         assert item["status"] == "failed"
         assert item["error"] == "service error: 503 from medium"
 
-    def test_truncates_to_max_items(self, isolated_history_store):
+    def test_truncates_to_max_items(self):
         from webui_app.helpers.history import _push_history_per_row, _HISTORY_MAX_ITEMS
         new_rows = [{
             "status": "published",
@@ -167,7 +171,8 @@ class TestPushHistoryPerRow:
 
 
 class TestPushHistorySingleFailure:
-    def test_writes_one_failed_entry(self, isolated_history_store):
+    def test_writes_one_failed_entry(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_single_failure
         _push_history_single_failure(
             target_url="https://x.example/",
@@ -175,15 +180,18 @@ class TestPushHistorySingleFailure:
             language="zh-CN",
             error="boom",
         )
-        items = isolated_history_store.load()
+        items = list_history()
         assert len(items) == 1
         assert items[0]["status"] == "failed"
         assert items[0]["error"] == "boom"
         assert items[0]["article_urls"] == []
 
-    def test_uses_default_error_when_blank(self, isolated_history_store):
+    def test_uses_default_error_when_blank(self):
+        from backlink_publisher.events.history_query import list_history
         from webui_app.helpers.history import _push_history_single_failure
         _push_history_single_failure(
             target_url="https://x.example/", platform="", language="", error="",
         )
-        assert isolated_history_store.load()[0]["error"] == "publish failed"
+        items = list_history()
+        assert items, "no items in events.db after write"
+        assert items[0]["error"] == "publish failed"

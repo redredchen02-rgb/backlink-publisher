@@ -14,6 +14,9 @@
     .ka-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45);
                   display: flex; align-items: center; justify-content: center; z-index: 1080; }
     .ka-overlay-card { max-width: 560px; width: 92%; max-height: 82vh; overflow: auto; }
+    .ka-cycle-reset-overlay { z-index: 1090; }  /* above #confirmOverlay */
+    #cyclePanel .cycle-badge-broken { font-size: 11px; }
+    #cyclePanel .cycle-badge-locked { font-size: 11px; }
   </style>
 {% endblock %}
 {% block content %}
@@ -121,6 +124,67 @@
     </div>
   </div>
 
+  {# R8: automated cycle status panel — populated client-side by cycle-panel.js.
+     #cycleLoading is visible by default so operators see immediate feedback on
+     fresh-install / empty-scorecard views while the async fetch is in flight. #}
+  <section id="cyclePanel" class="mt-4" aria-live="polite" aria-atomic="false">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-robot me-1"></i>自动保活周期</strong>
+        <button id="cyclePanelRefresh" class="btn btn-sm btn-outline-secondary"
+                data-action="refresh-cycle" title="刷新周期状态">
+          <i class="bi bi-arrow-clockwise"></i> 刷新
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="cycleLoading" class="text-muted small py-2">
+          <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          加载中…
+        </div>
+        <div id="cycleEmpty" class="d-none text-muted small py-2"></div>
+        <div id="cycleContent" class="d-none">
+          <p id="cycleLastRun" class="small text-muted mb-2"></p>
+          <dl id="cycleSummaryDl" class="row row-cols-2 row-cols-md-3 g-2 mb-3 small"></dl>
+          <div id="cyclePlatformSection" class="mb-3 d-none">
+            <h6 class="small fw-semibold mb-1">平台健康</h6>
+            <table class="table table-sm table-hover mb-0 small">
+              <thead class="table-light">
+                <tr><th>平台</th><th class="text-end">权重</th><th>状态</th><th class="text-end">存活</th><th class="text-end">已发</th></tr>
+              </thead>
+              <tbody id="cyclePlatformBody"></tbody>
+            </table>
+          </div>
+          <div id="cycleExhaustedSection" class="d-none">
+            <h6 class="small fw-semibold mb-1">耗尽目标</h6>
+            <p id="cycleExhaustedTruncNote" class="text-muted small d-none mb-1"></p>
+            <ul id="cycleExhaustedList" class="list-group list-group-flush small mb-2"></ul>
+          </div>
+        </div>
+        <div id="cycleError" class="d-none alert alert-warning py-1 small mb-0"></div>
+      </div>
+    </div>
+  </section>
+
+  {# Reset-exhausted confirm mini-modal (higher z-index than #confirmOverlay). #}
+  <div id="cycleResetConfirm" class="ka-overlay ka-cycle-reset-overlay d-none"
+       role="dialog" aria-modal="true" aria-labelledby="cycleResetConfirmTitle">
+    <div class="card ka-overlay-card">
+      <div class="card-header">
+        <strong id="cycleResetConfirmTitle">重置耗尽目标</strong>
+      </div>
+      <div class="card-body">
+        <p class="small mb-1">重置此目标的重试计数，允许下次周期重新尝试：</p>
+        <p class="small fw-semibold font-monospace mb-3" id="cycleResetTargetText"></p>
+        <div class="d-flex gap-2">
+          <button id="cycleResetConfirmBtn" class="btn btn-warning btn-sm" data-action="confirm-reset-exhausted">
+            <i class="bi bi-arrow-counterclockwise"></i> 确认重置
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" data-action="cancel-reset-exhausted">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   {# S4: confirm modal — line-items each republish as target → sticky platform,
      states irreversibility, and offers Publish / Back (Back preserves S3). #}
   <div id="confirmOverlay" class="ka-overlay d-none">
@@ -154,4 +218,5 @@
 
 {% block page_module %}
 <script type="module" src="{{ url_for('static', filename='js/keep_alive.js', v=asset_version) }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/cycle-panel.js', v=asset_version) }}"></script>
 {% endblock %}

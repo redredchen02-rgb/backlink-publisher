@@ -268,13 +268,23 @@ def _pipeline_summary():
         return {}
 
 
+_EVENTS_DB_WARN_MB = 100.0    # warn when events.db exceeds this
+_EVENTS_WARN_ROWS = 100_000   # warn when events table row count exceeds this
+
+
 def _storage_health():
     """Disk usage of events.db, dedup.db, and the config directory.
 
-    Returns ``{events_db_mb, dedup_db_mb, config_dir_mb}`` or ``{}`` on error.
+    Also queries events.db for row counts (events table + articles table) and
+    sets ``events_db_warn=True`` when the file exceeds ``_EVENTS_DB_WARN_MB``
+    or the events table exceeds ``_EVENTS_WARN_ROWS``.
+
+    Returns ``{events_db_mb, dedup_db_mb, config_dir_mb, events_rows,
+    articles_rows, events_db_warn}`` or ``{}`` on error.
     """
     try:
         import os
+        import sqlite3
         from backlink_publisher.config.loader import _config_dir
 
         cfg = _config_dir()
@@ -298,10 +308,32 @@ def _storage_health():
             except OSError:
                 return 0.0
 
+        events_db_mb = _mb(cfg / "events.db")
+        events_rows = 0
+        articles_rows = 0
+        try:
+            db_path = cfg / "events.db"
+            if db_path.exists():
+                with sqlite3.connect(str(db_path), timeout=2.0) as con:
+                    events_rows = con.execute(
+                        "SELECT COUNT(*) FROM events"
+                    ).fetchone()[0]
+                    articles_rows = con.execute(
+                        "SELECT COUNT(*) FROM articles"
+                    ).fetchone()[0]
+        except Exception as exc:  # noqa: BLE001
+            _log.debug("health: events.db row count failed: %s", exc)
+
         return {
-            "events_db_mb": _mb(cfg / "events.db"),
+            "events_db_mb": events_db_mb,
             "dedup_db_mb": _mb(cfg / "dedup.db"),
             "config_dir_mb": _dir_mb(cfg),
+            "events_rows": events_rows,
+            "articles_rows": articles_rows,
+            "events_db_warn": (
+                events_db_mb > _EVENTS_DB_WARN_MB
+                or events_rows > _EVENTS_WARN_ROWS
+            ),
         }
     except Exception as exc:  # noqa: BLE001
         _log.warning("health: storage health failed: %s", exc)

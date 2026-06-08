@@ -10,8 +10,11 @@
     <div class="sidebar-group">
         <span class="sidebar-group__label">发布渠道</span>
         {% if dashboard_channels %}
+            <button class="sidebar-item sidebar-item--all-channels" data-pane="channels" data-action="sidebar-nav">
+                <i class="bi bi-list-ul"></i> 全部渠道
+            </button>
             {% for name, status in dashboard_channels %}
-            <button class="sidebar-item" data-pane="channels" data-action="sidebar-nav">
+            <button class="sidebar-item" data-pane="channel--{{ name }}" data-action="sidebar-nav">
                 {{ name }}
             </button>
             {% endfor %}

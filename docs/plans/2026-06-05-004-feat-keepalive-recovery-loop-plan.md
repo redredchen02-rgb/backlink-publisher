@@ -44,12 +44,12 @@ The existing infrastructure is feature-complete but **chain-incomplete** for una
 - Replacing or modifying the WebUI S1→S7 job flow — it stays for operator-triggered runs
 - Modifying `recheck-backlinks`, `plan-backlinks`, `validate-backlinks`, `publish-backlinks` internals
 - In-process loop mode (one invocation loops forever as daemon) — stays CLI-triggered
-- Non-sticky platform gap filling (blogger/ghpages sticky rule unchanged)
+- Non-sticky platform gap filling (blogger-only sticky at runtime — ghpages excluded due to GitHub account suspension; engine constant `KEEPALIVE_STICKY_PLATFORMS` still lists both, but `RUNTIME_STICKY_PLATFORMS` in chain.py uses blogger-only)
 - Indexability/GSC measurement (deferred Phase 2)
 - Rule 3 (aggregated statistical thresholds) from plan 001 — that plan already deferred it
 
 **Pre-existing resolved:**
-- Three-gap `live_dofollow` under-counting (write-back断路, unverified pool, uncertain signals) is **already fixed** in `recheck/events_io.py`, `recheck/selection.py`, `recheck/probe.py` — verify end-to-end in U1 test scenarios, do not re-implement.
+- Three-gap `live_dofollow` under-counting: the underlying fix functions (`write_verified_at()`, `select_unverified_candidates()`, improved probe logic) are in `recheck/events_io.py`, `recheck/selection.py`, `recheck/probe.py`. **However**, the existing `cli/recheck_backlinks.py` does NOT call `write_verified_at()` — only the WebUI path does. Chain.py step 1 must explicitly call `write_verified_at()` after every ALIVE probe result. This is new CLI-path work, not an existing fix to inherit.
 - Recheck timeout (`_PER_TARGET_TIMEOUT=10s`, `_BATCH_BUDGET_S=600s`) is **already enforced** in `cli/recheck_backlinks.py:218` — no new timeout work needed.
 
 ## Requirements Trace
@@ -74,7 +74,7 @@ The existing infrastructure is feature-complete but **chain-incomplete** for una
 
 **Recheck pipeline:**
 - `src/backlink_publisher/cli/recheck_backlinks.py` — CLI entry; `_PER_TARGET_TIMEOUT=10s`, `_BATCH_BUDGET_S=600s` already enforced; stdin mode (R11) accepts JSONL candidates
-- `src/backlink_publisher/recheck/selection.py::select_confirmed_candidates()` + `select_unverified_candidates()` — both must be used to build the probe pool (three-gap fix already in code)
+- `src/backlink_publisher/recheck/selection.py::select_candidates()` + `select_unverified_candidates()` — both must be used to build the probe pool (three-gap fix already in code)
 - `src/backlink_publisher/recheck/events_io.py::write_verified_at()` — writes probe-alive results back to DB (three-gap fix already in code)
 
 **Optimization state (plan 001 — already shipped):**
@@ -100,7 +100,7 @@ equity-ledger | recheck-overlay | plan-gap --emit-stale | plan-backlinks | valid
 
 ### Institutional Learnings
 
-- **Write-back断路已修復**: `write_verified_at()` must be called for every ALIVE probe result. Already fixed; new code must not bypass this.
+- **Write-back断路**: `write_verified_at()` must be called for every ALIVE probe result. **The existing `cli/recheck_backlinks.py` does NOT call this function** — only the WebUI path does. Chain.py step 1 must explicitly call `write_verified_at()` after each ALIVE probe result. This is a new requirement for the CLI path, not an inherited fix.
 - **Dispatch path duplication bug class**: fresh-publish and resume/retry paths must share a single carry helper — never two copy-paste emitters. Apply to `keepalive-run`'s fresh vs. retry republish paths.
 - **Publish-history helper invariant**: `_push_history_per_row` is the only legal write point; republish per-row; failure path also goes through helper (status="failed", url=None).
 - **Always-on probe anti-pattern**: Cloudflare-fronted platforms (Medium, Velog) must not be probed headlessly in scheduled loops — use one-shot probes only. Reverify step: probe count per run limited to newly-published URLs only.
@@ -159,13 +159,13 @@ None needed — all patterns are established in the codebase.
 
 **Rationale**: 3 attempts covers transient platform issues. Permanent skip only if operator explicitly resets — avoids silent data loss without infinite spinning.
 
-### Decision 5: Post-reverify stats use `OptimizationState.update_stats()`, not `set_weight()`
+### Decision 5: Post-reverify stats use manual RMW increment, not `OptimizationState.update_stats()`
 
-**Context**: After reverify, we know whether the new link is alive/dofollow. Should we immediately adjust weights, or just update stats?
+**Context**: After reverify, we know whether the new link is alive/dofollow. Should we immediately adjust weights, or just update stats? And how?
 
-**Choice**: Call `OptimizationState().update_stats(platform, {...})` only — not `set_weight()`. The rules engine in plan 001 (`optimize-weights` CLI) reads stats and decides weights separately. `keepalive-run` is a data producer; it does not make weight decisions.
+**Choice**: Do **not** call `update_stats()` for numeric increments — that method uses `dict.update()` (key overwrite), which would reset a platform with 20 confirmed links to count=1. Also do **not** call `set_weight()`. Instead, `keepalive-run` adds an `increment_stats(platform, field, delta=1)` helper method to `OptimizationState` that does load-modify-save under `self._lock` internally. The rules engine in plan 001 (`optimize-weights` CLI) reads stats and decides weights separately. `keepalive-run` is a data producer only.
 
-**Rationale**: Keeps the two responsibilities separate: recovery loop feeds data, optimizer reads data and adjusts weights. Avoids a race condition where `keepalive-run` and `optimize-weights` both try to mutate weights simultaneously.
+**Rationale**: `update_stats()` is a dict-merge (overwrite), not a numeric accumulator. Direct load-modify-save by the caller would require holding `state._lock` externally and then calling `state.save()`, which deadlocks (non-reentrant threading.Lock). The correct solution is a purpose-built `increment_stats()` method that encapsulates the atomic read-increment-save pattern. Adding this method to `OptimizationState` is a 5-line, backward-compatible addition.
 
 ## Open Questions
 
@@ -178,7 +178,7 @@ None needed — all patterns are established in the codebase.
 ### Deferred to Implementation
 
 - Exact method signature for `plan_keepalive_gap()` call site changes (platform filter parameter name) — look at current signature at implementation time.
-- Whether `fcntl.flock` is needed for `keepalive_run_state.json` — depends on whether launchd schedule can overlap with WebUI. Assess at implementation.
+- `fcntl.flock` is **required** for `keepalive_run_state.json` writes: when WebUI is running concurrently with launchd keepalive-run, both processes can RMW the state file. The cycle-level lock only prevents overlapping keepalive-run invocations — it does not protect against WebUI concurrent access. `KeepaliveRunState.save()` must use the same `LOCK_EX` pattern as `circuit.py`.
 - Exact RECON event fields — derive from other `plan_logger.recon()` call sites.
 - Whether the existing three-gap fixes pass end-to-end in a real integration test — verify first in U1 before assuming they work.
 
@@ -253,9 +253,10 @@ graph TB
     U3[U3: reverify stats feedback] --> U5
     U4 --> U3
     U5[U5: keepalive-status CLI] --> U6
-    U6[U6: launchd treadmill] --> U7
-    U7[U7: WebUI cycle metrics]
+    U6[U6: launchd treadmill]
 ```
+
+> U7 (WebUI cycle metrics panel) deferred — ship U1–U6 first, add WebUI panel after two weeks of real cycle data.
 
 ---
 
@@ -268,22 +269,20 @@ graph TB
 **Dependencies**: U4 (state file must exist before U1 writes to it)
 
 **Files:**
-- Create: `src/backlink_publisher/cli/keepalive_run.py`
-- Create: `src/backlink_publisher/keepalive/__init__.py` (package)
-- Create: `src/backlink_publisher/keepalive/chain.py` (step orchestration logic)
+- Create: `src/backlink_publisher/cli/keepalive_run.py` (argparse entry + chain logic; no separate package until SLOC budget forces decomposition)
 - Modify: `pyproject.toml` (add `keepalive-run` to `[project.scripts]`)
 - Modify: `src/backlink_publisher/cli/__init__.py` (register command if needed)
 - Test: `tests/test_keepalive_run.py`
 
 **Approach:**
-- `keepalive_run.py` is the argparse/click entry point; `chain.py` contains the step orchestration logic (testable without CLI invocation)
-- Step 1: call `recheck-backlinks` internal API (not subprocess) via the same path used by `cli/recheck_backlinks.py::main()` — specifically: build candidate list via `select_confirmed_candidates() + select_unverified_candidates()`, run probe loop with existing timeout constants
-- Step 2: call `derive_per_target_status(store)` in-process
-- Step 3: call `plan_keepalive_gap()` with effective_sticky filtered by optimization weights (see U2)
-- Step 4: call `PipelineAPI` (same as `keepalive_job.py::_default_publish_seed()`) per seed; use `_push_history_per_row()` for every result including failures
-- Step 5: for each successfully published URL, run targeted probe (see U3)
+- `keepalive_run.py` contains both the argparse entry point and the `run_chain()` orchestration function (testable without CLI invocation). Start flat in `cli/`; decompose only if SLOC budget forces it.
+- **Cycle-level lock**: at entry, acquire `.keepalive-run.lock` in config_dir using `LOCK_NB` (`fcntl.LOCK_EX | fcntl.LOCK_NB`). If already locked, exit 0 with log "keepalive cycle already in progress, skipping". Note: this is the **outer** lock covering the full cycle; the recheck step also acquires its own inner lock — lock nesting order is cycle-lock → recheck-lock.
+- Step 1: call recheck internal API in-process. The `_single_run_lock` helper is currently private in `cli/recheck_backlinks.py` — either move it to `recheck/_lock.py` as a public export, or import with an explicit coupling comment. Pass `EventStore().path.parent` as the lock dir to guarantee the same lock file as standalone recheck-backlinks. Call: `recheck.selection.select_candidates()` (PUBLISH_CONFIRMED pool) + `recheck.selection.select_unverified_candidates()`, probe via `recheck.probe.recheck_link(record, probe=True, timeout=_PER_TARGET_TIMEOUT)`, write back via `recheck.events_io.emit_recheck()` + **`recheck.events_io.write_verified_at()`** (mandatory — the existing CLI does not call this; chain.py must). If no candidates, proceed; `derive_per_target_status` will return empty and gap planning will emit 0 seeds.
+- Step 2: call `derive_per_target_status(store)` in-process.
+- Step 3: call `plan_keepalive_gap()` with effective_sticky filtered by optimization weights (see U2). If `len(seeds) == 0` after gap planning, emit RECON log and exit 0 (normal case on healthy day, not an error).
+- Step 4: **Architecture note**: `keepalive-run` intentionally imports `PipelineAPI` from `webui_app/api/pipeline_api.py` and calls `_push_history_per_row()` from `webui_app/helpers/history.py`, so the WebUI dashboard shows automated cycle results in publish history. This is an explicit decision to share the WebUI publish layer. Call: `PipelineAPI.plan()` → `validate()` (both in-process) → `publish()` (subprocess). Use `_push_history_per_row()` per result including failures. **If publish fails** (empty published_url): call `run_state.record_attempt(target_url, platform, "publish_failed")` — failed publish attempts count toward exhaustion. No code branch on attempt count — the exhaustion gate in step 3 handles filtering.
+- Step 5: for each successfully published URL, run targeted probe (see U3).
 - CLI flags: `--dry-run` (skip publish and reverify, show gaps only), `--max-gaps N` (limit seeds), `--min-age-days N` (default 7), `--reset`
-- Fresh vs. retry publish paths must share a single emit helper (dispatch path duplication lesson)
 
 **Patterns to follow:**
 - `keepalive_job.py::_default_publish_seed()` for the publish step
@@ -296,7 +295,8 @@ graph TB
 - Empty recheck: no dead links found → chain exits at step 2 → RECON: gaps_found=0
 - Recheck with probe_error only: probe_error verdicts → NOT counted as gaps → chain exits cleanly
 - No eligible sticky platforms (all circuit-broken): step 3 yields 0 seeds → exits with RECON
-- Three-gap integration: verify that `write_verified_at()` is called after successful probe, and `select_unverified_candidates()` results are included in step 1 pool
+- CLI recheck path routing: verify that chain.py step 1 calls both `select_candidates()` and `select_unverified_candidates()` to build the probe pool, and calls `write_verified_at()` after each ALIVE probe result (verifying the CLI path flows through the three-gap fixed functions — the functions themselves are correct; this test verifies the CLI routing uses them, distinct from the WebUI path)
+- Cycle-level lock: second `keepalive-run` invocation while first is running → exits 0 (skips), does not produce duplicate gap fills or duplicate publishes
 
 **Verification**: `pytest tests/test_keepalive_run.py` green; `backlink-publisher keepalive-run --dry-run` exits 0 and prints gap summary
 
@@ -311,7 +311,7 @@ graph TB
 **Dependencies**: U1 (the call site is in `chain.py`)
 
 **Files:**
-- Modify: `src/backlink_publisher/keepalive/chain.py` (add weight filter at gap planning call site)
+- Modify: `src/backlink_publisher/cli/keepalive_run.py` (add weight filter at gap planning call site in `run_chain()`)
 - Modify: `src/backlink_publisher/gap/engine.py` (add optional `sticky_platforms` parameter if not already present; verify current signature)
 - Test: `tests/test_keepalive_gap_weight_gate.py`
 
@@ -322,9 +322,9 @@ graph TB
   effective_sticky = [p for p in RUNTIME_STICKY_PLATFORMS
                       if opt.get_weight(p, default=1.0) > 0.0]
   ```
-- If `OptimizationState` file missing or corrupt → fallback to full `RUNTIME_STICKY_PLATFORMS` (same OptimizationState.load() fallback already designed in plan 001)
+- If `OptimizationState` file missing → `OptimizationState.load()` returns default state with all weights unset; `get_weight(default=1.0)` returns 1.0, so all platforms pass the `> 0.0` filter. No special fallback needed — the `default=1.0` already handles the missing-file case. Corrupt file → same fallback path with warning log.
 - If `effective_sticky` is empty → log RECON "all sticky platforms circuit-broken" and exit 0 (no gap to fill, not an error)
-- The `plan_keepalive_gap()` already accepts `sticky_platforms` parameter — verify this at implementation; if not, add it as a keyword argument with default `KEEPALIVE_STICKY_PLATFORMS`
+- `plan_keepalive_gap()` already accepts `sticky_platforms` as a keyword argument (confirmed at `gap/engine.py:226`; default is `KEEPALIVE_STICKY_PLATFORMS`). No modification to `gap/engine.py` needed — pass filtered list at the call site in `chain.py` only.
 
 **Patterns to follow:**
 - `publishing/registry.py::preferred_dispatch()` (plan 001 U4) — same pattern of reading OptimizationState and falling back to static
@@ -349,16 +349,19 @@ graph TB
 **Dependencies**: U1 (reverify step in chain.py), U4 (keepalive_run_state.json for retry count update)
 
 **Files:**
-- Modify: `src/backlink_publisher/keepalive/chain.py` (add stat feedback in step 5)
+- Modify: `src/backlink_publisher/cli/keepalive_run.py` (add stat feedback in step 5 of `run_chain()`)
+- Modify: `src/backlink_publisher/optimization/state.py` (add `increment_stats(platform, field, delta=1)` method)
 - Test: `tests/test_keepalive_reverify_feedback.py`
 
 **Approach:**
-- In step 5, after `_default_reverify()` returns verdict for each published URL:
-  - Alive → `OptimizationState().update_stats(platform, {"alive_count_delta": 1, "dofollow_count_delta": 1 if dofollow else 0})`
-  - Dead (restripped) → `OptimizationState().update_stats(platform, {"alive_count_delta": 0})`; increment `keepalive_run_state.retry_counts[target_url]`
-  - probe_error → no stat update (indeterminate, per recheck verdict semantics)
-- `update_stats()` in plan 001's `OptimizationState` merges via deltas — verify current schema supports delta-style updates; if not, use load-modify-save with thread lock
-- New event kind if emitting to events.db: register `KEEPALIVE_REVERIFY_COMPLETE` in `events/kinds.py` and handle in projector — or skip events.db if stat update to `optimization_state.json` is sufficient (defer events.db write to Phase 2)
+- First, add `increment_stats(platform, field, delta=1)` to `OptimizationState`: acquires `self._lock`, loads state, increments `state["stats"][platform][field]` by delta (creates entry with 0 default if missing), saves atomically.
+- In step 5, after reverify probe (`recheck.probe.recheck_link()`) returns verdict for each published URL:
+  - **`alive`**: call `opt_state.increment_stats(platform, "alive_count")`. If dofollow, also `opt_state.increment_stats(platform, "dofollow_count")`.
+  - **`link_stripped` or `host_gone`** (restripped): alive_count unchanged; call `run_state.record_attempt(target_url, platform, "reverify_dead")`.
+  - **`probe_error`**: no stat update, no retry count increment (indeterminate — CDN propagation delay; not a confirmed dead link).
+  - **`dofollow_lost`**: `increment_stats(platform, "alive_count")` only (link exists, just changed attribute).
+- **Stats writer semantics**: keepalive-run's stat writes are supplementary pre-optimizer signals. `collect-signals` (which uses `StartInterval=21600` — fires on 6-hour intervals, not a fixed calendar time) will eventually supersede them with a full recount from events.db. The ordering between keepalive-run and collect-signals is NOT guaranteed — accept that the incremental stats will be overwritten on the next optimization cycle. This is by design: keepalive writes are signals, collect-signals provides ground truth.
+- Phase 1 does **not** emit to events.db — only updates `optimization_state.json`. If Phase 2 adds events.db emission, MUST register `KEEPALIVE_REVERIFY_COMPLETE` in `events/kinds.py` and handle in `projector.classify()` (mandatory institutional rule; see Institutional Learnings above).
 - **Probe count bound**: reverify only for newly-published URLs in this cycle (not all sticky links) — avoids always-on probe anti-pattern for Cloudflare platforms
 
 **Patterns to follow:**
@@ -366,9 +369,10 @@ graph TB
 - `keepalive_job.py::_default_reverify()` for the probe invocation
 
 **Test scenarios:**
-- Reverify alive + dofollow: platform `alive_count` and `dofollow_count` incremented in optimization_state
-- Reverify dead (link_stripped): retry_count for target_url incremented in keepalive_run_state
-- Reverify probe_error: no stat change to either file
+- Reverify `alive` + dofollow: platform `alive_count` and `dofollow_count` RMW-incremented in optimization_state (load + increment field + save under _lock — NOT via update_stats() which is a dict overwrite)
+- Reverify `link_stripped` or `host_gone`: `record_attempt(target_url, platform, "reverify_dead")` in keepalive_run_state; alive_count in optimization_state unchanged
+- Reverify `probe_error`: NO stat change, NO retry count increment (CDN propagation delay; indeterminate)
+- Reverify `dofollow_lost`: alive_count incremented, dofollow_count unchanged
 - Reverify on platform not yet in optimization_state: creates new entry with defaults before updating
 - Multiple platforms in same cycle: all stats updated independently
 - optimization_state corrupt during update: fallback write creates fresh file, logs warning
@@ -386,7 +390,7 @@ graph TB
 **Dependencies**: None (foundational store, read/written by U1, U3)
 
 **Files:**
-- Create: `src/backlink_publisher/keepalive/run_state.py` (KeepaliveRunState class)
+- Create: `src/backlink_publisher/cli/keepalive_run_state.py` (KeepaliveRunState class — flat in cli/, no separate package)
 - Test: `tests/test_keepalive_run_state.py`
 
 **Approach:**
@@ -398,6 +402,7 @@ graph TB
   - `reset_exhausted(target_url)` — removes from retry_counts (for `keepalive-status --reset`)
   - `update_cycle_summary(summary: dict)` — stores last_run_at + summary
   - `MAX_RETRY = 3` (class constant, overridable by env `KEEPALIVE_MAX_RETRY`)
+- **Retry increment gate**: `attempts` increments ONLY on `link_stripped` or `host_gone` verdicts from reverify. `probe_error` from reverify does NOT increment `attempts` (CDN propagation delay can produce spurious probe_error within seconds of publish; incrementing would exhaust the target after 3 valid publishes that just probed too early).
 - State schema:
   ```json
   {
@@ -418,8 +423,9 @@ graph TB
   }
   ```
 - Path: `~/.backlink-publisher/keepalive_run_state.json` (same `data_dir` resolution as `optimization_state.json`)
+- **Cross-process flock**: `save()` must use `fcntl.flock(fd, LOCK_EX)` before writing, following the `circuit.py` pattern. The cycle-level lock prevents overlapping keepalive-run invocations, but not concurrent WebUI access. Both keepalive-run (launchd) and the WebUI can RMW this file simultaneously without the flock.
 
-**Patterns to follow**: `optimization/state.py` — same class shape, same persistence pattern
+**Patterns to follow**: `optimization/state.py` — same class shape, same persistence pattern; `circuit.py` — for the `LOCK_EX` flock pattern on `save()`
 
 **Test scenarios:**
 - Load from non-existing file returns default (no error)
@@ -444,7 +450,7 @@ graph TB
 
 **Files:**
 - Create: `src/backlink_publisher/cli/keepalive_status.py`
-- Modify: `src/backlink_publisher/keepalive/chain.py` (add RECON calls at cycle start and end)
+- Modify: `src/backlink_publisher/cli/keepalive_run.py` (add RECON calls at cycle start and end in `run_chain()`)
 - Modify: `pyproject.toml` (add `keepalive-status` to `[project.scripts]`)
 - Test: `tests/test_keepalive_status.py`
 
@@ -466,7 +472,7 @@ graph TB
   ```
 - Flags: `--json` (machine-readable), `--platform P` (filter), `--reset-exhausted URL` (call `run_state.reset_exhausted()`)
 - RECON in chain.py: call `plan_logger.recon()` at cycle end with `gaps_found`, `published`, `reverified_alive`, `exhausted_skipped` — pre-grep `assert.*stderr.*==""` in test suite before adding
-- RECON level is correct for cron — not `info()` (cron mails at WARN+ by default)
+- RECON level is correct because it bypasses the level gate and always emits to stderr regardless of `--log-level`, making cycle summaries grep-friendly in the launchd log file (launchd is not cron and does not send email; StandardErrorPath captures stderr to a log file)
 
 **Patterns to follow:** `cli/equity_ledger.py` for table formatting; `cli/recheck_backlinks.py` for RECON call site
 
@@ -500,12 +506,13 @@ graph TB
 - New plist: `com.dex.bp-keepalive.plist`
   - `Label`: `com.dex.bp-keepalive`
   - `ProgramArguments`: `[".venv/bin/backlink-publisher", "keepalive-run"]` (no --dry-run)
-  - `StartCalendarInterval`: `{"Hour": 5, "Minute": 0}` (daily 05:00)
+  - `StartCalendarInterval`: `{"Hour": 6, "Minute": 30}` (daily 06:30 — after full-pipeline at 04:00 has time to complete)
   - `StandardOutPath` + `StandardErrorPath` → `~/Library/Logs/backlink-publisher/keepalive.log`
-  - `WorkingDirectory`: repo root
-  - `EnvironmentVariables`: `{"PYTHONHASHSEED": "0"}`
+  - `WorkingDirectory`: absolute path to repo root (use the full Unicode-safe path; verify with `os.path.exists` in the plist test)
+  - `EnvironmentVariables`: `{"PYTHONHASHSEED": "0", "PATH": "/Users/dex/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"}` — PATH is required; subprocess `publish-backlinks` invocations from PipelineAPI inherit the launchd minimal environment without it. Match the pattern of existing plists.
   - **No `TimeOut`** (launchd watchdog not set — `_BATCH_BUDGET_S=600s` already handles this internally)
-- Review `com.dex.bp-recheck.plist` (currently weekly Monday 04:30): `keepalive-run` already runs a full recheck as step 1 — assess whether standalone weekly recheck is redundant or should remain for deeper recheck (more links, longer age window). Keep as-is if age windows differ; note the decision.
+- **Full-pipeline overlap**: `com.dex.bp-full-pipeline.plist` runs daily at 04:00 and also publishes to sticky platforms via the generic `plan-gap` path. `keepalive-run` at 06:30 fires after the daily pipeline should be done (90min budget). Both run independently — they target the same platforms but use different gap logic (`plan_keepalive_gap` vs `plan-gap --emit-stale`). The cycle-level flock only guards within keepalive-run; it does not block concurrent full-pipeline runs. Accept this coexistence — the two gap paths are complementary (keepalive targets dead links, full-pipeline targets fresh links). Document in operational notes.
+- Review `com.dex.bp-recheck.plist` (currently weekly Monday 04:30): `keepalive-run` runs recheck as step 1 — assess whether the standalone weekly sweep is redundant or covers deeper age ranges. Keep as-is if age windows differ; explicitly document the decision.
 - Install instructions in plist header comment: `launchctl load ~/Library/LaunchAgents/com.dex.bp-keepalive.plist`
 
 **Test scenarios:**
@@ -517,52 +524,9 @@ graph TB
 
 ---
 
-- [ ] **Unit 7: WebUI `/ce:keep-alive` cycle metrics panel**
+~~**Unit 7: WebUI `/ce:keep-alive` cycle metrics panel — DEFERRED**~~
 
-**Goal**: Extend the existing `/ce:keep-alive` dashboard with a read-only cycle history panel showing automated loop status.
-
-**Requirements**: R8
-
-**Dependencies**: U4 (state file), U5 (status data accessible)
-
-**Files:**
-- Modify: `webui_app/routes/keep_alive.py` (add API endpoint for cycle metrics)
-- Modify: `webui_app/templates/keep_alive.html` (add cycle history panel below existing job UI)
-- Modify: `webui_app/static/js/keep_alive.js` (fetch and render cycle panel)
-- Test: `tests/test_webui_keepalive_cycle.py` (new route test)
-
-**Approach:**
-- New API: `GET /ce:keep-alive/cycle-status` → JSON:
-  ```json
-  {
-    "last_run_at": "2026-06-05T05:00:00Z",
-    "last_cycle": {"gaps_found": 3, "published": 2, "reverified_alive": 1},
-    "exhausted_targets": [{"url": "...", "attempts": 3}],
-    "platform_health": [
-      {"platform": "blogger", "weight": 1.2, "alive_rate": 0.83, "circuit_broken": false}
-    ]
-  }
-  ```
-- Frontend: Panel card "自動循環狀態 (Auto-cycle Status)"
-  - Last run: relative timestamp ("2 hours ago")
-  - Summary row: gaps_found / published / alive badges
-  - Platform health mini-table (name, weight trend arrow, alive rate)
-  - Exhausted targets count with expand-to-list
-  - No polling — server-side rendered on page load (same as optimization status card in plan 001)
-- If no state file: panel shows "尚未執行自動循環" with instruction to run `keepalive-run`
-- Existing S1→S7 operator job flow unchanged — the new panel is additive
-
-**Patterns to follow:** Existing `/ce:keep-alive` template card structure; optimization status card from plan 001 U6 for the data-loading pattern
-
-**Test scenarios:**
-- GET /ce:keep-alive/cycle-status with no state file returns 200 with null last_run_at
-- GET /ce:keep-alive/cycle-status with state file returns correct data
-- Dashboard renders "no cycle yet" state correctly (no crash)
-- Dashboard renders cycle data: last run timestamp, summary badges visible
-- Circuit-broken platform shown with red badge
-- Exhausted target count visible; expand list works
-
-**Verification**: `pytest tests/test_webui_keepalive_cycle.py` green; manual: navigate to `/ce:keep-alive`, verify cycle panel renders below existing job buttons
+> Deferred to follow-on work. Gate: ship U1–U6, run two weeks of automated cycles, then add the WebUI panel when there is real cycle history to display. `keepalive-status` (U5) already provides the same data via CLI. R8 is moved to the deferred backlog.
 
 ---
 
@@ -570,18 +534,20 @@ graph TB
 
 - **Interaction graph**: `keepalive-run` calls `plan_keepalive_gap()` (gap/engine.py), `derive_per_target_status()` (recheck/events_io.py), `PipelineAPI` (same path as WebUI job), `OptimizationState` (optimization/state.py, plan 001). None of these are modified — they are called, not changed.
 - **Error propagation**: step failures bubble to RECON log at cycle level; individual probe_error verdicts are not fatal (recheck semantics); individual publish failures are recorded in history per row and counted in cycle summary; reverify failures update retry_counts.
-- **State lifecycle risks**: `keepalive_run_state.json` and `optimization_state.json` are both atomic-written. If launchd triggers a second run while first is running (possible if first cycle exceeds 24h), the second `KeepaliveRunState.load()` reads the in-progress first run's state — safe because load is read-only and save is atomic. Concurrent writes: both use threading.Lock + atomic write; cross-process flock TBD (see deferred questions).
-- **API surface parity**: `keepalive-run` does not add new public API surface. `keepalive-status` adds one new CLI command. The new WebUI endpoint is internal.
-- **Integration coverage**: the full chain (publish → write_verified_at → update_stats) crosses events.db, optimization_state.json, keepalive_run_state.json, and potentially webui_store. End-to-end tests in U1 must cover the DB write-back path (Gap 1 was fixed but must verify it flows through the new CLI path, not just the WebUI path).
-- **Unchanged invariants**: WebUI S1→S7 job flow is not modified; `_default_reverify()` in `keepalive_job.py` is not modified; `plan_keepalive_gap()` internal logic is not modified; `recheck-backlinks`, `plan-backlinks`, `publish-backlinks` CLIs are not modified; `optimization_state.json` schema is not changed (only `update_stats()` is called, not `set_weight()`).
+- **State lifecycle risks**: `keepalive_run_state.json` uses `fcntl.flock(LOCK_EX)` on writes (U4), guarding against concurrent WebUI+launchd RMW races. `optimization_state.json` uses `increment_stats()` (added in U3) which also holds `self._lock`. Second launchd invocation during a running cycle is blocked by the cycle-level flock (exit 0 silently) — no duplicate gap fills possible.
+- **API surface parity**: `keepalive-run` does not add new public API surface. `keepalive-status` adds one new CLI command. `OptimizationState.increment_stats()` is a new private helper method on an existing class.
+- **Integration coverage**: the full chain (publish → write_verified_at → increment_stats) crosses events.db, optimization_state.json, keepalive_run_state.json, and webui_store (history). End-to-end tests in U1 must cover the `write_verified_at()` call path specifically — this function is NOT called by the standalone recheck CLI and must be explicitly invoked in chain.py.
+- **Unchanged invariants**: WebUI S1→S7 job flow is not modified; `_default_reverify()` in `keepalive_job.py` is not modified; `plan_keepalive_gap()` internal logic is not modified; `recheck-backlinks`, `plan-backlinks`, `publish-backlinks` CLIs are not modified; `optimization_state.json` schema is not changed (new `increment_stats()` method added but schema structure is unchanged).
 
 ## Risks & Dependencies
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | `plan_keepalive_gap()` does not accept `sticky_platforms` parameter | Medium | Verify at implementation; add keyword arg with default if missing (minimal, backward-compatible change) |
-| Three-gap fixes work in WebUI path but not in new CLI path (different code routing) | Medium | U1 includes explicit end-to-end test verifying `write_verified_at()` is called via CLI recheck path |
-| launchd daily run overlaps with WebUI-triggered recheck (cross-process state race) | Low | Both stores use atomic write; worst case is one run's stats being overwritten — acceptable. Add `fcntl.flock` if observed in practice |
+| Three-gap fixes not routing through CLI path: `write_verified_at()` is absent from `cli/recheck_backlinks.py` (only exists in WebUI path) | High | U1 chain.py must explicitly call `write_verified_at()` — this is new work, not inherited. Test scenario verifies the call is made. |
+| Publish failures never increment retry counter → broken adapters retry indefinitely | Medium | Step 4: on publish failure (empty published_url), call `run_state.record_attempt(target_url, platform, "publish_failed")` — publish_failed counts toward exhaustion |
+| Two launchd `keepalive-run` instances running concurrently (if cycle time > 24h) → duplicate gap fills | Medium | Cycle-level flock in `chain.py` entry (`.keepalive-run.lock`, LOCK_NB). Distinct from state-file RMW flock — this covers the entire cycle. |
+| `collect-signals` run overwrites keepalive reverify stat contributions | Medium | Accepted by design — collect-signals provides ground truth (full recount from events.db). keepalive-run increments are supplementary pre-optimizer signals. No ordering guarantee exists; `collect-signals` uses `StartInterval=21600` (interval-based, not calendar-pinned). |
 | Reverify probes Cloudflare platform → IP reputation impact | Medium | Reverify is bounded to newly-published URLs only (typically 1–3 per cycle); not a systematic always-on scan |
 | optimization_state.json not yet initialized when keepalive-run first runs | Low | `OptimizationState.load()` returns default state (empty weights); fallback to full `RUNTIME_STICKY_PLATFORMS` (plan 001 already handles this) |
 | `KEEPALIVE_STICKY_PLATFORMS` / `RUNTIME_STICKY_PLATFORMS` diverge between engine and runtime layers | Low | Explicitly use `RUNTIME_STICKY_PLATFORMS` from `keepalive_job.py`; document why (GitHub suspended) |
@@ -590,9 +556,11 @@ graph TB
 ## Documentation / Operational Notes
 
 - After shipping: run `launchctl load ~/Library/LaunchAgents/com.dex.bp-keepalive.plist` to activate treadmill
-- Verify first automated run via `backlink-publisher keepalive-status` the morning after
-- `optimization_state.json` must exist (or plan 001's `collect-signals` must have run once) for the weight gate to work; not a hard requirement — fallback is safe
-- `KEEPALIVE_MAX_RETRY=3` default; increase if platform instability is temporary (e.g., platform down for maintenance)
+- Verify first automated run via `backlink-publisher keepalive-status` the morning after (runs 06:30)
+- `optimization_state.json` must exist (or plan 001's `collect-signals` must have run once) for the weight gate to work; not a hard requirement — fallback to full RUNTIME_STICKY_PLATFORMS is safe
+- `KEEPALIVE_MAX_RETRY=3` default; increase via `KEEPALIVE_MAX_RETRY` env var if platform instability is temporary (e.g., platform down for maintenance)
+- `com.dex.bp-full-pipeline.plist` (daily 04:00) and `com.dex.bp-keepalive.plist` (daily 06:30) run independently and publish to the same platforms. This is intentional — full-pipeline fills fresh-link gaps, keepalive fills dead-link gaps. They are not in conflict.
+- keepalive-run's reverify stats in `optimization_state.json` will be overwritten by `collect-signals` on its next interval run (every 6 hours). This is expected — collect-signals provides ground truth; keepalive writes are supplementary.
 
 ## Sources & References
 

@@ -51,8 +51,9 @@ class TestFullStackFlow:
         ]
         _push_history_per_row(rows)
 
-        # Stage 2: history shape
-        items = {it["target_url"]: it for it in history_store.load()}
+        # Stage 2: history shape — post-U2, reads come from events.db.
+        from backlink_publisher.events.history_query import list_history
+        items = {it["target_url"]: it for it in list_history()}
         assert items["https://a/"]["status"] == "published"
         assert items["https://b/"]["status"] == "published_unverified"
         assert items["https://c/"]["status"] == "drafted_unverified"
@@ -67,11 +68,12 @@ class TestFullStackFlow:
         assert "已发布·未核实" in body
         assert "草稿·未核实" in body
 
-        # Stage 4: bulk-recheck the two unverified rows. The default verify_fn
-        # routes through the shared probe_liveness engine (Plan 2026-05-29-004
-        # U2), so patch the underlying inspect_target_anchor (host_gone → 404).
-        unverified_ids = [it["id"] for it in history_store.load()
-                          if it["status"].endswith("_unverified")]
+        # Stage 4: bulk-recheck the two unverified rows.
+        # Post-U2: items are in events.db with integer article_ids.
+        # update_item falls back to _update_item_events_db for events.db items
+        # (U3); write_event appends updated status event; list_history() reflects both.
+        all_items = list_history()
+        unverified_ids = [it["id"] for it in all_items if it["status"].endswith("_unverified")]
         assert len(unverified_ids) == 2
         with patch(
             "backlink_publisher.publishing.adapters.link_attr_verifier.inspect_target_anchor",
@@ -88,16 +90,17 @@ class TestFullStackFlow:
         assert resp.status_code == 302
         msg = unquote(resp.location)
         assert "已核实 2 条" in msg
-        # Both unverified now failed
-        after = {it["target_url"]: it for it in history_store.load()}
+        # Both unverified now failed — read from events.db (U5 read path)
+        after = {it["target_url"]: it for it in list_history()}
         assert after["https://b/"]["status"] == "failed"
         assert after["https://c/"]["status"] == "failed"
         assert after["https://b/"]["verify_error"] == "http_404"
 
-        # Stage 5: purge-failed wipes them + the original 'd' coerced failure
+        # Stage 5: purge-failed wipes them + the original 'd' coerced failure.
+        # purge_failed counts events.db purges too (U6 shim).
         resp = client.post("/ce:history/purge-failed")
         assert "已清除 3 条" in unquote(resp.location)
-        remaining = history_store.load()
+        remaining = list_history()
         # Only the originally-clean 'published' row 'a' survives
         assert len(remaining) == 1
         assert remaining[0]["target_url"] == "https://a/"

@@ -12,8 +12,8 @@ import json
 
 import pytest
 
+from backlink_publisher.events.history_query import list_history as _list_history
 from webui_app import create_app
-from webui_store import history_store
 
 
 @pytest.fixture
@@ -105,7 +105,7 @@ def test_all_published_renders_green_banner(client, seeded_session, monkeypatch)
     assert "发布失败" not in body
     assert "部分发布成功" not in body
 
-    hist = history_store.load()
+    hist = _list_history()
     published_hist = [h for h in hist if h.get("status") == "published"]
     assert len(published_hist) >= 2
     assert all(h.get("article_urls") for h in published_hist[:2])
@@ -131,9 +131,8 @@ def test_all_drafted_renders_green_banner(client, seeded_session, monkeypatch):
     assert "发布成功！" in body
     assert "发布失败" not in body
 
-    hist = history_store.load()
-    assert any(h.get("status") == "drafted" and h.get("article_urls")
-               for h in hist)
+    # "drafted" is NO_EMIT in events.db (owned by drafts_store, not history).
+    # The banner assertion above is the load-bearing check for this case.
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -154,7 +153,7 @@ def test_subprocess_exception_renders_red_banner(client, seeded_session, monkeyp
     assert "subprocess died: boom" in body
     assert "发布成功！" not in body
 
-    hist = history_store.load()
+    hist = _list_history()
     failed = [h for h in hist if h.get("status") == "failed"]
     assert any("subprocess died: boom" in (h.get("error") or "") for h in failed)
 
@@ -182,7 +181,7 @@ def test_all_failed_rows_no_url_renders_red_banner(client, seeded_session, monke
     assert "发布成功！" not in body
     assert "部分发布成功" not in body
 
-    hist = history_store.load()
+    hist = _list_history()
     failed = [h for h in hist if h.get("status") == "failed"]
     assert len(failed) >= 2
 
@@ -206,7 +205,7 @@ def test_mixed_rows_render_partial_banner(client, seeded_session, monkeypatch):
     assert "发布成功！" not in body
     assert "发布失败" not in body  # the red bare banner — only present in all_failed
 
-    hist = history_store.load()
+    hist = _list_history()
     statuses = {h.get("status") for h in hist}
     assert "published" in statuses
     assert "failed" in statuses

@@ -15,8 +15,15 @@ __tier__ = "unit"
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_events_db(tmp_path, monkeypatch):
+    """Redirect events.db to a per-test temp directory."""
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    yield
+
+
 @pytest.fixture
-def client():
+def client(tmp_path, monkeypatch):
     """Flask test client — CSRF disabled so we can test business-logic guards."""
     import webui
 
@@ -54,58 +61,39 @@ class TestApplyHistoryCap:
 class TestPushHistoryAggregateInvariant:
     """_push_history_aggregate enforces the publish-history invariant."""
 
-    def test_published_with_urls_accepted(self, tmp_path, monkeypatch):
-        # Patch the store to avoid real file I/O
-        written: list[list] = []
-
-        def fake_update(fn):
-            result = fn([])
-            written.append(result)
-            return result
-
+    def test_published_with_urls_accepted(self, monkeypatch):
+        """published + URLs → no error, write_publish_result called."""
+        calls = []
         import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", fake_update)
+        monkeypatch.setattr(h, "write_publish_result", lambda item, store=None: calls.append(item) or 1)
+        monkeypatch.setattr(h, "_list_history", lambda: [{"status": "published"}])
 
         entry = {"status": "published", "article_urls": ["https://example.com/post"]}
         result = _push_history_aggregate(entry)
-        assert written, "update was not called"
+        assert calls, "write_publish_result was not called"
         assert result[0]["status"] == "published"
 
-    def test_drafted_with_urls_accepted(self, tmp_path, monkeypatch):
-        written: list[list] = []
-
-        def fake_update(fn):
-            result = fn([])
-            written.append(result)
-            return result
-
+    def test_drafted_with_urls_accepted(self, monkeypatch):
+        calls = []
         import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", fake_update)
+        monkeypatch.setattr(h, "write_publish_result", lambda item, store=None: calls.append(item) or 1)
+        monkeypatch.setattr(h, "_list_history", lambda: [{"status": "drafted"}])
 
         entry = {"status": "drafted", "article_urls": ["https://example.com/draft"]}
         _push_history_aggregate(entry)
-        assert written
+        assert calls
 
-    def test_published_without_urls_raises(self, monkeypatch):
-        import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", lambda fn: fn([]))
-
+    def test_published_without_urls_raises(self):
         entry = {"status": "published", "article_urls": []}
         with pytest.raises(ValueError, match="article_urls"):
             _push_history_aggregate(entry)
 
-    def test_published_no_article_urls_key_raises(self, monkeypatch):
-        import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", lambda fn: fn([]))
-
+    def test_published_no_article_urls_key_raises(self):
         entry = {"status": "published"}
         with pytest.raises(ValueError, match="article_urls"):
             _push_history_aggregate(entry)
 
-    def test_drafted_without_urls_raises(self, monkeypatch):
-        import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", lambda fn: fn([]))
-
+    def test_drafted_without_urls_raises(self):
         entry = {"status": "drafted", "article_urls": []}
         with pytest.raises(ValueError, match="article_urls"):
             _push_history_aggregate(entry)
@@ -113,7 +101,8 @@ class TestPushHistoryAggregateInvariant:
     def test_failed_without_urls_accepted(self, monkeypatch):
         """failed status does not require article_urls."""
         import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", lambda fn: fn([]))
+        monkeypatch.setattr(h, "write_publish_result", lambda item, store=None: 1)
+        monkeypatch.setattr(h, "_list_history", lambda: [{"status": "failed"}])
 
         entry = {"status": "failed", "article_urls": []}
         result = _push_history_aggregate(entry)
@@ -122,7 +111,10 @@ class TestPushHistoryAggregateInvariant:
     def test_failed_partial_without_urls_accepted(self, monkeypatch):
         """failed_partial is not in REQUIRES_URL_STATUSES."""
         import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", lambda fn: fn([]))
+        monkeypatch.setattr(h, "write_publish_result", lambda item, store=None: 1)
+        monkeypatch.setattr(
+            h, "_list_history", lambda: [{"status": "failed_partial"}]
+        )
 
         entry = {
             "status": "failed_partial",
@@ -139,16 +131,16 @@ class TestPushHistoryAggregateInvariant:
         assert "failed" not in _REQUIRES_URL_STATUSES
         assert "failed_partial" not in _REQUIRES_URL_STATUSES
 
-    def test_cap_applied(self, monkeypatch):
-        """_push_history_aggregate applies the history cap."""
-        existing = [{"id": str(i), "status": "failed"} for i in range(_HISTORY_MAX_ITEMS)]
-
+    def test_write_result_called_once_per_entry(self, monkeypatch):
+        """write_publish_result is called exactly once per _push_history_aggregate call."""
+        calls = []
         import webui_app.helpers.history as h
-        monkeypatch.setattr(h._history_store, "update", lambda fn: fn(existing))
+        monkeypatch.setattr(h, "write_publish_result", lambda item, store=None: calls.append(item) or 1)
+        monkeypatch.setattr(h, "_list_history", lambda: [])
 
         entry = {"status": "failed", "article_urls": []}
-        result = _push_history_aggregate(entry)
-        assert len(result) == _HISTORY_MAX_ITEMS
+        _push_history_aggregate(entry)
+        assert len(calls) == 1
 
 
 # ── Integration: /ce:history/update-status server-side guard ────────────────
@@ -156,8 +148,8 @@ class TestPushHistoryAggregateInvariant:
 class TestHistoryUpdateStatusInvariant:
     """F22 server-side guard: forged POST cannot set published on no-URL row."""
 
-    def _seed_history(self, client, item_id: str, article_urls: list):
-        """Directly set history store for the test."""
+    def _seed_history_store(self, item_id: str, article_urls: list):
+        """Seed an item into history_store (fallback path for _get_item)."""
         from webui_store import history_store as _history_store
         _history_store.update(lambda hist: [
             {
@@ -174,7 +166,7 @@ class TestHistoryUpdateStatusInvariant:
 
     def test_set_published_on_no_url_row_returns_400(self, client):
         item_id = "test0001"
-        self._seed_history(client, item_id, article_urls=[])
+        self._seed_history_store(item_id, article_urls=[])
         resp = client.post(
             "/ce:history/update-status",
             data={"id": item_id, "status": "published"},
@@ -183,7 +175,7 @@ class TestHistoryUpdateStatusInvariant:
 
     def test_set_drafted_on_no_url_row_returns_400(self, client):
         item_id = "test0002"
-        self._seed_history(client, item_id, article_urls=[])
+        self._seed_history_store(item_id, article_urls=[])
         resp = client.post(
             "/ce:history/update-status",
             data={"id": item_id, "status": "drafted"},
@@ -192,7 +184,7 @@ class TestHistoryUpdateStatusInvariant:
 
     def test_set_failed_on_no_url_row_is_allowed(self, client):
         item_id = "test0003"
-        self._seed_history(client, item_id, article_urls=[])
+        self._seed_history_store(item_id, article_urls=[])
         resp = client.post(
             "/ce:history/update-status",
             data={"id": item_id, "status": "failed"},
@@ -201,7 +193,7 @@ class TestHistoryUpdateStatusInvariant:
 
     def test_set_published_on_row_with_url_is_allowed(self, client):
         item_id = "test0004"
-        self._seed_history(client, item_id, article_urls=["https://example.com/post"])
+        self._seed_history_store(item_id, article_urls=["https://example.com/post"])
         resp = client.post(
             "/ce:history/update-status",
             data={"id": item_id, "status": "published"},
@@ -210,7 +202,7 @@ class TestHistoryUpdateStatusInvariant:
 
     def test_set_drafted_on_row_with_url_is_allowed(self, client):
         item_id = "test0005"
-        self._seed_history(client, item_id, article_urls=["https://example.com/draft"])
+        self._seed_history_store(item_id, article_urls=["https://example.com/draft"])
         resp = client.post(
             "/ce:history/update-status",
             data={"id": item_id, "status": "drafted"},

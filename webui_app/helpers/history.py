@@ -1,8 +1,7 @@
-"""Publish-history canonical write path.
+"""Publish-history canonical write path (Plan 2026-05-28-007 U2).
 
-Extracted from webui_app/helpers/__init__.py in Plan 2026-05-21-007 Unit 2.
-All callers must write history through these helpers — never directly via
-_history_store.update (publish-history invariant per PR #87/#97/#156/#167).
+All callers must write history through these helpers.  As of U2, events.db is
+the sole write target — ``history_store`` is no longer written here.
 """
 
 from __future__ import annotations
@@ -11,18 +10,20 @@ import json
 import uuid
 from datetime import datetime
 
-from backlink_publisher.events.publish_writer import (
-    map_history_entry,
-    write_event,
-)
-from webui_store import history_store as _history_store
-
-
-_HISTORY_MAX_ITEMS = 100
+from backlink_publisher.events.history_query import list_history as _list_history
+from backlink_publisher.events.publish_writer import write_publish_result
 
 # Statuses that require at least one article URL — operator-visible "success"
 # states must be backed by a real URL or the publish-history invariant is broken.
 _REQUIRES_URL_STATUSES: frozenset[str] = frozenset({"published", "drafted"})
+
+# Kept for backward compat with tests that import this symbol directly.
+_HISTORY_MAX_ITEMS = 100
+
+
+def _apply_history_cap(hist: list[dict]) -> list[dict]:
+    """Trim a list to ``_HISTORY_MAX_ITEMS`` (kept for test compat)."""
+    return hist[:_HISTORY_MAX_ITEMS]
 
 
 def _parse_publish_results(jsonl_str):
@@ -34,11 +35,6 @@ def _parse_publish_results(jsonl_str):
             except json.JSONDecodeError:
                 pass
     return results
-
-
-def _apply_history_cap(hist: list[dict]) -> list[dict]:
-    """Trim history to the configured maximum, newest-first order preserved."""
-    return hist[:_HISTORY_MAX_ITEMS]
 
 
 def _push_history_per_row(
@@ -99,18 +95,9 @@ def _push_history_per_row(
         if raw_error:
             item["error"] = raw_error
         new_items.append(item)
-    result = _history_store.update(
-        lambda hist: [*new_items, *hist][:_HISTORY_MAX_ITEMS]
-    )
-    # Dual-write: forward each new entry to events.db (U2).
     for item in new_items:
-        mapped = map_history_entry(item)
-        if mapped is not None:
-            write_event(
-                mapped[0], mapped[1],
-                target_url=item.get("target_url"),
-            )
-    return result
+        write_publish_result(item)
+    return _list_history()
 
 
 def _push_history_single_failure(
@@ -136,13 +123,8 @@ def _push_history_single_failure(
         "adapter": "",
         "error": error or "publish failed",
     }
-    result = _history_store.update(
-        lambda hist: [item, *hist][:_HISTORY_MAX_ITEMS]
-    )
-    mapped = map_history_entry(item)
-    if mapped is not None:
-        write_event(mapped[0], mapped[1], target_url=item.get("target_url"))
-    return result
+    write_publish_result(item)
+    return _list_history()
 
 
 def _push_history_aggregate(entry: dict) -> list[dict]:
@@ -167,10 +149,5 @@ def _push_history_aggregate(entry: dict) -> list[dict]:
             f"_push_history_aggregate: entry status={entry.get('status')!r} "
             f"requires non-empty article_urls; got {entry.get('article_urls')!r}"
         )
-    result = _history_store.update(
-        lambda hist: _apply_history_cap([entry, *hist])
-    )
-    mapped = map_history_entry(entry)
-    if mapped is not None:
-        write_event(mapped[0], mapped[1], target_url=entry.get("target_url"))
-    return result
+    write_publish_result(entry)
+    return _list_history()

@@ -69,6 +69,10 @@ rationale = "Per-row publish dispatcher gating canary, reachability, bad platfor
 ceiling = 65
 rationale = "spray-backlinks CLI entry point: orchestrates seed expansion, gate evaluation, per-platform publish dispatch, cross-seed idempotency checks, and result serialisation. High CC is inherent to a top-level CLI coordinator; individual stages (gate_candidates, cross_seed_checker, _dispatch_platform) are already extracted to separate functions. Decomposing main further would only add indirection without reducing decision paths."
 
+[functions."src/backlink_publisher/keepalive/chain.py::run_cycle"]
+ceiling = 45
+rationale = "keepalive-run chain coordinator (plan 2026-06-05-004 U1): sequences five stages — cycle lock, recheck probe, per-target-status derivation, keepalive-gap planning, publish+reverify loop — each with early-exit branches for dry-run, lock contention, empty gaps, and exhausted targets. All sub-stage logic is already extracted to private helpers (_effective_sticky, _update_opt_stats, KeepaliveRunState); the remaining CC is sequential gating intrinsic to a multi-step coordinator. Extracting further would create helper functions with no reuse value. CC 41 measured at introduction; ceiling set to 45 for minimal headroom."
+
 # Test-file SLOC budgets (enforced by test_no_complexity_regrowth.py).
 # Each entry is a repo-relative .py path with:
 #   ceiling  -- int, SLOC (logical lines of code via radon raw -s)
@@ -80,8 +84,8 @@ rationale = "spray-backlinks CLI entry point: orchestrates seed expansion, gate 
 # rationale update.
 
 [test_files."tests/test_webui_route_contract.py"]
-ceiling = 1148
-rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes, then 1140→1148 for the survival-dashboard route (GET /survival-dashboard, plan 2026-06-05-008 R5 — the contract gate requires a client.get in this file). Decompose parametrize tables into shared helpers when a new route makes this file grow further."
+ceiling = 1160
+rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes, then 1140→1148 for the survival-dashboard route, then 1148→1160 for the R8 cycle-panel routes (GET /ce:keep-alive/cycle-status + POST /ce:keep-alive/reset-exhausted, plan 2026-06-08-001). Decompose parametrize tables into shared helpers when a new route makes this file grow further."
 
 [test_files."tests/test_cli_generate_backlink_text.py"]
 ceiling = 1070

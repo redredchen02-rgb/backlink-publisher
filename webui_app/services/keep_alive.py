@@ -144,3 +144,79 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
         "gap_channel_exhausted": gap_channel_exhausted,
         "live_excluded": live_excluded,
     }
+
+
+def build_cycle_status_view(*, run_state=None, opt_state=None) -> dict:
+    """Return automated keepalive cycle status for the WebUI panel.
+
+    ``run_state`` / ``opt_state`` are injectable for tests — pass
+    ``KeepaliveRunState(data_dir=tmp_path)`` / ``OptimizationState(data_dir=tmp_path)``.
+    """
+    from backlink_publisher.keepalive.run_state import KeepaliveRunState
+    from backlink_publisher.optimization.state import OptimizationState
+
+    rs = run_state if run_state is not None else KeepaliveRunState()
+    data = rs.load()
+
+    last_run_at = data.get("last_run_at")
+    if not last_run_at:
+        return {
+            "has_data": False,
+            "last_run_at": None,
+            "cycle_summary": {},
+            "platforms": [],
+            "exhausted": [],
+            "exhausted_total": 0,
+        }
+
+    cycle_summary = data.get("last_cycle_summary") or {}
+    retry_counts = data.get("retry_counts") or {}
+    max_retry = rs.MAX_RETRY
+
+    # Build exhausted list — None last_attempt_at sorts last via empty-string coercion.
+    # isinstance guard: skip corrupted entries that are not dicts (e.g. manual edits).
+    # str() in sort key: guard against legacy unix-timestamp int values.
+    all_exhausted = [
+        {
+            "target_url": url,
+            "attempts": int(entry.get("attempts") or 0),
+            "last_attempt_at": entry.get("last_attempt_at"),
+            "last_outcome": entry.get("last_outcome"),
+            "platforms_tried": list(entry.get("platforms_tried") or []),
+        }
+        for url, entry in retry_counts.items()
+        if isinstance(entry, dict) and int(entry.get("attempts") or 0) >= max_retry
+    ]
+    all_exhausted.sort(key=lambda e: str(e.get("last_attempt_at") or ""), reverse=True)
+    exhausted_total = len(all_exhausted)
+    exhausted = all_exhausted[:20]
+
+    # Platform health from OptimizationState.to_summary() — to_summary() produces
+    # the "platforms" list; raw .load() has no "platforms" key.
+    platforms: list[dict] = []
+    try:
+        os_inst = opt_state if opt_state is not None else OptimizationState()
+        summary = os_inst.to_summary()
+        for p in summary.get("platforms", []):
+            weight = float(p.get("current", 1.0))
+            locked = bool(p.get("locked", False))
+            pstats = p.get("stats") or {}
+            platforms.append({
+                "name": p.get("name", ""),
+                "weight": round(weight, 4),
+                "circuit_broken": weight == 0.0 and not locked,
+                "locked": locked,
+                "alive_count": int(pstats.get("alive_count") or 0),
+                "total_published": int(pstats.get("total_published") or 0),
+            })
+    except Exception:  # noqa: BLE001
+        platforms = []
+
+    return {
+        "has_data": True,
+        "last_run_at": last_run_at,
+        "cycle_summary": cycle_summary,
+        "platforms": platforms,
+        "exhausted": exhausted,
+        "exhausted_total": exhausted_total,
+    }

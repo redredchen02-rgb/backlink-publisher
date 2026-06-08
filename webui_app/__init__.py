@@ -419,4 +419,13 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     if 'CAMPAIGN_WORKER' not in app.config:
         app.config['CAMPAIGN_WORKER'] = None
 
+    # R8: origin-guarded routes call abort(403) which normally returns HTML.
+    # JSON-API callers (cycle-panel.js doReset()) would receive unparseable HTML
+    # and show a generic error.  Normalise to JSON so callers can surface the
+    # real reason ("forbidden — wrong Origin header").
+    @app.errorhandler(403)
+    def _json_forbidden(exc):
+        from flask import jsonify as _jsonify
+        return _jsonify({"status": "error", "error": "forbidden"}), 403
+
     return app

@@ -150,10 +150,11 @@ class HistoryAPI:
         read source).  Returns ``ok=False`` when no records were removed.
         """
         removed = _history_store.purge_by_status("failed")
-        purge_failed_from_db()  # mirror cleanup; not counted to avoid double-counting
-        if removed == 0:
+        db_removed = purge_failed_from_db()
+        total = removed + db_removed
+        if total == 0:
             return {"ok": False, "flash_msg": "没有失败记录可清除"}
-        return {"ok": True, "flash_msg": f"已清除 {removed} 条失败记录"}
+        return {"ok": True, "flash_msg": f"已清除 {total} 条失败记录"}
 
     # ── item lookup (events.db with fallback to JSON store) ───────────────
 

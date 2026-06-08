@@ -30,26 +30,26 @@ MAX_ATTEMPTS: int = 3
 BACKOFF_BASE: int = 2
 JITTER_FACTOR: float = 0.15
 
-# Status-specific backoff multipliers for rate limiting
-STATUS_BACKOFF_MULTIPLIER: dict[int, float] = {
-    429: 5.0,  # Rate limited - use longer backoff
-    502: 1.5,
-    503: 2.0,
-    504: 2.0,
-}
+_MAX_ATTEMPTS_CEILING = 10
+_BACKOFF_BASE_CEILING = 30.0
+_JITTER_CEILING = 5.0
 
 
-# Configurable backoff via environment
 def _get_env_backoff(key: str, default: float) -> float:
+    """Read a backoff tuning parameter from the environment, falling back to ``default``."""
     try:
-        return float(os.environ.get(key, str(default)))
-    except (ValueError, TypeError):
-        return default
+        return float(os.environ.get(key, default))
+    except (TypeError, ValueError):
+        return float(default)
 
 
-DEFAULT_MAX_ATTEMPTS: int = int(_get_env_backoff("BACKLINK_RETRY_MAX_ATTEMPTS", 3))
-DEFAULT_BACKOFF_BASE: int = int(_get_env_backoff("BACKLINK_RETRY_BACKOFF_BASE", 2))
-DEFAULT_JITTER: float = _get_env_backoff("BACKLINK_RETRY_JITTER", 0.15)
+_DEFAULT_MAX_ATTEMPTS: int = min(max(int(_get_env_backoff("BACKLINK_RETRY_MAX_ATTEMPTS", 3)), 1), _MAX_ATTEMPTS_CEILING)
+_DEFAULT_BACKOFF_BASE: int = min(max(int(_get_env_backoff("BACKLINK_RETRY_BACKOFF_BASE", 2)), 1), _BACKOFF_BASE_CEILING)
+_DEFAULT_JITTER: float = min(max(_get_env_backoff("BACKLINK_RETRY_JITTER", 0.15), 0.0), _JITTER_CEILING)
+
+DEFAULT_MAX_ATTEMPTS: int = _DEFAULT_MAX_ATTEMPTS
+DEFAULT_BACKOFF_BASE: int = _DEFAULT_BACKOFF_BASE
+DEFAULT_JITTER: float = _DEFAULT_JITTER
 
 # HTTP status codes that indicate a transient server-side failure worth retrying.
 # Only used by call-site is_retryable predicates — not enforced here.
@@ -66,6 +66,13 @@ DEFAULT_JITTER: float = _get_env_backoff("BACKLINK_RETRY_JITTER", 0.15)
 # server returns before creating anything. Adding 5xx here would silently make
 # those creates retry an ambiguous failure → duplicate published posts.
 RETRYABLE_HTTP_STATUSES: frozenset[int] = frozenset({429})
+
+STATUS_BACKOFF_MULTIPLIER: dict[int, float] = {
+    429: 5.0,
+    502: 1.5,
+    503: 2.0,
+    504: 2.0,
+}
 
 
 class ErrorClass(str, Enum):
