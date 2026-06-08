@@ -502,13 +502,31 @@
   {# ── Storage health card (E3) ─────────────────────────────────────────────── #}
   {% set sh = storage_health | default({}) %}
   <div class="card shadow-sm mb-4">
-    <div class="card-header bg-white fw-semibold">Storage health</div>
+    <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+      Storage health
+      {% if sh.events_db_warn %}
+      <span class="badge text-bg-warning">⚠ events.db 偏大</span>
+      {% endif %}
+    </div>
     {% if sh %}
     <ul class="list-group list-group-flush">
-      <li class="list-group-item d-flex justify-content-between"><span>events.db</span><span class="badge text-bg-secondary">{{ sh.events_db_mb | default(0) }} MB</span></li>
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <span>
+          events.db
+          {% if sh.events_rows is defined %}
+          <small class="text-muted ms-1">{{ sh.events_rows }} 事件 / {{ sh.articles_rows }} 文章</small>
+          {% endif %}
+        </span>
+        <span class="badge {% if sh.events_db_warn %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{{ sh.events_db_mb | default(0) }} MB</span>
+      </li>
       <li class="list-group-item d-flex justify-content-between"><span>dedup.db</span><span class="badge text-bg-secondary">{{ sh.dedup_db_mb | default(0) }} MB</span></li>
       <li class="list-group-item d-flex justify-content-between"><span>Config dir total</span><span class="badge text-bg-secondary">{{ sh.config_dir_mb | default(0) }} MB</span></li>
     </ul>
+    {% if sh.events_db_warn %}
+    <div class="card-footer text-warning-emphasis bg-warning-subtle small">
+      events.db 超過閾值（&gt;100 MB 或 &gt;10萬條事件）。建議執行 <code>bp-events-rebuild</code> 或增加壓縮策略。
+    </div>
+    {% endif %}
     {% else %}
     <div class="card-body text-muted text-center py-4">Storage data unavailable.</div>
     {% endif %}

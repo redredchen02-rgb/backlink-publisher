@@ -338,3 +338,66 @@ def test_platform_health_error_does_not_500(client, monkeypatch):
 
     resp = client.get("/ce:health")
     assert resp.status_code == 200
+
+
+# ── storage health row counts + warn threshold ──────────────────────────────
+
+def test_storage_health_shows_row_counts(client):
+    """events.db row counts appear in the storage health card."""
+    from backlink_publisher.events import EventStore, kinds
+
+    store = EventStore()
+    for i in range(3):
+        store.append(
+            kinds.PUBLISH_CONFIRMED,
+            {"live_url": f"https://example.com/{i}"},
+            target_url=f"https://target.com/{i}",
+            ts_utc=_now(),
+        )
+
+    body = client.get("/ce:health").data.decode()
+    assert "events.db" in body
+    assert "事件" in body
+
+
+def test_storage_health_warn_flag_set_when_rows_exceed_threshold(monkeypatch, tmp_path):
+    """_storage_health sets events_db_warn=True when events rows exceed threshold."""
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    from webui_app.routes.health import _EVENTS_WARN_ROWS, _storage_health
+
+    monkeypatch.setattr("webui_app.routes.health._EVENTS_WARN_ROWS", 0)
+    from backlink_publisher.events import EventStore, kinds
+
+    store = EventStore()
+    store.append(
+        kinds.PUBLISH_CONFIRMED,
+        {"live_url": "https://example.com/1"},
+        target_url="https://target.com/1",
+        ts_utc=_now(),
+    )
+
+    result = _storage_health()
+    assert result.get("events_db_warn") is True
+    assert result.get("events_rows", 0) >= 1
+
+    monkeypatch.setattr("webui_app.routes.health._EVENTS_WARN_ROWS", _EVENTS_WARN_ROWS)
+    result2 = _storage_health()
+    assert result2.get("events_db_warn") is False
+
+
+def test_storage_health_warn_badge_renders_in_template(client, monkeypatch):
+    """Warning badge renders in the storage card when events_db_warn is True."""
+    monkeypatch.setattr("webui_app.routes.health._EVENTS_WARN_ROWS", 0)
+
+    from backlink_publisher.events import EventStore, kinds
+
+    EventStore().append(
+        kinds.PUBLISH_CONFIRMED,
+        {"live_url": "https://ex.com/w"},
+        target_url="https://target.com/w",
+        ts_utc=_now(),
+    )
+
+    body = client.get("/ce:health").data.decode()
+    assert "events.db 偏大" in body
+    assert "text-bg-warning" in body
