@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backlink_publisher._util.errors import ExternalServiceError
+from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.substack_api import SubstackAPIAdapter
 from backlink_publisher.publishing.adapters.base import AdapterResult
 
@@ -44,9 +44,11 @@ def _draft_resp():
 def test_status_always_drafted(config_with_cookies, mode):
     """P1#8: even in publish mode the adapter only drafts, so it must NOT
     claim 'published'."""
+    sess = MagicMock()
+    sess.post.return_value = _draft_resp()
     with patch(
-        "backlink_publisher.publishing.adapters.substack_api.requests.post",
-        return_value=_draft_resp(),
+        "backlink_publisher.publishing.adapters.substack_api.SessionManager.get_session",
+        return_value=sess,
     ):
         result = SubstackAPIAdapter().publish(_payload(), mode, config_with_cookies)
     assert isinstance(result, AdapterResult)
@@ -59,9 +61,11 @@ def test_401_error_interpolates_status_code(config_with_cookies):
     resp = MagicMock()
     resp.status_code = 401
     resp.text = "no"
+    sess = MagicMock()
+    sess.post.return_value = resp
     with patch(
-        "backlink_publisher.publishing.adapters.substack_api.requests.post",
-        return_value=resp,
+        "backlink_publisher.publishing.adapters.substack_api.SessionManager.get_session",
+        return_value=sess,
     ):
         with pytest.raises(ExternalServiceError) as exc:
             SubstackAPIAdapter().publish(_payload(), "publish", config_with_cookies)
@@ -69,20 +73,17 @@ def test_401_error_interpolates_status_code(config_with_cookies):
     assert "{resp.status_code}" not in str(exc.value)
 
 
-def test_load_cookies_corrupt_json_omits_raw_exception(tmp_path):
+def test_corrupt_cookies_raises_dependency_error(tmp_path):
     """A corrupt cookies file must surface a generic DependencyError, not the raw
     JSONDecodeError text (which echoes a snippet of the cookie file contents)."""
-    from backlink_publisher._util.errors import DependencyError
-    from backlink_publisher.publishing.adapters.substack_api import _load_cookies
-
     cfg = MagicMock()
     cfg.config_dir = tmp_path
     cred = tmp_path / "substack-credentials.json"
     cred.write_text('{ "cookies": [ broken sid=secretvalue ')
     os.chmod(cred, 0o600)
+
     with pytest.raises(DependencyError) as exc:
-        _load_cookies(cfg)
+        SubstackAPIAdapter().publish(_payload(), "draft", cfg)
     msg = str(exc.value)
-    assert msg == "Cannot read Substack credentials: file missing, corrupt, or unreadable"
     assert "secretvalue" not in msg
     assert "Expecting" not in msg

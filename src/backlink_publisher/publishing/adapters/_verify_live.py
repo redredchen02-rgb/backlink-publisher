@@ -231,22 +231,23 @@ _VELOG_CURRENT_USER_QUERY = (
 def _verify_velog_live(config: Config) -> VerifyResult:
     import requests
     from backlink_publisher.http import post as http_post
+    from backlink_publisher.publishing._registry_manifest import session as get_descriptor
+    from backlink_publisher.publishing.session import DefaultCredentialProvider
     from .velog_graphql import (
         _VELOG_GRAPHQL_ENDPOINT,
         _VELOG_REQUIRED_HEADERS,
-        _load_cookies,
     )
 
-    velog_cfg = config.velog
-    cookies_path = (
-        velog_cfg.cookies_path if velog_cfg else
-        config.config_dir / "velog-cookies.json"
-    )
+    descriptor = get_descriptor("velog")
+    if descriptor is None:
+        return _never("velog session descriptor not configured")
 
     try:
-        cookies = _load_cookies(cookies_path)
+        credential = DefaultCredentialProvider().load("velog", config, descriptor)
     except DependencyError as e:
         return _never(str(e))
+
+    cookies = credential.cookies or {}
 
     try:
         resp = http_post(
