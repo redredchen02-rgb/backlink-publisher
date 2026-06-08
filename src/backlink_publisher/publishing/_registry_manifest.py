@@ -18,11 +18,15 @@ from backlink_publisher.config import Config
 from backlink_publisher.publishing._manifest_types import (
     BindDescriptor,
     Policy,
+    SessionDescriptor,
     UiMeta,
     Visibility,
 )
 
-from .registry import _REGISTRY
+def _get_registry() -> dict:
+    """Lazy import to break circular dependency with registry.py."""
+    from .registry import _REGISTRY  # noqa: PLC0415
+    return _REGISTRY
 
 
 def ui_meta(name: str) -> UiMeta | None:
@@ -32,7 +36,7 @@ def ui_meta(name: str) -> UiMeta | None:
     pre-manifest). Callers wanting a fallback should use
     ``ui_meta(name) or UiMeta(display_name=name, domain="", category="")``.
     """
-    entry = _REGISTRY.get(name)
+    entry = _get_registry().get(name)
     return entry.ui if entry else None
 
 
@@ -45,7 +49,7 @@ def bind_descriptors(name: str) -> tuple[BindDescriptor, ...]:
     auto-build UI cards (Plan Unit 4) treat ``()`` as "fall back to
     legacy per-channel wiring".
     """
-    entry = _REGISTRY.get(name)
+    entry = _get_registry().get(name)
     return entry.bind if entry else ()
 
 
@@ -57,7 +61,7 @@ def policy(name: str) -> Policy | None:
     ``None`` — the manifest is additive metadata, not a behaviour
     rewrite (Plan Scope Boundaries: "不改 publish 業務邏輯").
     """
-    entry = _REGISTRY.get(name)
+    entry = _get_registry().get(name)
     return entry.policy if entry else None
 
 
@@ -70,7 +74,7 @@ def visibility(name: str) -> Visibility:
     frozenset to ``visibility(name) in {"hidden","retired"}`` without
     needing a per-platform opt-in.
     """
-    entry = _REGISTRY.get(name)
+    entry = _get_registry().get(name)
     return entry.visibility if entry else "active"
 
 
@@ -88,7 +92,7 @@ def active_platforms() -> list[str]:
     user-facing list, not every possible filter.
     """
     return sorted(
-        name for name in _REGISTRY
+        name for name in _get_registry()
         if visibility(name) == "active"
     )
 
@@ -126,8 +130,20 @@ def legacy_platforms() -> list[str]:
     8 existing platforms are migrated (deferred to Phase 3 of the plan).
     """
     return sorted(
-        name for name in _REGISTRY
+        name for name in _get_registry()
         if ui_meta(name) is None
         and bind_descriptors(name) == ()
         and policy(name) is None
     )
+
+
+def session(name: str) -> SessionDescriptor | None:
+    """Return the declared ``SessionDescriptor`` for ``name``, or ``None``.
+
+    ``None`` for channels registered without ``session=`` — the common
+    case for channels that do not use session-based credential management.
+    The ``SessionManager`` reads this descriptor to construct and manage
+    the channel's ``requests.Session`` lifecycle.
+    """
+    entry = _get_registry().get(name)
+    return entry.session if entry else None

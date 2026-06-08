@@ -50,37 +50,30 @@ def _make_payload(
     return payload
 
 
-def _make_mock_service():
-    mock_service = MagicMock()
-    mock_service.posts.return_value.insert.return_value.execute.return_value = {
-        "url": "https://test.blogspot.com/2026/05/post.html",
-        "id": "post-001",
-    }
-    return mock_service
-
-
 def _capture_post_body(payload: dict[str, Any]) -> dict[str, Any]:
     """Run BloggerAPIAdapter.publish() with mocked HTTP, return the POST body
-    that the adapter sent to ``service.posts().insert()``."""
+    that the adapter sent via ``session.post(json=...)``."""
     captured: dict[str, dict[str, Any]] = {}
 
-    def fake_insert(*, blogId, isDraft, body):
-        captured["body"] = body
-        insert_call = MagicMock()
-        insert_call.execute.return_value = {
-            "url": "https://test.blogspot.com/2026/05/post.html",
-            "id": "post-001",
-        }
-        return insert_call
-
     with patch(
-        "backlink_publisher.publishing.adapters.blogger_api._build_credentials"
-    ), patch(
-        "googleapiclient.discovery.build"
-    ) as mock_build:
-        service = MagicMock()
-        service.posts.return_value.insert.side_effect = fake_insert
-        mock_build.return_value = service
+        "backlink_publisher.publishing.adapters.blogger_api.SessionManager"
+    ) as MockSM:
+        session = MagicMock(name="blogger-session")
+        MockSM.return_value.get_session.return_value = session
+
+        def fake_post(*args, **kwargs):
+            captured["body"] = kwargs.get("json", {})
+            resp = MagicMock(name="resp")
+            resp.status_code = 200
+            resp.ok = True
+            resp.json.return_value = {
+                "url": "https://test.blogspot.com/2026/05/post.html",
+                "id": "post-001",
+            }
+            resp.text = ""
+            return resp
+
+        session.post.side_effect = fake_post
 
         adapter = BloggerAPIAdapter()
         adapter.publish(payload, mode="draft", config=_CONFIG)

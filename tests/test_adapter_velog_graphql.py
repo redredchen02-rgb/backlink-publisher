@@ -2,9 +2,9 @@
 
 Covers:
 - _slugify
-- _load_cookies: happy path, missing file, wrong perms, empty cookies
 - _effective_cap: phase 1 / phase 2 date gate
 - _read_count / _write_count: happy, UTC rollover, corrupt file
+- _save_null_artifact
 - publish(): happy path, silent-drop retry, daily cap, cookie expired
 """
 from __future__ import annotations
@@ -32,10 +32,6 @@ from backlink_publisher._util.errors import (
 from backlink_publisher.publishing.adapters.velog_graphql import (
     VelogGraphQLAdapter,
     _effective_cap,
-    _extract_tokens_from_origins,
-    _load_cookies,
-    _mask_cookies,
-    _probe_session_alive,
     _read_count,
     _save_null_artifact,
     _slugify,
@@ -60,179 +56,6 @@ class TestSlugify:
 
     def test_hyphens_collapsed(self):
         assert _slugify("a - b") == "a-b"
-
-
-# ── _load_cookies ─────────────────────────────────────────────────────────────
-
-class TestLoadCookies:
-    def _write_cookie_file(self, path: Path, mode: int, data: dict) -> None:
-        path.write_text(json.dumps(data))
-        os.chmod(path, mode)
-
-    def test_happy_path(self, tmp_path):
-        p = tmp_path / "velog-cookies.json"
-        self._write_cookie_file(p, 0o600, {
-            "cookies": [
-                {"name": "access_token", "value": "at123"},
-                {"name": "refresh_token", "value": "rt456"},
-            ]
-        })
-        result = _load_cookies(p)
-        assert result == {"access_token": "at123", "refresh_token": "rt456"}
-
-    def test_storage_state_with_account_localstorage_is_accepted(self, tmp_path):
-        legacy = tmp_path / "velog-cookies.json"
-        legacy.write_text(json.dumps({
-            "cookies": [],
-            "origins": [{
-                "origin": "https://velog.io",
-                "localStorage": [{
-                    "name": "account",
-                    "value": json.dumps({"access_token": "at123", "refresh_token": "rt456"}),
-                }],
-            }],
-        }))
-        os.chmod(legacy, 0o600)
-        result = _load_cookies(legacy)
-        assert result == {"access_token": "at123", "refresh_token": "rt456"}
-
-    def test_missing_file(self, tmp_path):
-        with pytest.raises(DependencyError, match="velog-login"):
-            _load_cookies(tmp_path / "no-file.json")
-
-    def test_wrong_permissions(self, tmp_path):
-        p = tmp_path / "velog-cookies.json"
-        self._write_cookie_file(p, 0o644, {"cookies": [{"name": "a", "value": "b"}]})
-        with pytest.raises(DependencyError, match="0600"):
-            _load_cookies(p)
-
-    def test_empty_cookies_list(self, tmp_path):
-        p = tmp_path / "velog-cookies.json"
-        self._write_cookie_file(p, 0o600, {"cookies": []})
-        with pytest.raises(DependencyError, match="velog-login"):
-            _load_cookies(p)
-
-    def test_tracking_only_cookies_are_rejected(self, tmp_path):
-        p = tmp_path / "velog-cookies.json"
-        self._write_cookie_file(p, 0o600, {
-            "cookies": [
-                {"name": "_ga", "value": "tracking"},
-                {"name": "theme", "value": "light"},
-            ]
-        })
-        with pytest.raises(AuthExpiredError, match="no access_token or refresh_token"):
-            _load_cookies(p)
-
-    def test_corrupt_json(self, tmp_path):
-        p = tmp_path / "velog-cookies.json"
-        p.write_text("not-json{{{")
-        os.chmod(p, 0o600)
-        with pytest.raises(DependencyError, match="velog-login"):
-            _load_cookies(p)
-
-
-# ── _extract_tokens_from_origins ─────────────────────────────────────────────
-
-
-class TestExtractTokensFromOrigins:
-    """Unit tests for the extracted localStorage-mining helper."""
-
-    def _velog_origin(self, storage_entries: list) -> dict:
-        return {"origin": "https://velog.io", "localStorage": storage_entries}
-
-    def test_non_list_origins_is_noop(self):
-        cookies: dict = {}
-        _extract_tokens_from_origins(None, cookies)
-        assert cookies == {}
-
-    def test_non_list_origins_string_is_noop(self):
-        cookies: dict = {}
-        _extract_tokens_from_origins("not-a-list", cookies)
-        assert cookies == {}
-
-    def test_non_dict_origin_entries_skipped(self):
-        cookies: dict = {}
-        _extract_tokens_from_origins(["not-a-dict", 42], cookies)
-        assert cookies == {}
-
-    def test_non_velog_origin_skipped(self):
-        cookies: dict = {}
-        origin = {"origin": "https://other.com", "localStorage": [
-            {"name": "access_token", "value": "at123"},
-        ]}
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {}
-
-    def test_non_list_localstorage_skipped(self):
-        cookies: dict = {}
-        origin = {"origin": "https://velog.io", "localStorage": "bad"}
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {}
-
-    def test_non_dict_entry_in_localstorage_skipped(self):
-        cookies: dict = {}
-        origin = self._velog_origin(["not-a-dict", 99])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {}
-
-    def test_account_key_parses_access_and_refresh_token(self):
-        cookies: dict = {}
-        account_json = json.dumps({"access_token": "at", "refresh_token": "rt"})
-        origin = self._velog_origin([{"name": "account", "value": account_json}])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {"access_token": "at", "refresh_token": "rt"}
-
-    def test_account_key_with_invalid_json_skipped(self):
-        cookies: dict = {}
-        origin = self._velog_origin([{"name": "account", "value": "{bad json"}])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {}
-
-    def test_account_key_does_not_overwrite_existing_token(self):
-        cookies: dict = {"access_token": "existing"}
-        account_json = json.dumps({"access_token": "from-storage", "refresh_token": "rt"})
-        origin = self._velog_origin([{"name": "account", "value": account_json}])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies["access_token"] == "existing"
-        assert cookies["refresh_token"] == "rt"
-
-    def test_direct_access_token_entry(self):
-        cookies: dict = {}
-        origin = self._velog_origin([{"name": "access_token", "value": "direct-at"}])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {"access_token": "direct-at"}
-
-    def test_direct_token_does_not_overwrite_existing(self):
-        cookies: dict = {"access_token": "existing"}
-        origin = self._velog_origin([{"name": "access_token", "value": "new"}])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies["access_token"] == "existing"
-
-    def test_empty_direct_token_value_not_written(self):
-        cookies: dict = {}
-        origin = self._velog_origin([{"name": "access_token", "value": ""}])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {}
-
-    def test_irrelevant_localstorage_keys_ignored(self):
-        cookies: dict = {}
-        origin = self._velog_origin([
-            {"name": "theme", "value": "dark"},
-            {"name": "lang", "value": "ko"},
-        ])
-        _extract_tokens_from_origins([origin], cookies)
-        assert cookies == {}
-
-    def test_multiple_origins_only_velog_processed(self):
-        cookies: dict = {}
-        origins = [
-            {"origin": "https://github.com", "localStorage": [
-                {"name": "access_token", "value": "gh-token"},
-            ]},
-            self._velog_origin([{"name": "access_token", "value": "velog-at"}]),
-        ]
-        _extract_tokens_from_origins(origins, cookies)
-        assert cookies == {"access_token": "velog-at"}
 
 
 # ── _effective_cap ────────────────────────────────────────────────────────────
@@ -442,9 +265,9 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.return_value = _mock_success_response()
                 with patch(
                     "backlink_publisher.publishing.adapters.velog_graphql.verify_link_attributes",
@@ -464,9 +287,9 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     _mock_null_response(),        # first: silent-drop
                     _mock_success_response(),     # retry: success
@@ -491,9 +314,9 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     getattr(requests, exc_name)("net"),
                     _mock_success_response(),
@@ -513,9 +336,9 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     _mock_null_response(),           # first: silent-drop
                     getattr(requests, exc_name)("net"),  # re-post: network error
@@ -533,9 +356,9 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     _mock_429_response(),
                     _mock_success_response(),
@@ -557,9 +380,9 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.return_value = _mock_429_response()
                 with pytest.raises(ExternalServiceError, match="after retries"):
                     adapter.publish(PAYLOAD, mode="publish", config=config)
@@ -577,9 +400,9 @@ class TestVelogGraphQLAdapterPublish:
         probe_resp.json.return_value = {"data": {"currentUser": None}}
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     _mock_null_response(),  # first writePost
                     _mock_null_response(),  # retry writePost
@@ -604,9 +427,9 @@ class TestVelogGraphQLAdapterPublish:
         }
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     _mock_null_response(),  # first writePost
                     _mock_null_response(),  # retry writePost
@@ -625,9 +448,9 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     _mock_null_response(),               # first writePost
                     _mock_null_response(),               # retry writePost
@@ -648,9 +471,9 @@ class TestVelogGraphQLAdapterPublish:
         probe_resp.json.return_value = {"data": {"currentUser": None}}
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = [
                     _mock_null_response(),
                     _mock_null_response(),
@@ -672,6 +495,8 @@ class TestVelogGraphQLAdapterPublish:
         adapter = VelogGraphQLAdapter()
 
         with patch(
+            "backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session"
+        ), patch(
             "backlink_publisher.publishing.adapters.velog_graphql._acquire_lock",
             return_value=99,
         ), patch(
@@ -706,9 +531,9 @@ class TestVelogGraphQLAdapterPublish:
             return _mock_success_response(url_slug="test-velog-post")
 
         with self._patch_lock_and_count(tmp_path):
-            with patch("requests.Session") as MockSession:
+            with patch("backlink_publisher.publishing.adapters.velog_graphql.SessionManager.get_session") as mock_get_session:
                 sess = MagicMock()
-                MockSession.return_value = sess
+                mock_get_session.return_value = sess
                 sess.post.side_effect = _capture_and_respond
                 with patch(
                     "backlink_publisher.publishing.adapters.velog_graphql.verify_link_attributes",
@@ -720,72 +545,6 @@ class TestVelogGraphQLAdapterPublish:
         assert slug_sent is not None
         assert slug_sent != ""
         assert "test" in slug_sent  # derived from "Test Velog Post"
-
-
-# ── _probe_session_alive ───────────────────────────────────────────────────────
-
-class TestProbeSessionAlive:
-    def _make_probe_session(self, json_body=None, status_code=200, raise_exc=None):
-        sess = MagicMock()
-        if raise_exc:
-            sess.post.side_effect = raise_exc
-        else:
-            resp = MagicMock()
-            resp.ok = (status_code < 400)
-            resp.status_code = status_code
-            resp.json.return_value = json_body
-            sess.post.return_value = resp
-        return sess
-
-    def test_alive_returns_true_with_username(self):
-        sess = self._make_probe_session(
-            json_body={"data": {"currentUser": {"id": "uid123", "username": "alice"}}}
-        )
-        alive, reason = _probe_session_alive(sess)
-        assert alive is True
-        assert reason == "alice"
-
-    def test_null_current_user_returns_false(self):
-        sess = self._make_probe_session(json_body={"data": {"currentUser": None}})
-        alive, reason = _probe_session_alive(sess)
-        assert alive is False
-        assert "no_current_user" in reason
-
-    def test_missing_id_returns_false(self):
-        sess = self._make_probe_session(
-            json_body={"data": {"currentUser": {"username": "bob"}}}  # no id
-        )
-        alive, reason = _probe_session_alive(sess)
-        assert alive is False
-
-    def test_http_401_returns_false(self):
-        sess = self._make_probe_session(json_body={}, status_code=401)
-        alive, reason = _probe_session_alive(sess)
-        assert alive is False
-        assert "401" in reason
-
-    def test_connection_error_returns_false_probe_unreachable(self):
-        sess = self._make_probe_session(raise_exc=requests.ConnectionError("refused"))
-        alive, reason = _probe_session_alive(sess)
-        assert alive is False
-        assert reason == "probe_unreachable"
-
-    def test_timeout_returns_false_probe_unreachable(self):
-        sess = self._make_probe_session(raise_exc=requests.Timeout())
-        alive, reason = _probe_session_alive(sess)
-        assert alive is False
-        assert reason == "probe_unreachable"
-
-    def test_invalid_json_returns_false(self):
-        resp = MagicMock()
-        resp.ok = True
-        resp.status_code = 200
-        resp.json.side_effect = ValueError("bad json")
-        sess = MagicMock()
-        sess.post.return_value = resp
-        alive, reason = _probe_session_alive(sess)
-        assert alive is False
-        assert "invalid_json" in reason
 
 
 # ── _save_null_artifact ────────────────────────────────────────────────────────
@@ -829,29 +588,6 @@ class TestSaveNullArtifact:
             result = _save_null_artifact({}, {}, "z1", config)
         # Should not raise — returns None on failure
         assert result is None
-
-
-# ── _mask_cookies ──────────────────────────────────────────────────────────────
-
-class TestMaskCookies:
-    def test_masks_token_fields(self):
-        cookies = {
-            "access_token": "secret_at",
-            "refresh_token": "secret_rt",
-            "token": "secret_t",
-            "other_cookie": "visible",
-        }
-        masked = _mask_cookies(cookies)
-        assert masked["access_token"] == "<masked>"
-        assert masked["refresh_token"] == "<masked>"
-        assert masked["token"] == "<masked>"
-        assert masked["other_cookie"] == "visible"
-
-    def test_does_not_mutate_original(self):
-        cookies = {"access_token": "secret"}
-        masked = _mask_cookies(cookies)
-        assert cookies["access_token"] == "secret"
-        assert masked["access_token"] == "<masked>"
 
 
 # ── ContentRejectedError taxonomy ─────────────────────────────────────────────

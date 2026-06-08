@@ -51,6 +51,9 @@ Visibility = Literal["active", "experimental", "hidden", "retired"]
 # at the same PR that adds the backend implementation.
 BindBackend = Literal["chrome", "token-paste", "oauth", "cookie", "cdp"]
 
+# Credential-type identifiers for session descriptors.
+SessionCredentialType = Literal["cookie", "bearer", "oauth"]
+
 _VISIBILITY_VALUES: frozenset[str] = frozenset(
     ("active", "experimental", "hidden", "retired")
 )
@@ -120,3 +123,52 @@ class Policy:
     retry_id: str = "default"
     liveness_probe_sec: int | None = None
     language_whitelist: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ProbeConfig:
+    """Describes how to probe a channel's session liveness.
+
+    ``http_method`` defaults to ``"GET"``; use ``"POST"`` with
+    ``graphql_query`` for GraphQL endpoints. ``shape`` is a tuple of
+    keys to walk into the JSON response — the probe succeeds when the
+    final value is non-``None``.
+    """
+
+    endpoint: str
+    shape: tuple[str, ...] = ()
+    http_method: str = "GET"
+    graphql_query: str | None = None
+    timeout_sec: int = 10
+    headers: dict[str, str] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RefreshConfig:
+    """Describes how to refresh an expiring credential.
+
+    ``method="cookie-implicit"`` means the channel refreshes auth via
+    ``Set-Cookie`` on normal requests (no explicit refresh action).
+    ``method="oauth-refresh-token"`` means a POST to ``token_endpoint``
+    with ``grant_type=refresh_token``.
+    """
+
+    method: str  # "cookie-implicit" | "oauth-refresh-token"
+    token_endpoint: str | None = None
+    expiration_window_sec: int = 300
+
+
+@dataclass(frozen=True, slots=True)
+class SessionDescriptor:
+    """Describes a channel's credential lifecycle.
+
+    ``credential_type`` selects the auth-apply strategy (cookie vs bearer).
+    ``config_path`` is a template path (``<config_dir>/…``) resolved at
+    runtime. ``probe`` and ``refresh`` are optional — channels without
+    live-probe or refresh support omit the corresponding config.
+    """
+
+    credential_type: SessionCredentialType
+    config_path: str = ""
+    probe: ProbeConfig | None = None
+    refresh: RefreshConfig | None = None

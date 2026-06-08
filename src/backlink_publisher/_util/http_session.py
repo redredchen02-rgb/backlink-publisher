@@ -119,6 +119,9 @@ def get_opener(max_redirects: int = 10) -> Any:
     return _local.opener
 
 
+_DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
 def fetch_url(
     url: str,
     method: str = "GET",
@@ -126,6 +129,7 @@ def fetch_url(
     max_redirects: Optional[int] = None,
     headers: Optional[dict[str, str]] = None,
     data: Optional[bytes] = None,
+    max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES,
 ) -> tuple[int, bytes, dict[str, str]]:
     """Fetch a URL using the shared opener.
 
@@ -136,6 +140,7 @@ def fetch_url(
         max_redirects: Maximum redirects to follow.
         headers: Additional headers to include.
         data: Request body for POST/PUT methods.
+        max_body_bytes: Maximum response body bytes to read (default 10 MB).
 
     Returns:
         Tuple of (status_code, response_body, response_headers).
@@ -159,13 +164,13 @@ def fetch_url(
     try:
         resp = opener.open(req, timeout=timeout)
         status = resp.getcode()
-        body = resp.read()
+        body = resp.read(max_body_bytes)
         headers_dict = dict(resp.headers)
         resp.close()
         return status, body, headers_dict
     except HTTPError as exc:
         # Re-raise with body available
-        body = exc.read() if exc.fp else b""
+        body = exc.read(max_body_bytes) if exc.fp else b""
         raise HTTPError(
             exc.url,
             exc.code,
@@ -226,6 +231,7 @@ def stream_url(
     timeout: float = 10.0,
     max_redirects: Optional[int] = None,
     chunk_size: int = 8192,
+    max_body_bytes: Optional[int] = None,
 ) -> tuple[int, Any, dict[str, str]]:
     """Stream a URL response for memory-efficient large downloads.
 
@@ -234,11 +240,16 @@ def stream_url(
         timeout: Request timeout in seconds.
         max_redirects: Maximum redirects to follow.
         chunk_size: Size of chunks to read.
+        max_body_bytes: Maximum total bytes to read (None = unbounded).
 
     Returns:
         Tuple of (status_code, response_file_object, response_headers).
         The caller is responsible for reading and closing the file object.
     """
+    ssrf_reason = _check_url_for_ssrf(url)
+    if ssrf_reason is not None:
+        raise URLError(f"ssrf_initial:blocked_ip:{url}:{ssrf_reason}")
+
     opener = get_opener(max_redirects) if max_redirects is not None else get_opener()
 
     req = Request(url, method="GET")
