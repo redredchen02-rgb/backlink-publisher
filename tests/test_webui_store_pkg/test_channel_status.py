@@ -29,12 +29,16 @@ from webui_store.channel_status import (
 )
 
 
-# Reset store between tests since the singleton persists across runs.
+# Reset store between tests: each test gets a fresh SQLite db in its own tmp_path.
 @pytest.fixture(autouse=True)
 def _reset_store(tmp_path, monkeypatch):
-    """Point channel_status_store at a fresh tmp file per test."""
-    fresh = tmp_path / "channel-status.json"
-    monkeypatch.setattr(channel_status_store, "path", fresh, raising=False)
+    """Give each test an isolated config dir so channel_status_store uses a fresh webui.db."""
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
+    channel_status_store.reset()
+    # Eager-init so threads don't race to create the SQLite store (WAL pragma lock).
+    channel_status_store.load()
 
 
 class TestMarkBoundHappyPath:

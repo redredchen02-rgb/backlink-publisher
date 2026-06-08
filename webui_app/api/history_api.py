@@ -20,9 +20,12 @@ from webui_store import queue_store as _queue_store
 
 from ..helpers.history import _REQUIRES_URL_STATUSES
 from backlink_publisher.events.history_query import (
+    bulk_delete_from_db,
+    delete_from_db,
     get_history_item,
     list_history,
     purge_failed_from_db,
+    update_status_in_db,
 )
 from backlink_publisher.events.publish_writer import (
     map_history_entry,
@@ -83,12 +86,10 @@ class HistoryAPI:
         """Delete a single history entry."""
         if not item_id:
             return {"ok": False, "flash_msg": "参数缺失"}
-        history = _history_store.update(
-            lambda hist: [h for h in hist if h.get("id") != item_id]
-        )
+        delete_from_db(item_id)
         return {
             "ok": True,
-            "history": self._normalize_items(history),
+            "history": self._normalize_items(list_history()),
         }
 
     # ── update-status ─────────────────────────────────────────────────────
@@ -115,17 +116,10 @@ class HistoryAPI:
                     "on a history row with no article URLs"
                 ))
 
-        def _apply(hist):
-            for h in hist:
-                if h.get("id") == item_id:
-                    h["status"] = new_status
-                    break
-            return hist
-
-        history = _history_store.update(_apply)
+        update_status_in_db(item_id, new_status)
         return {
             "ok": True,
-            "history": self._normalize_items(history),
+            "history": self._normalize_items(list_history()),
         }
 
     # ── reuse ─────────────────────────────────────────────────────────────
@@ -140,21 +134,15 @@ class HistoryAPI:
         """Delete multiple history entries by id."""
         if not ids:
             return {"ok": False, "flash_msg": "未选择任何项"}
-        removed = _history_store.bulk_delete(ids)
+        removed = bulk_delete_from_db(ids)
         return {"ok": True, "flash_msg": f"已删除 {removed} 条历史记录"}
 
     def purge_failed(self) -> dict[str, Any]:
-        """Delete every history entry whose status is exactly ``failed``.
-
-        Clears both the JSON history_store and events.db (the authoritative
-        read source).  Returns ``ok=False`` when no records were removed.
-        """
-        removed = _history_store.purge_by_status("failed")
-        db_removed = purge_failed_from_db()
-        total = removed + db_removed
-        if total == 0:
+        """Delete every history entry whose status is exactly ``failed``."""
+        removed = purge_failed_from_db()
+        if removed == 0:
             return {"ok": False, "flash_msg": "没有失败记录可清除"}
-        return {"ok": True, "flash_msg": f"已清除 {total} 条失败记录"}
+        return {"ok": True, "flash_msg": f"已清除 {removed} 条失败记录"}
 
     # ── item lookup (events.db with fallback to JSON store) ───────────────
 
