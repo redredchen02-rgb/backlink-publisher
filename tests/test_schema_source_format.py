@@ -363,8 +363,9 @@ class TestContentHtmlSizeCap:
         size = len(row["content_html"].encode("utf-8"))
         assert size == MAX_CONTENT_HTML_BYTES
         errors = validate_output_payload(row)
-        # main_domain substring fails on this dummy body — only assert no cap error
-        assert not any("exceeds" in e for e in errors)
+        # main_domain substring fails on this dummy body — only assert no content_html cap error
+        # (total payload size may exceed MAX_PAYLOAD_SIZE_BYTES at this boundary; that is expected)
+        assert not any("content_html size" in e for e in errors)
 
 
 # --------------------------------------------------------------------------- #

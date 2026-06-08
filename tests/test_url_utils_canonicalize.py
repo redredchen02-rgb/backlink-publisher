@@ -123,9 +123,9 @@ def test_empty_string() -> None:
     assert canonicalize_url("") == ""
 
 
-def test_basic_auth_userinfo_preserved() -> None:
-    """basic-auth credentials in URL are preserved here; scrubber (U6) strips them later."""
-    assert canonicalize_url("https://user:pass@x.com/a/") == "https://user:pass@x.com/a"
+def test_basic_auth_userinfo_stripped() -> None:
+    """basic-auth credentials are stripped at canonicalize time (security: must not enter cache keys)."""
+    assert canonicalize_url("https://user:pass@x.com/a/") == "https://x.com/a"
 
 
 def test_combined_transformations() -> None:
