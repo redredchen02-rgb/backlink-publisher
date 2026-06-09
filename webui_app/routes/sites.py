@@ -61,6 +61,12 @@ def sites_form():
                 "insecure_tls": entry.insecure_tls,
             }
 
+    # all_sites: list of {label, main_url} for the batch-ops table
+    all_sites = [
+        {"label": label, "main_url": entry.main_url}
+        for label, entry in sorted(cfg.target_three_url.items())
+    ]
+
     return render_template(
         "sites.html",
         csrf_token=csrf_token,
@@ -72,6 +78,7 @@ def sites_form():
         flash_msg=request.args.get("flash_msg"),
         default_templates=", ".join(DEFAULT_WORK_TEMPLATES),
         active_page='sites',
+        all_sites=all_sites,
     )
 
 

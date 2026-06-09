@@ -23,6 +23,7 @@ from .channel_status import channel_status_store
 from .drafts import DraftsSqliteStore, DraftsStore
 from .history import HistoryStore
 from .profiles import ProfilesSqliteStore
+from .batch_ops import BatchOpsSqliteStore
 from .publish_defaults import PublishDefaultsSqliteStore
 from .queue_store import QueueSqliteStore
 from .schedule import ScheduleSqliteStore
@@ -87,7 +88,13 @@ def _make_publish_defaults_store() -> PublishDefaultsSqliteStore:
     return PublishDefaultsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
 
 
+def _make_batch_ops_store() -> BatchOpsSqliteStore:
+    config_dir = _resolve_config_dir()
+    return BatchOpsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+
+
 publish_defaults_store = _LazyStore(_make_publish_defaults_store)
+batch_ops_store = _LazyStore(_make_batch_ops_store)
 
 
 def _refresh_paths() -> None:
@@ -100,7 +107,7 @@ def _refresh_paths() -> None:
     """
     for store in (history_store, profiles_store, drafts_store,
                   schedule_store, queue_store, channel_status_store,
-                  campaign_store, publish_defaults_store):
+                  campaign_store, publish_defaults_store, batch_ops_store):
         store.reset()
 
 
@@ -123,6 +130,8 @@ __all__ = [
     "schedule_store",
     "queue_store",
     "channel_status_store",
+    "BatchOpsSqliteStore",
+    "batch_ops_store",
     "PublishDefaultsSqliteStore",
     "publish_defaults_store",
     "_refresh_paths",

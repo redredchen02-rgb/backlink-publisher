@@ -7,6 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from backlink_publisher._util.logger import plan_logger
 
+from webui_store import batch_ops_store as _batch_ops_store
 from webui_store import drafts_store as _drafts_store
 from webui_store import queue_store as _queue_store
 
@@ -177,6 +178,41 @@ def _restore_processing_tasks() -> None:
     ])
 
 
+def _drain_batch_ops() -> None:
+    """Process one pending batch_ops row per tick (60s interval).
+
+    Dispatches to the appropriate service based on ``operation``.
+    Single-row-per-tick ensures throttle settings are respected and
+    a slow site cannot starve subsequent items indefinitely.
+    """
+    row = _batch_ops_store.get_pending_one()
+    if row is None:
+        return
+
+    row_id = row["id"]
+    site_url = row["site_url"]
+    operation = row["operation"]
+    _batch_ops_store.update_row(row_id, "processing")
+
+    try:
+        if operation == "keep_alive":
+            # run_keepalive_for_site extracted in U7; raise ImportError until then
+            from .services.keepalive_job import run_keepalive_for_site  # type: ignore[attr-defined]
+            run_keepalive_for_site(site_url)
+        elif operation == "recheck":
+            from .services.recheck import recheck_many
+            recheck_many([{"target_url": site_url, "platform": ""}], verify_fn=None)
+        elif operation == "channel_health":
+            from .services.credential_service import probe_channel_liveness
+            probe_channel_liveness(site_url)
+        else:
+            raise ValueError(f"unknown operation: {operation}")
+        _batch_ops_store.update_row(row_id, "done")
+    except Exception as exc:
+        _batch_ops_store.update_row(row_id, "failed", error=str(exc))
+        plan_logger.warn("batch_ops_drain_failed", row_id=row_id, operation=operation, error=str(exc))
+
+
 def _restore_scheduled_jobs() -> None:
     """On startup, re-register any 'scheduled' draft items into APScheduler."""
     _restore_processing_tasks()
@@ -186,6 +222,14 @@ def _restore_scheduled_jobs() -> None:
         trigger='interval',
         minutes=1,
         id='queue_processor',
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        _drain_batch_ops,
+        trigger='interval',
+        seconds=60,
+        id='batch_ops_drain',
         replace_existing=True,
     )
     

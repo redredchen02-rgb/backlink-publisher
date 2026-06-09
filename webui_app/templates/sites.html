@@ -152,6 +152,64 @@
       由 keep-alive 循环统一管理发布与存活验证。</p>
     <a href="/ce:keep-alive" class="btn btn-outline-primary">前往保活面板 →</a>
   </fieldset>
+
+  {% if all_sites %}
+  <hr class="my-4">
+
+  <fieldset>
+    <legend>④ 批量操作</legend>
+    <p class="help">勾选站点后选择操作并提交，后台每 60 秒处理一行。</p>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th style="width:2.5rem;">
+              <input type="checkbox" id="batch-select-all" class="form-check-input"
+                     data-action="batch-select-all" aria-label="全选">
+            </th>
+            <th>标签</th>
+            <th>main_url</th>
+            <th id="batch-status-col" class="text-muted small">状态</th>
+          </tr>
+        </thead>
+        <tbody id="batch-sites-tbody">
+          {% for site in all_sites %}
+          <tr data-site-url="{{ site.main_url }}">
+            <td>
+              <input type="checkbox" class="form-check-input batch-site-cb"
+                     data-action="batch-select-site"
+                     value="{{ site.main_url }}"
+                     aria-label="选择 {{ site.label }}">
+            </td>
+            <td>{{ site.label }}</td>
+            <td class="text-muted small text-truncate" style="max-width:320px;">{{ site.main_url }}</td>
+            <td class="batch-row-status small text-muted">—</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div id="batch-action-bar" class="d-flex gap-2 align-items-center flex-wrap" aria-live="polite">
+      <select id="batch-op-select" class="form-select form-select-sm" style="width:auto;"
+              aria-label="批量操作类型">
+        <option value="keep_alive">保活检查</option>
+        <option value="recheck">重新核查</option>
+        <option value="channel_health">渠道健康探测</option>
+      </select>
+      <button type="button" class="btn btn-sm btn-outline-primary"
+              id="batch-submit-btn"
+              data-action="batch-submit"
+              data-queue-url="/sites/batch-queue"
+              data-status-url="/sites/batch-status"
+              disabled>
+        提交批量任务
+      </button>
+      <span id="batch-feedback" class="small text-muted"></span>
+    </div>
+  </fieldset>
+  {% endif %}
 </div>
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}
