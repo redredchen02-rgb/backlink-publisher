@@ -48,6 +48,34 @@
     </span>
   </div>
   {% endif %}
+  {# Autopilot failure alert banner (Plan 2026-06-09-001 U8 R3) — hidden when no alerts. #}
+  {% if autopilot_alerts %}
+  <div id="autopilot-alert-banner" class="alert alert-danger py-2 small" role="alert" aria-live="polite">
+    <div class="d-flex align-items-start gap-2">
+      <i class="bi bi-robot flex-shrink-0 mt-1"></i>
+      <div class="flex-grow-1">
+        <strong>Autopilot 故障：</strong>
+        以下站点的定时保活任务失败，请检查凭证或网络连通性。
+        <ul class="mb-1 mt-1">
+          {% for alert in autopilot_alerts %}
+          <li class="d-flex align-items-center gap-2">
+            <span class="text-truncate" style="max-width:360px;">{{ alert.site_url }}</span>
+            {% if alert.error %}<span class="text-muted">— {{ alert.error }}</span>{% endif %}
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary py-0 px-1 ms-auto"
+                    data-action="dismiss-autopilot-alert"
+                    data-site-url="{{ alert.site_url }}"
+                    data-dismiss-url="/dashboard/autopilot-alert/dismiss"
+                    aria-label="忽略告警">
+              忽略
+            </button>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   {% if recheck_decay and (recheck_decay.host_gone or recheck_decay.link_stripped or recheck_decay.dofollow_lost) %}
   <div class="alert alert-warning py-2 small" role="alert">
     {% if recheck_decay.host_gone or recheck_decay.link_stripped %}

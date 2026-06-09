@@ -216,4 +216,151 @@ class TestPrQueueRoutes:
         assert resp.status_code == 403
 
 
+# ── Autopilot routes (Plan 2026-06-09-001 U8) ─────────────────────────────
+
+import sys
+import types
+
+
+def _make_mock_scheduler(register_fn=None, remove_raises=False):
+    """Build a minimal mock webui_app.scheduler for autopilot route tests."""
+    from unittest.mock import MagicMock
+
+    mod = types.ModuleType("webui_app.scheduler")
+    mod._autopilot_job_id = lambda u: "autopilot_" + u.replace("://", "_").replace("/", "_").rstrip("_")
+    mod._register_autopilot_job = register_fn or (lambda *a: None)
+    mock_sch = MagicMock()
+    if remove_raises:
+        mock_sch.remove_job.side_effect = RuntimeError("not found")
+    mod._scheduler = mock_sch
+    return mod
+
+
+class TestSitesAutopilot:
+    def test_enable_returns_200_and_updates_store(self, client, monkeypatch):
+        import webui_store as _ws
+
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+        targets = _ws.schedule_store.load().get("autopilot_targets", {})
+        assert targets.get("https://example.com/", {}).get("enabled") is True
+
+    def test_disable_removes_job(self, client, monkeypatch):
+        import webui_store as _ws
+
+        removed = []
+        mock_sched = _make_mock_scheduler()
+        mock_sched._scheduler.remove_job.side_effect = lambda jid: removed.append(jid)
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock_sched)
+
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": False,
+        })
+        assert resp.status_code == 200
+        targets = _ws.schedule_store.load().get("autopilot_targets", {})
+        assert targets.get("https://example.com/", {}).get("enabled") is False
+
+    def test_interval_3599_returns_422(self, client):
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 3599,
+        })
+        assert resp.status_code == 422
+
+    def test_interval_2592001_returns_422(self, client):
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 2592001,
+        })
+        assert resp.status_code == 422
+
+    def test_missing_site_url_returns_400(self, client):
+        resp = client.post("/sites/autopilot", json={"enabled": True})
+        assert resp.status_code == 400
+
+    def test_scheduler_failure_returns_500_and_rolls_back(self, client, monkeypatch):
+        import webui_store as _ws
+
+        def _raise(*a):
+            raise RuntimeError("APScheduler error")
+
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler(register_fn=_raise))
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {}})
+
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        assert resp.status_code == 500
+        targets = _ws.schedule_store.load().get("autopilot_targets", {})
+        assert "https://example.com/" not in targets
+
+
+class TestDashboardAutopilotAlertDismiss:
+    def test_dismiss_clears_alert_pending(self, client):
+        import webui_store as _ws
+
+        _ws.schedule_store.update(lambda s: {
+            **s,
+            "autopilot_targets": {
+                "https://example.com/": {"enabled": True, "alert_pending": True}
+            }
+        })
+        resp = client.post(
+            "/dashboard/autopilot-alert/dismiss",
+            json={"site_url": "https://example.com/"},
+        )
+        assert resp.status_code == 200
+        targets = _ws.schedule_store.load().get("autopilot_targets", {})
+        assert targets["https://example.com/"]["alert_pending"] is False
+
+    def test_dismiss_does_not_disable_autopilot(self, client):
+        import webui_store as _ws
+
+        _ws.schedule_store.update(lambda s: {
+            **s,
+            "autopilot_targets": {
+                "https://example.com/": {"enabled": True, "alert_pending": True}
+            }
+        })
+        client.post(
+            "/dashboard/autopilot-alert/dismiss",
+            json={"site_url": "https://example.com/"},
+        )
+        targets = _ws.schedule_store.load().get("autopilot_targets", {})
+        assert targets["https://example.com/"]["enabled"] is True
+
+    def test_dismiss_missing_site_url_returns_400(self, client):
+        resp = client.post("/dashboard/autopilot-alert/dismiss", json={})
+        assert resp.status_code == 400
+
+
+class TestHealthAutopilotAlerts:
+    def test_health_route_renders_alert_banner_when_pending(self, client):
+        import webui_store as _ws
+
+        _ws.schedule_store.update(lambda s: {
+            **s,
+            "autopilot_targets": {
+                "https://example.com/": {"enabled": True, "alert_pending": True, "error": "timeout"}
+            }
+        })
+        resp = client.get("/ce:health")
+        assert resp.status_code == 200
+        assert b"autopilot-alert-banner" in resp.data
+
+    def test_health_route_no_banner_when_no_alerts(self, client):
+        resp = client.get("/ce:health")
+        assert resp.status_code == 200
+        assert b"autopilot-alert-banner" not in resp.data
 

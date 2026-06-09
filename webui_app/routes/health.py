@@ -455,6 +455,19 @@ def ce_health():
             _log.warning("health: platform_health build failed: %s", exc)
             return {}
 
+    def _autopilot_alerts():
+        """Sites with alert_pending=True from schedule_store (U8 R3). Fail-open."""
+        try:
+            import webui_store as _ws
+            targets = _ws.schedule_store.load().get("autopilot_targets", {})
+            return [
+                {"site_url": url, **cfg}
+                for url, cfg in targets.items()
+                if cfg.get("alert_pending")
+            ]
+        except Exception:  # noqa: BLE001
+            return []
+
     try:
         projection, health = _g_cache("health_agg", _build)
         canary = _g_cache("canary_health", _canary_rows)
@@ -466,6 +479,7 @@ def ce_health():
         pipeline_summary = _g_cache("pipeline_summary", _pipeline_summary)
         storage_health = _g_cache("storage_health", _storage_health)
         platform_health = _g_cache("platform_health", _platform_health)
+        autopilot_alerts = _autopilot_alerts()
         return _render(
             "health.html",
             health=health,
@@ -479,6 +493,7 @@ def ce_health():
             pipeline_summary=pipeline_summary,
             storage_health=storage_health,
             platform_health=platform_health,
+            autopilot_alerts=autopilot_alerts,
             active_page='health',
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500

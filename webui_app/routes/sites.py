@@ -61,11 +61,19 @@ def sites_form():
                 "insecure_tls": entry.insecure_tls,
             }
 
-    # all_sites: list of {label, main_url} for the batch-ops table
-    all_sites = [
-        {"label": label, "main_url": entry.main_url}
-        for label, entry in sorted(cfg.target_three_url.items())
-    ]
+    # all_sites: list of {label, main_url, autopilot_enabled, autopilot_interval}
+    import webui_store as _ws
+    sched_settings = _ws.schedule_store.load()
+    autopilot_targets = sched_settings.get("autopilot_targets", {})
+    all_sites = []
+    for label, entry in sorted(cfg.target_three_url.items()):
+        ap_cfg = autopilot_targets.get(entry.main_url, {})
+        all_sites.append({
+            "label": label,
+            "main_url": entry.main_url,
+            "autopilot_enabled": bool(ap_cfg.get("enabled", False)),
+            "autopilot_interval": int(ap_cfg.get("interval_seconds", 86400)),
+        })
 
     return render_template(
         "sites.html",
@@ -233,6 +241,64 @@ def sites_scrape_preview():
         "description": meta.description,
         "h1": meta.h1,
     }), 200
+
+
+@bp.route("/sites/autopilot", methods=["POST"])
+def sites_autopilot():
+    """Enable or disable autopilot for a site (Plan 2026-06-09-001 U8).
+
+    Body: {site_url: str, enabled: bool, interval_seconds: int}
+    Validates interval 3600–2592000. Returns 422 on out-of-range.
+    On scheduler failure, rolls back schedule_store and returns 500.
+    """
+    import webui_store as _ws
+
+    body = request.get_json(silent=True) or {}
+    site_url = (body.get("site_url") or "").strip()
+    enabled = bool(body.get("enabled", False))
+    raw_interval = body.get("interval_seconds", 86400)
+
+    if not site_url:
+        return jsonify({"error": "missing site_url"}), 400
+
+    try:
+        interval_seconds = int(raw_interval)
+    except (TypeError, ValueError):
+        return jsonify({"error": "interval_seconds must be an integer"}), 422
+
+    if enabled and not (3600 <= interval_seconds <= 2592000):
+        return jsonify({"error": "interval_seconds must be between 3600 (1h) and 2592000 (30d)"}), 422
+
+    snapshot_targets = dict(_ws.schedule_store.load().get("autopilot_targets", {}))
+
+    def _update_fn(settings):
+        targets = dict(settings.get("autopilot_targets", {}))
+        site_cfg = dict(targets.get(site_url, {}))
+        site_cfg["enabled"] = enabled
+        if enabled:
+            site_cfg["interval_seconds"] = interval_seconds
+        targets[site_url] = site_cfg
+        return {**settings, "autopilot_targets": targets}
+
+    _ws.schedule_store.update(_update_fn)
+
+    try:
+        import sys as _sys
+        _sched_mod = _sys.modules['webui_app.scheduler']
+        if enabled:
+            _sched_mod._register_autopilot_job(site_url, interval_seconds)
+        else:
+            try:
+                _sched_mod._scheduler.remove_job(
+                    _sched_mod._autopilot_job_id(site_url)
+                )
+            except Exception:
+                pass
+    except Exception as exc:
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": snapshot_targets})
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify({"ok": True, "site_url": site_url, "enabled": enabled}), 200
 
 
 @bp.route("/sites/run", methods=["POST"])

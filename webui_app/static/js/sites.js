@@ -112,6 +112,88 @@ function _pollBatchStatus(statusUrl) {
   _tick();
 }
 
+// ── Autopilot toggle ───────────────────────────────────────────────────────
+
+function _intervalForRow(siteUrl) {
+  const select = document.querySelector(
+    `[data-autopilot-interval][data-site-url="${CSS.escape(siteUrl)}"]`
+  );
+  if (!select) return 86400;
+  if (select.value === 'custom') {
+    const custom = document.querySelector(
+      `[data-autopilot-custom-seconds][data-site-url="${CSS.escape(siteUrl)}"]`
+    );
+    return custom ? parseInt(custom.value, 10) || 86400 : 86400;
+  }
+  return parseInt(select.value, 10) || 86400;
+}
+
+// Show/hide custom seconds input when interval select changes
+document.addEventListener('change', (e) => {
+  if (!e.target.matches('[data-autopilot-interval]')) return;
+  const siteUrl = e.target.dataset.siteUrl;
+  const custom = document.querySelector(
+    `[data-autopilot-custom-seconds][data-site-url="${CSS.escape(siteUrl)}"]`
+  );
+  if (!custom) return;
+  if (e.target.value === 'custom') {
+    custom.classList.remove('d-none');
+  } else {
+    custom.classList.add('d-none');
+  }
+});
+
+document.addEventListener('change', async (e) => {
+  const cb = e.target.closest('[data-action="toggle-autopilot"]');
+  if (!cb) return;
+
+  const siteUrl = cb.dataset.siteUrl;
+  const autopilotUrl = cb.dataset.autopilotUrl;
+  const enabled = cb.checked;
+  const statusCell = cb.closest('tr')?.querySelector('.autopilot-row-status');
+
+  cb.disabled = true;
+  if (statusCell) statusCell.textContent = '保存中…';
+
+  try {
+    const intervalSeconds = enabled ? _intervalForRow(siteUrl) : 86400;
+    await postJson(autopilotUrl, { site_url: siteUrl, enabled, interval_seconds: intervalSeconds });
+    if (statusCell) {
+      statusCell.textContent = enabled ? '已启用 ✓' : '已禁用';
+      statusCell.className = 'autopilot-row-status small ' + (enabled ? 'text-success' : 'text-muted');
+    }
+  } catch (err) {
+    cb.checked = !enabled;
+    if (statusCell) {
+      statusCell.textContent = `失败：${err.message}`;
+      statusCell.className = 'autopilot-row-status small text-danger';
+    }
+  } finally {
+    cb.disabled = false;
+  }
+});
+
+// ── Dismiss autopilot alert (health dashboard banner) ─────────────────────
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action="dismiss-autopilot-alert"]');
+  if (!btn) return;
+
+  const siteUrl = btn.dataset.siteUrl;
+  const dismissUrl = btn.dataset.dismissUrl;
+  btn.disabled = true;
+
+  try {
+    await postJson(dismissUrl, { site_url: siteUrl });
+    const li = btn.closest('li');
+    if (li) li.remove();
+    const banner = document.getElementById('autopilot-alert-banner');
+    if (banner && !banner.querySelector('li')) banner.remove();
+  } catch (_err) {
+    btn.disabled = false;
+  }
+});
+
 function _applyStatusRows(rows) {
   const urlStatusMap = {};
   for (const row of rows) {
