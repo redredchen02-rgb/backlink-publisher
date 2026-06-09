@@ -87,10 +87,6 @@ rationale = "keepalive-run chain coordinator (plan 2026-06-05-004 U1): sequences
 # hold the line against test-file SLOC growth; bump in the same PR with a
 # rationale update.
 
-[test_files."tests/test_webui_route_contract.py"]
-ceiling = 1160
-rationale = "WebUI route contract tests: one parametrize per route verifying status code, template rendering, and CSRF guard rejection. Large because it covers every Flask route (~20 GET + ~15 POST/PUT/DELETE) with 2 test variants each. Bumped 1100→1140 for command-center routes, then 1140→1148 for the survival-dashboard route, then 1148→1160 for the R8 cycle-panel routes (GET /ce:keep-alive/cycle-status + POST /ce:keep-alive/reset-exhausted, plan 2026-06-08-001). Decompose parametrize tables into shared helpers when a new route makes this file grow further."
-
 [test_files."tests/test_cli_generate_backlink_text.py"]
 ceiling = 1070
 rationale = "CLI generate-backlink-text tests: covers LLM-based text generation with mock provider responses, fallback chains, error handling (timeout, malformed, empty responses), and multi-language support (en/zh-CN/ru). Large because each provider variant x language x error case is a separate test function."
@@ -128,8 +124,8 @@ ceiling = 550
 rationale = "Work scraper tests: exercises the sitemap-based URL discovery pipeline across valid sitemaps, sitemapindex recursion, network errors, blocklist filtering, HTML fallback scraping, and url_category extraction. Large due to parsing-variant fixtures for each XML/HTML shape."
 
 [test_files."tests/conftest.py"]
-ceiling = 490
-rationale = "Root-level pytest conftest: houses 25+ fixtures including _restore_logger_levels autouse (added 2026-06-05) that prevents CLI main() log-level pollution across tests. Shared fixture surface for ~160 test files."
+ceiling = 510
+rationale = "Root-level pytest conftest: houses 25+ fixtures plus webui shared non-autouse fixtures (client, csrf_client, _fetch_csrf) extracted from test_webui_route_contract.py split (U2, plan 2026-06-09-001). Bumped 490→510 for U2 client/csrf/fetch additions."
 
 [test_files."tests/test_webui_url_verify_routes.py"]
 ceiling = 460

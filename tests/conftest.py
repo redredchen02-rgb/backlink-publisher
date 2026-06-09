@@ -617,6 +617,56 @@ def fake_platform_registered():
             __REGISTRY["fake"] = previous
 
 
+# ── WebUI shared fixtures (U2: extracted from test_webui_route_contract.py) ──
+#
+# Non-autouse shared fixtures for the seven per-concern webui test files
+# produced by the test_webui_route_contract.py split.  Autouse fixtures
+# (_no_run_pipe, _no_real_subprocess, _isolated_webui_state) live in each
+# split test file — global autouse on those caused xdist worker failures
+# (run_pipe patching broke test_webui_error_fidelity; _LazyStore._real()
+# failed for CLI-only tests that never set up the webui env).
+import re as _re
+
+
+@pytest.fixture
+def client():
+    """Flask test client with TESTING + insecure cookies for session round-trip."""
+    import webui
+
+    webui.app.config["TESTING"] = True
+    webui.app.config["SESSION_COOKIE_SECURE"] = False
+    webui.app.config["WTF_CSRF_ENABLED"] = False
+    return webui.app.test_client()
+
+
+@pytest.fixture
+def csrf_client():
+    """Flask test client with the global CSRF guard enabled.
+
+    Use for tests asserting that missing/wrong CSRF returns 403.
+    """
+    import webui
+
+    webui.app.config["TESTING"] = True
+    webui.app.config["SESSION_COOKIE_SECURE"] = False
+    webui.app.config["WTF_CSRF_ENABLED"] = True
+    webui.app.config["CSRF_ENABLED"] = True
+    try:
+        yield webui.app.test_client()
+    finally:
+        webui.app.config["WTF_CSRF_ENABLED"] = False
+        webui.app.config["CSRF_ENABLED"] = False
+
+
+def _fetch_csrf(client) -> str:
+    """Grab the hidden csrf_token from GET /sites."""
+    resp = client.get("/sites")
+    assert resp.status_code == 200, resp.data[:200]
+    match = _re.search(r'name="csrf_token"\s+value="([^"]+)"', resp.data.decode())
+    assert match, "csrf_token not found in /sites HTML"
+    return match.group(1)
+
+
 # ── Layer 3: Credential tripwire (Plan 2026-05-27-005 Unit 7) ───────────────
 #
 # Session fixture that watches REAL_CONFIG_ROOT / REAL_CACHE_ROOT for unexpected

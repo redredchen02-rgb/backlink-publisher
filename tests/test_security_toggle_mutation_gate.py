@@ -66,9 +66,6 @@ GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
         ("test_webui_index_template_structure.py", "CSRF_ENABLED"),
         ("test_webui_publish_route.py", "CSRF_ENABLED"),
         ("test_webui_request_cache.py", "CSRF_ENABLED"),
-        ("test_webui_route_contract.py", "CSRF_ENABLED"),
-        ("test_webui_route_contract.py", "SESSION_COOKIE_SECURE"),
-        ("test_webui_route_contract.py", "WTF_CSRF_ENABLED"),
         ("test_webui_routes_oauth.py", "SESSION_COOKIE_SECURE"),
         ("test_webui_settings_template_split.py", "CSRF_ENABLED"),
         ("test_webui_static_css_served.py", "CSRF_ENABLED"),
@@ -183,7 +180,7 @@ def test_scanner_discovers_known_offenders() -> None:
     """The glob must actually reach the webui test files (a broken glob would
     make the gate a silent no-op)."""
     names = {p.name for p in _test_source_files()}
-    assert "test_webui_route_contract.py" in names
+    assert "test_webui_core_routes.py" in names
     assert "test_history_bulk_routes.py" in names
 
 
