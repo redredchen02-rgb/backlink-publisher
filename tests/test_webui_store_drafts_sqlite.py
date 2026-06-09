@@ -10,6 +10,8 @@ Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 
 from __future__ import annotations
 
+
+__tier__ = "integration"
 import json
 from pathlib import Path
 

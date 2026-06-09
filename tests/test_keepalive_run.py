@@ -1,6 +1,8 @@
 """Tests for keepalive-run core chain (plan 2026-06-05-004 Units 1/2/3)."""
 from __future__ import annotations
 
+
+__tier__ = "integration"
 from pathlib import Path
 from unittest.mock import MagicMock
 

@@ -7,17 +7,17 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/scripts/run-optimization.sh</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/scripts/run-optimization.sh</string>
     </array>
     <!-- Every 6 hours = 21600 seconds -->
     <key>StartInterval</key>
     <integer>21600</integer>
     <key>WorkingDirectory</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher</string>
     <key>StandardOutPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/optimization-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/optimization-launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/optimization-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/optimization-launchd.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

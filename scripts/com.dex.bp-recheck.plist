@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/scripts/run-recheck-periodic.sh</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/scripts/run-recheck-periodic.sh</string>
         <string>--probe</string>
     </array>
     <!-- Weekly: Monday 04:30 local. Calendar scheduling is the in-repo
@@ -24,11 +24,11 @@
         <integer>30</integer>
     </dict>
     <key>WorkingDirectory</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher</string>
     <key>StandardOutPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/recheck-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/recheck-launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher/backlink-publisher/logs/recheck-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/recheck-launchd.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

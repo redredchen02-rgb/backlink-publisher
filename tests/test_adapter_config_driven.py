@@ -7,6 +7,8 @@ All network is mocked.
 
 from __future__ import annotations
 
+
+__tier__ = "integration"
 from unittest import mock
 
 import pytest

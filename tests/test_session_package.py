@@ -5,6 +5,8 @@ Plan 2026-05-25-002 Unit 7 — covers Credential, DefaultCredentialProvider
 """
 from __future__ import annotations
 
+
+__tier__ = "integration"
 import json
 import os
 from pathlib import Path
