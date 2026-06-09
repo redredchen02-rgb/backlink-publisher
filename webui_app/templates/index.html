@@ -104,6 +104,17 @@
         </div>
         {% endif %}
 
+        {# Plan 2026-06-09-001 U3 — health summary bar.
+           Polls GET /health on page load (via index.js healthBar module).
+           Hidden until first response; dismissed per-session via localStorage. #}
+        <div id="health-summary-bar" class="health-summary-bar d-none" role="status" aria-live="polite">
+            <span id="health-summary-icon" class="health-icon"></span>
+            <span id="health-summary-text" class="health-text"></span>
+            <a href="/ce:health" class="health-link ms-2">查看详情</a>
+            <button type="button" class="btn-close btn-close-sm ms-auto" aria-label="关闭健康状态栏"
+                    data-action="health-bar-dismiss"></button>
+        </div>
+
         <!-- Plan 012 Unit 5/6 — Mode toggle (replaces 批量发布 nav tab). -->
         <div class="mode-toggle-bar" id="modeToggleBar" role="tablist" aria-label="发布模式">
             <button class="mode-toggle-btn active" id="mode-single-btn"
