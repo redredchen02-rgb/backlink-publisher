@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.executors.pool import ThreadPoolExecutor as APSThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -9,9 +9,12 @@ from backlink_publisher._util.logger import plan_logger
 
 from webui_store import batch_ops_store as _batch_ops_store
 from webui_store import drafts_store as _drafts_store
+from webui_store import history_store as _hist_store
 from webui_store import queue_store as _queue_store
+from webui_store import schedule_store as _sched_store
 
 from .api.pipeline_api import PipelineAPI
+from .services.keepalive_job import run_keepalive_for_site
 from .helpers.cli_runner import strip_cli_diagnostic_banner
 from .helpers.history import (
     _parse_publish_results,
@@ -248,3 +251,87 @@ def _restore_scheduled_jobs() -> None:
             _schedule_draft_job(item_id, run_date)
         except Exception:
             plan_logger.warn("restore_scheduled_job_failed", item_id=item_id, ts=ts)
+
+    # Autopilot: register one interval job per enabled site (skip under maintenance).
+    sched_settings = _sched_store.load()
+    maintenance = sched_settings.get("maintenance_mode", False)
+    if not maintenance:
+        for site_url, cfg in sched_settings.get("autopilot_targets", {}).items():
+            if cfg.get("enabled"):
+                interval_s = int(cfg.get("interval_seconds", 86400))
+                _register_autopilot_job(site_url, interval_s)
+
+
+def _autopilot_job_id(site_url: str) -> str:
+    """Deterministic, scheduler-safe job ID for a given site URL."""
+    return "autopilot_" + site_url.replace("://", "_").replace("/", "_").rstrip("_")
+
+
+def _register_autopilot_job(site_url: str, interval_seconds: int) -> None:
+    """Add or replace an autopilot interval job for ``site_url``."""
+    _scheduler.add_job(
+        _keepalive_cycle_job,
+        trigger='interval',
+        seconds=interval_seconds,
+        id=_autopilot_job_id(site_url),
+        replace_existing=True,
+        args=[site_url],
+    )
+
+
+def _keepalive_cycle_job(site_url: str) -> None:
+    """APScheduler job: run a keep-alive cycle for one site.
+
+    Writes a history entry with ``extra_json={"source": "autopilot"}``.
+    On failure, sets ``alert_pending: true`` in ``autopilot_targets``.
+    Never raises — protects the APScheduler thread.
+    """
+    import uuid as _uuid
+
+    try:
+        result = run_keepalive_for_site(site_url)
+    except Exception as exc:  # noqa: BLE001
+        result_success = False
+        result_error = str(exc)
+        result_checked = 0
+    else:
+        result_success = result.success
+        result_error = result.error
+        result_checked = result.checked
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Persist history entry with source badge
+    entry = {
+        "id": _uuid.uuid4().hex,
+        "status": "autopilot_ok" if result_success else "autopilot_fail",
+        "platform": "autopilot",
+        "target_url": site_url,
+        "article_urls": [],
+        "verified_at": now_iso,
+        "extra_json": {"source": "autopilot", "checked": result_checked, "error": result_error},
+    }
+    try:
+        _hist_store.update(lambda hist: [entry, *hist][:200])
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Update autopilot_targets: last_run + alert_pending
+    alert = not result_success
+    def _update_autopilot(settings: dict) -> dict:
+        targets = dict(settings.get("autopilot_targets", {}))
+        site_cfg = dict(targets.get(site_url, {}))
+        site_cfg["last_run"] = now_iso
+        site_cfg["alert_pending"] = alert
+        targets[site_url] = site_cfg
+        return {**settings, "autopilot_targets": targets}
+
+    try:
+        _sched_store.update(_update_autopilot)
+    except Exception:  # noqa: BLE001
+        pass
+
+    plan_logger.info(
+        "autopilot_cycle_done",
+        site_url=site_url, success=result_success, checked=result_checked,
+    )
