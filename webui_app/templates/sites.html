@@ -125,8 +125,21 @@
       </div>
     </fieldset>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
       <button type="submit" class="btn btn-primary">保存配置</button>
+      {# Plan 2026-06-09-001 U5 R13 — quick-publish button.
+         Shows spinner immediately; posts to /publish/quick if defaults exist,
+         otherwise links to full publish flow (/ce:keep-alive). #}
+      <button type="button" class="btn btn-outline-success"
+              id="quick-publish-btn"
+              data-action="quick-publish"
+              data-defaults-url="/publish/defaults"
+              data-quick-url="/publish/quick"
+              data-fallback-url="/ce:keep-alive"
+              aria-label="快速发布（使用上次发布配置）">
+          <span class="quick-publish-label"><i class="bi bi-lightning-fill me-1"></i>快速发布</span>
+          <span class="quick-publish-spinner d-none spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+      </button>
       <a href="/" class="btn btn-link">← 返回首页</a>
     </div>
   </form>
@@ -143,3 +156,4 @@
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}
 {% endblock %}
+{% block page_module %}<script type="module" src="{{ url_for('static', filename='js/sites.js', v=asset_version) }}"></script>{% endblock %}

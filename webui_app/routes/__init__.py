@@ -41,6 +41,7 @@ def register_blueprints(app: Flask) -> None:
     from .optimization_status import bp as optimization_status_bp
     from .command_center import bp as command_center_bp
     from .survival_dashboard import bp as survival_dashboard_bp
+    from .publish_defaults import bp as publish_defaults_bp
 
     for bp in (main_bp, pipeline_bp, batch_bp, checkpoint_bp,
                history_bp, drafts_bp, settings_basic_bp, llm_bp, oauth_bp,
@@ -52,5 +53,5 @@ def register_blueprints(app: Flask) -> None:
                batch_campaign_bp, campaign_progress_bp, keep_alive_bp,
                equity_gap_bp, equity_batch_recheck_bp,
                optimization_status_bp, command_center_bp,
-               survival_dashboard_bp):
+               survival_dashboard_bp, publish_defaults_bp):
         app.register_blueprint(bp)

@@ -23,6 +23,7 @@ from .channel_status import channel_status_store
 from .drafts import DraftsSqliteStore, DraftsStore
 from .history import HistoryStore
 from .profiles import ProfilesSqliteStore
+from .publish_defaults import PublishDefaultsSqliteStore
 from .queue_store import QueueSqliteStore
 from .schedule import ScheduleSqliteStore
 from .sqlite_base import WebUIDatabase
@@ -81,6 +82,14 @@ queue_store = _LazyStore(_make_queue_store)
 campaign_store = _LazyStore(_make_campaign_store)
 
 
+def _make_publish_defaults_store() -> PublishDefaultsSqliteStore:
+    config_dir = _resolve_config_dir()
+    return PublishDefaultsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+
+
+publish_defaults_store = _LazyStore(_make_publish_defaults_store)
+
+
 def _refresh_paths() -> None:
     """Rebind every lazy store so the next access resolves a fresh path.
 
@@ -91,7 +100,7 @@ def _refresh_paths() -> None:
     """
     for store in (history_store, profiles_store, drafts_store,
                   schedule_store, queue_store, channel_status_store,
-                  campaign_store):
+                  campaign_store, publish_defaults_store):
         store.reset()
 
 
@@ -114,5 +123,7 @@ __all__ = [
     "schedule_store",
     "queue_store",
     "channel_status_store",
+    "PublishDefaultsSqliteStore",
+    "publish_defaults_store",
     "_refresh_paths",
 ]
