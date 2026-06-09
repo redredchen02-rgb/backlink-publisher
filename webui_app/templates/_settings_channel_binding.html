@@ -62,6 +62,17 @@
             上次绑定 {{ _bound_at[:10] }}
         </small>
         {% endif %}
+        {# Credential TTL badge (Plan 2026-06-09-001 U4 / R8) — age is
+           best-effort; amber warning when bound ≥7 days ago. #}
+        {% set _age = (channel_age_days or {}).get(channel) %}
+        {% if _age is not none and _age >= 7 %}
+        <small class="text-warning ms-1" title="凭据已绑定 {{ _age | int }} 天，建议重新验证">
+            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+            已绑定 {{ _age | int }} 天
+        </small>
+        {% elif _age is not none %}
+        <small class="text-muted ms-1">已绑定 {{ _age | int }} 天</small>
+        {% endif %}
     </div>
 
     {% if _status == "identity_mismatch" %}

@@ -183,6 +183,12 @@ def _settings_context(flash=None):
         channel_statuses = {}
 
     try:
+        from webui_store.channel_status import credential_age_days as _cred_age
+        channel_age_days = {ch: _cred_age(ch) for ch in channel_statuses}
+    except Exception:
+        channel_age_days = {}
+
+    try:
         csrf_token = _ensure_csrf_token()
     except Exception:
         csrf_token = ""
@@ -261,6 +267,7 @@ def _settings_context(flash=None):
         target_anchor_keywords=cfg.target_anchor_keywords,
         binding_channels=sorted(CHANNELS),
         channel_statuses=channel_statuses,
+        channel_age_days=channel_age_days,
         bind_error_messages=BIND_ERROR_MESSAGES,
         velog_status=velog_status,
         velog_cookies_path=velog_status.get('cookies_path', ''),

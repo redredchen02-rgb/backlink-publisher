@@ -266,3 +266,16 @@ def api_velog_status():
     """Return current velog channel status as JSON for polling."""
     from ..helpers.contexts import _get_velog_status
     return jsonify(_get_velog_status())
+
+
+@bp.route('/settings/channels/<channel>/probe-liveness', methods=['POST'])
+def probe_channel_liveness_route(channel: str):
+    """Probe and return liveness status for one channel (R9 — Plan 2026-06-09-001 U4).
+
+    Returns {"status": "alive"|"expired"|"unreachable"}.  CSRF-protected
+    automatically by the global POST guard.  Unknown channels get the
+    channel_status_store fallback path in probe_channel_liveness().
+    """
+    from ..services.credential_service import probe_channel_liveness
+    status = probe_channel_liveness(channel)
+    return jsonify({"status": status})
