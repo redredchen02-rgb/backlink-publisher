@@ -160,6 +160,22 @@ class TestHealthJsonEndpoint:
         assert resp.status_code in (200, 503)
         assert resp.is_json
 
+    def test_get_health_alerts_returns_200(self, client):
+        """GET /health/alerts returns 200 with active alert list."""
+        resp = client.get("/health/alerts")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "active" in data
+        assert "count" in data
+        assert isinstance(data["active"], list)
+        assert isinstance(data["count"], int)
+
+    def test_get_health_alerts_no_csrf_token_required(self, csrf_client):
+        """GET /health/alerts does not require CSRF token (GET is exempt)."""
+        resp = csrf_client.get("/health/alerts")
+        assert resp.status_code == 200
+        assert resp.is_json
+
 
 class TestComputeHealthJson:
     """Unit tests for compute_health_json() logic, independent of Flask."""

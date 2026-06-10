@@ -19,6 +19,7 @@ from flask import Blueprint, jsonify, request
 from ..helpers.contexts import _render
 from ..helpers._request_cache import _g_cache
 from ..helpers.security import _check_bind_origin_or_abort
+from ..services.alerting import alert_registry
 
 if TYPE_CHECKING:
     from backlink_publisher.events.store import EventStore
@@ -515,3 +516,12 @@ def health_json():
     payload = compute_health_json()
     status = 200 if payload["healthy"] else 503
     return jsonify(payload), status
+
+
+@bp.route("/health/alerts", methods=["GET"])
+def health_alerts():
+    """Return active alerts (Plan U4.3). GET-only, no CSRF needed."""
+    return jsonify({
+        "active": alert_registry.to_dicts(only_active=True),
+        "count": len(alert_registry.active()),
+    })

@@ -76,6 +76,8 @@ restore-state = "backlink_publisher.cli.state_backup:restore_main"
 keepalive-run = "backlink_publisher.cli.keepalive_run:main"
 keepalive-status = "backlink_publisher.cli.keepalive_status:main"
 keepalive-reset-exhausted = "backlink_publisher.cli.keepalive_reset_exhausted:main"
+pipeline-orchestrator = "backlink_publisher.cli.pipeline_orchestrator:main"
+health-check = "backlink_publisher.cli.health_check:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
