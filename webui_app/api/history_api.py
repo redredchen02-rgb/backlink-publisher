@@ -135,11 +135,13 @@ class HistoryAPI:
         if not ids:
             return {"ok": False, "flash_msg": "未选择任何项"}
         removed = bulk_delete_from_db(ids)
+        removed += _history_store.bulk_delete(ids)
         return {"ok": True, "flash_msg": f"已删除 {removed} 条历史记录"}
 
     def purge_failed(self) -> dict[str, Any]:
         """Delete every history entry whose status is exactly ``failed``."""
         removed = purge_failed_from_db()
+        removed += _history_store.purge_by_status("failed")
         if removed == 0:
             return {"ok": False, "flash_msg": "没有失败记录可清除"}
         return {"ok": True, "flash_msg": f"已清除 {removed} 条失败记录"}

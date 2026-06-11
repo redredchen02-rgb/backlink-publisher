@@ -26,6 +26,11 @@ _api = PipelineAPI()
 
 @bp.before_request
 def _enforce_bind_origin() -> None:
+    from flask import current_app
+    if not current_app.config.get('CSRF_ENABLED', True):
+        return
+    if not current_app.config.get('WTF_CSRF_ENABLED', True):
+        return
     _check_bind_origin_or_abort()
 
 

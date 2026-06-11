@@ -16,6 +16,9 @@ import pytest
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from backlink_publisher.cli import spray_backlinks
 from backlink_publisher.cli.spray_backlinks import core as spray_core
+from backlink_publisher.cli.spray_backlinks import _draft as spray_draft
+from backlink_publisher.cli.spray_backlinks import _dispatch as spray_dispatch
+from backlink_publisher.cli.spray_backlinks import _gates as spray_gates
 from backlink_publisher.publishing.registry import registered_platforms
 
 
@@ -25,7 +28,7 @@ def _fake_rewrite(platform, shot_idx, domain_label, main_domain, anchors, topic,
 
 def _mock_llm(monkeypatch):
     """Patch the CLI's rewrite-fn factory so no network/LLM is needed."""
-    monkeypatch.setattr(spray_core, "_default_rewrite_fn", lambda cfg: _fake_rewrite)
+    monkeypatch.setattr(spray_draft, "_default_rewrite_fn", lambda cfg: _fake_rewrite)
 
 
 def _mock_burst(monkeypatch):
@@ -33,7 +36,7 @@ def _mock_burst(monkeypatch):
     _mock_llm(monkeypatch)
     from backlink_publisher.cli.spray_backlinks._dispatch import DispatchSummary
     monkeypatch.setattr(
-        spray_core, "dispatch_burst",
+        spray_dispatch, "dispatch_burst",
         lambda *a, **kw: DispatchSummary(succeeded=["mock"]),
     )
 
@@ -156,7 +159,7 @@ def test_burst_aborts_when_audit_fails(tmp_path, monkeypatch):
     # Identical bodies -> body-similarity audit fails -> burst aborts (exit 2)
     # before any dispatch (no network).
     identical = lambda *a, **k: "the same body text repeated across every shot here"
-    monkeypatch.setattr(spray_core, "_default_rewrite_fn", lambda cfg: identical)
+    monkeypatch.setattr(spray_draft, "_default_rewrite_fn", lambda cfg: identical)
     p0, p1 = _two_registered()
     seed_path = _write_seed(tmp_path, _seed(p0))
     with pytest.raises(SystemExit) as exc:
@@ -366,7 +369,7 @@ def test_resume_bad_run_id_exits_1(tmp_path):
 def test_list_checkpoints_noop_when_empty(tmp_path, capsys, monkeypatch):
     """--list-checkpoints with no checkpoints prints message."""
     monkeypatch.setattr(
-        spray_core, "_spray_checkpoint_dir",
+        spray_gates, "_spray_checkpoint_dir",
         lambda: tmp_path / "spray-checkpoints",
     )
     spray_backlinks.main(["--list-checkpoints"])
@@ -376,7 +379,7 @@ def test_list_checkpoints_noop_when_empty(tmp_path, capsys, monkeypatch):
 
 def test_resume_creates_and_restores_checkpoint(tmp_path, capsys, monkeypatch):
     """Run 2 seeds, verify checkpoint created, then resume skips completed."""
-    monkeypatch.setattr(spray_core, "_spray_checkpoint_dir", lambda: tmp_path / "spray-checkpoints")
+    monkeypatch.setattr(spray_gates, "_spray_checkpoint_dir", lambda: tmp_path / "spray-checkpoints")
     _mock_burst(monkeypatch)
     p0, p1 = _two_registered()
     out_dir = tmp_path / "output"
@@ -393,7 +396,7 @@ def test_resume_creates_and_restores_checkpoint(tmp_path, capsys, monkeypatch):
     ])
 
     # Checkpoint was created — find it.
-    cdir = spray_core._spray_checkpoint_dir()
+    cdir = spray_gates._spray_checkpoint_dir()
     checkpoints = list(cdir.iterdir())
     assert len(checkpoints) >= 1
     run_id = sorted(checkpoints)[-1].stem  # most recent
@@ -418,7 +421,7 @@ def test_resume_creates_and_restores_checkpoint(tmp_path, capsys, monkeypatch):
 
 def test_resume_retries_failed_seed(tmp_path, capsys, monkeypatch):
     """Run 2 seeds where seed 1 fails (all gated), resume retries seed 1."""
-    monkeypatch.setattr(spray_core, "_spray_checkpoint_dir", lambda: tmp_path / "spray-checkpoints")
+    monkeypatch.setattr(spray_gates, "_spray_checkpoint_dir", lambda: tmp_path / "spray-checkpoints")
     _mock_burst(monkeypatch)
     p0, _ = _two_registered()
     out_dir = tmp_path / "output"
@@ -439,7 +442,7 @@ def test_resume_retries_failed_seed(tmp_path, capsys, monkeypatch):
     ])
 
     # Get the run_id from checkpoint
-    cdir = spray_core._spray_checkpoint_dir()
+    cdir = spray_gates._spray_checkpoint_dir()
     run_id = sorted(cdir.iterdir())[-1].stem
 
     # Resume — both completed, so nothing to process. Exits 2.

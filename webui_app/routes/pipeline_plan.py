@@ -1,0 +1,308 @@
+"""Plan/generate/validate/preview/regen routes (Wave 3 Unit 5 split).
+
+Extracted from ``routes/pipeline.py`` (2026-06-11).  Contains:
+  /ce:plan, /ce:generate, /ce:validate, /ce:preview, /ce:regen-body
+``routes/__init__.py`` registers this blueprint alongside ``pipeline_publish.bp``.
+"""
+from __future__ import annotations
+
+import json
+from concurrent.futures import ThreadPoolExecutor
+
+from backlink_publisher._util.markdown import render_to_html
+from backlink_publisher._util.logger import plan_logger
+
+from flask import Blueprint, request, session
+
+from ..api import PipelineAPI
+from ..helpers.contexts import _persist_three_tier_config, _render, _get_velog_status
+from ..helpers.url_meta import (
+    _normalize_url,
+    _verify_urls_or_error,
+    detect_language,
+    fetch_full_tdk,
+    fetch_url_metadata,
+    get_main_domain,
+)
+from ..services.pipeline_service import (
+    build_generate_seed,
+    build_plan_config,
+    validate_plan_inputs,
+)
+
+bp = Blueprint("pipeline_plan", __name__)
+_api = PipelineAPI()
+
+
+@bp.route('/ce:plan', methods=['POST'])
+def ce_plan():
+    main_url = _normalize_url(
+        request.form.get('main_url') or request.form.get('target_url') or ''
+    )
+    category_url = _normalize_url(request.form.get('category_url') or '')
+    work_url = _normalize_url(request.form.get('work_url') or '')
+
+    extra_urls: list[str] = []
+    for key in request.form.keys():
+        if key in ('main_url', 'target_url', 'category_url', 'work_url'):
+            continue
+        if key.startswith('url_') or key == 'url_new':
+            val = _normalize_url(request.form.get(key, ''))
+            if val:
+                extra_urls.append(val)
+
+    if not main_url:
+        return _render(
+            'index.html', error="请输入主网域",
+            category_url=category_url, work_url=work_url,
+        )
+
+    field_errors = validate_plan_inputs(main_url, category_url, work_url)
+    if field_errors:
+        return _render(
+            'index.html', error="; ".join(field_errors),
+            target_url=main_url, category_url=category_url, work_url=work_url,
+        )
+
+    tier_urls = [u for u in (main_url, category_url, work_url) if u]
+    gate_urls = tier_urls + extra_urls
+    _, gate_err = _verify_urls_or_error(gate_urls, "URL")
+    if gate_err:
+        return _render(
+            'index.html', error=gate_err,
+            target_url=main_url, category_url=category_url, work_url=work_url,
+        )
+
+    warning_msg = None
+    if category_url or work_url:
+        try:
+            _persist_three_tier_config(main_url, category_url, work_url)
+        except Exception as exc:
+            warning_msg = f"漫画/分类页配置保存失败 ({type(exc).__name__})，但生成任务仍可继续。"
+            plan_logger.warn(
+                "homepage_form_persist_failed",
+                main=main_url, reason=type(exc).__name__, detail=str(exc)[:120],
+            )
+
+    url_inputs = [main_url] + extra_urls
+
+    preview_urls = [u for u in (main_url, category_url, work_url) if u][:5]
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        meta_results = list(pool.map(fetch_url_metadata, preview_urls))
+    meta_info = [m for m in meta_results if m.get('status') == 'success']
+
+    urls_json = json.dumps(url_inputs)
+    target_url = main_url
+    target_language = request.form.get('target_language', detect_language(target_url))
+
+    fetch_tdk = request.form.get('fetch_tdk', 'yes')
+    suggested_anchors = []
+    if fetch_tdk == 'yes':
+        tdk_data = fetch_full_tdk(target_url)
+        if tdk_data.get('status') == 'success':
+            suggested_anchors = tdk_data.get('suggested_anchors', [])
+
+    config = build_plan_config(
+        main_url=target_url,
+        url_inputs=url_inputs,
+        target_language=target_language,
+        fetch_tdk=fetch_tdk,
+        meta_info=meta_info,
+        suggested_anchors=suggested_anchors,
+    )
+    session['config'] = config
+    session['urls_json'] = urls_json
+
+    extra_urls = url_inputs[1:] if len(url_inputs) > 1 else []
+    return _render('index.html',
+        target_url=target_url, config=config,
+        urls_json=urls_json, extra_urls=extra_urls,
+        meta_info=meta_info[:3], warning=warning_msg)
+
+
+@bp.route('/ce:generate', methods=['POST'])
+def ce_generate():
+    stored_config = session.get('config', {})
+    urls_json = request.form.get('urls_json', session.get('urls_json', '[]'))
+
+    try:
+        urls = json.loads(urls_json)
+    except Exception as exc:
+        # Distinguish "no input provided" (legitimate fallback to stored urls)
+        # from "operator submitted a non-empty value that failed to parse"
+        # (do NOT silently generate against stale urls — surface it).
+        submitted = request.form.get('urls_json', '').strip()
+        if submitted and submitted != '[]':
+            plan_logger.warn("urls_json_parse_error", reason=type(exc).__name__)
+            return _render('index.html', error="连结格式无效，未使用旧数据",
+                           config=stored_config)
+        urls = stored_config.get('urls', [])
+
+    if not urls:
+        return _render('index.html', error="没有有效的连结", config=stored_config)
+
+    platform = request.form.get('platform', stored_config.get('platform', 'blogger'))
+    url_mode = request.form.get('url_mode', stored_config.get('url_mode', 'C'))
+    publish_mode = request.form.get('publish_mode',
+                                    stored_config.get('publish_mode', 'publish'))
+    target_language = request.form.get('target_language',
+                                       stored_config.get('target_language', 'zh-CN'))
+    custom_title = request.form.get('custom_title', '').strip()
+    custom_tags = request.form.get('custom_tags', '').strip()
+    fetch_tdk = request.form.get('fetch_tdk', stored_config.get('fetch_tdk', 'no'))
+
+    main_url = urls[0]
+    extra_urls = urls[1:] if len(urls) > 1 else []
+
+    tdk_data = {}
+    if fetch_tdk == 'yes':
+        tdk_data = fetch_full_tdk(main_url)
+
+    seed = build_generate_seed(
+        urls=urls,
+        platform=platform,
+        url_mode=url_mode,
+        publish_mode=publish_mode,
+        target_language=target_language,
+        custom_title=custom_title,
+        custom_tags=custom_tags,
+        tdk_data=tdk_data,
+    )
+    seed_json = json.dumps(seed, ensure_ascii=False)
+
+    result = _api.plan(seed_json)
+    if not result.success:
+        return _render('index.html', target_url=main_url,
+                       error=result.error or "生成失败，没有输出",
+                       config=stored_config)
+
+    plans = result.stdout
+    if not plans.strip():
+        return _render('index.html', target_url=main_url,
+                       error=result.stderr_cleaned or "生成失败，没有输出",
+                       config=stored_config)
+
+    plans_list = result.rows
+    if not plans_list:
+        plan_logger.warn("json_parse_error", line=plans[:100])
+        return _render('index.html', target_url=main_url,
+                       error=f"解析生成结果失败。原始输出: {plans[:200]}",
+                       config=stored_config)
+
+    config = {
+        'platform': platform, 'target_language': target_language,
+        'urls': urls, 'fetch_tdk': fetch_tdk,
+        'url_mode': url_mode, 'publish_mode': publish_mode,
+        'custom_title': custom_title, 'custom_tags': custom_tags,
+    }
+    session['config'] = config
+    session['plans'] = plans
+
+    return _render('index.html', target_url=main_url, config=config,
+        plans=plans, plans_list=plans_list,
+        urls_json=urls_json, extra_urls=extra_urls)
+
+
+@bp.route('/ce:validate', methods=['POST'])
+def ce_validate():
+    plans = session.get('plans', '') or request.form.get('plans', '')
+    config = session.get('config', {})
+
+    result = _api.validate(plans, no_check_urls=True)
+    if not result.success:
+        return _render('index.html', plans=plans,
+                       error=result.error or "验证失败，请检查链接数量是否在 6-8 个之间",
+                       config=config)
+
+    validated = result.stdout
+    if not validated.strip():
+        return _render('index.html', plans=plans,
+                       error=result.stderr_cleaned or "验证失败，请检查链接数量是否在 6-8 个之间",
+                       config=config)
+
+    session['validated'] = validated
+    return _render('index.html', validated=validated, plans=plans, config=config)
+
+
+@bp.route('/ce:preview', methods=['POST'])
+def ce_preview():
+    urls_json = request.form.get('urls_json', '[]')
+    try:
+        urls = json.loads(urls_json)
+    except json.JSONDecodeError as exc:
+        plan_logger.warn("preview_urls_parse_error", reason=type(exc).__name__)
+        return "Invalid URLs"
+
+    seed = {
+        'target_url': urls[0],
+        'main_domain': get_main_domain(urls[0]),
+        'platform': request.form.get('platform', 'blogger'),
+        'language': request.form.get('target_language', 'zh-CN'),
+        'url_mode': request.form.get('url_mode', 'C'),
+        'publish_mode': request.form.get('publish_mode', 'publish'),
+        'custom_title': request.form.get('custom_title', ''),
+        'custom_tags': request.form.get('custom_tags', ''),
+        'extra_urls': urls[1:],
+    }
+    if request.form.get('fetch_tdk') == 'yes':
+        seed['tdk'] = fetch_full_tdk(urls[0])
+
+    result = _api.plan(json.dumps([seed]))
+    content = result.stdout
+
+    fmt = request.args.get('format', 'md')
+    if fmt == 'html':
+        return render_to_html(content)
+    return content
+
+
+@bp.route('/ce:regen-body', methods=['POST'])
+def ce_regen_body():
+    """Re-generate a single article body via LLM; returns JSON for in-place preview update."""
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    main_domain = (data.get('main_domain') or '').strip()
+    anchors = data.get('anchors') or []
+    language = (data.get('language') or '').strip()
+    topic = data.get('topic') or None
+
+    if not main_domain or not isinstance(anchors, list):
+        return jsonify({'error': 'bad_request', 'detail': 'main_domain and anchors are required'}), 400
+
+    from backlink_publisher.config import load_config
+    try:
+        cfg = load_config()
+    except Exception as exc:
+        return jsonify({'error': 'bad_request', 'detail': str(exc)}), 400
+
+    if not cfg.llm_anchor_provider:
+        return jsonify({'error': 'llm_not_configured', 'detail': 'no LLM provider configured'}), 400
+    if not cfg.llm_anchor_provider.use_article_gen:
+        return jsonify({'error': 'llm_not_configured', 'detail': 'use_article_gen is disabled'}), 400
+
+    from backlink_publisher.cli.plan_backlinks._templates import _domain_label_of
+    domain_label = _domain_label_of(main_domain)
+
+    try:
+        from backlink_publisher.publishing.adapters.llm_anchor_provider import OpenAICompatibleProvider
+        provider = OpenAICompatibleProvider(
+            base_url=cfg.llm_anchor_provider.base_url,
+            api_key=cfg.llm_anchor_provider.api_key,
+            model=cfg.llm_anchor_provider.model,
+            temperature=cfg.llm_anchor_provider.temperature,
+            system_prompt=cfg.llm_anchor_provider.system_prompt,
+            article_system_prompt=cfg.llm_anchor_provider.article_system_prompt,
+        )
+        body = provider.generate_article_body(
+            domain_label=domain_label,
+            main_domain=main_domain,
+            anchors=anchors,
+            topic=topic,
+            language=language,
+        )
+    except Exception as exc:
+        from backlink_publisher.llm.client import _redact_for_log
+        return jsonify({'error': 'llm_call_failed', 'detail': _redact_for_log(str(exc))}), 502
+
+    content_html = render_to_html(body)
+    return jsonify({'content_markdown': body, 'content_html': content_html, 'content_source': 'llm'})

@@ -38,15 +38,15 @@ class TestRunKeepaliveForSite:
     def test_returns_success_result_on_empty_candidates(self, monkeypatch):
         from webui_app.services.keepalive_job import run_keepalive_for_site
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job._default_candidates",
+            "webui_app.services._keepalive_engine._default_candidates",
             lambda store: [],
         )
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job._default_unverified_candidates",
+            "webui_app.services._keepalive_engine._default_unverified_candidates",
             lambda store: [],
         )
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job.EventStore",
+            "webui_app.services._keepalive_engine.EventStore",
             lambda: MagicMock(),
         )
         result = run_keepalive_for_site("https://example.com/")
@@ -62,27 +62,27 @@ class TestRunKeepaliveForSite:
             {"target_url": "https://other.com/work/1"},    # does NOT match
         ]
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job._default_candidates",
+            "webui_app.services._keepalive_engine._default_candidates",
             lambda store: cands,
         )
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job._default_unverified_candidates",
+            "webui_app.services._keepalive_engine._default_unverified_candidates",
             lambda store: [],
         )
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job.EventStore",
+            "webui_app.services._keepalive_engine.EventStore",
             lambda: MagicMock(),
         )
         probed = []
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job._default_probe",
+            "webui_app.services._keepalive_engine._default_probe",
             lambda cand: (probed.append(cand) or {"verdict": "alive"}),
         )
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job.emit_recheck", lambda *a: None
+            "webui_app.services._keepalive_engine.emit_recheck", lambda *a: None
         )
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job.write_verified_at", lambda *a: None
+            "webui_app.services._keepalive_engine.write_verified_at", lambda *a: None
         )
         result = run_keepalive_for_site("https://example.com/")
         assert result.checked == 1
@@ -107,7 +107,7 @@ class TestRunKeepaliveForSite:
             raise RuntimeError("no db")
 
         monkeypatch.setattr(
-            "webui_app.services.keepalive_job.EventStore",
+            "webui_app.services._keepalive_engine.EventStore",
             _boom,
         )
         result = run_keepalive_for_site("https://unknown-site.com/")

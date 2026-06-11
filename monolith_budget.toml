@@ -247,3 +247,53 @@ rationale = "Audit KEEP (2026-06-15): channel binding-status store. radon SLOC 3
 [files."webui_store/sqlite_base.py"]
 ceiling = 254
 rationale = "store-base refactor (Plan 2026-06-15-005): BaseSqliteStore (the __init__/_init_table template + byte-identical migrate_from_json with a fail-soft save guard + shared _load_rows/_get_one_json/_replace_all_rows helpers) and BlobSqliteStore (single-row upsert load/save + _table_name identifier validator), absorbing the duplicated skeleton from 8 store files (net webui_store change far below the original raw-LOC estimate). sqlite_base settled at 224 SLOC as the shared base for all 8 stores. Ceiling 254 = round_up_to_10(224+30) per ratchet policy; the base is now feature-complete and should not grow further."
+# Wave 3 Unit 1 (2026-06-11): spray_backlinks split into core.py (argparse shell) + _engine.py (run orchestration) + _gates.py (checkpoint helpers).
+[files."src/backlink_publisher/cli/spray_backlinks/core.py"]
+ceiling = 210
+rationale = "Wave 3 Unit 1 (2026-06-11): core.py trimmed from 494 SLOC to 171 by moving _run_spray (+preview helpers) to _engine.py and checkpoint helpers to _gates.py. Now holds argparse (_build_parser with 15 arguments), _validate_spray_args, and main() only. Ceiling 210 = round_up_to_10(171+30); _build_parser alone accounts for ~95 SLOC due to 15 add_argument calls."
+
+[files."src/backlink_publisher/cli/spray_backlinks/_engine.py"]
+ceiling = 370
+rationale = "Wave 3 Unit 1 (2026-06-11): _engine.py expanded from 79 SLOC to 333 by absorbing _run_spray (CC 48, the multi-seed orchestration loop), _emit_preview, _main_anchor_of, _main_domain_of from core.py. Also retains original pure kernel: SprayCandidate, expand_seed, validate_platform_selection, _default_degraded, _seed_main_domain, gate_candidates. Ceiling 370 = round_up_to_10(333+30) per policy."
+
+[files."src/backlink_publisher/cli/spray_backlinks/_gates.py"]
+ceiling = 110
+rationale = "Wave 3 Unit 1 (2026-06-11): new file extracted from core.py. Contains cross-seed governance closure (_make_cross_seed_checker) and all checkpoint helpers: _spray_checkpoint_dir, _checkpoint_path, _generate_run_id, _list_checkpoints, _save_checkpoint, _domain_slug, _write_per_seed_file. SLOC 77. Ceiling 110 = round_up_to_10(77+30) per policy."
+
+# Wave 3 Unit 2 (2026-06-11): events/history_query.py split into read-path + write-path (mutations).
+[files."src/backlink_publisher/events/history_query.py"]
+ceiling = 390
+rationale = "Wave 3 Unit 2 (2026-06-11): write-path mutations (purge_failed_from_db, delete_from_db, bulk_delete_from_db, update_status_in_db, _STATUS_TO_KIND) extracted to _history_mutations.py. history_query.py now holds read-path only plus re-exports for backward compat. SLOC dropped from 465 to 356. Ceiling 390 = round_up_to_10(356+30) per policy."
+
+[files."src/backlink_publisher/events/_history_mutations.py"]
+ceiling = 160
+rationale = "Wave 3 Unit 2 (2026-06-11): new file extracted from history_query.py. Contains all write-path mutations: purge_failed_from_db (finds failed article IDs + orphan events), delete_from_db (single item incl. evt- prefix), bulk_delete_from_db (batch delete articles+events), update_status_in_db (kind+ui_status mutation), and _STATUS_TO_KIND dict. SLOC 130. Ceiling 160 = round_up_to_10(130+30) per policy."
+
+# Wave 3 Unit 5 (2026-06-11): webui_app/routes/pipeline.py split into plan/generate/validate + publish.
+# webui_app/ is NOT auto-scanned by monolith_budget; entries here are explicit.
+[files."webui_app/routes/pipeline_plan.py"]
+ceiling = 290
+rationale = "Wave 3 Unit 5 (2026-06-11): new file split from routes/pipeline.py. Contains ce_plan (URL input + multi-URL config + session setup), ce_generate (seed building + plan-backlinks call), ce_validate, ce_preview, and ce_regen_body (LLM body re-gen endpoint). All plan-side routes share _api=PipelineAPI() and the plan_logger. Tests that patch fetch_url_metadata or _api for these routes point to this module. SLOC 249. Ceiling 290 = round_up_to_10(249+30) per policy."
+
+[files."webui_app/routes/pipeline_publish.py"]
+ceiling = 220
+rationale = "Wave 3 Unit 5 (2026-06-11): new file split from routes/pipeline.py. Contains ce_publish (single publish step with typed error surfacing) and ce_publish_chain (one-click plan→validate→publish). Both routes share _api=PipelineAPI() and call _push_history_* helpers. Tests that patch _api for publish routes point to this module. SLOC 179. Ceiling 220 = round_up_to_10(179+30) per policy."
+
+# Wave 3 Unit 4 (2026-06-11): webui_app/services/keepalive_job.py split — engine helpers extracted.
+# webui_app/ is NOT auto-scanned by monolith_budget; entries here are explicit.
+[files."webui_app/services/keepalive_job.py"]
+ceiling = 450
+rationale = "Wave 3 Unit 4 (2026-06-11): engine helpers (_default_candidates, _default_unverified_candidates, _default_probe, 3 job dataclasses, _default_republish_gaps, _default_publish_seed, _default_persist, KeepAliveResult, per-site lock helpers, run_keepalive_for_site) extracted to _keepalive_engine.py. _default_reverify and _ensure_article stay here because tests patch keepalive_job.recheck_link and call them directly. KeepaliveJobRegistry + registry singleton remain as core concern. SLOC dropped 533→412. Ceiling 450 = round_up_to_10(412+30) per policy."
+
+[files."webui_app/services/_keepalive_engine.py"]
+ceiling = 180
+rationale = "Wave 3 Unit 4 (2026-06-11): new file extracted from keepalive_job.py. Contains constants (_RUNTIME_STICKY, _PROBE_ERROR, _DEAD_VERDICTS), default candidate/probe helpers, 3 job dataclasses (KeepaliveJob, GapClosureJob, RepublishJob), republish gap/publish/persist helpers, KeepAliveResult, per-site lock state, and run_keepalive_for_site. Tests that exercise run_keepalive_for_site patch _keepalive_engine.* names. SLOC 147. Ceiling 180 = round_up_to_10(147+30) per policy."
+
+# Wave 3 Unit 3 (2026-06-11): publishing/_verify_adapters.py split into setup + live probes.
+[files."src/backlink_publisher/publishing/_verify_setup.py"]
+ceiling = 240
+rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py. Contains offline setup checks (_check_*_setup, _SETUP_CHECKS dict), adapter imports for 8 platforms, verify_adapter_setup (public entry + registry fallback), and _verify_dry_run. verify_adapter_setup calls _verify_live via lazy import (inside function) to avoid circular module-level dependency with _verify_live_probes.py. SLOC 202. Ceiling 240 = round_up_to_10(202+30) per policy."
+
+[files."src/backlink_publisher/publishing/_verify_live_probes.py"]
+ceiling = 290
+rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py. Contains UTC helper, 6 VerifyResult factory functions, _verify_live dispatcher, and 4 per-platform live probe implementations (telegraph, ghpages, blogger, velog) with their constants. Imports verify_adapter_setup at module level from _verify_setup (no circular since _verify_setup uses lazy import for _verify_live). SLOC 251. Ceiling 290 = round_up_to_10(251+30) per policy."

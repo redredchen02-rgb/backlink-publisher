@@ -148,7 +148,7 @@ class TestPipelineRoutes:
         and NOT silently generate against stale stored urls."""
         with client.session_transaction() as sess:
             sess["config"] = {"urls": ["https://stale-last-session.example/"]}
-        with patch("webui_app.routes.pipeline.plan_logger.warn") as mock_warn:
+        with patch("webui_app.routes.pipeline_plan.plan_logger.warn") as mock_warn:
             resp = client.post("/ce:generate",
                                data={"urls_json": "[not valid json"})
         assert resp.status_code == 200

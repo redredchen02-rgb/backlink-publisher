@@ -50,7 +50,7 @@ def seeded_session(client):
 def _capture_logger(monkeypatch):
     """Replace plan_logger.info/.warn with capture lambdas."""
     events: list[tuple[str, str, dict]] = []
-    from webui_app.routes import pipeline as pipeline_mod
+    from webui_app.routes import pipeline_publish as pipeline_mod
 
     def _info(msg, **extra):
         events.append(("info", msg, extra))
@@ -66,7 +66,7 @@ def _capture_logger(monkeypatch):
 def _mock_publish(monkeypatch, *, stdout="", stderr="", raise_exc=None):
     """Patch PipelineAPI.publish at the route's import site."""
     from webui_app.api.pipeline_api import PipeResult
-    from webui_app.routes import pipeline as pipeline_mod
+    from webui_app.routes import pipeline_publish as pipeline_mod
 
     def _fake_publish(self, plans_jsonl, platform, mode, **kwargs):
         if raise_exc is not None:

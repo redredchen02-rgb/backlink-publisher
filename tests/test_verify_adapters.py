@@ -133,7 +133,7 @@ class TestVerifyAdapterSetup:
         from backlink_publisher.publishing._verify_adapters import verify_adapter_setup
         config = MagicMock()
         
-        with patch("backlink_publisher.publishing._verify_adapters.registered_platforms", return_value=["blogger", "medium"]):
+        with patch("backlink_publisher.publishing._verify_setup.registered_platforms", return_value=["blogger", "medium"]):
             with pytest.raises(Exception) as exc_info:
                 verify_adapter_setup("unknown_platform", config, mode="offline")
             assert "No adapter configured" in str(exc_info.value) or "unknown" in str(exc_info.value).lower()
@@ -142,7 +142,7 @@ class TestVerifyAdapterSetup:
         from backlink_publisher.publishing._verify_adapters import verify_adapter_setup
         config = MagicMock()
         
-        with patch("backlink_publisher.publishing._verify_adapters.registered_platforms", return_value=["blogger", "medium"]):
+        with patch("backlink_publisher.publishing._verify_setup.registered_platforms", return_value=["blogger", "medium"]):
             result = verify_adapter_setup("unknown_platform", config, mode="dry-run")
             assert result.ok is False
             assert result.last_verify_result == "never"
@@ -151,7 +151,7 @@ class TestVerifyAdapterSetup:
         from backlink_publisher.publishing._verify_adapters import verify_adapter_setup
         config = MagicMock()
         
-        with patch("backlink_publisher.publishing._verify_adapters.registered_platforms", return_value=["blogger", "medium"]):
+        with patch("backlink_publisher.publishing._verify_setup.registered_platforms", return_value=["blogger", "medium"]):
             result = verify_adapter_setup("blogger", config, mode="dry-run")
             assert result.ok is True
             assert result.last_verify_result == "unverifiable_live"

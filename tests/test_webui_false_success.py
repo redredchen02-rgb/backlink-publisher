@@ -271,7 +271,7 @@ class TestPipelineGenerateCorruptJson:
         mock_result.error = "generate failed"
         mock_result.stderr_cleaned = "generate failed"
 
-        with patch("webui_app.routes.pipeline._api") as mock_api:
+        with patch("webui_app.routes.pipeline_plan._api") as mock_api:
             mock_api.plan.return_value = mock_result
             resp = _post(client, "/ce:generate",
                          {"urls_json": "{not valid json!!!"},
@@ -298,7 +298,7 @@ class TestPipelineGenerateCorruptJson:
         mock_result.stderr_cleaned = ""
         mock_result.rows = [{"anchor": "test"}]
 
-        with patch("webui_app.routes.pipeline._api") as mock_api:
+        with patch("webui_app.routes.pipeline_plan._api") as mock_api:
             mock_api.plan.return_value = mock_result
             # Empty urls_json — should fall back to session without error
             resp = _post(client, "/ce:generate",

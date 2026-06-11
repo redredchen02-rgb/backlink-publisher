@@ -12,7 +12,8 @@ import json
 import pytest
 
 from backlink_publisher.cli import spray_backlinks
-from backlink_publisher.cli.spray_backlinks import core as spray_core
+from backlink_publisher.cli.spray_backlinks import core as spray_core  # noqa: F401
+from backlink_publisher.cli.spray_backlinks import _draft as spray_draft
 from backlink_publisher.cli.spray_backlinks._audit import (
     audit_batch,
     max_pairwise_similarity,
@@ -73,7 +74,7 @@ def _distinct_rewrite(platform, shot_idx, domain_label, main_domain, anchors, to
 
 
 def test_dry_run_emits_preview_and_summary_no_side_effects(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(spray_core, "_default_rewrite_fn", lambda cfg: _distinct_rewrite)
+    monkeypatch.setattr(spray_draft, "_default_rewrite_fn", lambda cfg: _distinct_rewrite)
     plats = registered_platforms()[:2]
     seed_path = tmp_path / "s.jsonl"
     seed_path.write_text(json.dumps(_seed(plats[0])) + "\n", encoding="utf-8")
