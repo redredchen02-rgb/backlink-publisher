@@ -76,7 +76,8 @@
                 <div class="cc-stat"><span class="cc-stat__label">未知</span><span class="cc-stat__value text-secondary">{{ status.keepalive.unknown }}</span></div>
             {% endif %}
             <div class="action-bar">
-                <a href="/ce:keep-alive" class="btn btn-sm btn-outline-info">详情</a>
+                <a href="/ce:keep-alive" class="btn btn-sm btn-outline-info"
+                   aria-label="查看存活监控详情">详情</a>
             </div>
         </div>
 
@@ -89,7 +90,8 @@
                 <div class="cc-stat"><span class="cc-stat__label">总记录</span><span class="cc-stat__value">{{ status.equity.total_rows }}</span></div>
             {% endif %}
             <div class="action-bar">
-                <a href="/ce:equity-ledger" class="btn btn-sm btn-outline-info">详情</a>
+                <a href="/ce:equity-ledger" class="btn btn-sm btn-outline-info"
+                   aria-label="查看权益账簿详情">详情</a>
             </div>
         </div>
 
@@ -111,7 +113,8 @@
                 {% endfor %}
             {% endif %}
             <div class="action-bar">
-                <a href="/optimization-status" class="btn btn-sm btn-outline-info">管理</a>
+                <a href="/optimization-status" class="btn btn-sm btn-outline-info"
+                   aria-label="管理优化权重设置">管理</a>
             </div>
         </div>
 
@@ -161,7 +164,8 @@
             {% set gc_running = status.jobs is not mapping and status.jobs|selectattr('kind', 'equalto', 'gap_closure')|selectattr('status', 'equalto', 'running')|list|length > 0 %}
             <div class="action-bar">
                 <button type="button" class="btn btn-sm btn-warning" id="btn-gap-closure"
-                        {% if gc_running %}disabled{% endif %}>
+                        {% if gc_running %}disabled{% endif %}
+                        aria-label="{% if gc_running %}补种任务运行中{% else %}触发补种任务{% endif %}">
                     <i class="bi bi-play-fill me-1"></i>
                     {% if gc_running %}运行中…{% else %}触发补种{% endif %}
                 </button>

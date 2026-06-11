@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dex.bp-pipeline</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/.venv/bin/python</string>
+        <string>-m</string>
+        <string>backlink_publisher.cli.pipeline_orchestrator</string>
+    </array>
+    <!-- Every 4 hours; pipeline-orchestrator internally evaluates gap density
+         (plan-gap) and skips early when all targets are satisfied.
+         Co-exists with com.dex.bp-full-pipeline as mutual fallback. -->
+    <key>StartInterval</key>
+    <integer>14400</integer>
+    <key>WorkingDirectory</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher</string>
+    <key>StandardOutPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/pipeline-launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/pipeline-launchd.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>BP_LANG</key>
+        <string>zh-CN</string>
+        <key>BP_DESIRED</key>
+        <string>3</string>
+        <key>BP_PUBLISH_MODE</key>
+        <string>draft</string>
+        <key>BP_OPTIMIZE</key>
+        <string>1</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

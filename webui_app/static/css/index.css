@@ -5,8 +5,13 @@
             background: radial-gradient(circle at 10% 20%, rgba(243, 244, 246, 1) 0%, rgba(229, 231, 235, 1) 90%);
             min-height: 100vh;
             padding: 20px;
-            color: #374151;
+            color: var(--text);
             transition: background 0.3s ease;
+        }
+
+        /* Dark mode body */
+        [data-theme="dark"] body {
+            background: radial-gradient(circle at 10% 20%, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 90%);
         }
         
         .navbar {
@@ -54,6 +59,12 @@
             font-weight: 600;
             color: var(--dark);
         }
+
+        /* Dark mode card header */
+        [data-theme="dark"] .card-header {
+            background: #1e293b;
+            border-bottom-color: #334155;
+        }
         
         .card-body {
             padding: 24px;
@@ -75,6 +86,20 @@
         .form-control:focus, .form-select:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* Dark mode form elements */
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] .form-select {
+            background-color: #1e293b;
+            border-color: #334155;
+            color: #f1f5f9;
+        }
+
+        [data-theme="dark"] .form-control:focus,
+        [data-theme="dark"] .form-select:focus {
+            background-color: #1e293b;
+            border-color: #6366f1;
         }
         
         .btn {

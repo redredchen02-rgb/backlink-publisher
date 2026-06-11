@@ -8,16 +8,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css', v=asset_version) }}">
 {% endblock %}
 {% block content %}
-    <nav class="navbar">
+    <nav class="navbar" aria-label="页面操作">
         <h1><i class="bi bi-gear me-2"></i>设置</h1>
         <div class="nav-actions">
             <!-- LLM Status Badge -->
             {% if llm_settings and llm_settings.api_key and llm_settings.endpoint %}
-            <span class="nav-badge ok" title="LLM 进阶功能已启用">
+            <span class="nav-badge ok" title="LLM 进阶功能已启用" aria-label="LLM 进阶功能已启用">
                 <i class="bi bi-cpu"></i> LLM: {{ llm_settings.model or '已连接' }}
             </span>
             {% endif %}
-            <a href="/" class="btn btn-sm nav-btn-ghost">
+            <a href="/" class="btn btn-sm nav-btn-ghost" aria-label="返回首页">
                 <i class="bi bi-arrow-left me-1"></i>返回
             </a>
         </div>
@@ -26,7 +26,7 @@
     {% if flash %}
     <div class="alert alert-{{ flash.type }} alert-dismissible fade show settings-flash" role="alert">
         {{ flash.msg }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭通知"></button>
     </div>
     {% endif %}
 
@@ -47,7 +47,8 @@
                     <button type="button" class="overview-collapse-toggle"
                             data-bs-toggle="collapse" data-bs-target="#overview-panel"
                             aria-expanded="{{ 'true' if dashboard_partition and dashboard_partition.cold_start else 'false' }}" aria-controls="overview-panel"
-                            title="折叠/展开">
+                            title="折叠/展开"
+                            aria-label="折叠或展开渠道总览面板">
                         <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
                     </button>
                 </h2>
@@ -71,14 +72,15 @@
                     <div class="card-header p-0">
                         <button type="button" class="channel-toggle"
                                 data-bs-toggle="collapse" data-bs-target="#channel-blogger"
-                                aria-expanded="false" aria-controls="channel-blogger">
+                                aria-expanded="false" aria-controls="channel-blogger"
+                                aria-label="Blogger 渠道设置">
                             <i class="bi bi-google icon-google" aria-hidden="true"></i>
                             <span>Blogger</span>
                             <span class="badges">
                                 {% if blogger_token %}
-                                <span class="badge-status ok">已授权 ✓</span>
+                                <span class="badge-status ok" aria-label="Blogger 已授权">已授权 ✓</span>
                                 {% else %}
-                                <span class="badge-status err">未授权 ✗</span>
+                                <span class="badge-status err" aria-label="Blogger 未授权">未授权 ✗</span>
                                 {% endif %}
                             </span>
                             <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
@@ -97,18 +99,15 @@
                     <div class="card-header p-0">
                         <button type="button" class="channel-toggle"
                                 data-bs-toggle="collapse" data-bs-target="#channel-medium"
-                                aria-expanded="false" aria-controls="channel-medium">
-                            <i class="bi bi-medium" aria-hidden="true"></i>
+                                aria-expanded="false" aria-controls="channel-medium"
+                                aria-label="Medium 渠道设置">
+                            <i class="bi bi-medium icon-medium" aria-hidden="true"></i>
                             <span>Medium</span>
                             <span class="badges">
-                                {% if medium_token_file_exists %}
-                                <span class="badge-status ok">已授权 ✓</span>
-                                {% endif %}
-                                {% if medium_token_set %}
-                                <span class="badge-status ok">Token ✓</span>
-                                {% endif %}
-                                {% if not medium_token_file_exists and not medium_token_set %}
-                                <span class="badge-status warn">未配置</span>
+                                {% if medium_token %}
+                                <span class="badge-status ok" aria-label="Medium 已绑定">已绑定 ✓</span>
+                                {% else %}
+                                <span class="badge-status err" aria-label="Medium 未绑定">未绑定 ✗</span>
                                 {% endif %}
                             </span>
                             <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>

@@ -59,6 +59,12 @@
     transform: translateX(100%);
     transition: transform 0.22s ease;
 }
+
+/* Dark mode copilot panel */
+[data-theme="dark"] .copilot-panel {
+    background: #1e293b;
+    border-left-color: #334155;
+}
 .copilot-panel--open { transform: translateX(0); }
 
 .copilot-panel__head {

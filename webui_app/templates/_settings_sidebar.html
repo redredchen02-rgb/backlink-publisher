@@ -1,8 +1,9 @@
 {# Settings sidebar tree — rendered upfront; JS toggles pane visibility via data-pane.
    Zero inline on* handlers — settings.js uses data-action delegation. #}
-<aside class="settings-sidebar">
+<aside class="settings-sidebar" aria-label="设置导航">
     <div class="sidebar-group">
-        <button class="sidebar-item" data-pane="dashboard" data-action="sidebar-nav">
+        <button class="sidebar-item" data-pane="dashboard" data-action="sidebar-nav"
+                aria-label="查看渠道绑定总览">
             <i class="bi bi-broadcast"></i> 綁定總覽
         </button>
     </div>
@@ -10,28 +11,32 @@
     <div class="sidebar-group">
         <span class="sidebar-group__label">发布渠道</span>
         {% if dashboard_channels %}
-            <button class="sidebar-item sidebar-item--all-channels" data-pane="channels" data-action="sidebar-nav">
+            <button class="sidebar-item sidebar-item--all-channels" data-pane="channels" data-action="sidebar-nav"
+                    aria-label="查看全部渠道设置">
                 <i class="bi bi-list-ul"></i> 全部渠道
             </button>
             {% for name, status in dashboard_channels %}
-            <button class="sidebar-item" data-pane="channel--{{ name }}" data-action="sidebar-nav">
+            <button class="sidebar-item" data-pane="channel--{{ name }}" data-action="sidebar-nav"
+                    aria-label="查看 {{ name }} 渠道设置">
                 {{ name }}
             </button>
             {% endfor %}
         {% else %}
-            <span class="sidebar-item disabled">（暂无渠道）</span>
+            <span class="sidebar-item disabled" aria-label="暂无渠道">（暂无渠道）</span>
         {% endif %}
     </div>
 
     <div class="sidebar-group">
         <span class="sidebar-group__label">全局设置</span>
-        <button class="sidebar-item" data-pane="global" data-action="sidebar-nav">
+        <button class="sidebar-item" data-pane="global" data-action="sidebar-nav"
+                aria-label="关键词和排程设置">
             <i class="bi bi-sliders"></i> 关键词 &amp; 排程
         </button>
     </div>
 
     <div class="sidebar-group">
-        <button class="sidebar-item" data-pane="llm" data-action="sidebar-nav">
+        <button class="sidebar-item" data-pane="llm" data-action="sidebar-nav"
+                aria-label="AI 引擎设置">
             <i class="bi bi-cpu"></i> AI 引擎
         </button>
     </div>

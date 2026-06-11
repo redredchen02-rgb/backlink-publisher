@@ -4,7 +4,7 @@
 <div class="container-fluid" style="max-width: 1100px;">
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h2 class="m-0"><i class="bi bi-newspaper me-2"></i>PR 机会队列</h2>
-        <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>回首页</a>
+        <a href="/" class="btn btn-sm btn-outline-secondary" aria-label="返回首页"><i class="bi bi-arrow-left me-1"></i>回首页</a>
     </div>
 
     {% if not items %}
@@ -45,8 +45,10 @@
                 <td class="text-muted" style="font-size:.8rem;">{{ item.deadline | default('—') }}</td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-outline-success btn-status" data-status="won" title="标记为已获得">✓</button>
-                        <button class="btn btn-outline-secondary btn-status" data-status="skipped" title="跳过">✕</button>
+                        <button class="btn btn-outline-success btn-status" data-status="won" title="标记为已获得"
+                                aria-label="标记为已获得">✓</button>
+                        <button class="btn btn-outline-secondary btn-status" data-status="skipped" title="跳过"
+                                aria-label="跳过此机会">✕</button>
                     </div>
                 </td>
             </tr>

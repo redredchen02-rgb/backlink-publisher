@@ -8,8 +8,13 @@
             background: radial-gradient(circle at 10% 20%, rgba(243, 244, 246, 1) 0%, rgba(229, 231, 235, 1) 90%);
             min-height: 100vh;
             padding: 20px;
-            color: #374151;
+            color: var(--text);
             transition: background 0.3s ease;
+        }
+
+        /* Dark mode body */
+        [data-theme="dark"] body {
+            background: radial-gradient(circle at 10% 20%, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 90%);
         }
         
         .navbar {
@@ -52,6 +57,12 @@
             border-right: 1px solid var(--border, #e5e7eb);
             padding: 16px 0;
             background: rgba(249, 250, 251, 0.8);
+        }
+
+        /* Dark mode sidebar */
+        [data-theme="dark"] .settings-sidebar {
+            background: rgba(15, 23, 42, 0.8);
+            border-right-color: #334155;
         }
         .settings-pane-host {
             flex: 1;
@@ -98,6 +109,21 @@
             background: rgba(79, 70, 229, 0.08);
             color: var(--primary);
             font-weight: 600;
+
+        /* Dark mode sidebar item */
+        [data-theme="dark"] .sidebar-item {
+            color: #94a3b8;
+        }
+
+        [data-theme="dark"] .sidebar-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8;
+        }
+
+        [data-theme="dark"] .sidebar-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+        }
         }
         .sidebar-item.disabled { color: #d1d5db; cursor: default; }
         .sidebar-item.disabled:hover { background: none; }

@@ -13,7 +13,7 @@
           {% set cur_step = 1 %}
         {% endif %}
 
-        <div class="step-bar">
+        <div class="step-bar" aria-label="发布流程步骤">
             {% for step_num, step_name in [(1,'输入网址'),(2,'生成文章'),(3,'验证内容'),(4,'发布')] %}
               {% if step_num < cur_step %}
                 {% set cls = 'done' %}
@@ -23,18 +23,18 @@
                 {% set cls = 'pending' %}
               {% endif %}
               <div class="step-item">
-                  <div class="step-circle {{ cls }}">
+                  <div class="step-circle {{ cls }}" aria-label="步骤 {{ step_num }}: {{ step_name }} - {% if cls == 'done' %}已完成{% elif cls == 'active' %}进行中{% else %}待处理{% endif %}">
                       {% if cls == 'done' %}<i class="bi bi-check-lg"></i>{% else %}{{ step_num }}{% endif %}
                   </div>
                   <span class="step-label {{ cls }}">{{ step_name }}</span>
               </div>
               {% if not loop.last %}
                 {% if step_num < cur_step %}
-                  <div class="step-connector done"></div>
+                  <div class="step-connector done" aria-hidden="true"></div>
                 {% elif step_num == cur_step %}
-                  <div class="step-connector active"></div>
+                  <div class="step-connector active" aria-hidden="true"></div>
                 {% else %}
-                  <div class="step-connector pending"></div>
+                  <div class="step-connector pending" aria-hidden="true"></div>
                 {% endif %}
               {% endif %}
             {% endfor %}

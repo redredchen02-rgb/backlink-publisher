@@ -23,3 +23,13 @@
 .placeholder-row td {
   color: #6c757d;
 }
+
+/* Dark mode schedule */
+[data-theme="dark"] .table-wrap {
+  border-color: rgba(51, 65, 85, 0.4);
+  background: rgba(30, 41, 59, 0.4);
+}
+
+[data-theme="dark"] .placeholder-row td {
+  color: #94a3b8;
+}

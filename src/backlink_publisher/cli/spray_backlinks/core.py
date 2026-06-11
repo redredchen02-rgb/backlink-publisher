@@ -308,44 +308,177 @@ def _write_per_seed_file(
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def _validate_args(args: Any) -> None:
+    """Post-parse closed-set validation. Raises UsageError on violations."""
+    if args.log_level not in _LOG_LEVELS:
+        raise UsageError(
+            f"spray-backlinks: --log-level must be one of {sorted(_LOG_LEVELS)}; "
+            f"got {args.log_level!r}"
+        )
+    if args.dispatch not in _DISPATCH_MODES:
+        raise UsageError(
+            f"spray-backlinks: --dispatch must be one of {sorted(_DISPATCH_MODES)}; "
+            f"got {args.dispatch!r}"
+        )
+    if args.mode not in {"draft", "publish"}:
+        raise UsageError(
+            f"spray-backlinks: --mode must be draft|publish; got {args.mode!r}"
+        )
+    if args.cap < 1:
+        raise UsageError("spray-backlinks: --cap must be >= 1")
+    if args.max_seeds < 1:
+        raise UsageError("spray-backlinks: --max-seeds must be >= 1")
+    if args.seed_delay_min is not None and args.seed_delay_min < 1:
+        raise UsageError("spray-backlinks: --seed-delay-min must be >= 1")
+    if args.seed_delay_max is not None and args.seed_delay_max < 1:
+        raise UsageError("spray-backlinks: --seed-delay-max must be >= 1")
+    if (
+        args.seed_delay_min is not None
+        and args.seed_delay_max is not None
+        and args.seed_delay_min > args.seed_delay_max
+    ):
+        raise UsageError(
+            "spray-backlinks: --seed-delay-min must be <= --seed-delay-max"
+        )
+
+
+def _setup_resume(
+    args: Any, rows: list[dict[str, Any]],
+) -> tuple[str, list[int], list[dict[str, Any]], set[tuple[str, str]]]:
+    """Parse checkpoint for --resume; return (run_id, indices, checkpoint_seeds, cross_seed_used)."""
+    cross_seed_used: set[tuple[str, str]] = set()
+    seed_indices_to_process: list[int] = list(range(len(rows)))
+    checkpoint_seeds: list[dict[str, Any]] = []
+
+    if args.resume:
+        cpath = _checkpoint_path(args.resume)
+        if not cpath.exists():
+            raise UsageError(
+                f"spray-backlinks: checkpoint {args.resume!r} not found "
+                f"(looked in {cpath})"
+            )
+        ckpt: dict[str, Any] = json.loads(cpath.read_text(encoding="utf-8"))
+        for s in ckpt.get("seeds", []):
+            checkpoint_seeds.append(s)
+            if s.get("status") == "completed":
+                seed_indices_to_process.remove(s["index"])
+                for pair in s.get("cross_seed_pairs", []):
+                    cross_seed_used.add((pair[0], pair[1]))
+        run_id = args.resume
+        total_seeds = len(ckpt.get("seeds", []))
+        print(
+            f"[spray] resuming {run_id}: {len(seed_indices_to_process)} "
+            f"seed(s) remaining ({total_seeds - len(seed_indices_to_process)} completed)",
+            file=sys.stderr,
+        )
+    else:
+        run_id = _generate_run_id()
+
+    return run_id, seed_indices_to_process, checkpoint_seeds, cross_seed_used
+
+
+def _process_seed(
+    seed_index: int,
+    seed: dict[str, Any],
+    rows: list[dict[str, Any]],
+    platforms: list[str],
+    cfg: Any,
+    args: Any,
+    rewrite_fn: Any,
+    cross_seed_checker: Callable[[str, str], bool],
+    force: frozenset[str],
+    output_dir: Path | None,
+) -> tuple[bool, list[dict[str, Any]] | None, int, str | None, Any, list[tuple[str, str]]]:
+    """Process one seed: expand → gate → draft → audit → dispatch.
+
+    Returns (seed_failed, output_rows_or_None, surviving_count, error_msg_or_None, rewrite_fn, cross_seed_pairs).
+    """
+    seed_label = f"seed#{seed_index}"
+    print(f"[spray] processing {seed_label} ({seed_index + 1}/{len(rows)})",
+          file=sys.stderr)
+
+    candidates = expand_seed(seed, platforms)
+    gate_candidates(
+        candidates, cfg.cell_assignments, args.cap,
+        force=force, already_published_fn=cross_seed_checker,
+    )
+
+    for cand in candidates:
+        if cand.dropped:
+            print(
+                f"[gate] drop {cand.platform}: {cand.gate_reason}",
+                file=sys.stderr,
+            )
+
+    surviving = [c for c in candidates if not c.dropped]
+    seed_main_domain = _main_domain_of(seed)
+
+    if not surviving:
+        print(f"[spray] {seed_label} all platforms gated out — skipped",
+              file=sys.stderr)
+        return False, None, 0, None, rewrite_fn, []
+
+    # Lazy LLM init — only when there are surviving candidates
+    if rewrite_fn is None:
+        rewrite_fn = _default_rewrite_fn(cfg)
+
+    # Unit 3: per-shot LLM rewrite
+    for shot_idx, cand in enumerate(surviving):
+        cand.row = draft_row(
+            cand.seed, cand.platform, shot_idx, cfg,
+            rewrite_fn=rewrite_fn,
+            fetch_verify_enabled=not args.no_fetch_verify,
+        )
+
+    # Unit 4: link/anchor diversity audit
+    report = audit_batch([c.row for c in surviving])
+
+    if args.dispatch == "dry-run":
+        _emit_preview(surviving, report)
+        pairs = [(seed_main_domain, c.platform) for c in surviving]
+        return False, None, len(surviving), None, rewrite_fn, pairs
+
+    # burst mode
+    if not report.passed:
+        err_msg = f"{seed_label}: diversity audit failed ({report.fail_reason})"
+        print(f"[audit] {seed_label}: {report.fail_reason}",
+              file=sys.stderr)
+        print(f"[spray] {seed_label} FAILED (audit)", file=sys.stderr)
+        return True, None, len(surviving), err_msg, rewrite_fn, []
+
+    # Unit 5: jittered burst dispatch
+    summary = dispatch_burst(
+        [c.row for c in surviving], cfg, args.mode,
+    )
+    for plat, err in summary.failed:
+        print(f"[burst] {seed_label} FAILED {plat}: {err}",
+              file=sys.stderr)
+    verb = "published" if args.mode == "publish" else "drafted"
+    print(
+        f"[burst] {seed_label} mode={args.mode}: {verb} "
+        f"{summary.n_succeeded}/{len(surviving)}, "
+        f"failed {summary.n_failed}",
+        file=sys.stderr,
+    )
+    for c in surviving:
+        if c.row:
+            c.row["seed_id"] = seed_index
+    seed_rows = [c.row for c in surviving if c.row is not None]
+
+    if output_dir and seed_rows:
+        _write_per_seed_file(output_dir, seed_index, seed_main_domain, seed_rows)
+
+    pairs = [(seed_main_domain, c.platform) for c in surviving]
+    return False, seed_rows, len(surviving), None, rewrite_fn, pairs
+
+
 def main(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
 
     try:
-        # --- Closed-set validation post-parse ----------------------------------
-        if args.log_level not in _LOG_LEVELS:
-            raise UsageError(
-                f"spray-backlinks: --log-level must be one of {sorted(_LOG_LEVELS)}; "
-                f"got {args.log_level!r}"
-            )
-        if args.dispatch not in _DISPATCH_MODES:
-            raise UsageError(
-                f"spray-backlinks: --dispatch must be one of {sorted(_DISPATCH_MODES)}; "
-                f"got {args.dispatch!r}"
-            )
-        if args.mode not in {"draft", "publish"}:
-            raise UsageError(
-                f"spray-backlinks: --mode must be draft|publish; got {args.mode!r}"
-            )
-        if args.cap < 1:
-            raise UsageError("spray-backlinks: --cap must be >= 1")
-        if args.max_seeds < 1:
-            raise UsageError("spray-backlinks: --max-seeds must be >= 1")
-        if args.seed_delay_min is not None and args.seed_delay_min < 1:
-            raise UsageError("spray-backlinks: --seed-delay-min must be >= 1")
-        if args.seed_delay_max is not None and args.seed_delay_max < 1:
-            raise UsageError("spray-backlinks: --seed-delay-max must be >= 1")
-        if (
-            args.seed_delay_min is not None
-            and args.seed_delay_max is not None
-            and args.seed_delay_min > args.seed_delay_max
-        ):
-            raise UsageError(
-                "spray-backlinks: --seed-delay-min must be <= --seed-delay-max"
-            )
+        _validate_args(args)
         set_log_level(args.log_level)
 
-        # Handle --list-checkpoints (exit after display).
         if args.list_checkpoints:
             checkpoints = _list_checkpoints()
             if not checkpoints:
@@ -370,8 +503,6 @@ def main(argv: list[str] | None = None) -> None:
                     f"({args.max_seeds})"
                 )
 
-            # Pre-validate all seeds upfront (preserves exit-2 contract: schema
-            # validation rejects before any LLM/gating work).
             pre_errors = 0
             for seed_index, seed in enumerate(rows):
                 errors = validate_input_payload(seed, 1)
@@ -385,37 +516,10 @@ def main(argv: list[str] | None = None) -> None:
                     f"{len(rows)} seed(s)",
                 )
 
-            # --- Resume / checkpoint setup -----------------------------------------
-            cross_seed_used: set[tuple[str, str]] = set()
-            seed_indices_to_process: list[int] = list(range(len(rows)))
-            checkpoint_seeds: list[dict[str, Any]] = []
-            run_id: str | None = None
+            run_id, seed_indices_to_process, checkpoint_seeds, cross_seed_used = (
+                _setup_resume(args, rows)
+            )
 
-            if args.resume:
-                cpath = _checkpoint_path(args.resume)
-                if not cpath.exists():
-                    raise UsageError(
-                        f"spray-backlinks: checkpoint {args.resume!r} not found "
-                        f"(looked in {cpath})"
-                    )
-                ckpt: dict[str, Any] = json.loads(cpath.read_text(encoding="utf-8"))
-                for s in ckpt.get("seeds", []):
-                    checkpoint_seeds.append(s)
-                    if s.get("status") == "completed":
-                        seed_indices_to_process.remove(s["index"])
-                        for pair in s.get("cross_seed_pairs", []):
-                            cross_seed_used.add((pair[0], pair[1]))
-                run_id = args.resume
-                total_seeds = len(ckpt.get("seeds", []))
-                print(
-                    f"[spray] resuming {run_id}: {len(seed_indices_to_process)} "
-                    f"seed(s) remaining ({total_seeds - len(seed_indices_to_process)} completed)",
-                    file=sys.stderr,
-                )
-            else:
-                run_id = _generate_run_id()
-
-            # --- Main loop ---------------------------------------------------------
             cfg = load_config()
             config_echo.emit_banner(cfg, "spray-backlinks")
 
@@ -425,7 +529,6 @@ def main(argv: list[str] | None = None) -> None:
                 output_dir.mkdir(parents=True, exist_ok=True)
 
             all_output_rows: list[dict[str, Any]] = []
-            total_candidates = 0
             total_surviving = 0
             seed_errors_list: list[str] = []
             force = frozenset(_parse_platforms(args.force))
@@ -434,108 +537,34 @@ def main(argv: list[str] | None = None) -> None:
 
             for seed_index in seed_indices_to_process:
                 seed = rows[seed_index]
-                seed_label = f"seed#{seed_index}"
-                print(f"[spray] processing {seed_label} ({seed_index + 1}/{len(rows)})",
-                      file=sys.stderr)
-
-                candidates = expand_seed(seed, platforms)
-                gate_candidates(
-                    candidates, cfg.cell_assignments, args.cap,
-                    force=force, already_published_fn=cross_seed_checker,
-                )
-
-                for cand in candidates:
-                    if cand.dropped:
-                        print(
-                            f"[gate] drop {cand.platform}: {cand.gate_reason}",
-                            file=sys.stderr,
-                        )
-
-                surviving = [c for c in candidates if not c.dropped]
-                total_candidates += len(candidates)
-                total_surviving += len(surviving)
                 seed_main_domain = _main_domain_of(seed)
 
-                if not surviving:
-                    print(f"[spray] {seed_label} all platforms gated out — skipped",
-                          file=sys.stderr)
-                    checkpoint_seeds.append({
-                        "index": seed_index,
-                        "main_domain": seed_main_domain,
-                        "status": "skipped",
-                        "n_shots": 0,
-                        "cross_seed_pairs": [],
-                    })
-                    _save_checkpoint(run_id, args, checkpoint_seeds, cross_seed_used)
-                    continue
-
-                # Unit 3: per-shot LLM rewrite (lazy — exit 3 only when LLM is
-                # actually needed, after seed validation and gating have passed).
-                if rewrite_fn is None:
-                    rewrite_fn = _default_rewrite_fn(cfg)
-                for shot_idx, cand in enumerate(surviving):
-                    cand.row = draft_row(
-                        cand.seed, cand.platform, shot_idx, cfg,
-                        rewrite_fn=rewrite_fn,
-                        fetch_verify_enabled=not args.no_fetch_verify,
+                seed_failed, seed_rows, n_surviving, seed_error, rewrite_fn, cross_pairs = (
+                    _process_seed(
+                        seed_index, seed, rows, platforms, cfg, args,
+                        rewrite_fn, cross_seed_checker, force, output_dir,
                     )
+                )
 
-                # Unit 4: link/anchor diversity audit.
-                report = audit_batch([c.row for c in surviving])
+                total_surviving += n_surviving
+                if seed_rows:
+                    all_output_rows.extend(seed_rows)
+                if seed_error:
+                    seed_errors_list.append(seed_error)
 
-                seed_failed = False
-                if args.dispatch == "dry-run":
-                    _emit_preview(surviving, report)
-                else:
-                    # burst: body-distinctness gate is hard — abort this seed.
-                    if not report.passed:
-                        print(f"[audit] {seed_label}: {report.fail_reason}",
-                              file=sys.stderr)
-                        seed_errors_list.append(
-                            f"{seed_label}: diversity audit failed ({report.fail_reason})"
-                        )
-                        print(f"[spray] {seed_label} FAILED (audit)", file=sys.stderr)
-                        seed_failed = True
-                    else:
-                        # Unit 5: jittered burst dispatch.
-                        summary = dispatch_burst(
-                            [c.row for c in surviving], cfg, args.mode,
-                        )
-                        for plat, err in summary.failed:
-                            print(f"[burst] {seed_label} FAILED {plat}: {err}",
-                                  file=sys.stderr)
-                        verb = "published" if args.mode == "publish" else "drafted"
-                        print(
-                            f"[burst] {seed_label} mode={args.mode}: {verb} "
-                            f"{summary.n_succeeded}/{len(surviving)}, "
-                            f"failed {summary.n_failed}",
-                            file=sys.stderr,
-                        )
-                        for c in surviving:
-                            if c.row:
-                                c.row["seed_id"] = seed_index
-                        seed_rows = [c.row for c in surviving if c.row is not None]
-                        all_output_rows.extend(seed_rows)
+                # Track cross-seed usage for subsequent seeds
+                for pair in cross_pairs:
+                    cross_seed_used.add(pair)
 
-                        # Per-seed output if --output-dir set.
-                        if output_dir and seed_rows:
-                            _write_per_seed_file(
-                                output_dir, seed_index, seed_main_domain, seed_rows,
-                            )
-
-                # Track cross-seed usage for subsequent seeds.
-                for c in surviving:
-                    cross_seed_used.add((seed_main_domain, c.platform))
-
-                # Persist checkpoint after each seed.
-                seed_status = "failed" if seed_failed else "completed"
-                seed_pairs = [(seed_main_domain, c.platform) for c in surviving]
+                seed_status = "failed" if seed_failed else (
+                    "skipped" if seed_rows is None else "completed"
+                )
                 checkpoint_seeds.append({
                     "index": seed_index,
                     "main_domain": seed_main_domain,
                     "status": seed_status,
-                    "n_shots": len(surviving),
-                    "cross_seed_pairs": seed_pairs,
+                    "n_shots": len(seed_rows) if seed_rows else 0,
+                    "cross_seed_pairs": cross_pairs,
                 })
                 _save_checkpoint(run_id, args, checkpoint_seeds, cross_seed_used)
 
@@ -547,7 +576,6 @@ def main(argv: list[str] | None = None) -> None:
                         file=sys.stderr,
                     )
 
-                # Inter-seed delay (opt-in).
                 last_idx = seed_indices_to_process[-1]
                 if (
                     seed_index != last_idx
@@ -561,7 +589,6 @@ def main(argv: list[str] | None = None) -> None:
                           file=sys.stderr)
                     time.sleep(delay)
 
-            # --- Post-loop output ---------------------------------------------------
             if args.dispatch == "burst" and not output_dir:
                 write_jsonl(all_output_rows)
 

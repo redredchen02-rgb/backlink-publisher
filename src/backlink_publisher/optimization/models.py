@@ -56,9 +56,14 @@ class RuleConfig:
 
 @dataclass
 class OptimizationStateData:
-    """Top-level schema for ``optimization_state.json``."""
+    """Top-level schema for ``optimization_state.json``.
 
-    version: int = 1
+    Version 2 introduces per-language weight/stats spaces (``weights`` and
+    ``stats`` are keyed by language code, with ``"default"`` as the fallback
+    language space).  Version 1 (flat) files are auto-upgraded on load.
+    """
+
+    version: int = 2
     weights: dict[str, Any] = field(default_factory=dict)
     stats: dict[str, Any] = field(default_factory=dict)
     rules: dict[str, Any] = field(default_factory=dict)
@@ -76,14 +81,15 @@ class RuleResult:
     reason: str
     applied: bool
     intentional_zero: bool = False
+    language: str = "default"
 
 
 def default_state() -> dict:
-    """Return the default empty optimization state."""
+    """Return the default empty optimization state (version 2)."""
     return {
-        "version": 1,
-        "weights": {},
-        "stats": {},
+        "version": 2,
+        "weights": {"default": {}},
+        "stats": {"default": {}},
         "rules": {
             "canary_drift": {
                 "enabled": True,
@@ -117,6 +123,24 @@ def default_state() -> dict:
                 "min_weight": 0.01,
             },
         },
+    }
+
+
+def _upgrade_v1_to_v2(data: dict) -> dict:
+    """Upgrade a version 1 (flat) state dict to version 2 (bilingual).
+
+    Migration: wraps flat ``weights`` / ``stats`` into the ``"default"``
+    language space so v2-aware readers find the data in the expected place.
+
+    Returns the upgraded dict (always returns a new dict, does not mutate).
+    """
+    flat_weights = data.get("weights", {})
+    flat_stats = data.get("stats", {})
+    return {
+        "version": 2,
+        "weights": {"default": dict(flat_weights)},
+        "stats": {"default": dict(flat_stats)},
+        "rules": data.get("rules", {}),
     }
 
 

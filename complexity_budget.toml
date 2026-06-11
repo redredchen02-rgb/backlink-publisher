@@ -70,8 +70,8 @@ ceiling = 35
 rationale = "Per-row publish dispatcher gating canary, reachability, bad platform, dedup, dry-run, and the adapter publish try/except block. Last CC bump from +2 when U6-of-system-optimization added RECON progress events. Grandfathered as a coordinator with many sequential pre-condition gates that don't decompose cleanly; # noqa: C901 acknowledges the shape."
 
 [functions."src/backlink_publisher/cli/spray_backlinks/core.py::main"]
-ceiling = 65
-rationale = "spray-backlinks CLI entry point: orchestrates seed expansion, gate evaluation, per-platform publish dispatch, cross-seed idempotency checks, and result serialisation. High CC is inherent to a top-level CLI coordinator; individual stages (gate_candidates, cross_seed_checker, _dispatch_platform) are already extracted to separate functions. Decomposing main further would only add indirection without reducing decision paths."
+ceiling = 35
+rationale = "spray-backlinks CLI entry point: validation, resume setup, per-seed dispatch loop, and post-loop output consolidated. CC 65→34 (2026-06-11): extracted _validate_args (CC 13), _setup_resume (CC 6), and _process_seed (CC 19) to reduce the monolithic main() to a thin coordinator. Ceiling 35 = round_up_to_10(34+1) per policy."
 
 [functions."src/backlink_publisher/keepalive/chain.py::run_cycle"]
 ceiling = 45

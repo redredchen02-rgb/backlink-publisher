@@ -525,7 +525,7 @@ def credential_saver(name: str) -> Optional[Callable[..., Any]]:
     return entry.credential_saver if entry else None
 
 
-def dispatch_weight(name: str) -> float:
+def dispatch_weight(name: str, language: str = "default") -> float:
     """Return the routing reliability discount for ``name``.
 
     1.0 means no discount (the default for all platforms). Values below 1.0
@@ -540,6 +540,9 @@ def dispatch_weight(name: str) -> float:
     choice (``lock_weight``) and is returned verbatim — even 0 (disable) — so
     the dynamic range is ``{0.0}`` (locked disable) ∪ ``[min_weight, ...]``.
 
+    *language* selects the language-specific weight namespace. When the
+    requested language has no entry for *name*, falls back to ``"default"``.
+
     Returns 1.0 for unregistered platforms (safe default = no discount).
     """
     entry = _REGISTRY.get(name)
@@ -551,7 +554,21 @@ def dispatch_weight(name: str) -> float:
         from backlink_publisher.optimization import OptimizationState
         state = OptimizationState()
         data = state.load()
-        wentry = data.get("weights", {}).get(name, {})
+
+        def _find_weight(data: dict) -> dict | None:
+            """Look up *name* in the *language* namespace, falling back to default."""
+            lang_space = data.get("weights", {}).get(language, {})
+            entry = lang_space.get(name)
+            if entry is not None:
+                return entry
+            if language != "default":
+                def_space = data.get("weights", {}).get("default", {})
+                entry = def_space.get(name)
+                if entry is not None:
+                    return entry
+            return None
+
+        wentry = _find_weight(data) or {}
         dynamic = wentry.get("current")
         if dynamic is not None:
             value = float(dynamic)

@@ -33,12 +33,14 @@ def collect_all_signals(
     state: OptimizationState,
     dry_run: bool = False,
     source_filter: str | None = None,
+    language: str = "default",
 ) -> dict[str, Any]:
     """Run all enabled signal collectors and return aggregated per-platform stats.
 
     When *dry_run* is ``True``, results are returned but NOT written to the
     state file. The *source_filter* (``"recheck"``, ``"canary"``, or
     ``"equity"``) restricts collection to a single source for debugging.
+    *language* scopes the signal write to a specific language namespace.
 
     Returns a dict with keys ``"recheck"``, ``"canary"``, ``"equity"`` (each
     holding the raw signal data) plus ``"merged"`` (the merged per-platform
@@ -65,7 +67,7 @@ def collect_all_signals(
 
     if not dry_run:
         for platform, stats in merged.items():
-            state.update_stats(platform, stats)
+            state.update_stats(platform, stats, language=language)
 
     return {
         "raw": signals,

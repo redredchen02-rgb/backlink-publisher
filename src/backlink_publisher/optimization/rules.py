@@ -36,15 +36,37 @@ RULE_SURVIVAL_THRESHOLD = "survival_threshold"
 def evaluate_rules(
     state_data: dict[str, Any],
     rule_filter: str | None = None,
+    language: str = "default",
 ) -> list[RuleResult]:
     """Evaluate all enabled rules against the current state.
 
     Returns a list of ``RuleResult`` dataclass instances describing every
     weight change (or attempted change). When *rule_filter* is set, only
-    that rule is evaluated.
+    that rule is evaluated. *language* selects the language-specific
+    weights/stats subspace to evaluate against.
+
+    When *language* is not ``"default"`` and the namespace has no data,
+    falls back to the ``"default"`` namespace.
     """
     results: list[RuleResult] = []
     rules_config = state_data.get("rules", {})
+
+    weights = state_data.get("weights", {})
+    stats = state_data.get("stats", {})
+
+    if language != "default":
+        lang_weights = weights.get(language, {})
+        lang_stats = stats.get(language, {})
+        resolved_weights = lang_weights if lang_weights else weights.get("default", {})
+        resolved_stats = lang_stats if lang_stats else stats.get("default", {})
+    else:
+        resolved_weights = weights.get("default", {})
+        resolved_stats = stats.get("default", {})
+
+    scoped_data = dict(state_data)
+    resolved_state_data = scoped_data
+    resolved_state_data["weights"] = resolved_weights
+    resolved_state_data["stats"] = resolved_stats
 
     for rule_name in (RULE_CANARY_DRIFT, RULE_RECHECK_SURVIVAL, RULE_AGGREGATED_STATS, RULE_SURVIVAL_THRESHOLD):
         if rule_filter is not None and rule_name != rule_filter:

@@ -85,15 +85,18 @@
   </div>
   {%- endif %}
   <div class="dch-actions">
-    <button type="button" class="btn btn-sm btn-outline-primary dch-btn-verify" data-channel="{{ name }}">
+    <button type="button" class="btn btn-sm btn-outline-primary dch-btn-verify" data-channel="{{ name }}"
+            aria-label="测试 {{ name }} 渠道连通性">
       <i class="bi bi-shield-check"></i>
       {%- if status.auth_type == "anon" %} 測試連通{% else %} Verify Token{% endif -%}
     </button>
-    <button type="button" class="btn btn-sm btn-outline-secondary dch-btn-dry-run" data-channel="{{ name }}">
+    <button type="button" class="btn btn-sm btn-outline-secondary dch-btn-dry-run" data-channel="{{ name }}"
+            aria-label="试发布到 {{ name }} 渠道">
       <i class="bi bi-play-circle"></i> 試發布
     </button>
     {%- if bindable %}
-    <button type="button" class="btn btn-sm btn-outline-success dch-btn-bind" data-channel="{{ name }}">
+    <button type="button" class="btn btn-sm btn-outline-success dch-btn-bind" data-channel="{{ name }}"
+            aria-label="绑定 {{ name }} 渠道">
       <i class="bi bi-plug"></i> 綁定
     </button>
     {%- endif %}
