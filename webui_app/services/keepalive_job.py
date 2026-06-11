@@ -651,7 +651,93 @@ class KeepaliveJobRegistry:
 
 registry = KeepaliveJobRegistry()
 
+
+# ── Per-site synchronous autopilot helper (U7) ────────────────────────────────
+
+@dataclass
+class KeepAliveResult:
+    """Structured return value for ``run_keepalive_for_site``."""
+    success: bool
+    checked: int
+    errors: int
+    error: str | None = None
+
+
+# Per-site non-reentrant locks (created on demand).
+_SITE_LOCKS: dict[str, threading.Lock] = {}
+_SITE_LOCKS_MU = threading.Lock()
+
+
+def _site_lock(site_url: str) -> threading.Lock:
+    with _SITE_LOCKS_MU:
+        if site_url not in _SITE_LOCKS:
+            _SITE_LOCKS[site_url] = threading.Lock()
+        return _SITE_LOCKS[site_url]
+
+
+def run_keepalive_for_site(site_url: str) -> KeepAliveResult:
+    """Run a synchronous recheck cycle for one site only.
+
+    (a) Acquires a per-site lock (non-blocking) so concurrent autopilot
+        ticks for the same site are skipped rather than doubled.
+    (b) Filters EventStore candidates to those whose ``target_url`` starts
+        with the site domain, so the job touches only this site.
+    (c) Runs the probe loop synchronously on the caller's thread — safe
+        to call from an APScheduler worker thread.
+
+    Returns a :class:`KeepAliveResult` and never raises — a crash in the
+    probe loop is captured as ``success=False, error=...`` so the
+    APScheduler thread stays alive.
+    """
+    from urllib.parse import urlsplit
+    lock = _site_lock(site_url)
+    if not lock.acquire(blocking=False):
+        return KeepAliveResult(
+            success=False, checked=0, errors=0,
+            error=f"already running for {site_url}",
+        )
+    try:
+        try:
+            parsed = urlsplit(site_url)
+            domain = (parsed.scheme or "") + "://" + (parsed.netloc or "")
+        except Exception:
+            domain = site_url.rstrip("/")
+
+        store = EventStore()
+        confirmed = _default_candidates(store)
+        unverified = _default_unverified_candidates(store)
+        candidates = [
+            c for c in confirmed + unverified
+            if (c.get("target_url") or "").startswith(domain)
+        ]
+
+        checked = 0
+        errors = 0
+        for cand in candidates:
+            try:
+                result = _default_probe(cand)
+            except Exception as exc:  # noqa: BLE001
+                result = {**cand, "verdict": _PROBE_ERROR, "reason": f"probe error: {exc}"}
+                errors += 1
+            try:
+                emit_recheck(store, [result])
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                write_verified_at(store, [result])
+            except Exception:  # noqa: BLE001
+                pass
+            checked += 1
+
+        return KeepAliveResult(success=True, checked=checked, errors=errors)
+    except Exception as exc:  # noqa: BLE001
+        return KeepAliveResult(success=False, checked=0, errors=0, error=str(exc))
+    finally:
+        lock.release()
+
+
 __all__ = [
     "KeepaliveJob", "RepublishJob", "KeepaliveJobRegistry", "registry",
+    "KeepAliveResult", "run_keepalive_for_site",
     "RUNTIME_STICKY_PLATFORMS",
 ]

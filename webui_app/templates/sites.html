@@ -125,8 +125,21 @@
       </div>
     </fieldset>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
       <button type="submit" class="btn btn-primary">保存配置</button>
+      {# Plan 2026-06-09-001 U5 R13 — quick-publish button.
+         Shows spinner immediately; posts to /publish/quick if defaults exist,
+         otherwise links to full publish flow (/ce:keep-alive). #}
+      <button type="button" class="btn btn-outline-success"
+              id="quick-publish-btn"
+              data-action="quick-publish"
+              data-defaults-url="/publish/defaults"
+              data-quick-url="/publish/quick"
+              data-fallback-url="/ce:keep-alive"
+              aria-label="快速发布（使用上次发布配置）">
+          <span class="quick-publish-label"><i class="bi bi-lightning-fill me-1"></i>快速发布</span>
+          <span class="quick-publish-spinner d-none spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+      </button>
       <a href="/" class="btn btn-link">← 返回首页</a>
     </div>
   </form>
@@ -139,7 +152,140 @@
       由 keep-alive 循环统一管理发布与存活验证。</p>
     <a href="/ce:keep-alive" class="btn btn-outline-primary">前往保活面板 →</a>
   </fieldset>
+
+  {% if all_sites %}
+  <hr class="my-4">
+
+  <fieldset>
+    <legend>④ Autopilot 定时保活</legend>
+    <p class="help">开启后，系统将按设定间隔自动对该站点执行保活检查，无需手动操作。</p>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>标签</th>
+            <th>main_url</th>
+            <th style="width:6rem;">启用</th>
+            <th style="width:14rem;">间隔</th>
+            <th style="width:5rem;"></th>
+          </tr>
+        </thead>
+        <tbody id="autopilot-sites-tbody">
+          {% for site in all_sites %}
+          <tr data-site-url="{{ site.main_url }}">
+            <td>{{ site.label }}</td>
+            <td class="text-muted small text-truncate" style="max-width:260px;">{{ site.main_url }}</td>
+            <td>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input"
+                       type="checkbox"
+                       role="switch"
+                       data-action="toggle-autopilot"
+                       data-site-url="{{ site.main_url }}"
+                       data-autopilot-url="/sites/autopilot"
+                       {% if site.autopilot_enabled %}checked{% endif %}
+                       aria-label="启用 {{ site.label }} 的 Autopilot">
+              </div>
+            </td>
+            <td>
+              <select class="form-select form-select-sm"
+                      data-autopilot-interval
+                      data-site-url="{{ site.main_url }}"
+                      aria-label="{{ site.label }} 保活间隔">
+                <option value="86400" {% if site.autopilot_interval == 86400 %}selected{% endif %}>每天（24h）</option>
+                <option value="604800" {% if site.autopilot_interval == 604800 %}selected{% endif %}>每周（7d）</option>
+                <option value="custom" {% if site.autopilot_interval not in (86400, 604800) %}selected{% endif %}>
+                  自定义…
+                </option>
+              </select>
+              {% if site.autopilot_interval not in (86400, 604800) %}
+              <input type="number"
+                     class="form-control form-control-sm mt-1"
+                     data-autopilot-custom-seconds
+                     data-site-url="{{ site.main_url }}"
+                     min="3600" max="2592000"
+                     value="{{ site.autopilot_interval }}"
+                     placeholder="秒数（3600–2592000）"
+                     aria-label="{{ site.label }} 自定义间隔秒数">
+              {% else %}
+              <input type="number"
+                     class="form-control form-control-sm mt-1 d-none"
+                     data-autopilot-custom-seconds
+                     data-site-url="{{ site.main_url }}"
+                     min="3600" max="2592000"
+                     placeholder="秒数（3600–2592000）"
+                     aria-label="{{ site.label }} 自定义间隔秒数">
+              {% endif %}
+            </td>
+            <td>
+              <span class="autopilot-row-status small text-muted" aria-live="polite"></span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </fieldset>
+
+  <hr class="my-4">
+
+  <fieldset>
+    <legend>⑤ 批量操作</legend>
+    <p class="help">勾选站点后选择操作并提交，后台每 60 秒处理一行。</p>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th style="width:2.5rem;">
+              <input type="checkbox" id="batch-select-all" class="form-check-input"
+                     data-action="batch-select-all" aria-label="全选">
+            </th>
+            <th>标签</th>
+            <th>main_url</th>
+            <th id="batch-status-col" class="text-muted small">状态</th>
+          </tr>
+        </thead>
+        <tbody id="batch-sites-tbody">
+          {% for site in all_sites %}
+          <tr data-site-url="{{ site.main_url }}">
+            <td>
+              <input type="checkbox" class="form-check-input batch-site-cb"
+                     data-action="batch-select-site"
+                     value="{{ site.main_url }}"
+                     aria-label="选择 {{ site.label }}">
+            </td>
+            <td>{{ site.label }}</td>
+            <td class="text-muted small text-truncate" style="max-width:320px;">{{ site.main_url }}</td>
+            <td class="batch-row-status small text-muted">—</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div id="batch-action-bar" class="d-flex gap-2 align-items-center flex-wrap" aria-live="polite">
+      <select id="batch-op-select" class="form-select form-select-sm" style="width:auto;"
+              aria-label="批量操作类型">
+        <option value="keep_alive">保活检查</option>
+        <option value="recheck">重新核查</option>
+        <option value="channel_health">渠道健康探测</option>
+      </select>
+      <button type="button" class="btn btn-sm btn-outline-primary"
+              id="batch-submit-btn"
+              data-action="batch-submit"
+              data-queue-url="/sites/batch-queue"
+              data-status-url="/sites/batch-status"
+              disabled>
+        提交批量任务
+      </button>
+      <span id="batch-feedback" class="small text-muted"></span>
+    </div>
+  </fieldset>
+  {% endif %}
 </div>
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}
 {% endblock %}
+{% block page_module %}<script type="module" src="{{ url_for('static', filename='js/sites.js', v=asset_version) }}"></script>{% endblock %}

@@ -197,3 +197,40 @@ def _credential_path(channel: str, auth_type: str, config: Config) -> Path | Non
         basename = _USERPASS_CRED_BASENAMES.get(channel)
         return config.config_dir / basename if basename else None
     return None
+
+
+def probe_channel_liveness(channel: str) -> str:
+    """Return "alive", "expired", or "unreachable" for *channel* (R9).
+
+    Translates heterogeneous probe dicts to a three-literal schema so callers
+    don't branch on per-channel return shapes.
+    """
+    from webui_app.helpers.channel_probes import (
+        _get_blogger_token_status,
+        _get_velog_status,
+    )
+    from webui_store.channel_status import get_status
+
+    if channel == "blogger":
+        state = _get_blogger_token_status().get("state", "none")
+        if state in ("ok", "expiring"):
+            return "alive"
+        if state == "expired":
+            return "expired"
+        return "unreachable"  # "none" or unknown
+
+    if channel == "velog":
+        state = _get_velog_status().get("state", "err")
+        if state in ("ok", "warn", "fresh", "cap_reached"):
+            return "alive"
+        if state == "permission_denied":
+            return "expired"
+        return "unreachable"  # "err" or unknown
+
+    # Fallback: read channel_status_store
+    status = get_status(channel).get("status", "unbound")
+    if status == "bound":
+        return "alive"
+    if status == "expired":
+        return "expired"
+    return "unreachable"

@@ -6,6 +6,8 @@ catalog YAML write-back.  Network and filesystem writes are mocked.
 
 from __future__ import annotations
 
+
+__tier__ = "integration"
 import json
 import sys
 from pathlib import Path

@@ -781,3 +781,17 @@
         .wizard-chip-summary { font-size: 12px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
         .wizard-chip-toggle { margin-left: auto; color: #6b7280; font-size: 13px; transition: transform 0.2s ease; flex-shrink: 0; }
         .wizard-chip[aria-expanded="true"] .wizard-chip-toggle { transform: rotate(180deg); }
+
+        /* ── Health summary bar (Plan 2026-06-09-001 U3) ── */
+        .health-summary-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 10px; margin-bottom: 10px;
+            font-size: 13px; border: 1px solid transparent;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .health-summary-bar.healthy  { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.4); }
+        .health-summary-bar.degraded { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.35); }
+        .health-summary-bar .health-icon { font-size: 14px; flex-shrink: 0; }
+        .health-summary-bar .health-text { color: #374151; }
+        .health-summary-bar .health-link { font-size: 12px; color: #6b7280; text-decoration: none; }
+        .health-summary-bar .health-link:hover { text-decoration: underline; }

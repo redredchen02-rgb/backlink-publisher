@@ -124,7 +124,7 @@ omit = ["*/tests/*", "*/.egg/*"]
 show_missing = true
 skip_covered = true
 skip_empty = true
-fail_under = 0
+fail_under = 80
 
 [tool.coverage.json]
 pretty_print = true

@@ -455,6 +455,19 @@ def ce_health():
             _log.warning("health: platform_health build failed: %s", exc)
             return {}
 
+    def _autopilot_alerts():
+        """Sites with alert_pending=True from schedule_store (U8 R3). Fail-open."""
+        try:
+            import webui_store as _ws
+            targets = _ws.schedule_store.load().get("autopilot_targets", {})
+            return [
+                {"site_url": url, **cfg}
+                for url, cfg in targets.items()
+                if cfg.get("alert_pending")
+            ]
+        except Exception:  # noqa: BLE001
+            return []
+
     try:
         projection, health = _g_cache("health_agg", _build)
         canary = _g_cache("canary_health", _canary_rows)
@@ -466,6 +479,7 @@ def ce_health():
         pipeline_summary = _g_cache("pipeline_summary", _pipeline_summary)
         storage_health = _g_cache("storage_health", _storage_health)
         platform_health = _g_cache("platform_health", _platform_health)
+        autopilot_alerts = _autopilot_alerts()
         return _render(
             "health.html",
             health=health,
@@ -479,8 +493,25 @@ def ce_health():
             pipeline_summary=pipeline_summary,
             storage_health=storage_health,
             platform_health=platform_health,
+            autopilot_alerts=autopilot_alerts,
             active_page='health',
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500
         _log.error("health: dashboard render failed, serving minimal fallback: %s", exc)
         return _FALLBACK_HTML, 200
+
+
+@bp.route("/health", methods=["GET"])
+def health_json():
+    """Machine-readable health endpoint (Plan 2026-06-09-001 U3 / R15–R17).
+
+    Returns 200 when healthy, 503 when any channel is expired/unreachable,
+    scheduler is not running, or no pipeline run has ever been recorded.
+    GET-only — the global CSRF guard skips GET requests, so no token needed.
+    ``BACKLINK_PUBLISHER_ALLOW_NETWORK=1`` extends to off-loopback callers.
+    """
+    from ..services.health_projection import compute_health_json
+
+    payload = compute_health_json()
+    status = 200 if payload["healthy"] else 503
+    return jsonify(payload), status

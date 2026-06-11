@@ -10,6 +10,7 @@ import { on, delegate, qsa } from './lib/dom.js';
 import { createConfigForm } from './lib/profiles.js';
 import { bindPasteInput } from './url_derive.js';
 import { initModeToggle } from './mode_toggle.js';
+import { fetchJson } from './lib/api.js';
 
 const BOOT = window.__indexBootstrap || {};
 const PLATFORM_SLUGS = BOOT.platform_slugs || [];
@@ -273,6 +274,37 @@ function _initProNudge() {
   } catch (_) { /* localStorage unavailable — show the nudge */ }
 }
 
+// ── Health summary bar (Plan 2026-06-09-001 U3) ──────────────────
+function _initHealthBar() {
+  const bar = document.getElementById('health-summary-bar');
+  if (!bar) return;
+  const DISMISS_KEY = 'healthBarDismissed';
+  try { if (sessionStorage.getItem(DISMISS_KEY)) return; } catch (_) { /* ignore */ }
+
+  const icon = document.getElementById('health-summary-icon');
+  const text = document.getElementById('health-summary-text');
+
+  fetchJson('/health').then((data) => {
+    if (!data) return;
+    const healthy = data.healthy;
+    bar.classList.remove('d-none');
+    bar.classList.toggle('healthy', healthy);
+    bar.classList.toggle('degraded', !healthy);
+    if (icon) icon.textContent = healthy ? '✅' : '⚠️';
+    if (text) {
+      text.textContent = healthy
+        ? `系统正常 · 已绑定 ${Object.keys(data.channels || {}).length} 个渠道`
+        : `系统降级 · ${(data.degraded_reasons || []).join(', ')}`;
+    }
+  }).catch(() => { /* fail-open: no bar shown on error */ });
+
+  // Dismiss handler
+  delegate(bar, '[data-action="health-bar-dismiss"]', 'click', () => {
+    bar.classList.add('d-none');
+    try { sessionStorage.setItem(DISMISS_KEY, '1'); } catch (_) { /* ignore */ }
+  });
+}
+
 // ── boot ─────────────────────────────────────────────────────────
 function _boot() {
   _initActions();
@@ -283,6 +315,7 @@ function _boot() {
   initModeToggle();
   _initFlashDismiss();
   _initProNudge();
+  _initHealthBar();
 }
 
 if (document.readyState === 'loading') on(document, 'DOMContentLoaded', _boot); else _boot();

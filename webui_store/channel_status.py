@@ -456,6 +456,35 @@ def purge_removed_channel_credentials() -> None:
         _log.warning("purge_removed_channel_credentials: sentinel write failed: %s", exc)
 
 
+def credential_age_days(channel: str) -> float | None:
+    """Return days since ``bound_at`` for *channel*, or ``None`` if not set.
+
+    Best-effort: returns None on any parse error.  Used for TTL badge (R8).
+    """
+    from datetime import datetime, timezone
+
+    rec = get_status(channel)
+    raw = rec.get("bound_at")
+    if not raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        delta = datetime.now(timezone.utc) - ts
+        return delta.total_seconds() / 86400
+    except (ValueError, OverflowError):
+        return None
+
+
+def is_near_expiry(channel: str, threshold_days: int = 7) -> bool:
+    """Return True when credential is older than *threshold_days* (R11)."""
+    age = credential_age_days(channel)
+    if age is None:
+        return False
+    return age >= threshold_days
+
+
 __all__ = [
     "channel_status_store",
     "mark_bound",
@@ -466,4 +495,6 @@ __all__ = [
     "list_all",
     "reconcile_on_load",
     "purge_removed_channel_credentials",
+    "credential_age_days",
+    "is_near_expiry",
 ]

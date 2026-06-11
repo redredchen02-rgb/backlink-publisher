@@ -93,6 +93,17 @@
                                 <i class="bi bi-info-circle me-1"></i>内容被拒（Cookie 有效） — 无需重绑定
                             </div>
                             {% endif %}
+                            {# Plan 2026-06-09-001 U4 R10 — Re-bind shortcut for AuthExpiredError. #}
+                            {% if item.get('error_class') == 'AuthExpiredError' %}
+                            <div style="margin-top:4px;font-size:11px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;">
+                                <i class="bi bi-key-fill me-1"></i>凭据已过期 —
+                                <a href="/settings#bind-section-{{ item.get('adapter', '') }}"
+                                   class="text-danger fw-semibold"
+                                   data-action="open-bind-modal"
+                                   data-channel="{{ item.get('adapter', '') }}"
+                                   aria-label="为 {{ item.get('adapter', '') }} 渠道重新绑定">重新绑定</a>
+                            </div>
+                            {% endif %}
 
                             {% if item.article_urls %}
                             <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
@@ -289,6 +300,17 @@
                             {% if item.get('error_class') == 'content_rejected' %}
                             <div style="margin-top:4px;font-size:11px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;" title="Cookie 仍有效 — 内容被平台拒绝，重绑定无效，请检查日志中的 debug artifact">
                                 <i class="bi bi-info-circle me-1"></i>内容被拒（Cookie 有效） — 无需重绑定
+                            </div>
+                            {% endif %}
+                            {# Plan 2026-06-09-001 U4 R10 — Re-bind shortcut for AuthExpiredError. #}
+                            {% if item.get('error_class') == 'AuthExpiredError' %}
+                            <div style="margin-top:4px;font-size:11px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:4px;">
+                                <i class="bi bi-key-fill me-1"></i>凭据已过期 —
+                                <a href="/settings#bind-section-{{ item.get('adapter', '') }}"
+                                   class="text-danger fw-semibold"
+                                   data-action="open-bind-modal"
+                                   data-channel="{{ item.get('adapter', '') }}"
+                                   aria-label="为 {{ item.get('adapter', '') }} 渠道重新绑定">重新绑定</a>
                             </div>
                             {% endif %}
                             {% if item.verify_error %}
