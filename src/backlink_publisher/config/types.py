@@ -520,110 +520,82 @@ class Config:
     both raise ``InputValidationError`` (fail-loud, not skip-with-warning).
     See ``config/parsers/cells.py`` and Blast-radius Phase 1 R7-minimal."""
 
+    def _token_path(self, name: str) -> Path:
+        """Factory method for token file paths."""
+        from backlink_publisher import config as _cfg
+        return _cfg._config_dir() / f"{name}.json"
+
     @property
     def frw_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "frw-token.json"
+        return self._token_path("frw-token")
 
     @property
     def config_dir(self) -> Path:
         from backlink_publisher import config as _cfg
-
         return _cfg._config_dir()
 
     @property
     def cache_dir(self) -> Path:
         from backlink_publisher import config as _cfg
-
         return _cfg._cache_dir()
 
     @property
     def blogger_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "blogger-token.json"
+        return self._token_path("blogger-token")
 
     @property
     def ghpages_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "ghpages-token.json"
+        return self._token_path("ghpages-token")
 
     @property
     def notion_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "notion-token.json"
+        return self._token_path("notion-token")
 
     @property
     def wordpresscom_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "wordpresscom-token.json"
+        return self._token_path("wordpresscom-token")
 
     @property
     def hashnode_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "hashnode-token.json"
+        return self._token_path("hashnode-token")
 
     @property
     def writeas_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "writeas-token.json"
+        return self._token_path("writeas-token")
 
     @property
     def tumblr_credentials_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "tumblr-credentials.json"
+        return self._token_path("tumblr-credentials")
 
     @property
     def devto_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "devto-token.json"
+        return self._token_path("devto-token")
 
     @property
     def hackmd_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "hackmd-token.json"
+        return self._token_path("hackmd-token")
 
     @property
     def mataroa_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "mataroa-token.json"
+        return self._token_path("mataroa-token")
 
     @property
     def gitlabpages_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "gitlabpages-token.json"
+        return self._token_path("gitlabpages-token")
 
     @property
     def qiita_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "qiita-token.json"
+        return self._token_path("qiita-token")
 
     @property
     def zenn_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "zenn-token.json"
+        return self._token_path("zenn-token")
 
     @property
     def linkedin_token_path(self) -> Path:
-        from backlink_publisher import config as _cfg
-
-        return _cfg._config_dir() / "linkedin-token.json"
+        return self._token_path("linkedin-token")
 
     @property
     def screenshot_dir(self) -> Path:
         from backlink_publisher import config as _cfg
-
         return _cfg._cache_dir() / "screenshots"
