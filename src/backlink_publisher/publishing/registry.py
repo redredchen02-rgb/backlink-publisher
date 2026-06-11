@@ -562,7 +562,7 @@ def dispatch_weight(name: str) -> float:
             # a low-base channel) is preserved rather than silently re-promoted.
             # A deliberate operator lock wins over the floor — an operator may
             # intentionally pin a platform to 0, and automation must not undo it.
-            if value <= 0 and not wentry.get("locked", False):
+            if value <= 0 and not wentry.get("locked", False) and not wentry.get("intentional_zero", False):
                 floor = float(
                     data.get("rules", {}).get("aggregated_stats", {}).get("min_weight") or 0.0
                 ) or 0.01

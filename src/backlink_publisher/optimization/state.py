@@ -126,6 +126,7 @@ class OptimizationState:
         rule: str,
         reason: str,
         force: bool = False,
+        intentional_zero: bool = False,
     ) -> None:
         """Set the current dynamic weight for *adapter_name*.
 
@@ -136,6 +137,11 @@ class OptimizationState:
         ``locked: true`` flag (set by a manual override), the call is a
         silent no-op so automated rules never overwrite operator choices.
         Pass ``force=True`` only from the manual-override WebUI route.
+
+        *intentional_zero* marks this weight as deliberately set to 0.0 by
+        a rule (e.g. canary_drift suppression), so ``dispatch_weight()``
+        can distinguish it from an uninitialised/legacy 0 and skip the
+        defensive floor clamp.
         """
         with self._lock:
             data = self.load()
@@ -170,6 +176,7 @@ class OptimizationState:
                 "base": weights.get(adapter_name, {}).get("base", old_current),
                 "current": weight,
                 "locked": locked_flag,
+                "intentional_zero": intentional_zero,
                 "updated_at": ts,
                 "adjustments": adjustments
                 + [

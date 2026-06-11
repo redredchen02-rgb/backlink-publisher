@@ -75,6 +75,7 @@ class RuleResult:
     multiplier: float
     reason: str
     applied: bool
+    intentional_zero: bool = False
 
 
 def default_state() -> dict:
@@ -103,6 +104,17 @@ def default_state() -> dict:
                 "dofollow_low_threshold": 0.2,
                 "min_confirmations": 2,
                 "min_weight": 0.1,
+            },
+            "survival_threshold": {
+                "enabled": True,
+                "min_samples": 5,
+                "survival_penalty": 0.3,
+                "dofollow_penalty": 0.4,
+                "boost_multiplier": 1.15,
+                "max_cap": 3.0,
+                "survival_high": 0.8,
+                "dofollow_high": 0.8,
+                "min_weight": 0.01,
             },
         },
     }

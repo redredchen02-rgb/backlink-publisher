@@ -18,6 +18,7 @@ is boosted by *multiplier* (default 1.2), capped at *max_cap* (default 3.0).
 
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import Any
 
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 RULE_CANARY_DRIFT = "canary_drift"
 RULE_RECHECK_SURVIVAL = "recheck_survival"
 RULE_AGGREGATED_STATS = "aggregated_stats"
+RULE_SURVIVAL_THRESHOLD = "survival_threshold"
 
 
 def evaluate_rules(
@@ -44,7 +46,7 @@ def evaluate_rules(
     results: list[RuleResult] = []
     rules_config = state_data.get("rules", {})
 
-    for rule_name in (RULE_CANARY_DRIFT, RULE_RECHECK_SURVIVAL, RULE_AGGREGATED_STATS):
+    for rule_name in (RULE_CANARY_DRIFT, RULE_RECHECK_SURVIVAL, RULE_AGGREGATED_STATS, RULE_SURVIVAL_THRESHOLD):
         if rule_filter is not None and rule_name != rule_filter:
             continue
         config = rules_config.get(rule_name, {})
@@ -75,19 +77,30 @@ def _rule_canary_drift(
     state_data: dict[str, Any],
     config: dict[str, Any],
 ) -> list[RuleResult]:
-    """Reduce weight for platforms with sustained forward-path drift."""
+    """Reduce weight for platforms with sustained forward-path drift.
+
+    When ``drift_count >= max_strikes`` the platform weight is set to **0**
+    and a cooldown timer starts.  During the ``cooldown_days`` window the
+    rule skips the platform entirely.  After cooldown the weight recovers to
+    ``base_weight * canary_recovery`` (a slow-start multiplier, default 0.3)
+    so the platform gets a second chance.
+    """
     multiplier = float(config.get("multiplier", 0.5))
     max_strikes = int(config.get("max_strikes", 3))
+    cooldown_days = int(config.get("cooldown_days", 7))
+    canary_recovery = float(config.get("canary_recovery", 0.3))
     weights = state_data.get("weights", {})
     stats = state_data.get("stats", {})
     results: list[RuleResult] = []
 
     for platform, platform_stats in stats.items():
         drift_count = int(platform_stats.get("drift_count", 0))
+        entry = weights.get(platform, {})
+        current_weight = _get_current_weight(weights, platform)
+        base_weight = _get_base_weight(weights, platform, 1.0)
+
         if drift_count == 0:
             # No drift — restore base weight if currently suppressed
-            current_weight = _get_current_weight(weights, platform)
-            base_weight = _get_base_weight(weights, platform, 1.0)
             if current_weight < base_weight:
                 results.append(
                     _make_result(
@@ -100,19 +113,47 @@ def _rule_canary_drift(
                 )
             continue
 
-        current_weight = _get_current_weight(weights, platform)
-        base_weight = _get_base_weight(weights, platform, 1.0)
-
         if drift_count >= max_strikes:
-            new_weight = max(base_weight * multiplier, 0.0)
+            if current_weight == 0 and entry.get("rule") == RULE_CANARY_DRIFT:
+                updated_at_str = entry.get("updated_at", "")
+                if updated_at_str:
+                    try:
+                        suppressed_dt = datetime.datetime.fromisoformat(updated_at_str)
+                        elapsed = (datetime.datetime.now() - suppressed_dt).total_seconds()
+                        if elapsed < cooldown_days * 86400:
+                            results.append(
+                                _make_result(
+                                    platform, RULE_CANARY_DRIFT,
+                                    old_weight=current_weight, new_weight=current_weight,
+                                    multiplier=1.0,
+                                    reason=f"in cooldown ({int(elapsed // 86400)}d/{cooldown_days}d) — skip",
+                                    applied=False,
+                                )
+                            )
+                            continue
+                        new_weight = max(base_weight * canary_recovery, 0.01)
+                        results.append(
+                            _make_result(
+                                platform, RULE_CANARY_DRIFT,
+                                old_weight=current_weight, new_weight=new_weight,
+                                multiplier=canary_recovery,
+                                reason=f"cooldown expired — slow-start recovery to {new_weight}",
+                                applied=True,
+                            )
+                        )
+                        continue
+                    except ValueError:
+                        pass
+
+            new_weight = 0.0
             if new_weight < current_weight:
                 results.append(
                     _make_result(
                         platform, RULE_CANARY_DRIFT,
                         old_weight=current_weight, new_weight=new_weight,
                         multiplier=multiplier,
-                        reason=f"drift_count={drift_count} >= max_strikes={max_strikes} — reduce",
-                        applied=True,
+                        reason=f"drift_count={drift_count} >= max_strikes={max_strikes} — suppress to 0",
+                        applied=True, intentional_zero=True,
                     )
                 )
         elif drift_count > 0:
@@ -282,6 +323,111 @@ def _rule_aggregated_stats(
 
 
 # ---------------------------------------------------------------------------
+# Rule 4: Survival Threshold → Tiered Scaling
+# ---------------------------------------------------------------------------
+
+
+def _rule_survival_threshold(
+    state_data: dict[str, Any],
+    config: dict[str, Any],
+) -> list[RuleResult]:
+    """Scale weight by accumulated survival/dofollow stats.
+
+    Conditions (``total_published >= min_samples``, default 5):
+
+    Penalty:
+      - ``survival_rate < 30%``  → weight *= 0.3
+      - ``dofollow_rate < 20%``  → weight *= 0.4
+
+    Boost (mutually exclusive with penalty):
+      - ``survival_rate > 80%`` AND ``dofollow_rate > 80%`` → weight *= 1.15 (cap 3.0)
+    """
+    min_samples = int(config.get("min_samples", 5))
+    survival_penalty = float(config.get("survival_penalty", 0.3))
+    dofollow_penalty = float(config.get("dofollow_penalty", 0.4))
+    boost_multiplier = float(config.get("boost_multiplier", 1.15))
+    max_cap = float(config.get("max_cap", 3.0))
+    survival_high = float(config.get("survival_high", 0.8))
+    dofollow_high = float(config.get("dofollow_high", 0.8))
+    min_weight = float(config.get("min_weight", 0.01))
+
+    weights = state_data.get("weights", {})
+    stats = state_data.get("stats", {})
+    results: list[RuleResult] = []
+
+    for platform, platform_stats in stats.items():
+        total = int(platform_stats.get("total_published", 0))
+        alive = int(platform_stats.get("alive_count", 0))
+        dofollow = int(platform_stats.get("dofollow_count", 0))
+
+        if total < min_samples:
+            continue
+
+        survival_rate = alive / total
+        dofollow_rate = dofollow / alive if alive > 0 else 0.0
+
+        current_weight = _get_current_weight(weights, platform)
+        new_weight = current_weight
+        triggers: list[str] = []
+
+        if survival_rate < 0.3:
+            new_weight *= survival_penalty
+            triggers.append(f"survival={survival_rate:.0%}<30%")
+
+        if dofollow_rate < 0.2:
+            new_weight *= dofollow_penalty
+            triggers.append(f"dofollow={dofollow_rate:.0%}<20%")
+
+        if not triggers:
+            if survival_rate > survival_high and dofollow_rate > dofollow_high:
+                new_weight = min(current_weight * boost_multiplier, max_cap)
+                if new_weight > current_weight:
+                    results.append(_make_result(
+                        platform, RULE_SURVIVAL_THRESHOLD,
+                        old_weight=current_weight, new_weight=new_weight,
+                        multiplier=boost_multiplier,
+                        reason=f"survival={survival_rate:.0%}>80% dofollow={dofollow_rate:.0%}>80% — boost",
+                        applied=True,
+                    ))
+                else:
+                    results.append(_make_result(
+                        platform, RULE_SURVIVAL_THRESHOLD,
+                        old_weight=current_weight, new_weight=current_weight,
+                        multiplier=1.0,
+                        reason=f"already at cap={max_cap} — no change",
+                        applied=False,
+                    ))
+            else:
+                results.append(_make_result(
+                    platform, RULE_SURVIVAL_THRESHOLD,
+                    old_weight=current_weight, new_weight=current_weight,
+                    multiplier=1.0,
+                    reason=f"survival={survival_rate:.0%} dofollow={dofollow_rate:.0%} — above penalty thresholds but below boost",
+                    applied=False,
+                ))
+        else:
+            new_weight = max(new_weight, min_weight)
+            if new_weight != current_weight:
+                results.append(_make_result(
+                    platform, RULE_SURVIVAL_THRESHOLD,
+                    old_weight=current_weight, new_weight=new_weight,
+                    multiplier=survival_penalty if "survival" in triggers[0] else dofollow_penalty,
+                    reason=" & ".join(triggers) + f" — reduce (floor={min_weight})",
+                    applied=True,
+                ))
+            else:
+                results.append(_make_result(
+                    platform, RULE_SURVIVAL_THRESHOLD,
+                    old_weight=current_weight, new_weight=current_weight,
+                    multiplier=1.0,
+                    reason=f"already at min_weight={min_weight} — no change",
+                    applied=False,
+                ))
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
@@ -289,6 +435,7 @@ _RULE_REGISTRY: dict[str, Any] = {
     RULE_CANARY_DRIFT: _rule_canary_drift,
     RULE_RECHECK_SURVIVAL: _rule_recheck_survival,
     RULE_AGGREGATED_STATS: _rule_aggregated_stats,
+    RULE_SURVIVAL_THRESHOLD: _rule_survival_threshold,
 }
 
 
@@ -310,6 +457,7 @@ def _make_result(
     multiplier: float,
     reason: str,
     applied: bool,
+    intentional_zero: bool = False,
 ) -> RuleResult:
     return RuleResult(
         platform=platform,
@@ -319,6 +467,7 @@ def _make_result(
         multiplier=multiplier,
         reason=reason,
         applied=applied,
+        intentional_zero=intentional_zero,
     )
 
 
@@ -337,6 +486,7 @@ def apply_results(state: Any, results: list[RuleResult]) -> int:
             r.new_weight,
             rule=r.rule_name,
             reason=r.reason,
+            intentional_zero=r.intentional_zero,
         )
         count += 1
     return count
