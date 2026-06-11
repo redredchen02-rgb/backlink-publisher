@@ -586,7 +586,7 @@ def dispatch_weight(name: str, language: str = "default") -> float:
                 value = max(value, floor)
             return value
     except Exception:
-        pass
+        logger.debug("weight_lookup_failed", exc_info=True)
 
     return static
 

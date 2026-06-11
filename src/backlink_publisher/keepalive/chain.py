@@ -181,7 +181,7 @@ def _effective_sticky(runtime_sticky: tuple[str, ...], opt_state=None) -> list[s
 # ── U3: stat feedback ─────────────────────────────────────────────────────────
 
 
-def _update_opt_stats(platform: str, verdict: str, opt_state=None) -> None:
+def _update_opt_stats(platform: str, verdict: str, opt_state=None, language: str = "default") -> None:
     """RMW-increment alive_count / dofollow_count in optimization_state.json.
 
     Uses explicit load-modify-save under state._lock — NOT update_stats() which
@@ -198,8 +198,8 @@ def _update_opt_stats(platform: str, verdict: str, opt_state=None) -> None:
             opt_state = OptimizationState()
         with opt_state._lock:
             data = opt_state.load()
-            stats = data.setdefault("stats", {})
-            entry = stats.setdefault(platform, {
+            lang_stats = data.setdefault("stats", {}).setdefault(language, {})
+            entry = lang_stats.setdefault(platform, {
                 "alive_count": 0, "dofollow_count": 0,
                 "total_published": 0, "drift_count": 0,
             })
@@ -323,11 +323,11 @@ def run_cycle(
             try:
                 _emit(store, [r])
             except Exception:  # noqa: BLE001
-                pass
+                logger.debug("emit_recheck failed", exc_info=True)
             try:
                 _vat(store, [r])
             except Exception:  # noqa: BLE001
-                pass
+                logger.debug("write_verified_at failed", exc_info=True)
 
         _log.recon("keepalive_recheck_done", probed=len(results))
 

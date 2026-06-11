@@ -12,6 +12,7 @@ Usage::
 from __future__ import annotations
 
 import os
+import threading
 import time
 from typing import Any
 
@@ -26,6 +27,10 @@ _DEFAULT_TIMEOUT = int(os.environ.get("BACKLINK_LINKCHECK_REQUEST_TIMEOUT", "10"
 _DEFAULT_MAX_RETRIES = int(os.environ.get("BACKLINK_LINKCHECK_MAX_RETRIES", "2"))
 _DEFAULT_RETRY_DELAY = 1.0
 _USER_AGENT = "backlink-publisher/0.3 (+https://github.com/dexvn/backlink-publisher)"
+
+# Thread-local storage for HttpClient instances
+_local = threading.local()
+_lock = threading.Lock()
 
 
 class HttpClient:
@@ -109,5 +114,15 @@ class HttpClient:
         self._session.close()
 
 
+def get_thread_local_client() -> HttpClient:
+    """Get or create a thread-local HttpClient instance."""
+    if not hasattr(_local, "client"):
+        with _lock:
+            if not hasattr(_local, "client"):
+                _local.client = HttpClient()
+    return _local.client
+
+
 # Module-level default instance for convenience imports
+# Note: This is NOT thread-safe. Use get_thread_local_client() for thread safety.
 http_client = HttpClient()
