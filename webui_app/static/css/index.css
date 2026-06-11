@@ -4,6 +4,11 @@
             font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
             padding: 20px;
         }
+
+        /* Dark mode body */
+        [data-theme="dark"] body {
+            background: radial-gradient(circle at 10% 20%, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 90%);
+        }
         
         .navbar {
             background: var(--gradient);
@@ -77,6 +82,12 @@
             font-weight: 600;
             color: var(--text-primary);
         }
+
+        /* Dark mode card header */
+        [data-theme="dark"] .card-header {
+            background: #1e293b;
+            border-bottom-color: #334155;
+        }
         
         .card-body {
             padding: 24px;
@@ -107,6 +118,20 @@
             box-shadow: var(--focus-ring);
             color: var(--text-primary);
             outline: none;
+        }
+
+        /* Dark mode form elements */
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] .form-select {
+            background-color: #1e293b;
+            border-color: #334155;
+            color: #f1f5f9;
+        }
+
+        [data-theme="dark"] .form-control:focus,
+        [data-theme="dark"] .form-select:focus {
+            background-color: #1e293b;
+            border-color: #6366f1;
         }
         
         .btn {

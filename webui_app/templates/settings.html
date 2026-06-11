@@ -13,11 +13,11 @@
         <div class="nav-actions">
             <!-- LLM Status Badge -->
             {% if llm_settings and llm_settings.api_key and llm_settings.endpoint %}
-            <span class="nav-badge ok" title="LLM 进阶功能已启用">
+            <span class="nav-badge ok" title="LLM 进阶功能已启用" aria-label="LLM 进阶功能已启用">
                 <i class="bi bi-cpu"></i> LLM: {{ llm_settings.model or '已连接' }}
             </span>
             {% endif %}
-            <a href="/" class="btn btn-sm nav-btn-ghost">
+            <a href="/" class="btn btn-sm nav-btn-ghost" aria-label="返回首页">
                 <i class="bi bi-arrow-left me-1"></i>返回
             </a>
         </div>
@@ -26,7 +26,7 @@
     {% if flash %}
     <div class="alert alert-{{ flash.type }} alert-dismissible fade show settings-flash" role="alert">
         {{ flash.msg }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭通知"></button>
     </div>
     {% endif %}
 
@@ -47,7 +47,8 @@
                     <button type="button" class="overview-collapse-toggle"
                             data-bs-toggle="collapse" data-bs-target="#overview-panel"
                             aria-expanded="{{ 'true' if dashboard_partition and dashboard_partition.cold_start else 'false' }}" aria-controls="overview-panel"
-                            title="折叠/展开">
+                            title="折叠/展开"
+                            aria-label="折叠或展开渠道总览面板">
                         <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
                     </button>
                 </h2>

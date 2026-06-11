@@ -67,10 +67,11 @@
   <h1 class="navbar-brand mb-0 h1"><i class="bi bi-shield-check me-2"></i>保活 Keep-alive</h1>
   <div class="d-flex align-items-center gap-2">
     <button id="recheckBtn" class="btn btn-sm btn-primary" data-action="recheck"
-            title="逐条复查已发布外链，看哪些还活着、哪些被剥离">
+            title="逐条复查已发布外链，看哪些还活着、哪些被剥离"
+            aria-label="立即巡检已发布外链">
       <i class="bi bi-arrow-repeat"></i> 立即巡检
     </button>
-    <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> Home</a>
+    <a href="/" class="btn btn-sm btn-outline-secondary" aria-label="返回首页"><i class="bi bi-house"></i> Home</a>
   </div>
 </header>
 
@@ -78,7 +79,7 @@
 <div class="container-fluid pt-3">
   <div class="alert alert-{{ flash.type }} alert-dismissible fade show" role="alert">
     {{ flash.msg }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭通知"></button>
   </div>
 </div>
 {% endif %}
@@ -90,11 +91,12 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <strong><i class="bi bi-arrow-repeat me-1"></i>正在巡检…</strong>
-        <button id="cancelRecheckBtn" class="btn btn-sm btn-outline-danger" data-action="cancel-recheck">取消</button>
+        <button id="cancelRecheckBtn" class="btn btn-sm btn-outline-danger" data-action="cancel-recheck"
+                aria-label="取消巡检">取消</button>
       </div>
       <div class="progress" style="height: 18px;">
         <div id="recheckBar" class="progress-bar progress-bar-striped progress-bar-animated"
-             role="progressbar" style="width: 0%;"></div>
+             role="progressbar" aria-label="巡检进度" style="width: 0%;"></div>
       </div>
       <p class="text-muted small mb-0 mt-2" id="recheckLine"></p>
     </div>
@@ -109,11 +111,13 @@
     </div>
     <div class="card-body">
       <label class="form-check small mb-2">
-        <input type="checkbox" class="form-check-input me-1" id="gapSelectAll" data-action="toggle-all-gaps">
+        <input type="checkbox" class="form-check-input me-1" id="gapSelectAll" data-action="toggle-all-gaps"
+               aria-label="全选所有流血链">
         全选
       </label>
       <ul class="list-group mb-3" id="gapList"></ul>
-      <button id="republishBtn" class="btn btn-danger btn-sm" data-action="open-confirm" disabled>
+      <button id="republishBtn" class="btn btn-danger btn-sm" data-action="open-confirm" disabled
+              aria-label="重发选中的流血链">
         <i class="bi bi-arrow-repeat"></i> 重发选中 <span id="republishCount">0</span>
       </button>
     </div>
@@ -128,7 +132,7 @@
       <strong id="republishPhase"><i class="bi bi-cloud-upload me-1"></i>正在重发…</strong>
       <div class="progress mt-2" style="height: 18px;">
         <div id="republishBar" class="progress-bar bg-warning progress-bar-striped progress-bar-animated"
-             role="progressbar" style="width: 0%;"></div>
+             role="progressbar" aria-label="重发进度" style="width: 0%;"></div>
       </div>
       <p class="text-muted small mb-0 mt-2" id="republishLine"></p>
     </div>
@@ -140,7 +144,8 @@
       <h6 id="republishResultTitle" class="mb-2"></h6>
       <p id="republishResultMsg" class="mb-2"></p>
       <ul class="list-group mb-3 d-none" id="republishResultList"></ul>
-      <button class="btn btn-sm btn-outline-secondary" data-action="republish-done">完成</button>
+      <button class="btn btn-sm btn-outline-secondary" data-action="republish-done"
+              aria-label="完成重发操作">完成</button>
     </div>
   </div>
 
