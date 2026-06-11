@@ -25,12 +25,14 @@ def pytest_collection_modifyitems(config, items):
     Reads ``__tier__`` from each test module (set by the per-file marker
     in U1 of the system-optimization plan) and applies the corresponding
     ``pytest.mark`` so tests can be selected via ``-m unit``, ``-m integration``,
-    ``-m e2e``. Modules without ``__tier__`` are silently left unmarked.
+    ``-m e2e``. Modules without ``__tier__`` default to ``unit`` (Plan
+    2026-06-11: closes test-tier-coverage-incomplete debt).
     """
     for item in items:
         tier = getattr(item.module, "__tier__", None)
-        if tier in ("unit", "integration", "e2e"):
-            item.add_marker(getattr(pytest.mark, tier))
+        if tier not in ("unit", "integration", "e2e"):
+            tier = "unit"
+        item.add_marker(getattr(pytest.mark, tier))
 
 
 # ── Config-sandbox-escape guardrails (Plan 2026-05-27-005) ──────────────────

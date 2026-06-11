@@ -1,0 +1,27 @@
+# CODEOWNERS — module stewardship (Plan 2026-06-11, resolves no-stewardship-model debt)
+#
+# Format: <pattern> <owner1> [owner2 ...]
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ── Default: all files ───────────────────────────────────────────────────────
+*                                       @dex
+
+# ── Core pipeline ────────────────────────────────────────────────────────────
+src/backlink_publisher/cli/              @dex
+src/backlink_publisher/publishing/       @dex
+src/backlink_publisher/content/          @dex
+src/backlink_publisher/events/           @dex
+src/backlink_publisher/config/           @dex
+src/backlink_publisher/idempotency/      @dex
+src/backlink_publisher/linkcheck/        @dex
+src/backlink_publisher/anchor/           @dex
+
+# ── WebUI ────────────────────────────────────────────────────────────────────
+webui_app/                               @dex
+webui_store/                             @dex
+webui.py                                 @dex
+
+# ── Infrastructure ───────────────────────────────────────────────────────────
+.github/                                 @dex
+tests/                                   @dex
+docs/                                    @dex
