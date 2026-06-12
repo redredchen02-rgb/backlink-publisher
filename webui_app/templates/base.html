@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,6 +20,13 @@
     {% block head_extra %}{% endblock %}
 </head>
 <body>
+    {# Decorative background orbs — fixed-position, pointer-events none, z-index 0.
+       Sibling div (not ::before) keeps backdrop-filter stacking contexts isolated. #}
+    <div class="bg-orbs" aria-hidden="true">
+        <div class="orb orb--1"></div>
+        <div class="orb orb--2"></div>
+        <div class="orb orb--3"></div>
+    </div>
     {# Global navigation — active_page must use | default('') so pages that omit it render without error. #}
     <nav class="global-nav sticky-top">
         <div class="global-nav__inner">
@@ -56,7 +63,9 @@
             {% endif %}
         </div>
     </nav>
-    {% block content %}{% endblock %}
+    <div class="page-content">
+        {% block content %}{% endblock %}
+    </div>
     {# Server -> client bootstrap data island(s). Usually one window.__<page>Bootstrap;
        index is the documented exception (two: __indexBootstrap + __batchTabHint). #}
     {% block page_data %}{% endblock %}

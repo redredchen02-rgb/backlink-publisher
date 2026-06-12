@@ -2,11 +2,7 @@
 
         body {
             font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: radial-gradient(circle at 10% 20%, rgba(243, 244, 246, 1) 0%, rgba(229, 231, 235, 1) 90%);
-            min-height: 100vh;
             padding: 20px;
-            color: #374151;
-            transition: background 0.3s ease;
         }
         
         .navbar {
@@ -32,27 +28,54 @@
         }
         
         .card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: var(--glass-bg-fallback);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+            box-shadow: var(--shadow-glass);
             margin-bottom: 24px;
-            overflow: hidden;
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+            overflow: visible;
+            position: relative;
+            transition: transform 200ms ease-out;
         }
-        
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+            .card {
+                background: var(--glass-bg);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
+            }
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: opacity 200ms ease-out;
+            pointer-events: none;
+            z-index: -1;
+        }
+
         .card:hover {
-            box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
         }
-        
+
+        .card:hover::after {
+            opacity: 1;
+        }
+
+        .card:active {
+            transform: translateY(0);
+        }
+
         .card-header {
-            background: #f9fafb;
+            background: rgba(255, 255, 255, 0.05);
             padding: 16px 24px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--glass-border);
             font-weight: 600;
-            color: var(--dark);
+            color: var(--text-primary);
         }
         
         .card-body {
@@ -61,20 +84,29 @@
         
         .form-label {
             font-weight: 500;
-            color: var(--dark);
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
-        
-        .form-control, .form-select {
-            border: 2px solid #e5e7eb;
+
+        .form-control, .form-select, textarea.form-control {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border);
             border-radius: 10px;
             padding: 12px 16px;
-            transition: all 0.3s ease;
+            color: var(--text-primary);
+            transition: border-color 200ms ease, box-shadow 200ms ease;
         }
-        
-        .form-control:focus, .form-select:focus {
+
+        .form-control::placeholder, textarea.form-control::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .form-control:focus, .form-select:focus, textarea.form-control:focus {
+            background: rgba(255, 255, 255, 0.10);
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            box-shadow: var(--focus-ring);
+            color: var(--text-primary);
+            outline: none;
         }
         
         .btn {
@@ -184,16 +216,25 @@
         }
         
         .result-card {
-            background: white;
+            background: var(--glass-bg-fallback);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            box-shadow: var(--shadow-glass);
+            border: 1px solid var(--glass-border);
             border-left: 4px solid var(--success);
         }
-        
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+            .result-card {
+                background: var(--glass-bg);
+                -webkit-backdrop-filter: blur(12px);
+                backdrop-filter: blur(12px);
+            }
+        }
+
         .result-card h5 {
-            color: var(--dark);
+            color: var(--text-primary);
             margin-bottom: 12px;
         }
         
@@ -312,19 +353,36 @@
         }
         
         .error-box {
-            background: #fee2e2;
+            background: rgba(239, 68, 68, 0.15);
             border-radius: 12px;
             padding: 16px;
             border-left: 4px solid var(--danger);
-            color: #991b1b;
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-left-width: 4px;
         }
-        
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+            .error-box {
+                -webkit-backdrop-filter: blur(8px);
+                backdrop-filter: blur(8px);
+            }
+        }
+
         .success-box {
-            background: #d1fae5;
+            background: rgba(16, 185, 129, 0.15);
             border-radius: 12px;
             padding: 16px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
             border-left: 4px solid var(--success);
-            color: #065f46;
+            color: #6ee7b7;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+            .success-box {
+                -webkit-backdrop-filter: blur(8px);
+                backdrop-filter: blur(8px);
+            }
         }
         
         .meta-info {
@@ -683,10 +741,19 @@
             align-items: center;
             margin-bottom: 20px;
             padding: 16px 24px;
-            background: white;
+            background: var(--glass-bg-fallback);
+            border: 1px solid var(--glass-border);
             border-radius: 14px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            box-shadow: var(--shadow-glass);
             overflow-x: auto;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+            .step-bar {
+                background: var(--glass-bg);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
+            }
         }
 
         .step-item {
@@ -716,12 +783,13 @@
         .step-circle.active {
             background: var(--primary);
             color: white;
-            box-shadow: 0 0 0 4px rgba(79,70,229,0.2);
+            box-shadow: 0 0 0 4px rgba(79,70,229,0.3);
         }
 
         .step-circle.pending {
-            background: #e5e7eb;
-            color: #9ca3af;
+            background: rgba(255,255,255,0.10);
+            color: var(--text-secondary);
+            border: 1px solid var(--glass-border);
         }
 
         .step-label {
@@ -732,8 +800,8 @@
         }
 
         .step-label.done   { color: var(--success); }
-        .step-label.active { color: var(--primary); }
-        .step-label.pending { color: #9ca3af; }
+        .step-label.active { color: var(--text-primary); }
+        .step-label.pending { color: var(--text-secondary); }
 
         .step-connector {
             flex: 1;
@@ -745,8 +813,19 @@
         }
 
         .step-connector.done   { background: var(--success); }
-        .step-connector.active { background: linear-gradient(90deg, var(--success) 0%, #e5e7eb 100%); }
-        .step-connector.pending { background: #e5e7eb; }
+        .step-connector.active { background: linear-gradient(90deg, var(--success) 0%, rgba(255,255,255,0.2) 100%); }
+        .step-connector.pending { background: rgba(255,255,255,0.15); }
+
+        @media (prefers-reduced-motion: no-preference) {
+            @keyframes pulse-glow {
+                0%, 100% { box-shadow: 0 0 0 4px rgba(99,102,241,0.3); }
+                50%       { box-shadow: 0 0 0 8px rgba(99,102,241,0.15), 0 0 20px rgba(99,102,241,0.4); }
+            }
+
+            .step-circle.active {
+                animation: pulse-glow 2s ease-in-out infinite;
+            }
+        }
 
         /* ── Navbar action strip (U3: extracted from index.html inline styles) ── */
         .navbar { display: flex; justify-content: space-between; align-items: center; }

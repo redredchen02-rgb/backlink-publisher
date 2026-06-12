@@ -5,11 +5,7 @@
 
         body {
             font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: radial-gradient(circle at 10% 20%, rgba(243, 244, 246, 1) 0%, rgba(229, 231, 235, 1) 90%);
-            min-height: 100vh;
             padding: 20px;
-            color: #374151;
-            transition: background 0.3s ease;
         }
         
         .navbar {

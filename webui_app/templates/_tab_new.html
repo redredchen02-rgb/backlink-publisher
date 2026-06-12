@@ -440,7 +440,7 @@
                 <div class="result-card" style="border-left-color:{% if r.status == 'published' %}var(--success){% else %}var(--warning){% endif %};">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
                         <div>
-                            <div style="font-weight:600;color:var(--dark);margin-bottom:6px;">{{ r.title }}</div>
+                            <div style="font-weight:600;color:var(--text-primary);margin-bottom:6px;">{{ r.title }}</div>
                             <span class="status-badge {% if r.status == 'published' %}success{% else %}pending{% endif %}">
                                 {% if r.status == 'published' %}<i class="bi bi-check-circle me-1"></i>已发布
                                 {% elif r.status == 'drafted' %}<i class="bi bi-clock me-1"></i>草稿
@@ -455,8 +455,8 @@
                         {% endif %}
                     </div>
                     {% if article_url %}
-                    <div style="margin-top:10px;padding:8px 12px;background:#f9fafb;border-radius:6px;
-                                font-size:12px;word-break:break-all;border:1px solid #e5e7eb;">
+                    <div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.06);border-radius:6px;
+                                font-size:12px;word-break:break-all;border:1px solid var(--glass-border);color:var(--text-secondary);">
                         <i class="bi bi-link-45deg me-1" style="color:var(--primary);"></i>
                         <a href="{{ article_url }}" target="_blank" rel="noopener"
                            style="color:var(--primary);">{{ article_url }}</a>

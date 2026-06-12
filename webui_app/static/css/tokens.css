@@ -1,17 +1,17 @@
-/* Design tokens — single source of truth (R4).
- *
- * Promotes the :root custom properties that were DUPLICATED across index.css and
- * settings.css (--primary, --primary-dark, --gradient, --glass-bg, --glass-border)
- * plus the superset index.css defined. Both files consume these via var(--…) and
- * drop their own :root blocks (settings.css in U2/U3, index.css in U6). Linked by
- * base.html before any page CSS. Values equal the prior hardcoded ones — no
- * visual change. */
+/* Design tokens — single source of truth.
+ * Linked by base.html before any page CSS so all pages share these values.
+ * tokens.css intentionally holds both custom properties and a global body{} rule
+ * so the dark gradient applies to every page from one place. */
 :root {
     /* Brand */
     --primary: #4f46e5;
     --primary-dark: #4338ca;
     --secondary: #6b7280;
     --gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+
+    /* New gradient tokens */
+    --gradient-hero:   linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    --gradient-accent: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
 
     /* Status */
     --success: #10b981;
@@ -24,15 +24,85 @@
     --dark: #1f2937;
     --text: #374151;
     --border: #e5e7eb;
-    --glass-bg: rgba(255, 255, 255, 0.8);
-    --glass-border: rgba(255, 255, 255, 0.4);
+
+    /* Glass tokens — dark theme values */
+    --glass-bg:          rgba(255, 255, 255, 0.10);
+    --glass-bg-fallback: rgba(30, 27, 75, 0.85);
+    --glass-border:      rgba(255, 255, 255, 0.18);
+    --glass-blur:        blur(20px);
+
+    /* Text tokens for dark theme */
+    --text-primary:   rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.60);
 
     /* Elevation */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-brand: 0 10px 25px -5px rgba(79, 70, 229, 0.3);
+    --shadow-sm:          0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-brand:       0 10px 25px -5px rgba(79, 70, 229, 0.3);
     --shadow-brand-hover: 0 15px 30px -5px rgba(79, 70, 229, 0.4);
+    --shadow-glass:       0 8px 32px rgba(79, 70, 229, 0.25), 0 2px 8px rgba(0, 0, 0, 0.4);
+
+    /* Focus ring */
+    --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.4);
 
     /* Spacing / radius */
     --radius: 16px;
     --space: 20px;
+
+    color-scheme: dark;
+}
+
+/* Global body — applies to all pages via base.html.
+ * Per-page body{} rules in index.css and settings.css must NOT redeclare
+ * background or color (those rules have been removed). */
+body {
+    background: var(--gradient-hero);
+    color: var(--text-primary);
+    min-height: 100vh;
+}
+
+/* Background orbs — decorative fixed-position elements inserted by base.html.
+ * position: fixed + z-index: 0 isolates them from glass card stacking contexts. */
+.bg-orbs {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.18;
+}
+
+.orb--1 {
+    width: 600px;
+    height: 600px;
+    top: -200px;
+    right: -100px;
+    background: radial-gradient(circle, #6366f1 0%, transparent 70%);
+}
+
+.orb--2 {
+    width: 500px;
+    height: 500px;
+    bottom: -150px;
+    left: -100px;
+    background: radial-gradient(circle, #4f46e5 0%, transparent 70%);
+}
+
+.orb--3 {
+    width: 350px;
+    height: 350px;
+    top: 40%;
+    left: 35%;
+    background: radial-gradient(circle, #7c3aed 0%, transparent 70%);
+    opacity: 0.10;
+}
+
+/* Content wrapper — sits above orbs (z-index 0) and below Bootstrap modals (1050+). */
+.page-content {
+    position: relative;
+    z-index: 1;
 }
