@@ -874,3 +874,107 @@
         .health-summary-bar .health-text { color: #374151; }
         .health-summary-bar .health-link { font-size: 12px; color: #6b7280; text-decoration: none; }
         .health-summary-bar .health-link:hover { text-decoration: underline; }
+
+        /* ── CTA: 一键生成并发布 (btn-publish-chain) ──────────────────── */
+        .btn-publish-chain {
+            position: relative;
+            overflow: hidden;
+            background: var(--gradient-accent);
+            border: none;
+            color: white;
+            box-shadow: var(--shadow-brand);
+            transition: box-shadow 300ms ease, transform 200ms ease;
+        }
+
+        .btn-publish-chain::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -75%;
+            width: 50%; height: 100%;
+            background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .btn-publish-chain:hover {
+            box-shadow: var(--shadow-brand-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-publish-chain:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            pointer-events: none;
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            @keyframes shine-sweep {
+                0%   { left: -75%; }
+                100% { left: 125%; }
+            }
+
+            .btn-publish-chain::before {
+                animation: shine-sweep 2.8s ease-in-out 1s infinite;
+            }
+
+            .btn-publish-chain:disabled::before {
+                animation-play-state: paused;
+            }
+        }
+
+        /* ── Batch results ───────────────────────────────────────────── */
+        .batch-result-item {
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: var(--glass-bg-fallback);
+            border: 1px solid var(--glass-border);
+            border-left-width: 4px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+            .batch-result-item {
+                background: rgba(255,255,255,0.07);
+                -webkit-backdrop-filter: blur(10px);
+                backdrop-filter: blur(10px);
+            }
+        }
+
+        .batch-result--success { border-left-color: var(--success); }
+        .batch-result--error   { border-left-color: var(--danger); }
+
+        .batch-result-url   { font-size: 13px; font-weight: 600; word-break: break-all; color: var(--text-primary); }
+        .batch-result-title { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+        .batch-result-error { font-size: 12px; color: #fca5a5; margin-top: 4px; }
+        .batch-result-link  { font-size: 11px; word-break: break-all; color: var(--text-secondary); margin-top: 8px; }
+
+        .batch-summary { margin-top: 12px; font-size: 13px; color: var(--text-secondary); }
+
+        /* Batch completion indicator — binary terminal state, CSS only */
+        .batch-progress-track {
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.10);
+            overflow: hidden;
+            margin: 12px 0 4px;
+        }
+
+        .batch-progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 600ms ease;
+        }
+
+        .batch-progress--all-success .batch-progress-fill {
+            width: 100%;
+            background: var(--success);
+        }
+
+        .batch-progress--partial .batch-progress-fill {
+            background: var(--warning);
+        }
+
+        .batch-progress--failed .batch-progress-fill {
+            width: 100%;
+            background: var(--danger);
+        }
