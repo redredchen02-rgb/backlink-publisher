@@ -106,3 +106,9 @@ body {
     position: relative;
     z-index: 1;
 }
+
+/* Keyboard focus ring — shows only for keyboard navigation, not mouse clicks. */
+*:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
