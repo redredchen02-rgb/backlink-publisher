@@ -99,10 +99,10 @@
 .cc-stat-row:last-of-type { border-bottom: none; }
 .cc-stat-row__label { color: var(--text-secondary, rgba(255,255,255,0.60)); }
 .cc-stat-row__value { font-weight: 600; color: var(--text-primary, rgba(255,255,255,0.92)); }
-.cc-stat-row__value--green  { color: #059669; }
-.cc-stat-row__value--red    { color: #dc2626; }
-.cc-stat-row__value--amber  { color: #d97706; }
-.cc-stat-row__value--muted  { color: #9ca3af; }
+.cc-stat-row__value--green  { color: #34d399; }
+.cc-stat-row__value--red    { color: #f87171; }
+.cc-stat-row__value--amber  { color: #fbbf24; }
+.cc-stat-row__value--muted  { color: rgba(255,255,255,0.35); }
 
 /* ── Big number ─────────────────────────────────────────────────────── */
 .cc-big {
@@ -394,6 +394,12 @@
                 <span class="cc-stat-row__label">過去 24 小時</span>
                 <span class="cc-stat-row__value {% if (hist.recent_24h or 0) > 0 %}cc-stat-row__value--green{% else %}cc-stat-row__value--muted{% endif %}">
                     {{ hist.recent_24h or 0 }} 篇
+                </span>
+            </div>
+            <div class="cc-stat-row">
+                <span class="cc-stat-row__label">過去 7 天</span>
+                <span class="cc-stat-row__value {% if (hist.recent_7d or 0) > 0 %}cc-stat-row__value--green{% else %}cc-stat-row__value--muted{% endif %}">
+                    {{ hist.recent_7d or 0 }} 篇
                 </span>
             </div>
             {% endif %}

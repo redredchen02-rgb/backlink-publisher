@@ -82,13 +82,20 @@ def _collect_subsystem_status():
         from webui_store import history_store
         from datetime import datetime, timezone, timedelta
         hist = history_store.load()
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-        recent = sum(
+        now = datetime.now(timezone.utc)
+        cutoff_24h = (now - timedelta(hours=24)).isoformat()[:10]
+        cutoff_7d  = (now - timedelta(days=7)).isoformat()[:10]
+        recent_24h = sum(
             1 for h in hist
             if h.get("published_at") and isinstance(h.get("published_at"), str)
-            and h["published_at"] >= cutoff.isoformat()[:10]
+            and h["published_at"] >= cutoff_24h
         )
-        result["history"] = {"total": len(hist), "recent_24h": recent}
+        recent_7d = sum(
+            1 for h in hist
+            if h.get("published_at") and isinstance(h.get("published_at"), str)
+            and h["published_at"] >= cutoff_7d
+        )
+        result["history"] = {"total": len(hist), "recent_24h": recent_24h, "recent_7d": recent_7d}
     except Exception as exc:
         result["history"] = {"error": _friendly_error(str(exc))}
 
