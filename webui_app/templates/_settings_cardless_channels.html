@@ -1,17 +1,62 @@
 {# Cardless templated channel accordions — Plan 2026-05-26-002 Unit 3.
+   Updated Plan 2026-06-12-002: accepts `tier` context var for T1/T2/T3 filtering.
 
-   Renders one Bootstrap accordion card per channel that is NOT in the six
-   explicitly-carded channels (blogger/medium/velog/ghpages/devto/notion).
-   live_browser and oauth channels are excluded: carded live_browser channels
-   already appeared above; mastodon has a deferred stub; blogger is oauth+carded.
+   Renders accordion card(s) for channels NOT in the six explicitly-carded channels.
+   When `tier` is provided ('t1'/'t2'/'t3'), renders only that tier's channels.
+   When `tier` is 'all' or absent, renders all non-carded channels (backward-compat).
+
+   Tier mapping:
+     T1 (anon)         — auth_type == 'anon'
+     T2 (credentials)  — auth_type in ('token', 'token_fields', 'oauth', 'userpass')
+     T3 (browser)      — auth_type in ('paste_blob', 'live_browser')
 
    Required context vars (inherited from settings.html):
      dashboard_channels  list of (name, status) from helpers.contexts
      csrf_token          str — session CSRF token
+   Optional:
+     tier                str — 't1' / 't2' / 't3' / 'all' (default: 'all')
 #}
+{% set _tier = tier | default('all') %}
 {% set _carded_channels = ['blogger', 'medium', 'velog', 'ghpages', 'devto', 'notion'] %}
+
+{# ── T1: 免綁定渠道 (anon) ─────────────────────────────────────── #}
+{% if _tier in ('t1', 'all') %}
 {% for name, status in dashboard_channels %}
-    {% if name not in _carded_channels and status.auth_type not in ('live_browser', 'oauth', None) %}
+    {% if name not in _carded_channels and status.auth_type == 'anon' %}
+<div class="card channel-card channel-card--anon">
+    <div class="card-header p-0">
+        <button type="button" class="channel-toggle"
+                data-bs-toggle="collapse" data-bs-target="#channel-{{ name }}"
+                aria-expanded="false" aria-controls="channel-{{ name }}">
+            <span>{{ name }}</span>
+            <span class="badges">
+                <span class="badge-status ok badge-anon-ready">
+                    <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i> 免綁定 · 就緒
+                </span>
+                {% if status.dofollow == True %}
+                <span class="badge-dofollow good" title="dofollow">dofollow</span>
+                {% elif status.dofollow == False %}
+                <span class="badge-dofollow weak" title="nofollow">nofollow</span>
+                {% endif %}
+            </span>
+            <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div id="channel-{{ name }}" class="collapse">
+        <div class="card-body">
+            {% with channel=name %}{% include '_settings_binding_anon.html' %}{% endwith %}
+        </div>
+    </div>
+</div>
+    {% endif %}
+{% endfor %}
+{% endif %}
+
+{# ── T2: 填憑證渠道 — bound first, then unbound ─────────────────── #}
+{% if _tier in ('t2', 'all') %}
+{# Pass 1: bound #}
+{% for name, status in dashboard_channels %}
+    {% if name not in _carded_channels and status.auth_type in ('token', 'token_fields', 'oauth', 'userpass') and status.bound %}
 <div class="card channel-card">
     <div class="card-header p-0">
         <button type="button" class="channel-toggle"
@@ -19,9 +64,82 @@
                 aria-expanded="false" aria-controls="channel-{{ name }}">
             <span>{{ name }}</span>
             <span class="badges">
-                {% if status.auth_type == 'anon' %}
-                <span class="badge-status ok" style="font-size:10px;">免绑定</span>
-                {% elif status.bound %}
+                <span class="badge-status ok">已绑定 ✓</span>
+                {% if status.dofollow == True %}
+                <span class="badge-dofollow good" title="dofollow">dofollow</span>
+                {% elif status.dofollow == False %}
+                <span class="badge-dofollow weak" title="nofollow">nofollow</span>
+                {% endif %}
+            </span>
+            <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div id="channel-{{ name }}" class="collapse">
+        <div class="card-body">
+            {% if status.auth_type == 'token' %}
+                {% with channel=name %}{% include '_settings_binding_token.html' %}{% endwith %}
+            {% elif status.auth_type == 'token_fields' %}
+                {% with channel=name %}{% include '_settings_binding_token_fields.html' %}{% endwith %}
+            {% elif status.auth_type == 'paste_blob' %}
+                {% with channel=name %}{% include '_settings_binding_paste_blob.html' %}{% endwith %}
+            {% elif status.auth_type == 'userpass' %}
+                {% with channel=name %}{% include '_settings_binding_userpass.html' %}{% endwith %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+    {% endif %}
+{% endfor %}
+{# Pass 2: unbound #}
+{% for name, status in dashboard_channels %}
+    {% if name not in _carded_channels and status.auth_type in ('token', 'token_fields', 'oauth', 'userpass') and not status.bound %}
+<div class="card channel-card">
+    <div class="card-header p-0">
+        <button type="button" class="channel-toggle"
+                data-bs-toggle="collapse" data-bs-target="#channel-{{ name }}"
+                aria-expanded="false" aria-controls="channel-{{ name }}">
+            <span>{{ name }}</span>
+            <span class="badges">
+                <span class="badge-status err">未绑定</span>
+                {% if status.dofollow == True %}
+                <span class="badge-dofollow good" title="dofollow">dofollow</span>
+                {% elif status.dofollow == False %}
+                <span class="badge-dofollow weak" title="nofollow">nofollow</span>
+                {% endif %}
+            </span>
+            <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div id="channel-{{ name }}" class="collapse">
+        <div class="card-body">
+            {% if status.auth_type == 'token' %}
+                {% with channel=name %}{% include '_settings_binding_token.html' %}{% endwith %}
+            {% elif status.auth_type == 'token_fields' %}
+                {% with channel=name %}{% include '_settings_binding_token_fields.html' %}{% endwith %}
+            {% elif status.auth_type == 'paste_blob' %}
+                {% with channel=name %}{% include '_settings_binding_paste_blob.html' %}{% endwith %}
+            {% elif status.auth_type == 'userpass' %}
+                {% with channel=name %}{% include '_settings_binding_userpass.html' %}{% endwith %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+    {% endif %}
+{% endfor %}
+{% endif %}
+
+{# ── T3: 瀏覽器渠道 (paste_blob) + mastodon coming-soon stub ─────── #}
+{% if _tier in ('t3', 'all') %}
+{% for name, status in dashboard_channels %}
+    {% if name not in _carded_channels and status.auth_type == 'paste_blob' %}
+<div class="card channel-card">
+    <div class="card-header p-0">
+        <button type="button" class="channel-toggle"
+                data-bs-toggle="collapse" data-bs-target="#channel-{{ name }}"
+                aria-expanded="false" aria-controls="channel-{{ name }}">
+            <span>{{ name }}</span>
+            <span class="badges">
+                {% if status.bound %}
                 <span class="badge-status ok">已绑定 ✓</span>
                 {% else %}
                 <span class="badge-status err">未绑定</span>
@@ -37,19 +155,31 @@
     </div>
     <div id="channel-{{ name }}" class="collapse">
         <div class="card-body">
-            {% if status.auth_type == 'anon' %}
-                {% with channel=name %}{% include '_settings_binding_anon.html' %}{% endwith %}
-            {% elif status.auth_type == 'token' %}
-                {% with channel=name %}{% include '_settings_binding_token.html' %}{% endwith %}
-            {% elif status.auth_type == 'token_fields' %}
-                {% with channel=name %}{% include '_settings_binding_token_fields.html' %}{% endwith %}
-            {% elif status.auth_type == 'paste_blob' %}
-                {% with channel=name %}{% include '_settings_binding_paste_blob.html' %}{% endwith %}
-            {% elif status.auth_type == 'userpass' %}
-                {% with channel=name %}{% include '_settings_binding_userpass.html' %}{% endwith %}
-            {% endif %}
+            {% with channel=name %}{% include '_settings_binding_paste_blob.html' %}{% endwith %}
         </div>
     </div>
 </div>
     {% endif %}
 {% endfor %}
+{# mastodon coming-soon stub (live_browser, not yet fully supported) #}
+{% for name, status in dashboard_channels %}
+    {% if name not in _carded_channels and status.auth_type == 'live_browser' %}
+<div class="card channel-card channel-card--coming-soon">
+    <div class="card-header p-0">
+        <button type="button" class="channel-toggle" disabled
+                aria-expanded="false">
+            <span>{{ name }}</span>
+            <span class="badges">
+                <span class="badge-status neutral">即將支持</span>
+                {% if status.dofollow == True %}
+                <span class="badge-dofollow good" title="dofollow">dofollow</span>
+                {% elif status.dofollow == False %}
+                <span class="badge-dofollow weak" title="nofollow">nofollow</span>
+                {% endif %}
+            </span>
+        </button>
+    </div>
+</div>
+    {% endif %}
+{% endfor %}
+{% endif %}

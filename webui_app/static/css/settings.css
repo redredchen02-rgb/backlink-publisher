@@ -317,3 +317,54 @@
         .btn-inline-left { margin-left:8px; }
         .config-path-text { font-size:13px; }
         .badge-dofollow.unknown { background:#fef9c3; color:#854d0e; }
+
+        /* ── Plan 2026-06-12-002: Tier grouping UX ────────────────── */
+        .tier-section { margin-bottom: 32px; }
+        .tier-subhead-channels {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 12px; padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .tier-key-chip {
+            display: inline-block; font-size: 11px; font-weight: 700;
+            padding: 2px 7px; border-radius: 4px; letter-spacing: 0.03em;
+        }
+        .tier-chip-tier-1 { background: #d1fae5; color: #065f46; }
+        .tier-chip-tier-2 { background: #dbeafe; color: #1e40af; }
+        .tier-chip-tier-3 { background: #ede9fe; color: #5b21b6; }
+        .tier-subhead-channels .tier-label { font-weight: 600; font-size: 14px; color: #1e293b; }
+        .tier-subhead-channels .tier-subtitle { font-size: 12px; color: #64748b; }
+        .channel-card--anon { border-left: 3px solid #10b981; }
+        .badge-anon-ready {
+            font-size: 11px; background: #d1fae5; color: #065f46;
+            border: 1px solid #6ee7b7; padding: 2px 8px;
+        }
+        .channel-card--coming-soon { opacity: 0.55; }
+        .channel-card--coming-soon .channel-toggle { cursor: not-allowed; }
+        .sidebar-tier-group { margin-bottom: 4px; }
+        .sidebar-tier-label {
+            display: flex; align-items: center; gap: 5px;
+            padding: 4px 8px 2px; font-size: 11px; font-weight: 600;
+            color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em;
+            pointer-events: none; user-select: none;
+        }
+        .tier-chip-sidebar {
+            display: inline-block; font-size: 10px; font-weight: 700;
+            padding: 1px 5px; border-radius: 3px; letter-spacing: 0.02em;
+        }
+        .tier-chip-t1 { background: #d1fae5; color: #065f46; }
+        .tier-chip-t2 { background: #dbeafe; color: #1e40af; }
+        .tier-chip-t3 { background: #ede9fe; color: #5b21b6; }
+        .sidebar-tier-count { margin-left: auto; font-size: 10px; color: #cbd5e1; font-weight: 500; }
+        .sidebar-item--t1 { position: relative; }
+        .sidebar-t1-dot {
+            display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+            background: #10b981; margin-right: 6px; flex-shrink: 0;
+        }
+        .sidebar-item--all-channels { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+        .cold-start-t1-cta {
+            display: flex; align-items: center; gap: 6px;
+            background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;
+            padding: 8px 12px; font-size: 13px; color: #166534; margin-bottom: 10px;
+        }
+        .cold-start-t1-cta i { color: #10b981; font-size: 14px; flex-shrink: 0; }

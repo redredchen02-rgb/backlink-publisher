@@ -17,9 +17,22 @@
     ``_carded_channels`` gates the "Configure ↓" anchor so cardless channels
     never render a dead link. Card calls stay inline (not wrapped in a local
     macro) because Jinja macros do not inherit ``binding_channels`` from the
-    include context. #}
+    include context.
+
+    Plan 2026-06-12-002 R10/R11: cold-start T1 CTA + aligned tier display text. #}
 {% from '_channel_card_macro.html' import dashboard_channel_card %}
 {%- set _carded_channels = ['blogger', 'medium', 'velog', 'ghpages', 'devto', 'notion'] %}
+{#- R11: tier display text aligned with config section #}
+{%- set _tier_labels = {
+    'tier-1': '開箱即用',
+    'tier-2': '填入憑證即自動',
+    'tier-3': '瀏覽器登入'
+} %}
+{%- set _tier_subtitles = {
+    'tier-1': '無需任何帳號，點下方任一渠道即可試發布',
+    'tier-2': '一次設置，後續全自動',
+    'tier-3': '完成一次手動登入後自動發布'
+} %}
 {% if dashboard_partition %}
 {%- set p = dashboard_partition %}
 
@@ -38,9 +51,17 @@
     {% if _show_tier_heads %}
     <div class="main-tier-subhead">
       <span class="tier-key-chip tier-chip-{{ g.key }}">{{ g.key | replace('tier-', 'T') }}</span>
-      <span class="tier-label">{{ g.label }}</span>
+      <span class="tier-label">{{ _tier_labels.get(g.key, g.label) }}</span>
       <span class="tier-count">{{ g.channels | length }}</span>
-      <span class="tier-subtitle">{{ g.subtitle }}</span>
+      <span class="tier-subtitle">{{ _tier_subtitles.get(g.key, g.subtitle) }}</span>
+    </div>
+    {% endif %}
+    {#- R10: cold start + T1 → show trial publish CTA hint above cards #}
+    {% if p.cold_start and g.key == 'tier-1' %}
+    <div class="cold-start-t1-cta" role="note">
+      <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+      <strong>立即試發布</strong>
+      <span>— 點擊下方任一渠道卡，展開後按「試發布」即可測試外鏈發布。</span>
     </div>
     {% endif %}
     {% for name, status, needs_reconnect in g.channels %}
