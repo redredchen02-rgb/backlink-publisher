@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-12
+
+### Added
+
+- Glass/Gradient dark theme foundation: CSS design token system (`tokens.css`), full-page dark background with animated gradient orbs, pipeline wizard in glass card style.
+- Settings page tier-grouped channel UX: T1 (免綁定/anon) channels surfaced at top with green badge + 試發布 CTA button; T2 (credentials) sorted bound-first; T3 (browser) with coming-soon stubs. Sidebar gains T1/T2/T3 sub-groups with channel counts.
+- Cold-start T1 overview banner: when only anon channels are bound, the overview panel shows a prominent "立即試發布" hint above the channel cards.
+- Command Center UI refresh: glassmorphism health chips, subsystem cards, and friendlier error messages (Python path noise stripped from displayed errors).
+- Equity status now derives from `OptimizationState` instead of the removed `ledger_store`.
+
+### Changed
+
+- History panel: glass-style rows, dark badge variants, filter chips, and empty-state illustration.
+- Batch publish panel: glass cards, CTA shine animation, completion indicator.
+- Settings sidebar: gradient active-bar indicator, dark badge and card polish.
+- URL input group and config sections: glass background with token-based borders.
+- Focus ring and form control polish applied across all WebUI pages.
+- `schedule.css` wrapped in `@supports` guard for safe cross-browser loading.
+
 ## [0.3.1] - 2026-06-04
 
 ### Added

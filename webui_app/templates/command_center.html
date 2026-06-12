@@ -24,19 +24,19 @@
     border: 1.5px solid transparent;
     white-space: nowrap;
 }
-.cc-chip--ok     { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
-.cc-chip--warn   { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-.cc-chip--error  { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-.cc-chip--muted  { background: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
+.cc-chip--ok     { background: rgba(16,185,129,0.18); color: #6ee7b7; border-color: rgba(16,185,129,0.45); }
+.cc-chip--warn   { background: rgba(245,158,11,0.18); color: #fcd34d; border-color: rgba(245,158,11,0.45); }
+.cc-chip--error  { background: rgba(239,68,68,0.20);  color: #fca5a5; border-color: rgba(239,68,68,0.50); }
+.cc-chip--muted  { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); border-color: rgba(255,255,255,0.18); }
 .cc-chip__dot {
     width: 8px; height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
 }
-.cc-chip--ok    .cc-chip__dot { background: #059669; }
-.cc-chip--warn  .cc-chip__dot { background: #d97706; }
-.cc-chip--error .cc-chip__dot { background: #dc2626; }
-.cc-chip--muted .cc-chip__dot { background: #9ca3af; }
+.cc-chip--ok    .cc-chip__dot { background: #34d399; }
+.cc-chip--warn  .cc-chip__dot { background: #fbbf24; }
+.cc-chip--error .cc-chip__dot { background: #f87171; }
+.cc-chip--muted .cc-chip__dot { background: rgba(255,255,255,0.35); }
 
 /* ── Card grid ───────────────────────────────────────────────────────── */
 .cc-grid {
@@ -75,11 +75,11 @@
     font-size: 1rem;
     flex-shrink: 0;
 }
-.cc-card__icon--blue   { background: #eff6ff; color: #2563eb; }
-.cc-card__icon--green  { background: #f0fdf4; color: #16a34a; }
-.cc-card__icon--purple { background: #f5f3ff; color: #7c3aed; }
-.cc-card__icon--amber  { background: #fffbeb; color: #d97706; }
-.cc-card__icon--gray   { background: #f9fafb; color: #6b7280; }
+.cc-card__icon--blue   { background: rgba(59,130,246,0.22); color: #93c5fd; }
+.cc-card__icon--green  { background: rgba(16,185,129,0.22); color: #6ee7b7; }
+.cc-card__icon--purple { background: rgba(124,58,237,0.22); color: #c4b5fd; }
+.cc-card__icon--amber  { background: rgba(245,158,11,0.22); color: #fcd34d; }
+.cc-card__icon--gray   { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.60); }
 .cc-card__title {
     font-size: .95rem;
     font-weight: 600;
@@ -118,7 +118,7 @@
 .cc-progress {
     height: 8px;
     border-radius: 999px;
-    background: #f3f4f6;
+    background: rgba(255,255,255,0.12);
     overflow: hidden;
     margin: .5rem 0 .75rem;
 }
@@ -175,10 +175,10 @@
     gap: .5rem;
     padding: .6rem .75rem;
     border-radius: 8px;
-    background: #fff5f5;
-    border: 1px solid #fca5a5;
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.40);
     font-size: .82rem;
-    color: #991b1b;
+    color: #fca5a5;
 }
 .cc-error-notice i { flex-shrink: 0; margin-top: .1rem; }
 
@@ -192,9 +192,9 @@
     font-size: .75rem;
     font-weight: 600;
 }
-.cc-badge--running { background: #fef3c7; color: #92400e; }
-.cc-badge--done    { background: #d1fae5; color: #065f46; }
-.cc-badge--error   { background: #fee2e2; color: #991b1b; }
+.cc-badge--running { background: rgba(245,158,11,0.22); color: #fcd34d; }
+.cc-badge--done    { background: rgba(16,185,129,0.22); color: #6ee7b7; }
+.cc-badge--error   { background: rgba(239,68,68,0.22);  color: #fca5a5; }
 
 /* ── Pipeline card (full-width) ─────────────────────────────────────── */
 .cc-pipeline-card {
