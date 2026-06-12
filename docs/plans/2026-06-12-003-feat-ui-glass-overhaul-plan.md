@@ -1,7 +1,7 @@
 ---
 title: "feat: WebUI Glass/Gradient Visual Overhaul"
 type: feat
-status: active
+status: completed
 date: 2026-06-12
 deepened: 2026-06-12
 origin: docs/brainstorms/2026-06-12-ui-glass-overhaul-requirements.md
