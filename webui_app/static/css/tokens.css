@@ -112,3 +112,46 @@ body {
     outline: none;
     box-shadow: var(--focus-ring);
 }
+
+/* Global dark-glass overrides — apply to all pages that use base.html. */
+
+/* btn-outline-secondary: replace Bootstrap's light-mode gray with glass-dark style */
+.btn-outline-secondary {
+    border-color: rgba(255, 255, 255, 0.22) !important;
+    color: rgba(255, 255, 255, 0.70) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+    background: rgba(255, 255, 255, 0.14) !important;
+    border-color: rgba(255, 255, 255, 0.40) !important;
+    color: #fff !important;
+}
+
+/* alert-warning: muted amber glass instead of Bootstrap's bright yellow */
+.alert-warning {
+    background: rgba(245, 158, 11, 0.15) !important;
+    border-color: rgba(245, 158, 11, 0.35) !important;
+    color: #fcd34d !important;
+}
+.alert-warning strong { color: inherit !important; }
+.alert-warning code {
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    padding: .1em .35em;
+    border-radius: 4px;
+}
+
+/* alert-danger: muted red glass */
+.alert-danger {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+    color: #fca5a5 !important;
+}
+.alert-danger strong { color: inherit !important; }
+.alert-danger code {
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    padding: .1em .35em;
+    border-radius: 4px;
+}
