@@ -16,12 +16,13 @@
 .cc-chip {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: .5rem 1rem;
+    gap: .4rem;
+    padding: .3rem .7rem;
     border-radius: 999px;
-    font-size: .85rem;
+    font-size: .78rem;
     font-weight: 600;
     border: 1.5px solid transparent;
+    white-space: nowrap;
 }
 .cc-chip--ok     { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
 .cc-chip--warn   { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
@@ -396,6 +397,12 @@
                 </span>
             </div>
             {% endif %}
+
+            <div class="cc-actions">
+                <a href="/" class="cc-btn cc-btn--outline">
+                    <i class="bi bi-plus-circle"></i> 發布
+                </a>
+            </div>
         </div>
 
         {# ── Equity card ─────────────────────────────────────────────── #}
