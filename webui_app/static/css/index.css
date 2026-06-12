@@ -501,24 +501,28 @@
             padding: 16px;
             border-radius: 12px;
             margin-bottom: 12px;
-            background: #f9fafb;
+            background: var(--glass-bg-fallback);
+            border: 1px solid var(--glass-border);
             border-left: 4px solid var(--primary);
             cursor: pointer;
-            transition: all 0.3s;
+            transition: transform 200ms ease, box-shadow 200ms ease;
         }
-        
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+            .history-item {
+                background: rgba(255,255,255,0.06);
+                -webkit-backdrop-filter: blur(10px);
+                backdrop-filter: blur(10px);
+            }
+        }
+
         .history-item:hover {
             transform: translateX(4px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-        
-        .history-item.success {
-            border-left-color: var(--success);
-        }
-        
-        .history-item.failed {
-            border-left-color: var(--danger);
-        }
+
+        .history-item.success { border-left-color: var(--success); }
+        .history-item.failed  { border-left-color: var(--danger); }
 
         .filter-bar {
             display: flex;
@@ -529,7 +533,7 @@
             font-size: 12px;
         }
         .filter-bar .filter-bar-label {
-            color: var(--secondary);
+            color: var(--text-secondary);
             margin-right: 4px;
             font-weight: 500;
         }
@@ -539,16 +543,17 @@
             gap: 6px;
             padding: 4px 10px;
             border-radius: 999px;
-            border: 1px solid #d1d5db;
-            background: white;
-            color: var(--secondary);
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.06);
+            color: var(--text-secondary);
             font-size: 12px;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
         }
         .filter-chip:hover {
             border-color: var(--primary);
-            color: var(--primary);
+            color: var(--text-primary);
+            background: rgba(79,70,229,0.12);
         }
         .filter-chip.active {
             background: var(--primary);
@@ -556,7 +561,7 @@
             color: white;
         }
         .filter-chip .chip-count {
-            background: rgba(0,0,0,0.08);
+            background: rgba(255,255,255,0.12);
             border-radius: 999px;
             padding: 0 6px;
             font-size: 11px;
@@ -570,7 +575,23 @@
         #historyEmptyFiltered {
             text-align: center;
             padding: 40px;
-            color: var(--secondary);
+            color: var(--text-secondary);
+        }
+
+        .history-empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        .history-empty-state__icon {
+            font-size: 56px;
+            opacity: 0.35;
+            display: block;
+            margin-bottom: 12px;
+        }
+        .history-empty-state__text {
+            font-size: 15px;
+            margin: 0;
         }
 
         /* Plan 2026-05-19-006 — bulk operations UI */
@@ -580,14 +601,14 @@
             gap: 10px;
             padding: 10px 14px;
             margin: 0 0 14px 0;
-            background: #eef2ff;
-            border: 1px solid #c7d2fe;
+            background: rgba(79,70,229,0.12);
+            border: 1px solid rgba(99,102,241,0.3);
             border-radius: 10px;
             flex-wrap: wrap;
             font-size: 13px;
         }
         .bulk-action-bar .bulk-action-label {
-            color: var(--secondary);
+            color: var(--text-secondary);
             font-weight: 500;
             margin-right: 4px;
         }
@@ -607,11 +628,10 @@
         }
         .history-item.unverified {
             border-left-color: var(--warning);
-            background: #fffbeb;
         }
         .status-badge.unverified {
-            background: #fef3c7;
-            color: #92400e;
+            background: rgba(245,158,11,0.2);
+            color: #fde68a;
         }
 
         .editor-container {
@@ -693,18 +713,18 @@
         }
         
         .status-badge.success {
-            background: #d1fae5;
-            color: #065f46;
+            background: rgba(16,185,129,0.2);
+            color: #6ee7b7;
         }
-        
+
         .status-badge.error {
-            background: #fee2e2;
-            color: #991b1b;
+            background: rgba(239,68,68,0.2);
+            color: #fca5a5;
         }
-        
+
         .status-badge.pending {
-            background: #fef3c7;
-            color: #92400e;
+            background: rgba(245,158,11,0.2);
+            color: #fde68a;
         }
 
         /* Per-target dofollow sub-badge (R6): smaller than the page-wide status
