@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from flask import Blueprint, jsonify, request
 
 from backlink_publisher._util.errors import UsageError
@@ -7,6 +9,13 @@ from ..helpers.contexts import _render
 from ..services.keepalive_job import registry as keepalive_registry
 
 bp = Blueprint("command_center", __name__)
+
+
+def _friendly_error(msg: str) -> str:
+    """Truncate noisy Python paths from error messages."""
+    msg = re.sub(r"\([^)]*\.py[^)]*\)", "", msg)
+    msg = re.sub(r"/[^\s]+\.py", "", msg)
+    return msg.strip().rstrip(",").strip()
 
 
 def _collect_subsystem_status():
@@ -29,7 +38,7 @@ def _collect_subsystem_status():
             "unknown": view.get("unknown_count", 0),
         }
     except Exception as exc:
-        result["keepalive"] = {"error": str(exc)}
+        result["keepalive"] = {"error": _friendly_error(str(exc))}
 
     # ── running jobs ────────────────────────────────────────────────────
     jobs = []
@@ -40,16 +49,21 @@ def _collect_subsystem_status():
                 jobs.append(j)
         result["jobs"] = jobs
     except Exception as exc:
-        result["jobs"] = {"error": str(exc)}
+        result["jobs"] = {"error": _friendly_error(str(exc))}
 
-    # ── equity ledger ───────────────────────────────────────────────────
+    # ── equity — derived from optimization state (no ledger_store) ──────
     try:
-        from webui_store import ledger_store
-        rows = list(ledger_store.query("SELECT COUNT(*) as cnt FROM ledger"))
-        total = rows[0]["cnt"] if rows else 0
-        result["equity"] = {"total_rows": total}
+        from backlink_publisher.optimization import OptimizationState as _OS
+        _eq_state = _OS()
+        _eq_summary = _eq_state.to_summary()
+        platforms = _eq_summary.get("platforms", [])
+        low_weight = [p for p in platforms if (p.get("weight") or 0) < 0.3]
+        result["equity"] = {
+            "total_rows": len(platforms),
+            "low_weight_count": len(low_weight),
+        }
     except Exception as exc:
-        result["equity"] = {"error": str(exc)}
+        result["equity"] = {"error": _friendly_error(str(exc))}
 
     # ── optimization state ──────────────────────────────────────────────
     try:
@@ -61,21 +75,22 @@ def _collect_subsystem_status():
             "platforms": summary.get("platforms", []),
         }
     except Exception as exc:
-        result["optimization"] = {"error": str(exc)}
+        result["optimization"] = {"error": _friendly_error(str(exc))}
 
     # ── history (recent publish count) ──────────────────────────────────
     try:
         from webui_store import history_store
-        hist = history_store.get()
         from datetime import datetime, timezone, timedelta
+        hist = history_store.load()
         cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         recent = sum(
             1 for h in hist
-            if h.get("verified_at") and isinstance(h.get("verified_at"), str)
+            if h.get("published_at") and isinstance(h.get("published_at"), str)
+            and h["published_at"] >= cutoff.isoformat()[:10]
         )
         result["history"] = {"total": len(hist), "recent_24h": recent}
     except Exception as exc:
-        result["history"] = {"error": str(exc)}
+        result["history"] = {"error": _friendly_error(str(exc))}
 
     return result
 

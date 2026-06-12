@@ -1,5 +1,6 @@
 {# Settings sidebar tree — rendered upfront; JS toggles pane visibility via data-pane.
-   Zero inline on* handlers — settings.js uses data-action delegation. #}
+   Zero inline on* handlers — settings.js uses data-action delegation.
+   Plan 2026-06-12-002: 发布渠道 group split into T1/T2/T3 tier sub-groups. #}
 <aside class="settings-sidebar">
     <div class="sidebar-group">
         <button class="sidebar-item" data-pane="dashboard" data-action="sidebar-nav">
@@ -10,14 +11,76 @@
     <div class="sidebar-group">
         <span class="sidebar-group__label">发布渠道</span>
         {% if dashboard_channels %}
-            <button class="sidebar-item sidebar-item--all-channels" data-pane="channels" data-action="sidebar-nav">
-                <i class="bi bi-list-ul"></i> 全部渠道
+
+        {# ── Count helpers ─────────────────────────────────────── #}
+        {% set ns1 = namespace(count=0) %}
+        {% for name, status in dashboard_channels if status.auth_type == 'anon' %}
+            {% set ns1.count = ns1.count + 1 %}
+        {% endfor %}
+
+        {% set ns2 = namespace(count=0) %}
+        {% for name, status in dashboard_channels if status.auth_type in ('token', 'token_fields', 'oauth', 'userpass') %}
+            {% set ns2.count = ns2.count + 1 %}
+        {% endfor %}
+
+        {% set ns3 = namespace(count=0) %}
+        {% for name, status in dashboard_channels if status.auth_type in ('paste_blob', 'live_browser') %}
+            {% set ns3.count = ns3.count + 1 %}
+        {% endfor %}
+
+        {# ── All Channels shortcut ─────────────────────────────── #}
+        <button class="sidebar-item sidebar-item--all-channels" data-pane="channels" data-action="sidebar-nav">
+            <i class="bi bi-list-ul"></i> 全部渠道
+        </button>
+
+        {# ── T1: 免綁定 ────────────────────────────────────────── #}
+        {% if ns1.count > 0 %}
+        <div class="sidebar-tier-group">
+            <span class="sidebar-tier-label sidebar-tier-label--t1">
+                <span class="tier-chip-sidebar tier-chip-t1">T1</span>
+                免綁定
+                <span class="sidebar-tier-count">{{ ns1.count }}</span>
+            </span>
+            {% for name, status in dashboard_channels if status.auth_type == 'anon' %}
+            <button class="sidebar-item sidebar-item--t1" data-pane="channel--{{ name }}" data-action="sidebar-nav">
+                <span class="sidebar-t1-dot" aria-hidden="true"></span>{{ name }}
             </button>
-            {% for name, status in dashboard_channels %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# ── T2: 填憑證 ────────────────────────────────────────── #}
+        {% if ns2.count > 0 %}
+        <div class="sidebar-tier-group">
+            <span class="sidebar-tier-label sidebar-tier-label--t2">
+                <span class="tier-chip-sidebar tier-chip-t2">T2</span>
+                填憑證
+                <span class="sidebar-tier-count">{{ ns2.count }}</span>
+            </span>
+            {% for name, status in dashboard_channels if status.auth_type in ('token', 'token_fields', 'oauth', 'userpass') %}
             <button class="sidebar-item" data-pane="channel--{{ name }}" data-action="sidebar-nav">
                 {{ name }}
             </button>
             {% endfor %}
+        </div>
+        {% endif %}
+
+        {# ── T3: 瀏覽器 ────────────────────────────────────────── #}
+        {% if ns3.count > 0 %}
+        <div class="sidebar-tier-group">
+            <span class="sidebar-tier-label sidebar-tier-label--t3">
+                <span class="tier-chip-sidebar tier-chip-t3">T3</span>
+                瀏覽器
+                <span class="sidebar-tier-count">{{ ns3.count }}</span>
+            </span>
+            {% for name, status in dashboard_channels if status.auth_type in ('paste_blob', 'live_browser') %}
+            <button class="sidebar-item" data-pane="channel--{{ name }}" data-action="sidebar-nav">
+                {{ name }}
+            </button>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         {% else %}
             <span class="sidebar-item disabled">（暂无渠道）</span>
         {% endif %}
