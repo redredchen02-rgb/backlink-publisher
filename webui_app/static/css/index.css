@@ -136,22 +136,23 @@
         }
         
         .url-input-group {
-            background: #fdf6e3;
+            background: rgba(245,158,11,0.06);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
-            border: 2px dashed #f59e0b33;
+            border: 2px dashed rgba(245,158,11,0.25);
         }
-        
+
         .url-item {
             display: flex;
             align-items: center;
             gap: 12px;
             margin-bottom: 12px;
-            background: white;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid var(--glass-border);
             padding: 12px;
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         
         .url-badge {
@@ -189,29 +190,30 @@
         }
         
         .config-section {
-            background: #f9fafb;
+            background: rgba(255,255,255,0.04);
             border-radius: 12px;
             padding: 20px;
             margin-top: 20px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--glass-border);
         }
-        
+
         .config-section h5 {
-            color: var(--dark);
+            color: var(--text-primary);
             margin-bottom: 16px;
             font-weight: 600;
         }
         
         .info-box {
-            background: #dbeafe;
+            background: rgba(59,130,246,0.12);
             border-radius: 12px;
             padding: 16px;
             margin: 16px 0;
+            border: 1px solid rgba(59,130,246,0.3);
             border-left: 4px solid var(--info);
         }
-        
+
         .info-box h6 {
-            color: var(--info);
+            color: #93c5fd;
             margin-bottom: 8px;
         }
         
@@ -867,18 +869,18 @@
         /* ── Pipeline Wizard chips ── */
         .wizard-chip {
             display: flex; align-items: center; gap: 10px;
-            padding: 10px 16px; background: #f0fdf4;
-            border: 1px solid #bbf7d0; border-radius: 12px;
+            padding: 10px 16px; background: rgba(16,185,129,0.08);
+            border: 1px solid rgba(16,185,129,0.25); border-radius: 12px;
             margin-bottom: 8px; cursor: pointer;
             transition: background 0.15s, border-color 0.15s;
             user-select: none; color: inherit; text-decoration: none;
         }
-        .wizard-chip:hover { background: #dcfce7; border-color: #86efac; }
+        .wizard-chip:hover { background: rgba(16,185,129,0.14); border-color: rgba(16,185,129,0.45); }
         .wizard-chip-check { color: var(--success); font-size: 15px; flex-shrink: 0; }
-        .wizard-chip-label { font-weight: 600; font-size: 13px; color: #065f46; white-space: nowrap; flex-shrink: 0; }
-        .wizard-chip-sep { color: #9ca3af; flex-shrink: 0; }
-        .wizard-chip-summary { font-size: 12px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-        .wizard-chip-toggle { margin-left: auto; color: #6b7280; font-size: 13px; transition: transform 0.2s ease; flex-shrink: 0; }
+        .wizard-chip-label { font-weight: 600; font-size: 13px; color: #6ee7b7; white-space: nowrap; flex-shrink: 0; }
+        .wizard-chip-sep { color: var(--text-secondary); flex-shrink: 0; }
+        .wizard-chip-summary { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+        .wizard-chip-toggle { margin-left: auto; color: var(--text-secondary); font-size: 13px; transition: transform 0.2s ease; flex-shrink: 0; }
         .wizard-chip[aria-expanded="true"] .wizard-chip-toggle { transform: rotate(180deg); }
 
         /* ── Health summary bar (Plan 2026-06-09-001 U3) ── */
