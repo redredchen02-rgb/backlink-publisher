@@ -56,9 +56,22 @@ def _run_g2(cfg, decay_threshold: float | None) -> gv.GateVerdict:
 def _run_g3(args) -> gv.GateVerdict:
     referral = None
     if args.referral_sessions is not None:
+        # Manual override (back-compat): operator-supplied count wins.
         referral = g3_referer.ReferralEvidence(
             sessions=args.referral_sessions, window=args.referral_window
         )
+    else:
+        # Default: read the in-product channel-referral signal from events.db
+        # (latest-per-channel, so repeated referral-attribute runs don't
+        # double-count). Plan 2026-06-15-004 U4.
+        from backlink_publisher.events import EventStore
+        from backlink_publisher.referral.aggregate import total_referral_sessions
+
+        sessions = total_referral_sessions(EventStore())
+        if sessions is not None:
+            referral = g3_referer.ReferralEvidence(
+                sessions=sessions, window="events.db:referral.observed"
+            )
     verdict = g3_referer.assess_g3(
         referral=referral,
         credentials_available=not args.credentials_unavailable,
