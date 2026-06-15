@@ -1,7 +1,7 @@
 ---
 title: "refactor: Extract BaseSqliteStore + RowTableMixin for webui_store"
 type: refactor
-status: active
+status: completed
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-webui-store-base-sqlite-requirements.md
 ---
