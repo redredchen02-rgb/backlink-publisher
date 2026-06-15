@@ -188,6 +188,27 @@ def _record_failure_and_maybe_trip(
         _reset_failures(platform, config)
 
 
+def _record_decision(platform: str, decision: str, mode: str) -> None:
+    """Best-effort: persist a ``reliability.decision`` to events.db (Unit 2).
+
+    Makes observe-mode would-skips and enforce skips queryable for readiness
+    (Unit 4) / the rollout panel (Unit 5). Never raises — events.db faults must
+    not block a publish, mirroring ``emit_attempt``'s never-raise contract. Runs
+    on a fresh ``EventStore`` connection at the dispatch seam (NOT inside a
+    projector reducer transaction), so it cannot trigger the WAL nested-connection
+    deadlock.
+    """
+    try:
+        from backlink_publisher.events.store import EventStore
+        from .events_store import append_reliability_decision
+
+        append_reliability_decision(
+            EventStore(), platform=platform, decision=decision, mode=mode
+        )
+    except Exception:  # noqa: BLE001 — events.db faults never block publishing
+        pass
+
+
 def publish_with_policy(
     platform: str,
     payload: dict[str, Any],
@@ -243,6 +264,7 @@ def publish_with_policy(
 
         if channel_status != "bound":
             if enforcing:
+                _record_decision(platform, "skipped_policy", "enforce")
                 return AdapterResult(
                     status="skipped_policy",
                     adapter="policy",
@@ -254,11 +276,13 @@ def publish_with_policy(
                 platform, Outcome.WOULD_SKIP_POLICY, 0.0,
                 error_class=f"channel_status={channel_status}",
             )
+            _record_decision(platform, "would_skip_policy", "observe")
 
     # 2. Circuit breaker — ALL platforms (Phase 3 U9; fail-CLOSED: corrupt state
     #    → is_tripped returns True). Handles CLOSED, OPEN, and HALF_OPEN states.
     if is_tripped(platform, config):
         if enforcing:
+            _record_decision(platform, "skipped_circuit_open", "enforce")
             return AdapterResult(
                 status="skipped_circuit_open",
                 adapter="policy",
@@ -267,6 +291,7 @@ def publish_with_policy(
             )
         # observe: record the would-be skip, then fall through to dispatch.
         emit_attempt(platform, Outcome.WOULD_SKIP_CIRCUIT, 0.0)
+        _record_decision(platform, "would_skip_circuit", "observe")
 
     # 3. Dispatch + observe + consecutive-failure trip accounting.
     t0 = now_ms()
