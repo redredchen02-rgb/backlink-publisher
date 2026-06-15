@@ -79,6 +79,11 @@ class Publisher(ABC):
     ``available`` to declare environment prerequisites (e.g. macOS-only).
     """
 
+    #: Publish mechanism — "api" (HTTP) or "browser" (Playwright/AppleScript).
+    #: Used by the dispatch transient-fallback gate (Plan 2026-06-15-001 A1) to
+    #: decide same-mechanism vs cross-mechanism fallback. Default "api".
+    mechanism: str = "api"
+
     @abstractmethod
     def publish(
         self,

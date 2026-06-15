@@ -44,6 +44,8 @@ class BrowserPublishDispatcher(Publisher):
     ``AdapterResult``.
     """
 
+    mechanism = "browser"
+
     def __init__(self, channel: str, recipe: BrowserPublishRecipe) -> None:
         if channel != recipe.channel:
             raise ValueError(
