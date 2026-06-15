@@ -249,23 +249,28 @@ def _record_decision(
 def _enforce_circuit_skip(platform: str, config: Config) -> AdapterResult | None:
     """Enforce-mode circuit decision (Plan 2026-06-15-006 U8).
 
-    Returns a ``skipped_circuit_open`` result for a genuine OPEN trip, or ``None``
-    to DEGRADE — when the state file is unreadable/corrupt (not a real trip), the
-    channel dispatches this once + records ``circuit_state_unreadable`` rather than
-    silently skipping every channel. Caller falls through to dispatch on ``None``.
+    Returns a ``skipped_circuit_open`` result ONLY for a genuine OPEN trip. Returns
+    ``None`` (caller falls through to dispatch) otherwise:
+    - ``unreadable`` (corrupt/malformed state) → degrade + record
+      ``circuit_state_unreadable`` (don't silently skip every channel);
+    - ``half-open`` / ``closed`` → the entry cooled down or was reset between the
+      gate's ``is_tripped`` read and this read (a cooldown-boundary straddle); the
+      channel should be allowed through, not skipped.
     """
-    if circuit_status(platform, config) == "unreadable":
+    status = circuit_status(platform, config)
+    if status == "open":
+        _record_decision(platform, "skipped_circuit_open", "enforce")
+        return AdapterResult(
+            status="skipped_circuit_open",
+            adapter="policy",
+            platform=platform,
+            error=f"circuit open for {platform}",
+        )
+    if status == "unreadable":
         _record_decision(
             platform, "circuit_state_unreadable", "enforce", reason="degrade_to_observe"
         )
-        return None
-    _record_decision(platform, "skipped_circuit_open", "enforce")
-    return AdapterResult(
-        status="skipped_circuit_open",
-        adapter="policy",
-        platform=platform,
-        error=f"circuit open for {platform}",
-    )
+    return None
 
 
 def publish_with_policy(

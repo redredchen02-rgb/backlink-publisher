@@ -280,35 +280,44 @@ def circuit_status(platform: str, config: Config) -> str:
 
     Returns ``"closed"`` | ``"open"`` | ``"half_open"`` | ``"unreadable"``.
 
-    ``"unreadable"`` means the state FILE cannot be parsed (corruption) OR a tripped
-    entry lacks a timestamp (malformed/legacy) — a condition distinct from a valid
-    OPEN trip. Under enforce, ``is_tripped`` collapses all of these to "skip"
-    (fail-CLOSED); this accessor lets the policy layer degrade an *unreadable* state
-    to observe (dispatch + loud alert) instead of silently skipping every channel,
-    while still skipping a genuine OPEN trip. Keys on **file-level** parse failure,
-    not on a per-entry timestamp alone. No side effects (no cooldown transition).
+    ``"unreadable"`` means the state FILE cannot be parsed (corruption) OR the
+    platform's entry is malformed (not an object, or tripped without a timestamp) —
+    a condition distinct from a valid OPEN trip. Under enforce, ``is_tripped``
+    collapses all of these to "skip" (fail-CLOSED); this accessor lets the policy
+    layer degrade an *unreadable* state to observe (dispatch + loud alert) instead
+    of silently skipping every channel, while still skipping a genuine OPEN trip.
+    Keys on **file-level** parse failure, not on a per-entry timestamp alone. No
+    side effects (no cooldown transition). Returns ``CircuitState.HALF_OPEN.value``
+    (``"half-open"``, hyphen) for a cooled-down entry.
     """
     state_path = _state_path(config)
     if not state_path.exists():
         return CircuitState.CLOSED.value
     try:
         raw = json.loads(state_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError, ValueError):
-        return "unreadable"
-    entry = raw.get(platform) or {}
-    if not entry.get("tripped", False):
-        return CircuitState.CLOSED.value
-    tripped_at_iso = entry.get("tripped_at_iso")
-    if not tripped_at_iso:
-        return "unreadable"  # tripped sentinel without a timestamp → malformed
-    try:
+        if not isinstance(raw, dict):
+            return "unreadable"  # valid JSON but not an object → corrupt
+        entry = raw.get(platform)
+        if entry is None:
+            return CircuitState.CLOSED.value  # no circuit entry → never tripped
+        if not isinstance(entry, dict):
+            return "unreadable"  # malformed per-platform entry
+        if not entry.get("tripped", False):
+            return CircuitState.CLOSED.value
+        tripped_at_iso = entry.get("tripped_at_iso")
+        if not tripped_at_iso:
+            return "unreadable"  # tripped sentinel without a timestamp → malformed
         tripped_at = datetime.fromisoformat(tripped_at_iso).timestamp()
-    except (ValueError, TypeError):
+        if time.time() - tripped_at >= _cooldown_s():
+            return CircuitState.HALF_OPEN.value  # cooldown elapsed — recovery window
+        cur = entry.get("state", CircuitState.OPEN.value)
+        return (
+            CircuitState.OPEN.value
+            if cur == CircuitState.OPEN.value
+            else CircuitState.HALF_OPEN.value
+        )
+    except (json.JSONDecodeError, OSError, ValueError, TypeError, AttributeError):
         return "unreadable"
-    if time.time() - tripped_at >= _cooldown_s():
-        return CircuitState.HALF_OPEN.value  # cooldown elapsed — recovery window
-    cur = entry.get("state", CircuitState.OPEN.value)
-    return CircuitState.OPEN.value if cur == CircuitState.OPEN.value else CircuitState.HALF_OPEN.value
 
 
 def trip(platform: str, config: Config) -> None:

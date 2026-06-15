@@ -86,6 +86,41 @@ def test_circuit_status_unreadable_for_tripped_without_timestamp(cfg, tmp_path):
     assert circuit_status("medium", cfg) == "unreadable"
 
 
+@pytest.mark.parametrize("blob", ["null", "[]", "42", '"a string"'])
+def test_circuit_status_unreadable_for_non_object_json(cfg, tmp_path, blob):
+    """Valid JSON that is not an object must not crash — it is unreadable."""
+    (tmp_path / _STATE_FILE).write_text(blob, encoding="utf-8")
+    assert circuit_status("medium", cfg) == "unreadable"
+
+
+def test_circuit_status_closed_for_healthy_file_without_entry(cfg, tmp_path):
+    """A well-formed state file with no entry for this platform → closed (not unreadable)."""
+    (tmp_path / _STATE_FILE).write_text(json.dumps({"velog": {"tripped": False}}), encoding="utf-8")
+    assert circuit_status("medium", cfg) == "closed"
+
+
+def test_circuit_status_unreadable_for_non_dict_entry(cfg, tmp_path):
+    (tmp_path / _STATE_FILE).write_text(json.dumps({"medium": "garbage"}), encoding="utf-8")
+    assert circuit_status("medium", cfg) == "unreadable"
+
+
+@pytest.mark.parametrize(
+    "status,expect_skip",
+    [("open", True), ("unreadable", False), ("half-open", False), ("closed", False)],
+)
+def test_enforce_circuit_skip_only_skips_on_open(cfg, status, expect_skip):
+    """Cooldown-straddle race: a half-open/closed status (entry cooled down between
+    the gate read and this read) must NOT skip — only a genuine OPEN does."""
+    from backlink_publisher.publishing.reliability import policy as _policy
+
+    with patch.object(_policy, "circuit_status", return_value=status):
+        result = _policy._enforce_circuit_skip("medium", cfg)
+    if expect_skip:
+        assert result is not None and result.status == "skipped_circuit_open"
+    else:
+        assert result is None  # degrade / proceed to dispatch
+
+
 # ── enforce degrade vs skip ──────────────────────────────────────────────────
 
 def test_enforce_unreadable_degrades_to_observe(cfg, tmp_path):
