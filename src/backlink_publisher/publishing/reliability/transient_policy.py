@@ -1,12 +1,15 @@
 """Transient-error fallback classification (Plan 2026-06-15-001, Unit A2).
 
-GROUNDWORK ONLY — this module decides *whether* a transient publish failure is
-safe to fall back to the next same-platform adapter. It is intentionally NOT yet
-wired into ``_registry_dispatch.dispatch()``: an addressable-set investigation
-(plan §Open Questions, resolved 2026-06-15) found ZERO adapter transitions that
-qualify today, so the dispatch fallback arm is deferred. The classifier, the two
-empty evidence-gated whitelists, and the provenance marker land now so the lever
-can be switched on later with a single whitelist entry once evidence exists.
+This module decides *whether* a transient publish failure is safe to fall back
+to the next same-platform adapter. It IS wired into
+``_registry_dispatch.dispatch()``, which imports :func:`classify_transient` and
+calls it at each fallback edge: an ``ExternalServiceError`` from one adapter is
+held pending and re-decided against the next available adapter (FAIL_FAST
+re-raises it; FALLBACK_SAFE degrades to the candidate). The first qualifying
+transition is now whitelisted — ``MediumAPIAdapter -> MediumBraveAdapter`` (see
+:data:`CROSS_MECHANISM_FALLBACK`) — while the 5xx whitelist
+(:data:`IDEMPOTENCY_SAFE_5XX`) still ships empty. Each new transition stays gated
+behind a single evidence-backed whitelist entry.
 
 Safety model (preserves R2 — never create a duplicate live link):
 
@@ -21,7 +24,7 @@ Safety model (preserves R2 — never create a duplicate live link):
 3. Falling to a *different publish mechanism on the same account* (e.g. an API
    adapter -> a browser adapter for the same platform) is materially riskier than
    falling between two same-mechanism adapters and is held to a separate gate:
-   :data:`CROSS_MECHANISM_FALLBACK` (ships empty). Default fail-fast on both.
+   :data:`CROSS_MECHANISM_FALLBACK` (one whitelisted transition). Default fail-fast on both.
 4. ``AntiBotChallengeError`` (a subclass of ``ExternalServiceError``) and network
    errors are never fallback-safe — checked most-derived-type first.
 """
@@ -43,9 +46,11 @@ from ..adapters.retry import ErrorClass, classify_exception
 # it never collides with exception ``args``/``message``.
 _PRE_CREATE_429_ATTR = "_blp_pre_create_429"
 
-# --- Evidence-gated whitelists. BOTH ship EMPTY. ---------------------------------
-# A platform/transition is added ONLY after confirming the error cannot leave a
-# partially-created post (plan §Key Technical Decisions). Default fail-fast.
+# --- Evidence-gated whitelists. ------------------------------------------------
+# IDEMPOTENCY_SAFE_5XX ships EMPTY; CROSS_MECHANISM_FALLBACK has ONE whitelisted
+# transition (see each definition below). A platform/transition is added ONLY
+# after confirming the error cannot leave a partially-created post
+# (plan §Key Technical Decisions). Default fail-fast.
 
 #: Platforms whose 5xx on a create POST is proven idempotency-safe to fall back on.
 IDEMPOTENCY_SAFE_5XX: frozenset[str] = frozenset()
