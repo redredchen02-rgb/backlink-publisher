@@ -76,6 +76,14 @@ RECONCILE_SWALLOWED: Final = "reconcile.swallowed"
 #: existing ``click_track`` GA4 path. Pure-read attribution: nothing in the
 #: publish pipeline changes, so the dofollow backlink is preserved.
 REFERRAL_OBSERVED: Final = "referral.observed"
+#: Reliability policy decision (Plan 2026-06-15-006 observe→enforce, Unit 2).
+#: Written directly by ``publishing.reliability.policy`` via ``EventStore.append``
+#: — NOT through the projector, so it has no Seam B (STATUS_MAP) entry. Carries
+#: the policy-layer decision in ``payload["decision"]`` (would_skip_* in observe,
+#: skipped_* in enforce, degraded / circuit_state_unreadable for the alert path).
+#: This makes observe-mode decisions queryable (``emit_attempt`` is logger-only)
+#: so readiness (Unit 4) and the rollout panel (Unit 5) have a real data source.
+RELIABILITY_DECISION: Final = "reliability.decision"
 
 #: Every kind ever written to events.db. The R8a CI gate asserts no writer
 #: emits a kind outside this set.
@@ -101,6 +109,7 @@ KINDS: Final[frozenset[str]] = frozenset(
         LINK_RECHECKED,
         RECONCILE_SWALLOWED,
         REFERRAL_OBSERVED,
+        RELIABILITY_DECISION,
     }
 )
 
@@ -167,6 +176,11 @@ REQUIRED_FIELDS: Final[dict[str, frozenset[str]]] = {
     # sessions per channel. sessions/window are enrichment (a channel with zero
     # referral may legitimately omit them).
     REFERRAL_OBSERVED: frozenset({"channel"}),
+    # platform + decision are the load-bearing pair: readiness (Unit 4) groups
+    # would_skip counts by platform, and decision discriminates the six policy
+    # outcomes. mode/reason are enrichment. The closed decision vocabulary is
+    # value-validated in reliability.events_store (the floor is presence-only).
+    RELIABILITY_DECISION: frozenset({"platform", "decision"}),
 }
 
 

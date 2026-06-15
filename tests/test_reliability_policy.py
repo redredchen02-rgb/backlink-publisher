@@ -31,6 +31,9 @@ def cfg(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     monkeypatch.setenv("BACKLINK_PUBLISHER_CIRCUIT_COOLDOWN_S", "300")
     monkeypatch.setenv("BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED", "1")
+    # Enforce is per-channel (U7): allowlist the channel these tests exercise so
+    # enforce actually skips. Without this, enforce mode falls back to observe.
+    monkeypatch.setenv("BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS", "medium")
 
     class _Cfg:
         config_dir = tmp_path

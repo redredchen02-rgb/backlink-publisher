@@ -109,8 +109,9 @@ def test_observe_tripped_circuit_dispatches_anyway(cfg):
 
 
 def test_enforce_still_skips_tripped_circuit(cfg, monkeypatch):
-    """Sanity: flipping to enforce restores the hard skip."""
+    """Sanity: flipping to enforce restores the hard skip (channel allowlisted)."""
     monkeypatch.setenv(POLICY_ENV, "enforce")
+    monkeypatch.setenv("BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS", "medium")
     from backlink_publisher.publishing.reliability.circuit import trip
     trip("medium", cfg)
 
