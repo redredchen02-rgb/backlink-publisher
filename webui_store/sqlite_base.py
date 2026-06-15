@@ -12,19 +12,23 @@ Unit 1.
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import sqlite3
 import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, ClassVar, Iterator
 
 from backlink_publisher.events._store_sqlite import (
     _retry_sqlite,
     _set_backup_exclude_xattr,
     _tighten_wal_sidecars,
 )
+
+_log = logging.getLogger(__name__)
 
 #: Filename for the webui operational state database. Kept here rather than
 #: importing ``_DB_FILENAME`` from ``_store_sqlite`` (which is "events.db").
@@ -149,3 +153,220 @@ class SqliteStore(ABC):
         """Redirect the store to a different db file and re-initialise schema."""
         self._db = WebUIDatabase(value)
         self._init_table()
+
+
+class BaseSqliteStore(SqliteStore):
+    """Template base for ``webui.db`` stores — extracts the duplicated skeleton.
+
+    Carries the three pieces every concrete store repeated verbatim:
+
+    1. ``__init__`` — accepts a :class:`WebUIDatabase` *or* a plain
+       :class:`~pathlib.Path` (the latter wrapped automatically, preserving the
+       backward-compat constructor that ``drafts`` / ``campaign`` exposed for
+       file-path callers and tests), then runs ``_init_table()``.
+    2. ``_init_table`` — a template method: subclasses supply
+       ``_create_table_sql()`` (and optionally ``_indices_sql()``); the
+       connect/execute boilerplate lives here.
+    3. ``migrate_from_json`` — the byte-identical one-shot JSON import sequence
+       (sentinel → crash-recovery → read → save → rename → 0o600 → sentinel),
+       parameterised by ``_json_filename`` / ``_sentinel_name`` / ``_value_type``.
+       Stores with no JSON predecessor leave ``_json_filename`` ``None`` and the
+       method is a no-op.
+
+    ``load`` / ``save`` stay abstract: the row-table (DELETE + bulk-insert, with
+    a per-store ``ORDER BY`` and column mirroring) and single-row-blob
+    (``INSERT OR REPLACE``) write shapes differ enough that a single canonical
+    implementation would need more hooks than it saves. ``BlobSqliteStore``
+    below supplies the blob shape; row stores implement their own ``save`` and
+    reuse the ``_load_rows`` / ``_get_one_json`` read helpers.
+    """
+
+    #: JSON predecessor filename in the config dir (``None`` → no migration).
+    _json_filename: ClassVar[str | None] = None
+    #: One-shot migration sentinel filename (``None`` → no migration).
+    _sentinel_name: ClassVar[str | None] = None
+    #: Top-level type of ``load()``'s return value (``list`` or ``dict``). Used
+    #: to coerce imported JSON during migration and as the blob default type.
+    _value_type: ClassVar[type] = dict
+
+    def __init__(self, db: WebUIDatabase | Path) -> None:
+        if not isinstance(db, WebUIDatabase):
+            db = WebUIDatabase(Path(db))
+        super().__init__(db)
+        self._init_table()
+
+    # ── Table creation template ───────────────────────────────────────────
+
+    @abstractmethod
+    def _create_table_sql(self) -> str:
+        """Return the ``CREATE TABLE IF NOT EXISTS …`` statement for this store."""
+        ...
+
+    def _indices_sql(self) -> list[str]:
+        """Return ``CREATE INDEX IF NOT EXISTS …`` statements (default: none)."""
+        return []
+
+    def _init_table(self) -> None:
+        with self._db.connect() as conn:
+            conn.execute(self._create_table_sql())
+            for index_sql in self._indices_sql():
+                conn.execute(index_sql)
+
+    # ── Shared read helpers (row-table stores) ────────────────────────────
+
+    def _load_rows(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+        """Run ``sql`` (selecting a single ``data_json`` column per row) and
+        parse each into a dict, skipping malformed/non-dict rows.
+
+        The shared body of every row-table ``load()``. The caller owns the
+        ``ORDER BY`` (load-bearing and per-store) by passing the full SQL.
+        """
+        def _op() -> list[tuple[Any, ...]]:
+            with self._db.connect() as conn:
+                return conn.execute(sql, params).fetchall()
+
+        rows = _retry_sqlite(_op)
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                item = json.loads(row[0])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(item, dict):
+                result.append(item)
+        return result
+
+    def _get_one_json(self, sql: str, params: tuple[Any, ...]) -> dict | None:
+        """Run ``sql`` (selecting a single ``data_json`` column for one row) and
+        return the parsed dict, or ``None`` if absent/malformed/non-dict.
+
+        The shared body of ``drafts.get_item`` / ``campaign.get``.
+        """
+        def _op() -> tuple[Any, ...] | None:
+            with self._db.connect() as conn:
+                return conn.execute(sql, params).fetchone()
+
+        row = _retry_sqlite(_op)
+        if row is None:
+            return None
+        try:
+            item = json.loads(row[0])
+        except (json.JSONDecodeError, TypeError):
+            return None
+        return item if isinstance(item, dict) else None
+
+    # ── One-shot JSON → SQLite migration (shared sequence) ─────────────────
+
+    def _coerce_migrated(self, data: Any) -> Any:
+        """Coerce imported JSON to ``_value_type`` (preserves the per-store
+        ``data if isinstance(data, list/dict) else default`` guard)."""
+        return data if isinstance(data, self._value_type) else self._value_type()
+
+    def migrate_from_json(self, config_dir: Path) -> None:
+        """One-shot import from the legacy JSON file, if not yet migrated.
+
+        Load-bearing sequence (unchanged from the per-store originals):
+        sentinel-skip → crash-recovery (``.migrated`` present, sentinel absent)
+        → read JSON (corrupt/absent → silent skip, sentinel NOT written so a
+        later-appearing file can still import) → commit to webui.db → rename
+        ``.json`` → chmod ``.json.migrated`` 0o600 → write sentinel.
+
+        No-op for stores without a JSON predecessor (``_json_filename`` unset).
+        """
+        if not self._json_filename or not self._sentinel_name:
+            return
+
+        sentinel = config_dir / self._sentinel_name
+        json_path = config_dir / self._json_filename
+        migrated_path = json_path.with_suffix(".json.migrated")
+
+        if sentinel.exists():
+            return
+
+        # Crash-recovery: rename completed but sentinel not written.
+        if migrated_path.exists() and not sentinel.exists():
+            sentinel.write_text("migrated", encoding="utf-8")
+            return
+
+        if not json_path.exists():
+            return
+
+        try:
+            text = json_path.read_text(encoding="utf-8")
+            data = json.loads(text)
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+            _log.warning(
+                "%s migration: skipping corrupt/unreadable %s",
+                type(self).__name__, json_path,
+            )
+            return
+
+        self.save(self._coerce_migrated(data))
+
+        try:
+            json_path.rename(migrated_path)
+        except OSError as exc:
+            _log.warning("%s migration: rename failed: %s", type(self).__name__, exc)
+            return
+
+        try:
+            os.chmod(migrated_path, 0o600)
+        except OSError:
+            pass
+
+        sentinel.write_text("migrated", encoding="utf-8")
+
+
+class BlobSqliteStore(BaseSqliteStore):
+    """Single-row blob store: the whole value lives in one ``data_json`` row
+    (``id = 1``), replaced wholesale via ``INSERT OR REPLACE``.
+
+    Subclasses set ``_table_name`` and ``_value_type`` (``list`` or ``dict``);
+    everything else — table DDL, ``load`` (with default + corrupt fall-through),
+    ``save`` — is supplied here. ``migrate_from_json`` is inherited from
+    :class:`BaseSqliteStore` (set ``_json_filename`` / ``_sentinel_name`` to
+    enable it).
+    """
+
+    #: Table name for this blob store (class-controlled constant, never user
+    #: input — safe to interpolate into DDL/DML below).
+    _table_name: ClassVar[str]
+
+    def _default(self) -> Any:
+        return self._value_type()
+
+    def _create_table_sql(self) -> str:
+        default_literal = json.dumps(self._default())
+        return (
+            f"CREATE TABLE IF NOT EXISTS {self._table_name} "
+            f"(id INTEGER PRIMARY KEY, data_json TEXT NOT NULL "
+            f"DEFAULT '{default_literal}')"
+        )
+
+    def load(self) -> Any:
+        def _op() -> Any:
+            with self._db.connect() as conn:
+                row = conn.execute(
+                    f"SELECT data_json FROM {self._table_name} WHERE id = 1"
+                ).fetchone()
+            if row is None:
+                return self._default()
+            try:
+                result = json.loads(row[0])
+            except (json.JSONDecodeError, TypeError):
+                return self._default()
+            return result if isinstance(result, self._value_type) else self._default()
+
+        return _retry_sqlite(_op)
+
+    def save(self, value: Any) -> None:
+        with self._lock:
+            def _op() -> None:
+                with self._db.connect() as conn:
+                    conn.execute(
+                        f"INSERT OR REPLACE INTO {self._table_name} "
+                        f"(id, data_json) VALUES (1, ?)",
+                        (json.dumps(value, ensure_ascii=False),),
+                    )
+
+            _retry_sqlite(_op)
