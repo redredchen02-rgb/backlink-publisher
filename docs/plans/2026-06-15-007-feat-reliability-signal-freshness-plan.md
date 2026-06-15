@@ -70,7 +70,7 @@ trustworthy over time*:
 
 ## Implementation Units
 
-- [ ] **Unit 1: coverage-freshness alarm (`publish-metrics --alarm`)**
+- [x] **Unit 1: coverage-freshness alarm (`publish-metrics --alarm`)**
 
 **Goal:** An opt-in flag that makes `publish-metrics` exit 6 when overall
 within-window coverage is below target, so a scheduled job catches the regression.
@@ -102,7 +102,7 @@ Default (no flag) stays exit 0 / advisory.
 **Verification:** A scheduled job can detect coverage regression via the exit code;
 default behavior and stdout JSONL are unchanged.
 
-- [ ] **Unit 2: daily recheck cadence + selector-drift schedule + runbook**
+- [x] **Unit 2: daily recheck cadence + selector-drift schedule + runbook**
 
 **Goal:** Raise recheck to daily, schedule the static selector-drift check, and
 wire the coverage alarm into the periodic run; document the cadence math.
