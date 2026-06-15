@@ -269,16 +269,7 @@ class _FakeRowStore(BaseSqliteStore):
             for i in value
             if isinstance(i, dict)
         ]
-        with self._lock:
-            def _op() -> None:
-                with self._db.connect() as conn:
-                    conn.execute("DELETE FROM fake_rows")
-                    if rows:
-                        conn.executemany(
-                            "INSERT INTO fake_rows (id, data_json) VALUES (?, ?)",
-                            rows,
-                        )
-            _retry_sqlite(_op)
+        self._replace_all_rows("fake_rows", ("id", "data_json"), rows)
 
     def get_one(self, item_id: str):
         return self._get_one_json(
@@ -375,6 +366,34 @@ class TestBaseSqliteStoreTemplate:
         # _FakeListBlobStore has no _json_filename → migrate is a no-op.
         store = _FakeListBlobStore(WebUIDatabase(tmp_path / "webui.db"))
         store.migrate_from_json(tmp_path)  # must not raise
+        assert store.load() == []
+
+    def test_migrate_save_failure_is_soft_no_sentinel(self, tmp_path, monkeypatch):
+        # Consistency with read/rename error handling: a save() failure during
+        # migration must not crash startup; sentinel stays unwritten so the next
+        # boot retries, and the source JSON is not renamed.
+        (tmp_path / "fake-rows.json").write_text('[{"id": "x"}]', encoding="utf-8")
+        store = _FakeRowStore(WebUIDatabase(tmp_path / "webui.db"))
+
+        def _boom(_value):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(store, "save", _boom)
+        store.migrate_from_json(tmp_path)  # must not raise
+
+        assert not (tmp_path / ".fake-rows-migrated-v1").exists()
+        assert (tmp_path / "fake-rows.json").exists()
+        assert not (tmp_path / "fake-rows.json.migrated").exists()
+
+    def test_replace_all_rows_roundtrip_and_clear(self, tmp_path):
+        store = _FakeRowStore(WebUIDatabase(tmp_path / "webui.db"))
+        store.save([{"id": "a"}, {"id": "b"}])
+        assert {r["id"] for r in store.load()} == {"a", "b"}
+        # whole-table rewrite: saving fewer rows deletes the rest
+        store.save([{"id": "c"}])
+        assert [r["id"] for r in store.load()] == ["c"]
+        # empty save clears the table
+        store.save([])
         assert store.load() == []
 
 

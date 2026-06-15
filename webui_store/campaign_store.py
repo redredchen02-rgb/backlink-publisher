@@ -173,19 +173,14 @@ class CampaignSqliteStore(BaseSqliteStore):
                 )
             )
 
-        with self._lock:
-            def _op() -> None:
-                with self._db.connect() as conn:
-                    conn.execute("DELETE FROM campaigns")
-                    if rows:
-                        conn.executemany(
-                            "INSERT INTO campaigns (id, mode, status, "
-                            "created_at, updated_at, progress_pct, seeds_json, "
-                            "data_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                            rows,
-                        )
-
-            _retry_sqlite(_op)
+        self._replace_all_rows(
+            "campaigns",
+            (
+                "id", "mode", "status", "created_at", "updated_at",
+                "progress_pct", "seeds_json", "data_json",
+            ),
+            rows,
+        )
 
     # ── Public API ─────────────────────────────────────────────────────────
 

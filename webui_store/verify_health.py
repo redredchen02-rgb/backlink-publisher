@@ -17,7 +17,7 @@ from typing import Any
 from backlink_publisher.config.loader import _config_dir
 from backlink_publisher.events._store_sqlite import _retry_sqlite
 from webui_store.base import _LazyStore
-from webui_store.sqlite_base import SqliteStore, WebUIDatabase
+from webui_store.sqlite_base import BaseSqliteStore, WebUIDatabase
 
 _EXPIRED = "token_expired"
 _OK = "ok"
@@ -27,7 +27,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-class VerifyHealthSqliteStore(SqliteStore):
+class VerifyHealthSqliteStore(BaseSqliteStore):
     """Row-table store of the last credential verdict per platform.
 
     Table::
@@ -36,19 +36,18 @@ class VerifyHealthSqliteStore(SqliteStore):
 
     ``load()`` returns ``{channel: {"result", "at"}}``; ``save(value)`` is a
     whole-table rewrite (matches the channel_status semantics). ``update(fn)``
-    is inherited (load → fn → save under the store RLock).
+    is inherited (load → fn → save under the store RLock). ``__init__`` /
+    ``_init_table`` are inherited from :class:`BaseSqliteStore`; there is no
+    JSON predecessor so ``migrate_from_json`` is the inherited no-op.
     """
 
-    def __init__(self, db: WebUIDatabase) -> None:
-        super().__init__(db)
-        self._init_table()
+    _value_type = dict
 
-    def _init_table(self) -> None:
-        with self._db.connect() as conn:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS verify_health ("
-                "channel TEXT PRIMARY KEY, result TEXT NOT NULL, at TEXT)"
-            )
+    def _create_table_sql(self) -> str:
+        return (
+            "CREATE TABLE IF NOT EXISTS verify_health ("
+            "channel TEXT PRIMARY KEY, result TEXT NOT NULL, at TEXT)"
+        )
 
     def load(self) -> dict[str, dict[str, Any]]:
         def _op() -> dict[str, dict[str, Any]]:
@@ -68,18 +67,9 @@ class VerifyHealthSqliteStore(SqliteStore):
             if isinstance(rec, dict) and rec.get("result")
         ]
 
-        with self._lock:
-            def _op() -> None:
-                with self._db.connect() as conn:
-                    conn.execute("DELETE FROM verify_health")
-                    if rows:
-                        conn.executemany(
-                            "INSERT INTO verify_health (channel, result, at) "
-                            "VALUES (?, ?, ?)",
-                            rows,
-                        )
-
-            _retry_sqlite(_op)
+        self._replace_all_rows(
+            "verify_health", ("channel", "result", "at"), rows
+        )
 
 
 def _make_verify_health_store() -> VerifyHealthSqliteStore:

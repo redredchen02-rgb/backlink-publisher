@@ -140,19 +140,14 @@ class ChannelStatusSqliteStore(BaseSqliteStore):
                 )
             )
 
-        with self._lock:
-            def _op() -> None:
-                with self._db.connect() as conn:
-                    conn.execute("DELETE FROM channel_status")
-                    if rows:
-                        conn.executemany(
-                            "INSERT INTO channel_status (channel, status, "
-                            "bound_at, storage_state_path, last_verified_at, "
-                            "extra_json) VALUES (?, ?, ?, ?, ?, ?)",
-                            rows,
-                        )
-
-            _retry_sqlite(_op)
+        self._replace_all_rows(
+            "channel_status",
+            (
+                "channel", "status", "bound_at", "storage_state_path",
+                "last_verified_at", "extra_json",
+            ),
+            rows,
+        )
 
 
 def _make_channel_status_store() -> ChannelStatusSqliteStore:

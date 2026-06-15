@@ -133,19 +133,9 @@ class DraftsSqliteStore(BaseSqliteStore):
                     json.dumps(draft, ensure_ascii=False),
                 )
             )
-
-        with self._lock:
-            def _op() -> None:
-                with self._db.connect() as conn:
-                    conn.execute("DELETE FROM drafts")
-                    if rows:
-                        conn.executemany(
-                            "INSERT INTO drafts (id, campaign_id, inserted_at, "
-                            "data_json) VALUES (?, ?, ?, ?)",
-                            rows,
-                        )
-
-            _retry_sqlite(_op)
+        self._replace_all_rows(
+            "drafts", ("id", "campaign_id", "inserted_at", "data_json"), rows
+        )
 
     # ── Item-level helpers (public API, preserved from JsonStore) ──────────
 

@@ -260,6 +260,32 @@ class BaseSqliteStore(SqliteStore):
             return None
         return item if isinstance(item, dict) else None
 
+    def _replace_all_rows(
+        self, table: str, columns: tuple[str, ...], rows: list[tuple[Any, ...]]
+    ) -> None:
+        """Whole-table rewrite: ``DELETE`` all + bulk ``INSERT``, under the
+        store lock and ``_retry_sqlite``. The shared body of every row-table
+        ``save()`` (matches the JsonStore whole-file rewrite semantics).
+
+        ``table`` and ``columns`` are class-controlled constants (never user
+        input — safe to interpolate). The caller builds ``rows`` with its own
+        per-store column mapping.
+        """
+        collist = ", ".join(columns)
+        placeholders = ", ".join("?" for _ in columns)
+        with self._lock:
+            def _op() -> None:
+                with self._db.connect() as conn:
+                    conn.execute(f"DELETE FROM {table}")
+                    if rows:
+                        conn.executemany(
+                            f"INSERT INTO {table} ({collist}) "
+                            f"VALUES ({placeholders})",
+                            rows,
+                        )
+
+            _retry_sqlite(_op)
+
     # ── One-shot JSON → SQLite migration (shared sequence) ─────────────────
 
     def _coerce_migrated(self, data: Any) -> Any:
@@ -306,7 +332,14 @@ class BaseSqliteStore(SqliteStore):
             )
             return
 
-        self.save(self._coerce_migrated(data))
+        try:
+            self.save(self._coerce_migrated(data))
+        except Exception as exc:  # noqa: BLE001
+            # Consistency with the read/rename error paths: log + return WITHOUT
+            # writing the sentinel, so the next boot retries. save() is
+            # idempotent (DELETE + INSERT), so a retry cannot duplicate data.
+            _log.warning("%s migration: save failed: %s", type(self).__name__, exc)
+            return
 
         try:
             json_path.rename(migrated_path)
