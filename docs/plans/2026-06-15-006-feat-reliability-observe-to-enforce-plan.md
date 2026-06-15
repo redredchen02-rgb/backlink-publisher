@@ -204,11 +204,12 @@ graph TB
 
 ## Implementation Units
 
-> **执行状态（2026-06-15，branch `feat/reliability-observe-enforce`）**：
-> **Phase A 已落地**（U1 grep 先验 → 结论「observe 从未累积、events.db 不存在、POLICY 未设」，
-> 故不能判 go/no-go，需先建测量；U2–U6 已实作 + 测试 + 过 code-review）。
-> **Phase B（U7–U9）暂缓**，gated on observe 数据累积满 staleness window 后 U4 判定「值得」。
-> 全测试套件 10951 passed（唯一失败为 base 既存、与本工作无关的 parked-plan 003 status 测试）。
+> **执行状态（2026-06-15，branch `feat/reliability-observe-enforce`，PR #8）**：
+> **Phase A + Phase B 机器均已落地**（U1–U9 实作 + 测试 + 两轮 code-review）。
+> Phase B **ships safe/empty**：enforce-allowlist 默认空 → enforce 不 skip 任何频道（零生产行为变化）。
+> **唯一未做 = 真正翻 enforce 上某个生产频道**——operator-gated on observe 数据（U4 判
+> `enforce_worthwhile`）。启用步骤见 `docs/runbooks/2026-06-15-reliability-enforce-rollout.md`。
+> 全测试套件 10972 passed（唯一失败为 base 既存、与本工作无关的 parked-plan 003 status 测试）。
 
 ### Phase 0 — 廉价先验
 
@@ -449,7 +450,7 @@ auth_banned 路径。
 
 ### Phase B — enforce 翻转（gated on Unit 4 readiness 判定值得）
 
-- [ ] **Unit 7: per-channel enforce-allowlist + 一键回滚（R3, R4）**
+- [x] **Unit 7: per-channel enforce-allowlist + 一键回滚（R3, R4）**
 
 **Goal:** 引入最小 enforce-allowlist，穿进 `publish_with_policy` 单一 chokepoint；提供单一安全操作切回
 observe/off。
@@ -492,7 +493,7 @@ CC 30；若越过须同 PR 加 `complexity_budget.toml` 条目 + ≥80 字 ratio
 
 **Verification:** enforce 可逐频道开/关；非 allowlist 频道行为不变；回滚是单一安全操作。
 
-- [ ] **Unit 8: 损坏态降级 + 告警源解耦（R7 / Blocker 1+2）**
+- [x] **Unit 8: 损坏态降级 + 告警源解耦（R7 / Blocker 1+2）**
 
 **Goal:** enforce 下区分「有效 OPEN 跳闸（skip）」与「损坏哨兵（降级回 observe + 响亮事件）」；告警一律
 读 events.db，不读 circuit-state.json。
@@ -543,7 +544,7 @@ back-compat wrapper）；`atomic_write_json` 写路径的 JSONDecodeError 容错
 **Verification:** 损坏不再让 enforce 静默全停；判别 key 在 file-level parse；全态枚举无漏（含 half_open/
 open_no_timestamp）；降级有界且经 heal-write 自愈；告警与故障源解耦；observe 不变。
 
-- [ ] **Unit 9: 对 mastodon 启用 enforce（R6，gated 里程碑 + 验证）**
+- [x] **Unit 9: 对 mastodon 启用 enforce（R6，gated 里程碑 + 验证）** — 接线 acceptance 已建；真正启用 operator-gated
 
 **Goal:** 在 Unit 4 readiness 判定 mastodon 值得后，把它加入 enforce-allowlist，验证「第一次被信任的拦截」
 由**自然发生**的 trip 满足。
