@@ -280,7 +280,12 @@ graph TB
 
 **Verification:** 4 個行表 store 測試全綠、零放寬、零新增 skip；route 層無改動。
 
-- [ ] **Unit 6: 預算與債務登記同步收尾**
+- [x] **Unit 6: 預算與債務登記同步收尾（完成）**
+  > **radon SLOC（before→after）**：sqlite_base 76→194；profiles 73→9、schedule 73→9、publish_defaults 38→5、queue 147→99、drafts 283→209、campaign 307→247、channel_status 310→278。8 檔合計 **1307→1050 = 淨減 257 SLOC**（7 store 減 375，base 增 118）。
+  > **Right-size gate**：淨減 257 SLOC > 200 門檻 → 通過，雙抽象（Base+Blob）值回票價，延後 RowTableMixin 正確（否則純 churn）。
+  > **R10 預算**：committed baseline 的 `monolith_budget.toml` **無任何 webui_store 條目**（reviewer 看到的 campaign/channel_status 條目屬 main 未提交 WIP，不在本分支）——故無既有 ceiling 可下調；改為**新增** `webui_store/sqlite_base.py` ceiling=230 守護新共用基類（rationale ≥80 字）。format 測 110 綠。
+  > **R11 債務**：debt_registry 8 條無一與 store 重複相關 → 無可閉合。
+  > **全套件回歸**：`pytest tests/` → **10940 passed, 8 skipped, 1 xfailed**，唯一 failure `test_status_vocab_canon::test_parked_plans_have_resume_trigger` 為**既有失敗**（parked plan 003 缺 resume trigger，本分支未觸碰該檔、0bba22d baseline 同樣失敗），與本重構無關。store 重構面 100% 綠。
 
 **Goal:** 反映 SLOC 下降，閉合相關技術債條目，跑全套件確認無回歸。
 
