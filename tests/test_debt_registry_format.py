@@ -7,6 +7,8 @@ Schema rules enforced:
   - Each rationale >= 80 characters
   - Each severity is one of low/medium/high/critical
   - Each status is one of open/mitigated/accepted/resolved
+  - resolved_date is REQUIRED for status resolved/mitigated, FORBIDDEN for open/accepted,
+    and must be a valid ISO date when present (so closing a debt is never silent)
   - All slugs are unique
 """
 from __future__ import annotations
@@ -24,6 +26,9 @@ MIN_ITEMS = 5
 VALID_SEVERITIES = {"low", "medium", "high", "critical"}
 VALID_STATUSES = {"open", "mitigated", "accepted", "resolved"}
 REQUIRED_FIELDS = {"slug", "severity", "rationale", "discovered", "owner", "status"}
+OPTIONAL_FIELDS = {"resolved_date"}
+# resolved_date must be present iff status is in this set
+STATUS_REQUIRES_RESOLVED_DATE = {"resolved", "mitigated"}
 
 REGISTRY = tomllib.loads(REGISTRY_FILE.read_text())
 ITEMS = REGISTRY.get("items", [])
@@ -57,18 +62,67 @@ def test_all_slugs_unique() -> None:
 
 @pytest.mark.parametrize("idx", range(len(ITEMS)))
 def test_item_has_required_fields(idx: int) -> None:
-    """Each item must have all 6 required fields."""
+    """Each item must have all 6 required fields and no unknown fields."""
     item = ITEMS[idx]
     missing = REQUIRED_FIELDS - set(item.keys())
     assert not missing, (
         f"Item {idx} (slug={item.get('slug', 'UNKNOWN')}) "
         f"missing required field(s): {missing}"
     )
-    extra = set(item.keys()) - REQUIRED_FIELDS
+    extra = set(item.keys()) - REQUIRED_FIELDS - OPTIONAL_FIELDS
     assert not extra, (
         f"Item {idx} (slug={item.get('slug', 'UNKNOWN')}) "
         f"has unknown field(s): {extra}. "
-        f"Allowed: {REQUIRED_FIELDS}"
+        f"Allowed: required={sorted(REQUIRED_FIELDS)}, optional={sorted(OPTIONAL_FIELDS)}"
+    )
+
+
+@pytest.mark.parametrize("idx", range(len(ITEMS)))
+def test_resolved_date_presence_matches_status(idx: int) -> None:
+    """resolved_date must be present iff status is resolved/mitigated.
+
+    Closing a debt (resolved/mitigated) without a timestamp is silent; an
+    open/accepted item carrying a resolved_date is contradictory. Both are
+    rejected so the registry stays an honest signal.
+    """
+    item = ITEMS[idx]
+    slug = item.get("slug", f"item-{idx}")
+    status = item.get("status", "")
+    has_date = "resolved_date" in item
+    needs_date = status in STATUS_REQUIRES_RESOLVED_DATE
+    if needs_date and not has_date:
+        pytest.fail(
+            f"Item '{slug}' status={status!r} requires a 'resolved_date' field "
+            f"(YYYY-MM-DD) to record when the debt was closed."
+        )
+    if not needs_date and has_date:
+        pytest.fail(
+            f"Item '{slug}' status={status!r} must NOT carry a 'resolved_date' "
+            f"(only resolved/mitigated items may)."
+        )
+
+
+@pytest.mark.parametrize("idx", range(len(ITEMS)))
+def test_resolved_date_format_when_present(idx: int) -> None:
+    """When present, resolved_date must be a valid ISO date (YYYY-MM-DD)."""
+    item = ITEMS[idx]
+    slug = item.get("slug", f"item-{idx}")
+    resolved_date = item.get("resolved_date")
+    if resolved_date is None:
+        return
+    parts = resolved_date.split("-")
+    assert len(parts) == 3, (
+        f"Item '{slug}' resolved_date={resolved_date!r} is not YYYY-MM-DD"
+    )
+    year, month, day = parts
+    assert year.isdigit() and len(year) == 4, (
+        f"Item '{slug}' resolved_date={resolved_date!r} has invalid year"
+    )
+    assert month.isdigit() and 1 <= int(month) <= 12, (
+        f"Item '{slug}' resolved_date={resolved_date!r} has invalid month"
+    )
+    assert day.isdigit() and 1 <= int(day) <= 31, (
+        f"Item '{slug}' resolved_date={resolved_date!r} has invalid day"
     )
 
 

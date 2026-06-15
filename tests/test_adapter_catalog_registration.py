@@ -8,6 +8,9 @@ auto-scan wiring already committed.
 
 from __future__ import annotations
 
+__tier__ = "integration"
+
+
 from pathlib import Path
 from unittest import mock
 

@@ -1,6 +1,9 @@
 """Tests for KeepaliveRunState (plan 2026-06-05-004 Unit 4)."""
 from __future__ import annotations
 
+__tier__ = "integration"
+
+
 import json
 import os
 

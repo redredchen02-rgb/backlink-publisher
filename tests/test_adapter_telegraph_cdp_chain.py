@@ -14,6 +14,9 @@ Dispatch contract (publishing/_registry_dispatch.py):
 
 from __future__ import annotations
 
+__tier__ = "unit"
+
+
 from unittest.mock import MagicMock, patch
 
 import pytest

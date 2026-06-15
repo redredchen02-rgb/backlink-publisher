@@ -7,6 +7,9 @@ scheduling convention (com.dex.bp-full-pipeline.plist).
 
 from __future__ import annotations
 
+__tier__ = "integration"
+
+
 import plistlib
 from pathlib import Path
 

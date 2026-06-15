@@ -6,6 +6,9 @@ in ``optimization_state.json``.
 
 from __future__ import annotations
 
+__tier__ = "integration"
+
+
 import os
 from pathlib import Path
 

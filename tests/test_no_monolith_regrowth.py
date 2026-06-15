@@ -196,6 +196,26 @@ def test_warning_canary_for_undeclared_large_files() -> None:
     )
 
 
+def test_warning_canary_covers_webui_roots() -> None:
+    """R7 extension (Plan 2026-06-15-002 P1-3): also scan webui_app/ + webui_store/.
+
+    The original src/-only canary left the WebUI trees unmonitored; a 2026-06-15
+    audit found webui_app/services/keepalive_job.py at radon SLOC 533 with no
+    budget entry. This companion canary extends coverage to the two WebUI roots
+    so any future >500-SLOC file there surfaces in CI warning output. The
+    P1-3 budget block added entries for every currently-500+ WebUI file, so the
+    steady state produces no warnings here; a new warning means a WebUI file
+    grew past 500 SLOC without a budget entry.
+    """
+    declared = set(MONITORED_PATHS)
+    for root in ("webui_app", "webui_store"):
+        _scan_for_undeclared_monoliths(
+            scan_root=REPO_ROOT / root,
+            declared_paths=declared,
+            repo_root=REPO_ROOT,
+        )
+
+
 def test_warning_canary_fires_for_synthetic_large_file(tmp_path: Path) -> None:
     """Verify the canary scanner emits UserWarning when a >500-SLOC file is undeclared."""
     fake_src = tmp_path / "src"
