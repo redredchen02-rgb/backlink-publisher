@@ -71,3 +71,35 @@ def test_payload_shape_is_json_serializable(client):
     # per_channel is a list of plain dicts (dataclass -> asdict)
     assert isinstance(body["success_rate"]["per_channel"], list)
     assert isinstance(body["coverage"]["per_channel"], list)
+
+
+# ── Unit 5: rollout panel data (readiness + mode) ────────────────────────────
+
+def test_empty_store_readiness_present(client):
+    body = client.get("/ce:health/publish-metrics").get_json()
+    assert body["ok"] is True
+    assert body["readiness"]["per_channel"] == []
+
+
+def test_readiness_surfaces_channel_and_is_serializable(client):
+    _ok(kinds.PUBLISH_CONFIRMED, "medium", "https://medium.com/x")
+    EventStore().append(
+        kinds.RELIABILITY_DECISION,
+        {"platform": "medium", "decision": "would_skip_circuit", "mode": "observe"},
+        ts_utc=NOW.isoformat(),
+    )
+    body = client.get("/ce:health/publish-metrics").get_json()
+    assert body["ok"] is True
+    channels = body["readiness"]["per_channel"]
+    assert isinstance(channels, list)
+    medium = next(c for c in channels if c["channel"] == "medium")
+    assert medium["would_skip_count"] == 1
+    assert "verdict" in medium  # three-state verdict surfaced for the panel
+
+
+def test_policy_mode_reflects_env(client, monkeypatch):
+    from backlink_publisher.publishing.reliability.policy import POLICY_ENV
+
+    monkeypatch.setenv(POLICY_ENV, "observe")
+    body = client.get("/ce:health/publish-metrics").get_json()
+    assert body["policy_mode"] == "observe"
