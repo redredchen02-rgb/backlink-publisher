@@ -1,7 +1,7 @@
 ---
 title: "feat: Publish Reliability Iteration"
 type: feat
-status: active
+status: completed
 date: 2026-06-15
 deepened: 2026-06-15
 origin: docs/brainstorms/2026-06-15-publish-reliability-iteration-requirements.md
@@ -291,7 +291,7 @@ addressable-set check; the option-B circuit accounting (if chosen) follows A1.
 Stage 1 (parallel): the **A2 → A3-events → A1** chain, and **B1**. Stage 2: A3-accounting
 (option B), B2, B3, B4, C1. B3/B4/C1 are independent and can start anytime.
 
-- [ ] **Unit A2: Transient error-class policy + idempotency-safe whitelist**
+- [x] **Unit A2: Transient error-class policy + idempotency-safe whitelist**
 
 **Goal:** A single classification helper that decides, per `(exception, this_adapter,
 next_adapter)`, whether a transient is fallback-safe or fail-fast — plus two initially-empty,
@@ -360,7 +360,7 @@ discipline in `_registry_dispatch.py` dispatch arms.
 whitelists empty by default; unidentified `ExternalServiceError` fails fast; no reuse of the
 `ExternalServiceError → TRANSIENT` mapping; no stderr-string branching.
 
-- [ ] **Unit A1: Transient fallback in the adapter chain walk**
+- [~] **Unit A1: Transient fallback in the adapter chain walk**
 
 **Goal:** When `classify_transient` returns FALLBACK_SAFE, degrade to the next same-platform
 adapter instead of propagating; otherwise preserve today's propagate-and-terminate.
@@ -421,7 +421,7 @@ same-mechanism adapter; cross-mechanism same-account fallback is blocked until w
 path creates two live links; the circuit breaker is not silently reset by a fallback success;
 existing AuthExpired/Dependency semantics unchanged.
 
-- [ ] **Unit A3: Fallback observability events + per-adapter circuit accounting**
+- [~] **Unit A3: Fallback observability events + per-adapter circuit accounting**
 
 **Goal:** Emit a distinctly-marked event whenever a fallback fires (the event-schema change is
 a prerequisite A1 consumes), and — per the /ce:work decision — either keep observe-only
@@ -483,7 +483,7 @@ fallback emit; land it before/with A1. The circuit-accounting portion is option-
 eventually trips the breaker despite fallback successes; intentional degradations are
 distinguishable from generic mis-maps; emission failures are swallowed.
 
-- [ ] **Unit B1: Raise liveness recheck coverage to ≥50%**
+- [x] **Unit B1: Raise liveness recheck coverage to ≥50%**
 
 **Goal:** A prioritized recheck driver that grows ledger-derived liveness coverage from ~5% to
 ≥50% of published links, ordered by what feeds the scorecard — without increasing active
@@ -533,7 +533,7 @@ headless-probe cadence.
 **Verification:** A recheck run measurably increases coverage toward ≥50%; selection prioritizes
 scorecard-feeding links; no active Medium probe is triggered.
 
-- [ ] **Unit B2: Per-channel publish success-rate metric**
+- [x] **Unit B2: Per-channel publish success-rate metric**
 
 **Goal:** Define and surface a per-channel publish success % (over a window) derived from
 `publish_attempt` events, displayed alongside the scorecard's `live_pct`.
@@ -583,7 +583,7 @@ existing `small_sample` flag; `health.py` rendering.
 **Verification:** Each channel shows a publish success %, distinct from liveness, with thin
 samples flagged.
 
-- [ ] **Unit B3: Browser-tier selector-drift regression detection**
+- [x] **Unit B3: Browser-tier selector-drift regression detection**
 
 **Goal:** Turn the skipped browser smoke tests into a runnable, schedulable drift check for
 Medium/Velog/Devto/Mastodon that fails when selectors/login break.
@@ -623,7 +623,7 @@ relying on the check.
 **Verification:** A deliberately broken selector is caught by the gated run before a real
 publish; the check is schedulable; CI without attached Chrome still skips cleanly.
 
-- [ ] **Unit B4: Real-error mapping verification + policy-seam integration test**
+- [x] **Unit B4: Real-error mapping verification + policy-seam integration test**
 
 **Goal:** Prove real 429/503/ban/session-expiry surface as the typed exceptions that trip the
 circuit, and that the policy-enable CLI seam actually selects `publish_with_policy` (not the
@@ -669,7 +669,7 @@ env vars; `policy.py` result statuses (`skipped_policy`, `skipped_circuit_open`)
 **Verification:** The policy seam is exercised end-to-end through the CLI; real-error→exception
 mapping is asserted per case; any mis-mapped adapter is identified.
 
-- [ ] **Unit C1: Verify the HALF_OPEN trial-limiter cleanup is already complete (likely no-op)**
+- [x] **Unit C1: Verify the HALF_OPEN trial-limiter cleanup is already complete (likely no-op)**
 
 **Goal:** Confirm the dead trial-limiter is already gone and only fill any residual gap.
 **Feasibility note (doc-review 2026-06-15):** `_increment_half_open_try`, `half_open_tries`,
