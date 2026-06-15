@@ -5,23 +5,66 @@
    S-stale / S2). Recheck + republish action states (S1, S3-S7) arrive in U5-U7. #}
 {% block title %}保活 — Keep-alive{% endblock %}
 {% block head_extra %}
-  <style>
-    body { background-color: var(--bs-light, #f8f9fa); }
-    .target-cell { max-width: 380px; font-family: ui-monospace, monospace; font-size: 13px; }
-    .ka-attention > td { box-shadow: inset 3px 0 0 #dc3545; }   /* bleeding target */
-    .ka-section-label td { background: #fbfbfd; font-weight: 600; }
-    .ka-badge { font-size: 12px; }
-    .ka-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45);
-                  display: flex; align-items: center; justify-content: center; z-index: 1080; }
-    .ka-overlay-card { max-width: 560px; width: 92%; max-height: 82vh; overflow: auto; }
-    .ka-cycle-reset-overlay { z-index: 1090; }  /* above #confirmOverlay */
-    #cyclePanel .cycle-badge-broken { font-size: 11px; }
-    #cyclePanel .cycle-badge-locked { font-size: 11px; }
-  </style>
+<style>
+/* ── Keep-alive dark theme overrides ──────────────────────────────── */
+.target-cell { max-width: 380px; font-family: ui-monospace, monospace; font-size: 13px; }
+.ka-badge { font-size: 12px; }
+.ka-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6);
+              display: flex; align-items: center; justify-content: center; z-index: 1080; }
+.ka-overlay-card { max-width: 560px; width: 92%; max-height: 82vh; overflow: auto; }
+.ka-cycle-reset-overlay { z-index: 1090; }
+#cyclePanel .cycle-badge-broken { font-size: 11px; }
+#cyclePanel .cycle-badge-locked { font-size: 11px; }
+
+/* Glass navbar */
+.navbar.bg-white { background: rgba(255,255,255,0.08) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.15) !important; }
+.navbar .navbar-brand { color: var(--text-primary) !important; }
+
+/* Glass cards */
+.card { background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; border-radius: 16px !important; }
+.card-header { background: rgba(255,255,255,0.06) !important; border-bottom: 1px solid rgba(255,255,255,0.10) !important; color: var(--text-primary) !important; }
+.card-body { color: var(--text-primary) !important; }
+
+/* Dark tables */
+.table { color: var(--text-primary) !important; border-color: rgba(255,255,255,0.08) !important; }
+.table.bg-white { background: transparent !important; }
+.table-light, .table thead.table-light th { background: rgba(255,255,255,0.08) !important; color: var(--text-secondary) !important; border-color: rgba(255,255,255,0.10) !important; }
+.table > :not(caption) > * > * { background: transparent !important; border-bottom-color: rgba(255,255,255,0.07) !important; color: inherit !important; }
+.table-hover > tbody > tr:hover > * { background: rgba(255,255,255,0.05) !important; }
+
+/* Section label row */
+.ka-section-label td { background: rgba(255,255,255,0.06) !important; font-weight: 600; color: rgba(255,255,255,0.55) !important; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+
+/* Attention row — bleeding target */
+.ka-attention > td { box-shadow: inset 3px 0 0 #f87171 !important; }
+
+/* Alert overrides */
+.alert-warning { background: rgba(245,158,11,0.18) !important; border-color: rgba(245,158,11,0.40) !important; color: #fcd34d !important; }
+.alert-success { background: rgba(16,185,129,0.18) !important; border-color: rgba(16,185,129,0.40) !important; color: #6ee7b7 !important; }
+.alert-danger  { background: rgba(239,68,68,0.18)  !important; border-color: rgba(239,68,68,0.40)  !important; color: #fca5a5 !important; }
+
+/* List group */
+.list-group-item { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.10) !important; color: var(--text-primary) !important; }
+
+/* Progress bar track */
+.progress { background: rgba(255,255,255,0.12) !important; }
+
+/* Danger subtle card header */
+.bg-danger-subtle { background: rgba(239,68,68,0.20) !important; color: #fca5a5 !important; }
+.border-danger { border-color: rgba(239,68,68,0.40) !important; }
+.border-primary { border-color: rgba(99,102,241,0.50) !important; }
+.border-warning { border-color: rgba(245,158,11,0.40) !important; }
+
+/* Stale banner */
+#staleBanner.alert-warning { background: rgba(245,158,11,0.18) !important; border-color: rgba(245,158,11,0.40) !important; color: #fcd34d !important; }
+
+/* Form check */
+.form-check-input { background-color: rgba(255,255,255,0.10) !important; border-color: rgba(255,255,255,0.30) !important; }
+</style>
 {% endblock %}
 {% block content %}
-<nav class="navbar bg-white border-bottom px-3">
-  <span class="navbar-brand mb-0 h1"><i class="bi bi-shield-check me-2"></i>保活 Keep-alive</span>
+<header class="navbar bg-white border-bottom px-3">
+  <h1 class="navbar-brand mb-0 h1"><i class="bi bi-shield-check me-2"></i>保活 Keep-alive</h1>
   <div class="d-flex align-items-center gap-2">
     <button id="recheckBtn" class="btn btn-sm btn-primary" data-action="recheck"
             title="逐条复查已发布外链，看哪些还活着、哪些被剥离">
@@ -29,7 +72,7 @@
     </button>
     <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> Home</a>
   </div>
-</nav>
+</header>
 
 {% if flash and flash.msg %}
 <div class="container-fluid pt-3">
@@ -40,7 +83,7 @@
 </div>
 {% endif %}
 
-<main class="container-fluid py-3">
+<div class="container-fluid py-3">
   <div id="staleBanner" class="alert alert-warning d-none" role="status"></div>
 
   <div id="recheckProgress" class="card border-primary mb-3 d-none">
@@ -206,7 +249,7 @@
       </div>
     </div>
   </div>
-</main>
+</div>
 {% endblock %}
 
 {% block page_data %}

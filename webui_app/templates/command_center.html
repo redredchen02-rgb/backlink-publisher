@@ -271,7 +271,7 @@
 
     {# ── Page title ────────────────────────────────────────────────────── #}
     <div class="cc-title-row">
-        <h4 class="cc-title"><i class="bi bi-speedometer2 me-2 text-primary"></i>命令中心</h4>
+        <h1 class="cc-title"><i class="bi bi-speedometer2 me-2 text-primary"></i>命令中心</h1>
         <span class="cc-refresh-hint" id="cc-last-refresh">稍後自動刷新</span>
     </div>
 
@@ -332,7 +332,7 @@
                 <div class="cc-card__icon cc-card__icon--green">
                     <i class="bi bi-heart-pulse-fill"></i>
                 </div>
-                <h5 class="cc-card__title">存活監控</h5>
+                <h2 class="cc-card__title">存活監控</h2>
             </div>
 
             {% if ka.error %}
@@ -378,7 +378,7 @@
                 <div class="cc-card__icon cc-card__icon--blue">
                     <i class="bi bi-send-fill"></i>
                 </div>
-                <h5 class="cc-card__title">近期發布</h5>
+                <h2 class="cc-card__title">近期發布</h2>
             </div>
 
             {% if hist.error %}
@@ -402,6 +402,12 @@
                     {{ hist.recent_7d or 0 }} 篇
                 </span>
             </div>
+            {% if hist.last_published_at %}
+            <div class="cc-stat-row">
+                <span class="cc-stat-row__label">最近發布</span>
+                <span class="cc-stat-row__value cc-stat-row__value--muted">{{ hist.last_published_at }}</span>
+            </div>
+            {% endif %}
             {% endif %}
 
             <div class="cc-actions">
@@ -418,7 +424,7 @@
                 <div class="cc-card__icon cc-card__icon--purple">
                     <i class="bi bi-bar-chart-fill"></i>
                 </div>
-                <h5 class="cc-card__title">權益帳簿</h5>
+                <h2 class="cc-card__title">權益帳簿</h2>
             </div>
 
             {% if eq.error %}
@@ -455,7 +461,7 @@
                 <div class="cc-card__icon cc-card__icon--amber">
                     <i class="bi bi-sliders"></i>
                 </div>
-                <h5 class="cc-card__title">優化權重</h5>
+                <h2 class="cc-card__title">優化權重</h2>
             </div>
 
             {% if opt.error %}
@@ -469,12 +475,13 @@
                 <span class="cc-stat-row__value">{{ opt.n_platforms or 0 }}</span>
             </div>
             {% for p in (opt.platforms or [])[:5] %}
+            {% set w = (p.current or p.weight or 0) | round(2) %}
             <div class="cc-stat-row">
                 <span class="cc-stat-row__label">
-                    {{ p.platform }}
-                    {% if p.manual_lock %}<i class="bi bi-lock-fill text-warning ms-1" title="已鎖定"></i>{% endif %}
+                    {{ p.name or p.platform or '—' }}
+                    {% if p.locked or p.manual_lock %}<i class="bi bi-lock-fill ms-1" style="color:#fbbf24;font-size:.75rem" title="已鎖定"></i>{% endif %}
                 </span>
-                <span class="cc-stat-row__value">{{ p.weight }}</span>
+                <span class="cc-stat-row__value {% if w < 0.3 %}cc-stat-row__value--amber{% elif w >= 0.8 %}cc-stat-row__value--green{% endif %}">{{ w }}</span>
             </div>
             {% endfor %}
             {% if (opt.n_platforms or 0) > 5 %}
@@ -498,7 +505,7 @@
                 <div class="cc-card__icon cc-card__icon--gray">
                     <i class="bi bi-gear-wide-connected"></i>
                 </div>
-                <h5 class="cc-card__title">執行中任務</h5>
+                <h2 class="cc-card__title">執行中任務</h2>
             </div>
 
             {% if status.jobs is mapping and status.jobs.error %}
@@ -527,7 +534,12 @@
             </div>
             {% endfor %}
             {% else %}
-            <p class="text-muted small mb-0">目前沒有執行中的任務。</p>
+            <p class="small mb-2" style="color:var(--text-secondary)">目前沒有執行中的任務。</p>
+            <div class="cc-actions" style="margin-top:0;padding-top:.5rem">
+                <a href="/ce:keep-alive" class="cc-btn cc-btn--outline">
+                    <i class="bi bi-search-heart"></i> 開始巡检
+                </a>
+            </div>
             {% endif %}
         </div>
 
@@ -539,7 +551,7 @@
             <div class="cc-card__icon cc-card__icon--blue">
                 <i class="bi bi-link-45deg"></i>
             </div>
-            <h5 class="cc-card__title">管線補種</h5>
+            <h2 class="cc-card__title">管線補種</h2>
         </div>
 
         <p class="text-muted small mb-0">為低權重目標自動補種外鏈。執行完整管線：</p>

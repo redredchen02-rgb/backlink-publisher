@@ -196,6 +196,9 @@
     color: var(--text, #374151);
 }
 .copilot-qa__hint { font-size: 0.8rem; margin: 0 0 8px; }
+/* btn-outline-primary text (#0d6efd) is only 4.3:1 on the locked panel's
+   #f9fafb — darken to a WCAG-AA blue (~6.2:1) without leaving the brand. */
+.copilot-qa__bind { color: #0a58ca; }
 
 /* Unlocked Q&A form (U6) */
 .copilot-qa--unlocked {
