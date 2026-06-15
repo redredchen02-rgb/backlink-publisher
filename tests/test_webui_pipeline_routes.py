@@ -62,6 +62,21 @@ def _no_run_pipe():
 # ── _isolated_webui_state: redirect store singletons to per-test tmp ─────────
 
 @pytest.fixture(autouse=True)
+def _loopback_origin(client):
+    """Send a loopback Origin on every request.
+
+    The /ce:batch + /ce:publish-real blueprint added an Origin guard
+    (``_check_bind_origin_or_abort``, commit fb0b82e) that 403s a POST with no
+    Origin/Referer. A real browser always sends Origin; the bare test client did
+    not, so these route tests began 403ing. Set an allowlisted loopback Origin
+    matching the guard's expected host/port for the whole module.
+    """
+    from webui_app.helpers.security import _FLASK_PORT
+
+    client.environ_base["HTTP_ORIGIN"] = f"http://127.0.0.1:{_FLASK_PORT}"
+
+
+@pytest.fixture(autouse=True)
 def _isolated_webui_state(tmp_path, monkeypatch):
     """Redirect webui_store singleton paths to a per-test tmp dir."""
     import webui_store as _ws
