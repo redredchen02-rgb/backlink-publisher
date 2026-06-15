@@ -50,9 +50,10 @@ _ATTEMPT_KINDS: tuple[str, ...] = (
     kinds.PUBLISH_UNVERIFIED,
     kinds.PUBLISH_FAILED,
 )
-_WOULD_SKIP_DECISIONS: frozenset[str] = frozenset(
-    {"would_skip_policy", "would_skip_circuit"}
-)
+#: A would-skip is any ``would_skip_*`` decision (what enforce WOULD have skipped
+#: in observe mode). Matched by prefix so a new ``would_skip_*`` decision is
+#: counted automatically — no second list to keep in sync with events_store.
+_WOULD_SKIP_PREFIX = "would_skip"
 
 
 @dataclass(frozen=True)
@@ -162,7 +163,7 @@ def channel_readiness(
             payload = json.loads(row["payload_json"] or "{}")
         except (ValueError, TypeError):
             continue
-        if payload.get("decision") not in _WOULD_SKIP_DECISIONS:
+        if not str(payload.get("decision", "")).startswith(_WOULD_SKIP_PREFIX):
             continue
         bucket = _bucket(payload.get("platform") or UNATTRIBUTED)
         bucket["would_skip"] += 1

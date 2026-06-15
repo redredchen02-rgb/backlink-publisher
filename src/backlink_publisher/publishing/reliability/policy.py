@@ -42,6 +42,7 @@ from backlink_publisher.publishing.adapters.base import AdapterResult
 
 from .circuit import (
     is_ban_signal,
+    is_degraded,
     is_tripped,
     record_success,
     trip,
@@ -188,45 +189,27 @@ def _record_failure_and_maybe_trip(
         _reset_failures(platform, config)
         # Reaching the threshold is a transition into degraded (the counter was
         # reset after any prior trip), so this is not per-run spam.
-        _record_degraded(platform, "circuit_trip")
+        _record_decision(platform, "degraded", policy_mode(), reason="circuit_trip")
 
 
-def _record_decision(platform: str, decision: str, mode: str) -> None:
-    """Best-effort: persist a ``reliability.decision`` to events.db (Unit 2).
+def _record_decision(
+    platform: str, decision: str, mode: str, reason: str | None = None
+) -> None:
+    """Best-effort: persist a ``reliability.decision`` to events.db (Units 2 & 6).
 
-    Makes observe-mode would-skips and enforce skips queryable for readiness
-    (Unit 4) / the rollout panel (Unit 5). Never raises — events.db faults must
-    not block a publish, mirroring ``emit_attempt``'s never-raise contract. Runs
-    on a fresh ``EventStore`` connection at the dispatch seam (NOT inside a
-    projector reducer transaction), so it cannot trigger the WAL nested-connection
-    deadlock.
+    Makes observe would-skips, enforce skips, and degraded-entry alerts queryable
+    for readiness (Unit 4) / the rollout panel (Unit 5) / the external alert stack
+    (Unit 6). Never raises — events.db faults must not block a publish, mirroring
+    ``emit_attempt``'s never-raise contract. Runs on a fresh ``EventStore``
+    connection at the dispatch seam (NOT inside a projector reducer transaction),
+    so it cannot trigger the WAL nested-connection deadlock.
     """
     try:
         from backlink_publisher.events.store import EventStore
         from .events_store import append_reliability_decision
 
         append_reliability_decision(
-            EventStore(), platform=platform, decision=decision, mode=mode
-        )
-    except Exception:  # noqa: BLE001 — events.db faults never block publishing
-        pass
-
-
-def _record_degraded(platform: str, reason: str) -> None:
-    """Best-effort: record a ``degraded`` reliability.decision (Unit 6, R5a).
-
-    Emitted when a channel ENTERS a degraded state (circuit trip / ban) so the
-    external alert stack can proactively notify the operator — observe mode too.
-    Callers gate on a transition check (only on entering degraded, not every run
-    while degraded), so this is naturally deduped. Never raises.
-    """
-    try:
-        from backlink_publisher.events.store import EventStore
-        from .events_store import append_reliability_decision
-
-        append_reliability_decision(
-            EventStore(), platform=platform, decision="degraded",
-            mode=policy_mode(), reason=reason,
+            EventStore(), platform=platform, decision=decision, mode=mode, reason=reason
         )
     except Exception:  # noqa: BLE001 — events.db faults never block publishing
         pass
@@ -336,13 +319,15 @@ def publish_with_policy(
         if is_ban_signal(exc):
             # Ban/suspend → trip immediately (v1 behavior).
             # Transition check BEFORE tripping: only alert on entering degraded,
-            # not on every re-dispatch into an already-tripped (banned) channel.
-            newly_degraded = not is_tripped(platform, config)
+            # not on every re-dispatch into an already-degraded channel. Use
+            # is_degraded (raw tripped flag) NOT is_tripped — the latter returns
+            # False in HALF_OPEN, which would re-alert every cooldown cycle.
+            newly_degraded = not is_degraded(platform, config)
             trip(platform, config)
             _reset_failures(platform, config)
             emit_attempt(platform, Outcome.AUTH_BANNED, duration)
             if newly_degraded:
-                _record_degraded(platform, "ban")
+                _record_decision(platform, "degraded", policy_mode(), reason="ban")
         else:
             # Plain session expiry → trip only after N consecutive (U10).
             emit_attempt(platform, Outcome.AUTH_EXPIRED, duration)

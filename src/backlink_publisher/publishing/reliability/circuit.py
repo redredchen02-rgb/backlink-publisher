@@ -262,6 +262,19 @@ def is_tripped(platform: str, config: Config) -> bool:
         return True
 
 
+def is_degraded(platform: str, config: Config) -> bool:
+    """True if *platform* is in a tripped lifecycle (OPEN or HALF_OPEN).
+
+    Unlike :func:`is_tripped`, this reports the raw ``tripped`` flag from state and
+    applies NO cooldown→half-open transition (and no side effect). The policy layer
+    uses it to dedup degraded alerts: a channel mid-recovery (HALF_OPEN) is still
+    "already degraded", so re-entering OPEN must not re-alert every cooldown cycle —
+    which ``is_tripped`` would, because it returns False in HALF_OPEN. Fail-CLOSED:
+    a corrupt state file reports degraded (``_get_state`` returns ``tripped=True``).
+    """
+    return bool(_get_state(platform, config).get("tripped", False))
+
+
 def trip(platform: str, config: Config) -> None:
     """Trip the circuit for *platform* (flock-across-RMW).
 
