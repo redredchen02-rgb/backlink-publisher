@@ -1,7 +1,7 @@
 ---
 title: "feat: Channel-level referral attribution (reuse click_track GA4)"
 type: feat
-status: active
+status: completed
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-referral-attribution-loop-requirements.md
 ---
