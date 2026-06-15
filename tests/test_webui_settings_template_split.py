@@ -70,11 +70,16 @@ def test_settings_template_inline_styles_confined_to_loading_overlay():
     overlay_idx = next(
         (i for i, line in enumerate(lines) if "_loadingOverlay" in line), None
     )
-    assert overlay_idx is not None, "expected the #_loadingOverlay widget in settings.html"
+    # The #_loadingOverlay widget (with its JS-toggled inline styles) was extracted
+    # into _settings_loading_overlay.html to keep settings.html ≤400 lines. When it
+    # is no longer inline, settings.html proper must carry NO inline styles at all;
+    # otherwise the overlay stays the single sanctioned exception and nothing static
+    # may precede it.
+    cutoff = len(lines) if overlay_idx is None else overlay_idx
     stray = [
         (i + 1, line.strip())
         for i, line in enumerate(lines)
-        if 'style="' in line and i < overlay_idx
+        if 'style="' in line and i < cutoff
     ]
     assert not stray, (
         'settings.html has inline style="" attributes outside the JS-toggled '
