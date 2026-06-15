@@ -69,6 +69,13 @@ LINK_RECHECKED: Final = "link.rechecked"
 #: ``live_url`` is the load-bearing field (the exact key that caused the
 #: collision). Written directly by ``_project_reducers._handle_checkpoint_confirmed``.
 RECONCILE_SWALLOWED: Final = "reconcile.swallowed"
+#: Channel-level referral attribution (Plan 2026-06-15-004). Written directly by
+#: the ``referral-attribute`` CLI via ``EventStore.append`` — NOT through the
+#: projector, so it has no Seam B (STATUS_MAP) entry. Carries per-channel GA4
+#: referral session counts (``channel``/``sessions``/``window``) read from the
+#: existing ``click_track`` GA4 path. Pure-read attribution: nothing in the
+#: publish pipeline changes, so the dofollow backlink is preserved.
+REFERRAL_OBSERVED: Final = "referral.observed"
 
 #: Every kind ever written to events.db. The R8a CI gate asserts no writer
 #: emits a kind outside this set.
@@ -93,6 +100,7 @@ KINDS: Final[frozenset[str]] = frozenset(
         CITATION_OBSERVED,
         LINK_RECHECKED,
         RECONCILE_SWALLOWED,
+        REFERRAL_OBSERVED,
     }
 )
 
@@ -155,6 +163,10 @@ REQUIRED_FIELDS: Final[dict[str, frozenset[str]]] = {
     # live_url is the UNIQUE key that caused the collision — the load-bearing
     # field for any downstream reader correlating swallowed rows to articles.
     RECONCILE_SWALLOWED: frozenset({"live_url"}),
+    # channel is the load-bearing field: scorecard and g3 both aggregate referral
+    # sessions per channel. sessions/window are enrichment (a channel with zero
+    # referral may legitimately omit them).
+    REFERRAL_OBSERVED: frozenset({"channel"}),
 }
 
 

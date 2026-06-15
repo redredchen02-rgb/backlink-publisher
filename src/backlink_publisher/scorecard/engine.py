@@ -39,6 +39,7 @@ import backlink_publisher.publishing.adapters  # noqa: F401,E402
 from ..ledger.aggregate import _classify, _link_liveness
 from ..ledger.sources import build_target_buckets
 from ..recheck.events_io import STRIP_VERDICTS, derive_strip_counts_by_platform
+from ..referral.aggregate import latest_referral_by_channel
 from .model import AXIS_INERT, ChannelScoreRow
 
 #: Confirmed-publish kinds whose payload carries the authoritative ``platform``.
@@ -131,6 +132,7 @@ def build_channel_scorecard(
     # Recheck-derived strip diagnosis (R2c.a) — separate provenance from the
     # ledger liveness above; mapped onto channels by the recheck payload's own
     # platform slug. None (unattributed recheck) folds into UNATTRIBUTED.
+    referral_by_channel = latest_referral_by_channel(store)
     strip_raw = derive_strip_counts_by_platform(store)
     strip_by_channel: dict[str, dict[str, int]] = {}
     for plat, counts in strip_raw.items():
@@ -168,6 +170,7 @@ def build_channel_scorecard(
         set(registry.registered_platforms())
         | set(seen.keys())
         | set(strip_by_channel.keys())
+        | set(referral_by_channel.keys())
     )
 
     rows: list[ChannelScoreRow] = []
@@ -198,7 +201,11 @@ def build_channel_scorecard(
                 declared_referral=declared_referral,
                 total=total, live=live, live_dofollow=live_dofollow,
             ),
-            referral_traffic=AXIS_INERT,
+            referral_traffic=(
+                f"sessions:{referral_by_channel[ch]}"
+                if ch in referral_by_channel
+                else AXIS_INERT
+            ),
             gsc_discovery=AXIS_INERT,
             ai_retrievability=AXIS_INERT,
         ))
