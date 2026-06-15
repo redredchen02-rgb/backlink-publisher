@@ -2,9 +2,11 @@
 title: "feat: Close the referral attribution loop (self-hosted short-link 302)"
 type: feat
 status: parked
+parked: "2026-06-15 — superseded by the channel-level referral MVP (PR #6, click_track GA4 reuse). Resume trigger: NONE — short-link 302 was rejected by document-review (5 personas) as infeasible; do not resume this approach. Successor work tracks under a new plan number."
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-referral-attribution-loop-requirements.md
 deepened: 2026-06-15
+claims: {}  # parked/abandoned — no claims to track
 ---
 
 > **PARKED 2026-06-15 — 方案不可行，勿实现。** document-review 五persona一致否决短链 302：

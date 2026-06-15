@@ -82,3 +82,8 @@ rationale = "canary-seed CLI (Plan 2026-06-02-003 Unit 2): publishes a minimal t
 [files."scripts/platform_discovery.py"]
 ceiling = 340
 rationale = "platform-discovery script (Plan 2026-06-02-003 Unit 3): SERP → HTTP probe → browser-UA rel scan → scored JSONL candidate report. SLOC 306 includes DuckDuckGo HTML fetch, regex anchor extraction, dofollow_rate scoring, SSRF guard (fail-closed Track B), --candidate-urls fallback path, and progress RECON. Ceiling 340 = round_up_to_10(306+30) per policy."
+
+# webui_store base became load-bearing in the store-base refactor — guard it.
+[files."webui_store/sqlite_base.py"]
+ceiling = 254
+rationale = "store-base refactor (Plan 2026-06-15-005): BaseSqliteStore (the __init__/_init_table template + byte-identical migrate_from_json with a fail-soft save guard + shared _load_rows/_get_one_json/_replace_all_rows helpers) and BlobSqliteStore (single-row upsert load/save + _table_name identifier validator), absorbing the duplicated skeleton from 8 store files (net webui_store change far below the original raw-LOC estimate). sqlite_base settled at 224 SLOC as the shared base for all 8 stores. Ceiling 254 = round_up_to_10(224+30) per ratchet policy; the base is now feature-complete and should not grow further."
