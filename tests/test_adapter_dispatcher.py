@@ -169,3 +169,63 @@ def test_verify_telegraph_raises_on_unparseable_token(tmp_path, monkeypatch):
     os.chmod(bad, 0o600)
     with pytest.raises(DependencyError, match="parse|access_token"):
         verify_adapter_setup("telegraph", Config())
+
+
+# ── A1: transient-fallback gate (Plan 2026-06-15-001) ────────────────────────
+
+from backlink_publisher.publishing.reliability.transient_policy import (  # noqa: E402
+    mark_pre_create_429,
+)
+
+_BRAVE_AVAIL = "backlink_publisher.publishing.adapters.MediumBraveAdapter.available"
+_API_PUB = "backlink_publisher.publishing.adapters.MediumAPIAdapter.publish"
+_BRAVE_PUB = "backlink_publisher.publishing.adapters.MediumBraveAdapter.publish"
+_BROWSER_PUB = "backlink_publisher.publishing.adapters.MediumBrowserAdapter.publish"
+
+MEDIUM_BRAVE_RESULT = AdapterResult(
+    status="drafted", adapter="medium-brave", platform="medium",
+    draft_url="https://medium.com/@u/brave-post",
+)
+
+
+def _pre_create_429() -> ExternalServiceError:
+    exc = ExternalServiceError("Medium API rate-limited (429)")
+    mark_pre_create_429(exc)
+    return exc
+
+
+def test_medium_pre_create_429_falls_back_to_brave():
+    """A stamped pre-create 429 on the API adapter degrades to Brave (A1 unlock)."""
+    with patch(_BRAVE_AVAIL, return_value=True), \
+         patch(_API_PUB, side_effect=_pre_create_429()), \
+         patch(_BRAVE_PUB, return_value=MEDIUM_BRAVE_RESULT) as brave, \
+         patch(_BROWSER_PUB) as browser:
+        result = publish(MEDIUM_PAYLOAD, mode="draft", config=CONFIG_MEDIUM_TOKEN)
+    assert result.adapter == "medium-brave"
+    brave.assert_called_once()
+    browser.assert_not_called()
+
+
+def test_medium_brave_failure_does_not_fall_to_browser():
+    """Brave does not stamp provenance, so a Brave failure must NOT degrade to
+    Browser (Brave can leave a draft → Browser would duplicate)."""
+    with patch(_BRAVE_AVAIL, return_value=True), \
+         patch(_API_PUB, side_effect=_pre_create_429()), \
+         patch(_BRAVE_PUB, side_effect=ExternalServiceError("brave editor crashed")), \
+         patch(_BROWSER_PUB) as browser:
+        with pytest.raises(ExternalServiceError, match="brave editor crashed"):
+            publish(MEDIUM_PAYLOAD, mode="draft", config=CONFIG_MEDIUM_TOKEN)
+    browser.assert_not_called()
+
+
+def test_non_stamped_external_error_propagates_without_fallback():
+    """Legacy contract preserved: an ExternalServiceError WITHOUT pre-create
+    provenance propagates and does not try Brave."""
+    with patch(_BRAVE_AVAIL, return_value=True), \
+         patch(_API_PUB, side_effect=ExternalServiceError("Medium /me HTTP 500")), \
+         patch(_BRAVE_PUB) as brave, \
+         patch(_BROWSER_PUB) as browser:
+        with pytest.raises(ExternalServiceError, match="HTTP 500"):
+            publish(MEDIUM_PAYLOAD, mode="draft", config=CONFIG_MEDIUM_TOKEN)
+    brave.assert_not_called()
+    browser.assert_not_called()

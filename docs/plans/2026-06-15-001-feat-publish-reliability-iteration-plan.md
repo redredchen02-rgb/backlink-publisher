@@ -231,7 +231,9 @@ links). See origin: `docs/brainstorms/2026-06-15-publish-reliability-iteration-r
   fallback arm and DO NOT build A3 (no seam to emit from). The real lever is deferred until the
   `MediumAPIAdapter`→`MediumBraveAdapter` cross-mechanism transition is whitelisted with evidence
   that Brave cannot double-publish. Per-adapter breaker (A/B) is therefore moot this iteration.
-  This iteration's real delivery = **A2 groundwork + Track B (B1-B4) + C1**.
+  This iteration's real delivery = **A2 groundwork + Track B (B1-B4) + C1**. 
+
+  **UPDATE 2026-06-15 (A1 unlocked):** follow-up investigation confirmed the `MediumAPIAdapter→MediumBraveAdapter` cross-mechanism transition is duplicate-safe on a *pre-create* 429 (API created nothing → Brave creates the only post). That one transition is now whitelisted and A1's dispatch fallback arm is wired. The risky `Brave→Browser` step stays blocked (Brave doesn't stamp provenance → FAIL_FAST). Per-adapter breaker remains option-A observe-only (a `degraded` event on fallback).
 
 ## High-Level Technical Design
 
@@ -360,7 +362,7 @@ discipline in `_registry_dispatch.py` dispatch arms.
 whitelists empty by default; unidentified `ExternalServiceError` fails fast; no reuse of the
 `ExternalServiceError → TRANSIENT` mapping; no stderr-string branching.
 
-- [~] **Unit A1: Transient fallback in the adapter chain walk**
+- [x] **Unit A1: Transient fallback in the adapter chain walk**
 
 **Goal:** When `classify_transient` returns FALLBACK_SAFE, degrade to the next same-platform
 adapter instead of propagating; otherwise preserve today's propagate-and-terminate.

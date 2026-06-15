@@ -30,10 +30,13 @@ def _pre_create_429() -> ExternalServiceError:
     return exc
 
 
-def test_whitelists_ship_empty():
-    """Both evidence-gated whitelists start empty (default fail-fast)."""
+def test_whitelist_contents_are_evidence_gated():
+    """5xx whitelist stays empty; cross-mechanism holds ONLY the audited Medium
+    API→Brave unlock (A1, 2026-06-15) — nothing else."""
     assert tp.IDEMPOTENCY_SAFE_5XX == frozenset()
-    assert tp.CROSS_MECHANISM_FALLBACK == frozenset()
+    assert tp.CROSS_MECHANISM_FALLBACK == frozenset(
+        {("MediumAPIAdapter", "MediumBraveAdapter")}
+    )
 
 
 def test_provenance_marker_roundtrip():
@@ -82,18 +85,22 @@ def test_5xx_fallback_safe_when_platform_whitelisted(monkeypatch):
     assert decision is TransientDecision.FALLBACK_SAFE
 
 
-def test_cross_mechanism_blocked_until_whitelisted():
-    """A pre-create 429 across mechanisms (API -> browser) is blocked by default."""
-    cross = ("MediumAPIAdapter", "MediumBraveAdapter")
+def test_cross_mechanism_blocked_when_not_whitelisted():
+    """A pre-create 429 across mechanisms NOT on the whitelist is blocked.
+
+    The risky Brave→Browser transition (both not whitelisted as a from-pair) is
+    the real hazard this protects against.
+    """
+    cross = ("MediumBraveAdapter", "MediumBrowserAdapter")
     decision = classify_transient(
         _pre_create_429(), platform="medium", transition=cross, same_mechanism=False
     )
     assert decision is TransientDecision.FAIL_FAST
 
 
-def test_cross_mechanism_allowed_when_transition_whitelisted(monkeypatch):
+def test_audited_medium_api_to_brave_is_fallback_safe():
+    """The one whitelisted cross-mechanism transition (A1 unlock) is allowed."""
     cross = ("MediumAPIAdapter", "MediumBraveAdapter")
-    monkeypatch.setattr(tp, "CROSS_MECHANISM_FALLBACK", frozenset({cross}))
     decision = classify_transient(
         _pre_create_429(), platform="medium", transition=cross, same_mechanism=False
     )

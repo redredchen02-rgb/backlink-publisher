@@ -51,9 +51,18 @@ _PRE_CREATE_429_ATTR = "_blp_pre_create_429"
 IDEMPOTENCY_SAFE_5XX: frozenset[str] = frozenset()
 
 #: Approved cross-mechanism fallback transitions, as ``(from_adapter, to_adapter)``
-#: class-name pairs on the same account. Empty = every cross-mechanism transition
-#: is fail-fast.
-CROSS_MECHANISM_FALLBACK: frozenset[tuple[str, str]] = frozenset()
+#: class-name pairs on the same account. Default-empty; each entry is evidence-gated.
+#:
+#: ``MediumAPIAdapter -> MediumBraveAdapter`` (A1 unlock 2026-06-15): the API
+#: adapter stamps pre-create-429 provenance (see ``mark_pre_create_429`` in
+#: ``medium_api``) — a 429 on the create POST means Medium rejected the request
+#: BEFORE creating the post, so falling to Brave creates the first and ONLY post,
+#: not a duplicate. The riskier ``Brave -> Browser`` transition stays blocked
+#: because Brave does NOT stamp provenance, so ``classify_transient`` returns
+#: FAIL_FAST for it (a Brave failure can leave a draft → Browser would duplicate).
+CROSS_MECHANISM_FALLBACK: frozenset[tuple[str, str]] = frozenset(
+    {("MediumAPIAdapter", "MediumBraveAdapter")}
+)
 
 
 class TransientDecision(str, Enum):
