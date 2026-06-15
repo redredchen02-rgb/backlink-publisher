@@ -428,3 +428,19 @@ class TestBlobSqliteStore:
         store.migrate_from_json(tmp_path)
         assert store.load() == {"k": "v"}
         assert (tmp_path / "fake-blob.json.migrated").exists()
+
+    def test_invalid_table_name_rejected_at_class_definition(self):
+        # Defense-in-depth: _table_name is interpolated into DDL/DML, so a
+        # non-identifier must fail at class-definition time, not as a cryptic
+        # SQL error at runtime.
+        with pytest.raises(TypeError, match="bare SQL identifier"):
+            class _BadBlob(BlobSqliteStore):  # noqa: F811
+                _table_name = "bad; DROP TABLE x"
+                _value_type = dict
+
+    def test_valid_table_name_accepted(self):
+        class _OkBlob(BlobSqliteStore):
+            _table_name = "ok_table_1"
+            _value_type = dict
+
+        assert _OkBlob._table_name == "ok_table_1"

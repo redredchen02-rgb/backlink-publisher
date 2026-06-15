@@ -15,12 +15,17 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Iterator
+
+#: A bare SQL identifier (table name). Enforced on BlobSqliteStore subclasses
+#: because the table name is interpolated into DDL/DML (SQLite cannot bind it).
+_SQL_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
 from backlink_publisher.events._store_sqlite import (
     _retry_sqlite,
@@ -328,11 +333,28 @@ class BlobSqliteStore(BaseSqliteStore):
     enable it).
     """
 
-    #: Table name for this blob store (class-controlled constant, never user
-    #: input — safe to interpolate into DDL/DML below).
+    #: Table name for this blob store. Interpolated into DDL/DML (SQLite cannot
+    #: bind identifiers), so it must be a bare SQL identifier — enforced at
+    #: subclass-definition time by ``__init_subclass__`` below.
     _table_name: ClassVar[str]
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        # Fail fast at class-definition time if a subclass sets a _table_name
+        # that is not a safe SQL identifier (defends the f-string DDL/DML below
+        # against a future subclass introducing an injection/syntax footgun).
+        # Abstract intermediates that do not set _table_name are skipped.
+        super().__init_subclass__(**kwargs)
+        table = getattr(cls, "_table_name", None)
+        if table is not None and not _SQL_IDENTIFIER_RE.match(str(table)):
+            raise TypeError(
+                f"{cls.__name__}._table_name must be a bare SQL identifier "
+                f"(got {table!r}); it is interpolated into DDL/DML."
+            )
+
     def _default(self) -> Any:
+        # NOTE: ``_value_type`` must be ``list`` or ``dict`` so the DDL DEFAULT
+        # literal below serialises to a quote-free ``[]`` / ``{}``. A custom
+        # type whose empty value contains quotes would break ``_create_table_sql``.
         return self._value_type()
 
     def _create_table_sql(self) -> str:
