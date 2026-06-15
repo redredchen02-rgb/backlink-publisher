@@ -6,6 +6,7 @@ parked: "2026-06-15 — superseded by the channel-level referral MVP (PR #6, cli
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-referral-attribution-loop-requirements.md
 deepened: 2026-06-15
+claims: {}  # parked/abandoned — no claims to track
 ---
 
 > **PARKED 2026-06-15 — 方案不可行，勿实现。** document-review 五persona一致否决短链 302：

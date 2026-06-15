@@ -4,6 +4,7 @@ type: refactor
 status: completed
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-webui-store-base-sqlite-requirements.md
+claims: {}  # behavior-preserving refactor — no machine-checkable feature claims
 ---
 
 # refactor: Extract BaseSqliteStore + RowTableMixin for webui_store
