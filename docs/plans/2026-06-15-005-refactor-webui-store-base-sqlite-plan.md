@@ -224,7 +224,8 @@ graph TB
 
 **Verification:** mixin 測試綠燈；主鍵可配置案例通過。
 
-- [ ] **Unit 4: 遷移 3 個 blob store**
+- [x] **Unit 4: 遷移 3 個 blob store（完成）**
+  > profiles / schedule / publish_defaults 改繼承 `BlobSqliteStore`，刪除冗餘 load/save/_init_table/__init__/migrate（profiles/schedule 的 migrate 改由基類提供，publish_defaults 無 migrate）。保留 `_JSON_FILENAME`/`_SENTINEL_NAME` 模組常數（測試 import）。對外 API 零變化，76 blob-focused + 372 store 基線全綠。
 
 **Goal:** profiles / schedule / publish_defaults 改繼承 `BaseSqliteStore`，刪除冗餘 load/save，只留 schema 類屬性 + `_default_value`。
 
