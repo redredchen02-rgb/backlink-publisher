@@ -55,9 +55,11 @@ if TYPE_CHECKING:
 # Browser-tier channels activated in v1 (Plan 2026-05-28-001 Key Decision 1)
 _BROWSER_TIER: frozenset[str] = frozenset({"medium", "velog", "devto", "mastodon"})
 
-#: Activation env var — mirrors BACKLINK_PUBLISHER_DEDUP_ENFORCE from PR #279.
-#: When unset / not "1": publish_with_policy is a transparent passthrough.
-#: When "1": full policy (health gate + circuit breaker + events) is active.
+#: Activation env var — observe→enforce rollout (Plan 2026-06-15-001), mirrors the
+#: BACKLINK_PUBLISHER_DEDUP_ENFORCE pattern from PR #279. Resolved by ``policy_mode()``:
+#:   unset / unrecognized → "off"     (transparent passthrough; default)
+#:   "observe"            → "observe" (run gates, EMIT would-skip events, still dispatch)
+#:   "1" / "enforce"      → "enforce" (actually skip on blocked gate / open circuit)
 POLICY_ENV = "BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED"
 
 #: Phase 3 — consecutive-failure trip thresholds (configurable). These are the
@@ -104,9 +106,37 @@ def _warn_legacy_consecutive_env_once() -> None:
         )
 
 
+def policy_mode() -> str:
+    """Resolve the reliability-policy rollout mode from ``POLICY_ENV``.
+
+    Returns one of ``"off"`` | ``"observe"`` | ``"enforce"`` (observe→enforce
+    rollout, Plan 2026-06-15-001):
+
+    * ``off`` (default / unrecognized) — transparent passthrough, no gating, no
+      events. Identical to calling ``adapter_publish`` directly.
+    * ``observe`` — run the health-gate + circuit checks and EMIT what they would
+      do (``would_skip_policy`` / ``would_skip_circuit`` events) plus full trip
+      accounting, but STILL dispatch (never actually skips). Lets operators see
+      how often enforcement would fire before flipping it on.
+    * ``enforce`` — actually skip on a blocked health gate / open circuit.
+
+    Back-compat: the historical ``"1"`` value maps to ``enforce``.
+    """
+    val = (os.environ.get(POLICY_ENV) or "").strip().lower()
+    if val in ("1", "enforce"):
+        return "enforce"
+    if val == "observe":
+        return "observe"
+    return "off"
+
+
 def policy_enabled() -> bool:
-    """True iff the operator opted into the reliability policy layer."""
-    return os.environ.get(POLICY_ENV) == "1"
+    """True when the policy layer runs at all (observe OR enforce).
+
+    The publish-loop seam routes through ``publish_with_policy`` whenever this is
+    True; observe mode needs that routing to gather data, so it counts as enabled.
+    """
+    return policy_mode() != "off"
 
 
 def _is_browser_tier(platform: str) -> bool:
@@ -189,7 +219,10 @@ def publish_with_policy(
             banner_emit=banner_emit,
         )
 
-    # --- Policy active (BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED=1) ---
+    # --- Policy active: observe OR enforce -------------------------------------
+    # In ``observe`` the gates below EMIT what they would do but do NOT skip; in
+    # ``enforce`` they actually skip. Dispatch + trip accounting run in both.
+    enforcing = policy_mode() == "enforce"
 
     # 006-U1: surface the dead consecutive-errors knob (one-shot) before any
     # trip bookkeeping, so an operator who set it learns it has no effect here.
@@ -209,22 +242,31 @@ def publish_with_policy(
             channel_status = "unbound"
 
         if channel_status != "bound":
-            return AdapterResult(
-                status="skipped_policy",
-                adapter="policy",
-                platform=platform,
-                error=f"channel not bound (status={channel_status!r})",
+            if enforcing:
+                return AdapterResult(
+                    status="skipped_policy",
+                    adapter="policy",
+                    platform=platform,
+                    error=f"channel not bound (status={channel_status!r})",
+                )
+            # observe: record the would-be skip, then dispatch anyway.
+            emit_attempt(
+                platform, Outcome.WOULD_SKIP_POLICY, 0.0,
+                error_class=f"channel_status={channel_status}",
             )
 
     # 2. Circuit breaker — ALL platforms (Phase 3 U9; fail-CLOSED: corrupt state
     #    → is_tripped returns True). Handles CLOSED, OPEN, and HALF_OPEN states.
     if is_tripped(platform, config):
-        return AdapterResult(
-            status="skipped_circuit_open",
-            adapter="policy",
-            platform=platform,
-            error=f"circuit open for {platform}",
-        )
+        if enforcing:
+            return AdapterResult(
+                status="skipped_circuit_open",
+                adapter="policy",
+                platform=platform,
+                error=f"circuit open for {platform}",
+            )
+        # observe: record the would-be skip, then fall through to dispatch.
+        emit_attempt(platform, Outcome.WOULD_SKIP_CIRCUIT, 0.0)
 
     # 3. Dispatch + observe + consecutive-failure trip accounting.
     t0 = now_ms()
