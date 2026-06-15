@@ -67,13 +67,17 @@ def ce_health_publish_metrics():
         from backlink_publisher.scorecard.coverage import recheck_coverage
         from backlink_publisher.scorecard.success_rate import publish_success_rate
         from backlink_publisher.scorecard.reliability_readiness import channel_readiness
-        from backlink_publisher.publishing.reliability.policy import policy_mode
+        from backlink_publisher.publishing.reliability.policy import (
+            enforce_allowlist,
+            policy_mode,
+        )
 
         success = _g_cache("publish_success_rate", lambda: publish_success_rate())
         coverage = _g_cache("recheck_coverage", lambda: recheck_coverage())
         readiness = _g_cache("reliability_readiness", lambda: channel_readiness())
-        # Per-channel enforce mode arrives with the allowlist (Unit 7); for now the
-        # rollout mode is global.
+        # Per-channel enforce mode = policy_mode when the channel is in
+        # enforce_channels, else observe behavior (Unit 7). The panel derives the
+        # per-channel mode from policy_mode + enforce_channels.
         return jsonify(
             {
                 "ok": True,
@@ -81,6 +85,7 @@ def ce_health_publish_metrics():
                 "coverage": asdict(coverage),
                 "readiness": asdict(readiness),
                 "policy_mode": policy_mode(),
+                "enforce_channels": sorted(enforce_allowlist()),
             }
         )
     except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
@@ -92,6 +97,7 @@ def ce_health_publish_metrics():
                 "coverage": None,
                 "readiness": None,
                 "policy_mode": None,
+                "enforce_channels": [],
             }
         )
 

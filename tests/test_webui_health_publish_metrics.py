@@ -103,3 +103,11 @@ def test_policy_mode_reflects_env(client, monkeypatch):
     monkeypatch.setenv(POLICY_ENV, "observe")
     body = client.get("/ce:health/publish-metrics").get_json()
     assert body["policy_mode"] == "observe"
+
+
+def test_enforce_channels_reflect_allowlist(client, monkeypatch):
+    from backlink_publisher.publishing.reliability.policy import ENFORCE_ALLOWLIST_ENV
+
+    monkeypatch.setenv(ENFORCE_ALLOWLIST_ENV, "mastodon, velog")
+    body = client.get("/ce:health/publish-metrics").get_json()
+    assert body["enforce_channels"] == ["mastodon", "velog"]  # sorted

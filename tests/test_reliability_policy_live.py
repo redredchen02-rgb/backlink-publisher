@@ -259,6 +259,7 @@ class TestPolicyBehaviorsEndToEnd:
             lambda ch: {},
         )
         monkeypatch.setenv(_POLICY_ENV, "1")
+        monkeypatch.setenv("BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS", "velog")
         state = _run_one(_fake_row(platform="velog"), _make_args())
         assert state.outputs[-1]["status"] == "skipped_policy"
 
@@ -266,6 +267,7 @@ class TestPolicyBehaviorsEndToEnd:
         self, fake_platform_registered, monkeypatch
     ):
         monkeypatch.setenv(_POLICY_ENV, "1")
+        monkeypatch.setenv("BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS", "fake")
         config = load_config()
         circuit.trip("fake", config)
         assert circuit.is_tripped("fake", config), "pre-seed: circuit must be OPEN"

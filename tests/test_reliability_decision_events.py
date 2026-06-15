@@ -135,6 +135,7 @@ def test_observe_bound_healthy_persists_nothing(cfg):
 
 def test_enforce_tripped_persists_skipped_circuit_open(cfg, monkeypatch):
     monkeypatch.setenv(POLICY_ENV, "enforce")
+    monkeypatch.setenv("BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS", "medium")
     from backlink_publisher.publishing.reliability.circuit import trip
     trip("medium", cfg)
 
@@ -151,6 +152,7 @@ def test_enforce_tripped_persists_skipped_circuit_open(cfg, monkeypatch):
 
 def test_enforce_unbound_persists_skipped_policy(cfg, monkeypatch):
     monkeypatch.setenv(POLICY_ENV, "enforce")
+    monkeypatch.setenv("BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS", "medium")
     with patch(_GET_STATUS, return_value={"status": "unbound"}), \
          patch(_ADAPTER_PUB) as pub:
         out = publish_with_policy("medium", payload={"id": "1"}, config=cfg)

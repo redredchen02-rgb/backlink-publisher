@@ -275,6 +275,42 @@ def is_degraded(platform: str, config: Config) -> bool:
     return bool(_get_state(platform, config).get("tripped", False))
 
 
+def circuit_status(platform: str, config: Config) -> str:
+    """Discriminate the circuit lifecycle for the enforce gate (Plan 2026-06-15-006 U8).
+
+    Returns ``"closed"`` | ``"open"`` | ``"half_open"`` | ``"unreadable"``.
+
+    ``"unreadable"`` means the state FILE cannot be parsed (corruption) OR a tripped
+    entry lacks a timestamp (malformed/legacy) — a condition distinct from a valid
+    OPEN trip. Under enforce, ``is_tripped`` collapses all of these to "skip"
+    (fail-CLOSED); this accessor lets the policy layer degrade an *unreadable* state
+    to observe (dispatch + loud alert) instead of silently skipping every channel,
+    while still skipping a genuine OPEN trip. Keys on **file-level** parse failure,
+    not on a per-entry timestamp alone. No side effects (no cooldown transition).
+    """
+    state_path = _state_path(config)
+    if not state_path.exists():
+        return CircuitState.CLOSED.value
+    try:
+        raw = json.loads(state_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return "unreadable"
+    entry = raw.get(platform) or {}
+    if not entry.get("tripped", False):
+        return CircuitState.CLOSED.value
+    tripped_at_iso = entry.get("tripped_at_iso")
+    if not tripped_at_iso:
+        return "unreadable"  # tripped sentinel without a timestamp → malformed
+    try:
+        tripped_at = datetime.fromisoformat(tripped_at_iso).timestamp()
+    except (ValueError, TypeError):
+        return "unreadable"
+    if time.time() - tripped_at >= _cooldown_s():
+        return CircuitState.HALF_OPEN.value  # cooldown elapsed — recovery window
+    cur = entry.get("state", CircuitState.OPEN.value)
+    return CircuitState.OPEN.value if cur == CircuitState.OPEN.value else CircuitState.HALF_OPEN.value
+
+
 def trip(platform: str, config: Config) -> None:
     """Trip the circuit for *platform* (flock-across-RMW).
 
