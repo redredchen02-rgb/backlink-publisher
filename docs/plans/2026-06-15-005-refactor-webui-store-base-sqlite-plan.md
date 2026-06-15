@@ -250,7 +250,8 @@ graph TB
 
 **Verification:** 3 個 blob store 測試全綠且未放寬；對外 API diff 為零。
 
-- [ ] **Unit 5: 遷移 4 個行表 store**
+- [x] **Unit 5: 遷移 4 個行表 store（完成）**
+  > campaign/drafts/queue/channel_status 改繼承 `BaseSqliteStore`：移除各自的 `__init__`/`_init_table`/`migrate_from_json`，改用 `_create_table_sql`/`_indices_sql` + 類屬性 + 繼承的 migrate。queue/campaign/drafts 的 `load` 與 `get`/`get_item`/`get_by_campaign_id` 改走 `_load_rows`/`_get_one_json` helper；各自的 bespoke `save`（欄位鏡射）與領域方法（update_seed_status/progress、inserted_at 保序+bulk_publish_now、get_runnable/update_task、mark_*/reconcile/extra_json）原樣保留。`_JSON_FILENAME`/`_SENTINEL_NAME` 常數 + DraftsStore/CampaignStore 別名保留。逐店遷移逐店綠；全 store 基線 427 綠、零回歸。
 
 **Goal:** campaign / drafts / queue 改繼承 `BaseSqliteStore` + `RowTableMixin`；channel_status 僅繼承 `BaseSqliteStore`（不套 mixin），全部保留特異邏輯。
 
