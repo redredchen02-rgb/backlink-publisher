@@ -103,6 +103,7 @@ def sites_form():
         active_page='sites',
         all_sites=all_sites,
         plan_gap_summary=_plan_gap_summary(),
+        citation_share_alert=_citation_share_alert(),
     )
 
 
@@ -353,22 +354,55 @@ def sites_run_result(run_id: str):
     return redirect("/ce:keep-alive")
 
 
-def _plan_gap_summary() -> dict | None:
-    """Read logs/plan-gap-latest.json and return a display summary. Fail-open."""
+def _plan_gap_summary(path=None) -> dict:
+    """Read the latest plan-gap seed JSONL and return a display summary."""
     import json
     import os
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    path = Path(path) if path is not None else (
+        Path(__file__).resolve().parents[2] / "logs" / "plan-gap-latest.json"
+    )
+    if not path.exists():
+        return {"status": "missing"}
+
+    try:
+        mtime = os.path.getmtime(path)
+        rows = [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    except json.JSONDecodeError:
+        return {"status": "invalid", "error": "JSONL 格式損毀"}
+    except OSError:
+        return {"status": "invalid", "error": "無法讀取 plan-gap 結果"}
+
+    targets = {
+        row.get("target_url")
+        for row in rows
+        if isinstance(row, dict) and row.get("target_url")
+    }
+    triggered_at = datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return {
+        "status": "ok",
+        "candidate_count": len(rows),
+        "target_count": len(targets),
+        "triggered_at": triggered_at,
+    }
+
+
+def _citation_share_alert() -> dict | None:
+    """Return citation share alert info from logs/citation-share-alert.json. Fail-open."""
+    import json
     from pathlib import Path
 
     try:
-        bp_dir = Path(__file__).resolve().parents[2]
-        path = bp_dir / "logs" / "plan-gap-latest.json"
+        path = Path(__file__).resolve().parents[2] / "logs" / "citation-share-alert.json"
         if not path.exists():
             return None
-        mtime = os.path.getmtime(path)
-        lines = path.read_text(encoding="utf-8").splitlines()
-        count = sum(1 for ln in lines if ln.strip())
-        from datetime import datetime, timezone
-        triggered_at = datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        return {"seed_count": count, "triggered_at": triggered_at}
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return {"ts": data.get("ts", "")}
     except Exception:  # noqa: BLE001 — fail-open
         return None
