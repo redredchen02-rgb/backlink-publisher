@@ -1,9 +1,16 @@
 ---
 title: "feat: Autopilot 狀態可視性"
 type: feat
-status: active
+status: completed
 date: 2026-06-16
 origin: docs/brainstorms/2026-06-16-autopilot-status-visibility-requirements.md
+claims:
+  paths:
+    - webui_app/routes/sites.py
+    - webui_app/templates/sites.html
+    - webui_app/static/js/sites.js
+    - webui_app/templates/health.html
+    - tests/test_webui_sites_routes.py
 ---
 
 # feat: Autopilot 狀態可視性

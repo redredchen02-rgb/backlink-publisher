@@ -75,7 +75,10 @@ def sites_form():
         next_run_time_iso = None
         if ap_enabled and _sched_mod is not None and getattr(_sched_mod, '_scheduler', None) is not None:
             _job_id = _sched_mod._autopilot_job_id(entry.main_url)
-            _job = _sched_mod._scheduler.get_job(_job_id)
+            try:
+                _job = _sched_mod._scheduler.get_job(_job_id)
+            except Exception:
+                _job = None
             if _job is not None and _job.next_run_time is not None:
                 _iso = _job.next_run_time.isoformat()
                 next_run_time_iso = _iso if isinstance(_iso, str) else None
@@ -282,7 +285,9 @@ def sites_autopilot():
     if enabled and not (3600 <= interval_seconds <= 2592000):
         return jsonify({"error": "interval_seconds must be between 3600 (1h) and 2592000 (30d)"}), 422
 
-    snapshot_targets = dict(_ws.schedule_store.load().get("autopilot_targets", {}))
+    _current_targets = _ws.schedule_store.load().get("autopilot_targets", {})
+    _site_was_present = site_url in _current_targets
+    snapshot_site_cfg = dict(_current_targets[site_url]) if _site_was_present else None
 
     def _update_fn(settings):
         targets = dict(settings.get("autopilot_targets", {}))
@@ -302,7 +307,10 @@ def sites_autopilot():
         if enabled:
             _sched_mod._register_autopilot_job(site_url, interval_seconds)
             if getattr(_sched_mod, '_scheduler', None) is not None:
-                _job = _sched_mod._scheduler.get_job(_sched_mod._autopilot_job_id(site_url))
+                try:
+                    _job = _sched_mod._scheduler.get_job(_sched_mod._autopilot_job_id(site_url))
+                except Exception:
+                    _job = None
                 if _job is not None and _job.next_run_time is not None:
                     _iso = _job.next_run_time.isoformat()
                     next_run_time_iso = _iso if isinstance(_iso, str) else None
@@ -314,7 +322,15 @@ def sites_autopilot():
             except Exception:
                 pass
     except Exception as exc:
-        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": snapshot_targets})
+        # Roll back only this site's config; concurrent updates to other sites are preserved.
+        def _rollback_fn(s):
+            targets = dict(s.get("autopilot_targets", {}))
+            if _site_was_present:
+                targets[site_url] = snapshot_site_cfg
+            else:
+                targets.pop(site_url, None)
+            return {**s, "autopilot_targets": targets}
+        _ws.schedule_store.update(_rollback_fn)
         return jsonify({"error": str(exc)}), 500
 
     # last_run is the prior-cycle timestamp (or None if no cycle has completed yet)
