@@ -15,7 +15,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from .models import default_state
+from .models import _upgrade_v1_to_v2, default_state
 from backlink_publisher.config.loader import _config_dir
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,11 @@ class OptimizationState:
                     "treating as corrupt, returning defaults"
                 )
                 return default_state()
+            if data.get("version") == 1:
+                logger.info(
+                    "Upgrading optimization state from v1 to v2 in-memory"
+                )
+                data = _upgrade_v1_to_v2(data)
             return data
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning(
@@ -106,18 +111,34 @@ class OptimizationState:
                 pass
             raise
 
-    def get_weight(self, adapter_name: str, default: float) -> float:
+    def get_weight(
+        self,
+        adapter_name: str,
+        default: float = 1.0,
+        language: str = "default",
+    ) -> float:
         """Return the current dynamic weight for *adapter_name*.
 
-        Returns *default* when the adapter has no entry in the state file
-        (file missing, corrupt, or never weighted).
+        When *language* is not ``"default"`` and the language-specific
+        namespace has no entry for *adapter_name*, falls back to the
+        ``"default"`` namespace.
+
+        Returns *default* when no entry exists in either namespace.
         """
         data = self.load()
         weights = data.get("weights", {})
-        entry = weights.get(adapter_name)
-        if entry is None:
-            return default
-        return float(entry.get("current", default))
+        # Primary: requested language namespace
+        lang_space = weights.get(language, {})
+        entry = lang_space.get(adapter_name)
+        if entry is not None:
+            return float(entry.get("current", default))
+        # Fallback: "default" language (when not already default)
+        if language != "default":
+            def_space = weights.get("default", {})
+            entry = def_space.get(adapter_name)
+            if entry is not None:
+                return float(entry.get("current", default))
+        return default
 
     def set_weight(
         self,
@@ -126,6 +147,8 @@ class OptimizationState:
         rule: str,
         reason: str,
         force: bool = False,
+        intentional_zero: bool = False,
+        language: str = "default",
     ) -> None:
         """Set the current dynamic weight for *adapter_name*.
 
@@ -136,12 +159,17 @@ class OptimizationState:
         ``locked: true`` flag (set by a manual override), the call is a
         silent no-op so automated rules never overwrite operator choices.
         Pass ``force=True`` only from the manual-override WebUI route.
+
+        *intentional_zero* marks this weight as deliberately set to 0.0 by
+        a rule (e.g. canary_drift suppression), so ``dispatch_weight()``
+        can distinguish it from an uninitialised/legacy 0 and skip the
+        defensive floor clamp.
         """
         with self._lock:
             data = self.load()
-            weights = data.setdefault("weights", {})
+            lang_weights = data.setdefault("weights", {}).setdefault(language, {})
 
-            existing = weights.get(adapter_name, {})
+            existing = lang_weights.get(adapter_name, {})
             if not force and existing.get("locked", False):
                 logger.info(
                     "set_weight: skipping locked platform '%s' (rule=%s) — "
@@ -153,8 +181,8 @@ class OptimizationState:
             from .models import now_iso
 
             ts = now_iso()
-            if adapter_name in weights:
-                entry = weights[adapter_name]
+            if adapter_name in lang_weights:
+                entry = lang_weights[adapter_name]
                 old_current = entry.get("current", entry.get("base", 1.0))
                 adjustments = entry.setdefault("adjustments", [])
             else:
@@ -166,10 +194,11 @@ class OptimizationState:
 
             locked_flag = existing.get("locked", False)
 
-            weights[adapter_name] = {
-                "base": weights.get(adapter_name, {}).get("base", old_current),
+            lang_weights[adapter_name] = {
+                "base": lang_weights.get(adapter_name, {}).get("base", old_current),
                 "current": weight,
                 "locked": locked_flag,
+                "intentional_zero": intentional_zero,
                 "updated_at": ts,
                 "adjustments": adjustments
                 + [
@@ -183,17 +212,24 @@ class OptimizationState:
             }
             self.save(data)
 
-    def lock_weight(self, adapter_name: str, locked: bool = True) -> None:
+    def lock_weight(
+        self,
+        adapter_name: str,
+        locked: bool = True,
+        language: str = "default",
+    ) -> None:
         """Set or clear the manual-override lock for *adapter_name*.
 
         A locked platform is skipped by automated rules (``set_weight``
         with ``force=False``).  Use ``locked=False`` to unlock and let
         rules manage the weight again.
+
+        *language* scopes the lock to a specific language namespace.
         """
         with self._lock:
             data = self.load()
-            weights = data.setdefault("weights", {})
-            entry = weights.setdefault(adapter_name, {})
+            lang_weights = data.setdefault("weights", {}).setdefault(language, {})
+            entry = lang_weights.setdefault(adapter_name, {})
             entry["locked"] = locked
             self.save(data)
 
@@ -201,15 +237,17 @@ class OptimizationState:
         self,
         adapter_name: str,
         stats_update: dict[str, Any],
+        language: str = "default",
     ) -> None:
         """Merge *stats_update* into the per-platform stats for *adapter_name*.
 
         Existing keys are overwritten; new keys are added. Thread-safe.
+        *language* scopes the stats to a specific language namespace.
         """
         with self._lock:
             data = self.load()
-            stats = data.setdefault("stats", {})
-            existing = stats.setdefault(adapter_name, {})
+            lang_stats = data.setdefault("stats", {}).setdefault(language, {})
+            existing = lang_stats.setdefault(adapter_name, {})
             existing.update(stats_update)
             self.save(data)
 
@@ -232,15 +270,16 @@ class OptimizationState:
             data["weights"] = {}
             self.save(data)
 
-    def to_summary(self) -> dict[str, Any]:
+    def to_summary(self, language: str = "default") -> dict[str, Any]:
         """Return a compact summary for display (``show-optimization-state``).
 
         Omits the full adjustment history; each platform gets:
         - base, current, delta (percentage), adjustment count, and stat totals.
+        *language* selects the language namespace to summarise.
         """
         data = self.load()
-        weights = data.get("weights", {})
-        stats = data.get("stats", {})
+        weights = data.get("weights", {}).get(language, {})
+        stats = data.get("stats", {}).get(language, {})
         summary: dict[str, Any] = {
             "platforms": [],
             "last_updated": None,

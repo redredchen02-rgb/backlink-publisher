@@ -51,6 +51,7 @@ class PlatformSignal:
     language_whitelist: tuple[str, ...] = ()
     # Visibility (defaults to "active")
     visibility: str = "active"
+    language: str = "default"
     # Routing reliability discount from registry (0.0 < weight <= 1.0)
     dispatch_weight: float = 1.0
 
@@ -80,12 +81,14 @@ def _get_binding(platform: str, channel_data: dict[str, Any] | None) -> str:
 
 def collect_all(
     channel_data: dict[str, Any] | None = None,
+    language: str = "default",
 ) -> dict[str, PlatformSignal]:
     """Collect live signals for every active publishing platform.
 
     Args:
         channel_data: Pre-loaded channel-status store data (dict).
             If None, all non-anon platforms are treated as unbound.
+        language: Language scope for dispatch-weight lookup.
 
     Returns:
         Mapping of platform name -> PlatformSignal with resolved values.
@@ -120,7 +123,8 @@ def collect_all(
             canary_last_ok_at=last_ok_at,
             language_whitelist=whitelist,
             visibility=visibility_str,
-            dispatch_weight=registry_dispatch_weight(name),
+            language=language,
+            dispatch_weight=registry_dispatch_weight(name, language=language),
         )
         signals[name] = sig
 

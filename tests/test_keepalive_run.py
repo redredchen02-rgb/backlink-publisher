@@ -232,7 +232,7 @@ def test_reverify_alive_updates_opt_stats(tmp_path):
     from backlink_publisher.optimization.state import OptimizationState
     opt = OptimizationState(data_dir=tmp_path)
     _update_opt_stats("blogger", "alive", opt_state=opt)
-    stats = opt.load()["stats"]["blogger"]
+    stats = opt.load()["stats"]["default"]["blogger"]
     assert stats["alive_count"] == 1
     assert stats["dofollow_count"] == 1
 
@@ -241,7 +241,7 @@ def test_reverify_dofollow_lost_increments_alive_not_dofollow(tmp_path):
     from backlink_publisher.optimization.state import OptimizationState
     opt = OptimizationState(data_dir=tmp_path)
     _update_opt_stats("blogger", "dofollow_lost", opt_state=opt)
-    stats = opt.load()["stats"]["blogger"]
+    stats = opt.load()["stats"]["default"]["blogger"]
     assert stats["alive_count"] == 1
     assert stats["dofollow_count"] == 0
 
@@ -269,7 +269,7 @@ def test_reverify_stat_rmw_increments_not_overwrites(tmp_path):
         "alive_count": 10, "dofollow_count": 8, "total_published": 15, "drift_count": 2
     })
     _update_opt_stats("blogger", "alive", opt_state=opt)
-    stats = opt.load()["stats"]["blogger"]
+    stats = opt.load()["stats"]["default"]["blogger"]
     assert stats["alive_count"] == 11   # RMW incremented, not reset to 1
     assert stats["dofollow_count"] == 9
     assert stats["total_published"] == 15  # untouched
@@ -279,7 +279,7 @@ def test_reverify_stat_new_platform_gets_defaults(tmp_path):
     from backlink_publisher.optimization.state import OptimizationState
     opt = OptimizationState(data_dir=tmp_path)
     _update_opt_stats("mataroa", "alive", opt_state=opt)
-    stats = opt.load()["stats"]["mataroa"]
+    stats = opt.load()["stats"]["default"]["mataroa"]
     assert stats["alive_count"] == 1
     assert "dofollow_count" in stats
 

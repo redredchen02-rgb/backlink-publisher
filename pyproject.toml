@@ -37,6 +37,7 @@ dev = ["pytest>=8.4", "pytest-mock>=3.15", "pytest-timeout>=2.4", "pytest-socket
 dev-webwright = ["webwright @ git+https://github.com/microsoft/Webwright.git@4a46f282ec37f27d6003cc498a977939d62d9015"]
 
 [project.scripts]
+bp = "backlink_publisher.cli.bp:main"
 plan-backlinks = "backlink_publisher.cli.plan_backlinks:main"
 spray-backlinks = "backlink_publisher.cli.spray_backlinks:main"
 footprint = "backlink_publisher.cli.footprint:main"
@@ -78,6 +79,8 @@ restore-state = "backlink_publisher.cli.state_backup:restore_main"
 keepalive-run = "backlink_publisher.cli.keepalive_run:main"
 keepalive-status = "backlink_publisher.cli.keepalive_status:main"
 keepalive-reset-exhausted = "backlink_publisher.cli.keepalive_reset_exhausted:main"
+pipeline-orchestrator = "backlink_publisher.cli.pipeline_orchestrator:main"
+health-check = "backlink_publisher.cli.health_check:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -19,7 +19,7 @@ rationale = "thin-WebUI Phase 2 Unit 7 (2026-05-28): pure generation kernel (_ce
 
 [files."src/backlink_publisher/cli/publish_backlinks/__init__.py"]
 ceiling = 240
-rationale = "2026-06-05 feat/continuous-optimization: optimization integration added ~50 SLOC (weight dispatch, queue telemetry, optimization-state hook) on top of the 2026-06-02 loop-extraction refactor (SLOC 159). Current SLOC=209. Ceiling 240 = round_up_to_10(209+30) per ratchet policy."
+rationale = "2026-06-05 feat/continuous-optimization: optimization integration added weight dispatch, queue telemetry, optimization-state hook. Measured SLOC=230. Ceiling 240 = round_up_to_10(230+10) per ratchet policy."
 
 [files."src/backlink_publisher/content/fetch.py"]
 ceiling = 250
@@ -38,8 +38,8 @@ ceiling = 110
 rationale = "3 reducers (_project_checkpoint, _project_history, _project_drafts) extracted to events/_project_reducers.py (2026-05-27). projector.py dropped from 542 to 75 SLOC — holds only flush_for dispatch, record_projection_health, project_run_safe, and health constants. Ceiling 110 = round_up_to_10(75+30) per policy."
 
 [files."src/backlink_publisher/events/_project_reducers.py"]
-ceiling = 620
-rationale = "Holds the 3 extracted reducers (_project_checkpoint, _project_history, _project_drafts) plus the confirmed-emit helpers _emit_confirmed_history_row (#350) and _emit_drafts_confirmed (#340, extracted 2026-06-01 to bring _project_drafts CC under the CC-30 backstop). _project_checkpoint decomposed into 4 named handlers (2026-06-03, CC 39→24). At 583 SLOC; ceiling 620 = round_up_to_10(583+30) per policy."
+ceiling = 500
+rationale = "Holds the 3 reducers (_project_checkpoint, _project_history, _project_drafts). Emit helpers (_emit_confirmed_history_row, _emit_drafts_confirmed, _parse_row_timestamps) extracted to _project_emit.py (2026-06-11). Ceiling tightened 620→500 = round_up_to_10(467+30) per policy."
 
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
 ceiling = 340
@@ -51,7 +51,7 @@ rationale = "_handle_init (173 lines) + its exclusive helpers (_build_routine_ve
 
 [files."src/backlink_publisher/cli/plan_check.py"]
 ceiling = 260
-rationale = "Three-tier decomposition (2026-05-26): schema (frontmatter/claims/filename-date-lock) moved to _plan_check_schema.py (166 SLOC), git resolution (fetch freshness, path/sha checks, stderr classification) to _plan_check_git.py (148 SLOC), output formatting (JSON/human/RECON lines) to _plan_check_format.py (76 SLOC). plan_check.py now holds main() + re-exports only at 227 SLOC. Ceiling 260 = round_up_to_10(227+30) per policy."
+rationale = "Three-tier decomposition (2026-05-26): schema (frontmatter/claims/filename-date-lock) moved to _plan_check_schema.py (166 SLOC), git resolution (fetch freshness, path/sha checks, stderr classification) to _plan_check_git.py (148 SLOC), output formatting (JSON/human/RECON lines) to _plan_check_format.py (76 SLOC). plan_check.py now holds main() + re-exports only at 217 SLOC. Ceiling 260 = round_up_to_10(217+30) per policy."
 
 [files."src/backlink_publisher/cli/validate_backlinks.py"]
 ceiling = 150
@@ -83,6 +83,9 @@ rationale = "canary-seed CLI (Plan 2026-06-02-003 Unit 2): publishes a minimal t
 ceiling = 340
 rationale = "platform-discovery script (Plan 2026-06-02-003 Unit 3): SERP → HTTP probe → browser-UA rel scan → scored JSONL candidate report. SLOC 306 includes DuckDuckGo HTML fetch, regex anchor extraction, dofollow_rate scoring, SSRF guard (fail-closed Track B), --candidate-urls fallback path, and progress RECON. Ceiling 340 = round_up_to_10(306+30) per policy."
 
+[files."src/backlink_publisher/cli/pipeline_orchestrator.py"]
+ceiling = 650
+rationale = "Pipeline orchestrator (Plan 2026-06-10-002 U2.1): CLI entry point dispatching equity-ledger → plan-gap → plan-backlinks → validate → publish pipeline steps via subprocess. SLOC 611 includes data types, step dispatch, circuit-breaker integration, dynamic scheduling, event emission, --loop mode, and write_mode / platform_filter config propagation. Ceiling 650 = round_up_to_10(611+30) per policy."
 # ─────────────────────────────────────────────────────────────────────────────
 # Plan 2026-06-15-002 P1-3: hotspot audit of every 500+ raw-LOC source file.
 # The pre-existing budget covered only 17 files. This block extends coverage to

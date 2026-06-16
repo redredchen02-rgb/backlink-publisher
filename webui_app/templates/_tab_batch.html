@@ -29,7 +29,8 @@
                             {# Plan 013 U2 — shared 4-select partial; field name `target_language`
                                (batch.py reads `target_language` with `language` as fallback). #}
                             {% include '_shared_config_selects.html' %}
-                            <button type="submit" class="btn btn-success">
+                            <button type="submit" class="btn btn-success"
+                                    aria-label="开始批量发布任务">
                                 <i class="bi bi-play-circle me-2"></i>开始批量发布
                             </button>
                             <small class="text-muted ms-3">每篇文章约需 30–60 秒，请耐心等候</small>

@@ -71,6 +71,7 @@ cat seeds.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --mode
 
 | Command | Source | Role |
 |---|---|---|
+| `bp` | `cli/bp.py` | Show grouped overview of all CLI commands |
 | `plan-backlinks` | `cli/plan_backlinks/` | Generate articles from seed JSONL |
 | `validate-backlinks` | `cli/validate_backlinks.py` | Validate + enrich |
 | `publish-backlinks` | `cli/publish_backlinks/` (package) | Publish via platform adapters |
@@ -89,6 +90,8 @@ cat seeds.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --mode
 | `gate-probe` | `cli/gate_probe.py` (engines `gates/*`) | Phase-0 falsification gate (read-only premise probe): `--gate g2` (money-page silent-decay), `g3` (referer render-path audit + Tier-2 GA4 referral intake; static audit alone can KILL; credentials-unavailable → BLOCKED), `g5` (footprint-fingerprint survival re-fetch; anti-bot saturation → terminal INCONCLUSIVE). Emits one `GO`/`KILL`/`INCONCLUSIVE`/`BLOCKED` verdict JSONL on stdout for hand-curation into `docs/ideation/gate-verdicts.md`. First run per gate is a calibration pass (INCONCLUSIVE → set threshold → rerun). Exit 0 advisory. Plan 2026-06-01-005. |
 | `probe-citations` | `cli/probe_citations.py` (kernel `geo/run.py`) | GEO AI-citation closed-loop probe: selects stale (target, query) pairs from events.db (oldest-first, D5 cursor), queries an AI engine (Perplexity v1), classifies the answer tier (site_cited/article_cited/absent/refused), and appends `citation.observed` events. **Network gated behind `--probe` (default = zero-network dry preview).** Exit 0 by default (advisory); `--fail-on-low-share` exits 6 only for measured above-floor targets (warming_up/never_probed suppressed, D10). flock guards overlapping runs. No `--api-key` flag (S4 — key in config/env only). Plan 2026-05-29-006 Unit 7. |
 | `weights` | `cli/weights.py` (subcommands `collect`/`optimize`/`show`) | Dispatch-weight optimisation, consolidating the former `collect-signals` / `optimize-weights` / `show-optimization-state` scripts (Plan 2026-06-05-008 R2). Delegates to the per-subcommand modules (still `python -m` runnable). `weights optimize` runs the rules engine incl. the floored `aggregated_stats` strip penalty (R3). |
+
+**Maintenance contract — adding a new CLI command:** register the command in `pyproject.toml [project.scripts]` **and** add it to the matching group in `src/backlink_publisher/cli/bp.py GROUPS`. `tests/test_bp_registry.py` enforces this in CI — a missing entry fails the build.
 
 ### Peripheral / meta modules (not the core 4-stage pipeline)
 

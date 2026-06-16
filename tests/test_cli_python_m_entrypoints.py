@@ -130,3 +130,33 @@ def test_cli_only_python_m_help_produces_output(
         f"`python -m {module_path} --help` output didn't look like an "
         f"argparse banner; got: {combined[:200]!r}"
     )
+
+
+def test_bp_python_m_produces_overview() -> None:
+    """``python -m backlink_publisher.cli.bp`` must print the grouped overview.
+
+    bp uses a custom overview format (not argparse), so it is intentionally
+    excluded from the parametrize fixtures above that assert 'usage:'/'options:'.
+    This standalone test verifies bp's own contract: grouped overview, exit 0.
+    """
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(_SRC_DIR) + (
+        os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
+    )
+    for args in [[], ["--help"], ["-h"]]:
+        result = subprocess.run(
+            [sys.executable, "-m", "backlink_publisher.cli.bp", *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(_REPO_ROOT),
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"`python -m backlink_publisher.cli.bp {' '.join(args)}` "
+            f"exited {result.returncode}: {result.stderr[:200]!r}"
+        )
+        assert "Pipeline" in result.stdout, (
+            f"bp overview missing 'Pipeline' group; got: {result.stdout[:200]!r}"
+        )
+        assert "Run any command with --help for details." in result.stdout

@@ -249,8 +249,8 @@ def _restore_scheduled_jobs() -> None:
             if run_date < now:
                 run_date = now + timedelta(seconds=5)
             _schedule_draft_job(item_id, run_date)
-        except Exception:
-            plan_logger.warn("restore_scheduled_job_failed", item_id=item_id, ts=ts)
+        except Exception as e:
+            plan_logger.warn("restore_scheduled_job_failed", item_id=item_id, ts=ts, error=str(e))
 
     # Autopilot: register one interval job per enabled site (skip under maintenance).
     sched_settings = _sched_store.load()
@@ -314,7 +314,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
     try:
         _hist_store.update(lambda hist: [entry, *hist][:200])
     except Exception:  # noqa: BLE001
-        pass
+        plan_logger.debug("history_update_failed", site_url=site_url, exc_info=True)
 
     # Update autopilot_targets: last_run + alert_pending
     alert = not result_success
@@ -329,7 +329,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
     try:
         _sched_store.update(_update_autopilot)
     except Exception:  # noqa: BLE001
-        pass
+        plan_logger.debug("autopilot_state_update_failed", site_url=site_url, exc_info=True)
 
     plan_logger.info(
         "autopilot_cycle_done",

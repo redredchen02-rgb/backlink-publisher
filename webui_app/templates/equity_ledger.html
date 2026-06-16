@@ -35,13 +35,14 @@
   </style>
 {% endblock %}
 {% block content %}
-<nav class="navbar bg-white border-bottom px-3">
+<nav class="navbar bg-white border-bottom px-3" aria-label="页面操作">
   <span class="navbar-brand mb-0 h1"><i class="bi bi-graph-up-arrow me-2"></i>外链权益台账</span>
   <div class="d-flex align-items-center gap-2">
-    <span id="staleBadge" class="badge text-bg-warning {% if stale_count == 0 %}d-none{% endif %}">
+    <span id="staleBadge" class="badge text-bg-warning {% if stale_count == 0 %}d-none{% endif %}"
+          aria-label="待更新或失败的外链数量">
       <i class="bi bi-clock-history"></i> {{ stale_count }} 待更新/失败
     </span>
-    <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> 首页</a>
+    <a href="/" class="btn btn-sm btn-outline-secondary" aria-label="返回首页"><i class="bi bi-house"></i> 首页</a>
   </div>
 </nav>
 
@@ -71,9 +72,12 @@
 
   <div id="batchBar" class="batch-bar d-none d-flex gap-2 align-items-center">
     <span class="small fw-semibold text-muted me-1">批量操作：</span>
-    <button class="btn btn-sm btn-outline-warning" id="batchRecheckWeak">重新检查全部弱目标</button>
-    <button class="btn btn-sm btn-outline-secondary" id="batchRecheckStale">重新检查待更新/失败</button>
-    <button class="btn btn-sm btn-outline-primary" id="batchRecheckAll">重新检查所有可见</button>
+    <button class="btn btn-sm btn-outline-warning" id="batchRecheckWeak"
+            aria-label="重新检查全部弱目标">重新检查全部弱目标</button>
+    <button class="btn btn-sm btn-outline-secondary" id="batchRecheckStale"
+            aria-label="重新检查待更新或失败的外链">重新检查待更新/失败</button>
+    <button class="btn btn-sm btn-outline-primary" id="batchRecheckAll"
+            aria-label="重新检查所有可见的外链">重新检查所有可见</button>
     <span id="batchProgress" class="small text-muted ms-2 d-none"><span class="spinner-border spinner-border-sm me-1"></span><span id="batchProgressText">处理中…</span></span>
   </div>
 

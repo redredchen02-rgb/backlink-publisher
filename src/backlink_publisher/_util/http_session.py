@@ -43,10 +43,9 @@ _session_lock = threading.Lock()
 # Shared cookie jar for session persistence
 _cookie_jar = CookieJar()
 
-# SSL context (loose, matching linkcheck's default)
-_SSL_CTX: ssl.SSLContext = ssl.create_default_context()
-_SSL_CTX.check_hostname = False
-_SSL_CTX.verify_mode = ssl.CERT_NONE
+# SSL context (environment-gated insecure verification)
+from backlink_publisher._util.ssl_ctx import get_ssl_context
+_SSL_CTX: ssl.SSLContext = get_ssl_context()
 
 # User-Agent for identification
 USER_AGENT = "backlink-publisher/0.1 http-session"

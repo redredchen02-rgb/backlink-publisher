@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% block title %}Pipeline Dashboard{% endblock %}
+{% block head_extra %}
+<style>
+.pipeline-hero { font-size: 2.5rem; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+.pipeline-good { color: #10b981; }
+.pipeline-warn { color: #f59e0b; }
+.pipeline-bad  { color: #ef4444; }
+.pipeline-muted { color: #6b7280; }
+.event-kind { font-family: ui-monospace, monospace; font-size: 12px; }
+.timestamp-cell { font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
+.platform-badge { font-size: 12px; }
+.card-body-scroll { max-height: 400px; overflow-y: auto; }
+</style>
+{% endblock %}
+{% block content %}
+<main class="container py-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Pipeline 仪表板</h1>
+    <div class="btn-group" role="group">
+      <button type="button" class="btn btn-outline-success btn-sm"
+              data-action="pipeline-trigger"
+              title="立即触发一次 pipeline 运行（后台异步）"
+              aria-label="立即触发 pipeline 运行">
+        <i class="bi bi-play-fill"></i> 触发
+      </button>
+      {% if pipeline_paused %}
+      <button type="button" class="btn btn-outline-primary btn-sm"
+              data-action="pipeline-resume"
+              title="恢复 pipeline 自动调度"
+              aria-label="恢复 pipeline 自动调度">
+        <i class="bi bi-play-circle"></i> 恢复
+      </button>
+      {% else %}
+      <button type="button" class="btn btn-outline-warning btn-sm"
+              data-action="pipeline-pause"
+              title="暂停 pipeline 自动调度"
+              aria-label="暂停 pipeline 自动调度">
+        <i class="bi bi-pause-fill"></i> 暂停
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if pipeline_paused %}
+  <div class="alert alert-warning py-2 mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    Pipeline 当前处于<strong>暂停</strong>状态。自动调度不会触发新运行。
+    点击「恢复」按钮重新开启。
+  </div>
+  {% endif %}
+
+  {# ── Run summary cards ──────────────────────────────────────────────── #}
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <div class="pipeline-hero pipeline-good">{{ run_summary.get('pipeline.completed', 0) }}</div>
+          <div class="text-muted small">成功运行</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <div class="pipeline-hero pipeline-bad">{{ run_summary.get('pipeline.failed', 0) }}</div>
+          <div class="text-muted small">失败</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <div class="pipeline-hero pipeline-warn">{{ run_summary.get('pipeline.skipped', 0) }}</div>
+          <div class="text-muted small">跳过</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <div class="pipeline-hero pipeline-muted">{{ run_summary.get('pipeline.started', 0) }}</div>
+          <div class="text-muted small">总启动</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    {# ── Recent pipeline events ───────────────────────────────────────── #}
+    <div class="col-md-8">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>最近 Pipeline 事件</span>
+          <span class="text-muted small">{{ recent_events | length }} 条</span>
+        </div>
+        <div class="card-body p-0 card-body-scroll">
+          {% if recent_events %}
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th>时间</th>
+                <th>事件</th>
+                <th>详情</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ev in recent_events %}
+              <tr>
+                <td class="timestamp-cell">
+                  {% if ev.ts_utc %}
+                    {{ ev.ts_utc | replace('T', ' ') | truncate(19, true, '') }}
+                  {% else %}-{% endif %}
+                </td>
+                <td><span class="event-kind badge bg-secondary">{{ ev.kind }}</span></td>
+                <td class="small">
+                  {% if ev.kind == 'pipeline.started' %}
+                    触发: {{ ev.payload.get('trigger_reason', '?') }}
+                  {% elif ev.kind == 'pipeline.stage_completed' %}
+                    {{ ev.payload.get('stage', '?') }} → 退出码 {{ ev.payload.get('exit_code', '?') }}
+                  {% elif ev.kind == 'pipeline.completed' %}
+                    {% set sj = ev.payload.get('summary_json') %}
+                    {% if sj %}{{ sj }}{% else %}完成{% endif %}
+                  {% elif ev.kind == 'pipeline.failed' %}
+                    失败于 <strong>{{ ev.payload.get('failed_stage', '?') }}</strong>
+                    (退出码 {{ ev.payload.get('exit_code', '?') }})
+                  {% elif ev.kind == 'pipeline.skipped' %}
+                    原因: {{ ev.payload.get('reason', '?') }}
+                  {% else %}
+                    {{ ev.payload }}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox"></i>
+            <p class="mt-2 mb-0">暂无 pipeline 事件记录。</p>
+            <small>运行 <code>pipeline-orchestrator</code> 后数据将出现在此处。</small>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ── Circuit breaker status + events ──────────────────────────────── #}
+    <div class="col-md-4">
+      <div class="card mb-3">
+        <div class="card-header">
+          <span>断路器状态</span>
+        </div>
+        <div class="card-body p-0 card-body-scroll">
+          {% if circuit_status %}
+          <table class="table table-sm mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th>平台</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cs in circuit_status %}
+              <tr>
+                <td><span class="platform-badge badge bg-info">{{ cs.platform }}</span></td>
+                <td>
+                  {% if cs.kind == 'circuit.tripped' %}
+                  <span class="badge bg-danger">熔断</span>
+                  {% elif cs.kind == 'circuit.half_open' %}
+                  <span class="badge bg-warning text-dark">半开</span>
+                  {% elif cs.kind == 'circuit.reset' %}
+                  <span class="badge bg-success">已重置</span>
+                  {% else %}
+                  <span class="badge bg-secondary">{{ cs.kind }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="text-center text-muted py-3">
+            <i class="bi bi-shield-check"></i>
+            <p class="mt-1 mb-0 small">暂无断路器事件。</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Recent circuit events ──────────────────────────────────────── #}
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>断路器事件</span>
+          <span class="text-muted small">{{ circuit_events | length }} 条</span>
+        </div>
+        <div class="card-body p-0 card-body-scroll">
+          {% if circuit_events %}
+          <table class="table table-sm mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th>时间</th>
+                <th>事件</th>
+                <th>平台</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ev in circuit_events %}
+              <tr>
+                <td class="timestamp-cell">
+                  {% if ev.ts_utc %}
+                    {{ ev.ts_utc | replace('T', ' ') | truncate(19, true, '') }}
+                  {% else %}-{% endif %}
+                </td>
+                <td><span class="event-kind badge bg-secondary">{{ ev.kind | replace('circuit.', '') }}</span></td>
+                <td><span class="platform-badge badge bg-info">{{ ev.payload.get('platform', '?') }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="text-center text-muted py-3">
+            <i class="bi bi-lightning"></i>
+            <p class="mt-1 mb-0 small">暂无断路器事件。</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Stage breakdown ─────────────────────────────────────────────────── #}
+  {% if stage_breakdown %}
+  <div class="card mt-3">
+    <div class="card-header">
+      <span>Stage 执行统计</span>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Stage</th>
+            <th>执行次数</th>
+            <th>平均退出码</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sb in stage_breakdown %}
+          <tr>
+            <td><code>{{ sb.stage }}</code></td>
+            <td>{{ sb.count }}</td>
+            <td>
+              {% if sb.avg_exit_code == '0.0' or sb.avg_exit_code == 0 %}
+              <span class="badge bg-success">{{ sb.avg_exit_code }}</span>
+              {% else %}
+              <span class="badge bg-warning text-dark">{{ sb.avg_exit_code }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</main>
+{% endblock %}
+
+{% block page_module %}
+<script type="module">
+const ACTION_MAP = {
+  'pipeline-trigger': { url: '{{ url_for("pipeline_dashboard.ce_pipeline_trigger") }}', reload: true },
+  'pipeline-pause':   { url: '{{ url_for("pipeline_dashboard.ce_pipeline_pause") }}',   reload: true },
+  'pipeline-resume':  { url: '{{ url_for("pipeline_dashboard.ce_pipeline_resume") }}',  reload: true },
+};
+
+document.querySelectorAll('[data-action^="pipeline-"]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const cfg = ACTION_MAP[btn.dataset.action];
+    if (!cfg) return;
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    try {
+      const resp = await fetch(cfg.url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+          'Accept': 'application/json',
+        },
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: resp.statusText }));
+        alert('操作失败: ' + (err.message || resp.statusText));
+        return;
+      }
+      if (cfg.reload) location.reload();
+    } catch (err) {
+      alert('网络错误: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -75,7 +75,8 @@
             <div class="mt-2">
                 <button type="button" class="btn btn-sm btn-link px-0"
                         data-bs-toggle="collapse" data-bs-target="#campaign-ext-area"
-                        aria-expanded="false" aria-controls="campaign-ext-area">
+                        aria-expanded="false" aria-controls="campaign-ext-area"
+                        aria-label="展开未串接平台列表">
                     拓展區 ({{ publish_partition.extension_count }}) — 未串接平台
                 </button>
                 <div id="campaign-ext-area" class="collapse">
@@ -117,9 +118,11 @@
             <h5><i class="bi bi-file-earmark-text me-1"></i>模式</h5>
             <div class="mode-tabs" role="group">
                 <button type="button" class="mode-tab {% if form.get('mode', 'draft') == 'draft' %}active{% endif %}"
-                        data-mode="draft" onclick="setMode('draft')">草稿模式</button>
+                        data-mode="draft" onclick="setMode('draft')"
+                        aria-label="草稿模式：先审稿再发布">草稿模式</button>
                 <button type="button" class="mode-tab {% if form.get('mode', 'draft') == 'publish' %}active{% endif %}"
-                        data-mode="publish" onclick="setMode('publish')">直接发布</button>
+                        data-mode="publish" onclick="setMode('publish')"
+                        aria-label="直接发布：跳过审稿直接上线">直接发布</button>
             </div>
             <input type="hidden" name="mode" id="mode-input" value="{{ form.get('mode', 'draft') }}">
             <div class="help-text">草稿模式：先审稿再发布；直接发布：跳过审稿直接上线。</div>
@@ -152,11 +155,12 @@
 
         {# ── Submit ── #}
         <div class="d-flex gap-3 mt-3">
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary"
+                    aria-label="创建批量任务">
                 <i class="bi bi-play-circle me-2"></i>创建批量任务
             </button>
             <a href="{% if campaign_id %}/campaign/{{ campaign_id }}{% else %}/{% endif %}"
-               class="btn btn-outline-secondary">取消</a>
+               class="btn btn-outline-secondary" aria-label="取消创建批量任务">取消</a>
         </div>
     </form>
 </div>
