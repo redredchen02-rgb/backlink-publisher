@@ -45,6 +45,57 @@ function numCell(value, { strong = false, muted = false } = {}) {
   return td;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SPARK_W = 64, SPARK_H = 24, SPARK_PAD = 2;
+
+function sparkline(trend) {
+  // trend: Array of 4 floats (0–1) or null, oldest first.
+  const td = document.createElement('td');
+  td.className = 'text-center';
+  if (!trend || trend.every(v => v === null)) {
+    td.textContent = '—';
+    td.className += ' text-muted small';
+    return td;
+  }
+
+  const n = trend.length;
+  const xStep = (SPARK_W - SPARK_PAD * 2) / Math.max(n - 1, 1);
+  const points = trend
+    .map((v, i) => {
+      if (v === null) return null;
+      const x = SPARK_PAD + i * xStep;
+      const y = SPARK_PAD + (1 - v) * (SPARK_H - SPARK_PAD * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .filter(Boolean);
+
+  if (points.length < 2) {
+    td.textContent = trend[n - 1] !== null ? `${Math.round(trend[n - 1] * 100)}%` : '—';
+    td.className += ' text-muted small';
+    return td;
+  }
+
+  const last = trend.slice().reverse().find(v => v !== null);
+  const stroke = last >= 0.8 ? '#34d399' : last >= 0.5 ? '#fbbf24' : '#f87171';
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', SPARK_W);
+  svg.setAttribute('height', SPARK_H);
+  svg.setAttribute('aria-hidden', 'true');
+
+  const poly = document.createElementNS(SVG_NS, 'polyline');
+  poly.setAttribute('points', points.join(' '));
+  poly.setAttribute('fill', 'none');
+  poly.setAttribute('stroke', stroke);
+  poly.setAttribute('stroke-width', '2');
+  poly.setAttribute('stroke-linecap', 'round');
+  poly.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(poly);
+  td.appendChild(svg);
+  td.title = trend.map(v => v === null ? '—' : `${Math.round(v * 100)}%`).join(' → ');
+  return td;
+}
+
 function targetRow(t) {
   const tr = document.createElement('tr');
   if (t.needs_attention) tr.className = 'ka-attention';
@@ -66,6 +117,7 @@ function targetRow(t) {
 
   tr.appendChild(numCell(t.decayed, { muted: t.decayed === 0 }));
   tr.appendChild(numCell(t.check_failed, { muted: t.check_failed === 0 }));
+  tr.appendChild(sparkline(t.trend));
 
   const plats = document.createElement('td');
   plats.className = 'small text-muted';

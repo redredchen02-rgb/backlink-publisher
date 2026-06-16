@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED
+from backlink_publisher.events.trend_query import compute_target_trends
 from backlink_publisher.ledger import build_ledger
 from backlink_publisher.recheck import verdicts
 from backlink_publisher.recheck.events_io import derive_per_target_status
@@ -56,6 +57,11 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
     # the ledger rows — no lossy re-key that could drop a bleeding target.
     per_target = derive_per_target_status(store)
 
+    try:
+        trends = compute_target_trends(store=store)
+    except Exception:
+        trends = {}
+
     targets: list[dict] = []
     for row in ledger_rows:
         if _host(row.target_url) in _EXCLUDED_HOSTS:
@@ -81,6 +87,7 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
                 "strip_rate": round(strip_rate, 3),
                 "last_verified": status["last_verified"] if status else None,
                 "needs_attention": stripped > 0,
+                "trend": trends.get(canon),
             }
         )
 
