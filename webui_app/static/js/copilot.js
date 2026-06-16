@@ -41,8 +41,15 @@ function setOpen(open) {
   const p = panel();
   const toggle = qs('#copilotToggle');
   if (!p) return;
+  // Pull focus out before the panel goes inert on close, so it lands on the
+  // toggle instead of being dropped to <body>.
+  if (!open && toggle && p.contains(document.activeElement)) toggle.focus();
   p.classList.toggle('copilot-panel--open', open);
   p.setAttribute('aria-hidden', String(!open));
+  // The closed panel only slides off-screen (still display:flex), so its
+  // controls would stay in the tab order — inert removes them from both the
+  // tab order and the a11y tree (fixes axe aria-hidden-focus).
+  p.toggleAttribute('inert', !open);
   if (toggle) toggle.setAttribute('aria-expanded', String(open));
   if (open && !loaded && !loading) loadAdvice();
 }

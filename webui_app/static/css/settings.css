@@ -144,7 +144,8 @@
             padding: 16px 24px;
         }
         .badge-status { display:inline-flex; align-items:center; gap:6px;
-                        padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+                        padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;
+                        white-space:nowrap; }
         .badge-status.ok  { background:rgba(16,185,129,0.2); color:#6ee7b7; }
         .badge-status.err { background:rgba(239,68,68,0.2); color:#fca5a5; }
         .badge-status.warn{ background:rgba(245,158,11,0.2); color:#fde68a; }

@@ -28,7 +28,7 @@
         <div class="orb orb--3"></div>
     </div>
     {# Global navigation — active_page must use | default('') so pages that omit it render without error. #}
-    <nav class="global-nav sticky-top">
+    <nav class="global-nav sticky-top" aria-label="主导航">
         <div class="global-nav__inner">
             <a href="/ce:keep-alive" class="global-nav__item{% if (active_page | default('')) == 'keep_alive' %} active{% endif %}">保活</a>
             <a href="/survival-dashboard" class="global-nav__item{% if (active_page | default('')) == 'survival_dashboard' %} active{% endif %}">存活率</a>
@@ -63,9 +63,9 @@
             {% endif %}
         </div>
     </nav>
-    <div class="page-content">
+    <main class="page-content">
         {% block content %}{% endblock %}
-    </div>
+    </main>
     {# Server -> client bootstrap data island(s). Usually one window.__<page>Bootstrap;
        index is the documented exception (two: __indexBootstrap + __batchTabHint). #}
     {% block page_data %}{% endblock %}
