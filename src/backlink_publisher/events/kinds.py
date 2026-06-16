@@ -89,6 +89,15 @@ RELIABILITY_DECISION: Final = "reliability.decision"
 #: links for the same target are dead within 14 days. Deduped per target per
 #: 14d window to avoid re-alerting on persistent decay.
 DECAY_ALERT: Final = "decay.alert"
+#: GSC Search Analytics page-signal probe (Plan 2026-06-16-003 Unit 2).
+#: Written directly by the ``probe-index`` CLI via ``EventStore.append``.
+#: ``has_impressions=True`` means the page appeared in GSC Search Analytics
+#: within the probe window (proxy for indexation, NOT a confirmed index check).
+GSC_PAGE_SIGNAL: Final = "gsc.page_signal"
+#: GSC keyword ranking snapshot (Plan 2026-06-16-003 Unit 2).
+#: Written by ``probe-ranking`` CLI (weekly) and ``snapshot_baseline``
+#: (called from plan-backlinks before building links, advisory).
+RANKING_SNAPSHOT: Final = "ranking.snapshot"
 
 #: Every kind ever written to events.db. The R8a CI gate asserts no writer
 #: emits a kind outside this set.
@@ -116,6 +125,8 @@ KINDS: Final[frozenset[str]] = frozenset(
         REFERRAL_OBSERVED,
         RELIABILITY_DECISION,
         DECAY_ALERT,
+        GSC_PAGE_SIGNAL,
+        RANKING_SNAPSHOT,
     }
 )
 
@@ -190,6 +201,14 @@ REQUIRED_FIELDS: Final[dict[str, frozenset[str]]] = {
     # target_url and lost_count are the load-bearing pair: the banner reader
     # needs to know which target is decaying and how many links were lost.
     DECAY_ALERT: frozenset({"target_url", "lost_count"}),
+    # page_url + has_impressions are the load-bearing pair: probe-index readers
+    # need to know which page was checked and whether it appeared in GSC.
+    # coverage_state is enrichment (raw GSC field, None when absent from response).
+    GSC_PAGE_SIGNAL: frozenset({"page_url", "has_impressions"}),
+    # keyword + avg_position are the load-bearing pair for ranking_trend().
+    # date_range_start/end identify the non-overlapping query window so baseline
+    # vs follow-up comparisons are statistically valid.
+    RANKING_SNAPSHOT: frozenset({"keyword", "avg_position", "date_range_start", "date_range_end"}),
 }
 
 
