@@ -80,8 +80,7 @@ def sites_form():
             except Exception:
                 _job = None
             if _job is not None and _job.next_run_time is not None:
-                _iso = _job.next_run_time.isoformat()
-                next_run_time_iso = _iso if isinstance(_iso, str) else None
+                next_run_time_iso = _job.next_run_time.isoformat()
         all_sites.append({
             "label": label,
             "main_url": entry.main_url,
@@ -303,7 +302,7 @@ def sites_autopilot():
     next_run_time_iso = None
     try:
         import sys as _sys
-        _sched_mod = _sys.modules['webui_app.scheduler']
+        _sched_mod = _sys.modules.get('webui_app.scheduler')
         if enabled:
             _sched_mod._register_autopilot_job(site_url, interval_seconds)
             if getattr(_sched_mod, '_scheduler', None) is not None:
@@ -312,8 +311,7 @@ def sites_autopilot():
                 except Exception:
                     _job = None
                 if _job is not None and _job.next_run_time is not None:
-                    _iso = _job.next_run_time.isoformat()
-                    next_run_time_iso = _iso if isinstance(_iso, str) else None
+                    next_run_time_iso = _job.next_run_time.isoformat()
         else:
             try:
                 _sched_mod._scheduler.remove_job(

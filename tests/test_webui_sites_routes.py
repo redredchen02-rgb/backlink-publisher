@@ -232,6 +232,7 @@ def _make_mock_scheduler(register_fn=None, remove_raises=False):
     mock_sch = MagicMock()
     if remove_raises:
         mock_sch.remove_job.side_effect = RuntimeError("not found")
+    mock_sch.get_job.return_value.next_run_time.isoformat.return_value = "2026-06-17T10:00:00+08:00"
     mod._scheduler = mock_sch
     return mod
 
