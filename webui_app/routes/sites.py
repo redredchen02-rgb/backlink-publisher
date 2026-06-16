@@ -102,6 +102,7 @@ def sites_form():
         default_templates=", ".join(DEFAULT_WORK_TEMPLATES),
         active_page='sites',
         all_sites=all_sites,
+        plan_gap_summary=_plan_gap_summary(),
     )
 
 
@@ -350,3 +351,24 @@ def sites_run():
 @bp.route("/sites/run/<run_id>/result", methods=["GET"])
 def sites_run_result(run_id: str):
     return redirect("/ce:keep-alive")
+
+
+def _plan_gap_summary() -> dict | None:
+    """Read logs/plan-gap-latest.json and return a display summary. Fail-open."""
+    import json
+    import os
+    from pathlib import Path
+
+    try:
+        bp_dir = Path(__file__).resolve().parents[2]
+        path = bp_dir / "logs" / "plan-gap-latest.json"
+        if not path.exists():
+            return None
+        mtime = os.path.getmtime(path)
+        lines = path.read_text(encoding="utf-8").splitlines()
+        count = sum(1 for ln in lines if ln.strip())
+        from datetime import datetime, timezone
+        triggered_at = datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        return {"seed_count": count, "triggered_at": triggered_at}
+    except Exception:  # noqa: BLE001 — fail-open
+        return None

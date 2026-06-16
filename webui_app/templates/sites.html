@@ -241,7 +241,28 @@
   <hr class="my-4">
 
   <fieldset>
-    <legend>⑤ 批量操作</legend>
+    <legend>⑤ Plan-Gap 週報</legend>
+    <p class="help">每週日 02:00 自動執行 equity-ledger → plan-gap → plan-backlinks --dry-run，結果存於 <code>logs/plan-gap-latest.json</code>。</p>
+    {% if plan_gap_summary %}
+    <div class="d-flex gap-4 align-items-center flex-wrap">
+      <div>
+        <span class="fw-semibold">補鏈候選數：</span>
+        <span class="badge bg-primary fs-6">{{ plan_gap_summary.seed_count }}</span>
+      </div>
+      <div class="text-muted small">
+        觸發時間：{{ plan_gap_summary.triggered_at }}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">尚未執行 plan-gap（首次排程為下週日 02:00）。<br>
+    手動執行：<code>bash scripts/run-plan-gap-weekly.sh</code></p>
+    {% endif %}
+  </fieldset>
+
+  <hr class="my-4">
+
+  <fieldset>
+    <legend>⑥ 批量操作</legend>
     <p class="help">勾选站点后选择操作并提交，后台每 60 秒处理一行。</p>
 
     <div class="table-responsive">
