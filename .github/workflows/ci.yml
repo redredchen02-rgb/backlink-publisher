@@ -63,13 +63,13 @@ jobs:
         # --strict-markers catches any module-level __tier__ drift.
         # --cov includes branch coverage in report/json, excluding test files.
         run: |
-          python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit" --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:.coverage-unit.json
+          python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit" --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:coverage-unit.json
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-unit-${{ matrix.python-version }}
-          path: .coverage-unit.json
+          path: coverage-unit.json
           if-no-files-found: error
 
       - name: Check code style (compile + AST parse)
@@ -131,13 +131,13 @@ jobs:
         # (see docs/solutions/test-failures/strict-markers-addopts-noop-conftest-module-load-2026-06-01.md).
         # Baseline: 83.2% measured 2026-06-09; floor set at 80% to prevent regressions.
         run: |
-          python -m pytest tests/ --tb=short --timeout=60 -n auto --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:.coverage-full.json --cov-fail-under=80
+          python -m pytest tests/ --tb=short --timeout=60 -n auto --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:coverage-full.json --cov-fail-under=80
 
       - name: Upload full coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-full-${{ matrix.python-version }}
-          path: .coverage-full.json
+          path: coverage-full.json
           if-no-files-found: error
 
   # ═══════════════════════════════════════════════════════════════════════════
