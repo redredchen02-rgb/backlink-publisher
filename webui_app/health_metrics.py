@@ -341,6 +341,109 @@ def weights_snapshot() -> dict | None:
         return None
 
 
+def indexation_status(store: EventStore) -> list[dict]:
+    """Return GSC page-signal status grouped by target_url (Plan 2026-06-16-003 U6).
+
+    Reads ``gsc.page_signal`` events from the last 90 days and groups by
+    target_url, counting pages that appeared vs. did not appear in GSC.
+    Returns ``[]`` when no data exists (never raises — fail-open).
+    """
+    try:
+        from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL
+
+        since = _window_start(datetime.now(timezone.utc), 90)
+        rows = store.query(
+            """
+            SELECT
+                target_url,
+                COUNT(*) AS total,
+                SUM(CASE WHEN json_extract(payload_json, '$.has_impressions') = 1
+                         THEN 1 ELSE 0 END) AS appeared_count,
+                SUM(CASE WHEN json_extract(payload_json, '$.has_impressions') = 0
+                         THEN 1 ELSE 0 END) AS absent_count
+            FROM events
+            WHERE kind = ?
+              AND ts_utc >= ?
+              AND target_url IS NOT NULL
+            GROUP BY target_url
+            ORDER BY target_url
+            """,
+            (GSC_PAGE_SIGNAL, since),
+        )
+        return [
+            {
+                "target_url": r["target_url"],
+                "total": int(r["total"] or 0),
+                "appeared_count": int(r["appeared_count"] or 0),
+                "absent_count": int(r["absent_count"] or 0),
+            }
+            for r in rows
+        ]
+    except Exception:  # noqa: BLE001 — fail-open, never 500
+        return []
+
+
+def ranking_trend(store: EventStore) -> list[dict]:
+    """Return keyword ranking trend: oldest snapshot vs. latest (Plan 2026-06-16-003 U6).
+
+    Compares the oldest ``ranking.snapshot`` event per keyword (baseline,
+    taken with pre-build window -60d to -30d) against the most recent one
+    (regular weekly probe, recent 30d). Returns delta and trend arrow.
+    Returns ``[]`` when no data (never raises).
+    """
+    try:
+        from backlink_publisher.events.kinds import RANKING_SNAPSHOT
+
+        rows = store.query(
+            """
+            SELECT
+                json_extract(payload_json, '$.keyword') AS keyword,
+                json_extract(
+                    (SELECT payload_json FROM events e2
+                     WHERE e2.kind = ? AND json_extract(e2.payload_json, '$.keyword')
+                           = json_extract(e1.payload_json, '$.keyword')
+                     ORDER BY e2.ts_utc ASC LIMIT 1),
+                    '$.avg_position'
+                ) AS baseline_pos,
+                json_extract(
+                    (SELECT payload_json FROM events e3
+                     WHERE e3.kind = ? AND json_extract(e3.payload_json, '$.keyword')
+                           = json_extract(e1.payload_json, '$.keyword')
+                     ORDER BY e3.ts_utc DESC LIMIT 1),
+                    '$.avg_position'
+                ) AS latest_pos
+            FROM events e1
+            WHERE kind = ?
+              AND json_extract(payload_json, '$.keyword') IS NOT NULL
+            GROUP BY json_extract(payload_json, '$.keyword')
+            ORDER BY json_extract(payload_json, '$.keyword')
+            """,
+            (RANKING_SNAPSHOT, RANKING_SNAPSHOT, RANKING_SNAPSHOT),
+        )
+
+        out = []
+        for r in rows:
+            kw = r["keyword"]
+            baseline = r["baseline_pos"]
+            latest = r["latest_pos"]
+            if baseline is not None and latest is not None:
+                delta = round(float(baseline) - float(latest), 1)
+                trend = "↑" if delta > 0 else ("↓" if delta < 0 else "→")
+            else:
+                delta = None
+                trend = "—"
+            out.append({
+                "keyword": kw,
+                "baseline_position": baseline,
+                "latest_position": latest,
+                "delta": delta,
+                "trend": trend,
+            })
+        return out
+    except Exception:  # noqa: BLE001 — fail-open, never 500
+        return []
+
+
 def build_health(
     store: EventStore | None = None,
     *,

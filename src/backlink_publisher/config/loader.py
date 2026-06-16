@@ -17,6 +17,7 @@ from .types import (
     Config,
     GhpagesConfig,
     GitlabPagesConfig,
+    GscConfig,
     MastodonConfig,
     ZennConfig,
     MediumOAuthConfig,
@@ -292,6 +293,16 @@ def load_config(path: Path | None = None) -> Config:
             credential_path=click_track_section.get("credential_path"),
         )
 
+    gsc_section = data.get("gsc")
+    gsc: GscConfig | None = None
+    if gsc_section is not None and isinstance(gsc_section, dict):
+        raw_keywords = gsc_section.get("ranking_keywords", [])
+        gsc = GscConfig(
+            credential_path=gsc_section.get("credential_path"),
+            property_url=gsc_section.get("property_url"),
+            ranking_keywords=list(raw_keywords) if isinstance(raw_keywords, list) else [],
+        )
+
     cell_assignments = _parse_cell_assignments(data.get("cells"))
 
     return Config(
@@ -319,6 +330,7 @@ def load_config(path: Path | None = None) -> Config:
         zenn=zenn,
         click_track=click_track,
         image_gen=image_gen,
+        gsc=gsc,
         cell_assignments=cell_assignments,
         platform_throttle=platform_throttle,
     )

@@ -14,7 +14,7 @@ import pytest
 from backlink_publisher.events import kinds
 
 
-def test_kinds_set_is_the_22_documented_kinds():
+def test_kinds_set_is_the_24_documented_kinds():
     assert kinds.KINDS == frozenset(
         {
             "publish.intent",
@@ -39,9 +39,12 @@ def test_kinds_set_is_the_22_documented_kinds():
             "referral.observed",
             "reliability.decision",
             "decay.alert",
+            # Plan 2026-06-16-003: GSC integration
+            "gsc.page_signal",
+            "ranking.snapshot",
         }
     )
-    assert len(kinds.KINDS) == 22
+    assert len(kinds.KINDS) == 24
 
 
 @pytest.mark.parametrize(

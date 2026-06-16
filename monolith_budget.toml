@@ -185,3 +185,13 @@ rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py
 [files."src/backlink_publisher/publishing/_verify_live_probes.py"]
 ceiling = 290
 rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py. Contains UTC helper, 6 VerifyResult factory functions, _verify_live dispatcher, and 4 per-platform live probe implementations (telegraph, ghpages, blogger, velog) with their constants. Imports verify_adapter_setup at module level from _verify_setup (no circular since _verify_setup uses lazy import for _verify_live). SLOC 251. Ceiling 290 = round_up_to_10(251+30) per policy."
+
+# Plan 2026-06-16-003: GSC indexation + ranking panels added to health dashboard.
+# webui_app/ is NOT auto-scanned by monolith_budget; entries below are explicit.
+[files."webui_app/routes/health.py"]
+ceiling = 490
+rationale = "Plan 2026-06-16-003 (2026-06-16): added _gsc_indexation_panel() and _gsc_ranking_panel() panel functions (+35 SLOC) plus two _g_cache calls in the main route. Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 447. Ceiling 490 = round_up_to_10(447+30) per policy."
+
+[files."webui_app/health_metrics.py"]
+ceiling = 370
+rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ranking_trend() query functions (+85 SLOC). Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 330. Ceiling 370 = round_up_to_10(330+30) per policy."

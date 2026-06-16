@@ -33,6 +33,8 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("canonical-expand",       "Expand canonical URLs for a seed list"),
         ("comment",                "Post a contextual comment backlink"),
         ("probe-citations",        "Check citation coverage for target URLs"),
+        ("probe-index",            "Probe GSC for page-signal indexation status"),
+        ("probe-ranking",          "Snapshot keyword ranking positions from GSC"),
         ("publish-metrics",        "Compute and report publish reliability metrics"),
         ("referral-attribute",     "Attribute referral traffic to published backlinks"),
     ]),
@@ -49,6 +51,7 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("verify-dofollow",        "Verify dofollow status of published links"),
         ("recheck-overlay",        "Re-check overlay state for published items"),
         ("debt-report",            "Report link debt and outstanding obligations"),
+        ("decay-alert",            "Alert on decayed or degraded backlinks"),
     ]),
     ("State", [
         ("backup-state",           "Back up all state stores to a timestamped archive"),

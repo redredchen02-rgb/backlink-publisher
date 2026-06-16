@@ -296,6 +296,25 @@ class ClickTrackConfig:
     credential_path: str | None = None
 
 
+@dataclass
+class GscConfig:
+    """Google Search Console integration (Plan 2026-06-16-003).
+
+    Populated from ``[gsc]`` in config.toml.  Treated as disabled when
+    ``property_url`` is ``None`` or empty — callers should check before
+    constructing a ``GscClient``.
+
+    ``credential_path`` — path to a service-account JSON key file (0o600).
+    ``property_url``    — GSC property string, e.g. ``sc-domain:example.com``.
+    ``ranking_keywords`` — keyword list for ``probe-ranking``; empty list
+                           disables keyword ranking probing.
+    """
+
+    credential_path: str | None = None
+    property_url: str | None = None
+    ranking_keywords: list[str] = field(default_factory=list)
+
+
 @dataclass(frozen=True)
 class AnchorAlarmOverride:
     """One override row in ``[[anchor_alarm.override]]``.
@@ -500,6 +519,13 @@ class Config:
     section is absent — image-gen is opt-in. The API key lives in a
     separate 0600 file at ``~/.config/backlink-publisher/frw-token.json``
     (per SEC-3); use ``frw-login`` to write it."""
+
+    gsc: "GscConfig | None" = None
+    """GSC Search Console integration (Plan 2026-06-16-003).
+
+    Populated from ``[gsc]`` in config.toml. ``None`` when the section is
+    absent — GSC integration is opt-in. The service-account JSON key file
+    path is in ``gsc.credential_path`` (0o600 enforced at load time)."""
 
     cell_assignments: dict[str, list[str]] = field(default_factory=dict)
     """Money-site → allowed channel subset for blast-radius containment (R7).

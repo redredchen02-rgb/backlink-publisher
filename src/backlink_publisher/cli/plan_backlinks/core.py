@@ -233,6 +233,21 @@ def main(argv: list[str] | None = None) -> None:
     # reset — accepts cumulative stats (documented acceptable, audit surface 2).
     content_fetch.reset_stats()
 
+    # Advisory GSC baseline snapshot: record keyword positions before building links.
+    # Non-overlapping window (-60d to -30d) so a follow-up probe-ranking (recent 30d)
+    # gives a statistically valid before/after comparison. Silently skipped when GSC
+    # is not configured or any error occurs — never blocks plan generation.
+    try:
+        from backlink_publisher.cli.probe_ranking import snapshot_baseline
+        gsc_cfg = getattr(cfg, "gsc", None)
+        keywords = gsc_cfg.ranking_keywords if gsc_cfg else []
+        snapshot_baseline(gsc_cfg, keywords)
+    except Exception as exc:
+        import logging as _logging
+        _logging.getLogger("plan-backlinks").debug(
+            "gsc baseline hook skipped: %s", exc, exc_info=True
+        )
+
     from backlink_publisher._util.profiling import profile_if_enabled
     with profile_if_enabled(args):
         outcome = plan_rows(
@@ -282,5 +297,8 @@ def main(argv: list[str] | None = None) -> None:
                 degraded_platforms=",".join(degraded),
                 hint="canary 偵測到上述平台契約漂移;發布前請複查 adapter 或重新 seed canary",
             )
-    except Exception:  # noqa: BLE001 — advisory must never break plan generation
-        pass
+    except Exception as exc:  # noqa: BLE001 — advisory must never break plan generation
+        import logging as _logging
+        _logging.getLogger("plan-backlinks").debug(
+            "canary nudge skipped: %s", exc, exc_info=True
+        )
