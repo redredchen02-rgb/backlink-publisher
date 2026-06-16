@@ -7,7 +7,7 @@ from flask import Flask
 
 def register_blueprints(app: Flask) -> None:
     from .main import bp as main_bp
-    from .pipeline import bp as pipeline_bp
+    from .pipeline import bp as pipeline_bp, bp_publish as pipeline_publish_bp
     from .batch import bp as batch_bp
     from .checkpoint import bp as checkpoint_bp
     from .history import bp as history_bp
@@ -44,7 +44,7 @@ def register_blueprints(app: Flask) -> None:
     from .batch_sites import bp as batch_sites_bp
     from .publish_defaults import bp as publish_defaults_bp
 
-    for bp in (main_bp, pipeline_bp, batch_bp, checkpoint_bp,
+    for bp in (main_bp, pipeline_bp, pipeline_publish_bp, batch_bp, checkpoint_bp,
                history_bp, drafts_bp, settings_basic_bp, llm_bp, oauth_bp,
                profiles_bp, sites_bp, queue_bp, dashboard_bp,
                medium_login_bp, bind_bp, token_paste_bp, url_verify_bp, image_gen_bp,

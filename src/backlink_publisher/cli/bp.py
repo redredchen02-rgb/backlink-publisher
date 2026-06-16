@@ -33,6 +33,8 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("canonical-expand",       "Expand canonical URLs for a seed list"),
         ("comment",                "Post a contextual comment backlink"),
         ("probe-citations",        "Check citation coverage for target URLs"),
+        ("publish-metrics",        "Compute and report publish reliability metrics"),
+        ("referral-attribute",     "Attribute referral traffic to published backlinks"),
     ]),
     ("Diagnostics", [
         ("gate-probe",             "Run a phase-0 gate probe and report result"),

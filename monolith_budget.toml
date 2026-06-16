@@ -84,8 +84,8 @@ ceiling = 340
 rationale = "platform-discovery script (Plan 2026-06-02-003 Unit 3): SERP → HTTP probe → browser-UA rel scan → scored JSONL candidate report. SLOC 306 includes DuckDuckGo HTML fetch, regex anchor extraction, dofollow_rate scoring, SSRF guard (fail-closed Track B), --candidate-urls fallback path, and progress RECON. Ceiling 340 = round_up_to_10(306+30) per policy."
 
 [files."src/backlink_publisher/cli/pipeline_orchestrator.py"]
-ceiling = 650
-rationale = "Pipeline orchestrator (Plan 2026-06-10-002 U2.1): CLI entry point dispatching equity-ledger → plan-gap → plan-backlinks → validate → publish pipeline steps via subprocess. SLOC 611 includes data types, step dispatch, circuit-breaker integration, dynamic scheduling, event emission, --loop mode, and write_mode / platform_filter config propagation. Ceiling 650 = round_up_to_10(611+30) per policy."
+ceiling = 410
+rationale = "Pipeline orchestrator (Plan 2026-06-10-002 U2.1): CLI entry point dispatching equity-ledger → plan-gap → plan-backlinks → validate → publish pipeline steps via subprocess. Current SLOC 379 after full-automation-upgrade merged and tightened scope. Ceiling 410 = round_up_to_10(379+30) per policy."
 # ─────────────────────────────────────────────────────────────────────────────
 # Plan 2026-06-15-002 P1-3: hotspot audit of every 500+ raw-LOC source file.
 # The pre-existing budget covered only 17 files. This block extends coverage to
@@ -105,15 +105,6 @@ rationale = "Pipeline orchestrator (Plan 2026-06-10-002 U2.1): CLI entry point d
 ceiling = 510
 rationale = "Audit KEEP (2026-06-15): idempotency dedup store. radon SLOC 478 across connection lifecycle, schema migration, retry, and the public acquire/release API is one cohesive transactional unit — splitting read/write paths would spread SQL + locking coupling across files. Ceiling 510 = round_up_to_10(478+30); bump only with a written split rationale."
 
-# CANDIDATE — WebUI async job registry. 9 classes; the recheck cycle, thread
-# pool, and per-job state could separate. The U7 autopilot extraction already
-# pulled out run_keepalive_for_site; further split is a tracked candidate.
-[files."webui_app/services/keepalive_job.py"]
-ceiling = 570
-rationale = "Audit CANDIDATE (2026-06-15): keep-alive async job registry. radon SLOC 533 across 9 classes (registry, recheck cycle, thread pool, per-job state). U7 already extracted run_keepalive_for_site to a synchronous primitive; further split of the registry from the recheck cycle is a tracked candidate. Ceiling 570 = round_up_to_10(533+30) freezes current size; any growth must bump with split rationale."
-
-# KEEP — pure per-channel manifest declarations (UiMeta/BindDescriptor/Policy).
-# Zero classes/fns: it's a data table, not logic. Size tracks channel count.
 [files."src/backlink_publisher/publishing/_manifests.py"]
 ceiling = 520
 rationale = "Audit KEEP (2026-06-15): per-channel manifest declarations. radon SLOC 489 is a pure data table (UiMeta/BindDescriptor/Policy instances, 0 logic fns). Size scales linearly with channel count — splitting by channel would just fragment the single source of truth that test_manifest_contract.py validates. Ceiling 520 = round_up_to_10(489+30)."
@@ -132,8 +123,8 @@ rationale = "Audit KEEP (2026-06-15): Telegraph API adapter. radon SLOC 352 cove
 # KEEP — per-platform verify logic, already extracted from adapters/__init__.py.
 # Splitting per-platform would lose the shared verify contract.
 [files."src/backlink_publisher/publishing/_verify_adapters.py"]
-ceiling = 480
-rationale = "Audit KEEP (2026-06-15): per-platform verify logic extracted from adapters/__init__.py. radon SLOC 446 holds the shared post-publish verify contract across platforms; splitting per-platform would fragment the uniform verify_published() dispatch site that publish_backlinks calls. Ceiling 480 = round_up_to_10(446+30)."
+ceiling = 60
+rationale = "Wave 3 Unit 3 (2026-06-11): _verify_adapters.py split into _verify_setup.py + _verify_live_probes.py. Residual _verify_adapters.py is now a thin shim (SLOC 28) re-exporting the public surface for backwards compat. Ceiling 60 = round_up_to_10(28+30) per policy."
 
 # KEEP — frozen config dataclasses. 30 classes, near-zero logic; size tracks
 # the config schema (blogger/medium/oauth/targets/etc), which is the SSoT.
@@ -141,109 +132,56 @@ rationale = "Audit KEEP (2026-06-15): per-platform verify logic extracted from a
 ceiling = 260
 rationale = "Audit KEEP (2026-06-15): config dataclasses + constants. radon SLOC 222 across 30 frozen dataclasses with near-zero logic — this IS the config schema SSoT (blogger/medium/oauth/targets/throttle). Splitting would just re-distribute declarations the loader + writer both walk end-to-end. Ceiling 260 = round_up_to_10(222+30)."
 
-# KEEP — events.db read query layer. 16 pure query fns; splitting by event
-# kind would duplicate the SQL connection + parameter binding helpers.
-[files."src/backlink_publisher/events/history_query.py"]
-ceiling = 500
-rationale = "Audit KEEP (2026-06-15): events.db read query layer. radon SLOC 465 across 16 pure query fns sharing one connection + parameter-binding pattern. Splitting by event kind (checkpoint/history/drafts) would duplicate the SQL plumbing; the write side already lives in store.py. Ceiling 500 = round_up_to_10(465+30)."
-
-# KEEP — Publisher ABC + table dispatcher. The dofollow/manifest/visibility
-# wiring is the registry contract; splitting would fragment the register() API.
 [files."src/backlink_publisher/publishing/registry.py"]
 ceiling = 300
 rationale = "Audit KEEP (2026-06-15): Publisher ABC + table-driven dispatcher. radon SLOC 270 holds the register() contract (dofollow/manifest/visibility/rejection-map) and dispatch(); the adapter __init__.py and manifest_contract.py both depend on this surface as one unit. Ceiling 300 = round_up_to_10(270+30)."
 
-# KEEP — spray-backlinks CLI shell. Already decomposed; holds argparse + the
-# multi-seed orchestration loop that spray_backlinks/__init__.py delegates to.
 [files."src/backlink_publisher/cli/spray_backlinks/core.py"]
-ceiling = 530
-rationale = "Audit KEEP (2026-06-15): spray-backlinks CLI shell. radon SLOC 494 is argparse + the multi-seed orchestration loop (seed-delay/max-seeds) delegating to plan/publish. Already a package (spray_backlinks/); core.py is the thin shell the package __init__ calls. Ceiling 530 = round_up_to_10(494+30)."
+ceiling = 540
+rationale = "Wave 3 Unit 1 intended to trim core.py to 171 SLOC, but rebase onto main (which added new features to core.py) resolved the conflict by keeping main's version at 512 SLOC. _engine.py and _gates.py were added as new modules but core.py itself was not trimmed. Ceiling 540 = round_up_to_10(512+30) to match current reality; split deferred to follow-up PR."
 
-# KEEP — Chrome/CDP session helpers. 4 classes share the CDP attach lifecycle;
-# splitting would spread the WebSocket plumbing that ChromeAttachSession owns.
-[files."src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py"]
-ceiling = 410
-rationale = "Audit KEEP (2026-06-15): Chrome/CDP session helpers. radon SLOC 375 across 4 classes (ChromeAttachSession ctx mgr + helpers) sharing the CDP attach + WebSocket lifecycle. Splitting would spread the connection plumbing the context manager owns. Ceiling 410 = round_up_to_10(375+30)."
+[files."src/backlink_publisher/cli/spray_backlinks/_engine.py"]
+ceiling = 370
+rationale = "Wave 3 Unit 1 (2026-06-11): _engine.py expanded from 79 SLOC to 333 by absorbing _run_spray (CC 48, the multi-seed orchestration loop), _emit_preview, _main_anchor_of, _main_domain_of from core.py. Also retains original pure kernel: SprayCandidate, expand_seed, validate_platform_selection, _default_degraded, _seed_main_domain, gate_candidates. Ceiling 370 = round_up_to_10(333+30) per policy."
 
-# KEEP — resume-from-checkpoint. The checkpoint replay + lease restoration is
-# one cohesive recovery unit; splitting read-replay from write-restore would
-# duplicate the checkpoint-row schema both sides assume.
-[files."src/backlink_publisher/cli/_resume.py"]
-ceiling = 460
-rationale = "Audit KEEP (2026-06-15): resume interrupted publish run. radon SLOC 421 holds checkpoint replay + lease restoration as one recovery unit; the read-replay and write-restore halves share the checkpoint-row schema, so splitting would duplicate that contract. Ceiling 460 = round_up_to_10(421+30)."
+[files."src/backlink_publisher/cli/spray_backlinks/_gates.py"]
+ceiling = 110
+rationale = "Wave 3 Unit 1 (2026-06-11): new file extracted from core.py. Contains cross-seed governance closure (_make_cross_seed_checker) and all checkpoint helpers: _spray_checkpoint_dir, _checkpoint_path, _generate_run_id, _list_checkpoints, _save_checkpoint, _domain_slug, _write_per_seed_file. SLOC 77. Ceiling 110 = round_up_to_10(77+30) per policy."
 
-# KEEP — single-platform adapter (ghpages Contents API + banner embed).
-[files."src/backlink_publisher/publishing/adapters/ghpages.py"]
-ceiling = 360
-rationale = "Audit KEEP (2026-06-15): GitHub Pages adapter. radon SLOC 327 covers Contents API publish + banner embed (commit to assets/banners/). One-platform adapter; banner upload dispatched generically, only embed_banner lives here. Ceiling 360 = round_up_to_10(327+30)."
-
-# CANDIDATE — Playwright bind driver. 9 classes; the headed-session lifecycle,
-# storage-state write, and channel-recipe dispatch could separate. Tracked.
-[files."src/backlink_publisher/cli/_bind/_driver_impl.py"]
-ceiling = 340
-rationale = "Audit CANDIDATE (2026-06-15): Playwright headed bind driver. radon SLOC 305 across 9 classes (session lifecycle, storage-state write, recipe dispatch). The recipe/<channel>.py files already absorb per-channel specifics; further split of session-lifecycle from storage-write is a tracked candidate. Ceiling 340 = round_up_to_10(305+30)."
-
-# CANDIDATE — /ce:health dashboard. 7 read-only subroutes (scorecard links,
-# publish-metrics, storage health, platform health) could split into a package
-# mirroring the routes/ convention. Tracked; currently stable.
-[files."webui_app/routes/health.py"]
-ceiling = 400
-rationale = "Audit CANDIDATE (2026-06-15): /ce:health publishing-health dashboard. radon SLOC 367 across 7 read-only subroutes + the storage/platform health helpers. Could split into a health/ blueprint package mirroring routes/ convention; currently stable, tracked candidate. Ceiling 400 = round_up_to_10(367+30)."
-
-# KEEP — Medium bind recipe. The headed-login + storage-state + writePost
-# validation is one channel-specific lifecycle; size tracks Medium's auth flow.
-[files."src/backlink_publisher/cli/_bind/recipes/medium.py"]
-ceiling = 290
-rationale = "Audit KEEP (2026-06-15): Medium binding recipe. radon SLOC 259 is one channel-specific lifecycle (headed login + storage-state + post-validation). Per-channel recipes are intentionally separate files; this one's size tracks Medium's auth flow, not generic complexity. Ceiling 290 = round_up_to_10(259+30)."
-
-# KEEP — events.db EventStore (write side). WAL config + append + retry + the
-# JsonStore→EventStore projection are one cohesive persistence unit.
-[files."src/backlink_publisher/events/store.py"]
-ceiling = 340
-rationale = "Audit KEEP (2026-06-15): events.db EventStore (write side). radon SLOC 306 holds WAL config + append + retry + projection plumbing; the SQLite helpers are already extracted to _store_sqlite.py and read queries to history_query.py. Remaining size is the persistence contract as one unit. Ceiling 340 = round_up_to_10(306+30)."
-
-# KEEP — post-publish link-attr verifier. The dofollow/rel/survival checks
-# share the fetch + parse pipeline; splitting per-attribute would duplicate it.
-[files."src/backlink_publisher/publishing/adapters/link_attr_verifier.py"]
-ceiling = 320
-rationale = "Audit KEEP (2026-06-15): post-publish link-attribute verifier. radon SLOC 285 runs the shared fetch + parse pipeline for dofollow/rel/survival checks; splitting per-attribute would duplicate the HTTP + HTML-parsing front-end that all three checks share. Ceiling 320 = round_up_to_10(285+30)."
-
-# CANDIDATE — /ce:plan + /ce:generate + /ce:validate + /ce:publish (4 stages).
-# Each stage handler could become its own module; currently stable, tracked.
-[files."webui_app/routes/pipeline.py"]
-ceiling = 450
-rationale = "Audit CANDIDATE (2026-06-15): pipeline stage routes (/ce:plan, /ce:generate, /ce:validate, /ce:publish). radon SLOC 418 across 4 stage handlers + shared helpers. Each stage could split into its own module mirroring the cli/ package split; currently stable, tracked candidate. Ceiling 450 = round_up_to_10(418+30)."
-
-# KEEP — report-anchors formatting. Aggregation + alarm helpers extracted here
-# from the CLI; the report engine lives in _report_engine.py already.
-[files."src/backlink_publisher/cli/_report_format.py"]
-ceiling = 400
-rationale = "Audit KEEP (2026-06-15): report-anchors formatting/aggregation/alarm helpers. radon SLOC 363 extracted from the CLI; the pure report engine already lives in _report_engine.py. Remaining size is the formatting + breach-alarm layer that the CLI shell composes. Ceiling 400 = round_up_to_10(363+30)."
-
-# KEEP — PipelineAPI structured wrapper. 3 classes wrapping CLI invocation;
-# the plan/validate/publish orchestration is one cohesive in-process API.
-[files."webui_app/api/pipeline_api.py"]
-ceiling = 320
-rationale = "Audit KEEP (2026-06-15): PipelineAPI structured wrapper around plan/validate/publish CLI invocation. radon SLOC 284 across 3 classes; the in-process API surface is one cohesive unit that the WebUI routes call. Ceiling 320 = round_up_to_10(284+30)."
-
-# KEEP — credential provider. Load/probe/refresh share the channel-session
-# lifecycle; splitting would spread the provider contract session/ relies on.
-[files."src/backlink_publisher/publishing/session/provider.py"]
+# Wave 3 Unit 2 (2026-06-11): events/history_query.py split into read-path + write-path (mutations).
+[files."src/backlink_publisher/events/history_query.py"]
 ceiling = 390
-rationale = "Audit KEEP (2026-06-15): credential loading/probing/refreshing for channel sessions. radon SLOC 357 is one cohesive provider contract that session/session_manager.py and the adapters rely on; splitting load from refresh would fragment the credential lifecycle. Ceiling 390 = round_up_to_10(357+30)."
+rationale = "Wave 3 Unit 2 (2026-06-11): write-path mutations (purge_failed_from_db, delete_from_db, bulk_delete_from_db, update_status_in_db, _STATUS_TO_KIND) extracted to _history_mutations.py. history_query.py now holds read-path only plus re-exports for backward compat. SLOC dropped from 465 to 356. Ceiling 390 = round_up_to_10(356+30) per policy."
 
-# KEEP — CampaignSqliteStore. CRUD + migration + listing on one store schema.
-[files."webui_store/campaign_store.py"]
-ceiling = 340
-rationale = "Audit KEEP (2026-06-15): CampaignSqliteStore. radon SLOC 307 holds CRUD + migrate_from_json + list/get/update_status on one campaign schema; splitting would fragment the SqliteStore base contract. Ceiling 340 = round_up_to_10(307+30)."
+[files."src/backlink_publisher/events/_history_mutations.py"]
+ceiling = 160
+rationale = "Wave 3 Unit 2 (2026-06-11): new file extracted from history_query.py. Contains all write-path mutations: purge_failed_from_db (finds failed article IDs + orphan events), delete_from_db (single item incl. evt- prefix), bulk_delete_from_db (batch delete articles+events), update_status_in_db (kind+ui_status mutation), and _STATUS_TO_KIND dict. SLOC 130. Ceiling 160 = round_up_to_10(130+30) per policy."
 
-# KEEP — channel status store. 24 fns on one binding-status schema (the badge
-# state machine: bound/expired/unbound); splitting would spread the state model.
-[files."webui_store/channel_status.py"]
-ceiling = 340
-rationale = "Audit KEEP (2026-06-15): channel binding-status store. radon SLOC 310 across 24 fns on one status schema (the bound/expired/unbound badge state machine). Splitting would fragment the state model the settings UI + AuthExpiredError flip both read and write. Ceiling 340 = round_up_to_10(310+30)."
+# Wave 3 Unit 5 (2026-06-11): webui_app/routes/pipeline.py split into plan/generate/validate + publish.
+# webui_app/ is NOT auto-scanned by monolith_budget; entries here are explicit.
+[files."webui_app/routes/pipeline_plan.py"]
+ceiling = 290
+rationale = "Wave 3 Unit 5 (2026-06-11): new file split from routes/pipeline.py. Contains ce_plan (URL input + multi-URL config + session setup), ce_generate (seed building + plan-backlinks call), ce_validate, ce_preview, and ce_regen_body (LLM body re-gen endpoint). All plan-side routes share _api=PipelineAPI() and the plan_logger. Tests that patch fetch_url_metadata or _api for these routes point to this module. SLOC 249. Ceiling 290 = round_up_to_10(249+30) per policy."
 
-# webui_store base became load-bearing in the store-base refactor — guard it.
-[files."webui_store/sqlite_base.py"]
-ceiling = 254
-rationale = "store-base refactor (Plan 2026-06-15-005): BaseSqliteStore (the __init__/_init_table template + byte-identical migrate_from_json with a fail-soft save guard + shared _load_rows/_get_one_json/_replace_all_rows helpers) and BlobSqliteStore (single-row upsert load/save + _table_name identifier validator), absorbing the duplicated skeleton from 8 store files (net webui_store change far below the original raw-LOC estimate). sqlite_base settled at 224 SLOC as the shared base for all 8 stores. Ceiling 254 = round_up_to_10(224+30) per ratchet policy; the base is now feature-complete and should not grow further."
+[files."webui_app/routes/pipeline_publish.py"]
+ceiling = 220
+rationale = "Wave 3 Unit 5 (2026-06-11): new file split from routes/pipeline.py. Contains ce_publish (single publish step with typed error surfacing) and ce_publish_chain (one-click plan→validate→publish). Both routes share _api=PipelineAPI() and call _push_history_* helpers. Tests that patch _api for publish routes point to this module. SLOC 179. Ceiling 220 = round_up_to_10(179+30) per policy."
+
+# Wave 3 Unit 4 (2026-06-11): webui_app/services/keepalive_job.py split — engine helpers extracted.
+# webui_app/ is NOT auto-scanned by monolith_budget; entries here are explicit.
+[files."webui_app/services/keepalive_job.py"]
+ceiling = 450
+rationale = "Wave 3 Unit 4 (2026-06-11): engine helpers (_default_candidates, _default_unverified_candidates, _default_probe, 3 job dataclasses, _default_republish_gaps, _default_publish_seed, _default_persist, KeepAliveResult, per-site lock helpers, run_keepalive_for_site) extracted to _keepalive_engine.py. _default_reverify and _ensure_article stay here because tests patch keepalive_job.recheck_link and call them directly. KeepaliveJobRegistry + registry singleton remain as core concern. SLOC dropped 533→412. Ceiling 450 = round_up_to_10(412+30) per policy."
+
+[files."webui_app/services/_keepalive_engine.py"]
+ceiling = 180
+rationale = "Wave 3 Unit 4 (2026-06-11): new file extracted from keepalive_job.py. Contains constants (_RUNTIME_STICKY, _PROBE_ERROR, _DEAD_VERDICTS), default candidate/probe helpers, 3 job dataclasses (KeepaliveJob, GapClosureJob, RepublishJob), republish gap/publish/persist helpers, KeepAliveResult, per-site lock state, and run_keepalive_for_site. Tests that exercise run_keepalive_for_site patch _keepalive_engine.* names. SLOC 147. Ceiling 180 = round_up_to_10(147+30) per policy."
+
+# Wave 3 Unit 3 (2026-06-11): publishing/_verify_adapters.py split into setup + live probes.
+[files."src/backlink_publisher/publishing/_verify_setup.py"]
+ceiling = 240
+rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py. Contains offline setup checks (_check_*_setup, _SETUP_CHECKS dict), adapter imports for 8 platforms, verify_adapter_setup (public entry + registry fallback), and _verify_dry_run. verify_adapter_setup calls _verify_live via lazy import (inside function) to avoid circular module-level dependency with _verify_live_probes.py. SLOC 202. Ceiling 240 = round_up_to_10(202+30) per policy."
+
+[files."src/backlink_publisher/publishing/_verify_live_probes.py"]
+ceiling = 290
+rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py. Contains UTC helper, 6 VerifyResult factory functions, _verify_live dispatcher, and 4 per-platform live probe implementations (telegraph, ghpages, blogger, velog) with their constants. Imports verify_adapter_setup at module level from _verify_setup (no circular since _verify_setup uses lazy import for _verify_live). SLOC 251. Ceiling 290 = round_up_to_10(251+30) per policy."

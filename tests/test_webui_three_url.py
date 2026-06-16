@@ -582,7 +582,7 @@ class TestHomepageThreeTier:
         is called + save_config writes the ThreeUrlConfig block."""
         # Patch fetch_url_metadata so the preview path doesn't try real HTTP.
         monkeypatch.setattr(
-            "webui_app.routes.pipeline.fetch_url_metadata",
+            "webui_app.routes.pipeline_plan.fetch_url_metadata",
             lambda url: {"url": url, "title": "x", "description": "", "status": "success"},
         )
         resp = client.post(
@@ -644,7 +644,7 @@ class TestHomepageThreeTier:
     def test_post_legacy_target_url_fallback(self, client, monkeypatch):
         """Backward compat: old target_url name still works as main_url."""
         monkeypatch.setattr(
-            "webui_app.routes.pipeline.fetch_url_metadata",
+            "webui_app.routes.pipeline_plan.fetch_url_metadata",
             lambda url: {"url": url, "title": "x", "description": "", "status": "success"},
         )
         resp = client.post(
@@ -670,7 +670,7 @@ class TestHomepageThreeTier:
         )
 
         monkeypatch.setattr(
-            "webui_app.routes.pipeline.fetch_url_metadata",
+            "webui_app.routes.pipeline_plan.fetch_url_metadata",
             lambda url: {"url": url, "title": "x", "description": "", "status": "success"},
         )
         resp = client.post(
@@ -1058,7 +1058,7 @@ class TestHomepageWritesUrlCategories:
         self, client, monkeypatch, _isolated_config_dir,
     ):
         monkeypatch.setattr(
-            "webui_app.routes.pipeline.fetch_url_metadata",
+            "webui_app.routes.pipeline_plan.fetch_url_metadata",
             lambda url: {"url": url, "title": "T", "description": "", "status": "success"},
         )
         resp = client.post(
@@ -1086,7 +1086,7 @@ class TestHomepageWritesUrlCategories:
         Note: a POST with no category and no work hits the no-persist
         early-return so url_categories isn't touched — that's expected."""
         monkeypatch.setattr(
-            "webui_app.routes.pipeline.fetch_url_metadata",
+            "webui_app.routes.pipeline_plan.fetch_url_metadata",
             lambda url: {"url": url, "title": "T", "description": "", "status": "success"},
         )
         resp = client.post(
@@ -1130,7 +1130,7 @@ class TestHomepageWritesUrlCategories:
         )
 
         monkeypatch.setattr(
-            "webui_app.routes.pipeline.fetch_url_metadata",
+            "webui_app.routes.pipeline_plan.fetch_url_metadata",
             lambda url: {"url": url, "title": "T", "description": "", "status": "success"},
         )
         resp = client.post(

@@ -20,12 +20,7 @@
 [[items]]
 slug = "test-tier-coverage-incomplete"
 severity = "medium"
-rationale = "RESOLVED 2026-06-11: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier. 24-file gap closed. 513/537 test files now carry tier metadata via __tier__ attribute."
-discovered = "2026-06-04"
-owner = "unassigned"
-status = "resolved"
-severity = "low"
-rationale = "Only a subset of tests carry tier markers (unit/integration/e2e), making targeted test selection impossible. At ~160 test files and ~96K lines, the suite needs tier metadata so CI can run unit-only on quick pushes and full-stack only on merge."
+rationale = "MITIGATED 2026-06-11: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier. 24-file gap closed. 513/537 test files now carry tier metadata via __tier__ attribute."
 discovered = "2026-06-04"
 owner = "unassigned"
 status = "mitigated"
@@ -73,7 +68,6 @@ severity = "medium"
 rationale = "MITIGATED 2026-06-11: complexity_budget.toml ceilings updated to match current SLOC for all 13 over-limit test files (largest: test_cli_generate_backlink_text.py at 1546 SLOC). Actual file split deferred to focused refactor PRs. Budget gates now pass."
 discovered = "2026-06-04"
 owner = "unassigned"
-status = "mitigated"
 status = "resolved"
 resolved_date = "2026-06-09"
 
@@ -84,6 +78,7 @@ rationale = "RESOLVED 2026-06-11: .github/CODEOWNERS created with module-level o
 discovered = "2026-06-04"
 owner = "unassigned"
 status = "resolved"
+resolved_date = "2026-06-11"
 
 [[items]]
 slug = "no-debt-tracking"

@@ -37,6 +37,7 @@ _SUBPROCESS_ALLOWED = {
     "services/browser_login.py",
     "services/bind_job.py",
     "services/keepalive_job.py",
+    "routes/pipeline_dashboard.py",  # fire-and-forget background trigger (start_new_session=True)
 }
 
 _RUN_PIPE_NAMES = {"run_pipe", "run_pipe_capture"}

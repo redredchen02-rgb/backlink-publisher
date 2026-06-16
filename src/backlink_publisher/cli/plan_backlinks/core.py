@@ -64,6 +64,15 @@ from ._engine import (                              # noqa: F401
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Generate backlink article payloads from seed URLs.
+
+    This is the main entry point for the plan-backlinks CLI command.
+    It reads seed URLs from various input sources (JSONL, CSV, sitemap),
+    generates article plans, and outputs them as JSONL to stdout.
+
+    Args:
+        argv: Command-line arguments. If None, uses sys.argv[1:].
+    """
     import argparse
 
     parser = argparse.ArgumentParser(

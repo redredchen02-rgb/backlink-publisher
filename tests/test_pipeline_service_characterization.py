@@ -65,7 +65,7 @@ def test_valid_https_assembles_config(client, monkeypatch):
     Network-touching helpers are stubbed so the test isolates the
     input-assembly contract (the part Unit 2 relocates into the service).
     """
-    from webui_app.routes import pipeline as pipeline_mod
+    from webui_app.routes import pipeline_plan as pipeline_mod
 
     # SSRF/url-verify gate: pass through clean.
     monkeypatch.setattr(
