@@ -41,7 +41,9 @@ from backlink_publisher.publishing.adapters import publish as adapter_publish
 from backlink_publisher.publishing.adapters.base import AdapterResult
 
 from .circuit import (
+    circuit_status,
     is_ban_signal,
+    is_degraded,
     is_tripped,
     record_success,
     trip,
@@ -61,6 +63,15 @@ _BROWSER_TIER: frozenset[str] = frozenset({"medium", "velog", "devto", "mastodon
 #:   "observe"            → "observe" (run gates, EMIT would-skip events, still dispatch)
 #:   "1" / "enforce"      → "enforce" (actually skip on blocked gate / open circuit)
 POLICY_ENV = "BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED"
+
+#: Per-channel enforce allowlist (Plan 2026-06-15-006 Unit 7). Comma-separated
+#: channel names; in ``enforce`` mode ONLY listed channels actually skip — every
+#: other channel falls back to observe behavior (measure, dispatch anyway). Ships
+#: EMPTY (unset) → ``enforce`` skips NO channel, so flipping ``POLICY_ENV`` to
+#: enforce is a no-op until the operator adds a channel here (after observe data
+#: justifies it, per Unit 4 readiness). Re-read per call so removing a channel
+#: (rollback) takes effect on the next publish run without a restart.
+ENFORCE_ALLOWLIST_ENV = "BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS"
 
 #: Phase 3 — consecutive-failure trip thresholds (configurable). These are the
 #: ONLY env vars that gate the live publish trip path: ``publish_with_policy``
@@ -139,6 +150,27 @@ def policy_enabled() -> bool:
     return policy_mode() != "off"
 
 
+def enforce_allowlist() -> frozenset[str]:
+    """Channels actually enforced in ``enforce`` mode (Plan 2026-06-15-006 U7).
+
+    Read per call (no caching) from ``ENFORCE_ALLOWLIST_ENV`` so a rollback (remove
+    a channel) takes effect on the next publish run. Empty when unset → enforce
+    mode skips nothing.
+    """
+    raw = os.environ.get(ENFORCE_ALLOWLIST_ENV) or ""
+    return frozenset(c.strip() for c in raw.split(",") if c.strip())
+
+
+def _enforcing_for(platform: str) -> bool:
+    """True only when mode is ``enforce`` AND *platform* is in the allowlist.
+
+    A channel in enforce mode but not allowlisted falls back to observe behavior
+    (measure would-skips, dispatch anyway), so enforce rolls out one channel at a
+    time instead of flipping every channel at once.
+    """
+    return policy_mode() == "enforce" and platform in enforce_allowlist()
+
+
 def _is_browser_tier(platform: str) -> bool:
     return platform in _BROWSER_TIER
 
@@ -186,6 +218,59 @@ def _record_failure_and_maybe_trip(
     if count >= threshold:
         trip(platform, config)
         _reset_failures(platform, config)
+        # Reaching the threshold is a transition into degraded (the counter was
+        # reset after any prior trip), so this is not per-run spam.
+        _record_decision(platform, "degraded", policy_mode(), reason="circuit_trip")
+
+
+def _record_decision(
+    platform: str, decision: str, mode: str, reason: str | None = None
+) -> None:
+    """Best-effort: persist a ``reliability.decision`` to events.db (Units 2 & 6).
+
+    Makes observe would-skips, enforce skips, and degraded-entry alerts queryable
+    for readiness (Unit 4) / the rollout panel (Unit 5) / the external alert stack
+    (Unit 6). Never raises — events.db faults must not block a publish, mirroring
+    ``emit_attempt``'s never-raise contract. Runs on a fresh ``EventStore``
+    connection at the dispatch seam (NOT inside a projector reducer transaction),
+    so it cannot trigger the WAL nested-connection deadlock.
+    """
+    try:
+        from backlink_publisher.events.store import EventStore
+        from .events_store import append_reliability_decision
+
+        append_reliability_decision(
+            EventStore(), platform=platform, decision=decision, mode=mode, reason=reason
+        )
+    except Exception:  # noqa: BLE001 — events.db faults never block publishing
+        pass
+
+
+def _enforce_circuit_skip(platform: str, config: Config) -> AdapterResult | None:
+    """Enforce-mode circuit decision (Plan 2026-06-15-006 U8).
+
+    Returns a ``skipped_circuit_open`` result ONLY for a genuine OPEN trip. Returns
+    ``None`` (caller falls through to dispatch) otherwise:
+    - ``unreadable`` (corrupt/malformed state) → degrade + record
+      ``circuit_state_unreadable`` (don't silently skip every channel);
+    - ``half-open`` / ``closed`` → the entry cooled down or was reset between the
+      gate's ``is_tripped`` read and this read (a cooldown-boundary straddle); the
+      channel should be allowed through, not skipped.
+    """
+    status = circuit_status(platform, config)
+    if status == "open":
+        _record_decision(platform, "skipped_circuit_open", "enforce")
+        return AdapterResult(
+            status="skipped_circuit_open",
+            adapter="policy",
+            platform=platform,
+            error=f"circuit open for {platform}",
+        )
+    if status == "unreadable":
+        _record_decision(
+            platform, "circuit_state_unreadable", "enforce", reason="degrade_to_observe"
+        )
+    return None
 
 
 def publish_with_policy(
@@ -221,8 +306,10 @@ def publish_with_policy(
 
     # --- Policy active: observe OR enforce -------------------------------------
     # In ``observe`` the gates below EMIT what they would do but do NOT skip; in
-    # ``enforce`` they actually skip. Dispatch + trip accounting run in both.
-    enforcing = policy_mode() == "enforce"
+    # ``enforce`` they actually skip — but ONLY for allowlisted channels (U7). A
+    # non-allowlisted channel under enforce falls back to observe behavior, so the
+    # rollout is per-channel.
+    enforcing = _enforcing_for(platform)
 
     # 006-U1: surface the dead consecutive-errors knob (one-shot) before any
     # trip bookkeeping, so an operator who set it learns it has no effect here.
@@ -243,6 +330,7 @@ def publish_with_policy(
 
         if channel_status != "bound":
             if enforcing:
+                _record_decision(platform, "skipped_policy", "enforce")
                 return AdapterResult(
                     status="skipped_policy",
                     adapter="policy",
@@ -254,19 +342,20 @@ def publish_with_policy(
                 platform, Outcome.WOULD_SKIP_POLICY, 0.0,
                 error_class=f"channel_status={channel_status}",
             )
+            _record_decision(platform, "would_skip_policy", "observe")
 
     # 2. Circuit breaker — ALL platforms (Phase 3 U9; fail-CLOSED: corrupt state
     #    → is_tripped returns True). Handles CLOSED, OPEN, and HALF_OPEN states.
     if is_tripped(platform, config):
         if enforcing:
-            return AdapterResult(
-                status="skipped_circuit_open",
-                adapter="policy",
-                platform=platform,
-                error=f"circuit open for {platform}",
-            )
-        # observe: record the would-be skip, then fall through to dispatch.
-        emit_attempt(platform, Outcome.WOULD_SKIP_CIRCUIT, 0.0)
+            skip = _enforce_circuit_skip(platform, config)
+            if skip is not None:
+                return skip
+            # else: state unreadable → degraded to observe; fall through to dispatch.
+        else:
+            # observe: record the would-be skip, then fall through to dispatch.
+            emit_attempt(platform, Outcome.WOULD_SKIP_CIRCUIT, 0.0)
+            _record_decision(platform, "would_skip_circuit", "observe")
 
     # 3. Dispatch + observe + consecutive-failure trip accounting.
     t0 = now_ms()
@@ -287,9 +376,16 @@ def publish_with_policy(
         duration = now_ms() - t0
         if is_ban_signal(exc):
             # Ban/suspend → trip immediately (v1 behavior).
+            # Transition check BEFORE tripping: only alert on entering degraded,
+            # not on every re-dispatch into an already-degraded channel. Use
+            # is_degraded (raw tripped flag) NOT is_tripped — the latter returns
+            # False in HALF_OPEN, which would re-alert every cooldown cycle.
+            newly_degraded = not is_degraded(platform, config)
             trip(platform, config)
             _reset_failures(platform, config)
             emit_attempt(platform, Outcome.AUTH_BANNED, duration)
+            if newly_degraded:
+                _record_decision(platform, "degraded", policy_mode(), reason="ban")
         else:
             # Plain session expiry → trip only after N consecutive (U10).
             emit_attempt(platform, Outcome.AUTH_EXPIRED, duration)

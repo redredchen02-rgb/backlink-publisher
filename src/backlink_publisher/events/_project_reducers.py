@@ -29,6 +29,7 @@ from ._project_helpers import (
     write_quarantines,
 )
 from .._util.url import canonicalize_url
+from .. import checkpoint
 from . import kinds
 from .scrubber import scrub_text
 from .store import EventStore
@@ -299,6 +300,13 @@ def _handle_checkpoint_failed(
     Returns ``True`` when an event was appended, ``False`` when skipped
     (already seen).
     """
+    # An enforce skip is recorded as a reliability.decision at the dispatch seam
+    # (Plan 2026-06-15-006 Unit 2). Do NOT also project it as a publish.failed —
+    # that would double-count the skip in success_rate's failure denominator.
+    # (Reducer-internal suppression; the classify() contract for
+    # (checkpoint, failed)→publish.failed is unchanged.)
+    if item.get("error_class") == checkpoint.POLICY_SKIP:
+        return False
     dedup_key = (run_id, target_url or "", kinds.PUBLISH_FAILED)
     if dedup_key in seen_intent_or_failed:
         return False

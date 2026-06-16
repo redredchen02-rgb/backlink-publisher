@@ -27,17 +27,13 @@ Unit 6.
 from __future__ import annotations
 
 import json
-import logging
-import os
 import time
 from pathlib import Path
 from typing import Any, Callable
 
 from backlink_publisher.events._store_sqlite import _retry_sqlite
 
-from .sqlite_base import SqliteStore, WebUIDatabase
-
-_log = logging.getLogger(__name__)
+from .sqlite_base import BaseSqliteStore
 
 _SENTINEL_NAME = ".webui-drafts-migrated-v1"
 _JSON_FILENAME = "draft-queue.json"
@@ -47,7 +43,7 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
-class DraftsSqliteStore(SqliteStore):
+class DraftsSqliteStore(BaseSqliteStore):
     """Row-table store for the draft queue, backed by webui.db.
 
     Table::
@@ -71,11 +67,9 @@ class DraftsSqliteStore(SqliteStore):
     around it.
     """
 
-    def __init__(self, db: WebUIDatabase | Path) -> None:
-        if not isinstance(db, WebUIDatabase):
-            db = WebUIDatabase(Path(db))
-        super().__init__(db)
-        self._init_table()
+    _value_type = list
+    _json_filename = _JSON_FILENAME
+    _sentinel_name = _SENTINEL_NAME
 
     # Backward-compat: legacy route tests do
     # ``monkeypatch.setattr(drafts_store, "_path", tmp_path / "drafts.json")``
@@ -89,44 +83,28 @@ class DraftsSqliteStore(SqliteStore):
     def _path(self, value: Path) -> None:
         self.path = value
 
-    def _init_table(self) -> None:
-        with self._db.connect() as conn:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS drafts ("
-                "id TEXT PRIMARY KEY, "
-                "campaign_id TEXT, "
-                "inserted_at INTEGER NOT NULL, "
-                "data_json TEXT NOT NULL)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS drafts_campaign "
-                "ON drafts(campaign_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS drafts_inserted "
-                "ON drafts(inserted_at DESC)"
-            )
+    def _create_table_sql(self) -> str:
+        return (
+            "CREATE TABLE IF NOT EXISTS drafts ("
+            "id TEXT PRIMARY KEY, "
+            "campaign_id TEXT, "
+            "inserted_at INTEGER NOT NULL, "
+            "data_json TEXT NOT NULL)"
+        )
+
+    def _indices_sql(self) -> list[str]:
+        return [
+            "CREATE INDEX IF NOT EXISTS drafts_campaign ON drafts(campaign_id)",
+            "CREATE INDEX IF NOT EXISTS drafts_inserted ON drafts(inserted_at DESC)",
+        ]
 
     # ── Store protocol ─────────────────────────────────────────────────────
 
     def load(self) -> list[dict[str, Any]]:
         """Return all drafts newest-first (``ORDER BY inserted_at DESC``)."""
-        def _op() -> list[tuple[str]]:
-            with self._db.connect() as conn:
-                return conn.execute(
-                    "SELECT data_json FROM drafts ORDER BY inserted_at DESC"
-                ).fetchall()
-
-        rows = _retry_sqlite(_op)
-        result: list[dict[str, Any]] = []
-        for (data_json,) in rows:
-            try:
-                draft = json.loads(data_json)
-            except (json.JSONDecodeError, TypeError):
-                continue
-            if isinstance(draft, dict):
-                result.append(draft)
-        return result
+        return self._load_rows(
+            "SELECT data_json FROM drafts ORDER BY inserted_at DESC"
+        )
 
     def save(self, value: Any) -> None:
         """Replace the whole queue: delete-all + bulk-insert in one transaction.
@@ -155,38 +133,17 @@ class DraftsSqliteStore(SqliteStore):
                     json.dumps(draft, ensure_ascii=False),
                 )
             )
-
-        with self._lock:
-            def _op() -> None:
-                with self._db.connect() as conn:
-                    conn.execute("DELETE FROM drafts")
-                    if rows:
-                        conn.executemany(
-                            "INSERT INTO drafts (id, campaign_id, inserted_at, "
-                            "data_json) VALUES (?, ?, ?, ?)",
-                            rows,
-                        )
-
-            _retry_sqlite(_op)
+        self._replace_all_rows(
+            "drafts", ("id", "campaign_id", "inserted_at", "data_json"), rows
+        )
 
     # ── Item-level helpers (public API, preserved from JsonStore) ──────────
 
     def get_item(self, item_id: str) -> dict | None:
         """Return the matching draft, or ``None``. Read-only."""
-        def _op() -> tuple[str] | None:
-            with self._db.connect() as conn:
-                return conn.execute(
-                    "SELECT data_json FROM drafts WHERE id = ?", (item_id,)
-                ).fetchone()
-
-        row = _retry_sqlite(_op)
-        if row is None:
-            return None
-        try:
-            draft = json.loads(row[0])
-        except (json.JSONDecodeError, TypeError):
-            return None
-        return draft if isinstance(draft, dict) else None
+        return self._get_one_json(
+            "SELECT data_json FROM drafts WHERE id = ?", (item_id,)
+        )
 
     def update_item(self, item_id: str, **fields: Any) -> bool:
         """Locate by id, merge ``fields``, UPDATE. Returns False if absent
@@ -267,24 +224,11 @@ class DraftsSqliteStore(SqliteStore):
         Read-only. Returns empty list when no drafts match or the store is
         empty. Preserves newest-first ordering.
         """
-        def _op() -> list[tuple[str]]:
-            with self._db.connect() as conn:
-                return conn.execute(
-                    "SELECT data_json FROM drafts WHERE campaign_id = ? "
-                    "ORDER BY inserted_at DESC",
-                    (campaign_id,),
-                ).fetchall()
-
-        rows = _retry_sqlite(_op)
-        result: list[dict[str, Any]] = []
-        for (data_json,) in rows:
-            try:
-                draft = json.loads(data_json)
-            except (json.JSONDecodeError, TypeError):
-                continue
-            if isinstance(draft, dict):
-                result.append(draft)
-        return result
+        return self._load_rows(
+            "SELECT data_json FROM drafts WHERE campaign_id = ? "
+            "ORDER BY inserted_at DESC",
+            (campaign_id,),
+        )
 
     def bulk_delete(self, ids: list[str]) -> int:
         """Delete multiple drafts by id. Returns count actually removed."""
@@ -376,56 +320,6 @@ class DraftsSqliteStore(SqliteStore):
                 failed += 1
                 errors.append(f"{item_id}: {err_msg}")
         return {"published": published, "failed": failed, "errors": errors}
-
-    # ── Startup migration ─────────────────────────────────────────────────
-
-    def migrate_from_json(self, config_dir: Path) -> None:
-        """One-shot import from ``draft-queue.json`` if not yet migrated.
-
-        Same load-bearing sequence as the other SqliteStore migrations:
-        commit to webui.db → rename ``.json`` → chmod 0o600 → write sentinel.
-        Corrupt/absent JSON is silently skipped (sentinel NOT written so a
-        later-appearing file can still be imported).
-        """
-        sentinel = config_dir / _SENTINEL_NAME
-        json_path = config_dir / _JSON_FILENAME
-        migrated_path = json_path.with_suffix(".json.migrated")
-
-        if sentinel.exists():
-            return
-
-        # Crash-recovery: rename completed but sentinel not written
-        if migrated_path.exists() and not sentinel.exists():
-            sentinel.write_text("migrated", encoding="utf-8")
-            return
-
-        if not json_path.exists():
-            return
-
-        try:
-            text = json_path.read_text(encoding="utf-8")
-            data = json.loads(text)
-        except (json.JSONDecodeError, UnicodeDecodeError, OSError):
-            _log.warning(
-                "drafts_store migration: skipping corrupt/unreadable %s",
-                json_path,
-            )
-            return
-
-        self.save(data if isinstance(data, list) else [])
-
-        try:
-            json_path.rename(migrated_path)
-        except OSError as exc:
-            _log.warning("drafts_store migration: rename failed: %s", exc)
-            return
-
-        try:
-            os.chmod(migrated_path, 0o600)
-        except OSError:
-            pass
-
-        sentinel.write_text("migrated", encoding="utf-8")
 
 
 # Backward-compat alias: existing call sites / tests import ``DraftsStore``.
