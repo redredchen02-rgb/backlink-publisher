@@ -398,8 +398,6 @@ def ranking_trend(store: EventStore) -> list[dict]:
             """
             SELECT
                 json_extract(payload_json, '$.keyword') AS keyword,
-                MIN(json_extract(payload_json, '$.avg_position')) AS best_pos,
-                MAX(json_extract(payload_json, '$.avg_position')) AS worst_pos,
                 json_extract(
                     (SELECT payload_json FROM events e2
                      WHERE e2.kind = ? AND json_extract(e2.payload_json, '$.keyword')

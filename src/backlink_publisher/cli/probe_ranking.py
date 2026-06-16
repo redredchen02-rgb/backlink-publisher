@@ -95,6 +95,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         fcntl.flock(lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
+        lock_fh.close()
         print("probe-ranking: another instance is running (flock held)", file=sys.stderr)
         sys.exit(6)
 
@@ -112,6 +113,7 @@ def _probe_and_record(gsc_cfg, keywords: list[str]) -> None:
         client = GscClient(gsc_cfg.credential_path, gsc_cfg.property_url)
     except ExternalServiceError as exc:
         handle_error(exc)
+        return  # handle_error() always exits; return is a defensive guard
 
     store = EventStore()
     run_id = str(uuid.uuid4())
@@ -182,7 +184,9 @@ def snapshot_baseline(gsc_cfg, keywords: list[str] | None = None) -> None:
     Uses a non-overlapping window: -60d to -30d before today, so comparison
     with a subsequent 30d follow-up snapshot is statistically valid.
 
-    Silently returns (no exception) when keywords is empty or GSC is not configured.
+    Returns early (no network call) when keywords is empty or GSC is not configured.
+    Exceptions from GscClient or the API propagate to the caller — the call site
+    in plan-backlinks/core.py wraps this in try/except to keep it advisory.
     """
     if keywords is None:
         keywords = []

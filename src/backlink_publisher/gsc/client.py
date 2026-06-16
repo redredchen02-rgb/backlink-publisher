@@ -2,7 +2,8 @@
 
 Contract:
 * ``GscClient`` wraps the Search Analytics v1 endpoint.
-* Credentials loaded from a service account JSON file (0o600 enforced).
+* Credentials loaded from a service account JSON file (should be 0o600; a
+  warning is logged if the mode differs — file is still loaded).
 * All ``googleapiclient`` imports are lazy (inside method bodies) to prevent
   discovery-cache side effects at import time.
 * 4xx API errors are re-raised as ``ExternalServiceError``.
@@ -10,7 +11,6 @@ Contract:
 
 from __future__ import annotations
 
-import stat
 from pathlib import Path
 from typing import Any
 
@@ -31,15 +31,15 @@ class GscClient:
         Parameters
         ----------
         credential_path:
-            Path to the service-account JSON key file.  Must be 0o600.
+            Path to the service-account JSON key file.  Should be 0o600; a
+            warning is logged if not, but the file is still loaded.
         property_url:
             GSC property string, e.g. ``sc-domain:example.com``.
 
         Raises
         ------
         ExternalServiceError
-            If the credential file is missing, unreadable, or the file mode
-            is not 0o600 (log a warning but still load).
+            If the credential file is missing or unreadable.
         ValueError
             If ``property_url`` is empty.
         """
@@ -48,8 +48,9 @@ class GscClient:
 
         cred_path = Path(credential_path)
         if not cred_path.exists():
+            _log.debug(f"gsc: credential_path={credential_path!r} not found")
             raise ExternalServiceError(
-                f"GSC credential file not found: {credential_path}"
+                "GSC credential file not found — check [gsc].credential_path in config.toml"
             )
 
         mode = cred_path.stat().st_mode & 0o777

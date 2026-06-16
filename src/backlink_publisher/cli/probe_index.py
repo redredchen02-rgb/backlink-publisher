@@ -88,6 +88,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         fcntl.flock(lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
+        lock_fh.close()
         print("probe-index: another instance is running (flock held)", file=sys.stderr)
         sys.exit(6)
 
@@ -128,6 +129,7 @@ def _run(args, cfg) -> None:
                 "and property_url. See config.example.toml."
             )
         )
+        return  # handle_error() always exits; return is a defensive guard
 
     from backlink_publisher.gsc.client import GscClient
 
@@ -135,6 +137,7 @@ def _run(args, cfg) -> None:
         client = GscClient(gsc_cfg.credential_path, gsc_cfg.property_url)
     except ExternalServiceError as exc:
         handle_error(exc)
+        return  # handle_error() always exits; return is a defensive guard
 
     run_id = str(uuid.uuid4())
     _probe_and_record(client, candidates, store, run_id)
