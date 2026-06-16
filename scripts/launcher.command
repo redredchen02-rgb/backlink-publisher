@@ -171,6 +171,11 @@ while true; do
   # 啟用 LITE 內部版（R7/R8）：精簡導航到保活核心、伺服端 404 掉 Pro/未實作面。
   # 這是 LITE 的唯一啟用點；不設則回退完整 Pro 介面。
   export BACKLINK_PUBLISHER_LITE=1
+  # Reliability enforce gate — mastodon is the first enforced channel (Plan 2026-06-16-002 U1).
+  # Only mastodon actually skips on a blocked health gate / open circuit; all other channels
+  # remain in observe mode. Roll back by removing mastodon or setting to "observe".
+  export BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED=enforce
+  export BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS=mastodon
   # 釘死持久 SECRET_KEY：裸跑用 ephemeral key 每次重啟洗掉 session/CSRF。
   # 首次生成存進 config dir（0600），之後沿用。
   SECRET_KEY_FILE="${BACKLINK_PUBLISHER_CONFIG_DIR:-$HOME/.config/backlink-publisher}/.webui_secret_key"

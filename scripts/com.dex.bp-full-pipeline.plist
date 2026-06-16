@@ -10,7 +10,11 @@
         <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/scripts/run-full-pipeline.sh</string>
         <string>gap</string>
     </array>
-    <!-- Run daily at 04:00 (after recheck completes) -->
+    <!-- Run daily at 04:00 (after recheck at 04:30 — pipeline publishes, recheck verifies next morning) -->
+    <!-- Enforce gate: mastodon is the first enforced channel (Plan 2026-06-16-002 Unit 1).
+         POLICY_ENABLED_ENV "enforce" + ENFORCE_CHANNELS "mastodon" means only mastodon actually skips
+         on a blocked health gate / open circuit; all other channels remain in observe mode.
+         To roll back: remove mastodon from ENFORCE_CHANNELS or set POLICY_ENV to observe. -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
@@ -36,6 +40,10 @@
         <string>draft</string>
         <key>BP_OPTIMIZE</key>
         <string>1</string>
+        <key>BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED</key>
+        <string>enforce</string>
+        <key>BACKLINK_PUBLISHER_RELIABILITY_ENFORCE_CHANNELS</key>
+        <string>mastodon</string>
     </dict>
     <key>RunAtLoad</key>
     <false/>
