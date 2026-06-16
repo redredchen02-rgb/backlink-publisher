@@ -409,6 +409,82 @@ class TestSitesAutopilotStatus:
         resp = client.get("/sites")
         assert resp.status_code == 200
 
+    # ── HTML content tests for the 4 Jinja status branches ───────────────
+
+    @staticmethod
+    def _register_site(url="https://example.com/"):
+        """Add a minimal ThreeUrlConfig entry so the template renders site rows."""
+        from backlink_publisher.config import ThreeUrlConfig, load_config, save_config
+        save_config(load_config(), target_three_url={
+            url.rstrip("/"): ThreeUrlConfig(
+                main_url=url, list_url=url,
+                branded_pool=["Example"], partial_pool=["example"], exact_pool=["example.com"], work_urls=[],
+            )
+        })
+
+    def test_html_disabled_shows_dash(self, client, monkeypatch):
+        """Branch: not site.autopilot_enabled → '—' span."""
+        import webui_store as _ws
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": False, "interval_seconds": 86400}
+        }})
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert b"autopilot-row-status" in resp.data
+        assert b"text-danger" not in resp.data
+        assert b"autopilot-next-run" not in resp.data
+
+    def test_html_alert_pending_shows_failure_span(self, client, monkeypatch):
+        """Branch: site.alert_pending → text-danger '⚠ 上次失敗'."""
+        import webui_store as _ws
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "alert_pending": True, "interval_seconds": 86400}
+        }})
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert b"text-danger" in resp.data
+        assert "上次失敗".encode() in resp.data
+
+    def test_html_next_run_time_shows_data_attribute(self, client, monkeypatch):
+        """Branch: site.next_run_time_iso → autopilot-next-run span with data-next-run."""
+        import webui_store as _ws
+        from datetime import datetime, timezone
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "interval_seconds": 86400}
+        }})
+        mock = _make_mock_scheduler()
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        mock._scheduler.get_job.return_value.next_run_time = dt
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert b"autopilot-next-run" in resp.data
+        assert b"data-next-run=" in resp.data
+        assert b"2026-06-17" in resp.data
+
+    def test_html_enabled_no_next_run_shows_scheduling(self, client, monkeypatch):
+        """Branch: enabled + no alert_pending + no next_run_time_iso → '排程中…'."""
+        import webui_store as _ws
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "interval_seconds": 86400}
+        }})
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value = None   # no job → next_run_time_iso stays None
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert "排程中…".encode() in resp.data
+
 
 class TestDashboardAutopilotAlertDismiss:
     def test_dismiss_clears_alert_pending(self, client):
