@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dex.bp-probe-index</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/scripts/run-probe-index-periodic.sh</string>
+    </array>
+    <!-- Daily UTC 02:30 — before probe-citations (06:00) to avoid GSC quota contention.
+         BP_PROBE_INDEX_MAX_URLS controls per-run URL cap (default 200).
+         Requires [gsc] credential_path + property_url in config.toml. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher</string>
+    <key>StandardOutPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/probe-index-launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/probe-index-launchd.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>BP_PROBE_INDEX_MAX_URLS</key>
+        <string>200</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
