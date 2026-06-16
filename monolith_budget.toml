@@ -105,15 +105,6 @@ rationale = "Pipeline orchestrator (Plan 2026-06-10-002 U2.1): CLI entry point d
 ceiling = 510
 rationale = "Audit KEEP (2026-06-15): idempotency dedup store. radon SLOC 478 across connection lifecycle, schema migration, retry, and the public acquire/release API is one cohesive transactional unit — splitting read/write paths would spread SQL + locking coupling across files. Ceiling 510 = round_up_to_10(478+30); bump only with a written split rationale."
 
-# CANDIDATE — WebUI async job registry. 9 classes; the recheck cycle, thread
-# pool, and per-job state could separate. The U7 autopilot extraction already
-# pulled out run_keepalive_for_site; further split is a tracked candidate.
-[files."webui_app/services/keepalive_job.py"]
-ceiling = 570
-rationale = "Audit CANDIDATE (2026-06-15): keep-alive async job registry. radon SLOC 533 across 9 classes (registry, recheck cycle, thread pool, per-job state). U7 already extracted run_keepalive_for_site to a synchronous primitive; further split of the registry from the recheck cycle is a tracked candidate. Ceiling 570 = round_up_to_10(533+30) freezes current size; any growth must bump with split rationale."
-
-# KEEP — pure per-channel manifest declarations (UiMeta/BindDescriptor/Policy).
-# Zero classes/fns: it's a data table, not logic. Size tracks channel count.
 [files."src/backlink_publisher/publishing/_manifests.py"]
 ceiling = 520
 rationale = "Audit KEEP (2026-06-15): per-channel manifest declarations. radon SLOC 489 is a pure data table (UiMeta/BindDescriptor/Policy instances, 0 logic fns). Size scales linearly with channel count — splitting by channel would just fragment the single source of truth that test_manifest_contract.py validates. Ceiling 520 = round_up_to_10(489+30)."
@@ -141,113 +132,10 @@ rationale = "Audit KEEP (2026-06-15): per-platform verify logic extracted from a
 ceiling = 260
 rationale = "Audit KEEP (2026-06-15): config dataclasses + constants. radon SLOC 222 across 30 frozen dataclasses with near-zero logic — this IS the config schema SSoT (blogger/medium/oauth/targets/throttle). Splitting would just re-distribute declarations the loader + writer both walk end-to-end. Ceiling 260 = round_up_to_10(222+30)."
 
-# KEEP — events.db read query layer. 16 pure query fns; splitting by event
-# kind would duplicate the SQL connection + parameter binding helpers.
-[files."src/backlink_publisher/events/history_query.py"]
-ceiling = 500
-rationale = "Audit KEEP (2026-06-15): events.db read query layer. radon SLOC 465 across 16 pure query fns sharing one connection + parameter-binding pattern. Splitting by event kind (checkpoint/history/drafts) would duplicate the SQL plumbing; the write side already lives in store.py. Ceiling 500 = round_up_to_10(465+30)."
-
-# KEEP — Publisher ABC + table dispatcher. The dofollow/manifest/visibility
-# wiring is the registry contract; splitting would fragment the register() API.
 [files."src/backlink_publisher/publishing/registry.py"]
 ceiling = 300
 rationale = "Audit KEEP (2026-06-15): Publisher ABC + table-driven dispatcher. radon SLOC 270 holds the register() contract (dofollow/manifest/visibility/rejection-map) and dispatch(); the adapter __init__.py and manifest_contract.py both depend on this surface as one unit. Ceiling 300 = round_up_to_10(270+30)."
 
-# KEEP — spray-backlinks CLI shell. Already decomposed; holds argparse + the
-# multi-seed orchestration loop that spray_backlinks/__init__.py delegates to.
-[files."src/backlink_publisher/cli/spray_backlinks/core.py"]
-ceiling = 530
-rationale = "Audit KEEP (2026-06-15): spray-backlinks CLI shell. radon SLOC 494 is argparse + the multi-seed orchestration loop (seed-delay/max-seeds) delegating to plan/publish. Already a package (spray_backlinks/); core.py is the thin shell the package __init__ calls. Ceiling 530 = round_up_to_10(494+30)."
-
-# KEEP — Chrome/CDP session helpers. 4 classes share the CDP attach lifecycle;
-# splitting would spread the WebSocket plumbing that ChromeAttachSession owns.
-[files."src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py"]
-ceiling = 410
-rationale = "Audit KEEP (2026-06-15): Chrome/CDP session helpers. radon SLOC 375 across 4 classes (ChromeAttachSession ctx mgr + helpers) sharing the CDP attach + WebSocket lifecycle. Splitting would spread the connection plumbing the context manager owns. Ceiling 410 = round_up_to_10(375+30)."
-
-# KEEP — resume-from-checkpoint. The checkpoint replay + lease restoration is
-# one cohesive recovery unit; splitting read-replay from write-restore would
-# duplicate the checkpoint-row schema both sides assume.
-[files."src/backlink_publisher/cli/_resume.py"]
-ceiling = 460
-rationale = "Audit KEEP (2026-06-15): resume interrupted publish run. radon SLOC 421 holds checkpoint replay + lease restoration as one recovery unit; the read-replay and write-restore halves share the checkpoint-row schema, so splitting would duplicate that contract. Ceiling 460 = round_up_to_10(421+30)."
-
-# KEEP — single-platform adapter (ghpages Contents API + banner embed).
-[files."src/backlink_publisher/publishing/adapters/ghpages.py"]
-ceiling = 360
-rationale = "Audit KEEP (2026-06-15): GitHub Pages adapter. radon SLOC 327 covers Contents API publish + banner embed (commit to assets/banners/). One-platform adapter; banner upload dispatched generically, only embed_banner lives here. Ceiling 360 = round_up_to_10(327+30)."
-
-# CANDIDATE — Playwright bind driver. 9 classes; the headed-session lifecycle,
-# storage-state write, and channel-recipe dispatch could separate. Tracked.
-[files."src/backlink_publisher/cli/_bind/_driver_impl.py"]
-ceiling = 340
-rationale = "Audit CANDIDATE (2026-06-15): Playwright headed bind driver. radon SLOC 305 across 9 classes (session lifecycle, storage-state write, recipe dispatch). The recipe/<channel>.py files already absorb per-channel specifics; further split of session-lifecycle from storage-write is a tracked candidate. Ceiling 340 = round_up_to_10(305+30)."
-
-# CANDIDATE — /ce:health dashboard. 7 read-only subroutes (scorecard links,
-# publish-metrics, storage health, platform health) could split into a package
-# mirroring the routes/ convention. Tracked; currently stable.
-[files."webui_app/routes/health.py"]
-ceiling = 400
-rationale = "Audit CANDIDATE (2026-06-15): /ce:health publishing-health dashboard. radon SLOC 367 across 7 read-only subroutes + the storage/platform health helpers. Could split into a health/ blueprint package mirroring routes/ convention; currently stable, tracked candidate. Ceiling 400 = round_up_to_10(367+30)."
-
-# KEEP — Medium bind recipe. The headed-login + storage-state + writePost
-# validation is one channel-specific lifecycle; size tracks Medium's auth flow.
-[files."src/backlink_publisher/cli/_bind/recipes/medium.py"]
-ceiling = 290
-rationale = "Audit KEEP (2026-06-15): Medium binding recipe. radon SLOC 259 is one channel-specific lifecycle (headed login + storage-state + post-validation). Per-channel recipes are intentionally separate files; this one's size tracks Medium's auth flow, not generic complexity. Ceiling 290 = round_up_to_10(259+30)."
-
-# KEEP — events.db EventStore (write side). WAL config + append + retry + the
-# JsonStore→EventStore projection are one cohesive persistence unit.
-[files."src/backlink_publisher/events/store.py"]
-ceiling = 340
-rationale = "Audit KEEP (2026-06-15): events.db EventStore (write side). radon SLOC 306 holds WAL config + append + retry + projection plumbing; the SQLite helpers are already extracted to _store_sqlite.py and read queries to history_query.py. Remaining size is the persistence contract as one unit. Ceiling 340 = round_up_to_10(306+30)."
-
-# KEEP — post-publish link-attr verifier. The dofollow/rel/survival checks
-# share the fetch + parse pipeline; splitting per-attribute would duplicate it.
-[files."src/backlink_publisher/publishing/adapters/link_attr_verifier.py"]
-ceiling = 320
-rationale = "Audit KEEP (2026-06-15): post-publish link-attribute verifier. radon SLOC 285 runs the shared fetch + parse pipeline for dofollow/rel/survival checks; splitting per-attribute would duplicate the HTTP + HTML-parsing front-end that all three checks share. Ceiling 320 = round_up_to_10(285+30)."
-
-# CANDIDATE — /ce:plan + /ce:generate + /ce:validate + /ce:publish (4 stages).
-# Each stage handler could become its own module; currently stable, tracked.
-[files."webui_app/routes/pipeline.py"]
-ceiling = 450
-rationale = "Audit CANDIDATE (2026-06-15): pipeline stage routes (/ce:plan, /ce:generate, /ce:validate, /ce:publish). radon SLOC 418 across 4 stage handlers + shared helpers. Each stage could split into its own module mirroring the cli/ package split; currently stable, tracked candidate. Ceiling 450 = round_up_to_10(418+30)."
-
-# KEEP — report-anchors formatting. Aggregation + alarm helpers extracted here
-# from the CLI; the report engine lives in _report_engine.py already.
-[files."src/backlink_publisher/cli/_report_format.py"]
-ceiling = 400
-rationale = "Audit KEEP (2026-06-15): report-anchors formatting/aggregation/alarm helpers. radon SLOC 363 extracted from the CLI; the pure report engine already lives in _report_engine.py. Remaining size is the formatting + breach-alarm layer that the CLI shell composes. Ceiling 400 = round_up_to_10(363+30)."
-
-# KEEP — PipelineAPI structured wrapper. 3 classes wrapping CLI invocation;
-# the plan/validate/publish orchestration is one cohesive in-process API.
-[files."webui_app/api/pipeline_api.py"]
-ceiling = 320
-rationale = "Audit KEEP (2026-06-15): PipelineAPI structured wrapper around plan/validate/publish CLI invocation. radon SLOC 284 across 3 classes; the in-process API surface is one cohesive unit that the WebUI routes call. Ceiling 320 = round_up_to_10(284+30)."
-
-# KEEP — credential provider. Load/probe/refresh share the channel-session
-# lifecycle; splitting would spread the provider contract session/ relies on.
-[files."src/backlink_publisher/publishing/session/provider.py"]
-ceiling = 390
-rationale = "Audit KEEP (2026-06-15): credential loading/probing/refreshing for channel sessions. radon SLOC 357 is one cohesive provider contract that session/session_manager.py and the adapters rely on; splitting load from refresh would fragment the credential lifecycle. Ceiling 390 = round_up_to_10(357+30)."
-
-# KEEP — CampaignSqliteStore. CRUD + migration + listing on one store schema.
-[files."webui_store/campaign_store.py"]
-ceiling = 340
-rationale = "Audit KEEP (2026-06-15): CampaignSqliteStore. radon SLOC 307 holds CRUD + migrate_from_json + list/get/update_status on one campaign schema; splitting would fragment the SqliteStore base contract. Ceiling 340 = round_up_to_10(307+30)."
-
-# KEEP — channel status store. 24 fns on one binding-status schema (the badge
-# state machine: bound/expired/unbound); splitting would spread the state model.
-[files."webui_store/channel_status.py"]
-ceiling = 340
-rationale = "Audit KEEP (2026-06-15): channel binding-status store. radon SLOC 310 across 24 fns on one status schema (the bound/expired/unbound badge state machine). Splitting would fragment the state model the settings UI + AuthExpiredError flip both read and write. Ceiling 340 = round_up_to_10(310+30)."
-
-# webui_store base became load-bearing in the store-base refactor — guard it.
-[files."webui_store/sqlite_base.py"]
-ceiling = 254
-rationale = "store-base refactor (Plan 2026-06-15-005): BaseSqliteStore (the __init__/_init_table template + byte-identical migrate_from_json with a fail-soft save guard + shared _load_rows/_get_one_json/_replace_all_rows helpers) and BlobSqliteStore (single-row upsert load/save + _table_name identifier validator), absorbing the duplicated skeleton from 8 store files (net webui_store change far below the original raw-LOC estimate). sqlite_base settled at 224 SLOC as the shared base for all 8 stores. Ceiling 254 = round_up_to_10(224+30) per ratchet policy; the base is now feature-complete and should not grow further."
-# Wave 3 Unit 1 (2026-06-11): spray_backlinks split into core.py (argparse shell) + _engine.py (run orchestration) + _gates.py (checkpoint helpers).
 [files."src/backlink_publisher/cli/spray_backlinks/core.py"]
 ceiling = 210
 rationale = "Wave 3 Unit 1 (2026-06-11): core.py trimmed from 494 SLOC to 171 by moving _run_spray (+preview helpers) to _engine.py and checkpoint helpers to _gates.py. Now holds argparse (_build_parser with 15 arguments), _validate_spray_args, and main() only. Ceiling 210 = round_up_to_10(171+30); _build_parser alone accounts for ~95 SLOC due to 15 add_argument calls."
