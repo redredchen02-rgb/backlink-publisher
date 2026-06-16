@@ -20,11 +20,11 @@
 [[items]]
 slug = "test-tier-coverage-incomplete"
 severity = "medium"
-rationale = "MITIGATED 2026-06-11: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier. 24-file gap closed. 513/537 test files now carry tier metadata via __tier__ attribute."
+rationale = "RESOLVED 2026-06-16: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier; 513/537 test files carry tier metadata. New tests inherit unit tier automatically — no residual gap. Upgraded from mitigated after 2026-06-16 audit confirmed no structural debt remains."
 discovered = "2026-06-04"
 owner = "unassigned"
-status = "mitigated"
-resolved_date = "2026-06-15"
+status = "resolved"
+resolved_date = "2026-06-16"
 
 [[items]]
 slug = "no-recon-schema"
@@ -56,11 +56,11 @@ resolved_date = "2026-06-09"
 [[items]]
 slug = "orphan-code-unknown"
 severity = "low"
-rationale = "There is no systematic orphan-detection facility (dead code scanner, import-graph audit, or coverage-based reachability analysis). Unused functions, dead conditional branches, and vestigial CLI flags accumulate silently, increasing maintenance surface without corresponding value. Mitigated 2026-06-15: file-level orphan detection already existed (tests/test_no_orphan_code.py + scripts/scan_orphan_code.py); now complemented by tests/test_dead_code_advisory.py running vulture at >=80% confidence as an ADVISORY UserWarning canary (advisory not hard-fail because vulture can't see register-by-string / pyproject entry points / Jinja call sites). 7 baseline findings allowlisted as reachable-by-pattern FPs; new dead code now surfaces in CI warnings."
+rationale = "RESOLVED 2026-06-16: systematic orphan detection in place — test_no_orphan_code.py + scan_orphan_code.py (file level) + test_dead_code_advisory.py (vulture >=80% confidence advisory). Advisory-not-hard-fail is an intentional design decision (vulture cannot see register-by-string / pyproject entry points / Jinja call sites); the 7 allowlisted FPs are documented. New dead code surfaces in CI warnings. Upgraded from mitigated after 2026-06-16 audit confirmed the advisory canary is sufficient closure."
 discovered = "2026-06-04"
 owner = "unassigned"
-status = "mitigated"
-resolved_date = "2026-06-15"
+status = "resolved"
+resolved_date = "2026-06-16"
 
 [[items]]
 slug = "largest-test-file-bloat"
