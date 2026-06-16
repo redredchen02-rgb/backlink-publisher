@@ -21,23 +21,18 @@ Unit 5.
 from __future__ import annotations
 
 import json
-import logging
-import os
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from backlink_publisher.events._store_sqlite import _retry_sqlite
 
-from .sqlite_base import SqliteStore, WebUIDatabase
-
-_log = logging.getLogger(__name__)
+from .sqlite_base import BaseSqliteStore
 
 _SENTINEL_NAME = ".webui-queue-migrated-v1"
 _JSON_FILENAME = "publish-queue.json"
 
 
-class QueueSqliteStore(SqliteStore):
+class QueueSqliteStore(BaseSqliteStore):
     """Row-table store for background publishing tasks, backed by webui.db.
 
     Table::
@@ -53,7 +48,8 @@ class QueueSqliteStore(SqliteStore):
     ``load()`` returns the full ``list[dict]`` in insertion order (``[]`` when
     empty). ``save(value)`` is a full delete-all + bulk-insert rewrite (matches
     the JsonStore whole-file rewrite semantics). ``update(fn)`` is inherited
-    (load → fn → save under RLock).
+    (load → fn → save under RLock). ``__init__`` / ``_init_table`` /
+    ``migrate_from_json`` are inherited from :class:`BaseSqliteStore`.
 
     ``update_task`` / ``get_runnable`` preserve their JsonStore behaviour
     exactly; ``update_task`` is now a targeted SQL UPDATE rather than a
@@ -61,41 +57,27 @@ class QueueSqliteStore(SqliteStore):
     ``status`` column rather than scanning every task in Python.
     """
 
-    def __init__(self, db: WebUIDatabase) -> None:
-        super().__init__(db)
-        self._init_table()
+    _value_type = list
+    _json_filename = _JSON_FILENAME
+    _sentinel_name = _SENTINEL_NAME
 
-    def _init_table(self) -> None:
-        with self._db.connect() as conn:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS tasks ("
-                "id TEXT PRIMARY KEY, "
-                "status TEXT NOT NULL, "
-                "next_retry_at TEXT, "
-                "data_json TEXT NOT NULL)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS tasks_status_retry "
-                "ON tasks(status, next_retry_at)"
-            )
+    def _create_table_sql(self) -> str:
+        return (
+            "CREATE TABLE IF NOT EXISTS tasks ("
+            "id TEXT PRIMARY KEY, "
+            "status TEXT NOT NULL, "
+            "next_retry_at TEXT, "
+            "data_json TEXT NOT NULL)"
+        )
+
+    def _indices_sql(self) -> list[str]:
+        return [
+            "CREATE INDEX IF NOT EXISTS tasks_status_retry "
+            "ON tasks(status, next_retry_at)"
+        ]
 
     def load(self) -> list[dict[str, Any]]:
-        def _op() -> list[dict[str, Any]]:
-            with self._db.connect() as conn:
-                rows = conn.execute(
-                    "SELECT data_json FROM tasks ORDER BY rowid"
-                ).fetchall()
-            result: list[dict[str, Any]] = []
-            for (data_json,) in rows:
-                try:
-                    task = json.loads(data_json)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-                if isinstance(task, dict):
-                    result.append(task)
-            return result
-
-        return _retry_sqlite(_op)
+        return self._load_rows("SELECT data_json FROM tasks ORDER BY rowid")
 
     def save(self, value: Any) -> None:
         tasks = value if isinstance(value, list) else []
@@ -110,19 +92,9 @@ class QueueSqliteStore(SqliteStore):
                     json.dumps(task, ensure_ascii=False),
                 )
             )
-
-        with self._lock:
-            def _op() -> None:
-                with self._db.connect() as conn:
-                    conn.execute("DELETE FROM tasks")
-                    if rows:
-                        conn.executemany(
-                            "INSERT INTO tasks (id, status, next_retry_at, "
-                            "data_json) VALUES (?, ?, ?, ?)",
-                            rows,
-                        )
-
-            _retry_sqlite(_op)
+        self._replace_all_rows(
+            "tasks", ("id", "status", "next_retry_at", "data_json"), rows
+        )
 
     # ── Task-level helpers (public API, preserved from JsonStore) ──────────
 
@@ -190,52 +162,3 @@ class QueueSqliteStore(SqliteStore):
             if not next_retry_at or datetime.fromisoformat(next_retry_at) <= now:
                 runnable.append(task)
         return runnable
-
-    # ── Startup migration ─────────────────────────────────────────────────
-
-    def migrate_from_json(self, config_dir: Path) -> None:
-        """One-shot import from ``publish-queue.json`` if not yet migrated.
-
-        Same load-bearing sequence as ``ScheduleSqliteStore.migrate_from_json``:
-        commit to webui.db → rename ``.json`` → chmod 0o600 → write sentinel.
-        Corrupt/absent JSON is silently skipped (sentinel NOT written so a
-        later-appearing file can still be imported).
-        """
-        sentinel = config_dir / _SENTINEL_NAME
-        json_path = config_dir / _JSON_FILENAME
-        migrated_path = json_path.with_suffix(".json.migrated")
-
-        if sentinel.exists():
-            return
-
-        # Crash-recovery: rename completed but sentinel not written
-        if migrated_path.exists() and not sentinel.exists():
-            sentinel.write_text("migrated", encoding="utf-8")
-            return
-
-        if not json_path.exists():
-            return
-
-        try:
-            text = json_path.read_text(encoding="utf-8")
-            data = json.loads(text)
-        except (json.JSONDecodeError, UnicodeDecodeError, OSError):
-            _log.warning(
-                "queue_store migration: skipping corrupt/unreadable %s", json_path
-            )
-            return
-
-        self.save(data if isinstance(data, list) else [])
-
-        try:
-            json_path.rename(migrated_path)
-        except OSError as exc:
-            _log.warning("queue_store migration: rename failed: %s", exc)
-            return
-
-        try:
-            os.chmod(migrated_path, 0o600)
-        except OSError:
-            pass
-
-        sentinel.write_text("migrated", encoding="utf-8")

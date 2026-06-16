@@ -7,6 +7,9 @@ be honored so sessions/CSRF survive restart.
 """
 from __future__ import annotations
 
+__tier__ = "integration"
+
+
 import pytest
 
 

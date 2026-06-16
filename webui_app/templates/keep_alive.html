@@ -5,55 +5,96 @@
    S-stale / S2). Recheck + republish action states (S1, S3-S7) arrive in U5-U7. #}
 {% block title %}保活 — Keep-alive{% endblock %}
 {% block head_extra %}
-  <style>
-    body { background-color: var(--bs-light, #f8f9fa); }
-    .target-cell { max-width: 380px; font-family: ui-monospace, monospace; font-size: 13px; }
-    .ka-attention > td { box-shadow: inset 3px 0 0 #dc3545; }   /* bleeding target */
-    .ka-section-label td { background: #fbfbfd; font-weight: 600; }
-    .ka-badge { font-size: 12px; }
-    .ka-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45);
-                  display: flex; align-items: center; justify-content: center; z-index: 1080; }
-    .ka-overlay-card { max-width: 560px; width: 92%; max-height: 82vh; overflow: auto; }
-    .ka-cycle-reset-overlay { z-index: 1090; }  /* above #confirmOverlay */
-    #cyclePanel .cycle-badge-broken { font-size: 11px; }
-    #cyclePanel .cycle-badge-locked { font-size: 11px; }
-  </style>
+<style>
+/* ── Keep-alive dark theme overrides ──────────────────────────────── */
+.target-cell { max-width: 380px; font-family: ui-monospace, monospace; font-size: 13px; }
+.ka-badge { font-size: 12px; }
+.ka-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6);
+              display: flex; align-items: center; justify-content: center; z-index: 1080; }
+.ka-overlay-card { max-width: 560px; width: 92%; max-height: 82vh; overflow: auto; }
+.ka-cycle-reset-overlay { z-index: 1090; }
+#cyclePanel .cycle-badge-broken { font-size: 11px; }
+#cyclePanel .cycle-badge-locked { font-size: 11px; }
+
+/* Glass navbar */
+.navbar.bg-white { background: rgba(255,255,255,0.08) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.15) !important; }
+.navbar .navbar-brand { color: var(--text-primary) !important; }
+
+/* Glass cards */
+.card { background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; border-radius: 16px !important; }
+.card-header { background: rgba(255,255,255,0.06) !important; border-bottom: 1px solid rgba(255,255,255,0.10) !important; color: var(--text-primary) !important; }
+.card-body { color: var(--text-primary) !important; }
+
+/* Dark tables */
+.table { color: var(--text-primary) !important; border-color: rgba(255,255,255,0.08) !important; }
+.table.bg-white { background: transparent !important; }
+.table-light, .table thead.table-light th { background: rgba(255,255,255,0.08) !important; color: var(--text-secondary) !important; border-color: rgba(255,255,255,0.10) !important; }
+.table > :not(caption) > * > * { background: transparent !important; border-bottom-color: rgba(255,255,255,0.07) !important; color: inherit !important; }
+.table-hover > tbody > tr:hover > * { background: rgba(255,255,255,0.05) !important; }
+
+/* Section label row */
+.ka-section-label td { background: rgba(255,255,255,0.06) !important; font-weight: 600; color: rgba(255,255,255,0.55) !important; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+
+/* Attention row — bleeding target */
+.ka-attention > td { box-shadow: inset 3px 0 0 #f87171 !important; }
+
+/* Alert overrides */
+.alert-warning { background: rgba(245,158,11,0.18) !important; border-color: rgba(245,158,11,0.40) !important; color: #fcd34d !important; }
+.alert-success { background: rgba(16,185,129,0.18) !important; border-color: rgba(16,185,129,0.40) !important; color: #6ee7b7 !important; }
+.alert-danger  { background: rgba(239,68,68,0.18)  !important; border-color: rgba(239,68,68,0.40)  !important; color: #fca5a5 !important; }
+
+/* List group */
+.list-group-item { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.10) !important; color: var(--text-primary) !important; }
+
+/* Progress bar track */
+.progress { background: rgba(255,255,255,0.12) !important; }
+
+/* Danger subtle card header */
+.bg-danger-subtle { background: rgba(239,68,68,0.20) !important; color: #fca5a5 !important; }
+.border-danger { border-color: rgba(239,68,68,0.40) !important; }
+.border-primary { border-color: rgba(99,102,241,0.50) !important; }
+.border-warning { border-color: rgba(245,158,11,0.40) !important; }
+
+/* Stale banner */
+#staleBanner.alert-warning { background: rgba(245,158,11,0.18) !important; border-color: rgba(245,158,11,0.40) !important; color: #fcd34d !important; }
+
+/* Form check */
+.form-check-input { background-color: rgba(255,255,255,0.10) !important; border-color: rgba(255,255,255,0.30) !important; }
+</style>
 {% endblock %}
 {% block content %}
-<nav class="navbar bg-white border-bottom px-3" aria-label="页面操作">
-  <span class="navbar-brand mb-0 h1"><i class="bi bi-shield-check me-2"></i>保活 Keep-alive</span>
+<header class="navbar bg-white border-bottom px-3">
+  <h1 class="navbar-brand mb-0 h1"><i class="bi bi-shield-check me-2"></i>保活 Keep-alive</h1>
   <div class="d-flex align-items-center gap-2">
     <button id="recheckBtn" class="btn btn-sm btn-primary" data-action="recheck"
-            title="逐条复查已发布外链，看哪些还活着、哪些被剥离"
-            aria-label="立即巡检已发布外链">
+            title="逐条复查已发布外链，看哪些还活着、哪些被剥离">
       <i class="bi bi-arrow-repeat"></i> 立即巡检
     </button>
-    <a href="/" class="btn btn-sm btn-outline-secondary" aria-label="返回首页"><i class="bi bi-house"></i> Home</a>
+    <a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i> Home</a>
   </div>
-</nav>
+</header>
 
 {% if flash and flash.msg %}
 <div class="container-fluid pt-3">
   <div class="alert alert-{{ flash.type }} alert-dismissible fade show" role="alert">
     {{ flash.msg }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭通知"></button>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
 </div>
 {% endif %}
 
-<main class="container-fluid py-3">
+<div class="container-fluid py-3">
   <div id="staleBanner" class="alert alert-warning d-none" role="status"></div>
 
   <div id="recheckProgress" class="card border-primary mb-3 d-none">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <strong><i class="bi bi-arrow-repeat me-1"></i>正在巡检…</strong>
-        <button id="cancelRecheckBtn" class="btn btn-sm btn-outline-danger" data-action="cancel-recheck"
-                aria-label="取消巡检">取消</button>
+        <button id="cancelRecheckBtn" class="btn btn-sm btn-outline-danger" data-action="cancel-recheck">取消</button>
       </div>
       <div class="progress" style="height: 18px;">
         <div id="recheckBar" class="progress-bar progress-bar-striped progress-bar-animated"
-             role="progressbar" aria-label="巡检进度" style="width: 0%;"></div>
+             role="progressbar" style="width: 0%;"></div>
       </div>
       <p class="text-muted small mb-0 mt-2" id="recheckLine"></p>
     </div>
@@ -68,13 +109,11 @@
     </div>
     <div class="card-body">
       <label class="form-check small mb-2">
-        <input type="checkbox" class="form-check-input me-1" id="gapSelectAll" data-action="toggle-all-gaps"
-               aria-label="全选所有流血链">
+        <input type="checkbox" class="form-check-input me-1" id="gapSelectAll" data-action="toggle-all-gaps">
         全选
       </label>
       <ul class="list-group mb-3" id="gapList"></ul>
-      <button id="republishBtn" class="btn btn-danger btn-sm" data-action="open-confirm" disabled
-              aria-label="重发选中的流血链">
+      <button id="republishBtn" class="btn btn-danger btn-sm" data-action="open-confirm" disabled>
         <i class="bi bi-arrow-repeat"></i> 重发选中 <span id="republishCount">0</span>
       </button>
     </div>
@@ -89,7 +128,7 @@
       <strong id="republishPhase"><i class="bi bi-cloud-upload me-1"></i>正在重发…</strong>
       <div class="progress mt-2" style="height: 18px;">
         <div id="republishBar" class="progress-bar bg-warning progress-bar-striped progress-bar-animated"
-             role="progressbar" aria-label="重发进度" style="width: 0%;"></div>
+             role="progressbar" style="width: 0%;"></div>
       </div>
       <p class="text-muted small mb-0 mt-2" id="republishLine"></p>
     </div>
@@ -101,8 +140,7 @@
       <h6 id="republishResultTitle" class="mb-2"></h6>
       <p id="republishResultMsg" class="mb-2"></p>
       <ul class="list-group mb-3 d-none" id="republishResultList"></ul>
-      <button class="btn btn-sm btn-outline-secondary" data-action="republish-done"
-              aria-label="完成重发操作">完成</button>
+      <button class="btn btn-sm btn-outline-secondary" data-action="republish-done">完成</button>
     </div>
   </div>
 
@@ -211,7 +249,7 @@
       </div>
     </div>
   </div>
-</main>
+</div>
 {% endblock %}
 
 {% block page_data %}

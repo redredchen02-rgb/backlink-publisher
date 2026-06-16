@@ -39,24 +39,30 @@
                         {% if batch_results %}
                         <hr class="my-4">
                         <h6><i class="bi bi-list-check me-2"></i>发布结果</h6>
+                        {# Batch completion indicator — CSS terminal state: track always visible,
+                           fill width driven by parent class via CSS selector. #}
+                        {% set n_ok = batch_results|selectattr('status','eq','success')|list|length %}
+                        {% set n_total = batch_results|length %}
+                        <div class="batch-progress-track{% if n_ok == n_total %} batch-progress--all-success{% elif n_ok == 0 %} batch-progress--failed{% else %} batch-progress--partial{% endif %}">
+                            <div class="batch-progress-fill"{% if n_ok > 0 and n_ok < n_total %} style="width:{{ (n_ok / n_total * 100)|int }}%"{% endif %}></div>
+                        </div>
                         <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
                             {% for r in batch_results %}
-                            <div style="padding:12px 16px;border-radius:10px;
-                                background:{% if r.status == 'success' %}#f0fdf4{% else %}#fff1f2{% endif %};
-                                border-left:4px solid {% if r.status == 'success' %}var(--success){% else %}var(--danger){% endif %};">
+                            <div class="batch-result-item {% if r.status == 'success' %}batch-result--success{% else %}batch-result--error{% endif %}">
                                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
                                     <div style="flex:1;min-width:0;">
-                                        <div style="font-size:13px;font-weight:600;word-break:break-all;">{{ r.url }}</div>
+                                        <div class="batch-result-url">{{ r.url }}</div>
                                         {% if r.title %}
-                                        <div style="font-size:12px;color:#4b5563;margin-top:3px;">📄 {{ r.title }}</div>
+                                        <div class="batch-result-title">📄 {{ r.title }}</div>
                                         {% endif %}
                                         {% if r.error %}
-                                        <div style="font-size:12px;color:var(--danger);margin-top:4px;">{{ r.error[:150] }}</div>
+                                        <div class="batch-result-error">{{ r.error[:150] }}</div>
                                         {% endif %}
                                     </div>
                                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
                                         <span class="status-badge {% if r.status == 'success' %}success{% else %}error{% endif %}">
-                                            {% if r.status == 'success' %}✓ 成功{% else %}✗ 失败{% endif %}
+                                            {% if r.status == 'success' %}<i class="bi bi-check-circle me-1"></i>成功
+                                            {% else %}<i class="bi bi-x-circle me-1"></i>失败{% endif %}
                                         </span>
                                         {% if r.article_url %}
                                         <a href="{{ r.article_url }}" target="_blank" rel="noopener"
@@ -67,16 +73,16 @@
                                     </div>
                                 </div>
                                 {% if r.article_url %}
-                                <div style="margin-top:8px;font-size:11px;word-break:break-all;color:#6b7280;">
+                                <div class="batch-result-link">
                                     <i class="bi bi-link-45deg me-1"></i>{{ r.article_url }}
                                 </div>
                                 {% endif %}
                             </div>
                             {% endfor %}
                         </div>
-                        <div style="margin-top:12px;font-size:13px;color:#6b7280;">
-                            共 {{ batch_results|length }} 篇 ·
-                            成功 {{ batch_results|selectattr('status','eq','success')|list|length }} 篇 ·
+                        <div class="batch-summary">
+                            共 {{ n_total }} 篇 ·
+                            成功 {{ n_ok }} 篇 ·
                             失败 {{ batch_results|selectattr('status','eq','failed')|list|length }} 篇
                         </div>
                         {% endif %}

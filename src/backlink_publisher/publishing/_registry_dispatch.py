@@ -26,6 +26,30 @@ if TYPE_CHECKING:
     from .adapters.base import AdapterResult
 
 
+def _emit_degraded(platform: str, *, failed_adapter: str, to_adapter: str) -> None:
+    """Emit a degraded ``publish_attempt`` event when a transient triggers a
+    same-account fallback (Plan 2026-06-15-001 A3, observe-only).
+
+    Never raises and carries no URL/body — operators see *that* a primary adapter
+    degraded and to which fallback, without per-adapter circuit accounting (the
+    breaker stays per-platform; option A).
+    """
+    try:
+        from .reliability.events import Outcome, emit_attempt
+
+        emit_attempt(
+            platform,
+            Outcome.TRANSIENT,
+            0.0,
+            error_class="ExternalServiceError",
+            degraded=True,
+            failed_adapter=failed_adapter,
+            to_adapter=to_adapter,
+        )
+    except Exception:  # noqa: BLE001 — observability must never break dispatch
+        pass
+
+
 def dispatch(
     payload: dict[str, Any],
     mode: str,
@@ -74,14 +98,52 @@ def dispatch(
     do_banner = banner_dict is not None and banner_dict.get("path") is not None
     strict = bool(do_banner and config.image_gen and config.image_gen.strict)
 
+    # Local import: reliability imports adapters, so importing transient_policy
+    # at module level would re-enter this package mid-init.
+    from .reliability.transient_policy import TransientDecision, classify_transient
+
     last_dep_error: DependencyError | None = None
+    # A prior adapter's transient error, awaiting a fall-or-raise decision against
+    # the NEXT available adapter (Plan 2026-06-15-001 A1). Tuple of
+    # ``(exc, failed_adapter_name, failed_mechanism)``.
+    pending_transient: tuple[ExternalServiceError, str, str] | None = None
+
     for entry in chain:
         # Entry may be a Publisher subclass (legacy) or instance
         # (BrowserPublishDispatcher.for_channel — Plan 2026-05-21-001 U2).
         is_class = isinstance(entry, type)
         publisher_cls = entry if is_class else type(entry)
+
+        this_name = publisher_cls.__name__
+        this_mech = getattr(publisher_cls, "mechanism", "api")
+
+        # A1: if a prior adapter raised a transient, decide fall-or-raise BEFORE
+        # evaluating this candidate. A FAIL_FAST raises immediately and never
+        # touches this adapter's ``available()`` — preserving the legacy contract
+        # that an ExternalServiceError terminates the chain without probing
+        # further adapters (their ``available()`` may be slow or side-effecting).
+        if pending_transient is not None:
+            t_exc, t_name, t_mech = pending_transient
+            decision = classify_transient(
+                t_exc,
+                platform=plat,
+                transition=(t_name, this_name),
+                same_mechanism=(t_mech == this_mech),
+            )
+            if decision is TransientDecision.FAIL_FAST:
+                raise t_exc
+            # FALLBACK_SAFE: try this candidate. If unavailable, the pending
+            # transient carries to the next entry's gate.
+
         if not publisher_cls.available(config):
             continue
+
+        if pending_transient is not None:
+            _emit_degraded(
+                plat, failed_adapter=pending_transient[1], to_adapter=this_name
+            )
+            pending_transient = None
+
         try:
             adapter = entry() if is_class else entry
             if do_banner:
@@ -117,8 +179,17 @@ def dispatch(
             # Adapter declared itself missing a prerequisite → try next.
             last_dep_error = e
             continue
-        # ExternalServiceError propagates without catch (legacy semantics).
+        except ExternalServiceError as e:
+            # A1: defer the fall/raise decision to the next available adapter's
+            # gate above. With no whitelisted fallback this raises at loop-end —
+            # preserving the legacy "ExternalServiceError propagates" contract.
+            pending_transient = (e, this_name, this_mech)
+            continue
 
+    # A pending transient with no safe fallback target left → surface it
+    # (identical outcome to the legacy immediate-propagate path).
+    if pending_transient is not None:
+        raise pending_transient[0]
     if last_dep_error is not None:
         raise last_dep_error
     raise DependencyError(

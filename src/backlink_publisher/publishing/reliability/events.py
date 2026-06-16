@@ -27,6 +27,12 @@ class Outcome(str, Enum):
     TRANSIENT = "transient"
     RATE_LIMITED = "rate_limited"
     HTTP_ERROR = "http_error"
+    # Observe-mode signals (Plan 2026-06-15-001 observe→enforce rollout): the gate
+    # WOULD have skipped this publish under enforcement, but observe mode dispatched
+    # anyway. Counting these tells operators how often enforcement would fire before
+    # they flip it on.
+    WOULD_SKIP_POLICY = "would_skip_policy"
+    WOULD_SKIP_CIRCUIT = "would_skip_circuit"
 
 
 def emit_attempt(

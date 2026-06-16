@@ -1,25 +1,32 @@
 #!/bin/bash
 # install-recheck-launchd.sh
-# Installs the bp-recheck launchd agent and loads it.
+# Installs the bp-recheck (daily liveness recheck + coverage alarm) and
+# bp-selector-drift (daily static selector-manifest guard) launchd agents.
 # Run once after cloning / setting up.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLIST_SRC="$SCRIPT_DIR/com.dex.bp-recheck.plist"
-PLIST_DST="$HOME/Library/LaunchAgents/com.dex.bp-recheck.plist"
 
 mkdir -p "$HOME/Library/LaunchAgents"
 
-cp "$PLIST_SRC" "$PLIST_DST"
-chmod 644 "$PLIST_DST"
+install_agent() {
+    local label="$1"
+    local src="$SCRIPT_DIR/$label.plist"
+    local dst="$HOME/Library/LaunchAgents/$label.plist"
+    cp "$src" "$dst"
+    chmod 644 "$dst"
+    launchctl unload "$dst" 2>/dev/null || true
+    launchctl load "$dst"
+    echo "✅ $label installed and loaded."
+}
 
-# Unload if already loaded, then load
-launchctl unload "$PLIST_DST" 2>/dev/null || true
-launchctl load "$PLIST_DST"
+install_agent com.dex.bp-recheck
+install_agent com.dex.bp-selector-drift
 
-echo "✅ com.dex.bp-recheck installed and loaded."
-echo "   Logs: $SCRIPT_DIR/../logs/recheck-launchd.log"
 echo ""
-echo "  launchctl list | grep bp-recheck     — check status"
-echo "  launchctl stop com.dex.bp-recheck    — trigger immediately"
+echo "   Logs: $SCRIPT_DIR/../logs/recheck-launchd.log, selector-drift-launchd.log"
+echo ""
+echo "  launchctl list | grep -E 'bp-recheck|bp-selector-drift'  — check status"
+echo "  launchctl stop com.dex.bp-recheck         — trigger recheck now"
+echo "  launchctl stop com.dex.bp-selector-drift  — trigger drift check now"

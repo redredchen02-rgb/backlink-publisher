@@ -1,20 +1,55 @@
 {% extends 'base.html' %}
 {% block title %}Publishing Health{% endblock %}
 {% block head_extra %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css', v=asset_version) }}">
-    <style>
-        .hero-pct { font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
-        .hero-good { color: #10b981; }
-        .hero-warn { color: #f59e0b; }
-        .hero-bad  { color: #ef4444; }
-        .hero-none { color: #6b7280; }
-        .as-of { font-variant-numeric: tabular-nums; font-size: 12px; }
-        .target-cell { font-family: ui-monospace, monospace; font-size: 13px; }
-        .row-worst { box-shadow: inset 4px 0 0 #ef4444; }
-    </style>
+<style>
+/* ── Health page — dark theme overrides ───────────────────────────── */
+.hero-pct { font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+.hero-good { color: #34d399; }
+.hero-warn { color: #fbbf24; }
+.hero-bad  { color: #f87171; }
+.hero-none { color: rgba(255,255,255,0.30); }
+.as-of { font-variant-numeric: tabular-nums; font-size: 12px; }
+.target-cell { font-family: ui-monospace, monospace; font-size: 13px; }
+.row-worst { box-shadow: inset 4px 0 0 #f87171 !important; }
+
+/* Glass cards */
+.card, .card.shadow-sm { background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; border-radius: 16px !important; box-shadow: var(--shadow-glass) !important; }
+.card-header { background: rgba(255,255,255,0.06) !important; border-bottom: 1px solid rgba(255,255,255,0.10) !important; color: var(--text-primary) !important; }
+.card-body { color: var(--text-primary) !important; }
+
+/* Dark tables */
+.table { color: var(--text-primary) !important; border-color: rgba(255,255,255,0.08) !important; }
+.table-light, thead.table-light th, .table > thead > tr > th { background: rgba(255,255,255,0.08) !important; color: var(--text-secondary) !important; border-color: rgba(255,255,255,0.10) !important; font-size: .8rem; letter-spacing: .03em; text-transform: uppercase; font-weight: 600; }
+.table > :not(caption) > * > * { background: transparent !important; border-bottom-color: rgba(255,255,255,0.07) !important; color: inherit !important; }
+.table-hover > tbody > tr:hover > * { background: rgba(255,255,255,0.05) !important; }
+.table-responsive { border-radius: 12px; overflow: hidden; }
+
+/* Alert overrides */
+.alert-warning { background: rgba(245,158,11,0.15) !important; border-color: rgba(245,158,11,0.35) !important; color: #fcd34d !important; }
+.alert-danger  { background: rgba(239,68,68,0.15)  !important; border-color: rgba(239,68,68,0.35)  !important; color: #fca5a5 !important; }
+.alert-warning code, .alert-danger code { background: rgba(255,255,255,0.12); color: inherit; padding: .1em .35em; border-radius: 4px; }
+.alert-warning strong, .alert-danger strong { color: inherit; }
+
+/* text-muted on dark bg */
+.text-muted { color: var(--text-secondary) !important; }
+.text-success { color: #34d399 !important; }
+
+/* Broken channel badge */
+.text-bg-danger { background: rgba(239,68,68,0.30) !important; color: #fca5a5 !important; }
+
+/* Buttons */
+.btn-outline-light { border-color: rgba(255,255,255,0.30) !important; color: rgba(255,255,255,0.80) !important; }
+.btn-outline-light:hover { background: rgba(255,255,255,0.12) !important; }
+.btn-outline-secondary { border-color: rgba(255,255,255,0.20) !important; color: rgba(255,255,255,0.65) !important; background: rgba(255,255,255,0.05) !important; }
+.btn-outline-secondary:hover { background: rgba(255,255,255,0.12) !important; color: #fff !important; }
+
+/* small sample badge */
+.badge { font-size: .72rem !important; }
+</style>
 {% endblock %}
 {% block content %}
-<main class="container py-4">
+<div class="container py-4">
+  <h1 class="visually-hidden">链接健康总览</h1>
 
   {# ── Freshness + degraded/gap notice (R5, adjacent to hero) ───────────── #}
   <div class="d-flex flex-wrap align-items-center gap-2 mb-2 text-muted small">
@@ -573,7 +608,7 @@
     </div>
   </div>
 
-</main>
+</div>
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}
 {% endblock %}

@@ -53,6 +53,56 @@ def ce_health_scorecard_links(channel: str):
         return jsonify({"ok": False, "links": []})
 
 
+@bp.route("/ce:health/publish-metrics", methods=["GET"])
+def ce_health_publish_metrics():
+    """Publish success-rate (B2) + recheck coverage (B1) as JSON.
+
+    GET-only, read-only. Surfaces the per-channel publish success % (distinct
+    from liveness ``live_pct``) and the within-window recheck coverage against
+    the >=50% target (Plan 2026-06-15-001). Fail-open with an ``ok`` flag so the
+    client distinguishes empty data from a backend error.
+    """
+    from dataclasses import asdict
+
+    try:
+        from backlink_publisher.scorecard.coverage import recheck_coverage
+        from backlink_publisher.scorecard.success_rate import publish_success_rate
+        from backlink_publisher.scorecard.reliability_readiness import channel_readiness
+        from backlink_publisher.publishing.reliability.policy import (
+            enforce_allowlist,
+            policy_mode,
+        )
+
+        success = _g_cache("publish_success_rate", lambda: publish_success_rate())
+        coverage = _g_cache("recheck_coverage", lambda: recheck_coverage())
+        readiness = _g_cache("reliability_readiness", lambda: channel_readiness())
+        # Per-channel enforce mode = policy_mode when the channel is in
+        # enforce_channels, else observe behavior (Unit 7). The panel derives the
+        # per-channel mode from policy_mode + enforce_channels.
+        return jsonify(
+            {
+                "ok": True,
+                "success_rate": asdict(success),
+                "coverage": asdict(coverage),
+                "readiness": asdict(readiness),
+                "policy_mode": policy_mode(),
+                "enforce_channels": sorted(enforce_allowlist()),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
+        _log.warning("health: publish-metrics read failed: %s", exc)
+        return jsonify(
+            {
+                "ok": False,
+                "success_rate": None,
+                "coverage": None,
+                "readiness": None,
+                "policy_mode": None,
+                "enforce_channels": [],
+            }
+        )
+
+
 def _published_candidate(store: "EventStore", live_url: str) -> dict[str, Any] | None:
     """``live_url`` → an already-published recheck candidate, or ``None`` (R8).
 

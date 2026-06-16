@@ -1,61 +1,107 @@
 {% extends 'base.html' %}
 {% block title %}存活率{% endblock %}
 {% block head_extra %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css', v=asset_version) }}">
-    <style>
-        .surv-card { border: 1px solid var(--border, #e5e7eb); border-radius: 10px;
-                     padding: 1.5rem; margin-bottom: 1rem; max-width: 640px; }
-        .surv-headline { font-size: 0.95rem; color: var(--text-muted, #6b7280);
-                         margin-bottom: 0.25rem; }
-        .surv-number { font-size: 3rem; font-weight: 700; line-height: 1.1;
-                       color: var(--text, #111827); }
-        .surv-number--muted { color: var(--text-muted, #9ca3af); }
-        .surv-sub { color: var(--text-muted, #6b7280); font-size: 0.9rem;
-                    margin-top: 0.5rem; }
-        .surv-meta { display: flex; gap: 1.25rem; flex-wrap: wrap;
-                     margin-top: 1rem; font-size: 0.85rem; }
-        .surv-meta dt { color: var(--text-muted, #6b7280); }
-        .surv-meta dd { font-weight: 600; margin: 0; }
-        .surv-flag { display: inline-block; margin-top: 0.75rem; padding: 0.2rem 0.6rem;
-                     border-radius: 999px; font-size: 0.78rem;
-                     background: var(--warn-bg, #fef3c7); color: var(--warn-fg, #92400e); }
-    </style>
+<style>
+.surv-page { padding: 1.5rem; max-width: 720px; margin: 0 auto; }
+.surv-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: .5rem; }
+.surv-title { font-size: 1.4rem; font-weight: 700; color: #fff; margin: 0; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+
+.surv-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-glass);
+}
+.surv-headline {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+.surv-number {
+    font-size: 4rem; font-weight: 700; line-height: 1;
+    color: var(--text-primary);
+    margin-bottom: .25rem;
+}
+.surv-number--muted { color: rgba(255,255,255,0.35); }
+.surv-number--good  { color: #34d399; }
+.surv-number--warn  { color: #fbbf24; }
+.surv-number--bad   { color: #f87171; }
+.surv-sub { color: var(--text-secondary); font-size: 0.88rem; margin-top: 0.4rem; margin-bottom: 1rem; }
+
+.surv-meta {
+    display: flex; gap: 1.5rem; flex-wrap: wrap;
+    padding-top: .75rem;
+    border-top: 1px solid rgba(255,255,255,0.10);
+    font-size: 0.85rem;
+}
+.surv-meta div { display: flex; flex-direction: column; gap: .1rem; }
+.surv-meta dt { color: var(--text-secondary); }
+.surv-meta dd { font-weight: 700; color: var(--text-primary); margin: 0; font-size: 1.1rem; }
+
+.surv-flag {
+    display: inline-flex; align-items: center; gap: .4rem;
+    margin-top: .75rem; padding: .3rem .7rem;
+    border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+    background: rgba(245,158,11,0.18);
+    color: #fcd34d;
+    border: 1.5px solid rgba(245,158,11,0.45);
+}
+
+.surv-note {
+    font-size: .82rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+</style>
 {% endblock %}
 {% block content %}
-<main class="container py-4">
-  <div class="d-flex align-items-center gap-3 mb-3">
-    <h1 class="h3 mb-0">链接存活率</h1>
-    <a href="/ce:keep-alive" class="btn btn-outline-secondary btn-sm ms-auto"
-       aria-label="查看保活监控看板">保活看板</a>
+<div class="surv-page">
+  <div class="surv-title-row">
+    <h1 class="surv-title"><i class="bi bi-activity me-2 text-primary"></i>鏈接存活率</h1>
+    <a href="/ce:keep-alive" class="btn btn-sm btn-outline-light btn-outline-glass">
+      <i class="bi bi-shield-check me-1"></i>保活看板
+    </a>
   </div>
 
-  <section class="surv-card" aria-label="存活率概览">
-    <p class="surv-headline">{{ view.headline }}（近 {{ view.cohort_days }} 天成熟样本）</p>
+  {% set pct = view.display | replace('%','') | float(-1) %}
+  <section class="surv-card" aria-label="存活率概覽">
+    <p class="surv-headline">{{ view.headline }}（近 {{ view.cohort_days }} 天成熟樣本）</p>
 
     {% if view.has_rate %}
-    <div class="surv-number" aria-label="存活率 {{ view.display }}">{{ view.display }}</div>
+      {% if pct >= 80 %}
+        <div class="surv-number surv-number--good">{{ view.display }}</div>
+      {% elif pct >= 50 %}
+        <div class="surv-number surv-number--warn">{{ view.display }}</div>
+      {% else %}
+        <div class="surv-number surv-number--bad">{{ view.display }}</div>
+      {% endif %}
     {% else %}
-    <div class="surv-number surv-number--muted" aria-label="暂无存活率">{{ view.display }}</div>
+      <div class="surv-number surv-number--muted">{{ view.display }}</div>
     {% endif %}
 
     <p class="surv-sub">{{ view.sub }}</p>
 
     {% if view.stale %}
-    <span class="surv-flag" title="有成熟链接尚未巡检，存活率基于部分样本">
-      部分样本：{{ view.stale_count }} 条成熟链接待巡检（最久 {{ view.stale_days }} 天）
+    <span class="surv-flag">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      部分樣本：{{ view.stale_count }} 條成熟鏈接待巡检（最久 {{ view.stale_days }} 天）
     </span>
     {% endif %}
 
     <dl class="surv-meta">
-      <div><dt>样本数</dt><dd>{{ view.sample_size }}</dd></div>
+      <div><dt>樣本數</dt><dd>{{ view.sample_size }}</dd></div>
       <div><dt>存活</dt><dd>{{ view.survived }}</dd></div>
       <div><dt>成熟中</dt><dd>{{ view.maturing_count }}</dd></div>
     </dl>
   </section>
 
-  <p class="text-muted small" style="max-width:640px">
-    存活率 = 已发布满 {{ view.cohort_days }} 天、最近一次巡检判定仍 live + dofollow 的链接占比。
-    数据来自每周自动巡检（link.rechecked）。样本不足 2 条时不显示百分比。
+  <p class="surv-note">
+    存活率 = 已發布滿 {{ view.cohort_days }} 天、最近一次巡检判定仍 live + dofollow 的鏈接佔比。
+    數據來自每週自動巡检（link.rechecked）。樣本不足 2 條時不顯示百分比。
   </p>
-</main>
+</div>
 {% endblock %}

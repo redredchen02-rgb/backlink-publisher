@@ -110,6 +110,10 @@ def _create_medium_post(
             raise _TransientHTTPError(resp.status_code)
         return resp
 
+    # Local import avoids an import cycle: reliability/__init__ imports policy,
+    # which imports adapters.publish — still mid-init at adapters package import.
+    from ..reliability.transient_policy import mark_pre_create_429
+
     try:
         post_resp = retry_transient_call(
             _do_post,
@@ -121,14 +125,20 @@ def _create_medium_post(
             f"Medium API unreachable (create post): {exc}"
         ) from None
     except _TransientHTTPError as exc:
-        raise ExternalServiceError(
+        err = ExternalServiceError(
             f"Medium /posts returned HTTP {exc.status_code} after retries"
-        ) from None
+        )
+        # Pre-create provenance: a 429 is returned before the post is created, so
+        # a same-account fallback cannot duplicate (Plan 2026-06-15-001, Unit A2).
+        mark_pre_create_429(err)
+        raise err from None
 
     if post_resp.status_code == 401:
         raise AuthExpiredError(channel="medium", reason="Medium /posts HTTP 401")
     if post_resp.status_code == 429:
-        raise ExternalServiceError("Medium API rate-limited (429)")
+        err = ExternalServiceError("Medium API rate-limited (429)")
+        mark_pre_create_429(err)
+        raise err
     if not post_resp.ok:
         raise ExternalServiceError(
             f"Medium /posts returned HTTP {post_resp.status_code}: "

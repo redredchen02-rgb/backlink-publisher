@@ -329,6 +329,8 @@ def _click_publish_now(win_id: str, tab_id: str) -> None:
 class MediumBraveAdapter(Publisher):
     """Publish to Medium via AppleScript-controlled Brave browser (macOS only)."""
 
+    mechanism = "browser"
+
     @classmethod
     def available(cls, config) -> bool:
         import platform as _p

@@ -31,6 +31,28 @@ reconcile-check:
 test-js:
 	node --test tests/js/test_lib_api.mjs tests/js/test_lib_dom.mjs
 
+# ── Browser selector-drift checks (Plan 2026-06-15-001 B3) ───────────────────
+# Static guard (CI, no browser): selector constants present + success regex valid.
+.PHONY: selector-drift
+selector-drift:
+	@PYTHONPATH=src pytest tests/test_browser_selector_manifest.py -q
+
+# Attended live drift check: re-verify selectors against the real sites. Requires
+# an attached Chrome (BACKLINK_PUBLISHER_REAL_CHROME_ATTACH=1) — run by an
+# operator on a schedule, NOT in CI. Surfaces a live DOM rename as a test failure.
+.PHONY: selector-smoke
+selector-smoke:
+	@BACKLINK_PUBLISHER_REAL_CHROME_ATTACH=1 PYTHONPATH=src \
+		pytest -m real_browser_publish_smoke -q tests/
+
+# ── Accessibility audit (axe-core via Playwright) ────────────────────────────
+# Audits the changed WebUI routes against axe-core; fails on moderate+ findings
+# (override the bar with A11Y_FAIL_IMPACTS). Needs Playwright browsers + vendored
+# tools/a11y/vendor/axe.min.js, so it is opt-in (NOT in CI), like selector-smoke.
+.PHONY: test-a11y
+test-a11y:
+	@.venv/bin/python tools/a11y/audit.py
+
 # ── Code quality targets (Phase 3 F4) ────────────────────────────────────────
 
 .PHONY: lint type-check coverage clean-pyc clean-all setup-hooks

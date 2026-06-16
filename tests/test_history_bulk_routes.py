@@ -1,20 +1,36 @@
-"""Plan 2026-05-19-006 Unit 4 — history bulk-delete + purge-failed routes."""
+"""Plan 2026-05-19-006 Unit 4 — history bulk-delete + purge-failed routes.
+
+Updated for the plan-007-u7 migration (commit 026e741): the bulk-delete /
+purge-failed routes now operate on events.db via ``bulk_delete_from_db`` /
+``purge_failed_from_db``, NOT the legacy ``history_store`` JSON. The fixtures
+seed events.db (article + status event) and assert against ``list_history``,
+matching what the migrated routes actually read and delete. The UI id of a
+history item is ``str(article_id)`` (see history_query._build_history_item).
+"""
 from __future__ import annotations
 
 __tier__ = "unit"
+import json
 from urllib.parse import unquote
 
 import pytest
 from werkzeug.datastructures import MultiDict
 
-from webui_store import history_store
-from backlink_publisher.events import kinds as _kinds
-from backlink_publisher.events.history_query import EventStore, list_history
+from backlink_publisher.events import EventStore, kinds
+from backlink_publisher.events.history_query import list_history
+
+_STATUS_KIND = {
+    "published": kinds.PUBLISH_CONFIRMED,
+    "published_unverified": kinds.PUBLISH_UNVERIFIED,
+    "drafted_unverified": kinds.PUBLISH_UNVERIFIED,
+    "failed": kinds.PUBLISH_FAILED,
+}
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(history_store, "_path", tmp_path / "history.json")
+    # Isolate events.db under the per-test config dir so the migrated routes and
+    # the seeding helper share one empty store.
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     import webui
     webui.app.config["TESTING"] = True
@@ -22,90 +38,83 @@ def client(tmp_path, monkeypatch):
     return webui.app.test_client()
 
 
-@pytest.fixture
-def isolated_history(tmp_path, monkeypatch):
-    monkeypatch.setattr(history_store, "_path", tmp_path / "history.json")
-    return history_store
-
-
-@pytest.fixture
-def db_store(tmp_path, monkeypatch):
-    """Isolated EventStore pre-seeded into the same config dir as client."""
-    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    return EventStore()
-
-
-def _insert(store: EventStore, kind: str, url: str) -> int:
-    """Insert one article + event, return article_id."""
-    aid = store.add_article({"live_url": url})
-    if kind == _kinds.PUBLISH_FAILED:
-        payload: dict = {"error_class": "E", "error_message_clean": "err"}
+def _seed(status: str, *, n: str) -> str:
+    """Create one article + its status event in events.db; return its UI id."""
+    store = EventStore()
+    live_url = f"https://example.com/{n}"
+    aid = store.add_article(
+        {"target_urls_json": json.dumps([f"https://t.example/{n}"]), "live_url": live_url}
+    )
+    kind = _STATUS_KIND[status]
+    if kind is kinds.PUBLISH_FAILED:
+        payload = {"platform": "medium", "error_class": "ExternalServiceError",
+                   "error_message_clean": "boom"}
     else:
-        payload = {"live_url": url}
-    store.append(kind=kind, payload=payload, article_id=aid,
-                 target_url=url, host="example.com")
-    return aid
+        payload = {"platform": "medium", "live_url": live_url}
+    store.append(kind, payload, article_id=aid, target_url=f"https://t.example/{n}")
+    return str(aid)
+
+
+def _remaining_ids() -> set[str]:
+    return {str(it["id"]) for it in list_history()}
 
 
 class TestHistoryBulkDelete:
-    def test_removes_selected(self, client, db_store):
-        id_a = _insert(db_store, _kinds.PUBLISH_CONFIRMED, "https://a.example.com")
-        id_b = _insert(db_store, _kinds.PUBLISH_FAILED, "https://b.example.com")
-        id_c = _insert(db_store, _kinds.PUBLISH_CONFIRMED, "https://c.example.com")
+    def test_removes_selected(self, client):
+        a = _seed("published", n="a")
+        b = _seed("failed", n="b")
+        c = _seed("published", n="c")
         resp = client.post(
             "/ce:history/bulk-delete",
-            data=MultiDict([("ids", str(id_a)), ("ids", str(id_c))]),
+            data=MultiDict([("ids", a), ("ids", c)]),
         )
         assert resp.status_code == 302
         assert "已删除 2 条" in unquote(resp.location)
-        remaining = list_history()
-        assert len(remaining) == 1
-        assert remaining[0]["id"] == str(id_b)
+        assert _remaining_ids() == {b}
 
-    def test_empty_ids_returns_warning(self, client, isolated_history):
-        isolated_history.save([{"id": "a"}])
+    def test_empty_ids_returns_warning(self, client):
+        _seed("published", n="a")
         resp = client.post("/ce:history/bulk-delete", data={})
         assert resp.status_code == 302
         assert "flash_type=warning" in resp.location
-        assert len(isolated_history.load()) == 1
+        assert len(_remaining_ids()) == 1
 
-    def test_unknown_ids_silently_ignored(self, client, isolated_history):
-        isolated_history.save([{"id": "a"}])
+    def test_unknown_ids_silently_ignored(self, client):
+        _seed("published", n="a")
         resp = client.post(
             "/ce:history/bulk-delete",
-            data=MultiDict([("ids", "zzz")]),
+            data=MultiDict([("ids", "999999")]),  # valid-shaped but absent id
         )
         assert resp.status_code == 302
         assert "已删除 0 条" in unquote(resp.location)
 
 
 class TestHistoryPurgeFailed:
-    def test_removes_only_failed(self, client, db_store):
-        _insert(db_store, _kinds.PUBLISH_FAILED, "https://a.example.com")
-        _insert(db_store, _kinds.PUBLISH_CONFIRMED, "https://b.example.com")
-        _insert(db_store, _kinds.PUBLISH_FAILED, "https://c.example.com")
-        _insert(db_store, _kinds.PUBLISH_UNVERIFIED, "https://d.example.com")
+    def test_removes_only_failed(self, client):
+        _seed("failed", n="a")
+        b = _seed("published", n="b")
+        _seed("failed", n="c")
+        d = _seed("published_unverified", n="d")
         resp = client.post("/ce:history/purge-failed", data={})
         assert resp.status_code == 302
         assert "已清除 2 条" in unquote(resp.location)
-        remaining = list_history()
-        assert len(remaining) == 2
+        assert _remaining_ids() == {b, d}
 
-    def test_no_failures_returns_info(self, client, isolated_history):
-        isolated_history.save([{"id": "a", "status": "published"}])
+    def test_no_failures_returns_info(self, client):
+        _seed("published", n="a")
         resp = client.post("/ce:history/purge-failed", data={})
         assert resp.status_code == 302
         assert "flash_type=info" in resp.location
         assert "没有失败记录可清除" in unquote(resp.location)
-        assert len(isolated_history.load()) == 1
+        assert len(_remaining_ids()) == 1
 
-    def test_does_not_touch_unverified(self, client, db_store):
-        """purge-failed must not delete KIND_UNVERIFIED records."""
-        _insert(db_store, _kinds.PUBLISH_UNVERIFIED, "https://a.example.com")
-        _insert(db_store, _kinds.PUBLISH_UNVERIFIED, "https://b.example.com")
-        _insert(db_store, _kinds.PUBLISH_FAILED, "https://c.example.com")
+    def test_does_not_touch_unverified(self, client):
+        """purge-failed must not delete `*_unverified` — those need the user's
+        recheck, not a silent drop."""
+        a = _seed("published_unverified", n="a")
+        b = _seed("drafted_unverified", n="b")
+        _seed("failed", n="c")
         resp = client.post("/ce:history/purge-failed", data={})
         assert resp.status_code == 302
         assert "已清除 1 条" in unquote(resp.location)
-        remaining = list_history()
-        assert len(remaining) == 2
+        assert _remaining_ids() == {a, b}

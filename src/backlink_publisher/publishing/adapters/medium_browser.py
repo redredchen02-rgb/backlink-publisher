@@ -217,6 +217,8 @@ def _refresh_cookies(context: Any) -> None:
 class MediumBrowserAdapter(Publisher):
     """Fallback: publish to Medium via headed Playwright browser session."""
 
+    mechanism = "browser"
+
     def publish(
         self,
         payload: dict[str, Any],
