@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dex.bp-weights</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/scripts/run-weights-weekly.sh</string>
+    </array>
+    <!-- Weekly Sunday 07:00: collect signals then optimize weights.
+         Results written to optimization_state.json; see /ce:health weights snapshot (Phase 2). -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>7</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher</string>
+    <key>StandardOutPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/weights-launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/weights-launchd.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
