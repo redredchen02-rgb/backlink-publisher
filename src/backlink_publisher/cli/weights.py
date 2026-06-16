@@ -86,6 +86,8 @@ def _build_parser() -> argparse.ArgumentParser:
                            help="Preview without writing to state file")
     collect_p.add_argument("--source", choices=["recheck", "canary", "equity"],
                            default=None, help="Collect from a single source only")
+    collect_p.add_argument("--lang", default=None,
+                           help="Filter signals to a specific language (e.g. zh-CN, en)")
     collect_p.add_argument("--json", action="store_true", dest="as_json",
                            help="Output raw signal data as JSON")
     collect_p.set_defaults(handler=_handle_collect)
@@ -97,6 +99,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     optimize_p.add_argument("--dry-run", action="store_true",
                             help="Preview weight changes without writing")
+    optimize_p.add_argument("--lang", default=None,
+                            help="Filter optimization to a specific language (e.g. zh-CN, en)")
     optimize_p.add_argument(
         "--rule",
         choices=[RULE_CANARY_DRIFT, RULE_RECHECK_SURVIVAL, RULE_AGGREGATED_STATS],
@@ -114,6 +118,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     show_p.add_argument("--json", action="store_true", dest="as_json",
                         help="Output raw state as JSON")
+    show_p.add_argument("--lang", default=None,
+                        help="Filter display to a specific language (e.g. zh-CN, en)")
     show_p.add_argument("--platform", default=None,
                         help="Filter to a single platform")
     show_p.set_defaults(handler=_handle_show)

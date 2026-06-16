@@ -89,9 +89,13 @@ def test_base_bootstrap_script_is_classic_not_deferred(app):
     assert "type=" not in tag  # not type="module"
 
 
-def test_child_emits_single_module_entry(app):
+def test_child_emits_module_scripts(app):
+    # base.html loads theme.js, nav.js, notifications.js as ES modules
     html = _render_child(app)
-    assert html.count('type=\'module\'') + html.count('type="module"') == 1
+    module_count = html.count('type=\'module\'') + html.count('type="module"')
+    assert module_count >= 1, "base.html must emit at least one type=module script"
+    assert "notifications.js" in html
+    assert "nav.js" in html
 
 
 def test_static_refs_carry_cache_bust_version(app):

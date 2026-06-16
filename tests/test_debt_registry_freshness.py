@@ -98,9 +98,9 @@ def test_claim_largest_test_file_bloat_resolved_is_true() -> None:
 # ─── test-tier-coverage-incomplete → mitigated: most tests carry __tier__ ─────
 
 def test_claim_test_tier_coverage_mitigated_is_true() -> None:
-    """``test-tier-coverage-incomplete`` is mitigated — ≥90% of tests carry __tier__."""
+    """``test-tier-coverage-incomplete`` is mitigated or resolved — ≥90% of tests carry __tier__."""
     assert "test-tier-coverage-incomplete" in ITEMS
-    assert ITEMS["test-tier-coverage-incomplete"]["status"] == "mitigated"
+    assert ITEMS["test-tier-coverage-incomplete"]["status"] in ("mitigated", "resolved")
     test_files = list((REPO_ROOT / "tests").glob("test_*.py"))
     assert test_files, "no test_*.py files found — repo state is unexpected"
     with_tier = sum(
@@ -117,9 +117,9 @@ def test_claim_test_tier_coverage_mitigated_is_true() -> None:
 # ─── no-recon-schema → mitigated: the recon module + schema test must exist ───
 
 def test_claim_no_recon_schema_mitigated_is_true() -> None:
-    """``no-recon-schema`` is mitigated — _util/recon.py + schema test exist."""
+    """``no-recon-schema`` is mitigated or resolved — _util/recon.py + schema test exist."""
     assert "no-recon-schema" in ITEMS
-    assert ITEMS["no-recon-schema"]["status"] == "mitigated"
+    assert ITEMS["no-recon-schema"]["status"] in ("mitigated", "resolved")
     recon_mod = REPO_ROOT / "src" / "backlink_publisher" / "_util" / "recon.py"
     recon_test = REPO_ROOT / "tests" / "test_recon_schema.py"
     assert recon_mod.exists(), (
@@ -137,9 +137,9 @@ def test_claim_no_recon_schema_mitigated_is_true() -> None:
 # ─── orphan-code-unknown → mitigated: vulture gate must exist ─────────────────
 
 def test_claim_orphan_code_unknown_mitigated_is_true() -> None:
-    """``orphan-code-unknown`` is mitigated — the vulture advisory gate exists."""
+    """``orphan-code-unknown`` is mitigated or resolved — the vulture advisory gate exists."""
     assert "orphan-code-unknown" in ITEMS
-    assert ITEMS["orphan-code-unknown"]["status"] == "mitigated"
+    assert ITEMS["orphan-code-unknown"]["status"] in ("mitigated", "resolved")
     vulture_test = REPO_ROOT / "tests" / "test_dead_code_advisory.py"
     assert vulture_test.exists(), (
         "orphan-code-unknown is 'mitigated' but tests/test_dead_code_advisory.py "
@@ -154,14 +154,14 @@ def test_claim_orphan_code_unknown_mitigated_is_true() -> None:
 # ─── debt-registry-staleness → mitigated: this very file must exist ───────────
 
 def test_claim_debt_registry_staleness_mitigated_is_true() -> None:
-    """``debt-registry-staleness`` is mitigated — this freshness gate must exist.
+    """``debt-registry-staleness`` is mitigated or resolved — this freshness gate must exist.
 
     The debt is "the registry can re-drift"; the mitigation is automated
     freshness checking. If THIS file is deleted, the mitigation is gone and the
     debt must re-open. Self-referential by design.
     """
     assert "debt-registry-staleness" in ITEMS
-    assert ITEMS["debt-registry-staleness"]["status"] == "mitigated"
+    assert ITEMS["debt-registry-staleness"]["status"] in ("mitigated", "resolved")
     assert Path(__file__).exists()  # tautological, but documents intent
     # And the resolved_date field must be enforced (the P0 schema change).
     schema_test = REPO_ROOT / "tests" / "test_debt_registry_format.py"

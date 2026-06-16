@@ -95,11 +95,11 @@
                 {% elif ps.article_gen and ps.last_test and ps.last_test.ok %}
                 <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--healthy"
                    title="AI 内容引擎已启用 · {{ ps.model or '模型未指定' }} · 上次测试 {{ ps.last_test.at }}"
-                   aria-label="Pro AI 内容引擎已启用">✦ Pro</a>
+                   aria-label="Pro AI 内容引擎已启用">✦ Pro 已启用</a>
                 {% else %}
                 <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--pending"
                    title="{{ ps.model or '模型未指定' }}{% if not ps.article_gen %} · 全文生成未开启{% elif not ps.last_test %} · 尚未测试连接{% elif not ps.last_test.ok %} · 上次测试失败{% endif %}"
-                   aria-label="Pro AI 内容引擎待激活">Pro</a>
+                   aria-label="Pro AI 内容引擎待激活">Pro 待激活</a>
                 {% endif %}
                 {% endif %}
             </div>
