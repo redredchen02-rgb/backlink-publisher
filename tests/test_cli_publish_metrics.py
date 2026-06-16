@@ -94,3 +94,55 @@ def test_config_banner_on_stderr_data_on_stdout():
 def test_invalid_window_days_exit_1():
     _out, _err, code = _run(["--window-days", "0"])
     assert code == 1
+
+
+# ── coverage-freshness alarm (Plan 2026-06-15-007 U1) ─────────────────────────
+
+def _published_link(platform, live_url, target="https://example.com"):
+    """A published backlink with no recheck → counts as uncovered (0% fresh).
+
+    Coverage derives from the ``articles`` ledger (build_target_buckets), not raw
+    publish events, so the link must be an article row.
+    """
+    EventStore().add_article(
+        {"live_url": live_url, "platform": platform,
+         "target_urls_json": json.dumps([target])}
+    )
+
+
+def test_alarm_exits_6_when_below_target():
+    _published_link("medium", "https://medium.com/a")  # 0% within-window coverage
+    out, err, code = _run(["--alarm"])
+    assert code == 6
+    # Data is still emitted on stdout; the alarm is the exit code + stderr envelope.
+    assert _parse(out)[-1]["_summary"]["overall_coverage_pct"] == 0.0
+    assert "below target" in err
+
+
+def test_no_alarm_flag_stays_advisory_exit_0():
+    _published_link("medium", "https://medium.com/a")
+    _out, _err, code = _run([])  # default: advisory, no alarm
+    assert code == 0
+
+
+def test_alarm_empty_ledger_no_false_alarm():
+    _out, _err, code = _run(["--alarm"])  # no links → coverage None → no alarm
+    assert code == 0
+
+
+def test_alarm_threshold_override_stricter_trips():
+    _published_link("medium", "https://medium.com/a")
+    _out, _err, code = _run(["--alarm", "--coverage-fail-under", "0.9"])
+    assert code == 6
+
+
+def test_alarm_threshold_override_lenient_passes():
+    _published_link("medium", "https://medium.com/a")
+    # 0% coverage is NOT below a 0.0 threshold → no alarm (boundary).
+    _out, _err, code = _run(["--alarm", "--coverage-fail-under", "0.0"])
+    assert code == 0
+
+
+def test_invalid_coverage_fail_under_exit_1():
+    _out, _err, code = _run(["--coverage-fail-under", "1.5"])
+    assert code == 1

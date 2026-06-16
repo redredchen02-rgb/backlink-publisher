@@ -239,3 +239,8 @@ rationale = "Audit KEEP (2026-06-15): CampaignSqliteStore. radon SLOC 307 holds 
 [files."webui_store/channel_status.py"]
 ceiling = 340
 rationale = "Audit KEEP (2026-06-15): channel binding-status store. radon SLOC 310 across 24 fns on one status schema (the bound/expired/unbound badge state machine). Splitting would fragment the state model the settings UI + AuthExpiredError flip both read and write. Ceiling 340 = round_up_to_10(310+30)."
+
+# webui_store base became load-bearing in the store-base refactor — guard it.
+[files."webui_store/sqlite_base.py"]
+ceiling = 254
+rationale = "store-base refactor (Plan 2026-06-15-005): BaseSqliteStore (the __init__/_init_table template + byte-identical migrate_from_json with a fail-soft save guard + shared _load_rows/_get_one_json/_replace_all_rows helpers) and BlobSqliteStore (single-row upsert load/save + _table_name identifier validator), absorbing the duplicated skeleton from 8 store files (net webui_store change far below the original raw-LOC estimate). sqlite_base settled at 224 SLOC as the shared base for all 8 stores. Ceiling 254 = round_up_to_10(224+30) per ratchet policy; the base is now feature-complete and should not grow further."

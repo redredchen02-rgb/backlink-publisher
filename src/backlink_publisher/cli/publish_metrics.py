@@ -11,7 +11,9 @@ terminal so operators / monitoring can read them without the WebUI:
 
 stdout = data (JSONL): one object per channel (union of both metrics), then a
 final ``{"_summary": {...}}`` line with the overall rollup. stderr = the
-config-echo banner. Exit 0 on success. Read-only, advisory — never gates anything.
+config-echo banner. Exit 0 on success; with ``--alarm`` exits 6 when within-window
+liveness coverage is below target (opt-in, for scheduled freshness monitoring —
+the default stays advisory, exit 0). Read-only over events.db.
 """
 
 from __future__ import annotations
@@ -20,19 +22,18 @@ import sys
 
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
 from .. import config_echo
-from backlink_publisher._util.errors import emit_error
+from backlink_publisher._util.errors import emit_envelope_and_exit, emit_error
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher.config import load_config
 from backlink_publisher.scorecard.coverage import recheck_coverage
 from backlink_publisher.scorecard.success_rate import publish_success_rate
 
+#: Advisory domain-alarm exit code (the family recheck-backlinks --fail-on-dead
+#: uses). Emitted only with --alarm when within-window coverage is below target.
+_COVERAGE_ALARM_EXIT_CODE = 6
 
-def _rows(*, window_days: int, stale_days: int, small_sample_max: int):
-    success = publish_success_rate(
-        window_days=window_days, small_sample_max=small_sample_max
-    )
-    coverage = recheck_coverage(stale_days=stale_days)
 
+def _rows(success, coverage):
     sr_by_channel = {c.channel: c for c in success.per_channel}
     cov_by_channel = {c.channel: c for c in coverage.per_channel}
 
@@ -93,6 +94,16 @@ def main(argv: list[str] | None = None) -> None:
         help="Channels with N publish attempts or fewer are flagged small_sample "
              "(default: 4).",
     )
+    parser.add_argument(
+        "--alarm", action="store_true",
+        help="Exit 6 (advisory alarm) when overall within-window liveness coverage "
+             "is below target — for scheduled freshness monitoring. Default off: "
+             "the command stays advisory (exit 0). No alarm on an empty ledger.",
+    )
+    parser.add_argument(
+        "--coverage-fail-under", type=float, default=None, metavar="PCT",
+        help="Override the --alarm threshold (0-1). Defaults to the report's target_pct.",
+    )
     args = parser.parse_args(argv)
 
     if args.window_days <= 0:
@@ -101,18 +112,35 @@ def main(argv: list[str] | None = None) -> None:
         emit_error("publish-metrics: --stale-days must be a positive integer", exit_code=1)
     if args.small_sample_max < 0:
         emit_error("publish-metrics: --small-sample-max must be >= 0", exit_code=1)
+    if args.coverage_fail_under is not None and not (0.0 <= args.coverage_fail_under <= 1.0):
+        emit_error("publish-metrics: --coverage-fail-under must be between 0 and 1", exit_code=1)
 
     cfg = load_config()
     config_echo.emit_banner(cfg, "publish-metrics")
 
-    write_jsonl(
-        _rows(
-            window_days=args.window_days,
-            stale_days=args.stale_days,
-            small_sample_max=args.small_sample_max,
-        ),
-        sys.stdout,
+    success = publish_success_rate(
+        window_days=args.window_days, small_sample_max=args.small_sample_max
     )
+    coverage = recheck_coverage(stale_days=args.stale_days)
+
+    write_jsonl(_rows(success, coverage), sys.stdout)
+
+    if args.alarm:
+        threshold = (
+            args.coverage_fail_under
+            if args.coverage_fail_under is not None
+            else coverage.target_pct
+        )
+        pct = coverage.coverage_pct
+        # Empty ledger → coverage_pct is None → not a regression; never false-alarm.
+        if pct is not None and pct < threshold:
+            emit_envelope_and_exit(
+                "LivenessCoverageBelowTarget",
+                _COVERAGE_ALARM_EXIT_CODE,
+                f"publish-metrics: within-window liveness coverage {pct:.1%} below "
+                f"target {threshold:.1%} ({coverage.covered}/{coverage.total_links} "
+                f"links fresh within {coverage.stale_days}d)",
+            )
 
 
 if __name__ == "__main__":

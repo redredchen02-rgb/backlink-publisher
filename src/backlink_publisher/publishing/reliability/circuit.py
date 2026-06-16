@@ -262,6 +262,64 @@ def is_tripped(platform: str, config: Config) -> bool:
         return True
 
 
+def is_degraded(platform: str, config: Config) -> bool:
+    """True if *platform* is in a tripped lifecycle (OPEN or HALF_OPEN).
+
+    Unlike :func:`is_tripped`, this reports the raw ``tripped`` flag from state and
+    applies NO cooldown→half-open transition (and no side effect). The policy layer
+    uses it to dedup degraded alerts: a channel mid-recovery (HALF_OPEN) is still
+    "already degraded", so re-entering OPEN must not re-alert every cooldown cycle —
+    which ``is_tripped`` would, because it returns False in HALF_OPEN. Fail-CLOSED:
+    a corrupt state file reports degraded (``_get_state`` returns ``tripped=True``).
+    """
+    return bool(_get_state(platform, config).get("tripped", False))
+
+
+def circuit_status(platform: str, config: Config) -> str:
+    """Discriminate the circuit lifecycle for the enforce gate (Plan 2026-06-15-006 U8).
+
+    Returns ``"closed"`` | ``"open"`` | ``"half_open"`` | ``"unreadable"``.
+
+    ``"unreadable"`` means the state FILE cannot be parsed (corruption) OR the
+    platform's entry is malformed (not an object, or tripped without a timestamp) —
+    a condition distinct from a valid OPEN trip. Under enforce, ``is_tripped``
+    collapses all of these to "skip" (fail-CLOSED); this accessor lets the policy
+    layer degrade an *unreadable* state to observe (dispatch + loud alert) instead
+    of silently skipping every channel, while still skipping a genuine OPEN trip.
+    Keys on **file-level** parse failure, not on a per-entry timestamp alone. No
+    side effects (no cooldown transition). Returns ``CircuitState.HALF_OPEN.value``
+    (``"half-open"``, hyphen) for a cooled-down entry.
+    """
+    state_path = _state_path(config)
+    if not state_path.exists():
+        return CircuitState.CLOSED.value
+    try:
+        raw = json.loads(state_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            return "unreadable"  # valid JSON but not an object → corrupt
+        entry = raw.get(platform)
+        if entry is None:
+            return CircuitState.CLOSED.value  # no circuit entry → never tripped
+        if not isinstance(entry, dict):
+            return "unreadable"  # malformed per-platform entry
+        if not entry.get("tripped", False):
+            return CircuitState.CLOSED.value
+        tripped_at_iso = entry.get("tripped_at_iso")
+        if not tripped_at_iso:
+            return "unreadable"  # tripped sentinel without a timestamp → malformed
+        tripped_at = datetime.fromisoformat(tripped_at_iso).timestamp()
+        if time.time() - tripped_at >= _cooldown_s():
+            return CircuitState.HALF_OPEN.value  # cooldown elapsed — recovery window
+        cur = entry.get("state", CircuitState.OPEN.value)
+        return (
+            CircuitState.OPEN.value
+            if cur == CircuitState.OPEN.value
+            else CircuitState.HALF_OPEN.value
+        )
+    except (json.JSONDecodeError, OSError, ValueError, TypeError, AttributeError):
+        return "unreadable"
+
+
 def trip(platform: str, config: Config) -> None:
     """Trip the circuit for *platform* (flock-across-RMW).
 

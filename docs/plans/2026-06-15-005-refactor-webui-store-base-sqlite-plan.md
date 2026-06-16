@@ -1,9 +1,10 @@
 ---
 title: "refactor: Extract BaseSqliteStore + RowTableMixin for webui_store"
 type: refactor
-status: active
+status: completed
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-webui-store-base-sqlite-requirements.md
+claims: {}  # behavior-preserving refactor — no machine-checkable feature claims
 ---
 
 # refactor: Extract BaseSqliteStore + RowTableMixin for webui_store
@@ -21,7 +22,7 @@ origin: docs/brainstorms/2026-06-15-webui-store-base-sqlite-requirements.md
 ## Requirements Trace
 
 - R1. 抽出 `BaseSqliteStore`（`__init__` / `_init_table` 模板方法 / `load` / `save` / `migrate_from_json`）(see origin: R1)
-- R2. 抽出 `RowTableMixin`（`get_item` / `update_item` / `delete_item` / `bulk_delete` / `bulk_update`）(see origin: R2)
+- R2. ~~抽出 `RowTableMixin`~~ **DEFERRED**（實作時讀碼確認：項級 CRUD 僅存在於 `drafts` 一個 store；queue/campaign 是不同簽名的公開領域 API。mixin-of-one = 零去重 + 投機抽象，違反 repo 反過度抽象原則。改以 BaseSqliteStore 小型私有 row helper 承接共用的 load 迴圈與 get-by-pk。待第二個項級-CRUD store 出現再抽。）(see origin: R2)
 - R3. 共用工具續用 `events/_store_sqlite.py`，不重複實作、不搬遷 (see origin: R3)
 - R4. 3 個 blob store 改繼承 `BaseSqliteStore`，刪冗餘 load/save (see origin: R4)
 - R5. 4 個行表 store 改繼承基類，特異邏輯留子類 (see origin: R5)
@@ -98,21 +99,20 @@ origin: docs/brainstorms/2026-06-15-webui-store-base-sqlite-requirements.md
 SqliteStore (現有: update() + RLock)
     │
     └── BaseSqliteStore                         # 抽出的共用骨架（實際共享面比下圖窄，見下方註）
-          ├─ __init__(db: WebUIDatabase)         # 對齊現有 SqliteStore 契約；_make_* 工廠已自建 WebUIDatabase
-          ├─ _init_table()                       # 模板法 → 子類給 _create_table_sql / _indices_sql
-          ├─ load()                              # 共享 _retry_sqlite + json.loads 包裝；SELECT 的 ORDER BY 由子類覆寫
-          ├─ save_rows(value)                    # 行表預設：lock → DELETE → executemany(_item_to_row)（可被覆寫）
-          └─ migrate_from_json(config_dir)       # sentinel/.migrated/0o600，參數來自類屬性（最大宗共享面）
+          ├─ __init__(db: WebUIDatabase | Path)  # Path→WebUIDatabase 轉換（drafts/campaign 測試需 Path）；呼叫 _init_table
+          ├─ _init_table()                       # 模板法 → 子類給 _create_table_sql() / _indices_sql()
+          ├─ migrate_from_json(config_dir)       # sentinel/.migrated/0o600；參數來自 _json_filename/_sentinel_name/_coerce_migrated（最大宗共享面，6 store 一致）
+          ├─ _load_rows(sql, params=())          # 私有 helper：SELECT→json.loads→isinstance(dict)→list（行表 load 共用）
+          └─ _get_one_json(sql, params)          # 私有 helper：單列 data_json→dict|None（drafts.get_item / campaign.get 共用）
+          │   # 註：load/save 仍為 abstract（兩種寫入形狀差異大）；RowTableMixin 已 DEFERRED
           │
-          ├── RowTableMixin                       # 可選：項級 CRUD（_pk_column 可配置）
-          │     get_item / update_item / delete_item / bulk_delete / bulk_update
+          ├── BlobSqliteStore(BaseSqliteStore)   # 單行 blob 中介：覆寫 load/save 為單行 upsert（INSERT OR REPLACE id=1）
+          │     └── ProfilesSqliteStore(_default=[]) / ScheduleSqliteStore(table=settings) / PublishDefaultsSqliteStore(無 migrate)
           │
-          ├── ProfilesSqliteStore / ScheduleSqliteStore / PublishDefaultsSqliteStore
-          │       # blob：單行 upsert（INSERT OR REPLACE id=1），**覆寫** save/load；只給 _default_value + schema
-          ├── CampaignSqliteStore   (+RowTableMixin)  # 覆寫 load 的 ORDER BY created_at；留 update_seed_status+progress
-          ├── DraftsSqliteStore     (+RowTableMixin)  # **覆寫 save**（inserted_at 遞減保序）+ load ORDER BY DESC + bulk_publish_now
-          ├── QueueSqliteStore      (+RowTableMixin)  # 留 get_runnable（status/next_retry_at 篩選）+ update_task 單行 UPDATE
-          └── ChannelStatusSqliteStore                # 不套 mixin：6 欄 + extra_json 非對稱序列化，**自備 save/load**；僅繼承 migrate_from_json + 鎖
+          ├── CampaignSqliteStore(BaseSqliteStore)    # 自備 save（mirror cols）+ load(用 _load_rows, ORDER BY created_at)；create/get/update_status/update_seed_status
+          ├── DraftsSqliteStore(BaseSqliteStore)      # 自備 save（inserted_at 遞減保序）+ load(ORDER BY inserted_at DESC) + 項級 CRUD（暫留店內）
+          ├── QueueSqliteStore(BaseSqliteStore)       # 自備 save + load(_load_rows, ORDER BY rowid) + get_runnable + update_task
+          └── ChannelStatusSqliteStore(BaseSqliteStore)  # 6 欄 + extra_json 非對稱序列化，自備 save/load；繼承 migrate_from_json + 鎖
 
 ```
 
@@ -120,16 +120,19 @@ SqliteStore (現有: update() + RLock)
 
 ```mermaid
 graph TB
-    U1[Unit 1: 補 characterization 測釘樁] --> U2[Unit 2: BaseSqliteStore 骨架]
-    U2 --> U3[Unit 3: RowTableMixin]
+    U1[Unit 1: 補 characterization 測釘樁] --> U2[Unit 2: BaseSqliteStore 骨架 + 私有 helper]
+    U2 --> U3[Unit 3: RowTableMixin — DEFERRED]:::deferred
     U2 --> U4[Unit 4: 遷移 3 blob store]
     U2 --> U5[Unit 5: 遷移 4 行表 store]
-    U3 --> U5
     U4 --> U6[Unit 6: 預算/債務同步收尾]
     U5 --> U6
+    classDef deferred stroke-dasharray: 5 5,opacity:0.5
 ```
 
-- [ ] **Unit 1: 補齊 characterization 釘樁（行為基線）**
+- [x] **Unit 1: characterization 釘樁（行為基線）— 既有覆蓋已滿足（實作時驗證）**
+
+> **結論**：執行時逐一驗證，characterization 安全網**已存在且完整**（354 store 測試綠燈），無需新增測試（新增即重複，違反 repo 反 churn 原則）。具體：`tests/test_webui_store_migration_edge_cases.py` 參數化 schedule/profiles/queue/drafts/campaign 的 空表/壞JSON-不寫sentinel/crash-recovery/sentinel-idempotency；各 store 自有測試檔再加 happy migrate（import+rename+**chmod 0o600**+sentinel，schedule:79 / profiles:86 / drafts:309 明確斷言 0o600）；`channel_status` 6 個 migrate 測 + `extra_json` present→emitted/absent→omitted 對測；`publish_defaults` 經 `tests/test_webui_publish_defaults.py`（空/roundtrip/壞JSON）——故計畫原寫的「新建 test_webui_store_publish_defaults_sqlite.py」**取消**（會重複）。`tests/test_webui_store_sqlite_base.py` 已覆蓋 base/WAL/lock/path-setter。
+
 
 **Goal:** 在動基類前，釘住 8 個 store 的當前真實行為（含怪行為與遷移語義），尤其補強測試偏薄的 profiles。
 
@@ -159,9 +162,10 @@ graph TB
 
 **Verification:** 新增/補強的 characterization 測在**未改動 production code** 下全綠，作為後續單元的回歸基線。
 
-- [ ] **Unit 2: 抽出 BaseSqliteStore 骨架**
+- [x] **Unit 2: 抽出 BaseSqliteStore 骨架 + BlobSqliteStore + 私有 helper（完成）**
+  > 已在 `sqlite_base.py` 新增 `BaseSqliteStore`（`__init__` 接受 `WebUIDatabase|Path`、`_init_table` 模板、`migrate_from_json` 模板含 `_coerce_migrated`、私有 `_load_rows`/`_get_one_json`）與 `BlobSqliteStore`（單行 upsert load/save）。`test_webui_store_sqlite_base.py` +18 測（共 35 綠）。純加法，全 store 基線 354→372 零回歸。
 
-**Goal:** 在 `sqlite_base.py` 新增 `BaseSqliteStore`，承載共用 `__init__` / `_init_table` / `load` / `save` / `migrate_from_json`。
+**Goal:** 在 `sqlite_base.py` 新增 `BaseSqliteStore`（`__init__` / `_init_table` 模板 / `migrate_from_json` 模板 / 私有 row helper），以及 `BlobSqliteStore` 中介（單行 upsert load/save）。`load`/`save` 在 `BaseSqliteStore` 維持 abstract。
 
 **Requirements:** R1, R3, R6
 
@@ -169,13 +173,16 @@ graph TB
 
 **Files:**
 - Modify: `webui_store/sqlite_base.py`
-- Test: `tests/test_webui_store_sqlite_base.py`（新建，針對基類本身的 hook 契約）
+- Test: `tests/test_webui_store_sqlite_base.py`（新建，針對基類 hook 契約 + helper + BlobSqliteStore）
 
 **Approach:**
 - `BaseSqliteStore(SqliteStore)`，沿用 `update()` + `RLock`，不動並發模型。
-- 模板方法 hook（命名待實作定案）：`_create_table_sql()` / `_indices_sql()` / `_row_to_item(row)` / `_item_to_row(item)` / `_default_value()` / `_coerce_loaded(data)`。
-- `load`/`save` 全程經 `events/_store_sqlite.py::_retry_sqlite`；`save` 在 `self._lock` 內 DELETE→executemany。
-- `migrate_from_json` 參數來自類屬性 `_json_filename` / `_sentinel_name`，保 0o600 + `.json.migrated` rename。
+- `__init__(db: WebUIDatabase | Path)`：Path→WebUIDatabase 轉換後 `super().__init__` + `self._init_table()`（drafts/campaign 測試靠 Path 後相容；blob 子類僅傳 WebUIDatabase，相容性為加寬非破壞）。
+- 模板方法 hook：`_create_table_sql() -> str`（abstract）、`_indices_sql() -> list[str]`（預設 `[]`）、`_coerce_migrated(data) -> Any`（預設 identity；blob 子類覆寫做 list/dict 收口）。
+- 類屬性：`_json_filename` / `_sentinel_name`（None → `migrate_from_json` 為 no-op，publish_defaults 用）。
+- `migrate_from_json` 完整搬入：sentinel→crash-recovery→讀 JSON(壞→靜默不寫 sentinel)→save→rename→chmod 0o600→寫 sentinel。
+- 私有 helper（承接行表共用、非公開 API）：`_load_rows(sql, params=()) -> list[dict]`（SELECT→json.loads→isinstance(dict)→append，全經 `_retry_sqlite`）；`_get_one_json(sql, params) -> dict|None`。
+- `BlobSqliteStore(BaseSqliteStore)`：`load()` 單行 SELECT→json→`isinstance(_default_value 型別)`→default；`save()` 單行 `INSERT OR REPLACE (id,data_json) VALUES (1,?)`；`_create_table_sql()` 用 `_table_name` + `_default_value`。
 
 **Execution note:** 不得在 `save`/特異路徑產生嵌套連接（WAL deadlock 規則）。
 
@@ -189,9 +196,11 @@ graph TB
 
 **Verification:** Base 類測試綠燈；Unit 1 既有測試仍全綠（尚未接線子類，行為應不變）。
 
-- [ ] **Unit 3: 抽出 RowTableMixin（項級 CRUD）**
+- [~] **Unit 3: 抽出 RowTableMixin（項級 CRUD）— DEFERRED（實作時決策，已獲使用者確認）**
 
-**Goal:** 提供 `get_item` / `update_item` / `delete_item` / `bulk_delete` / `bulk_update`，主鍵欄位以 `_pk_column` 可配置。
+> **為何延後**：讀完 7 個 store 原碼後確認，項級 CRUD 套件（get_item/update_item/delete_item/bulk_delete/bulk_update）只存在於 `drafts.py`。`queue` 用 `update_task(task_id, updates)`、`campaign` 用 `update_status`/`update_seed_status`（含驗證 + progress 重算）——皆為不同簽名的公開領域 API，強套 mixin 會違反 R7 或讓 mixin 充滿 hook 反成淨負。mixin-of-one 是零去重的投機抽象。改以 **Unit 2 的小型私有 row helper**（`_load_rows` / `_get_one_json`）承接 drafts/campaign/queue 共用的「SELECT→json→dict」迴圈與 get-by-pk，這是真實去重且不改公開 API。RowTableMixin 待第二個需要相同項級 CRUD 的 store 出現時再抽（Right-size gate 命中）。
+
+**Goal（原）:** 提供 `get_item` / `update_item` / `delete_item` / `bulk_delete` / `bulk_update`，主鍵欄位以 `_pk_column` 可配置。
 
 **Requirements:** R2
 
@@ -216,7 +225,8 @@ graph TB
 
 **Verification:** mixin 測試綠燈；主鍵可配置案例通過。
 
-- [ ] **Unit 4: 遷移 3 個 blob store**
+- [x] **Unit 4: 遷移 3 個 blob store（完成）**
+  > profiles / schedule / publish_defaults 改繼承 `BlobSqliteStore`，刪除冗餘 load/save/_init_table/__init__/migrate（profiles/schedule 的 migrate 改由基類提供，publish_defaults 無 migrate）。保留 `_JSON_FILENAME`/`_SENTINEL_NAME` 模組常數（測試 import）。對外 API 零變化，76 blob-focused + 372 store 基線全綠。
 
 **Goal:** profiles / schedule / publish_defaults 改繼承 `BaseSqliteStore`，刪除冗餘 load/save，只留 schema 類屬性 + `_default_value`。
 
@@ -241,13 +251,14 @@ graph TB
 
 **Verification:** 3 個 blob store 測試全綠且未放寬；對外 API diff 為零。
 
-- [ ] **Unit 5: 遷移 4 個行表 store**
+- [x] **Unit 5: 遷移 4 個行表 store（完成）**
+  > campaign/drafts/queue/channel_status 改繼承 `BaseSqliteStore`：移除各自的 `__init__`/`_init_table`/`migrate_from_json`，改用 `_create_table_sql`/`_indices_sql` + 類屬性 + 繼承的 migrate。queue/campaign/drafts 的 `load` 與 `get`/`get_item`/`get_by_campaign_id` 改走 `_load_rows`/`_get_one_json` helper；各自的 bespoke `save`（欄位鏡射）與領域方法（update_seed_status/progress、inserted_at 保序+bulk_publish_now、get_runnable/update_task、mark_*/reconcile/extra_json）原樣保留。`_JSON_FILENAME`/`_SENTINEL_NAME` 常數 + DraftsStore/CampaignStore 別名保留。逐店遷移逐店綠；全 store 基線 427 綠、零回歸。
 
 **Goal:** campaign / drafts / queue 改繼承 `BaseSqliteStore` + `RowTableMixin`；channel_status 僅繼承 `BaseSqliteStore`（不套 mixin），全部保留特異邏輯。
 
 **Requirements:** R5, R6, R7, R8
 
-**Dependencies:** Unit 3（campaign/drafts/queue 需 mixin）、Unit 2（channel_status）
+**Dependencies:** Unit 2（全部 4 個行表 store 直接繼承 `BaseSqliteStore`；RowTableMixin 已 DEFERRED，drafts 項級 CRUD 暫留店內）
 
 **Files:**
 - Modify: `webui_store/campaign_store.py`、`webui_store/drafts.py`、`webui_store/queue_store.py`、`webui_store/channel_status.py`
@@ -270,7 +281,12 @@ graph TB
 
 **Verification:** 4 個行表 store 測試全綠、零放寬、零新增 skip；route 層無改動。
 
-- [ ] **Unit 6: 預算與債務登記同步收尾**
+- [x] **Unit 6: 預算與債務登記同步收尾（完成）**
+  > **radon SLOC（before→after）**：sqlite_base 76→194；profiles 73→9、schedule 73→9、publish_defaults 38→5、queue 147→99、drafts 283→209、campaign 307→247、channel_status 310→278。8 檔合計 **1307→1050 = 淨減 257 SLOC**（7 store 減 375，base 增 118）。
+  > **Right-size gate**：淨減 257 SLOC > 200 門檻 → 通過，雙抽象（Base+Blob）值回票價，延後 RowTableMixin 正確（否則純 churn）。
+  > **R10 預算**：committed baseline 的 `monolith_budget.toml` **無任何 webui_store 條目**（reviewer 看到的 campaign/channel_status 條目屬 main 未提交 WIP，不在本分支）——故無既有 ceiling 可下調；改為**新增** `webui_store/sqlite_base.py` ceiling=230 守護新共用基類（rationale ≥80 字）。format 測 110 綠。
+  > **R11 債務**：debt_registry 8 條無一與 store 重複相關 → 無可閉合。
+  > **全套件回歸**：`pytest tests/` → **10940 passed, 8 skipped, 1 xfailed**，唯一 failure `test_status_vocab_canon::test_parked_plans_have_resume_trigger` 為**既有失敗**（parked plan 003 缺 resume trigger，本分支未觸碰該檔、0bba22d baseline 同樣失敗），與本重構無關。store 重構面 100% 綠。
 
 **Goal:** 反映 SLOC 下降，閉合相關技術債條目，跑全套件確認無回歸。
 

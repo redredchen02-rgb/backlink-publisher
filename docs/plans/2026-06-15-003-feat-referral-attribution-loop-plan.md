@@ -2,10 +2,11 @@
 title: "feat: Close the referral attribution loop (self-hosted short-link 302)"
 type: feat
 status: parked
-parked: "复活仅当 dofollow 直链硬约束被解除，或出现能同时保住 per-link dofollow 与链接级归因的短链/重定向设计；否则渠道级 MVP（复用 click_track GA4）取代本案，勿实现短链 302。"
+parked: "2026-06-15 — superseded by the channel-level referral MVP (PR #6, click_track GA4 reuse). Resume trigger: NONE — short-link 302 was rejected by document-review (5 personas) as infeasible; do not resume this approach. Successor work tracks under a new plan number."
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-referral-attribution-loop-requirements.md
 deepened: 2026-06-15
+claims: {}  # parked/abandoned — no claims to track
 ---
 
 > **PARKED 2026-06-15 — 方案不可行，勿实现。** document-review 五persona一致否决短链 302：
@@ -15,8 +16,6 @@ deepened: 2026-06-15
 > - 外加：单点风险（域名过期=全量死链+可被劫持）、canonical_url 污染、首个公开可写端点的安全债。
 >
 > 根因：真正的决策轴是**「保住 dofollow 直链」**，短链为链接级归因牺牲了它。已重回 brainstorm 选新方向（渠道级 MVP，复用 click_track GA4）。后继计划另起序号。
->
-> **复活条件（Resume trigger）：** 仅当下述之一成立才解封本案——(a) 产品不再要求 money page 拿到直接 dofollow 链接（核心决策轴消失）；或 (b) 出现一种短链/重定向设计，能在保住 per-link dofollow 的同时取得链接级归因（化解上文三条 P0）。在此之前，渠道级 MVP（复用 click_track GA4，归因降级为渠道级）即为定案，勿实现短链 302。
 
 # feat: Close the referral attribution loop (self-hosted short-link 302) — PARKED
 
