@@ -232,6 +232,7 @@ def _make_mock_scheduler(register_fn=None, remove_raises=False):
     mock_sch = MagicMock()
     if remove_raises:
         mock_sch.remove_job.side_effect = RuntimeError("not found")
+    mock_sch.get_job.return_value.next_run_time.isoformat.return_value = "2026-06-17T10:00:00+08:00"
     mod._scheduler = mock_sch
     return mod
 
@@ -304,6 +305,185 @@ class TestSitesAutopilot:
         assert resp.status_code == 500
         targets = _ws.schedule_store.load().get("autopilot_targets", {})
         assert "https://example.com/" not in targets
+
+    def test_enable_response_includes_next_run_time(self, client, monkeypatch):
+        from datetime import datetime, timezone
+
+        dt = datetime(2026, 6, 17, 12, 0, 0, tzinfo=timezone.utc)
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value.next_run_time = dt
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "next_run_time" in data
+        assert data["next_run_time"] is not None
+        assert "2026-06-17" in data["next_run_time"]
+        assert "last_run" in data
+
+    def test_enable_response_next_run_time_null_when_get_job_none(self, client, monkeypatch):
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value = None
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["next_run_time"] is None
+
+    def test_disable_response_next_run_time_null(self, client, monkeypatch):
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": False,
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["next_run_time"] is None
+        assert "last_run" in data
+
+    def test_response_preserves_existing_fields(self, client, monkeypatch):
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["site_url"] == "https://example.com/"
+        assert data["enabled"] is True
+
+
+class TestSitesAutopilotStatus:
+    """Tests for GET /sites returning autopilot status fields."""
+
+    def test_get_sites_with_scheduler_returns_200(self, client, monkeypatch):
+        from datetime import datetime, timezone
+
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value.next_run_time = dt
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_with_alert_pending_no_500(self, client, monkeypatch):
+        import webui_store as _ws
+
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "alert_pending": True, "interval_seconds": 86400}
+        }})
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_scheduler_unavailable_no_500(self, client):
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_scheduler_present_but_unstarted_no_500(self, client, monkeypatch):
+        import types
+        mod = types.ModuleType("webui_app.scheduler")
+        mod._scheduler = None
+        mod._autopilot_job_id = lambda u: "autopilot_" + u
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mod)
+
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_no_500(self, client, monkeypatch):
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    # ── HTML content tests for the 4 Jinja status branches ───────────────
+
+    @staticmethod
+    def _register_site(url="https://example.com/"):
+        """Add a minimal ThreeUrlConfig entry so the template renders site rows."""
+        from backlink_publisher.config import ThreeUrlConfig, load_config, save_config
+        save_config(load_config(), target_three_url={
+            url.rstrip("/"): ThreeUrlConfig(
+                main_url=url, list_url=url,
+                branded_pool=["Example"], partial_pool=["example"], exact_pool=["example.com"], work_urls=[],
+            )
+        })
+
+    def test_html_disabled_shows_dash(self, client, monkeypatch):
+        """Branch: not site.autopilot_enabled → '—' span."""
+        import webui_store as _ws
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": False, "interval_seconds": 86400}
+        }})
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert b"autopilot-row-status" in resp.data
+        assert b"text-danger" not in resp.data
+        assert b"autopilot-next-run" not in resp.data
+
+    def test_html_alert_pending_shows_failure_span(self, client, monkeypatch):
+        """Branch: site.alert_pending → text-danger '⚠ 上次失敗'."""
+        import webui_store as _ws
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "alert_pending": True, "interval_seconds": 86400}
+        }})
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert b"text-danger" in resp.data
+        assert "上次失敗".encode() in resp.data
+
+    def test_html_next_run_time_shows_data_attribute(self, client, monkeypatch):
+        """Branch: site.next_run_time_iso → autopilot-next-run span with data-next-run."""
+        import webui_store as _ws
+        from datetime import datetime, timezone
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "interval_seconds": 86400}
+        }})
+        mock = _make_mock_scheduler()
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        mock._scheduler.get_job.return_value.next_run_time = dt
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert b"autopilot-next-run" in resp.data
+        assert b"data-next-run=" in resp.data
+        assert b"2026-06-17" in resp.data
+
+    def test_html_enabled_no_next_run_shows_scheduling(self, client, monkeypatch):
+        """Branch: enabled + no alert_pending + no next_run_time_iso → '排程中…'."""
+        import webui_store as _ws
+
+        self._register_site()
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "interval_seconds": 86400}
+        }})
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value = None   # no job → next_run_time_iso stays None
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+        assert "排程中…".encode() in resp.data
 
 
 class TestDashboardAutopilotAlertDismiss:

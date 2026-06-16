@@ -61,18 +61,33 @@ def sites_form():
                 "insecure_tls": entry.insecure_tls,
             }
 
-    # all_sites: list of {label, main_url, autopilot_enabled, autopilot_interval}
+    # all_sites: list of {label, main_url, autopilot_enabled, autopilot_interval,
+    #                      alert_pending, next_run_time_iso}
+    import sys as _sys
     import webui_store as _ws
     sched_settings = _ws.schedule_store.load()
     autopilot_targets = sched_settings.get("autopilot_targets", {})
+    _sched_mod = _sys.modules.get('webui_app.scheduler')
     all_sites = []
     for label, entry in sorted(cfg.target_three_url.items()):
         ap_cfg = autopilot_targets.get(entry.main_url, {})
+        ap_enabled = bool(ap_cfg.get("enabled", False))
+        next_run_time_iso = None
+        if ap_enabled and _sched_mod is not None and getattr(_sched_mod, '_scheduler', None) is not None:
+            _job_id = _sched_mod._autopilot_job_id(entry.main_url)
+            try:
+                _job = _sched_mod._scheduler.get_job(_job_id)
+            except Exception:
+                _job = None
+            if _job is not None and _job.next_run_time is not None:
+                next_run_time_iso = _job.next_run_time.isoformat()
         all_sites.append({
             "label": label,
             "main_url": entry.main_url,
-            "autopilot_enabled": bool(ap_cfg.get("enabled", False)),
+            "autopilot_enabled": ap_enabled,
             "autopilot_interval": int(ap_cfg.get("interval_seconds", 86400)),
+            "alert_pending": bool(ap_cfg.get("alert_pending", False)),
+            "next_run_time_iso": next_run_time_iso,
         })
 
     return render_template(
@@ -269,7 +284,9 @@ def sites_autopilot():
     if enabled and not (3600 <= interval_seconds <= 2592000):
         return jsonify({"error": "interval_seconds must be between 3600 (1h) and 2592000 (30d)"}), 422
 
-    snapshot_targets = dict(_ws.schedule_store.load().get("autopilot_targets", {}))
+    _current_targets = _ws.schedule_store.load().get("autopilot_targets", {})
+    _site_was_present = site_url in _current_targets
+    snapshot_site_cfg = dict(_current_targets[site_url]) if _site_was_present else None
 
     def _update_fn(settings):
         targets = dict(settings.get("autopilot_targets", {}))
@@ -282,11 +299,19 @@ def sites_autopilot():
 
     _ws.schedule_store.update(_update_fn)
 
+    next_run_time_iso = None
     try:
         import sys as _sys
-        _sched_mod = _sys.modules['webui_app.scheduler']
+        _sched_mod = _sys.modules.get('webui_app.scheduler')
         if enabled:
             _sched_mod._register_autopilot_job(site_url, interval_seconds)
+            if getattr(_sched_mod, '_scheduler', None) is not None:
+                try:
+                    _job = _sched_mod._scheduler.get_job(_sched_mod._autopilot_job_id(site_url))
+                except Exception:
+                    _job = None
+                if _job is not None and _job.next_run_time is not None:
+                    next_run_time_iso = _job.next_run_time.isoformat()
         else:
             try:
                 _sched_mod._scheduler.remove_job(
@@ -295,10 +320,26 @@ def sites_autopilot():
             except Exception:
                 pass
     except Exception as exc:
-        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": snapshot_targets})
+        # Roll back only this site's config; concurrent updates to other sites are preserved.
+        def _rollback_fn(s):
+            targets = dict(s.get("autopilot_targets", {}))
+            if _site_was_present:
+                targets[site_url] = snapshot_site_cfg
+            else:
+                targets.pop(site_url, None)
+            return {**s, "autopilot_targets": targets}
+        _ws.schedule_store.update(_rollback_fn)
         return jsonify({"error": str(exc)}), 500
 
-    return jsonify({"ok": True, "site_url": site_url, "enabled": enabled}), 200
+    # last_run is the prior-cycle timestamp (or None if no cycle has completed yet)
+    _updated_cfg = _ws.schedule_store.load().get("autopilot_targets", {}).get(site_url, {})
+    return jsonify({
+        "ok": True,
+        "site_url": site_url,
+        "enabled": enabled,
+        "next_run_time": next_run_time_iso,
+        "last_run": _updated_cfg.get("last_run"),
+    }), 200
 
 
 @bp.route("/sites/run", methods=["POST"])
