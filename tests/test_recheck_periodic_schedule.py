@@ -1,8 +1,13 @@
-"""R4: the recheck launchd agent runs weekly (calendar) and probes all due links.
+"""R4: the recheck launchd agent runs daily (calendar) and probes all due links.
 
 Reads the plist + wrapper script as files (no live launchctl) and asserts the
-weekly cadence + read-only probe + widened cap, mirroring the in-repo calendar
-scheduling convention (com.dex.bp-full-pipeline.plist).
+calendar cadence (NOT a raw StartInterval) + read-only probe + widened cap,
+mirroring the in-repo calendar scheduling convention (com.dex.bp-full-pipeline.plist).
+
+Cadence raised weekly→daily (Plan 2026-06-15-007 R8b): weekly cannot HOLD >=50%
+within-window liveness coverage against publish inflow. Daily stays within the
+project's <=1x/day recheck guideline; the Medium-specific active probe is a
+separate knob that remains OFF.
 """
 
 from __future__ import annotations
@@ -23,11 +28,12 @@ def plist() -> dict:
         return plistlib.load(fh)
 
 
-def test_weekly_calendar_interval_not_daily(plist):
-    # Daily StartInterval is gone; weekly StartCalendarInterval drives it.
+def test_daily_calendar_interval_not_raw_interval(plist):
+    # Calendar-scheduled (not a raw StartInterval), and DAILY: no Weekday key, so
+    # it fires every day at Hour:Minute (Plan 2026-06-15-007 R8b raised weekly→daily).
     assert "StartInterval" not in plist
     cal = plist["StartCalendarInterval"]
-    assert "Weekday" in cal  # weekly cadence
+    assert "Weekday" not in cal  # daily cadence (was weekly)
     assert isinstance(cal.get("Hour"), int)
     assert isinstance(cal.get("Minute"), int)
 

@@ -46,7 +46,7 @@ done
 
 # Weekly sweep covers ALL due links, oldest-first, bounded by the CLI's
 # probe-batch wall-clock budget (_BATCH_BUDGET_S, ~600s); leftovers defer to
-# next week. Raise the per-run cap via --limit (override RECHECK_LIMIT to tune).
+# the next day. Raise the per-run cap via --limit (override RECHECK_LIMIT to tune).
 RECHECK_LIMIT="${RECHECK_LIMIT:-1000}"
 
 log "recheck-backlinks $([ -n "$PROBE_FLAG" ] && echo '--probe' || echo '(dry-run)') --limit $RECHECK_LIMIT …"
@@ -55,6 +55,17 @@ if "$PYTHON" -m backlink_publisher.cli.recheck_backlinks $PROBE_FLAG --limit "$R
 else
     exit_code=$?
     log "recheck-backlinks FAILED (exit $exit_code)"
+fi
+
+# Signal-freshness alarm (Plan 2026-06-15-007 U1): after the sweep, verify
+# within-window liveness coverage still meets target. Advisory — logs a WARN if
+# it dropped (exit 6), never aborts the cron. publish-metrics is read-only / no
+# network. Surfaced in the log (and the operator's TG-bot tails it).
+log "publish-metrics --alarm (coverage-freshness check) …"
+if "$PYTHON" -m backlink_publisher.cli.publish_metrics --alarm >> "$LOG_DIR/recheck.log" 2>&1; then
+    log "coverage OK (meets target)"
+else
+    log "WARN: within-window liveness coverage BELOW target — raise recheck cadence/budget (see runbook)"
 fi
 
 log "=== recheck-backlinks run complete ==="

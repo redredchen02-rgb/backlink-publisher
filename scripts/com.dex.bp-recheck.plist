@@ -10,14 +10,14 @@
         <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/scripts/run-recheck-periodic.sh</string>
         <string>--probe</string>
     </array>
-    <!-- Weekly: Monday 04:30 local. Calendar scheduling is the in-repo
-         convention (see com.dex.bp-full-pipeline.plist). The weekly sweep
-         covers all due links oldest-first within the probe-batch budget;
-         leftovers defer to the next run. -->
+    <!-- Daily: 04:30 local (was weekly Monday). Weekly cannot HOLD >=50%
+         within-window coverage against publish inflow: with ~1726 links and
+         stale_days=30, holding 50% needs ~29 re-probes/day, which a daily run's
+         ~600s probe-batch budget covers but a weekly cadence cannot (Plan
+         2026-06-15-007 R8b). Oldest-first within the budget; leftovers defer to
+         the next day. -->
     <key>StartCalendarInterval</key>
     <dict>
-        <key>Weekday</key>
-        <integer>1</integer>
         <key>Hour</key>
         <integer>4</integer>
         <key>Minute</key>

@@ -79,11 +79,29 @@ instead of silently halting the allowlist. The next state write (from that
 degraded dispatch's outcome) overwrites the corrupt file, self-healing within ~one
 attempt per channel. If you see `circuit_state_unreadable`, inspect/repair the file.
 
+## Signal freshness (Plan 2026-06-15-007 — keeps the /health panel trustworthy)
+
+The panel's liveness-coverage and selector-drift signals only stay accurate if the
+schedules below run. (These feed the **panel**, not the enforce *verdict* — that is
+would_skip-based and fresh on every publish.)
+
+- **Install/refresh both agents**: `bash scripts/install-recheck-launchd.sh`
+  (installs `com.dex.bp-recheck` + `com.dex.bp-selector-drift`).
+- **Recheck — now DAILY** (`com.dex.bp-recheck.plist`, 04:30). Weekly could not
+  *hold* ≥50% within-window coverage (`stale_days=30`) against publish inflow; daily
+  within the ~600s probe-batch budget does. `run-recheck-periodic.sh` then runs
+  `publish-metrics --alarm` and logs a WARN if coverage dropped below target.
+- **Coverage alarm**: `publish-metrics --alarm` exits 6 when within-window coverage
+  < target (default off / advisory). Run it ad hoc to check, or read the WARN in
+  `logs/recheck.log`. No false alarm on an empty ledger.
+- **Selector-drift — DAILY static check** (`com.dex.bp-selector-drift.plist`, 05:00
+  → `run-selector-drift.sh`). Static manifest only (no browser): catches a
+  selector/login constant deleted or mangled in-repo. It does **NOT** verify against
+  the live sites — that is the attended `make selector-smoke` (needs an attached
+  Chrome), which stays operator-run.
+
 ## Deferred (not in this rollout)
 
 - Per-adapter circuit breaker (only matters for fallback-bearing channels; one
   fallback transition exists system-wide).
 - Cross-mechanism fallback whitelist expansion.
-- `>=50%` liveness recheck cadence + scheduled selector-drift (signal freshness for
-  the panel; not on the enforce critical path). Scheduling unattended recheck would
-  trip the LITE R10 per-probe wall-clock-timeout deferral — add it then.
