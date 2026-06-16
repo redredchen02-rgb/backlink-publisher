@@ -519,6 +519,10 @@ def ce_health():
         except Exception:  # noqa: BLE001
             return []
 
+    def _weights_snapshot():
+        from ..health_metrics import weights_snapshot
+        return weights_snapshot()
+
     try:
         projection, health = _g_cache("health_agg", _build)
         canary = _g_cache("canary_health", _canary_rows)
@@ -531,6 +535,7 @@ def ce_health():
         storage_health = _g_cache("storage_health", _storage_health)
         platform_health = _g_cache("platform_health", _platform_health)
         autopilot_alerts = _autopilot_alerts()
+        weights_snap = _g_cache("weights_snapshot", _weights_snapshot)
         return _render(
             "health.html",
             health=health,
@@ -545,6 +550,7 @@ def ce_health():
             storage_health=storage_health,
             platform_health=platform_health,
             autopilot_alerts=autopilot_alerts,
+            weights_snapshot=weights_snap,
             active_page='health',
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500

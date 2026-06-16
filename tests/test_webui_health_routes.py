@@ -224,3 +224,37 @@ class TestComputeHealthJson:
         result = hp.compute_health_json()
         assert result["healthy"] is False
         assert "pipeline:never_run" in result["degraded_reasons"]
+
+
+class TestWeightsSnapshotPanel:
+    """GET /ce:health weights snapshot panel (Plan 2026-06-16-002 U9)."""
+
+    def test_weights_snapshot_empty_state(self, client, monkeypatch):
+        """No optimization_state.json → page renders 200, no 500."""
+        monkeypatch.setattr(
+            "webui_app.health_metrics.weights_snapshot",
+            lambda: None,
+        )
+        resp = client.get("/ce:health")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert "尚未執行 weights optimize" in body
+
+    def test_weights_snapshot_with_data(self, client, monkeypatch):
+        """With optimization state, /ce:health shows top-channel names and weights."""
+        fake_snap = {
+            "updated_at": "2026-06-16T07:00:00Z",
+            "top_channels": [
+                {"name": "blogger", "weight": 1.2, "updated_at": "2026-06-16T07:00:00Z"},
+                {"name": "medium", "weight": 1.0, "updated_at": "2026-06-16T07:00:00Z"},
+            ],
+        }
+        monkeypatch.setattr(
+            "webui_app.health_metrics.weights_snapshot",
+            lambda: fake_snap,
+        )
+        resp = client.get("/ce:health")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert "blogger" in body
+        assert "Weights 優化快照" in body

@@ -306,6 +306,33 @@ def geo_citation_share(store: EventStore, *, window_days: int = DEFAULT_WINDOW_D
     return out
 
 
+def weights_snapshot() -> dict | None:
+    """Return latest weights optimize summary for the /ce:health panel (Plan 2026-06-16-002 U9).
+
+    Reads ``optimization_state.json`` via ``OptimizationState().to_summary()``.
+    Returns top-3 platforms by current weight descending, plus the most-recent
+    ``updated_at`` timestamp. Returns ``None`` when no state exists or on any error
+    (fail-open: never raises).
+    """
+    try:
+        from backlink_publisher.optimization import OptimizationState
+
+        summary = OptimizationState().to_summary()
+        platforms = summary.get("platforms") or []
+        if not platforms:
+            return None
+        top3 = sorted(platforms, key=lambda p: float(p.get("current", 1.0)), reverse=True)[:3]
+        return {
+            "updated_at": summary.get("last_updated"),
+            "top_channels": [
+                {"name": p["name"], "weight": p["current"], "updated_at": p.get("updated_at")}
+                for p in top3
+            ],
+        }
+    except Exception:  # noqa: BLE001 — fail-open, never 500
+        return None
+
+
 def build_health(
     store: EventStore | None = None,
     *,
