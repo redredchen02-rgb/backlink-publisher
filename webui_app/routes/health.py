@@ -263,6 +263,40 @@ def _decay_counts():
         return {}
 
 
+def _gsc_indexation_panel() -> list[dict]:
+    """GSC page-signal panel data (Plan 2026-06-16-003 U6).
+
+    Returns per-target counts of pages appeared vs. absent in GSC.
+    Returns ``[]`` when no data; never raises (fail-open).
+    """
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import indexation_status
+
+        return indexation_status(EventStore())
+    except Exception as exc:  # noqa: BLE001 — never 500 the page
+        _log.warning("health: gsc indexation panel read failed: %s", exc)
+        return []
+
+
+def _gsc_ranking_panel() -> list[dict]:
+    """GSC keyword ranking trend panel data (Plan 2026-06-16-003 U6).
+
+    Returns per-keyword baseline vs. latest position delta.
+    Returns ``[]`` when no data; never raises (fail-open).
+    """
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import ranking_trend
+
+        return ranking_trend(EventStore())
+    except Exception as exc:  # noqa: BLE001 — never 500 the page
+        _log.warning("health: gsc ranking panel read failed: %s", exc)
+        return []
+
+
 def _decay_alerts() -> list[dict]:
     """Read decay.alert events from the last 14 days (Plan 2026-06-16-002 U8).
 
@@ -569,6 +603,8 @@ def ce_health():
         autopilot_alerts = _autopilot_alerts()
         weights_snap = _g_cache("weights_snapshot", _weights_snapshot)
         decay_alerts = _g_cache("decay_alerts", _decay_alerts)
+        gsc_indexation = _g_cache("gsc_indexation_panel", _gsc_indexation_panel)
+        gsc_ranking = _g_cache("gsc_ranking_panel", _gsc_ranking_panel)
         return _render(
             "health.html",
             health=health,
@@ -585,6 +621,8 @@ def ce_health():
             autopilot_alerts=autopilot_alerts,
             weights_snapshot=weights_snap,
             decay_alerts=decay_alerts,
+            gsc_indexation=gsc_indexation,
+            gsc_ranking=gsc_ranking,
             active_page='health',
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500

@@ -652,6 +652,58 @@
   </div>
 </div>
 
+{# ── GSC Page Signal Panel (Plan 2026-06-16-003 U6) ────────────────────── #}
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">GSC 索引狀態（Search Analytics 曝光）</div>
+  <div class="card-body">
+    {% if gsc_indexation %}
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>目標站點</th><th class="text-end">已探測</th><th class="text-end text-success">出現於 GSC</th><th class="text-end text-danger">未出現</th></tr></thead>
+      <tbody>
+        {% for row in gsc_indexation %}
+        <tr>
+          <td class="text-truncate" style="max-width:300px" title="{{ row.target_url }}">{{ row.target_url }}</td>
+          <td class="text-end">{{ row.total }}</td>
+          <td class="text-end text-success">{{ row.appeared_count }}</td>
+          <td class="text-end text-danger">{{ row.absent_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="text-muted small mt-2 mb-0">「未出現於 GSC」= 近 30d 零曝光，不代表確認未索引。</p>
+    {% else %}
+    <p class="text-muted small mb-0">尚無 GSC 頁面信號 — 執行 <code>probe-index --probe</code> 後顯示。</p>
+    {% endif %}
+  </div>
+</div>
+
+{# ── GSC Ranking Trend Panel (Plan 2026-06-16-003 U6) ───────────────────── #}
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">關鍵字排名趨勢（GSC Search Analytics）</div>
+  <div class="card-body">
+    {% if gsc_ranking %}
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>關鍵字</th><th class="text-end">建鏈前位次</th><th class="text-end">最新位次</th><th class="text-end">變化</th></tr></thead>
+      <tbody>
+        {% for kw in gsc_ranking %}
+        <tr>
+          <td>{{ kw.keyword }}</td>
+          <td class="text-end text-muted">{{ "%.1f"|format(kw.baseline_position) if kw.baseline_position is not none else "—" }}</td>
+          <td class="text-end">{{ "%.1f"|format(kw.latest_position) if kw.latest_position is not none else "—" }}</td>
+          <td class="text-end fw-semibold {% if kw.trend == '↑' %}text-success{% elif kw.trend == '↓' %}text-danger{% endif %}">
+            {{ kw.trend }} {% if kw.delta is not none %}{{ kw.delta | abs }}{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="text-muted small mt-2 mb-0">↑ 排名上升（位次數字下降）。baseline = 建鏈前 -60d~-30d 窗口。</p>
+    {% else %}
+    <p class="text-muted small mb-0">尚無排名快照 — 執行 <code>probe-ranking --probe</code> 後顯示。</p>
+    {% endif %}
+  </div>
+</div>
+
 {# Pro Mode Copilot — side panel (Plan U4) #}
 {% include '_copilot_panel.html' %}
 {% endblock %}
