@@ -5,6 +5,7 @@ status: completed
 date: 2026-06-16
 origin: docs/brainstorms/2026-06-16-gsc-indexation-ranking-loop-requirements.md
 deepened: 2026-06-16
+claims: {}
 ---
 
 # feat: GSC 雙面接入 — Indexation 確認 + Ranking Feedback Loop
