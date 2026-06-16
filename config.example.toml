@@ -48,6 +48,18 @@ client_secret = "your-client-secret"
 # client_secret = "your-medium-client-secret"
 
 # ────────────────────────────────────────────────────────────
+# Google Search Console (GSC) — indexation check & ranking snapshot
+# ────────────────────────────────────────────────────────────
+# Requires a Google Cloud service account with GSC API enabled.
+# The service account must be added as a full user in GSC property settings.
+# See: docs/operations/gsc-setup.md
+#
+# [gsc]
+# credential_path = "/path/to/service-account-key.json"
+# property_url    = "sc-domain:example.com"
+# ranking_keywords = ["your-brand", "target-keyword"]
+
+# ────────────────────────────────────────────────────────────
 # Work-Themed Backlinks (three-URL form) — RECOMMENDED for new projects
 # ────────────────────────────────────────────────────────────
 # Each generated article carries THREE backlinks: main_url (branded), list_url

@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added (2026-06-16)
 
+- **GSC indexation + ranking feedback loop** (`probe-index`, `probe-ranking`): two new CLI commands query Google Search Console Search Analytics API to record whether published pages have GSC impressions (`gsc.page_signal`) and to snapshot keyword positions (`ranking.snapshot`). Results surface on the `/ce:health` dashboard in two new panels: GSC page-signal status and keyword ranking trend (baseline vs. latest, with delta and trend arrow). Baseline snapshot is taken advisory before `plan-backlinks` runs. Rolling 30-day dedup avoids re-probing recently checked URLs. flock guards prevent overlapping runs. LaunchAgent plists provided for daily/weekly scheduling.
 - **Autopilot status visibility**: `/sites` page now shows a `狀態` column for each site — `—` when disabled, `⚠ 上次失敗` (red) when `alert_pending`, `⏭ X 小時後` (green, computed by `formatRelative()`) when a next run is scheduled, or `排程中…` when enabled but no job queued yet. Status is server-rendered on page load; toggle action updates it immediately via JSON response `next_run_time`.
 - **Health page alert badge**: `autopilot-alert-banner` now shows a failure count badge and a `/sites →` jump link, so operators know how many sites need attention at a glance.
 
