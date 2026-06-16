@@ -1,7 +1,7 @@
 ---
 title: "feat: Add bp CLI overview command"
 type: feat
-status: active
+status: completed
 date: 2026-06-11
 origin: docs/brainstorms/2026-06-11-001-bp-cli-overview-requirements.md
 ---

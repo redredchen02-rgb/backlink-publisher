@@ -171,6 +171,17 @@ def test_claim_debt_registry_staleness_mitigated_is_true() -> None:
     )
 
 
+def test_claim_no_stewardship_model_resolved_is_true() -> None:
+    """``no-stewardship-model`` is resolved — .github/CODEOWNERS must exist."""
+    assert "no-stewardship-model" in ITEMS
+    assert ITEMS["no-stewardship-model"]["status"] == "resolved"
+    codeowners = REPO_ROOT / ".github" / "CODEOWNERS"
+    assert codeowners.exists(), (
+        "no-stewardship-model is 'resolved' but .github/CODEOWNERS does not exist. "
+        "Re-create it or revert the debt status to 'open'."
+    )
+
+
 # ─── meta: every resolved/mitigated item must have a claim test ───────────────
 #
 # This is the anti-rot backstop. If someone marks a debt resolved/mitigated
@@ -186,6 +197,7 @@ _CLAIM_TEST_SLUGS: set[str] = {
     "no-recon-schema",
     "orphan-code-unknown",
     "debt-registry-staleness",
+    "no-stewardship-model",
 }
 
 

@@ -1,7 +1,7 @@
 ---
 title: "feat: 全链路自动化升级计划"
 type: feat
-status: active
+status: completed
 date: 2026-06-10
 origin: workspace-root operator request
 claims:

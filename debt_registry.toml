@@ -20,10 +20,10 @@
 [[items]]
 slug = "test-tier-coverage-incomplete"
 severity = "medium"
-rationale = "RESOLVED 2026-06-11: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier. 24-file gap closed. 513/537 test files now carry tier metadata via __tier__ attribute."
+rationale = "MITIGATED 2026-06-11: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier. 24-file gap closed. 513/537 test files now carry tier metadata via __tier__ attribute."
 discovered = "2026-06-04"
 owner = "unassigned"
-status = "resolved"
+status = "mitigated"
 resolved_date = "2026-06-15"
 
 [[items]]
@@ -78,6 +78,7 @@ rationale = "RESOLVED 2026-06-11: .github/CODEOWNERS created with module-level o
 discovered = "2026-06-04"
 owner = "unassigned"
 status = "resolved"
+resolved_date = "2026-06-11"
 
 [[items]]
 slug = "no-debt-tracking"

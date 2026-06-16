@@ -1,7 +1,7 @@
 ---
 title: "refactor: docs / plans / memory 全面整並計劃"
 type: refactor
-status: active
+status: completed
 date: 2026-06-10
 origin: workspace-root 全面掃描
 claims: {}
