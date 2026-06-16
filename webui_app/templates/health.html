@@ -89,7 +89,11 @@
     <div class="d-flex align-items-start gap-2">
       <i class="bi bi-robot flex-shrink-0 mt-1"></i>
       <div class="flex-grow-1">
-        <strong>Autopilot 故障：</strong>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <strong>Autopilot 故障：</strong>
+          <span class="badge bg-danger">{{ autopilot_alerts|length }}</span>
+          <a href="/sites" class="btn btn-sm btn-outline-danger py-0 ms-auto">前往 /sites →</a>
+        </div>
         以下站点的定时保活任务失败，请检查凭证或网络连通性。
         <ul class="mb-1 mt-1">
           {% for alert in autopilot_alerts %}

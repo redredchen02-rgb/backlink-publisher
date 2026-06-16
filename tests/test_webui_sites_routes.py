@@ -305,6 +305,109 @@ class TestSitesAutopilot:
         targets = _ws.schedule_store.load().get("autopilot_targets", {})
         assert "https://example.com/" not in targets
 
+    def test_enable_response_includes_next_run_time(self, client, monkeypatch):
+        from datetime import datetime, timezone
+
+        dt = datetime(2026, 6, 17, 12, 0, 0, tzinfo=timezone.utc)
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value.next_run_time = dt
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "next_run_time" in data
+        assert data["next_run_time"] is not None
+        assert "2026-06-17" in data["next_run_time"]
+        assert "last_run" in data
+
+    def test_enable_response_next_run_time_null_when_get_job_none(self, client, monkeypatch):
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value = None
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["next_run_time"] is None
+
+    def test_disable_response_next_run_time_null(self, client, monkeypatch):
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": False,
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["next_run_time"] is None
+        assert "last_run" in data
+
+    def test_response_preserves_existing_fields(self, client, monkeypatch):
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.post("/sites/autopilot", json={
+            "site_url": "https://example.com/",
+            "enabled": True,
+            "interval_seconds": 86400,
+        })
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["site_url"] == "https://example.com/"
+        assert data["enabled"] is True
+
+
+class TestSitesAutopilotStatus:
+    """Tests for GET /sites returning autopilot status fields."""
+
+    def test_get_sites_with_scheduler_returns_200(self, client, monkeypatch):
+        from datetime import datetime, timezone
+
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        mock = _make_mock_scheduler()
+        mock._scheduler.get_job.return_value.next_run_time = dt
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
+
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_with_alert_pending_no_500(self, client, monkeypatch):
+        import webui_store as _ws
+
+        _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
+            "https://example.com/": {"enabled": True, "alert_pending": True, "interval_seconds": 86400}
+        }})
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_scheduler_unavailable_no_500(self, client):
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_scheduler_present_but_unstarted_no_500(self, client, monkeypatch):
+        import types
+        mod = types.ModuleType("webui_app.scheduler")
+        mod._scheduler = None
+        mod._autopilot_job_id = lambda u: "autopilot_" + u
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", mod)
+
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
+    def test_get_sites_no_500(self, client, monkeypatch):
+        monkeypatch.setitem(sys.modules, "webui_app.scheduler", _make_mock_scheduler())
+        resp = client.get("/sites")
+        assert resp.status_code == 200
+
 
 class TestDashboardAutopilotAlertDismiss:
     def test_dismiss_clears_alert_pending(self, client):

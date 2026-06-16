@@ -168,7 +168,7 @@
             <th>main_url</th>
             <th style="width:6rem;">启用</th>
             <th style="width:14rem;">间隔</th>
-            <th style="width:5rem;"></th>
+            <th style="width:5rem;">狀態</th>
           </tr>
         </thead>
         <tbody id="autopilot-sites-tbody">
@@ -219,7 +219,17 @@
               {% endif %}
             </td>
             <td>
-              <span class="autopilot-row-status small text-muted" aria-live="polite"></span>
+              {% if not site.autopilot_enabled %}
+              <span class="autopilot-row-status small text-muted" aria-live="polite">—</span>
+              {% elif site.alert_pending %}
+              <span class="autopilot-row-status small text-danger" role="status" aria-live="polite">⚠ 上次失敗</span>
+              {% elif site.next_run_time_iso %}
+              <span class="autopilot-row-status small text-success autopilot-next-run"
+                    data-next-run="{{ site.next_run_time_iso }}"
+                    aria-live="polite">⏭ 計算中…</span>
+              {% else %}
+              <span class="autopilot-row-status small text-muted" aria-live="polite">排程中…</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

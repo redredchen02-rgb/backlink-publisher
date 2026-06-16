@@ -1,6 +1,16 @@
 // Sites page module — quick-publish + batch operations.
 import { fetchJson, postJson } from './lib/api.js';
 
+// ── Autopilot relative-time formatter ─────────────────────────────────────
+function formatRelative(isoStr) {
+  if (!isoStr) return null;
+  const diff = (new Date(isoStr) - Date.now()) / 1000;
+  if (!isFinite(diff) || diff < 0) return '排程中…';
+  if (diff < 3600) return `${Math.ceil(diff / 60)} 分鐘後`;
+  if (diff < 86400) return `${Math.ceil(diff / 3600)} 小時後`;
+  return `${Math.ceil(diff / 86400)} 天後`;
+}
+
 // ── Quick-publish ──────────────────────────────────────────────────────────
 
 document.addEventListener('click', async (e) => {
@@ -157,10 +167,16 @@ document.addEventListener('change', async (e) => {
 
   try {
     const intervalSeconds = enabled ? _intervalForRow(siteUrl) : 86400;
-    await postJson(autopilotUrl, { site_url: siteUrl, enabled, interval_seconds: intervalSeconds });
+    const data = await postJson(autopilotUrl, { site_url: siteUrl, enabled, interval_seconds: intervalSeconds });
     if (statusCell) {
-      statusCell.textContent = enabled ? '已启用 ✓' : '已禁用';
-      statusCell.className = 'autopilot-row-status small ' + (enabled ? 'text-success' : 'text-muted');
+      if (enabled) {
+        const rel = data.next_run_time ? formatRelative(data.next_run_time) : null;
+        statusCell.textContent = rel ? `✓ 已排程，下次：${rel}` : '✓ 已排程';
+        statusCell.className = 'autopilot-row-status small text-success';
+      } else {
+        statusCell.textContent = '已停止';
+        statusCell.className = 'autopilot-row-status small text-muted';
+      }
     }
   } catch (err) {
     cb.checked = !enabled;
@@ -171,6 +187,12 @@ document.addEventListener('change', async (e) => {
   } finally {
     cb.disabled = false;
   }
+});
+
+// ── Initialize autopilot next-run relative-time display ───────────────────
+document.querySelectorAll('.autopilot-next-run[data-next-run]').forEach(el => {
+  const rel = formatRelative(el.dataset.nextRun);
+  if (rel) el.textContent = `⏭ 下次：${rel}`;
 });
 
 // ── Dismiss autopilot alert (health dashboard banner) ─────────────────────

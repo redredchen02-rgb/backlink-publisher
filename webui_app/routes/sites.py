@@ -61,18 +61,31 @@ def sites_form():
                 "insecure_tls": entry.insecure_tls,
             }
 
-    # all_sites: list of {label, main_url, autopilot_enabled, autopilot_interval}
+    # all_sites: list of {label, main_url, autopilot_enabled, autopilot_interval,
+    #                      alert_pending, next_run_time_iso}
+    import sys as _sys
     import webui_store as _ws
     sched_settings = _ws.schedule_store.load()
     autopilot_targets = sched_settings.get("autopilot_targets", {})
+    _sched_mod = _sys.modules.get('webui_app.scheduler')
     all_sites = []
     for label, entry in sorted(cfg.target_three_url.items()):
         ap_cfg = autopilot_targets.get(entry.main_url, {})
+        ap_enabled = bool(ap_cfg.get("enabled", False))
+        next_run_time_iso = None
+        if ap_enabled and _sched_mod is not None and getattr(_sched_mod, '_scheduler', None) is not None:
+            _job_id = _sched_mod._autopilot_job_id(entry.main_url)
+            _job = _sched_mod._scheduler.get_job(_job_id)
+            if _job is not None and _job.next_run_time is not None:
+                _iso = _job.next_run_time.isoformat()
+                next_run_time_iso = _iso if isinstance(_iso, str) else None
         all_sites.append({
             "label": label,
             "main_url": entry.main_url,
-            "autopilot_enabled": bool(ap_cfg.get("enabled", False)),
+            "autopilot_enabled": ap_enabled,
             "autopilot_interval": int(ap_cfg.get("interval_seconds", 86400)),
+            "alert_pending": bool(ap_cfg.get("alert_pending", False)),
+            "next_run_time_iso": next_run_time_iso,
         })
 
     return render_template(
@@ -282,11 +295,17 @@ def sites_autopilot():
 
     _ws.schedule_store.update(_update_fn)
 
+    next_run_time_iso = None
     try:
         import sys as _sys
         _sched_mod = _sys.modules['webui_app.scheduler']
         if enabled:
             _sched_mod._register_autopilot_job(site_url, interval_seconds)
+            if getattr(_sched_mod, '_scheduler', None) is not None:
+                _job = _sched_mod._scheduler.get_job(_sched_mod._autopilot_job_id(site_url))
+                if _job is not None and _job.next_run_time is not None:
+                    _iso = _job.next_run_time.isoformat()
+                    next_run_time_iso = _iso if isinstance(_iso, str) else None
         else:
             try:
                 _sched_mod._scheduler.remove_job(
@@ -298,7 +317,15 @@ def sites_autopilot():
         _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": snapshot_targets})
         return jsonify({"error": str(exc)}), 500
 
-    return jsonify({"ok": True, "site_url": site_url, "enabled": enabled}), 200
+    # last_run is the prior-cycle timestamp (or None if no cycle has completed yet)
+    _updated_cfg = _ws.schedule_store.load().get("autopilot_targets", {}).get(site_url, {})
+    return jsonify({
+        "ok": True,
+        "site_url": site_url,
+        "enabled": enabled,
+        "next_run_time": next_run_time_iso,
+        "last_run": _updated_cfg.get("last_run"),
+    }), 200
 
 
 @bp.route("/sites/run", methods=["POST"])
