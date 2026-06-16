@@ -13,6 +13,7 @@ from typing import Any, Literal, Optional
 
 from ._plan_check_git import FetchOutcome
 from ._plan_check_schema import SCHEMA_VERSION
+from backlink_publisher._util.recon import emit_recon
 
 
 def _now_iso() -> str:
@@ -105,10 +106,7 @@ def _emit_recon_line(fetch_outcome: FetchOutcome) -> None:
     age = fetch_outcome.fetch_head_age_seconds
     age_str = "null" if age is None else str(age)
     if fetch_outcome.skip_reason is not None:
-        line = (
-            f"RECON warn fetch_skipped reason={fetch_outcome.skip_reason} "
-            f"fetch_head_age_seconds={age_str}"
-        )
+        emit_recon("warn", fetch_skipped="", reason=fetch_outcome.skip_reason,
+                   fetch_head_age_seconds=age_str)
     else:
-        line = f"RECON info fetch_head_age_seconds={age_str}"
-    print(line, file=sys.stderr, flush=True)
+        emit_recon("info", fetch_head_age_seconds=age_str)

@@ -14,9 +14,10 @@ This mirrors the proven cli/plan_backlinks/_engine.py pattern.
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, field
 from typing import Any
+
+from backlink_publisher._util.recon import emit_recon
 
 
 _AUTH_ABORT = "auth_abort"  # sentinel returned to signal epilogue must be skipped
@@ -143,11 +144,8 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
     platform = args.platform or row.get("platform", "")
     mode = args.mode or row.get("publish_mode", "draft")
     target_domain = row.get("target_url", row.get("main_domain", "")).split("//")[-1].split("/")[0] if row.get("target_url", row.get("main_domain", "")) else ""
-    print(
-        f"RECON info command=publish-backlinks phase=row "
-        f"row={row_idx + 1} platform={platform} target={target_domain}",
-        file=sys.stderr, flush=True,
-    )
+    emit_recon("info", command="publish-backlinks", phase="row",
+               row=str(row_idx + 1), platform=platform, target=target_domain)
 
     canary_skip, canary_reason = _canary_gate(platform, warned=state.canary_warned)
     if canary_skip:
@@ -349,9 +347,6 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
         )
 
     row_status = "success" if not result.error else "fail"
-    print(
-        f"RECON info command=publish-backlinks phase=row_result "
-        f"row={row_idx + 1} status={row_status} platform={platform}",
-        file=sys.stderr, flush=True,
-    )
+    emit_recon("info", command="publish-backlinks", phase="row_result",
+               row=str(row_idx + 1), status=row_status, platform=platform)
     return None

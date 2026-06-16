@@ -199,3 +199,34 @@ def test_discovered_date_format(idx: int) -> None:
     assert day.isdigit() and 1 <= int(day) <= 31, (
         f"Item '{slug}' discovered={discovered!r} has invalid day"
     )
+
+
+def test_no_stale_mitigated_items() -> None:
+    """Mitigated items whose resolved_date is >90 days ago must be re-evaluated.
+
+    A mitigated item that has sat unreviewed for 90+ days is a registry lie:
+    either the residual work is done (upgrade to resolved) or the debt is
+    actively accepted (change to accepted with updated rationale). This test
+    enforces the freshness pass that resolves the debt-registry-staleness debt item.
+    """
+    import datetime
+
+    today = datetime.date.today()
+    stale = []
+    for item in ITEMS:
+        if item.get("status") != "mitigated":
+            continue
+        rd = item.get("resolved_date", "")
+        try:
+            rd_date = datetime.date.fromisoformat(rd)
+        except (ValueError, TypeError):
+            continue
+        age_days = (today - rd_date).days
+        if age_days > 90:
+            stale.append((item.get("slug", "?"), rd, age_days))
+
+    assert not stale, (
+        "Stale mitigated items detected (>90 days since resolved_date). "
+        "Either upgrade to 'resolved' or change to 'accepted' with updated rationale:\n"
+        + "\n".join(f"  slug={s}  resolved_date={d}  age={a}d" for s, d, a in stale)
+    )

@@ -28,6 +28,7 @@ from backlink_publisher._util.errors import (
 )
 from backlink_publisher._util.jsonl import read_jsonl
 from backlink_publisher._util.logger import publish_logger
+from backlink_publisher._util.recon import emit_recon
 from backlink_publisher.publishing.adapters import publish as adapter_publish, verify_adapter_setup
 from backlink_publisher.publishing.reliability.policy import policy_enabled, publish_with_policy
 from ... import checkpoint, config_echo
@@ -99,10 +100,7 @@ def main(argv: list[str] | None = None) -> None:
         publish_logger.info(f"processing {len(rows)} payloads")
 
         mode = args.mode or "draft"
-        print(
-            f"RECON info command=publish-backlinks row_count={len(rows)} mode={mode}",
-            file=sys.stderr, flush=True,
-        )
+        emit_recon("info", command="publish-backlinks", row_count=str(len(rows)), mode=mode)
 
         config = load_config()
         config_echo.emit_banner(config, "publish-backlinks")
@@ -129,17 +127,11 @@ def main(argv: list[str] | None = None) -> None:
                 if ds is True:
                     filtered.append(row)
                 else:
-                    print(
-                        f"RECON info row={row.get('id', '')} platform={plat} "
-                        f"dofollow={ds!r} skipped reason=tier-filter",
-                        file=sys.stderr,
-                    )
+                    emit_recon("info", row=row.get('id', ''), platform=plat,
+                               dofollow=repr(ds), skipped="", reason="tier-filter")
             rows = filtered
             if not rows:
-                print(
-                    "RECON info reason=tier-filter result=all-filtered",
-                    file=sys.stderr,
-                )
+                emit_recon("info", reason="tier-filter", result="all-filtered")
                 raise SystemExit(0)
 
         if args.preview_manifest:
@@ -186,11 +178,8 @@ def main(argv: list[str] | None = None) -> None:
                 args.platform or row.get("platform", "") for row in rows
             }
             _acquire_publish_leases(platforms_in_use, False)
-            print(
-                f"RECON info command=publish-backlinks phase=leases_acquired "
-                f"platform_count={len(platforms_in_use)}",
-                file=sys.stderr, flush=True,
-            )
+            emit_recon("info", command="publish-backlinks", phase="leases_acquired",
+                       platform_count=str(len(platforms_in_use)))
             for plat in platforms_in_use:
                 if plat not in supported_platforms():
                     continue
@@ -233,12 +222,9 @@ def main(argv: list[str] | None = None) -> None:
         )
 
         skipped = state.skipped_unreachable_count + state.skipped_quarantined_count + state.dedup_skip_count + state.dedup_hold_count
-        print(
-            f"RECON info command=publish-backlinks phase=complete "
-            f"success={state.success_count} fail={state.fail_count} "
-            f"skipped={skipped}",
-            file=sys.stderr, flush=True,
-        )
+        emit_recon("info", command="publish-backlinks", phase="complete",
+                   success=str(state.success_count), fail=str(state.fail_count),
+                   skipped=str(skipped))
 
     if not state.auth_aborted:
         _publish_epilogue(
