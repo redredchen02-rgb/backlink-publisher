@@ -143,3 +143,60 @@ def test_no_candidates_exits_cleanly(tmp_path: Path) -> None:
         patch.object(type(cfg), "config_dir", property(lambda self: tmp_path)),
     ):
         cli.main([])  # should exit 0 with nothing to do
+
+
+def test_select_candidates_deduplicates_recently_probed(tmp_path: Path) -> None:
+    """URLs with a recent GSC_PAGE_SIGNAL event are excluded from candidates."""
+    store = EventStore(path=tmp_path / "events.db")
+    _seed_published(store, ["https://example.com/page"])
+
+    # Seed a recent probe event (within 30 days)
+    store.append(
+        GSC_PAGE_SIGNAL,
+        {"page_url": "https://example.com/page", "has_impressions": True},
+        target_url="https://example.com/page",
+    )
+
+    candidates = cli._select_candidates(store, 200)
+    assert candidates == [], "recently probed URL should be excluded"
+
+
+def test_select_candidates_includes_stale_probed(tmp_path: Path) -> None:
+    """URLs whose last probe is >30 days old re-enter the candidate queue."""
+    from datetime import datetime, timedelta, timezone
+
+    store = EventStore(path=tmp_path / "events.db")
+    _seed_published(store, ["https://example.com/old"])
+
+    # Seed a probe event older than 30 days
+    old_ts = (datetime.now(timezone.utc) - timedelta(days=35)).isoformat()
+    store.append(
+        GSC_PAGE_SIGNAL,
+        {"page_url": "https://example.com/old", "has_impressions": False},
+        target_url="https://example.com/old",
+        ts_utc=old_ts,
+    )
+
+    candidates = cli._select_candidates(store, 200)
+    assert "https://example.com/old" in candidates, "stale-probed URL should re-enter queue"
+
+
+def test_probe_flock_blocked_exits_6(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """When flock is already held, probe-index exits with code 6."""
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+
+    store = EventStore(path=tmp_path / "events.db")
+    _seed_published(store, ["https://example.com/x"])
+
+    cfg = _make_cfg(with_gsc=True, credential_path=str(tmp_path / "sa.json"))
+
+    with (
+        patch("backlink_publisher.cli.probe_index.load_config", return_value=cfg),
+        patch("backlink_publisher.cli.probe_index.EventStore", return_value=store),
+        patch.object(type(cfg), "config_dir", property(lambda self: tmp_path)),
+        patch("fcntl.flock", side_effect=BlockingIOError),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        cli.main(["--probe"])
+
+    assert exc_info.value.code == 6

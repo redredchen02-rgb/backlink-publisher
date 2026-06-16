@@ -161,3 +161,21 @@ def test_ranking_trend_single_snapshot_shows_dash() -> None:
     kw = result[0]
     assert kw["delta"] == 0.0
     assert kw["trend"] == "→"
+
+
+def test_ranking_trend_none_position_shows_dash() -> None:
+    store = _store()
+    # keyword absent from GSC in both snapshots: avg_position stored as None
+    _seed_ranking(store, keyword="unknown kw", avg_position=None,
+                  date_range_start="2026-04-17", date_range_end="2026-05-17",
+                  ts_utc="2026-05-17T00:00:00+00:00")
+    _seed_ranking(store, keyword="unknown kw", avg_position=None,
+                  date_range_start="2026-05-17", date_range_end="2026-06-16",
+                  ts_utc="2026-06-16T00:00:00+00:00")
+
+    result = hm.ranking_trend(store)
+    assert len(result) == 1
+    kw = result[0]
+    assert kw["keyword"] == "unknown kw"
+    assert kw["delta"] is None
+    assert kw["trend"] == "—"
