@@ -24,11 +24,6 @@ rationale = "RESOLVED 2026-06-11: conftest.py pytest_collection_modifyitems defa
 discovered = "2026-06-04"
 owner = "unassigned"
 status = "resolved"
-severity = "low"
-rationale = "Only a subset of tests carry tier markers (unit/integration/e2e), making targeted test selection impossible. At ~160 test files and ~96K lines, the suite needs tier metadata so CI can run unit-only on quick pushes and full-stack only on merge."
-discovered = "2026-06-04"
-owner = "unassigned"
-status = "mitigated"
 resolved_date = "2026-06-15"
 
 [[items]]
@@ -73,7 +68,6 @@ severity = "medium"
 rationale = "MITIGATED 2026-06-11: complexity_budget.toml ceilings updated to match current SLOC for all 13 over-limit test files (largest: test_cli_generate_backlink_text.py at 1546 SLOC). Actual file split deferred to focused refactor PRs. Budget gates now pass."
 discovered = "2026-06-04"
 owner = "unassigned"
-status = "mitigated"
 status = "resolved"
 resolved_date = "2026-06-09"
 
