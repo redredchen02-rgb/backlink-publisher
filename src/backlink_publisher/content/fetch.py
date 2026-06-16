@@ -73,12 +73,9 @@ from ._disk_cache import disk_cache_get, disk_cache_set, disk_cache_clear  # noq
 #: target sites can rate-limit / allowlist the two independently.
 USER_AGENT: str = "backlink-publisher/0.1 content-fetch"
 
-#: Loose TLS context (matches ``linkcheck``'s default — self-signed and
-#: expired certs are tolerated because backlink targets historically include
-#: rough indie sites).
-_SSL_CTX: ssl.SSLContext = ssl.create_default_context()
-_SSL_CTX.check_hostname = False
-_SSL_CTX.verify_mode = ssl.CERT_NONE
+#: TLS context (environment-gated insecure verification).
+from backlink_publisher._util.ssl_ctx import get_ssl_context
+_SSL_CTX: ssl.SSLContext = get_ssl_context()
 
 
 # SSRF defence lives in backlink_publisher._util.net_safety.

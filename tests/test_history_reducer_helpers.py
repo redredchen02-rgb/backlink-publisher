@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from backlink_publisher.events._project_reducers import (
+from backlink_publisher.events._project_emit import (
     _emit_confirmed_history_row,
     _parse_row_timestamps,
 )

@@ -7,8 +7,9 @@
  #}
 <div class="row{% if row_class is defined %} {{ row_class }}{% endif %}">
     <div class="col-md-3 mb-3">
-        <label class="form-label">目标平台</label>
-        <select class="form-select" name="platform">
+        <label class="form-label" for="platform-select">目标平台</label>
+        <select class="form-select" name="platform" id="platform-select"
+                aria-label="选择发布目标平台">
             {# Reverse-driven from publisher registry; Plan 2026-05-19-002 U2.
              # Filtered to bound channels only — unbound platforms are hidden
              # from the publish form via `bound_platforms` in inject_platforms(). #}
@@ -23,8 +24,9 @@
         </select>
     </div>
     <div class="col-md-3 mb-3">
-        <label class="form-label">发布语言</label>
-        <select class="form-select" name="target_language">
+        <label class="form-label" for="language-select">发布语言</label>
+        <select class="form-select" name="target_language" id="language-select"
+                aria-label="选择发布语言">
             <option value="zh-CN"
                 {% if config is defined and config.target_language == 'zh-CN' %}selected{% endif %}>
                 简体中文
@@ -44,8 +46,9 @@
         </select>
     </div>
     <div class="col-md-3 mb-3">
-        <label class="form-label">连结模式</label>
-        <select class="form-select" name="url_mode">
+        <label class="form-label" for="url-mode-select">连结模式</label>
+        <select class="form-select" name="url_mode" id="url-mode-select"
+                aria-label="选择连结模式">
             <option value="A"
                 {% if config is defined and config.url_mode == 'A' %}selected{% endif %}>
                 A — 纯文字
@@ -61,8 +64,9 @@
         </select>
     </div>
     <div class="col-md-3 mb-3">
-        <label class="form-label">发布模式</label>
-        <select class="form-select" name="publish_mode">
+        <label class="form-label" for="publish-mode-select">发布模式</label>
+        <select class="form-select" name="publish_mode" id="publish-mode-select"
+                aria-label="选择发布模式">
             <option value="draft"
                 {% if config is defined and config.publish_mode == 'draft' %}selected{% endif %}>
                 草稿 (Draft)

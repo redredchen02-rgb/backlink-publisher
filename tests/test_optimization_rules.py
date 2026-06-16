@@ -16,6 +16,7 @@ from __future__ import annotations
 
 
 __tier__ = "integration"
+import datetime
 import json
 import os
 import subprocess
@@ -30,6 +31,7 @@ from backlink_publisher.optimization.rules import (
     RULE_AGGREGATED_STATS,
     RULE_CANARY_DRIFT,
     RULE_RECHECK_SURVIVAL,
+    RULE_SURVIVAL_THRESHOLD,
     apply_results,
     evaluate_rules,
 )
@@ -118,6 +120,40 @@ class TestCanaryDrift:
         assert len(results) == 1
         assert results[0].platform == "blogger"
         assert results[0].applied is True
+
+    def test_suppressed_in_cooldown_skips(self):
+        """Already suppressed by canary and within cooldown — skip."""
+        old_ts = (datetime.datetime.now() - datetime.timedelta(days=2)).isoformat()
+        data = _make_state_data(
+            weights={
+                "blogger": {
+                    "base": 1.0, "current": 0.0,
+                    "updated_at": old_ts, "rule": RULE_CANARY_DRIFT,
+                },
+            },
+            stats={"blogger": {"drift_count": 5, "total_published": 10, "alive_count": 8}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_CANARY_DRIFT)
+        assert len(results) == 1
+        assert results[0].applied is False
+        assert "cooldown" in results[0].reason
+
+    def test_cooldown_expired_recovers(self):
+        """Suppressed more than cooldown_days ago — recover to base * 0.3."""
+        old_ts = (datetime.datetime.now() - datetime.timedelta(days=14)).isoformat()
+        data = _make_state_data(
+            weights={
+                "blogger": {
+                    "base": 1.0, "current": 0.0,
+                    "updated_at": old_ts, "rule": RULE_CANARY_DRIFT,
+                },
+            },
+            stats={"blogger": {"drift_count": 5, "total_published": 10, "alive_count": 8}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_CANARY_DRIFT)
+        assert len(results) == 1
+        assert results[0].applied is True
+        assert results[0].new_weight == pytest.approx(0.3)  # base(1.0) * 0.3
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +295,94 @@ class TestAggregatedStats:
         rule_names = {r.rule_name for r in results}
         assert RULE_AGGREGATED_STATS in rule_names
         assert RULE_CANARY_DRIFT in rule_names
+
+
+# ---------------------------------------------------------------------------
+# survival_threshold rule (U1.3)
+# ---------------------------------------------------------------------------
+
+
+class TestSurvivalThreshold:
+    def test_insufficient_data_skipped(self):
+        data = _make_state_data(
+            stats={"blogger": {"total_published": 3, "alive_count": 3, "dofollow_count": 3}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 0  # total=3 < min_samples=5
+
+    def test_low_survival_reduces_weight(self):
+        """survival=20% < 30% → weight *= 0.3."""
+        data = _make_state_data(
+            stats={"blogger": {"total_published": 10, "alive_count": 2, "dofollow_count": 2}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 1
+        assert results[0].applied is True
+        assert results[0].new_weight == pytest.approx(0.3)  # 1.0 * 0.3
+        assert results[0].rule_name == RULE_SURVIVAL_THRESHOLD
+
+    def test_low_dofollow_reduces_weight(self):
+        """dofollow=10% < 20% → weight *= 0.4."""
+        data = _make_state_data(
+            stats={"blogger": {"total_published": 10, "alive_count": 10, "dofollow_count": 1}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 1
+        assert results[0].applied is True
+        assert results[0].new_weight == pytest.approx(0.4)  # 1.0 * 0.4
+
+    def test_both_conditions_compound(self):
+        """survival < 30% AND dofollow < 20% → weight *= 0.3 * 0.4 = 0.12."""
+        data = _make_state_data(
+            stats={"blogger": {"total_published": 10, "alive_count": 2, "dofollow_count": 0}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 1
+        assert results[0].applied is True
+        assert results[0].new_weight == pytest.approx(0.12)  # 1.0 * 0.3 * 0.4
+
+    def test_high_survival_and_dofollow_boosts(self):
+        """survival=90% > 80% AND dofollow=89% > 80% → weight *= 1.15."""
+        data = _make_state_data(
+            stats={"blogger": {"total_published": 10, "alive_count": 9, "dofollow_count": 8}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 1
+        assert results[0].applied is True
+        assert results[0].new_weight == pytest.approx(1.15)  # 1.0 * 1.15
+        assert results[0].reason == (
+            "survival=90%>80% dofollow=89%>80% — boost"
+        )
+
+    def test_boost_capped_at_max_cap(self):
+        """Boost caps at max_cap=3.0."""
+        data = _make_state_data(
+            weights={"blogger": {"base": 3.0, "current": 2.8}},
+            stats={"blogger": {"total_published": 50, "alive_count": 48, "dofollow_count": 45}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 1
+        if results[0].applied:
+            assert results[0].new_weight <= 3.0
+
+    def test_mid_range_no_penalty_no_boost(self):
+        """survival=50% dofollow=50% — above penalty thresholds, below boost."""
+        data = _make_state_data(
+            stats={"blogger": {"total_published": 10, "alive_count": 5, "dofollow_count": 5}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 1
+        assert results[0].applied is False
+        assert results[0].new_weight == results[0].old_weight
+
+    def test_weight_floor_applied(self):
+        """min_weight=0.01 prevents weight from reaching 0."""
+        data = _make_state_data(
+            stats={"blogger": {"total_published": 10, "alive_count": 1, "dofollow_count": 0}},
+        )
+        results = evaluate_rules(data, rule_filter=RULE_SURVIVAL_THRESHOLD)
+        assert len(results) == 1
+        assert results[0].new_weight >= 0.01
 
 
 # ---------------------------------------------------------------------------

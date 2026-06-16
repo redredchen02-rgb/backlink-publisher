@@ -16,7 +16,8 @@
 <main class="container py-4">
   <div class="d-flex align-items-center gap-3 mb-3">
     <h1 class="h3 mb-0">Optimization Status</h1>
-    <a href="/ce:health" class="btn btn-outline-secondary btn-sm ms-auto">
+    <a href="/ce:health" class="btn btn-outline-secondary btn-sm ms-auto"
+       aria-label="返回健康仪表板">
       <i class="bi bi-arrow-left"></i> Health Dashboard
     </a>
   </div>
@@ -93,7 +94,8 @@
       <form method="POST" action="/optimization-status/unlock-weight" class="d-inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="platform" value="{{ p.name }}">
-        <button type="submit" class="btn btn-outline-warning btn-sm">
+        <button type="submit" class="btn btn-outline-warning btn-sm"
+                aria-label="解锁 {{ p.name }} 的权重锁定">
           🔒 {{ p.name }} <span class="ms-1 small">unlock</span>
         </button>
       </form>

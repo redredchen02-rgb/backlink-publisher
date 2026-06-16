@@ -87,7 +87,8 @@
 <div class="extension-area">
   <button type="button" class="tier-toggle ext-toggle"
           data-bs-toggle="collapse" data-bs-target="#ext-area"
-          aria-expanded="{{ 'true' if p.cold_start else 'false' }}" aria-controls="ext-area">
+          aria-expanded="{{ 'true' if p.cold_start else 'false' }}" aria-controls="ext-area"
+          aria-label="展开未串接平台列表">
     <span class="tier-title">
       <span class="tier-label">拓展區</span>
       <span class="tier-count">{{ p.extension_count }}</span>

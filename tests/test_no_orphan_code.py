@@ -32,6 +32,8 @@ ALLOWLIST: set[str] = {
     # New opt-in modules (2026-06-05 optimization gaps)
     "_util/http_client.py",
     "_util/structlog_config.py",
+    # Opt-in throttle module (2026-06-10)
+    "publishing/_throttle.py",
 }
 
 
