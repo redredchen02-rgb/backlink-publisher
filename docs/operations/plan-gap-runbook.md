@@ -1,6 +1,6 @@
 # plan-gap Weekly Runbook
 
-每週日 02:00 自動執行：`equity-ledger | plan-gap | plan-backlinks --dry-run → logs/plan-gap-latest.json`
+每週日 02:00 自動執行：`equity-ledger | plan-gap → logs/plan-gap-latest.json`
 
 ## 安裝排程
 
@@ -39,7 +39,7 @@ BP_PLAN_GAP_DESIRED=5 BP_PLAN_GAP_LANGUAGE=en bash scripts/run-plan-gap-weekly.s
 ## 查看結果
 
 ```bash
-# 最新 plan-gap 輸出（JSONL）
+# 最新 plan-gap seed 建議（JSONL）
 cat logs/plan-gap-latest.json | head -20
 
 # 計算補鏈候選數
@@ -60,5 +60,5 @@ launchctl list | grep bp-plan-gap
 
 - `logs/plan-gap-latest.json` 寫入使用 tmp → rename 原子操作，讀取永遠是完整結果
 - `logs/*.json` 已加入 `.gitignore`，不會被提交
-- 輸出是 `--dry-run` 模式（plan-backlinks 計算但不發佈），安全
-- 若需實際補鏈，將結果 pipe 至 `publish-backlinks`（需人工審查後執行）
+- 輸出是 `plan-backlinks` 相容 seed JSONL，只生成建議，不發佈，安全
+- 若需實際補鏈，人工審查後再執行 `cat logs/plan-gap-latest.json | plan-backlinks | validate-backlinks | publish-backlinks`

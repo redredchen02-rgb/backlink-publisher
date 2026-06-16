@@ -486,6 +486,46 @@ class TestSitesAutopilotStatus:
         assert "排程中…".encode() in resp.data
 
 
+class TestPlanGapSummary:
+    def test_missing_file_returns_missing_status(self, tmp_path):
+        from webui_app.routes.sites import _plan_gap_summary
+
+        summary = _plan_gap_summary(tmp_path / "missing.json")
+
+        assert summary == {"status": "missing"}
+
+    def test_valid_jsonl_counts_candidates_and_targets(self, tmp_path):
+        from webui_app.routes.sites import _plan_gap_summary
+
+        path = tmp_path / "plan-gap-latest.json"
+        path.write_text(
+            "\n".join([
+                json.dumps({"target_url": "https://example.com/a", "platform": "blogger"}),
+                json.dumps({"target_url": "https://example.com/a", "platform": "medium"}),
+                json.dumps({"target_url": "https://example.com/b", "platform": "devto"}),
+            ]),
+            encoding="utf-8",
+        )
+
+        summary = _plan_gap_summary(path)
+
+        assert summary["status"] == "ok"
+        assert summary["candidate_count"] == 3
+        assert summary["target_count"] == 2
+        assert "triggered_at" in summary
+
+    def test_invalid_jsonl_returns_invalid_status(self, tmp_path):
+        from webui_app.routes.sites import _plan_gap_summary
+
+        path = tmp_path / "plan-gap-latest.json"
+        path.write_text('{"target_url": "https://example.com/a"}\n{broken', encoding="utf-8")
+
+        summary = _plan_gap_summary(path)
+
+        assert summary["status"] == "invalid"
+        assert "JSONL" in summary["error"]
+
+
 class TestDashboardAutopilotAlertDismiss:
     def test_dismiss_clears_alert_pending(self, client):
         import webui_store as _ws
@@ -543,4 +583,3 @@ class TestHealthAutopilotAlerts:
         resp = client.get("/ce:health")
         assert resp.status_code == 200
         assert b"autopilot-alert-banner" not in resp.data
-
