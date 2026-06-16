@@ -252,13 +252,16 @@ def geo_citation_share(store: EventStore, *, window_days: int = DEFAULT_WINDOW_D
     since = _window_start(datetime.now(timezone.utc), window_days)
 
     # Fetch per-target verdict counts and total n in the rolling window.
+    # site_cited / article_cited split surfaces in the citation panel (R6).
     rows = store.query(
         """
         SELECT
             target_url,
             COUNT(*) AS total_n,
-            SUM(CASE WHEN json_extract(payload_json, '$.verdict') IN ('site_cited','article_cited')
-                     THEN 1 ELSE 0 END) AS cited,
+            SUM(CASE WHEN json_extract(payload_json, '$.verdict') = 'site_cited'
+                     THEN 1 ELSE 0 END) AS site_cited,
+            SUM(CASE WHEN json_extract(payload_json, '$.verdict') = 'article_cited'
+                     THEN 1 ELSE 0 END) AS article_cited,
             SUM(CASE WHEN json_extract(payload_json, '$.verdict') = 'absent'
                      THEN 1 ELSE 0 END) AS absent,
             SUM(CASE WHEN json_extract(payload_json, '$.verdict') = 'refused'
@@ -277,7 +280,9 @@ def geo_citation_share(store: EventStore, *, window_days: int = DEFAULT_WINDOW_D
     for r in rows:
         target_url = r["target_url"]
         total_n = int(r["total_n"] or 0)
-        cited = int(r["cited"] or 0)
+        site_cited = int(r["site_cited"] or 0)
+        article_cited = int(r["article_cited"] or 0)
+        cited = site_cited + article_cited
         absent = int(r["absent"] or 0)
         refused = int(r["refused"] or 0)
         denominator = cited + absent  # refused excluded per D3
@@ -299,6 +304,9 @@ def geo_citation_share(store: EventStore, *, window_days: int = DEFAULT_WINDOW_D
             "share": share,
             "n": denominator,
             "total_n": total_n,
+            "site_cited": site_cited,
+            "article_cited": article_cited,
+            "absent": absent,
             "refused_rate": refused_rate,
             "low_confidence": low_confidence,
         })

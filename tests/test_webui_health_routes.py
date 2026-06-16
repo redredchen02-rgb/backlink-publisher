@@ -258,3 +258,31 @@ class TestWeightsSnapshotPanel:
         body = resp.data.decode()
         assert "blogger" in body
         assert "Weights 優化快照" in body
+
+
+class TestDecayAlertBanner:
+    def test_no_decay_alerts_renders_ok(self, client, monkeypatch):
+        """No decay.alert events → page renders 200, no banner."""
+        monkeypatch.setattr(
+            "webui_app.routes.health._decay_alerts",
+            lambda: [],
+        )
+        resp = client.get("/ce:health")
+        assert resp.status_code == 200
+        assert "Decay alert" not in resp.data.decode()
+
+    def test_decay_alerts_shown_in_banner(self, client, monkeypatch):
+        """decay.alert events → red banner with target_url and lost_count."""
+        fake_alerts = [
+            {"target_url": "https://example.com/page", "lost_count": 3, "ts": "2026-06-16T04:30:00Z"},
+        ]
+        monkeypatch.setattr(
+            "webui_app.routes.health._decay_alerts",
+            lambda: fake_alerts,
+        )
+        resp = client.get("/ce:health")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert "Decay alert" in body
+        assert "example.com/page" in body
+        assert "3 link" in body

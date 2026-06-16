@@ -263,6 +263,38 @@ def _decay_counts():
         return {}
 
 
+def _decay_alerts() -> list[dict]:
+    """Read decay.alert events from the last 14 days (Plan 2026-06-16-002 U8).
+
+    Returns list of {target_url, lost_count, ts} dicts for the banner.
+    Fail-open: any read error → empty list so the page never 500s.
+    """
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        from backlink_publisher.events import EventStore
+        from backlink_publisher.events.kinds import DECAY_ALERT
+
+        store = EventStore()
+        since = (datetime.now(timezone.utc) - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        rows = store.query(
+            """
+            SELECT target_url, ts_utc,
+                   json_extract(payload_json, '$.lost_count') AS lost_count
+            FROM events
+            WHERE kind = ? AND ts_utc >= ? AND target_url IS NOT NULL
+            ORDER BY ts_utc DESC
+            """,
+            (DECAY_ALERT, since),
+        )
+        return [
+            {"target_url": r["target_url"], "lost_count": r["lost_count"], "ts": r["ts_utc"]}
+            for r in rows
+        ]
+    except Exception as exc:  # noqa: BLE001 — never 500 the page
+        _log.warning("health: decay alerts read failed: %s", exc)
+        return []
+
 
 def _pipeline_summary():
     """Publish counts for past 24h/7d/30d windows + last recheck timestamp.
@@ -536,6 +568,7 @@ def ce_health():
         platform_health = _g_cache("platform_health", _platform_health)
         autopilot_alerts = _autopilot_alerts()
         weights_snap = _g_cache("weights_snapshot", _weights_snapshot)
+        decay_alerts = _g_cache("decay_alerts", _decay_alerts)
         return _render(
             "health.html",
             health=health,
@@ -551,6 +584,7 @@ def ce_health():
             platform_health=platform_health,
             autopilot_alerts=autopilot_alerts,
             weights_snapshot=weights_snap,
+            decay_alerts=decay_alerts,
             active_page='health',
         )
     except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500

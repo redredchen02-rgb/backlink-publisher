@@ -135,6 +135,22 @@
   </div>
   {% endif %}
 
+  {# ── Decay alert banner (Plan 2026-06-16-002 U8) ─────────────────────── #}
+  {% if decay_alerts %}
+  <div class="alert alert-danger py-2 small" role="alert">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span>
+        <strong>Decay alert:</strong>
+        {% for a in decay_alerts %}
+        <span class="ms-1">{{ a.target_url }} ({{ a.lost_count }} link{{ '' if a.lost_count == 1 else 's' }} lost in 14d)</span>{% if not loop.last %},{% endif %}
+        {% endfor %}
+        — run <code>recheck-backlinks --probe</code> to investigate.
+      </span>
+    </div>
+  </div>
+  {% endif %}
+
   {# ── 1. Hero success rate (R6, R10) ───────────────────────────────────── #}
   <div class="card shadow-sm mb-4">
     <div class="card-body text-center">
@@ -470,7 +486,9 @@
               <th>Target</th>
               <th>State</th>
               <th class="text-end">Share</th>
-              <th class="text-end">n</th>
+              <th class="text-end">Site cited</th>
+              <th class="text-end">Article cited</th>
+              <th class="text-end">Absent</th>
               <th class="text-end">Refused rate</th>
             </tr>
           </thead>
@@ -505,9 +523,9 @@
                   <span class="text-muted">—</span>
                 {% endif %}
               </td>
-              <td class="text-end">
-                {% if t.n %}{{ t.n }}{% else %}<span class="text-muted">—</span>{% endif %}
-              </td>
+              <td class="text-end">{{ t.site_cited if t.site_cited is defined else '—' }}</td>
+              <td class="text-end">{{ t.article_cited if t.article_cited is defined else '—' }}</td>
+              <td class="text-end">{{ t.absent if t.absent is defined else '—' }}</td>
               <td class="text-end">
                 {% if t.refused_rate %}{{ "%.1f"|format(t.refused_rate * 100) }}%{% else %}<span class="text-muted">—</span>{% endif %}
               </td>

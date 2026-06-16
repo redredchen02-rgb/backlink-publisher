@@ -84,6 +84,11 @@ REFERRAL_OBSERVED: Final = "referral.observed"
 #: This makes observe-mode decisions queryable (``emit_attempt`` is logger-only)
 #: so readiness (Unit 4) and the rollout panel (Unit 5) have a real data source.
 RELIABILITY_DECISION: Final = "reliability.decision"
+#: Backlink decay alert (Plan 2026-06-16-002 U8). Written by the decay-alert
+#: checker (run after recheck-backlinks). Fires when ≥2 distinct dofollow
+#: links for the same target are dead within 14 days. Deduped per target per
+#: 14d window to avoid re-alerting on persistent decay.
+DECAY_ALERT: Final = "decay.alert"
 
 #: Every kind ever written to events.db. The R8a CI gate asserts no writer
 #: emits a kind outside this set.
@@ -110,6 +115,7 @@ KINDS: Final[frozenset[str]] = frozenset(
         RECONCILE_SWALLOWED,
         REFERRAL_OBSERVED,
         RELIABILITY_DECISION,
+        DECAY_ALERT,
     }
 )
 
@@ -181,6 +187,9 @@ REQUIRED_FIELDS: Final[dict[str, frozenset[str]]] = {
     # outcomes. mode/reason are enrichment. The closed decision vocabulary is
     # value-validated in reliability.events_store (the floor is presence-only).
     RELIABILITY_DECISION: frozenset({"platform", "decision"}),
+    # target_url and lost_count are the load-bearing pair: the banner reader
+    # needs to know which target is decaying and how many links were lost.
+    DECAY_ALERT: frozenset({"target_url", "lost_count"}),
 }
 
 

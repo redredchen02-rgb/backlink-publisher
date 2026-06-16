@@ -68,4 +68,14 @@ else
     log "WARN: within-window liveness coverage BELOW target — raise recheck cadence/budget (see runbook)"
 fi
 
+# Decay alert (Plan 2026-06-16-002 U8): check if any target lost ≥2 dofollow
+# links in the last 14 days; emit decay.alert events for new targets.
+# Advisory — failure never aborts the cron.
+log "decay-alert (14d dofollow decay check) …"
+if "$PYTHON" -m backlink_publisher.cli.decay_alert >> "$LOG_DIR/recheck.log" 2>&1; then
+    log "decay-alert OK"
+else
+    log "WARN: decay-alert failed (non-critical)"
+fi
+
 log "=== recheck-backlinks run complete ==="

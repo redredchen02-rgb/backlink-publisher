@@ -14,7 +14,7 @@ import pytest
 from backlink_publisher.events import kinds
 
 
-def test_kinds_set_is_the_21_documented_kinds():
+def test_kinds_set_is_the_22_documented_kinds():
     assert kinds.KINDS == frozenset(
         {
             "publish.intent",
@@ -38,9 +38,10 @@ def test_kinds_set_is_the_21_documented_kinds():
             "reconcile.swallowed",
             "referral.observed",
             "reliability.decision",
+            "decay.alert",
         }
     )
-    assert len(kinds.KINDS) == 21
+    assert len(kinds.KINDS) == 22
 
 
 @pytest.mark.parametrize(
