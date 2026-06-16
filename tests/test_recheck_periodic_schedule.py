@@ -12,6 +12,9 @@ separate knob that remains OFF.
 
 from __future__ import annotations
 
+__tier__ = "integration"
+
+
 import plistlib
 from pathlib import Path
 

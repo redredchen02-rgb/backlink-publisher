@@ -57,7 +57,7 @@ def _collect_subsystem_status():
         _eq_state = _OS()
         _eq_summary = _eq_state.to_summary()
         platforms = _eq_summary.get("platforms", [])
-        low_weight = [p for p in platforms if (p.get("weight") or 0) < 0.3]
+        low_weight = [p for p in platforms if (p.get("current") or p.get("weight") or 0) < 0.3]
         result["equity"] = {
             "total_rows": len(platforms),
             "low_weight_count": len(low_weight),
@@ -83,19 +83,19 @@ def _collect_subsystem_status():
         from datetime import datetime, timezone, timedelta
         hist = history_store.load()
         now = datetime.now(timezone.utc)
-        cutoff_24h = (now - timedelta(hours=24)).isoformat()[:10]
+        cutoff_24h = (now - timedelta(hours=24)).isoformat()[:16]
         cutoff_7d  = (now - timedelta(days=7)).isoformat()[:10]
-        recent_24h = sum(
-            1 for h in hist
-            if h.get("published_at") and isinstance(h.get("published_at"), str)
-            and h["published_at"] >= cutoff_24h
-        )
-        recent_7d = sum(
-            1 for h in hist
-            if h.get("published_at") and isinstance(h.get("published_at"), str)
-            and h["published_at"] >= cutoff_7d
-        )
-        result["history"] = {"total": len(hist), "recent_24h": recent_24h, "recent_7d": recent_7d}
+        def _ts(h):
+            return h.get("created_at") or h.get("published_at") or ""
+        recent_24h = sum(1 for h in hist if _ts(h) >= cutoff_24h)
+        recent_7d  = sum(1 for h in hist if _ts(h)[:10] >= cutoff_7d)
+        last_ts = max((_ts(h) for h in hist if _ts(h)), default=None)
+        result["history"] = {
+            "total": len(hist),
+            "recent_24h": recent_24h,
+            "recent_7d": recent_7d,
+            "last_published_at": (last_ts or "")[:10] or None,
+        }
     except Exception as exc:
         result["history"] = {"error": _friendly_error(str(exc))}
 

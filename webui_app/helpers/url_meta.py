@@ -13,9 +13,9 @@ import os
 import re
 from urllib.parse import urlparse
 
-import requests
 from bs4 import BeautifulSoup
 
+from backlink_publisher._util.http_client import http_client
 from backlink_publisher.config import _domain_label
 from backlink_publisher.content import fetch as content_fetch
 
@@ -55,9 +55,20 @@ def _verify_urls_or_error(
 
 
 def _fetch_page(url, timeout=10):
-    headers = {'User-Agent':
-               'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'}
-    resp = requests.get(url, headers=headers, timeout=timeout, verify=False)
+    """Fetch a page for metadata extraction.
+
+    Routed through the unified ``http_client`` so SSRF rules
+    (``_util/net_safety._check_url_for_ssrf`` — incl. cloud-metadata
+    169.254/16 blocking) apply even when the surrounding ``content_gate``
+    is bypassed. Without this, an operator-supplied preview URL could
+    make the server fetch internal addresses (SSRF). ``http_client`` also
+    supplies a default timeout and a real User-Agent.
+    """
+    resp = http_client.get(
+        url,
+        timeout=timeout,
+        headers={"User-Agent": "backlink-publisher/0.3 (url-meta)"},
+    )
     resp.raise_for_status()
     return BeautifulSoup(resp.text, 'html.parser')
 

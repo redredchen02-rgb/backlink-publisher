@@ -7,6 +7,9 @@ no source mutation (A5). All platform-derived text must be source/terminal safe.
 
 from __future__ import annotations
 
+__tier__ = "unit"
+
+
 # Populate the adapter registry so registered_platforms() has data.
 import backlink_publisher.publishing.adapters  # noqa: F401
 

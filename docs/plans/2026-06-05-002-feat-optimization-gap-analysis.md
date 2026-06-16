@@ -7,6 +7,20 @@ date: 2026-06-05
 
 # Gap Analysis: 優化計畫落地盤點與缺口分析
 
+> ⚠️ **SUPERSEDED (2026-06-15)**: 本分析的大多數「缺口」已在 v0.4.0（plan
+> `2026-06-09-001` operator-autonomy 的 8 個單元）及後續迭代中落地。對照實際現狀：
+> - E1 structlog → 已落地（`_util/structlog_config.py`）
+> - E3 /health → 已落地（`routes/health.py` `/health` + dashboard 健康欄，U3）
+> - E4 backup/restore CLI → 已落地（`backup-state` / `restore-state` entrypoints）
+> - F2 Dockerfile → 已落地（`Dockerfile` + `docker-compose.yml`）
+> - G1 JS 測試 → 已落地（`node --test` 跑 3 個 `.mjs`）
+> - B3 ruff / F4 Makefile → 早已到位（gap analysis 自身已更正）
+> - C4 optimize-static、D 維度 → D 全綠
+>
+> **仍成立的真缺口**：C1（URL 驗證並行化）、A4（HTTP client 收口——見 P1-1）、
+> E2 metrics。其餘請以 `docs/plans/2026-06-15-002-analysis-comprehensive-optimization-plan.md`
+> §1 的「現狀盤點」為準。本檔僅保留作歷史參考，**勿據此重做已完成的工作**。
+
 **建立**: 2026-06-05
 **範圍**: 4 份現有優化計畫的實作狀態審計
 

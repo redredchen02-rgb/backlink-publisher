@@ -36,7 +36,7 @@ Workspace root (not a git repo) holds `backlink-publisher/` (canonical) and `bp-
 
 ### WebUI
 
-Flask app at `webui_app/` (20 route modules, `create_app()` factory). State persistence at `webui_store/` — five module-level singletons in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`) plus `channel_status_store` from the `channel_status` submodule. Launcher: `python webui.py`.
+Flask app at `webui_app/` (37 route modules, `create_app()` factory). State persistence at `webui_store/` — eight lazily-resolved `_LazyStore` wrappers in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`) plus the eagerly-imported `channel_status_store` from the `channel_status` submodule. Launcher: `python webui.py`.
 
 App-level CSRF guard `_global_csrf_guard` (PR #143, `webui_app/__init__.py`) enforces a token on every POST/PUT/PATCH/DELETE. Tests opt out via `app.config['CSRF_ENABLED'] = False` (or the legacy `WTF_CSRF_ENABLED` flag — both honored). The `_check_csrf_or_abort` helper has a single production call site inside the global guard; PR #148 removed all inline per-route calls.
 
@@ -61,7 +61,7 @@ No Node / bundler / framework. Browser-native ES modules + Jinja `base.html` + C
 5. **Bootstrap stays a classic non-`defer`/non-`module` head script** — that ordering guarantees `window.bootstrap` before any deferred page module.
 6. **Bump `asset_version`** (auto, mtime-derived in `webui_app/__init__.py`) is stamped on every `url_for('static', …, v=asset_version)` ref so a long-lived operator session can't serve stale classic JS against new module HTML. Run any UI walkthrough after a hard refresh.
 
-JS interaction has no test framework yet (deferred). pytest covers server-rendered structure + CSRF; pure JS helpers (`esc`) have a `node` check at `tests/js/lib_dom_check.mjs`; behavior is verified by an adversarial manual walkthrough (silent-fail paths: velog bind, paste-to-derive, synthetic-click bind delegation).
+JS interaction is covered by `node --test` for the pure helpers in `static/js/lib/` (`tests/js/test_lib_api.mjs`, `tests/js/test_lib_dom.mjs`, `tests/js/lib_dom_check.mjs`); page-level interaction has no framework and is verified by an adversarial manual walkthrough (silent-fail paths: velog bind, paste-to-derive, synthetic-click bind delegation). pytest covers server-rendered structure + CSRF.
 
 ### CLI entrypoints
 
@@ -231,7 +231,7 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 
 ## Known Quirks
 
-- `webui_app/services/` is real: 5 source modules (`bind_job`, `browser_login`, `recheck`, `seo_viz`, `url_verify_throttle`). Earlier drafts of this doc claimed it was empty; obsolete.
+- `webui_app/services/` is real and sizeable: 19 source modules spanning bind jobs (`bind_job`), browser login, recheck/keep-alive (`recheck`, `keep_alive`, `keepalive_job`), copilot advisory (`copilot_advisor`/`copilot_models`/`copilot_ranking`/`copilot_recon`), credential/oauth services (`credential_service`, `oauth_service`), health projection, settings service, survival, SEO viz, medium liveness, pipeline service, themed-content, and url-verify throttle. Earlier drafts of this doc claimed it held only 5 modules; obsolete.
 - Exit code table (0-6) is a documented contract, not enforced by `sys.exit()` in CLI code
 - `bp-*/AGENTS.md` are stale copies — update this file, not those
 - `docs/plans/`, `docs/brainstorms/` contain real operator domain names — don't propagate to `docs/solutions/`
@@ -378,24 +378,27 @@ Shared safety in `scripts/_worktree_safety.sh`. Tests: `tests/scripts/test_prune
 
 ## Monolith Budget
 
-`monolith_budget.toml` tracks radon SLOC ceilings for **14** source files (authoritative list is in the TOML; the table below is a summary snapshot — when in doubt, trust the TOML). Enforced by `tests/test_no_monolith_regrowth.py` (R4 hard-fail + R7 warning canary + radon version pinning).
+`monolith_budget.toml` tracks radon SLOC ceilings for **41** source/script files (authoritative list is in the TOML — the original 17 hot-path files plus every remaining 500+ raw-LOC file audited in Plan 2026-06-15-002 P1-3; when in doubt, trust the TOML). Enforced by `tests/test_no_monolith_regrowth.py` (R4 hard-fail + R7 warning canary across `src/` + the P1-3 `webui_app`/`webui_store` canary + radon version pinning). The table below lists the originally-monitored 17; the 24 P1-3 additions are all KEEP/CANDIDATE-audited and documented inline in the TOML.
 
 | File | Ceiling |
 |---|---|
-| `cli/publish_backlinks/__init__.py` | 190 |
 | `cli/plan_backlinks/core.py` | 250 |
-| `cli/generate_backlink_text.py` | 390 |
-| `cli/_publish_helpers.py` | 480 |
-| `cli/phase0_seal.py` | 465 |
-| `cli/plan_check.py` | 260 |
+| `cli/publish_backlinks/__init__.py` | 240 |
 | `cli/validate_backlinks.py` | 150 |
 | `cli/report_anchors.py` | 120 |
-| `content/fetch.py` | 240 |
+| `cli/plan_check.py` | 260 |
+| `cli/phase0_seal.py` | 465 |
+| `cli/_publish_helpers.py` | 480 |
+| `cli/generate_backlink_text.py` | 390 |
+| `cli/canary_seed.py` | 230 |
+| `content/fetch.py` | 250 |
 | `config/writer.py` | 240 |
 | `_util/markdown.py` | 240 |
-| `events/_project_reducers.py` | 550 |
+| `_util/http_probe.py` | 210 |
 | `events/projector.py` | 110 |
-| `publishing/adapters/__init__.py` | 270 |
+| `events/_project_reducers.py` | 620 |
+| `publishing/adapters/__init__.py` | 340 |
+| `scripts/platform_discovery.py` | 340 |
 
 If a PR exceeds a ceiling, edit `monolith_budget.toml` in the same PR — raise it and add `rationale` (≥80 chars). `git blame` is the defense; no override label. Bumping `radon` (pinned `==6.0.1`) requires re-measuring all monitored ceilings + updating `SLOC_CANARY_EXPECTED` in `tests/fixtures/sloc_canary.py`.
 

@@ -1,8 +1,10 @@
 """WebUI state persistence — Plan 2026-05-18-001 Unit 2.
 
-Six ``_LazyStore`` wrappers replace the eager module-level singletons.
-Each store resolves its backing-file path from ``_config_dir()`` on
-first access rather than at import time.
+Eight ``_LazyStore`` wrappers replace the eager module-level singletons:
+``history_store``, ``profiles_store``, ``drafts_store``, ``schedule_store``,
+``queue_store``, ``campaign_store``, ``publish_defaults_store``,
+``batch_ops_store``. Each store resolves its backing-file path from
+``_config_dir()`` on first access rather than at import time.
 
 Plan 2026-05-22 P7 C1: ``_refresh_paths()`` is now a no-op (stores are
 lazy) and is retained only for backward compatibility. New code should

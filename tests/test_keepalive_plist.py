@@ -1,6 +1,9 @@
 """Schema validation tests for keepalive-run launchd plist (plan 2026-06-05-004 Unit 6)."""
 from __future__ import annotations
 
+__tier__ = "integration"
+
+
 import plistlib
 from pathlib import Path
 
