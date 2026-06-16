@@ -116,6 +116,29 @@ on a single authoritative store via plan-007).
   run (logged on stderr).
 - **Concurrency:** a flock in the config dir skips a run if another holds it.
 
+## launchd 排程安裝（Plan 2026-06-15-007）
+
+plist 已在 `scripts/com.dex.bp-recheck.plist` committed。安裝步驟：
+
+```bash
+# 1. 從 canonical repo 複製 plist 到 launchd 目錄
+cp scripts/com.dex.bp-recheck.plist ~/Library/LaunchAgents/com.dex.bp-recheck.plist
+
+# 2. 載入（不會立刻執行，RunAtLoad=false）
+launchctl load ~/Library/LaunchAgents/com.dex.bp-recheck.plist
+
+# 3. 確認已載入
+launchctl list | grep bp-recheck
+```
+
+排程時間：每日 04:30（pipeline 04:00 之後）。
+
+回滾：
+```bash
+launchctl unload ~/Library/LaunchAgents/com.dex.bp-recheck.plist
+rm ~/Library/LaunchAgents/com.dex.bp-recheck.plist
+```
+
 ## Fast-follows (deferred, with triggers)
 
 1. **R6 — ledger liveness writeback.** Refresh the equity ledger's liveness column
