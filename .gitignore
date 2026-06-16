@@ -155,6 +155,10 @@ Dekstop.ini
 *.sqlite
 *.sqlite3
 
+# Runtime output — not source
+logs/*.json
+logs/*.log
+
 # Local development files
 .agents/
 .graphifyignore

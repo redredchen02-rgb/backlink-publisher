@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.dex.bp-plan-gap</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/scripts/run-plan-gap-weekly.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>BP_PLAN_GAP_DESIRED</key>
+    <string>3</string>
+    <key>BP_PLAN_GAP_LANGUAGE</key>
+    <string>zh-CN</string>
+  </dict>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>0</integer>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/plan-gap.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/plan-gap.log</string>
+</dict>
+</plist>
