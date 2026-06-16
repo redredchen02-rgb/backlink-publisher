@@ -82,6 +82,7 @@ class GscClient:
             On 4xx/5xx responses.
         """
         try:
+            import httplib2
             from google.oauth2 import service_account
             from googleapiclient.discovery import build
             from googleapiclient.errors import HttpError
@@ -95,7 +96,8 @@ class GscClient:
                 self._credential_path,
                 scopes=[_GSC_SCOPE],
             )
-            service = build("searchconsole", "v1", credentials=credentials)
+            http = credentials.authorize(httplib2.Http(timeout=30))
+            service = build("searchconsole", "v1", http=http)
             response = (
                 service.searchanalytics()
                 .query(siteUrl=self._property_url, body=request_body)

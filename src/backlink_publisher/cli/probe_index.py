@@ -189,15 +189,18 @@ def _probe_and_record(
         print(f"probe-index: GSC query failed: {exc}", file=sys.stderr)
         sys.exit(6)
 
-    # Build set of URLs that appeared in GSC (have impressions)
+    from backlink_publisher._util.url import canonicalize_url
+
+    # Build set of normalized URLs that appeared in GSC (have impressions).
+    # Normalize both sides to avoid trailing-slash / scheme-case mismatches.
     gsc_pages: set[str] = set()
     for row in response.get("rows", []):
         keys = row.get("keys", [])
         if keys:
-            gsc_pages.add(keys[0])
+            gsc_pages.add(canonicalize_url(keys[0]))
 
     for url in urls:
-        has_impressions = url in gsc_pages
+        has_impressions = canonicalize_url(url) in gsc_pages
         payload = {
             "page_url": url,
             "has_impressions": has_impressions,
