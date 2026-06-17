@@ -170,7 +170,7 @@ flowchart TB
 - 打开 index / settings / global_nav 涉及页，观感统一为控台风，无残留 `blur(8–12px)`、无硬编深色渐变与旧玻璃色、无对比度过低文本。
 - 切换亮/深主题：自定义 token 与 Bootstrap 组件（模态/下拉）同步变色（`data-theme` 与 `data-bs-theme` 一致），均不破版。
 
-- [ ] **Unit 2: 全局 shell — 侧栏 + 顶栏重构**
+- [x] **Unit 2: 全局 shell — 侧栏 + 顶栏重构**
 
 **Goal:** 引入左侧栏（核心/监控/配置分区，体现 pipeline 心智）+ 精简顶栏，移动端折叠为抽屉。
 
@@ -237,7 +237,7 @@ flowchart TB
 **Verification:**
 - 全站无 `window.notifications` 引用、`notifications.js` 无 `innerHTML` 注入路径；事件总线可被订阅。
 
-- [ ] **Unit 3b: 控台风统一组件（toast / 状态态）**
+- [x] **Unit 3b: 控台风统一组件（toast / 状态态）**
 
 **Goal:** 以控台风外部样式取代旧 toast/通知中心结构，并新增通用空态/加载骨架/错误态组件，供全站复用。
 
