@@ -17,7 +17,8 @@ def client(tmp_path, monkeypatch):
     from webui_app import create_app
     app = create_app()
     app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
+    # GET-only tests — no CSRF mutation needed (raw-mutating it trips the
+    # security-toggle gate; the guard never engages on GET anyway).
     return app.test_client()
 
 

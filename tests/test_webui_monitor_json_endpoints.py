@@ -23,7 +23,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(cache))
     import webui
     webui.app.config["TESTING"] = True
-    webui.app.config["WTF_CSRF_ENABLED"] = False
+    # GET-only tests — the CSRF guard never engages, so no security-config
+    # mutation is needed (and raw-mutating it trips the security-toggle gate).
     return webui.app.test_client()
 
 
