@@ -21,6 +21,7 @@
     --danger-soft:  rgba(239, 68, 68, 0.16);
     --warning-soft: rgba(245, 158, 11, 0.16);
     --success-soft: rgba(16, 185, 129, 0.16);
+    --info-soft:    rgba(56, 189, 248, 0.16);
 
     /* Surfaces — layered console panels (NEW; consumed by global overrides + shell) */
     --surface-base:    #0b0f17;    /* app background floor */

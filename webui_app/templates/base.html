@@ -35,12 +35,13 @@
     {# ── Console shell: left sidebar + slim topbar + content. active_page uses
          | default('') so pages that omit it render without error. On <=1024px the
          sidebar becomes a slide-in drawer toggled by the topbar hamburger. ── #}
-    {%- macro nav_item(href, key, label, icon) -%}
+    {%- macro nav_item(href, key, label, icon, badge_id=None) -%}
         {%- set is_active = (active_page | default('')) == key -%}
         <a href="{{ href }}" class="app-sidebar__item{% if is_active %} active{% endif %}"
            {% if is_active %}aria-current="page"{% endif %}>
             <i class="bi {{ icon }}" aria-hidden="true"></i>
             <span class="app-sidebar__item-label">{{ label }}</span>
+            {% if badge_id %}<span class="app-sidebar__badge" id="{{ badge_id }}" hidden></span>{% endif %}
         </a>
     {%- endmacro -%}
     <div class="app-shell">
@@ -59,7 +60,7 @@
                 </section>
                 <section class="app-sidebar__group">
                     <span class="app-sidebar__group-label">监控</span>
-                    {{ nav_item('/monitor-hub', 'monitor_hub', '聚合', 'bi-grid-1x2') }}
+                    {{ nav_item('/monitor-hub', 'monitor_hub', '聚合', 'bi-grid-1x2', badge_id='navAnomalyBadge') }}
                     {{ nav_item('/ce:keep-alive', 'keep_alive', '保活', 'bi-shield-check') }}
                     {% if not lite_edition %}
                     {{ nav_item('/survival-dashboard', 'survival_dashboard', '存活率', 'bi-graph-up') }}
@@ -134,5 +135,7 @@
        dispatches flash-message events), so it must load first. #}
     <script type="module" src="{{ url_for('static', filename='js/ui/toast.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/notifications.js', v=asset_version) }}"></script>
+    {# Sidebar anomaly badge — single fail-open fetch to /api/monitor-hub. #}
+    <script type="module" src="{{ url_for('static', filename='js/ui/nav-badge.js', v=asset_version) }}"></script>
 </body>
 </html>
