@@ -8,9 +8,9 @@
             padding: 20px;
         }
 
-        /* Dark mode body */
+        /* Dark mode body — defer to the console background token (single source). */
         [data-theme="dark"] body {
-            background: radial-gradient(circle at 10% 20%, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 90%);
+            background: var(--gradient-hero);
         }
         
         .navbar {
@@ -57,8 +57,8 @@
 
         /* Dark mode sidebar */
         [data-theme="dark"] .settings-sidebar {
-            background: rgba(15, 23, 42, 0.8);
-            border-right-color: #334155;
+            background: var(--surface-raised);
+            border-right-color: var(--border);
         }
         .settings-pane-host {
             flex: 1;

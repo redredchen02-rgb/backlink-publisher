@@ -5,9 +5,9 @@
             padding: 20px;
         }
 
-        /* Dark mode body */
+        /* Dark mode body — defer to the console background token (single source). */
         [data-theme="dark"] body {
-            background: radial-gradient(circle at 10% 20%, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 90%);
+            background: var(--gradient-hero);
         }
         
         .navbar {
@@ -130,8 +130,8 @@
 
         [data-theme="dark"] .form-control:focus,
         [data-theme="dark"] .form-select:focus {
-            background-color: #1e293b;
-            border-color: #6366f1;
+            background-color: var(--surface-raised);
+            border-color: var(--primary);
         }
         
         .btn {
@@ -255,8 +255,8 @@
         @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
             .result-card {
                 background: var(--glass-bg);
-                -webkit-backdrop-filter: blur(12px);
-                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
             }
         }
 
@@ -392,8 +392,8 @@
 
         @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
             .error-box {
-                -webkit-backdrop-filter: blur(8px);
-                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
             }
         }
 
@@ -408,8 +408,8 @@
 
         @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
             .success-box {
-                -webkit-backdrop-filter: blur(8px);
-                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
             }
         }
         
@@ -551,8 +551,8 @@
         @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
             .history-item {
                 background: rgba(255,255,255,0.06);
-                -webkit-backdrop-filter: blur(10px);
-                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
             }
         }
 
@@ -994,8 +994,8 @@
         @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
             .batch-result-item {
                 background: rgba(255,255,255,0.07);
-                -webkit-backdrop-filter: blur(10px);
-                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
             }
         }
 

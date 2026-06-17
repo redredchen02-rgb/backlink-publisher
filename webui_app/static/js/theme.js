@@ -35,7 +35,11 @@ function applyTheme(theme, animate = false) {
     }
     
     document.documentElement.setAttribute('data-theme', theme);
-    
+    // Keep Bootstrap's own theming attribute in sync so its components (modals,
+    // dropdowns) track the same theme as our custom tokens. base.html ships
+    // data-bs-theme="dark"; without this, toggling to light left them dark.
+    document.documentElement.setAttribute('data-bs-theme', theme);
+
     // Update toggle button icon
     const toggle = qs('#themeToggle');
     if (toggle) {
