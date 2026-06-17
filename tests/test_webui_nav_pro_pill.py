@@ -38,7 +38,8 @@ def _client():
 
 def _nav_html(cfg_dir):
     html = _client().get("/settings").get_data(as_text=True)
-    assert "global-nav__inner" in html
+    # Console shell (Plan 2026-06-17-001 U2): topbar hosts the Pro pill.
+    assert "app-topbar" in html
     return html
 
 

@@ -49,7 +49,7 @@ def test_nav_trimmed_to_core_when_lite_on(client, lite_on):
     # Assert the core nav *link* survives — not the bare '保活' label, which also
     # renders in the page title + navbar-brand and would pass even if the nav
     # anchor were deleted. '设置' is nav-unique, so its bare label is sound.
-    assert 'href="/ce:keep-alive" class="global-nav__item' in html   # 保活 nav link
+    assert 'href="/ce:keep-alive" class="app-sidebar__item' in html   # 保活 sidebar link
     assert "设置" in html
     for label in _TRIMMED_NAV_LABELS:
         assert label not in html                        # Pro/secondary gone

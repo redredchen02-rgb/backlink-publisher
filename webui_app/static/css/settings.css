@@ -45,7 +45,9 @@
         .settings-layout {
             display: flex;
             gap: 0;
-            min-height: calc(100vh - 120px);
+            /* Subtract the console topbar height (var from global_nav.css) plus
+               page padding — was a hardcoded 120px assuming the old stacked navbar. */
+            min-height: calc(100vh - var(--topbar-height, 52px) - 40px);
         }
         .settings-sidebar {
             width: 200px;
