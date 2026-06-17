@@ -15,13 +15,13 @@
             padding: 1.2rem 2.4rem;
             border-radius: 16px;
             margin-bottom: 24px;
-            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.3);
             border: 1px solid var(--glass-border);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
         
         .navbar:hover {
-            box-shadow: 0 15px 30px -5px rgba(79, 70, 229, 0.4);
+            box-shadow: 0 15px 30px -5px rgba(56, 189, 248, 0.4);
         }
         
         .navbar h1 {
@@ -188,7 +188,7 @@
         }
         
         .url-badge.main {
-            background: #4f46e5;
+            background: var(--primary-dark);
             color: white;
         }
 
@@ -238,7 +238,7 @@
         }
 
         .info-box h6 {
-            color: #93c5fd;
+            color: var(--info-text);
             margin-bottom: 8px;
         }
         
@@ -277,12 +277,12 @@
         
         .link-count-badge.valid {
             background: rgba(16,185,129,0.2);
-            color: #6ee7b7;
+            color: var(--success-text);
         }
 
         .link-count-badge.invalid {
             background: rgba(239,68,68,0.2);
-            color: #fca5a5;
+            color: var(--danger-text);
         }
         
         .link-table {
@@ -321,7 +321,7 @@
         
         .type-badge.required {
             background: rgba(16,185,129,0.2);
-            color: #6ee7b7;
+            color: var(--success-text);
         }
 
         .type-badge.optional {
@@ -372,8 +372,8 @@
         }
         
         .tag-item {
-            background: rgba(99,102,241,0.2);
-            color: #a5b4fc;
+            background: rgba(56, 189, 248,0.2);
+            color: var(--primary);
             padding: 4px 12px;
             border-radius: 16px;
             font-size: 12px;
@@ -385,7 +385,7 @@
             border-radius: 12px;
             padding: 16px;
             border-left: 4px solid var(--danger);
-            color: #fca5a5;
+            color: var(--danger-text);
             border: 1px solid rgba(239, 68, 68, 0.3);
             border-left-width: 4px;
         }
@@ -403,7 +403,7 @@
             padding: 16px;
             border: 1px solid rgba(16, 185, 129, 0.3);
             border-left: 4px solid var(--success);
-            color: #6ee7b7;
+            color: var(--success-text);
         }
 
         @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
@@ -440,7 +440,7 @@
         }
 
         details > summary:hover {
-            background: rgba(79,70,229,0.12);
+            background: rgba(56, 189, 248,0.12);
         }
         
         details[open] > summary {
@@ -501,10 +501,10 @@
         }
         .mode-toggle-btn:hover {
             color: var(--text-primary);
-            background: rgba(79, 70, 229, 0.12);
+            background: rgba(56, 189, 248, 0.12);
         }
         .mode-toggle-btn.active {
-            background: rgba(79, 70, 229, 0.25);
+            background: rgba(56, 189, 248, 0.25);
             color: var(--text-primary);
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
@@ -513,7 +513,7 @@
         .alert-warning {
             background: rgba(245,158,11,0.12) !important;
             border-color: rgba(245,158,11,0.35) !important;
-            color: #fde68a !important;
+            color: var(--warning-text) !important;
         }
         .alert-warning .btn-close { filter: invert(1) opacity(0.6); }
         .alert-warning strong { color: #fcd34d; }
@@ -593,7 +593,7 @@
         .filter-chip:hover {
             border-color: var(--primary);
             color: var(--text-primary);
-            background: rgba(79,70,229,0.12);
+            background: rgba(56, 189, 248,0.12);
         }
         .filter-chip.active {
             background: var(--primary);
@@ -641,8 +641,8 @@
             gap: 10px;
             padding: 10px 14px;
             margin: 0 0 14px 0;
-            background: rgba(79,70,229,0.12);
-            border: 1px solid rgba(99,102,241,0.3);
+            background: rgba(56, 189, 248,0.12);
+            border: 1px solid rgba(56, 189, 248,0.3);
             border-radius: 10px;
             flex-wrap: wrap;
             font-size: 13px;
@@ -671,7 +671,7 @@
         }
         .status-badge.unverified {
             background: rgba(245,158,11,0.2);
-            color: #fde68a;
+            color: var(--warning-text);
         }
 
         .editor-container {
@@ -754,17 +754,17 @@
         
         .status-badge.success {
             background: rgba(16,185,129,0.2);
-            color: #6ee7b7;
+            color: var(--success-text);
         }
 
         .status-badge.error {
             background: rgba(239,68,68,0.2);
-            color: #fca5a5;
+            color: var(--danger-text);
         }
 
         .status-badge.pending {
             background: rgba(245,158,11,0.2);
-            color: #fde68a;
+            color: var(--warning-text);
         }
 
         /* Per-target dofollow sub-badge (R6): smaller than the page-wide status
@@ -843,7 +843,7 @@
         .step-circle.active {
             background: var(--primary);
             color: white;
-            box-shadow: 0 0 0 4px rgba(79,70,229,0.3);
+            box-shadow: 0 0 0 4px rgba(56, 189, 248,0.3);
         }
 
         .step-circle.pending {
@@ -878,8 +878,8 @@
 
         @media (prefers-reduced-motion: no-preference) {
             @keyframes pulse-glow {
-                0%, 100% { box-shadow: 0 0 0 4px rgba(99,102,241,0.3); }
-                50%       { box-shadow: 0 0 0 8px rgba(99,102,241,0.15), 0 0 20px rgba(99,102,241,0.4); }
+                0%, 100% { box-shadow: 0 0 0 4px rgba(56, 189, 248,0.3); }
+                50%       { box-shadow: 0 0 0 8px rgba(56, 189, 248,0.15), 0 0 20px rgba(56, 189, 248,0.4); }
             }
 
             .step-circle.active {
@@ -915,7 +915,7 @@
         }
         .wizard-chip:hover { background: rgba(16,185,129,0.14); border-color: rgba(16,185,129,0.45); }
         .wizard-chip-check { color: var(--success); font-size: 15px; flex-shrink: 0; }
-        .wizard-chip-label { font-weight: 600; font-size: 13px; color: #6ee7b7; white-space: nowrap; flex-shrink: 0; }
+        .wizard-chip-label { font-weight: 600; font-size: 13px; color: var(--success-text); white-space: nowrap; flex-shrink: 0; }
         .wizard-chip-sep { color: var(--text-secondary); flex-shrink: 0; }
         .wizard-chip-summary { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
         .wizard-chip-toggle { margin-left: auto; color: var(--text-secondary); font-size: 13px; transition: transform 0.2s ease; flex-shrink: 0; }
@@ -1004,7 +1004,7 @@
 
         .batch-result-url   { font-size: 13px; font-weight: 600; word-break: break-all; color: var(--text-primary); }
         .batch-result-title { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
-        .batch-result-error { font-size: 12px; color: #fca5a5; margin-top: 4px; }
+        .batch-result-error { font-size: 12px; color: var(--danger-text); margin-top: 4px; }
         .batch-result-link  { font-size: 11px; word-break: break-all; color: var(--text-secondary); margin-top: 8px; }
 
         .batch-summary { margin-top: 12px; font-size: 13px; color: var(--text-secondary); }
