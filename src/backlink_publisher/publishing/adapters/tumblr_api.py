@@ -5,11 +5,11 @@ import os
 import time
 from typing import Any
 
-import requests
 from requests_oauthlib import OAuth1
 
 from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
@@ -74,9 +74,9 @@ class TumblrAPIAdapter(Publisher):
     registered with dofollow=False — value is referral traffic + topical
     signal only.
 
-    This adapter uses ``requests.post`` directly (not ``backlink_publisher.http``)
-    because OAuth 1.0a signing requires ``requests_oauthlib.OAuth1`` auth
-    which is per-request, not compatible with the shared-session wrapper.
+    Outbound POST goes through ``http_client`` (SSRF-safe, retried) with
+    ``raise_for_status=False`` so the adapter keeps its own status-code
+    mapping; OAuth 1.0a signing is passed per-request via the ``auth=`` kwarg.
     """
 
     post_publish_delay_seconds: int = _DEFAULT_POST_PUBLISH_DELAY_S
@@ -131,11 +131,12 @@ class TumblrAPIAdapter(Publisher):
         api_url = f"{TUMBLR_API_BASE}/blog/{blog_name}/post"
 
         def execute():
-            resp = requests.post(
+            resp = http_client.post(
                 api_url,
                 auth=auth,
                 data=post_data,
                 timeout=_HTTP_TIMEOUT_S,
+                raise_for_status=False,
             )
             if resp.status_code == 401:
                 raise ExternalServiceError(
