@@ -40,7 +40,25 @@ _BLOCKED_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
 )
 
 
-def _is_blocked_ip(ip_text: str) -> Optional[str]:
+# Subset of _BLOCKED_NETWORKS that ``allow_private=True`` deliberately permits:
+# RFC1918 private ranges + loopback. These are where operator self-hosted blog
+# endpoints and local AI gateways live. Everything else in _BLOCKED_NETWORKS
+# stays blocked even under allow_private — critically 169.254.0.0/16 and
+# 168.63.129.16 (cloud metadata / Azure wireserver), CGNAT, link-local, and the
+# documentation/benchmark ranges. allow_private relaxes the LAN guard, NOT the
+# metadata-exfiltration guard.
+_PRIVATE_OK_NETWORKS: frozenset[ipaddress.IPv4Network | ipaddress.IPv6Network] = frozenset(
+    {
+        ipaddress.ip_network("10.0.0.0/8"),
+        ipaddress.ip_network("172.16.0.0/12"),
+        ipaddress.ip_network("192.168.0.0/16"),
+        ipaddress.ip_network("127.0.0.0/8"),
+        ipaddress.ip_network("::1/128"),
+    }
+)
+
+
+def _is_blocked_ip(ip_text: str, allow_private: bool = False) -> Optional[str]:
     try:
         ip = ipaddress.ip_address(ip_text)
     except ValueError:
@@ -49,6 +67,8 @@ def _is_blocked_ip(ip_text: str) -> Optional[str]:
         if ip.version != net.version:
             continue
         if ip in net:
+            if allow_private and net in _PRIVATE_OK_NETWORKS:
+                return None
             return f"blocked_ip:{net}"
     return None
 
@@ -72,10 +92,14 @@ def _resolve_host_ips(host: str) -> tuple[list[str], Optional[str]]:
     return ips, None
 
 
-def _check_url_for_ssrf(url: str) -> Optional[str]:
+def _check_url_for_ssrf(url: str, allow_private: bool = False) -> Optional[str]:
     # Never-raises: a malformed authority (unterminated IPv6) parses to None and
     # is treated as a *blocked* "invalid_host" (fail-closed) — _check_once calls
     # this on untrusted URLs and must never leak a ValueError. Plan 006 R3b.
+    #
+    # allow_private=True relaxes ONLY the RFC1918/loopback block (operator
+    # self-hosted endpoints / local gateways); cloud-metadata and other
+    # dangerous ranges stay blocked. Default keeps the strict fail-closed guard.
     parsed = safe_urlparse(url)
     if parsed is None:
         return "invalid_host"
@@ -84,14 +108,14 @@ def _check_url_for_ssrf(url: str) -> Optional[str]:
         return "invalid_host"
     try:
         ipaddress.ip_address(host)
-        return _is_blocked_ip(host)
+        return _is_blocked_ip(host, allow_private=allow_private)
     except ValueError:
         pass
     ips, err = _resolve_host_ips(host)
     if err:
         return err
     for ip in ips:
-        blocked = _is_blocked_ip(ip)
+        blocked = _is_blocked_ip(ip, allow_private=allow_private)
         if blocked:
             return blocked
     return None

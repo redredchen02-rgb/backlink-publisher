@@ -57,3 +57,14 @@ def test_ssrf_check_runs_even_with_opt_out() -> None:
     ):
         with pytest.raises(ExternalServiceError):
             client.get("http://169.254.169.254/latest/meta-data", raise_for_status=False)
+
+
+def test_allow_private_threads_to_ssrf_check() -> None:
+    """allow_private must reach _check_url_for_ssrf so loopback gateways pass."""
+    client = HttpClient()
+    resp = _resp(200)
+    with patch(
+        "backlink_publisher._util.http_client._check_url_for_ssrf", return_value=None
+    ) as ssrf, patch.object(client._session, "request", return_value=resp):
+        client.get("http://127.0.0.1:1234/models", allow_private=True)
+    assert ssrf.call_args.kwargs["allow_private"] is True
