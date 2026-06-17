@@ -29,7 +29,7 @@ reconcile-check:
 
 .PHONY: test-js
 test-js:
-	node --test tests/js/test_lib_api.mjs tests/js/test_lib_dom.mjs
+	node --test tests/js/test_lib_api.mjs tests/js/test_lib_dom.mjs tests/js/test_notifications.mjs
 
 # ── Browser selector-drift checks (Plan 2026-06-15-001 B3) ───────────────────
 # Static guard (CI, no browser): selector constants present + success regex valid.
