@@ -144,7 +144,7 @@ graph TB
 - Error path：probe 拋網路錯 → 不寫殘缺 row（floor quarantine），且 CLI 不 crash
 **Verification:** 測試綠；runbook 存在且列出 events.db 驗證查詢。**【A · review 強化】citation 不列入 Phase 0「已證實可用」清單**——mock+runbook 結案，真實 live 跑（受 Perplexity 配額）列為 Phase 1 R3 准入門；回填 roadmap 時 citation 明確標「待 live 驗證」，不假稱已證實
 
-- [ ] **Unit 3: mastodon enforce dry-run — gate 真的觸發驗證**
+- [x] **Unit 3: mastodon enforce dry-run — gate 真的觸發驗證**
 
 **Goal:** 在**不翻真實 allowlist** 前提下，證明 enforce gate 在 allowlisted channel + 劣質條件下真的 emit `skipped_policy`（gate 邏輯活的，非配置擺設）。
 **Requirements:** R0.1（enforce）
