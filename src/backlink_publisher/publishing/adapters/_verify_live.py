@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from requests.exceptions import RequestException as _ReqException, Timeout as _ReqTimeout
+
 from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError
 from ..registry import registered_platforms
@@ -66,7 +68,6 @@ def _verify_live(platform: str, config: Config) -> VerifyResult:
 
 
 def _verify_telegraph_live(config: Config) -> VerifyResult:
-    import requests
     from backlink_publisher.http import post as http_post
     from .telegraph_api import (
         TELEGRAPH_API,
@@ -94,11 +95,11 @@ def _verify_telegraph_live(config: Config) -> VerifyResult:
             },
             timeout=verify_timeout,
         )
-    except requests.Timeout:
+    except _ReqTimeout:
         return _timeout_result(
             f"telegraph getAccountInfo timed out after {verify_timeout}s"
         )
-    except requests.RequestException as e:
+    except _ReqException as e:
         return _network_error("telegraph", e)
 
     try:
@@ -121,7 +122,6 @@ _GHPAGES_VERIFY_TIMEOUT_S = 5
 
 
 def _verify_ghpages_live(config: Config) -> VerifyResult:
-    import requests as _r
     from backlink_publisher.http import get as http_get
     from .ghpages import GITHUB_API, _load_token, _required_headers
 
@@ -136,11 +136,11 @@ def _verify_ghpages_live(config: Config) -> VerifyResult:
             headers=_required_headers(token),
             timeout=_GHPAGES_VERIFY_TIMEOUT_S,
         )
-    except _r.Timeout:
+    except _ReqTimeout:
         return _timeout_result(
             f"github.com/user timed out after {_GHPAGES_VERIFY_TIMEOUT_S}s"
         )
-    except _r.RequestException as e:
+    except _ReqException as e:
         return _network_error("github", e)
 
     if resp.status_code == 401:
@@ -174,7 +174,6 @@ _BLOGGER_VERIFY_TIMEOUT_S = 5
 
 
 def _verify_blogger_live(config: Config) -> VerifyResult:
-    import requests
     from backlink_publisher.http import get as http_get
     from backlink_publisher.config import load_blogger_token
 
@@ -195,11 +194,11 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=_BLOGGER_VERIFY_TIMEOUT_S,
         )
-    except requests.Timeout:
+    except _ReqTimeout:
         return _timeout_result(
             f"blogger users.self timed out after {_BLOGGER_VERIFY_TIMEOUT_S}s"
         )
-    except requests.RequestException as e:
+    except _ReqException as e:
         return _network_error("blogger", e)
 
     if resp.status_code == 401:
@@ -229,7 +228,6 @@ _VELOG_CURRENT_USER_QUERY = (
 
 
 def _verify_velog_live(config: Config) -> VerifyResult:
-    import requests
     from backlink_publisher.http import post as http_post
     from backlink_publisher.publishing._registry_manifest import session as get_descriptor
     from backlink_publisher.publishing.session import DefaultCredentialProvider
@@ -257,11 +255,11 @@ def _verify_velog_live(config: Config) -> VerifyResult:
             headers=_VELOG_REQUIRED_HEADERS,
             timeout=_VELOG_VERIFY_TIMEOUT_S,
         )
-    except requests.Timeout:
+    except _ReqTimeout:
         return _timeout_result(
             f"velog auth probe timed out after {_VELOG_VERIFY_TIMEOUT_S}s"
         )
-    except requests.RequestException as e:
+    except _ReqException as e:
         return _network_error("velog", e)
 
     if resp.status_code != 200:

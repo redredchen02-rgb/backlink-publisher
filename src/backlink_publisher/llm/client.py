@@ -20,7 +20,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
-import requests
+from requests.exceptions import RequestException
 
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher.llm.http_guard import safe_post_json
@@ -288,7 +288,7 @@ def generate_link_text(
             # Guard violations (redirect, bad content-type, too-large body) are
             # non-transient -- raise immediately without retry.
             raise ExternalServiceError(_redact_for_log(str(exc))) from exc
-        except requests.RequestException as exc:
+        except RequestException as exc:
             if attempt < cfg.retries:
                 continue
             raise ExternalServiceError(

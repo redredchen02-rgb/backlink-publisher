@@ -30,7 +30,7 @@ import logging
 import time
 from typing import Any
 
-import requests
+from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
 from backlink_publisher.http import get as http_get, post as http_post
 
 from backlink_publisher._util.errors import ExternalServiceError
@@ -109,7 +109,7 @@ class ImageGenAdapter:
         def _do_post() -> dict[str, Any]:
             try:
                 resp = http_post(url, headers=headers, json=body, timeout=self.timeout_s)
-            except (requests.Timeout, requests.ConnectionError) as exc:
+            except (ReqTimeout, ReqConnError) as exc:
                 raise _ImageGenTransient(str(exc)) from exc
 
             if resp.status_code == 401:
@@ -189,7 +189,7 @@ class ImageGenAdapter:
                     json=body,
                     timeout=self.timeout_s,
                 )
-            except (requests.Timeout, requests.ConnectionError) as exc:
+            except (ReqTimeout, ReqConnError) as exc:
                 raise _ImageGenTransient(str(exc)) from exc
 
             if resp.status_code == 401:
@@ -228,7 +228,7 @@ class ImageGenAdapter:
                     headers=poll_headers,
                     timeout=15,
                 )
-            except (requests.Timeout, requests.ConnectionError):
+            except (ReqTimeout, ReqConnError):
                 continue
             if resp.status_code != 200:
                 continue
@@ -273,7 +273,7 @@ def _download_with_cap(src_url: str) -> bytes:
     """
     try:
         resp = http_get(src_url, timeout=30, stream=False)
-    except (requests.Timeout, requests.ConnectionError) as exc:
+    except (ReqTimeout, ReqConnError) as exc:
         # Treat as fail-loud at this layer — retry_transient_call has
         # already wrapped the outer POST; a CDN miss is a different
         # failure mode (operator-actionable: provider returned a dead

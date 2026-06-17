@@ -53,7 +53,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-import requests
+from requests.exceptions import RequestException
 from backlink_publisher.http import post as http_post
 
 from backlink_publisher.config import Config
@@ -316,7 +316,7 @@ def _create_account(short_name: str) -> str:
         )
         resp.raise_for_status()
         body = resp.json()
-    except requests.RequestException as exc:
+    except RequestException as exc:
         raise ExternalServiceError(
             f"Telegraph createAccount network failure: {exc}"
         ) from exc
@@ -364,7 +364,7 @@ def _create_page(
         )
         resp.raise_for_status()
         return resp.json()
-    except requests.RequestException as exc:
+    except RequestException as exc:
         raise ExternalServiceError(
             f"Telegraph createPage network failure: {exc}"
         ) from exc
@@ -422,7 +422,7 @@ class TelegraphAPIAdapter(Publisher):
                 files={"file": (filename, data, mime)},
                 timeout=_HTTP_TIMEOUT_S,
             )
-        except requests.RequestException as exc:
+        except RequestException as exc:
             raise BannerUploadError(
                 f"telegraph upload network: {exc}"
             ) from exc

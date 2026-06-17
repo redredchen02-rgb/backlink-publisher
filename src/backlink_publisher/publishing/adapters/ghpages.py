@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
+from requests.exceptions import RequestException
 from backlink_publisher.http import get as http_get, put as http_put
 
 from backlink_publisher.config import Config, load_ghpages_token
@@ -399,7 +399,7 @@ class GitHubPagesAPIAdapter(Publisher):
             raise BannerUploadError(
                 f"ghpages banner probe failed: {exc.message}"
             ) from exc
-        except requests.RequestException as exc:
+        except RequestException as exc:
             raise BannerUploadError(
                 f"ghpages banner probe network: {exc}"
             ) from exc
@@ -423,7 +423,7 @@ class GitHubPagesAPIAdapter(Publisher):
                 f"ghpages banner: 422 sha-required after probe found none "
                 f"at {target_path} — eventual-consistency race; retry the row"
             )
-        except requests.RequestException as exc:
+        except RequestException as exc:
             raise BannerUploadError(
                 f"ghpages banner network: {exc}"
             ) from exc

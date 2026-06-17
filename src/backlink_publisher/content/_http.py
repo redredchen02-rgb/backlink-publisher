@@ -3,7 +3,8 @@ from __future__ import annotations
 import ipaddress
 import socket
 
-import requests
+from requests import Response
+from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
 from backlink_publisher.http import get as http_get
 
 from backlink_publisher._util.errors import ExternalServiceError, InputValidationError
@@ -61,7 +62,7 @@ def _block_if_private(url: str) -> None:
 
 def _safe_get(
     url: str, *, timeout: int, insecure_tls: bool = False
-) -> tuple[requests.Response, bytes]:
+) -> tuple[Response, bytes]:
     """Validated, SSRF-checked, size-capped, retry-wrapped GET.
 
     Returns ``(response, body_bytes)``. Streams the body and aborts when the
@@ -77,7 +78,7 @@ def _safe_get(
         )
     _block_if_private(normalized)
 
-    def _call() -> tuple[requests.Response, bytes]:
+    def _call() -> tuple[Response, bytes]:
         resp = http_get(
             normalized,
             timeout=timeout,
@@ -127,8 +128,8 @@ def _safe_get(
         return isinstance(
             exc,
             (
-                requests.exceptions.ConnectionError,
-                requests.exceptions.Timeout,
+                ReqConnError,
+                ReqTimeout,
                 _RetryableHttp,
             ),
         )
