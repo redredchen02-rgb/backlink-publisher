@@ -9,6 +9,7 @@ import { on, qs, qsa } from './lib/dom.js';
 const SEARCH_DATA = [
     { title: '发布', desc: '创建新的发布任务', url: '/', icon: 'bi-send' },
     { title: '批量任务', desc: '批量发布多个URL', url: '/batch-campaign', icon: 'bi-stack' },
+    { title: '聚合', desc: '监控聚合看板 · 今日异常优先', url: '/monitor-hub', icon: 'bi-grid-1x2' },
     { title: '保活', desc: '外链存活监控', url: '/ce:keep-alive', icon: 'bi-shield-check' },
     { title: '存活率', desc: '链接存活率统计', url: '/survival-dashboard', icon: 'bi-graph-up' },
     { title: '健康', desc: '发布健康仪表盘', url: '/ce:health', icon: 'bi-heart-pulse' },
@@ -25,23 +26,24 @@ const SEARCH_DATA = [
  */
 class MobileDrawer {
     constructor() {
-        this.drawer = qs('#navDrawer');
+        this.sidebar = qs('#appSidebar');
+        this.backdrop = qs('.app-sidebar__backdrop');
         this.hamburger = qs('#navHamburger');
         this.isOpen = false;
-        
-        if (this.drawer && this.hamburger) {
+
+        if (this.sidebar && this.hamburger) {
             this.init();
         }
     }
-    
+
     init() {
         on(this.hamburger, 'click', () => this.toggle());
-        
-        // Close on overlay click
-        qsa('[data-action="close-drawer"]').forEach(el => {
+
+        // Close on backdrop / close-button click
+        qsa('[data-action="close-sidebar"]').forEach(el => {
             on(el, 'click', () => this.close());
         });
-        
+
         // Close on escape
         on(document, 'keydown', (e) => {
             if (e.key === 'Escape' && this.isOpen) {
@@ -49,20 +51,22 @@ class MobileDrawer {
             }
         });
     }
-    
+
     toggle() {
         this.isOpen ? this.close() : this.open();
     }
-    
+
     open() {
-        this.drawer.setAttribute('aria-hidden', 'false');
+        this.sidebar.classList.add('open');
+        if (this.backdrop) this.backdrop.classList.add('show');
         this.hamburger.setAttribute('aria-expanded', 'true');
         this.isOpen = true;
         document.body.style.overflow = 'hidden';
     }
-    
+
     close() {
-        this.drawer.setAttribute('aria-hidden', 'true');
+        this.sidebar.classList.remove('open');
+        if (this.backdrop) this.backdrop.classList.remove('show');
         this.hamburger.setAttribute('aria-expanded', 'false');
         this.isOpen = false;
         document.body.style.overflow = '';

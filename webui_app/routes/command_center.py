@@ -99,13 +99,130 @@ def _collect_subsystem_status():
     except Exception as exc:
         result["history"] = {"error": _friendly_error(str(exc))}
 
+    # ── channel credentials (top-priority anomaly: expired/mismatch) ─────
+    try:
+        from webui_store.channel_status import list_all
+        statuses = list_all()
+        failed = sorted(
+            name for name, rec in statuses.items()
+            if (rec.get("status") or "") in ("expired", "identity_mismatch")
+        )
+        result["credentials"] = {
+            "n_bound": sum(1 for r in statuses.values() if (r.get("status") or "") != "unbound"),
+            "failed": failed,
+            "failed_count": len(failed),
+        }
+    except Exception as exc:
+        result["credentials"] = {"error": _friendly_error(str(exc))}
+
     return result
+
+
+# Severity → sort rank (lower = more urgent / more prominent). Used by the
+# monitor hub to rank cards and drive their visual weight ("today's anomalies
+# first"). Plan priority: credential-failure > stale/dead links > equity gaps.
+_SEVERITY_RANK = {"danger": 0, "warning": 1, "ok": 2, "info": 2}
+
+
+def _build_anomaly_cards(status: dict) -> list[dict]:
+    """Turn the raw subsystem snapshot into severity-ranked monitor-hub cards.
+
+    Each card: {key, title, severity, headline, detail, deep_link, action}.
+    Cards are sorted most-urgent first; danger cards render with the heaviest
+    visual weight in the template. A subsystem that errored degrades to an
+    'unavailable' info card rather than vanishing.
+    """
+    cards: list[dict] = []
+
+    def _err(sub: dict) -> str | None:
+        return sub.get("error") if isinstance(sub, dict) else None
+
+    # 1. Credentials (top priority)
+    cred = status.get("credentials", {})
+    if _err(cred):
+        cards.append(_card("credentials", "渠道凭证", "info", "状态不可用", _err(cred), "/settings", None))
+    else:
+        n = cred.get("failed_count", 0)
+        if n:
+            cards.append(_card("credentials", "渠道凭证", "danger",
+                               f"{n} 个渠道凭证失效", "、".join(cred.get("failed", [])),
+                               "/settings", {"label": "去设置", "href": "/settings"}))
+        else:
+            cards.append(_card("credentials", "渠道凭证", "ok",
+                               f"{cred.get('n_bound', 0)} 个渠道已绑定", "凭证健康", "/settings", None))
+
+    # 2. Keep-alive / link liveness
+    ka = status.get("keepalive", {})
+    if _err(ka):
+        cards.append(_card("keepalive", "保活", "info", "状态不可用", _err(ka), "/ce:keep-alive", None))
+    else:
+        stripped = ka.get("stripped", 0)
+        sev = "danger" if stripped else "ok"
+        head = f"{stripped} 条链接已失效" if stripped else f"{ka.get('alive', 0)} 条链接存活"
+        cards.append(_card("keepalive", "保活", sev, head,
+                           f"目标 {ka.get('n_targets', 0)} · 未知 {ka.get('unknown', 0)}",
+                           "/ce:keep-alive",
+                           {"label": "查看保活", "href": "/ce:keep-alive"} if stripped else None))
+
+    # 3. Equity gaps (low-weight platforms as the gap signal)
+    eq = status.get("equity", {})
+    if _err(eq):
+        cards.append(_card("equity", "权益", "info", "状态不可用", _err(eq), "/ce:equity-ledger", None))
+    else:
+        low = eq.get("low_weight_count", 0)
+        sev = "warning" if low else "ok"
+        head = f"{low} 个低权重渠道" if low else "权益分布正常"
+        cards.append(_card("equity", "权益", sev, head, f"共 {eq.get('total_rows', 0)} 渠道",
+                           "/ce:equity-ledger",
+                           {"label": "查看权益", "href": "/ce:equity-ledger"} if low else None))
+
+    # 4. Publish activity (informational)
+    hist = status.get("history", {})
+    if not _err(hist):
+        cards.append(_card("history", "发布活动", "info",
+                           f"24h {hist.get('recent_24h', 0)} 篇", f"7天 {hist.get('recent_7d', 0)} 篇",
+                           "/ce:history", None))
+
+    cards.sort(key=lambda c: _SEVERITY_RANK.get(c["severity"], 3))
+    return cards
+
+
+def _card(key, title, severity, headline, detail, deep_link, action):
+    return {
+        "key": key, "title": title, "severity": severity,
+        "headline": headline, "detail": detail or "",
+        "deep_link": deep_link, "action": action,
+    }
 
 
 @bp.route("/ce:command-center", methods=["GET"])
 def command_center():
     status = _collect_subsystem_status()
     return _render("command_center.html", status=status, active_page="command_center")
+
+
+@bp.route("/monitor-hub", methods=["GET"])
+def monitor_hub():
+    """Console monitor hub — 'today's anomalies first' aggregated card view."""
+    return _render("monitor_hub.html", active_page="monitor_hub")
+
+
+@bp.route("/api/monitor-hub", methods=["GET"])
+def monitor_hub_json():
+    """Single fail-open aggregation feed for the monitor hub (U5).
+
+    Extends the existing _collect_subsystem_status() aggregator (keepalive /
+    equity / optimization / history / credentials) and ranks it into anomaly
+    cards. Never 500s — each subsystem already degrades to an 'unavailable'
+    card. anomaly_count = cards needing attention (danger + warning).
+    """
+    try:
+        status = _collect_subsystem_status()
+        cards = _build_anomaly_cards(status)
+    except Exception as exc:  # belt-and-suspenders; aggregator is already fail-open
+        return jsonify({"ok": False, "error": _friendly_error(str(exc)), "cards": [], "anomaly_count": 0})
+    anomaly_count = sum(1 for c in cards if c["severity"] in ("danger", "warning"))
+    return jsonify({"ok": True, "cards": cards, "anomaly_count": anomaly_count})
 
 
 @bp.route("/ce:command-center/gap-closure", methods=["POST"])

@@ -3,49 +3,72 @@
  * tokens.css intentionally holds both custom properties and a global body{} rule
  * so the dark gradient applies to every page from one place. */
 :root {
-    /* Brand */
-    --primary: #4f46e5;
-    --primary-dark: #4338ca;
-    --secondary: #6b7280;
-    --gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    /* ── Console retheme (2026-06-17) ───────────────────────────────────────
+     * Same token NAMES as before (286 var() references cascade automatically);
+     * VALUES shifted from indigo/purple glassmorphism to a flat dark "technical
+     * console" palette: layered slate surfaces, hairline borders, cyan accent,
+     * monospace for IDs/counts/status. Glass blur kept as a token but reduced. */
 
-    /* New gradient tokens */
-    --gradient-hero:   linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-    --gradient-accent: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    /* Brand / accent */
+    --primary: #38bdf8;            /* console cyan-blue (was indigo) */
+    --primary-dark: #0ea5e9;
+    --secondary: #94a3b8;
+    --gradient: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+
+    /* Console accent + soft status (NEW — consumed by focus ring, toast/states,
+     * shell active states; bound to consumers this phase) */
+    --accent-cyan: #22d3ee;
+    --danger-soft:  rgba(239, 68, 68, 0.16);
+    --warning-soft: rgba(245, 158, 11, 0.16);
+    --success-soft: rgba(16, 185, 129, 0.16);
+
+    /* Surfaces — layered console panels (NEW; consumed by global overrides + shell) */
+    --surface-base:    #0b0f17;    /* app background floor */
+    --surface-raised:  #141a24;    /* panels / cards */
+    --surface-overlay: #1b2330;    /* popovers / toast / drawers */
+
+    /* Background — near-flat dark (console, not nebula). Kept as gradient token
+     * name so body{} and any page using --gradient-hero cascade. */
+    --gradient-hero:   linear-gradient(180deg, #0b0f17 0%, #0d1219 100%);
+    --gradient-accent: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
 
     /* Status */
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --info: #3b82f6;
+    --success: #34d399;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --info: #38bdf8;
 
-    /* Neutrals / surfaces */
-    --light: #f9fafb;
-    --dark: #1f2937;
-    --text: #374151;
-    --border: #e5e7eb;
+    /* Neutrals */
+    --light: #e7ecf3;             /* high-contrast foreground on dark surfaces */
+    --dark: #0b0f17;
+    --text: #cbd5e1;
+    --border: rgba(255, 255, 255, 0.08);
 
-    /* Glass tokens — dark theme values */
-    --glass-bg:          rgba(255, 255, 255, 0.10);
-    --glass-bg-fallback: rgba(30, 27, 75, 0.85);
-    --glass-border:      rgba(255, 255, 255, 0.18);
-    --glass-blur:        blur(20px);
+    /* Panel tokens — same NAMES as the old "glass" tokens so pages cascade;
+     * values flattened to console panels with hairline borders + subtle blur. */
+    --glass-bg:          rgba(255, 255, 255, 0.03);
+    --glass-bg-fallback: #141a24;
+    --glass-border:      rgba(255, 255, 255, 0.08);
+    --glass-blur:        blur(8px);
 
-    /* Text tokens for dark theme */
+    /* Text tokens */
     --text-primary:   rgba(255, 255, 255, 0.92);
-    --text-secondary: rgba(255, 255, 255, 0.60);
+    --text-secondary: rgba(255, 255, 255, 0.58);
 
-    /* Elevation */
-    --shadow-sm:          0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-brand:       0 10px 25px -5px rgba(79, 70, 229, 0.3);
-    --shadow-brand-hover: 0 15px 30px -5px rgba(79, 70, 229, 0.4);
-    --shadow-glass:       0 8px 32px rgba(79, 70, 229, 0.25), 0 2px 8px rgba(0, 0, 0, 0.4);
+    /* Monospace — IDs, counts, status, anchors scan in columns (NEW) */
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
 
-    /* Focus ring */
-    --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.4);
+    /* Elevation — flatter, darker shadows for console depth */
+    --shadow-sm:          0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-brand:       0 8px 24px -8px rgba(0, 0, 0, 0.6);
+    --shadow-brand-hover: 0 12px 28px -8px rgba(0, 0, 0, 0.7);
+    --shadow-glass:       0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
 
-    /* Spacing / radius */
-    --radius: 16px;
+    /* Focus ring — console cyan */
+    --focus-ring: 0 0 0 3px rgba(34, 211, 238, 0.45);
+
+    /* Spacing / radius — tighter, more rectilinear console feel */
+    --radius: 10px;
     --space: 20px;
 
     color-scheme: dark;
@@ -70,10 +93,12 @@ body {
     overflow: hidden;
 }
 
+/* Console ambience — faint cyan/slate glows, far dimmer than the old nebula
+ * so the backdrop reads as a flat console floor, not a purple gradient. */
 .orb {
     position: absolute;
     border-radius: 50%;
-    opacity: 0.18;
+    opacity: 0.06;
 }
 
 .orb--1 {
@@ -81,7 +106,7 @@ body {
     height: 600px;
     top: -200px;
     right: -100px;
-    background: radial-gradient(circle, #6366f1 0%, transparent 70%);
+    background: radial-gradient(circle, #38bdf8 0%, transparent 70%);
 }
 
 .orb--2 {
@@ -89,7 +114,7 @@ body {
     height: 500px;
     bottom: -150px;
     left: -100px;
-    background: radial-gradient(circle, #4f46e5 0%, transparent 70%);
+    background: radial-gradient(circle, #2563eb 0%, transparent 70%);
 }
 
 .orb--3 {
@@ -97,8 +122,8 @@ body {
     height: 350px;
     top: 40%;
     left: 35%;
-    background: radial-gradient(circle, #7c3aed 0%, transparent 70%);
-    opacity: 0.10;
+    background: radial-gradient(circle, #22d3ee 0%, transparent 70%);
+    opacity: 0.04;
 }
 
 /* Content wrapper — sits above orbs (z-index 0) and below Bootstrap modals (1050+). */
@@ -111,6 +136,11 @@ body {
 *:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
+}
+
+/* Console monospace — IDs, counts, status codes, anchors read in columns. */
+code, kbd, samp, .font-mono {
+    font-family: var(--font-mono);
 }
 
 /* Global dark-glass overrides — apply to all pages that use base.html. */
@@ -128,9 +158,9 @@ body {
     color: #fff !important;
 }
 
-/* alert-warning: muted amber glass instead of Bootstrap's bright yellow */
+/* alert-warning: muted amber console panel instead of Bootstrap's bright yellow */
 .alert-warning {
-    background: rgba(245, 158, 11, 0.15) !important;
+    background: var(--warning-soft) !important;
     border-color: rgba(245, 158, 11, 0.35) !important;
     color: #fcd34d !important;
 }
@@ -142,9 +172,9 @@ body {
     border-radius: 4px;
 }
 
-/* alert-danger: muted red glass */
+/* alert-danger: muted red console panel */
 .alert-danger {
-    background: rgba(239, 68, 68, 0.15) !important;
+    background: var(--danger-soft) !important;
     border-color: rgba(239, 68, 68, 0.35) !important;
     color: #fca5a5 !important;
 }

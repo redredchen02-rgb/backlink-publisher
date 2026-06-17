@@ -17,9 +17,13 @@
     {# Single source of design tokens, consumed by per-page CSS. #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css', v=asset_version) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global_nav.css', v=asset_version) }}">
+    {# Shared console UI primitives: toast + empty/loading/error states. #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css', v=asset_version) }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
+    {# Skip link — first focusable element, jumps keyboard users to the content. #}
+    <a href="#mainContent" class="skip-nav">跳到主内容</a>
     {# Decorative background orbs — fixed-position, pointer-events none, z-index 0.
        Sibling div (not ::before) keeps backdrop-filter stacking contexts isolated. #}
     <div class="bg-orbs" aria-hidden="true">
@@ -27,89 +31,98 @@
         <div class="orb orb--2"></div>
         <div class="orb orb--3"></div>
     </div>
-    {# Global navigation — active_page must use | default('') so pages that omit it render without error. #}
-    <nav class="global-nav sticky-top" aria-label="主导航">
-        <div class="global-nav__inner">
-            {# Mobile hamburger menu button #}
-            <button type="button" class="global-nav__hamburger" id="navHamburger"
-                    aria-label="打开导航菜单" aria-expanded="false" aria-controls="navDrawer">
-                <i class="bi bi-list"></i>
-            </button>
-            
-            {# Logo/brand - visible on mobile #}
-            <a href="/" class="global-nav__brand">BP</a>
-            
-            {# Navigation groups - desktop #}
-            <div class="global-nav__groups" id="navGroups">
-                <div class="global-nav__group">
-                    <span class="global-nav__group-label">核心</span>
-                    <a href="/" class="global-nav__item{% if (active_page | default('')) == 'index' %} active{% endif %}" aria-label="发布新任务">发布</a>
-                    <a href="/batch-campaign" class="global-nav__item{% if (active_page | default('')) == 'batch_campaign' %} active{% endif %}" aria-label="批量任务管理">批量任务</a>
-                </div>
-                
-                <div class="global-nav__group">
-                    <span class="global-nav__group-label">监控</span>
-                    <a href="/ce:keep-alive" class="global-nav__item{% if (active_page | default('')) == 'keep_alive' %} active{% endif %}" aria-label="保活监控">保活</a>
+
+    {# ── Console shell: left sidebar + slim topbar + content. active_page uses
+         | default('') so pages that omit it render without error. On <=1024px the
+         sidebar becomes a slide-in drawer toggled by the topbar hamburger. ── #}
+    {%- macro nav_item(href, key, label, icon) -%}
+        {%- set is_active = (active_page | default('')) == key -%}
+        <a href="{{ href }}" class="app-sidebar__item{% if is_active %} active{% endif %}"
+           {% if is_active %}aria-current="page"{% endif %}>
+            <i class="bi {{ icon }}" aria-hidden="true"></i>
+            <span class="app-sidebar__item-label">{{ label }}</span>
+        </a>
+    {%- endmacro -%}
+    <div class="app-shell">
+        <aside class="app-sidebar" id="appSidebar" aria-label="主导航">
+            <div class="app-sidebar__brand">
+                <a href="/" class="app-sidebar__brand-link"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i> Backlink</a>
+                <button type="button" class="app-sidebar__close" data-action="close-sidebar" aria-label="关闭导航菜单">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <nav class="app-sidebar__nav" aria-label="功能导航">
+                <section class="app-sidebar__group">
+                    <span class="app-sidebar__group-label">核心</span>
+                    {{ nav_item('/', 'index', '发布', 'bi-send') }}
+                    {{ nav_item('/batch-campaign', 'batch_campaign', '批量任务', 'bi-stack') }}
+                </section>
+                <section class="app-sidebar__group">
+                    <span class="app-sidebar__group-label">监控</span>
+                    {{ nav_item('/monitor-hub', 'monitor_hub', '聚合', 'bi-grid-1x2') }}
+                    {{ nav_item('/ce:keep-alive', 'keep_alive', '保活', 'bi-shield-check') }}
                     {% if not lite_edition %}
-                    <a href="/survival-dashboard" class="global-nav__item{% if (active_page | default('')) == 'survival_dashboard' %} active{% endif %}" aria-label="存活率统计">存活率</a>
-                    <a href="/ce:health" class="global-nav__item{% if (active_page | default('')) == 'health' %} active{% endif %}" aria-label="健康状态">健康</a>
-                    <a href="/ce:command-center" class="global-nav__item{% if (active_page | default('')) == 'command_center' %} active{% endif %}" aria-label="指挥中心">指挥</a>
+                    {{ nav_item('/survival-dashboard', 'survival_dashboard', '存活率', 'bi-graph-up') }}
+                    {{ nav_item('/ce:health', 'health', '健康', 'bi-heart-pulse') }}
+                    {{ nav_item('/ce:command-center', 'command_center', '指挥', 'bi-speedometer2') }}
+                    {% endif %}
+                </section>
+                {# LITE: omit the whole 配置 section (no hollow placeholder). #}
+                {% if not lite_edition %}
+                <section class="app-sidebar__group">
+                    <span class="app-sidebar__group-label">配置</span>
+                    {{ nav_item('/sites', 'sites', '站点', 'bi-globe2') }}
+                    {{ nav_item('/schedule', 'schedule', '排程', 'bi-calendar-week') }}
+                    {{ nav_item('/ce:equity-ledger', 'equity', '权益', 'bi-graph-up-arrow') }}
+                    {{ nav_item('/pr-queue', 'pr_queue', 'PR队列', 'bi-newspaper') }}
+                </section>
+                {% endif %}
+            </nav>
+        </aside>
+        <div class="app-sidebar__backdrop" data-action="close-sidebar" aria-hidden="true"></div>
+
+        <div class="app-body">
+            <header class="app-topbar">
+                <button type="button" class="app-topbar__hamburger" id="navHamburger"
+                        aria-label="打开导航菜单" aria-expanded="false" aria-controls="appSidebar">
+                    <i class="bi bi-list"></i>
+                </button>
+                <a href="/" class="app-topbar__brand">Backlink Publisher</a>
+                <div class="app-topbar__actions">
+                    <button type="button" class="topbar-btn" id="searchToggle"
+                            aria-label="搜索 (Ctrl+K)" title="搜索 (Ctrl+K)">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <button type="button" class="topbar-btn theme-toggle" id="themeToggle"
+                            aria-label="切换深色模式" title="切换深色模式">
+                        <i class="bi bi-moon"></i>
+                    </button>
+                    <a href="/settings" class="topbar-btn{% if (active_page | default('')) == 'settings' %} active{% endif %}" aria-label="系统设置" title="系统设置">
+                        <i class="bi bi-gear"></i>
+                    </a>
+                    {% if not lite_edition %}
+                    {% set ps = pro_status | default({}, true) %}
+                    {% if not ps.configured %}
+                    <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--inactive"
+                       title="绑定金钥即可启用 AI 内容生成引擎"
+                       aria-label="启用 Pro AI 内容生成引擎">启用 Pro</a>
+                    {% elif ps.article_gen and ps.last_test and ps.last_test.ok %}
+                    <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--healthy"
+                       title="AI 内容引擎已启用 · {{ ps.model or '模型未指定' }} · 上次测试 {{ ps.last_test.at }}"
+                       aria-label="Pro AI 内容引擎已启用">✦ Pro 已启用</a>
+                    {% else %}
+                    <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--pending"
+                       title="{{ ps.model or '模型未指定' }}{% if not ps.article_gen %} · 全文生成未开启{% elif not ps.last_test %} · 尚未测试连接{% elif not ps.last_test.ok %} · 上次测试失败{% endif %}"
+                       aria-label="Pro AI 内容引擎待激活">Pro 待激活</a>
+                    {% endif %}
                     {% endif %}
                 </div>
-                {% if not lite_edition %}
-                
-                <div class="global-nav__group">
-                    <span class="global-nav__group-label">配置</span>
-                    <a href="/sites" class="global-nav__item{% if (active_page | default('')) == 'sites' %} active{% endif %}" aria-label="站点配置管理">站点</a>
-                    <a href="/schedule" class="global-nav__item{% if (active_page | default('')) == 'schedule' %} active{% endif %}" aria-label="定时发布排程">排程</a>
-                    <a href="/ce:equity-ledger" class="global-nav__item{% if (active_page | default('')) == 'equity' %} active{% endif %}" aria-label="外链权益记账">权益</a>
-                    <a href="/pr-queue" class="global-nav__item{% if (active_page | default('')) == 'pr_queue' %} active{% endif %}" aria-label="PR外联机会">PR队列</a>
-                </div>
-                {% endif %}
-            </div>
-            
-            {# Right side actions #}
-            <div class="global-nav__actions">
-                {# Search button #}
-                <button type="button" class="global-nav__search" id="searchToggle"
-                        aria-label="搜索 (Ctrl+K)" title="搜索 (Ctrl+K)">
-                    <i class="bi bi-search"></i>
-                </button>
-                
-                {# Theme toggle #}
-                <button type="button" class="theme-toggle" id="themeToggle" 
-                        aria-label="切换深色模式" title="切换深色模式">
-                    <i class="bi bi-moon"></i>
-                </button>
-                
-                {# Settings link #}
-                <a href="/settings" class="global-nav__item{% if (active_page | default('')) == 'settings' %} active{% endif %}" aria-label="系统设置">
-                    <i class="bi bi-gear"></i>
-                </a>
-                
-                {# Pro Mode status pill #}
-                {% if not lite_edition %}
-                {% set ps = pro_status | default({}, true) %}
-                {% if not ps.configured %}
-                <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--inactive"
-                   title="绑定金钥即可启用 AI 内容生成引擎"
-                   aria-label="启用 Pro AI 内容生成引擎">启用 Pro</a>
-                {% elif ps.article_gen and ps.last_test and ps.last_test.ok %}
-                <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--healthy"
-                   title="AI 内容引擎已启用 · {{ ps.model or '模型未指定' }} · 上次测试 {{ ps.last_test.at }}"
-                   aria-label="Pro AI 内容引擎已启用">✦ Pro 已启用</a>
-                {% else %}
-                <a href="/settings#pane-llm" class="global-nav__pro global-nav__pro--pending"
-                   title="{{ ps.model or '模型未指定' }}{% if not ps.article_gen %} · 全文生成未开启{% elif not ps.last_test %} · 尚未测试连接{% elif not ps.last_test.ok %} · 上次测试失败{% endif %}"
-                   aria-label="Pro AI 内容引擎待激活">Pro 待激活</a>
-                {% endif %}
-                {% endif %}
-            </div>
+            </header>
+            <main class="page-content" id="mainContent">
+                {% block content %}{% endblock %}
+            </main>
         </div>
-    </nav>
-    <main class="page-content">
-        {% block content %}{% endblock %}
-    </main>
+    </div>
     {# Server -> client bootstrap data island(s). Usually one window.__<page>Bootstrap;
        index is the documented exception (two: __indexBootstrap + __batchTabHint). #}
     {% block page_data %}{% endblock %}
@@ -117,6 +130,9 @@
     {% block page_module %}{% endblock %}
     <script type="module" src="{{ url_for('static', filename='js/theme.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/nav.js', v=asset_version) }}"></script>
+    {# ui/toast.js subscribes to app:notify BEFORE notifications.js inits (and
+       dispatches flash-message events), so it must load first. #}
+    <script type="module" src="{{ url_for('static', filename='js/ui/toast.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/notifications.js', v=asset_version) }}"></script>
 </body>
 </html>

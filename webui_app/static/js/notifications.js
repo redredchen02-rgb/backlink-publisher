@@ -2,10 +2,33 @@
  * Notifications module — global notification center
  * Replaces Flash messages with persistent toast notifications
  */
-import { on, qs, qsa, esc } from './lib/dom.js';
+import { on, qs, qsa } from './lib/dom.js';
 
 const NOTIFICATION_KEY = 'backlink-publisher-notifications';
 const MAX_NOTIFICATIONS = 50;
+
+// app:notify — the cross-component notification event bus. NotificationStore.add()
+// dispatches it on document; toast/badge renderers and any page module subscribe via
+// document.addEventListener('app:notify', ...). Keeps cross-component signalling on
+// CustomEvent (no window.* global API), per the frontend anti-rot rules.
+export const NOTIFY_EVENT = 'app:notify';
+
+// el() — tiny createElement builder so we never route untrusted text through innerHTML.
+// props.text sets textContent (escaped by the DOM); props.* set attributes; children append.
+function el(tag, props = {}, children = []) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props)) {
+        if (value == null || value === false) continue;
+        if (key === 'text') node.textContent = value;
+        else if (key === 'class') node.className = value;
+        else node.setAttribute(key, value);
+    }
+    for (const child of children) {
+        if (child == null) continue;
+        node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+    }
+    return node;
+}
 
 /**
  * Notification types
@@ -58,9 +81,18 @@ class NotificationStore {
         }
         
         this.save();
+
+        // Dispatch on the document so toast/badge renderers and page modules can react
+        // without a window.* global. detail is the stored item (id/type/title/message/...).
+        try {
+            document.dispatchEvent(new CustomEvent(NOTIFY_EVENT, { detail: item }));
+        } catch {
+            // document/CustomEvent unavailable (non-DOM context) — storage still succeeded.
+        }
+
         return item;
     }
-    
+
     markRead(id) {
         const item = this.notifications.find(n => n.id === id);
         if (item) {
@@ -89,188 +121,13 @@ class NotificationStore {
 }
 
 /**
- * Toast notification display
- */
-class ToastManager {
-    constructor() {
-        this.container = null;
-        this.init();
-    }
-    
-    init() {
-        // Create container
-        this.container = document.createElement('div');
-        this.container.className = 'toast-container';
-        this.container.setAttribute('aria-live', 'polite');
-        this.container.setAttribute('aria-atomic', 'false');
-        document.body.appendChild(this.container);
-        
-        // Add styles
-        this.addStyles();
-    }
-    
-    addStyles() {
-        if (qs('#toast-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'toast-styles';
-        style.textContent = `
-            .toast-container {
-                position: fixed;
-                top: 60px;
-                right: 16px;
-                z-index: 1200;
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                max-width: 380px;
-                pointer-events: none;
-            }
-            
-            .toast {
-                display: flex;
-                align-items: flex-start;
-                gap: 12px;
-                padding: 12px 16px;
-                background: var(--light);
-                border: 1px solid var(--border);
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                pointer-events: auto;
-                transform: translateX(120%);
-                opacity: 0;
-                transition: transform 0.3s ease, opacity 0.3s ease;
-            }
-            
-            .toast.show {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            
-            .toast.hiding {
-                transform: translateX(120%);
-                opacity: 0;
-            }
-            
-            .toast-icon {
-                font-size: 1.25rem;
-                flex-shrink: 0;
-                margin-top: 2px;
-            }
-            
-            .toast-content {
-                flex: 1;
-                min-width: 0;
-            }
-            
-            .toast-title {
-                font-weight: 600;
-                font-size: 0.9rem;
-                margin-bottom: 2px;
-            }
-            
-            .toast-message {
-                font-size: 0.85rem;
-                color: #6b7280;
-                line-height: 1.4;
-            }
-            
-            .toast-close {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 24px;
-                height: 24px;
-                padding: 0;
-                background: none;
-                border: none;
-                border-radius: 6px;
-                color: #9ca3af;
-                cursor: pointer;
-                transition: background 0.15s ease, color 0.15s ease;
-            }
-            
-            .toast-close:hover {
-                background: rgba(0, 0, 0, 0.05);
-                color: #374151;
-            }
-            
-            .toast-progress {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                height: 3px;
-                background: currentColor;
-                border-radius: 0 0 12px 12px;
-                opacity: 0.3;
-                transition: width linear;
-            }
-            
-            @media (max-width: 480px) {
-                .toast-container {
-                    left: 16px;
-                    right: 16px;
-                    max-width: none;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    show(notification, duration = 5000) {
-        const type = TYPES[notification.type] || TYPES.info;
-        
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.setAttribute('role', 'alert');
-        toast.innerHTML = `
-            <i class="bi ${type.icon} toast-icon" style="color: ${type.color}"></i>
-            <div class="toast-content">
-                ${notification.title ? `<div class="toast-title">${esc(notification.title)}</div>` : ''}
-                <div class="toast-message">${esc(notification.message)}</div>
-            </div>
-            <button type="button" class="toast-close" aria-label="关闭通知">
-                <i class="bi bi-x"></i>
-            </button>
-        `;
-        
-        // Close button
-        const closeBtn = toast.querySelector('.toast-close');
-        on(closeBtn, 'click', () => this.hide(toast));
-        
-        // Add to container
-        this.container.appendChild(toast);
-        
-        // Trigger animation
-        requestAnimationFrame(() => {
-            toast.classList.add('show');
-        });
-        
-        // Auto-hide
-        if (duration > 0) {
-            setTimeout(() => this.hide(toast), duration);
-        }
-        
-        return toast;
-    }
-    
-    hide(toast) {
-        toast.classList.remove('show');
-        toast.classList.add('hiding');
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }
-}
-
-/**
  * Notification center UI
  */
 class NotificationCenter {
     constructor(store) {
         this.store = store;
-        this.toastManager = new ToastManager();
+        // Toasts are rendered by ui/toast.js subscribing to the app:notify event
+        // that store.add() dispatches — this class only owns the bell badge + panel.
         this.panel = null;
         this.badge = null;
         this.isOpen = false;
@@ -286,14 +143,11 @@ class NotificationCenter {
     }
     
     createBadge() {
-        this.badge = document.createElement('button');
-        this.badge.className = 'notification-badge';
-        this.badge.setAttribute('aria-label', '通知');
-        this.badge.innerHTML = `
-            <i class="bi bi-bell"></i>
-            <span class="notification-badge__count" aria-hidden="true">0</span>
-        `;
-        
+        this.badge = el('button', { class: 'notification-badge', 'aria-label': '通知' }, [
+            el('i', { class: 'bi bi-bell' }),
+            el('span', { class: 'notification-badge__count', 'aria-hidden': 'true', text: '0' }),
+        ]);
+
         // Insert before theme toggle
         const actions = qs('.global-nav__actions');
         if (actions) {
@@ -472,26 +326,17 @@ class NotificationCenter {
     }
     
     createPanel() {
-        this.panel = document.createElement('div');
-        this.panel.className = 'notification-panel';
-        this.panel.setAttribute('role', 'dialog');
-        this.panel.setAttribute('aria-label', '通知中心');
-        this.panel.innerHTML = `
-            <div class="notification-panel__header">
-                <span class="notification-panel__title">通知</span>
-                <div class="notification-panel__actions">
-                    <button type="button" class="notification-panel__btn" data-action="mark-all-read">
-                        全部已读
-                    </button>
-                    <button type="button" class="notification-panel__btn" data-action="clear-all">
-                        清空
-                    </button>
-                </div>
-            </div>
-            <div class="notification-panel__list" id="notificationList">
-                <div class="notification-panel__empty">暂无通知</div>
-            </div>
-        `;
+        const header = el('div', { class: 'notification-panel__header' }, [
+            el('span', { class: 'notification-panel__title', text: '通知' }),
+            el('div', { class: 'notification-panel__actions' }, [
+                el('button', { type: 'button', class: 'notification-panel__btn', 'data-action': 'mark-all-read', text: '全部已读' }),
+                el('button', { type: 'button', class: 'notification-panel__btn', 'data-action': 'clear-all', text: '清空' }),
+            ]),
+        ]);
+        const list = el('div', { class: 'notification-panel__list', id: 'notificationList' }, [
+            el('div', { class: 'notification-panel__empty', text: '暂无通知' }),
+        ]);
+        this.panel = el('div', { class: 'notification-panel', role: 'dialog', 'aria-label': '通知中心' }, [header, list]);
         document.body.appendChild(this.panel);
         
         this.renderList();
@@ -562,37 +407,36 @@ class NotificationCenter {
     renderList() {
         const list = qs('#notificationList', this.panel);
         const notifications = this.store.getRecent(20);
-        
+
+        list.replaceChildren();
+
         if (notifications.length === 0) {
-            list.innerHTML = '<div class="notification-panel__empty">暂无通知</div>';
+            list.appendChild(el('div', { class: 'notification-panel__empty', text: '暂无通知' }));
             return;
         }
-        
-        list.innerHTML = notifications.map(n => {
+
+        notifications.forEach(n => {
             const type = TYPES[n.type] || TYPES.info;
-            const time = this.formatTime(n.timestamp);
-            return `
-                <div class="notification-item ${n.read ? '' : 'unread'}" data-id="${n.id}">
-                    <div class="notification-item__icon" style="background: ${type.color}20; color: ${type.color}">
-                        <i class="bi ${type.icon}"></i>
-                    </div>
-                    <div class="notification-item__content">
-                        ${n.title ? `<div class="notification-item__title">${esc(n.title)}</div>` : ''}
-                        <div class="notification-item__message">${esc(n.message)}</div>
-                        <div class="notification-item__time">${time}</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        // Bind click handlers
-        qsa('.notification-item', list).forEach(el => {
-            on(el, 'click', () => {
-                const id = parseFloat(el.dataset.id);
-                this.store.markRead(id);
-                el.classList.remove('unread');
+            const content = el('div', { class: 'notification-item__content' }, [
+                n.title ? el('div', { class: 'notification-item__title', text: n.title }) : null,
+                el('div', { class: 'notification-item__message', text: n.message }),
+                el('div', { class: 'notification-item__time', text: this.formatTime(n.timestamp) }),
+            ]);
+            const item = el('div', {
+                class: `notification-item ${n.read ? '' : 'unread'}`.trim(),
+                'data-id': n.id,
+            }, [
+                el('div', { class: 'notification-item__icon', style: `background: ${type.color}20; color: ${type.color}` }, [
+                    el('i', { class: `bi ${type.icon}` }),
+                ]),
+                content,
+            ]);
+            on(item, 'click', () => {
+                this.store.markRead(parseFloat(item.dataset.id));
+                item.classList.remove('unread');
                 this.updateBadge();
             });
+            list.appendChild(item);
         });
     }
     
@@ -625,8 +469,9 @@ class NotificationCenter {
     }
     
     add(notification) {
+        // store.add() persists AND dispatches app:notify (ui/toast.js renders the
+        // toast). We only refresh the unread badge here.
         const item = this.store.add(notification);
-        this.toastManager.show(notification);
         this.updateBadge();
         return item;
     }
@@ -641,12 +486,16 @@ let notifications = null;
 function initNotifications() {
     const store = new NotificationStore();
     notifications = new NotificationCenter(store);
-    
-    // Expose globally for other modules
-    window.notifications = notifications;
-    
+
+    // Other modules subscribe via document.addEventListener('app:notify', ...) — no window.* global.
     // Convert existing Flash messages
     convertFlashMessages();
+}
+
+// Module export for consumers that need the live center (e.g. to call .success()/.error()).
+// Cross-component signalling otherwise goes through the app:notify event, not this binding.
+export function getNotificationCenter() {
+    return notifications;
 }
 
 /**

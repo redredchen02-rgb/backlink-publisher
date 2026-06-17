@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from flask import Blueprint, request
+from flask import Blueprint, jsonify, request
 
 from ..helpers.contexts import _render
 
@@ -27,6 +27,16 @@ def _get_platforms() -> list[str]:
         except Exception:
             _PLATFORMS_CACHE = []
     return _PLATFORMS_CACHE
+
+
+def _read_platforms() -> list[dict]:
+    """Authoritative platform-weight data via OptimizationState.to_summary().
+
+    Same source command_center and the HTML page read, so the JSON endpoint can
+    never drift from them. Returns [] on any read error (caller decides ok flag).
+    """
+    from backlink_publisher.optimization import OptimizationState
+    return OptimizationState().to_summary().get("platforms", [])
 
 
 @bp.route("/optimization-status", methods=["GET"])
@@ -48,6 +58,21 @@ def optimization_status():
         message=message,
         active_page="optimization_status",
     )
+
+
+@bp.route("/api/optimization-status", methods=["GET"])
+def optimization_status_json():
+    """Read-only JSON twin of the optimisation page (for the monitor hub, U5/U6).
+
+    Shares OptimizationState.to_summary() with the HTML page and command_center —
+    no third source of truth. Fail-open: never 500s; on error ok=false + empty.
+    """
+    try:
+        platforms = _read_platforms()
+    except Exception as exc:  # read-only dashboard data must never 500
+        _log.warning("optimization-status json: read failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc), "platforms": [], "all_platforms": _get_platforms()})
+    return jsonify({"ok": True, "platforms": platforms, "all_platforms": _get_platforms()})
 
 
 @bp.route("/optimization-status/set-weight", methods=["POST"])

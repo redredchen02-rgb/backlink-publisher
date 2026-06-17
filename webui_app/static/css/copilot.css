@@ -6,7 +6,13 @@
  * the token value. Severity chips reuse Bootstrap's .badge / .text-bg-* (the
  * Bootstrap stylesheet is present on all five include targets). No
  * bootstrap-icons dependency — sites.html does not load the icon font, so the
- * panel uses text/CSS affordances only. */
+ * panel uses text/CSS affordances only.
+ *
+ * z-index ladder (console shell, global_nav.css): topbar 1020 · sidebar-drawer
+ * 1050 · copilot FAB 1080 · copilot panel 1090 · search modal 1100 · toast 1200.
+ * The FAB/panel deliberately sit above the topbar and sidebar drawer — same
+ * precedence as the old shell, so no functional change here; the ladder is just
+ * documented for the redesign. */
 
 .copilot-fab {
     position: fixed;

@@ -1,0 +1,133 @@
+/* components.css — shared console-style UI primitives (toast + empty/loading/error).
+ *
+ * External stylesheet (not injected <style>) so it is CSP-friendly. Consumes the
+ * design tokens from tokens.css. Toast position uses --toast-top so it does not
+ * hardcode a topbar height and survives the shell rework. */
+
+:root {
+    --toast-top: 4.5rem;   /* clears the sticky topbar; overridable by the shell */
+}
+
+/* ── Toast (ui/toast.js) ─────────────────────────────────────────────────── */
+.ui-toast-container {
+    position: fixed;
+    top: var(--toast-top);
+    right: 16px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 380px;
+    pointer-events: none;
+}
+
+.ui-toast {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface-overlay);
+    border: 1px solid var(--glass-border);
+    border-left: 3px solid var(--info);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-glass);
+    color: var(--text-primary);
+    pointer-events: auto;
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.ui-toast.show { transform: translateX(0); opacity: 1; }
+.ui-toast.hiding { transform: translateX(120%); opacity: 0; }
+
+.ui-toast--success { border-left-color: var(--success); }
+.ui-toast--error   { border-left-color: var(--danger); }
+.ui-toast--warning { border-left-color: var(--warning); }
+.ui-toast--info    { border-left-color: var(--info); }
+
+.ui-toast__icon { font-size: 1.15rem; flex-shrink: 0; margin-top: 1px; }
+.ui-toast--success .ui-toast__icon { color: var(--success); }
+.ui-toast--error   .ui-toast__icon { color: var(--danger); }
+.ui-toast--warning .ui-toast__icon { color: var(--warning); }
+.ui-toast--info    .ui-toast__icon { color: var(--info); }
+
+.ui-toast__body { flex: 1; min-width: 0; }
+.ui-toast__title { font-weight: 600; font-size: 0.9rem; margin-bottom: 2px; }
+.ui-toast__message { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; word-break: break-word; }
+
+.ui-toast__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.ui-toast__close:hover { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
+
+@media (max-width: 480px) {
+    .ui-toast-container { left: 16px; right: 16px; max-width: none; }
+}
+
+/* ── Loading skeleton (ui/states.js renderSkeleton) ──────────────────────── */
+.ui-skeleton { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.ui-skeleton__bar {
+    height: 14px;
+    border-radius: 6px;
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 25%,
+        rgba(255, 255, 255, 0.10) 37%,
+        rgba(255, 255, 255, 0.04) 63%);
+    background-size: 400% 100%;
+    animation: ui-skeleton-shimmer 1.4s ease infinite;
+}
+.ui-skeleton__bar:nth-child(2) { width: 85%; }
+.ui-skeleton__bar:nth-child(3) { width: 65%; }
+
+@keyframes ui-skeleton-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ui-skeleton__bar { animation: none; }
+}
+
+/* ── Empty + error states (ui/states.js renderEmpty / renderError) ───────── */
+.ui-empty, .ui-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 40px 20px;
+}
+.ui-empty__icon { font-size: 2.2rem; color: var(--text-secondary); opacity: 0.7; }
+.ui-error__icon { font-size: 2.2rem; color: var(--danger); }
+.ui-empty__title, .ui-error__title { font-weight: 600; font-size: 1rem; color: var(--text-primary); }
+.ui-empty__message, .ui-error__message { font-size: 0.875rem; color: var(--text-secondary); max-width: 36ch; }
+
+.ui-empty__action, .ui-error__retry {
+    margin-top: 8px;
+    padding: 8px 18px;
+    border-radius: var(--radius);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.ui-empty__action:hover, .ui-error__retry:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary);
+}
+.ui-error__retry { border-color: rgba(248, 113, 113, 0.4); }
+.ui-error__retry:hover { border-color: var(--danger); }
