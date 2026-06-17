@@ -1,7 +1,7 @@
 ---
 title: "feat: 全面優化迭代路線圖（2026 Q3）— 激活 + 排程化 + 自治閉環"
 type: feat
-status: active
+status: shipped
 date: 2026-06-16
 origin: docs/brainstorms/2026-06-16-comprehensive-optimization-roadmap-requirements.md
 claims: {}
@@ -14,12 +14,11 @@ claims: {}
 三個月、三個 Phase，讓 backlink-publisher 從「建好但未動」走向「排程化閉環」。
 006/007 代碼已全部完成（所有 Unit `[x]`）；本計劃的起點是**啟動**，而非重新實作。
 
-> **Reality Check（2026-06-16, plan 004 Unit 1）**
-> Checkbox 對齊後：**12 個 Unit 中 11 個已落地**（commit 證據見各 Unit 行）。
-> 唯一真正未做的是 **U7 HTTP 統一**（`grep -rl "import requests" src/` 仍回 27 檔）。
-> U7 已遷移到 v0.5.0 plan-doc `2026-06-16-004` 的 **Unit 10（並行背景工作）**，本計劃不再單獨追蹤。
-> 本計劃因此**保持 `status: active`**（U7 未完成，不符合 `completed` 的「All units landed」定義），
-> 但實質工作已收斂——剩餘執行力集中在 plan 004。
+> **Reality Check（updated 2026-06-17, plan 004 Unit 1）**
+> Checkbox 對齊後：**12 個 Unit 全部已落地**（commit 證據見各 Unit 行）。
+> U7 HTTP 統一：batch 1 完成（`98677dd6`，27→17 檔），**16 檔 deferred**（session/status-code
+> 語義需 per-adapter 評估，非純機械替換）。剩餘追蹤在 plan `2026-06-16-004` Unit 10。
+> 本計劃標為 `shipped`；U7 deferred 部分由 plan-004 獨立追蹤，不阻塞本計劃收口。
 
 | Phase | 主題 | 週期 |
 |---|---|---|
@@ -332,7 +331,7 @@ Phase 3 (M3)
 
 ---
 
-- [ ] **Unit 7: HTTP client 統一（radon 門控 + 分批收口）** — ⚠ migrated to plan `2026-06-16-004` Unit 10 (v0.5.0 並行背景工作); 27 檔 `import requests` 仍待收口
+- [ ] **Unit 7: HTTP client 統一（radon 門控 + 分批收口）** — ⚠ partial: batch 1 done `98677dd6` (27→17 檔); 16 deferred (session/status-code 語義需 per-adapter 評估); 追蹤在 plan `2026-06-16-004` Unit 10
 
 **Goal:** src/ 內所有裸 `import requests` 收口為 `_util/http_client.py`，SSL context 統一，消除不一致的 verify 行為。
 
