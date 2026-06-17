@@ -15,6 +15,7 @@ from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.config.tokens import (
@@ -227,12 +228,13 @@ class DefaultCredentialProvider(CredentialProvider):
         }
 
         try:
-            resp = requests.post(
+            resp = http_client.post(
                 refresh_cfg.token_endpoint,
                 data=payload,
                 timeout=30,
+                raise_for_status=False,
             )
-        except requests.RequestException as exc:
+        except ExternalServiceError as exc:
             raise AuthExpiredError(
                 channel=channel,
                 reason=f"OAuth refresh failed (unreachable): {exc}",

@@ -331,7 +331,7 @@ Phase 3 (M3)
 
 ---
 
-- [ ] **Unit 7: HTTP client 統一（radon 門控 + 分批收口）** — ⚠ partial: batch 1 done `98677dd6` (27→17 檔); 16 deferred (session/status-code 語義需 per-adapter 評估); 追蹤在 plan `2026-06-16-004` Unit 10
+- [x] **Unit 7: HTTP client 統一（radon 門控 + 分批收口）** — ✅ complete. batch 1 `98677dd6` (27→17 檔); batch 2 收口 (#33/#35/#36/#37/#38): tumblr/linkedin/config_driven/image_gen/rentry/hatena/provider 遷至 http_client（新增 `raise_for_status=False` + `allow_private=True` opt-out），http_form_post 結構性保留 raw（重試會重複非冪等 POST + 遮蔽 503 反爬信號）但內聯 `_guard_ssrf`。剩餘 7 個 allowlist 全為結構性豁免。gate `test_no_raw_requests_outside_http_client` 凍結成果
 
 **Goal:** src/ 內所有裸 `import requests` 收口為 `_util/http_client.py`，SSL context 統一，消除不一致的 verify 行為。
 

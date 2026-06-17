@@ -67,10 +67,11 @@ ALLOWLIST: dict[str, str] = {
         "Second-UA retry inside http_probe; same SSRF-safe-primitive rationale as "
         "the :82 sibling — the probe validates the URL before issuing the request."
     ),
-    # --- Publisher adapters that carry bespoke retry / WSSE / form-multipart
-    #     semantics. These are candidates for incremental migration to http_client
-    #     but are allowlisted today with a tracked reason; the gate will catch
-    #     NEW raw sites even while these remain.
+    # --- Form-POST publish path: structurally cannot use the shared http_client,
+    #     because that client retries POSTs (would duplicate a non-idempotent live
+    #     backlink) and retries 503 (which IS the anti-bot challenge signal this
+    #     path must observe). SSRF — the one thing http_client would add — is
+    #     enforced inline via _guard_ssrf(). Not a migration backlog item.
     "src/backlink_publisher/publishing/adapters/http_form_post.py:122": (
         "Form-GET whose 503/403 status IS the anti-bot challenge signal "
         "(detect_challenge). http_client's urllib3 Retry has 503 in its "
@@ -84,10 +85,6 @@ ALLOWLIST: dict[str, str] = {
         "429/5xx + connection errors, which would violate that contract. SSRF "
         "is enforced inline via _guard_ssrf(); raw requests is required to keep "
         "the single-attempt + 503-challenge semantics."
-    ),
-    "src/backlink_publisher/publishing/session/provider.py:230": (
-        "Session-provider credential probe; part of the credential lifecycle, "
-        "not the publish path. Tracked migration candidate."
     ),
 }
 
