@@ -22,6 +22,16 @@
     --warning-soft: rgba(245, 158, 11, 0.16);
     --success-soft: rgba(16, 185, 129, 0.16);
     --info-soft:    rgba(56, 189, 248, 0.16);
+    --violet-soft:  rgba(139, 92, 246, 0.16);
+
+    /* Status TEXT — light pastel foregrounds for use ON the *-soft backgrounds
+     * (status pills, badges, tier chips). Paired so consumers stop hardcoding
+     * the pastel hex. Values taken from the existing console pastels. */
+    --success-text: #6ee7b7;
+    --info-text:    #93c5fd;
+    --warning-text: #fde68a;
+    --danger-text:  #fca5a5;
+    --violet-text:  #c4b5fd;
 
     /* Surfaces — layered console panels (NEW; consumed by global overrides + shell) */
     --surface-base:    #0b0f17;    /* app background floor */
