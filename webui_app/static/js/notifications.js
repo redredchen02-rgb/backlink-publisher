@@ -121,186 +121,13 @@ class NotificationStore {
 }
 
 /**
- * Toast notification display
- */
-class ToastManager {
-    constructor() {
-        this.container = null;
-        this.init();
-    }
-    
-    init() {
-        // Create container
-        this.container = document.createElement('div');
-        this.container.className = 'toast-container';
-        this.container.setAttribute('aria-live', 'polite');
-        this.container.setAttribute('aria-atomic', 'false');
-        document.body.appendChild(this.container);
-        
-        // Add styles
-        this.addStyles();
-    }
-    
-    addStyles() {
-        if (qs('#toast-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'toast-styles';
-        style.textContent = `
-            .toast-container {
-                position: fixed;
-                top: 60px;
-                right: 16px;
-                z-index: 1200;
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                max-width: 380px;
-                pointer-events: none;
-            }
-            
-            .toast {
-                display: flex;
-                align-items: flex-start;
-                gap: 12px;
-                padding: 12px 16px;
-                background: var(--light);
-                border: 1px solid var(--border);
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                pointer-events: auto;
-                transform: translateX(120%);
-                opacity: 0;
-                transition: transform 0.3s ease, opacity 0.3s ease;
-            }
-            
-            .toast.show {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            
-            .toast.hiding {
-                transform: translateX(120%);
-                opacity: 0;
-            }
-            
-            .toast-icon {
-                font-size: 1.25rem;
-                flex-shrink: 0;
-                margin-top: 2px;
-            }
-            
-            .toast-content {
-                flex: 1;
-                min-width: 0;
-            }
-            
-            .toast-title {
-                font-weight: 600;
-                font-size: 0.9rem;
-                margin-bottom: 2px;
-            }
-            
-            .toast-message {
-                font-size: 0.85rem;
-                color: #6b7280;
-                line-height: 1.4;
-            }
-            
-            .toast-close {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 24px;
-                height: 24px;
-                padding: 0;
-                background: none;
-                border: none;
-                border-radius: 6px;
-                color: #9ca3af;
-                cursor: pointer;
-                transition: background 0.15s ease, color 0.15s ease;
-            }
-            
-            .toast-close:hover {
-                background: rgba(0, 0, 0, 0.05);
-                color: #374151;
-            }
-            
-            .toast-progress {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                height: 3px;
-                background: currentColor;
-                border-radius: 0 0 12px 12px;
-                opacity: 0.3;
-                transition: width linear;
-            }
-            
-            @media (max-width: 480px) {
-                .toast-container {
-                    left: 16px;
-                    right: 16px;
-                    max-width: none;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    show(notification, duration = 5000) {
-        const type = TYPES[notification.type] || TYPES.info;
-        
-        const content = el('div', { class: 'toast-content' }, [
-            notification.title ? el('div', { class: 'toast-title', text: notification.title }) : null,
-            el('div', { class: 'toast-message', text: notification.message }),
-        ]);
-        const closeBtn = el('button', { type: 'button', class: 'toast-close', 'aria-label': '关闭通知' }, [
-            el('i', { class: 'bi bi-x' }),
-        ]);
-        const toast = el('div', { class: 'toast', role: 'alert' }, [
-            el('i', { class: `bi ${type.icon} toast-icon`, style: `color: ${type.color}` }),
-            content,
-            closeBtn,
-        ]);
-
-        // Close button
-        on(closeBtn, 'click', () => this.hide(toast));
-        
-        // Add to container
-        this.container.appendChild(toast);
-        
-        // Trigger animation
-        requestAnimationFrame(() => {
-            toast.classList.add('show');
-        });
-        
-        // Auto-hide
-        if (duration > 0) {
-            setTimeout(() => this.hide(toast), duration);
-        }
-        
-        return toast;
-    }
-    
-    hide(toast) {
-        toast.classList.remove('show');
-        toast.classList.add('hiding');
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }
-}
-
-/**
  * Notification center UI
  */
 class NotificationCenter {
     constructor(store) {
         this.store = store;
-        this.toastManager = new ToastManager();
+        // Toasts are rendered by ui/toast.js subscribing to the app:notify event
+        // that store.add() dispatches — this class only owns the bell badge + panel.
         this.panel = null;
         this.badge = null;
         this.isOpen = false;
@@ -642,8 +469,9 @@ class NotificationCenter {
     }
     
     add(notification) {
+        // store.add() persists AND dispatches app:notify (ui/toast.js renders the
+        // toast). We only refresh the unread badge here.
         const item = this.store.add(notification);
-        this.toastManager.show(notification);
         this.updateBadge();
         return item;
     }

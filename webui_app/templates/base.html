@@ -17,6 +17,8 @@
     {# Single source of design tokens, consumed by per-page CSS. #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css', v=asset_version) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global_nav.css', v=asset_version) }}">
+    {# Shared console UI primitives: toast + empty/loading/error states. #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css', v=asset_version) }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
@@ -117,6 +119,9 @@
     {% block page_module %}{% endblock %}
     <script type="module" src="{{ url_for('static', filename='js/theme.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/nav.js', v=asset_version) }}"></script>
+    {# ui/toast.js subscribes to app:notify BEFORE notifications.js inits (and
+       dispatches flash-message events), so it must load first. #}
+    <script type="module" src="{{ url_for('static', filename='js/ui/toast.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/notifications.js', v=asset_version) }}"></script>
 </body>
 </html>
