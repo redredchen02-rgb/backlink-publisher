@@ -1,7 +1,7 @@
 ---
 title: "feat: WebUI comprehensive UX overhaul — 7-phase incremental optimization"
 type: feat
-status: active
+status: shipped
 date: 2026-06-11
 claims:
   paths:

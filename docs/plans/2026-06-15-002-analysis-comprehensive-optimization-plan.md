@@ -1,7 +1,7 @@
 ---
 title: "analysis: Comprehensive Codebase Optimization Plan (current-state audit)"
 type: analysis
-status: active
+status: shipped
 date: 2026-06-15
 ---
 
