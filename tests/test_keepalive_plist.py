@@ -4,8 +4,11 @@ from __future__ import annotations
 __tier__ = "integration"
 
 
+import os
 import plistlib
 from pathlib import Path
+
+import pytest
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 KEEPALIVE_PLIST = SCRIPTS_DIR / "com.dex.bp-keepalive.plist"
@@ -62,6 +65,11 @@ def test_keepalive_plist_working_directory_is_absolute():
     assert wd.is_absolute(), f"WorkingDirectory must be absolute: {wd}"
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="WorkingDirectory is the owner's machine-specific absolute path; it can only "
+    "exist on that machine. CI validates the portable shape via the is_absolute test instead.",
+)
 def test_keepalive_plist_working_directory_exists():
     data = _load(KEEPALIVE_PLIST)
     wd = Path(data["WorkingDirectory"])

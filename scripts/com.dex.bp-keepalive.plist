@@ -26,7 +26,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/.venv/bin/python</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/.venv/bin/python</string>
         <string>-m</string>
         <string>backlink_publisher.cli.keepalive_run</string>
     </array>
@@ -45,12 +45,12 @@
     </dict>
 
     <key>WorkingDirectory</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher</string>
 
     <key>StandardOutPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/keepalive-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/keepalive-launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/keepalive-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/keepalive-launchd.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -59,7 +59,7 @@
         <key>PYTHONHASHSEED</key>
         <string>0</string>
         <key>PYTHONPATH</key>
-        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/src</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/src</string>
     </dict>
 
     <key>RunAtLoad</key>
