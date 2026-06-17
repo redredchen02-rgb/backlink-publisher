@@ -28,7 +28,7 @@ from backlink_publisher.publishing.adapters.hatena_atompub import (
     _parse_entry_url,
 )
 
-_POST = "backlink_publisher.publishing.adapters.hatena_atompub.requests.post"
+_POST = "backlink_publisher.publishing.adapters.hatena_atompub.http_client.post"
 
 
 @pytest.fixture

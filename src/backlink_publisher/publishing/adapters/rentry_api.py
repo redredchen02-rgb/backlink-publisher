@@ -6,10 +6,9 @@ import re
 import time
 from typing import Any
 
-import requests
-
 from backlink_publisher.config import Config
 from backlink_publisher._util.errors import ExternalServiceError
+from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
@@ -78,9 +77,10 @@ class RentryAPIAdapter(Publisher):
         # Step 1: fetch the homepage for a CSRF token. This GET is
         # idempotent, so it is safe to retry on transient (429) errors.
         def _fetch_csrf():
-            home_resp = requests.get(
+            home_resp = http_client.get(
                 RENTRY_BASE,
                 timeout=_HTTP_TIMEOUT_S,
+                raise_for_status=False,
             )
             if home_resp.status_code != 200:
                 raise ExternalServiceError(
@@ -121,12 +121,13 @@ class RentryAPIAdapter(Publisher):
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Referer": RENTRY_BASE,
             }
-            post_resp = requests.post(
+            post_resp = http_client.post(
                 f"{RENTRY_BASE}/api/new",
                 headers=post_headers,
                 cookies=cookies,
                 data=form_data,
                 timeout=_HTTP_TIMEOUT_S,
+                raise_for_status=False,
             )
             if post_resp.status_code not in (200, 201):
                 raise ExternalServiceError(
