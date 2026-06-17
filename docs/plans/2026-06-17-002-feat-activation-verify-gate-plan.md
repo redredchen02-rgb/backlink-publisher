@@ -1,7 +1,7 @@
 ---
 title: "feat: v0.5.0 Phase 0 — 激活前驗證門（verify-before-activate）"
 type: feat
-status: active
+status: completed
 date: 2026-06-17
 origin: docs/brainstorms/2026-06-16-comprehensive-optimization-roadmap-requirements.md
 claims: {}  # 驗證/特徵化測試 milestone — 行為斷言寫在各 Unit 的 test scenarios，無新機器可驗證的產品宣稱
