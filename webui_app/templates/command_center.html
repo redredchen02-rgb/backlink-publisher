@@ -479,7 +479,7 @@
             <div class="cc-stat-row">
                 <span class="cc-stat-row__label">
                     {{ p.name or p.platform or '—' }}
-                    {% if p.locked or p.manual_lock %}<i class="bi bi-lock-fill ms-1" style="color:#fbbf24;font-size:.75rem" title="已鎖定"></i>{% endif %}
+                    {% if p.locked or p.manual_lock %}<i class="bi bi-lock-fill ms-1" style="color:var(--warning);font-size:.75rem" title="已鎖定"></i>{% endif %}
                 </span>
                 <span class="cc-stat-row__value {% if w < 0.3 %}cc-stat-row__value--amber{% elif w >= 0.8 %}cc-stat-row__value--green{% endif %}">{{ w }}</span>
             </div>
