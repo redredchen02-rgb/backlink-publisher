@@ -74,7 +74,7 @@ class HttpClient:
             )
 
     def _do_request(
-        self, method: str, url: str, **kwargs: Any
+        self, method: str, url: str, raise_for_status: bool = True, **kwargs: Any
     ) -> requests.Response:
         self._check_ssrf(url)
         kwargs.setdefault("timeout", self._timeout)
@@ -83,7 +83,8 @@ class HttpClient:
         for attempt in range(self._max_retries + 1):
             try:
                 resp = self._session.request(method, url, **kwargs)
-                resp.raise_for_status()
+                if raise_for_status:
+                    resp.raise_for_status()
                 return resp
             except requests.RequestException as exc:
                 last_exc = exc
@@ -95,17 +96,26 @@ class HttpClient:
             f"{self._max_retries + 1} attempt(s): {last_exc}"
         ) from last_exc
 
-    def get(self, url: str, **kwargs: Any) -> requests.Response:
-        """Perform a GET request with SSRF and retry protection."""
-        return self._do_request("GET", url, **kwargs)
+    def get(self, url: str, raise_for_status: bool = True, **kwargs: Any) -> requests.Response:
+        """Perform a GET request with SSRF and retry protection.
 
-    def post(self, url: str, **kwargs: Any) -> requests.Response:
-        """Perform a POST request with SSRF and retry protection."""
-        return self._do_request("POST", url, **kwargs)
+        Pass ``raise_for_status=False`` to receive the response without raising
+        on non-2xx status — for callers that map status codes to their own
+        domain errors (e.g. an adapter translating 401 to a re-auth message).
+        SSRF check, timeout, retry, and connection-error wrapping still apply.
+        """
+        return self._do_request("GET", url, raise_for_status=raise_for_status, **kwargs)
 
-    def head(self, url: str, **kwargs: Any) -> requests.Response:
+    def post(self, url: str, raise_for_status: bool = True, **kwargs: Any) -> requests.Response:
+        """Perform a POST request with SSRF and retry protection.
+
+        See :meth:`get` for the ``raise_for_status`` opt-out semantics.
+        """
+        return self._do_request("POST", url, raise_for_status=raise_for_status, **kwargs)
+
+    def head(self, url: str, raise_for_status: bool = True, **kwargs: Any) -> requests.Response:
         """Perform a HEAD request with SSRF and retry protection."""
-        return self._do_request("HEAD", url, **kwargs)
+        return self._do_request("HEAD", url, raise_for_status=raise_for_status, **kwargs)
 
     def __enter__(self) -> HttpClient:
         return self

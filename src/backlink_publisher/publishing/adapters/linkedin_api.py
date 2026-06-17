@@ -5,8 +5,7 @@ import os
 import time
 from typing import Any
 
-import requests
-
+from backlink_publisher._util.http_client import http_client
 from backlink_publisher.config import Config, load_linkedin_token
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
@@ -137,11 +136,12 @@ class LinkedInAPIAdapter(Publisher):
         api_url = f"{LINKEDIN_API_BASE}/posts"
 
         def execute() -> str:
-            resp = requests.post(
+            resp = http_client.post(
                 api_url,
                 headers=headers,
                 json=body,
                 timeout=_HTTP_TIMEOUT_S,
+                raise_for_status=False,
             )
             if resp.status_code == 401:
                 raise ExternalServiceError(

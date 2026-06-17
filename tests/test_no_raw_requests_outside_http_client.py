@@ -96,14 +96,6 @@ ALLOWLIST: dict[str, str] = {
         "Rentry multipart POST carrying the scraped CSRF token; adapter-local "
         "session handling. Tracked migration candidate."
     ),
-    "src/backlink_publisher/publishing/adapters/linkedin_api.py:140": (
-        "LinkedIn publish POST with OAuth bearer + adapter-specific 429 handling. "
-        "Tracked migration candidate."
-    ),
-    "src/backlink_publisher/publishing/adapters/tumblr_api.py:134": (
-        "Tumblr publish POST with OAuth1 signing done at the adapter layer. "
-        "Tracked migration candidate."
-    ),
     "src/backlink_publisher/publishing/session/provider.py:230": (
         "Session-provider credential probe; part of the credential lifecycle, "
         "not the publish path. Tracked migration candidate."

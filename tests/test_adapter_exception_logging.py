@@ -131,7 +131,7 @@ class TestLinkedInApiJsonDecodeHandling:
         )
 
         with self._patch_token():
-            with patch("requests.post", return_value=mock_resp):
+            with patch("backlink_publisher.publishing.adapters.linkedin_api.http_client.post", return_value=mock_resp):
                 with pytest.raises(ExternalServiceError) as exc_info:
                     adapter.publish(payload, "publish", config)
                 # Error message must mention HTTP 403
@@ -155,7 +155,7 @@ class TestLinkedInApiJsonDecodeHandling:
         )
 
         with self._patch_token():
-            with patch("requests.post", return_value=mock_resp):
+            with patch("backlink_publisher.publishing.adapters.linkedin_api.http_client.post", return_value=mock_resp):
                 with pytest.raises(ExternalServiceError) as exc_info:
                     adapter.publish(payload, "publish", config)
                 # Falls back to resp.text since json() failed
@@ -177,7 +177,7 @@ class TestLinkedInApiJsonDecodeHandling:
         )
 
         with self._patch_token():
-            with patch("requests.post", return_value=mock_resp):
+            with patch("backlink_publisher.publishing.adapters.linkedin_api.http_client.post", return_value=mock_resp):
                 with pytest.raises(ExternalServiceError) as exc_info:
                     adapter.publish(payload, "publish", config)
                 assert "w_member_social" in str(exc_info.value) or "403" in str(exc_info.value)
@@ -194,7 +194,7 @@ class TestLinkedInApiJsonDecodeHandling:
         mock_resp = self._make_mock_resp(401)
 
         with self._patch_token():
-            with patch("requests.post", return_value=mock_resp):
+            with patch("backlink_publisher.publishing.adapters.linkedin_api.http_client.post", return_value=mock_resp):
                 with pytest.raises(ExternalServiceError) as exc_info:
                     adapter.publish(payload, "publish", config)
                 assert "401" in str(exc_info.value)

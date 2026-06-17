@@ -55,7 +55,7 @@ def test_post_url_built_from_x_restli_id_header(config_with_token):
     urn = "urn:li:share:7890123"
     resp = _resp(status=201, headers={"x-restli-id": urn}, body=None)
     with patch(
-        "backlink_publisher.publishing.adapters.linkedin_api.requests.post",
+        "backlink_publisher.publishing.adapters.linkedin_api.http_client.post",
         return_value=resp,
     ):
         result = LinkedInAPIAdapter().publish(_payload(), "publish", config_with_token)
@@ -66,7 +66,7 @@ def test_post_url_built_from_x_restli_id_header(config_with_token):
 def test_missing_urn_header_and_body_raises(config_with_token):
     resp = _resp(status=201, headers={}, body=None)
     with patch(
-        "backlink_publisher.publishing.adapters.linkedin_api.requests.post",
+        "backlink_publisher.publishing.adapters.linkedin_api.http_client.post",
         return_value=resp,
     ):
         with pytest.raises(ExternalServiceError):
@@ -83,12 +83,12 @@ def test_draft_mode_reports_drafted(config_with_token):
     report 'drafted', not 'published'."""
     captured = {}
 
-    def fake_post(url, headers=None, json=None, timeout=None):
+    def fake_post(url, headers=None, json=None, timeout=None, **kwargs):
         captured["body"] = json
         return _resp(status=201, headers={"x-restli-id": "urn:li:share:1"}, body=None)
 
     with patch(
-        "backlink_publisher.publishing.adapters.linkedin_api.requests.post",
+        "backlink_publisher.publishing.adapters.linkedin_api.http_client.post",
         side_effect=fake_post,
     ):
         result = LinkedInAPIAdapter().publish(_payload(), "draft", config_with_token)

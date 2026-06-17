@@ -20,8 +20,8 @@ from backlink_publisher._util.errors import DependencyError, ExternalServiceErro
 
 # (module suffix, class, config path attr, token filename, valid token dict,
 #  HTTP attr to patch for the 401 test — wordpresscom/writeas/hashnode go
-#  through the shared ``http_post`` wrapper; tumblr uses ``requests.post``
-#  directly because OAuth 1.0a signing needs a per-request auth object)
+#  through the shared ``http_post`` wrapper; tumblr goes through
+#  ``http_client.post`` (raise_for_status=False) with per-request OAuth1 auth)
 TOKEN_ADAPTERS = [
     ("wordpresscom_api", "WordpresscomAPIAdapter", "wordpresscom_token_path",
      "wordpresscom-token.json", {"token": "t", "site": "myblog.wordpress.com"},
@@ -34,7 +34,7 @@ TOKEN_ADAPTERS = [
     ("tumblr_api", "TumblrAPIAdapter", "tumblr_credentials_path",
      "tumblr-credentials.json", {"consumer_key": "a", "consumer_secret": "b",
                                  "oauth_token": "c", "oauth_token_secret": "d",
-                                 "blog_name": "myblog"}, "requests.post"),
+                                 "blog_name": "myblog"}, "http_client.post"),
 ]
 
 
