@@ -71,11 +71,6 @@ ALLOWLIST: dict[str, str] = {
     #     semantics. These are candidates for incremental migration to http_client
     #     but are allowlisted today with a tracked reason; the gate will catch
     #     NEW raw sites even while these remain.
-    "src/backlink_publisher/publishing/adapters/config_driven.py:315": (
-        "Generic API adapter with adapter-specific error mapping; candidate for "
-        "http_client migration but carries custom ExternalServiceError text. "
-        "Tracked, not urgent — SSRF risk is low (operator-configured endpoint)."
-    ),
     "src/backlink_publisher/publishing/adapters/hatena_atompub.py:218": (
         "Hatena AtomPub: custom X-WSSE auth header + atom+xml body; http_client "
         "supports headers/data but the WSSE signing is adapter-local. Tracked."
@@ -99,13 +94,6 @@ ALLOWLIST: dict[str, str] = {
     "src/backlink_publisher/publishing/session/provider.py:230": (
         "Session-provider credential probe; part of the credential lifecycle, "
         "not the publish path. Tracked migration candidate."
-    ),
-    "webui_app/routes/image_gen.py:32": (
-        "Image-gen /models listing for the WebUI dropdown; loopback operator tool. "
-        "Tracked migration candidate."
-    ),
-    "webui_app/routes/image_gen.py:58": (
-        "Image-gen model detail fetch sibling of the :32 listing. Tracked."
     ),
 }
 
