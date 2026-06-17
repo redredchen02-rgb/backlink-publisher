@@ -56,6 +56,17 @@ def _mock_submit_resp(url: str = "https://test.example.com/posts/abc123") -> Mag
 class TestConfigDrivenAdapterE2E:
     """End-to-end dispatch through ConfigDrivenAdapter.publish()."""
 
+    @pytest.fixture(autouse=True)
+    def _neutralize_form_post_ssrf(self):
+        # The form-POST path now SSRF-guards before the (mocked) request; the
+        # real check would do a live DNS lookup on the test host. Default to
+        # 'allowed' so the request mocks drive behaviour.
+        with patch(
+            "backlink_publisher.publishing.adapters.http_form_post._check_url_for_ssrf",
+            return_value=None,
+        ):
+            yield
+
     def test_happy_path_redirect_permalink(self):
         """none-auth form-POST: mock submit returns final URL via redirect."""
         entry = _entry()
