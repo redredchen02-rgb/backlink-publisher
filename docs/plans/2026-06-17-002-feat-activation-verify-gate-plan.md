@@ -106,7 +106,7 @@ graph TB
     U1 --> U6
 ```
 
-- [ ] **Unit 1: weights-optimize 正向迴歸鎖（閉合 #24）**
+- [x] **Unit 1: weights-optimize 正向迴歸鎖（閉合 #24）**
 
 **Goal:** 鎖定「v2 nested state → 規則觸發 → 權重 ≠ 1.0」，讓未來任何半遷移回退立刻紅。
 **Requirements:** R0.1（weights）
@@ -125,7 +125,7 @@ graph TB
 - Regression guard：若 `evaluate_rules` 派發回退到未解析 dict，本測試須紅（註解說明）
 **Verification:** `test_optimization_e2e.py` 全綠；人為把 `rules.py:85` 改回 `state_data` 時該測試紅（一次性手動確認，不留改動）
 
-- [ ] **Unit 2: citation-probe 正向產出驗證 + live runbook**
+- [x] **Unit 2: citation-probe 正向產出驗證 + live runbook**
 
 **Goal:** 證明 `probe-citations` 真的把 `citation.observed` 寫進 events.db（非空、verdict 已填），並給 operator 一份一次性 live 跑的 runbook。
 **Requirements:** R0.1（citation）
