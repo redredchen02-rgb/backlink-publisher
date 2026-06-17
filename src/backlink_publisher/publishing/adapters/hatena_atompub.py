@@ -50,10 +50,9 @@ from datetime import datetime, timezone
 from typing import Any
 from xml.sax.saxutils import escape
 
-import requests
-
 from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.registry import Publisher
 from .base import AdapterResult
@@ -215,11 +214,12 @@ class HatenaAtomPubAdapter(Publisher):
                 "X-WSSE": _build_wsse_header(hatena_id, api_key),
                 "Content-Type": "application/atom+xml; charset=utf-8",
             }
-            resp = requests.post(
+            resp = http_client.post(
                 endpoint,
                 headers=headers,
                 data=body.encode("utf-8"),
                 timeout=_HTTP_TIMEOUT_S,
+                raise_for_status=False,
             )
             if resp.status_code in (401, 403):
                 raise ExternalServiceError(

@@ -16,8 +16,8 @@ from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher.publishing.adapters.rentry_api import RentryAPIAdapter
 from backlink_publisher.publishing.adapters.base import AdapterResult
 
-_GET = "backlink_publisher.publishing.adapters.rentry_api.requests.get"
-_POST = "backlink_publisher.publishing.adapters.rentry_api.requests.post"
+_GET = "backlink_publisher.publishing.adapters.rentry_api.http_client.get"
+_POST = "backlink_publisher.publishing.adapters.rentry_api.http_client.post"
 
 
 def _payload():

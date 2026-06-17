@@ -71,10 +71,6 @@ ALLOWLIST: dict[str, str] = {
     #     semantics. These are candidates for incremental migration to http_client
     #     but are allowlisted today with a tracked reason; the gate will catch
     #     NEW raw sites even while these remain.
-    "src/backlink_publisher/publishing/adapters/hatena_atompub.py:218": (
-        "Hatena AtomPub: custom X-WSSE auth header + atom+xml body; http_client "
-        "supports headers/data but the WSSE signing is adapter-local. Tracked."
-    ),
     "src/backlink_publisher/publishing/adapters/http_form_post.py:104": (
         "Form-GET to detect anti-bot challenge before posting; uses a bespoke "
         "challenge detector (detect_challenge). Tracked migration candidate."
@@ -82,14 +78,6 @@ ALLOWLIST: dict[str, str] = {
     "src/backlink_publisher/publishing/adapters/http_form_post.py:167": (
         "Form-POST submission sibling of the :104 GET; same challenge-aware "
         "rationale. Tracked migration candidate."
-    ),
-    "src/backlink_publisher/publishing/adapters/rentry_api.py:81": (
-        "Rentry CSRF-token GET (homepage scrape) feeding a multipart POST; the "
-        "CSRF dance is adapter-local. Tracked migration candidate."
-    ),
-    "src/backlink_publisher/publishing/adapters/rentry_api.py:124": (
-        "Rentry multipart POST carrying the scraped CSRF token; adapter-local "
-        "session handling. Tracked migration candidate."
     ),
     "src/backlink_publisher/publishing/session/provider.py:230": (
         "Session-provider credential probe; part of the credential lifecycle, "
