@@ -269,7 +269,12 @@ flowchart TB
 **Verification:**
 - 三种状态组件可在任意容器挂载/卸载无内存泄漏；toast 不阻塞交互、offset 不依赖硬编顶栏高度；新增静态资源带 `v=` 版本号**且重启后 `version_file` 已刷新**（实测刷新后不取旧缓存、无 module/classic 版本漂移）。
 
-- [ ] **Unit 4: 核心发布工作台（单页分步 + 忙碌态）**
+- [x] **Unit 4: 核心发布工作台（单页分步 + 忙碌态）**
+
+**实现期重大发现（2026-06-17）→ 已据实重新定范围**：发布流程**本就是服务端渲染的 HTML 表单 POST**（每步整页重载 + `_initLoadingOverlay` 真实 POST 期间显示遮罩），**不是**客户端 fetch 阶段机。因此：
+- 「诚实阶段条」天然成立——`_tab_new.html` 的 step-bar 由服务端按 pipeline 状态渲染（`cur_step`），不存在伪造子阶段；publish 是独立表单 POST + 自己的遮罩。计划担忧的「乐观阶段机伪造进度 / 超时 reconciliation / double-posting」前提（客户端 fetch 阶段机）**不存在**，故**不构建**投机的客户端阶段机（scope-guardian 已标其为投机）。
+- R10 草稿状态栏**已存在且完整**（`_tab_history.html`：已发布/失败/已排程/待排程徽章、排程时间、错误态、重绑定捷径）。真实欠缺只是**控台一致性**：状态徽章用了硬编浅色 pastel hex（`#dbeafe/#fee2e2/#fef3c7/#dcfce7` 等，正是 Overview 点名的 `_tab_history.html:82–377` backlog）。
+- **本单元实际交付**：把 `_tab_history.html` 全部 23 处 pastel inline-hex token 化为控台 soft-token（新增 `--info-soft`），清掉该 backlog 项 + 兑现 R10 控台一致性。首次引导空态归 U7。已实测：草稿/历史徽章控台正确、无 pastel。
 
 **Goal:** 把 plan→generate→validate→preview 整合为单页分步工作台，长任务用阶段骨架屏忙碌态，草稿带状态栏。
 
