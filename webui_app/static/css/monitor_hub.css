@@ -1,0 +1,85 @@
+/* monitor_hub.css — console monitor hub card grid (Plan 2026-06-17-001 U5).
+ * Severity drives visual weight: danger spans full width, ok/info compact. */
+
+.hub { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+.hub__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.hub__title { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.hub__subtitle { font-size: 0.875rem; color: var(--text-secondary); margin: 4px 0 0; }
+
+.hub__refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.hub__refresh:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--primary); }
+
+.hub__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.hub-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 18px;
+    border-radius: var(--radius);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+}
+
+/* Severity → visual weight: danger is loudest + full width, warning accented,
+   ok/info quiet and compact. */
+.hub-card--danger {
+    grid-column: 1 / -1;
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+}
+.hub-card--warning { border-left-color: var(--warning); }
+.hub-card--ok { border-left-color: var(--success); opacity: 0.92; }
+.hub-card--info { border-left-color: var(--info); opacity: 0.92; }
+
+.hub-card__head { display: flex; align-items: center; gap: 8px; }
+.hub-card__icon { font-size: 1.05rem; }
+.hub-card--danger .hub-card__icon { color: var(--danger); }
+.hub-card--warning .hub-card__icon { color: var(--warning); }
+.hub-card--ok .hub-card__icon { color: var(--success); }
+.hub-card--info .hub-card__icon { color: var(--info); }
+.hub-card__title { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+
+.hub-card__headline {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.hub-card--danger .hub-card__headline { font-size: 1.25rem; }
+.hub-card__detail { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); }
+
+.hub-card__footer { display: flex; gap: 14px; margin-top: 4px; }
+.hub-card__deeplink, .hub-card__action {
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+.hub-card__deeplink { color: var(--text-secondary); }
+.hub-card__deeplink:hover { color: var(--text-primary); }
+.hub-card__action { color: var(--accent-cyan); }
+.hub-card__action:hover { text-decoration: underline; }

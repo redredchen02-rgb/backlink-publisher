@@ -59,6 +59,7 @@
                 </section>
                 <section class="app-sidebar__group">
                     <span class="app-sidebar__group-label">监控</span>
+                    {{ nav_item('/monitor-hub', 'monitor_hub', '聚合', 'bi-grid-1x2') }}
                     {{ nav_item('/ce:keep-alive', 'keep_alive', '保活', 'bi-shield-check') }}
                     {% if not lite_edition %}
                     {{ nav_item('/survival-dashboard', 'survival_dashboard', '存活率', 'bi-graph-up') }}

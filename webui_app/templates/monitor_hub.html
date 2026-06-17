@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}监控聚合{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monitor_hub.css', v=asset_version) }}">
+{% endblock %}
+{% block content %}
+<div class="hub">
+    <div class="hub__head">
+        <div>
+            <h1 class="hub__title">监控聚合</h1>
+            <p class="hub__subtitle">今日异常优先 · 一眼看全保活 / 权益 / 优化 / 凭证</p>
+        </div>
+        <button type="button" class="hub__refresh" id="hubRefresh" aria-label="刷新监控数据">
+            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> 刷新
+        </button>
+    </div>
+    <div class="hub__grid" id="hubGrid" aria-live="polite"></div>
+</div>
+{% endblock %}
+{% block page_module %}
+<script type="module" src="{{ url_for('static', filename='js/monitor_hub.js', v=asset_version) }}"></script>
+{% endblock %}

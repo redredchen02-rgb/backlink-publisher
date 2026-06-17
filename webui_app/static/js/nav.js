@@ -9,6 +9,7 @@ import { on, qs, qsa } from './lib/dom.js';
 const SEARCH_DATA = [
     { title: '发布', desc: '创建新的发布任务', url: '/', icon: 'bi-send' },
     { title: '批量任务', desc: '批量发布多个URL', url: '/batch-campaign', icon: 'bi-stack' },
+    { title: '聚合', desc: '监控聚合看板 · 今日异常优先', url: '/monitor-hub', icon: 'bi-grid-1x2' },
     { title: '保活', desc: '外链存活监控', url: '/ce:keep-alive', icon: 'bi-shield-check' },
     { title: '存活率', desc: '链接存活率统计', url: '/survival-dashboard', icon: 'bi-graph-up' },
     { title: '健康', desc: '发布健康仪表盘', url: '/ce:health', icon: 'bi-heart-pulse' },
