@@ -159,7 +159,7 @@ M3 信任層（2 週）
 
 ### Milestone 1 — 收斂
 
-- [ ] **Unit 1: 002 plan-doc checkbox + status 對齊（治理 PR）**
+- [x] **Unit 1: 002 plan-doc checkbox + status 對齊（治理 PR）** — `48cb0c4` + plan-002 status→shipped
 
 **Goal:** 修正 002 的 checkbox 與 git log 不一致，把 `status: active → shipped`，恢復 plan-doc 的可信度。
 
