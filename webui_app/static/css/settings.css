@@ -19,7 +19,7 @@
             padding: 1.2rem 2.4rem;
             border-radius: 16px;
             margin-bottom: 0;
-            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.3);
             border: 1px solid var(--glass-border);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             display: flex;
@@ -28,7 +28,7 @@
         }
         
         .navbar:hover {
-            box-shadow: 0 15px 30px -5px rgba(79, 70, 229, 0.4);
+            box-shadow: 0 15px 30px -5px rgba(56, 189, 248, 0.4);
         }
         
         .navbar h1 {
@@ -110,28 +110,29 @@
             transition: background 150ms ease;
         }
         .sidebar-item:hover {
-            background: rgba(79,70,229,0.08);
+            background: rgba(56,189,248,0.08);
             color: var(--text-primary);
         }
         .sidebar-item.active {
-            background: rgba(79,70,229,0.14);
+            background: rgba(56,189,248,0.14);
             color: var(--text-primary);
             font-weight: 600;
+        }
 
-        /* Dark mode sidebar item */
+        /* Dark mode sidebar item — was invalidly nested inside .sidebar-item.active
+           (missing brace) so these console-accent rules never applied. */
         [data-theme="dark"] .sidebar-item {
-            color: #94a3b8;
+            color: var(--secondary);
         }
 
         [data-theme="dark"] .sidebar-item:hover {
-            background: rgba(99, 102, 241, 0.1);
-            color: #818cf8;
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--primary);
         }
 
         [data-theme="dark"] .sidebar-item.active {
-            background: rgba(99, 102, 241, 0.15);
-            color: #818cf8;
-        }
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
         }
         .sidebar-item.active::before {
             background: var(--gradient-accent);
@@ -160,7 +161,7 @@
 
         .card:hover {
             transform: translateY(-1px);
-            box-shadow: 0 12px 40px rgba(79,70,229,0.3), 0 2px 8px rgba(0,0,0,0.4);
+            box-shadow: 0 12px 40px rgba(56,189,248,0.3), 0 2px 8px rgba(0,0,0,0.4);
         }
 
         .card-header {
@@ -219,7 +220,7 @@
 
         /* LLM pane — section labels & feature cards */
         .llm-section-label {
-            font-size:12px; font-weight:700; color:#6366f1; text-transform:uppercase;
+            font-size:12px; font-weight:700; color:var(--primary); text-transform:uppercase;
             letter-spacing:0.06em; margin-bottom:8px; display:block;
         }
         .llm-preset-row {
@@ -231,7 +232,7 @@
             border:1px solid var(--glass-border); background:rgba(255,255,255,0.06); color:var(--text-secondary);
             text-decoration:none; white-space:nowrap; transition:background 0.12s,border-color 0.12s;
         }
-        .llm-preset-btn:hover { background:rgba(99,102,241,0.2); border-color:rgba(99,102,241,0.5); color:#a5b4fc; }
+        .llm-preset-btn:hover { background:rgba(56,189,248,0.2); border-color:rgba(56,189,248,0.5); color:var(--primary); }
         .llm-feature-card {
             border:1px solid var(--glass-border); border-radius:10px; overflow:hidden;
         }
@@ -266,7 +267,7 @@
         .channel-tier > .collapse.show, .channel-tier > .collapsing { padding-top:10px; }
         .tier-divider {
             display:flex; align-items:center; gap:8px;
-            margin:10px 0; color:#94a3b8; font-size:12px;
+            margin:10px 0; color:var(--secondary); font-size:12px;
         }
         .tier-divider::before, .tier-divider::after {
             content:""; flex:1; height:1px; background:#e2e8f0;
@@ -281,13 +282,13 @@
         /* Main-area tier grouping (Plan 2026-06-05-007 tier-visibility) */
         .main-tier-group { margin-bottom:4px; }
         .main-tier-subhead {
-            font-size:11px; font-weight:700; color:#94a3b8; letter-spacing:0.4px;
+            font-size:11px; font-weight:700; color:var(--secondary); letter-spacing:0.4px;
             text-transform:uppercase; padding:8px 2px 5px;
             display:flex; align-items:center; gap:6px;
             border-bottom:1px solid #f1f5f9; margin-bottom:8px;
         }
         .main-tier-subhead .tier-label { font-size:12px; color:#64748b; text-transform:none; font-weight:600; }
-        .main-tier-subhead .tier-subtitle { font-weight:400; color:#94a3b8; text-transform:none; }
+        .main-tier-subhead .tier-subtitle { font-weight:400; color:var(--secondary); text-transform:none; }
         /* Tier badge on channel cards */
         .badge-tier {
             font-size:10px; font-weight:700; padding:1px 5px; border-radius:3px;
@@ -313,7 +314,7 @@
             width:100%; padding:7px 10px; margin:10px 0; font-size:13px;
             border:1px solid #e2e8f0; border-radius:8px;
         }
-        .ext-no-match { color:#94a3b8; font-size:13px; padding:8px 0; }
+        .ext-no-match { color:var(--secondary); font-size:13px; padding:8px 0; }
         .dch-reconnect {
             border-left:3px solid var(--warning, #f59e0b);
             border-radius:4px; padding-left:8px; margin-bottom:8px;
@@ -395,7 +396,7 @@
         .sidebar-tier-label {
             display: flex; align-items: center; gap: 5px;
             padding: 4px 8px 2px; font-size: 11px; font-weight: 600;
-            color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em;
+            color: var(--secondary); text-transform: uppercase; letter-spacing: 0.06em;
             pointer-events: none; user-select: none;
         }
         .tier-chip-sidebar {
@@ -405,7 +406,7 @@
         .tier-chip-t1 { background:rgba(16,185,129,0.2); color:#6ee7b7; }
         .tier-chip-t2 { background:rgba(59,130,246,0.2); color:#93c5fd; }
         .tier-chip-t3 { background:rgba(139,92,246,0.2); color:#c4b5fd; }
-        .sidebar-tier-count { margin-left: auto; font-size: 10px; color: #cbd5e1; font-weight: 500; }
+        .sidebar-tier-count { margin-left: auto; font-size: 10px; color: var(--text); font-weight: 500; }
         .sidebar-item--t1 { position: relative; }
         .sidebar-t1-dot {
             display: inline-block; width: 6px; height: 6px; border-radius: 50%;
