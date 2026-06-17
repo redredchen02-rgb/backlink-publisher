@@ -41,8 +41,9 @@ def _build_status(data_dir: Path | None = None) -> dict:
     opt_data = opt.load()
 
     platform_health = []
-    weights = opt_data.get("weights", {})
-    stats = opt_data.get("stats", {})
+    # opt_data is v2: weights/stats are nested under a language namespace.
+    weights = opt_data.get("weights", {}).get("default", {})
+    stats = opt_data.get("stats", {}).get("default", {})
     for name, wentry in weights.items():
         current = float(wentry.get("current", 1.0))
         pstats = stats.get(name, {})

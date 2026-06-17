@@ -55,15 +55,16 @@ def _os_with_platforms(tmp_path, platforms: dict):
     from backlink_publisher.optimization.models import default_state
     os_inst = OptimizationState(data_dir=tmp_path)
     state = default_state()
+    # default_state() is v2: weights/stats live under the "default" language namespace.
     for name, p in platforms.items():
-        state["weights"][name] = {
+        state["weights"]["default"][name] = {
             "base": 1.0,
             "current": p.get("current", 1.0),
             "locked": p.get("locked", False),
             "adjustments": [],
         }
         if "stats" in p:
-            state["stats"][name] = p["stats"]
+            state["stats"]["default"][name] = p["stats"]
     os_inst.save(state)
     return os_inst
 
