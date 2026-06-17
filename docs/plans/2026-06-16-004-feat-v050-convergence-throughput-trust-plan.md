@@ -159,7 +159,7 @@ M3 信任層（2 週）
 
 ### Milestone 1 — 收斂
 
-- [ ] **Unit 1: 002 plan-doc checkbox + status 對齊（治理 PR）**
+- [x] **Unit 1: 002 plan-doc checkbox + status 對齊（治理 PR）** — `48cb0c4` + plan-002 status→shipped
 
 **Goal:** 修正 002 的 checkbox 與 git log 不一致，把 `status: active → shipped`，恢復 plan-doc 的可信度。
 
@@ -185,7 +185,7 @@ M3 信任層（2 週）
 
 ---
 
-- [ ] **Unit 2: GSC 003 U5 — probe-index/probe-ranking launchd plists**
+- [x] **Unit 2: GSC 003 U5 — probe-index/probe-ranking launchd plists**
 
 **Goal:** 兩個 GSC probe CLI 進入無人值守排程。
 
@@ -216,7 +216,7 @@ M3 信任層（2 週）
 
 ---
 
-- [ ] **Unit 3: GSC 003 U6 — /ce:health 索引狀態 + 排名趨勢面板**
+- [x] **Unit 3: GSC 003 U6 — /ce:health 索引狀態 + 排名趨勢面板**
 
 **Goal:** operator 在 /ce:health 看到 GSC 索引狀態（出現/未出現）+ 排名 baseline vs latest delta。
 
@@ -250,7 +250,7 @@ M3 信任層（2 週）
 
 ---
 
-- [ ] **Unit 4: GSC 003 U7 — plan-backlinks baseline ranking hook**
+- [x] **Unit 4: GSC 003 U7 — plan-backlinks baseline ranking hook**
 
 **Goal:** plan-backlinks 建鏈前 advisory 觸發 ranking baseline snapshot（GSC 未設定靜默跳過）。
 
@@ -281,7 +281,7 @@ M3 信任層（2 週）
 
 ### Milestone 2 — Throughput
 
-- [ ] **Unit 5: catalog 框架端到端驗收**
+- [x] **Unit 5: catalog 框架端到端驗收** — `8b443de`
 
 **Goal:** 證明既存 catalog 路徑可重現，作為 M2 擴充的前提。
 
@@ -348,7 +348,7 @@ M3 信任層（2 週）
 
 ---
 
-- [ ] **Unit 7: catalog framework operator 指南**
+- [x] **Unit 7: catalog framework operator 指南** — `4f06c32`
 
 **Goal:** operator 知道如何加一個 YAML、如何驗證、如何貢獻回 built-in dir。
 
@@ -374,7 +374,7 @@ M3 信任層（2 週）
 
 ### Milestone 3 — 信任層
 
-- [ ] **Unit 8: `bp runs` + `resume` console entrypoint**
+- [x] **Unit 8: `bp runs` + `resume` console entrypoint** — `717d375`
 
 **Goal:** 喚醒已建但無 entrypoint 的 checkpoint/resume 死能力。
 
@@ -408,7 +408,7 @@ M3 信任層（2 週）
 
 ---
 
-- [ ] **Unit 9: run-level intent dedup 事件化**
+- [x] **Unit 9: run-level intent dedup 事件化** — `df7140d`
 
 **Goal:** 把 `skipped_due_to_dedup` int 計數改為 emit `publish.intent_deduped` 事件，補觀測洞。
 
@@ -443,7 +443,7 @@ M3 信任層（2 週）
 
 ### 並行背景工作
 
-- [ ] **Unit 10: 002 U7 HTTP client 統一（27 檔 import requests 收口）**
+- [x] **Unit 10: 002 U7 HTTP client 統一（27 檔 import requests 收口）** — `98677dd`
 
 **Goal:** src/ 所有裸 `import requests` 收口為 `_util/http_client.py`，SSL context 統一。
 

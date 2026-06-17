@@ -48,7 +48,7 @@ import logging
 from typing import Any
 from urllib.parse import urlparse
 
-import requests
+from requests.exceptions import RequestException
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config.types import GeoProbeConfig
@@ -175,7 +175,7 @@ def probe_perplexity(query: str, cfg: GeoProbeConfig) -> ProbeResult:
             raw_response={"parse_error": reason},
             outcome="parse_error",
         )
-    except requests.RequestException as exc:
+    except RequestException as exc:
         # Network failure (DNS, connect, timeout, read). The probe is read-only,
         # so this is transient — surface as ExternalServiceError (exit 4) so a
         # later run can retry. Redact in case the URL/userinfo echoed back.

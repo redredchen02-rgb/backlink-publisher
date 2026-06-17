@@ -60,6 +60,10 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
     ("WebUI", [
         ("pipeline-orchestrator",  "Start the pipeline orchestrator (launches WebUI backend)"),
     ]),
+    ("Runs", [
+        ("bp-runs",                "List incomplete (resumable) publish runs"),
+        ("resume",                 "Resume an interrupted publish-backlinks run"),
+    ]),
 ]
 
 

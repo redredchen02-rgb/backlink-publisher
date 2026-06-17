@@ -169,12 +169,15 @@ class TestEmitConfirmedHistoryRowWithArticles:
         assert sk == 1
         assert always_mark is False
 
-    def test_integrity_error_does_not_call_append(self):
+    def test_integrity_error_emits_intent_deduped(self):
         _, store, *_ = self._call(
             ["https://medium.com/@op/post"],
             add_article_side_effect=sqlite3.IntegrityError("dup"),
         )
-        store.append.assert_not_called()
+        store.append.assert_called_once()
+        call_args = store.append.call_args
+        assert call_args.args[0] == "publish.intent_deduped"
+        assert call_args.args[1]["live_url"] == "https://medium.com/@op/post"
 
     def test_mixed_valid_and_dedup_urls(self):
         """First URL is a dup (IntegrityError), second emits normally."""
