@@ -148,7 +148,7 @@ TB
   U4 --> U7[U7: plan-backlinks hook]
 ```
 
-- [ ] **Unit 1: GscConfig + gsc/client.py**
+- [x] **Unit 1: GscConfig + gsc/client.py** — landed `dfc4cf31`
 
 **Goal:** 建立 GSC 認證層與 Search Analytics API 客戶端，供 probe-index 和 probe-ranking 共用
 
@@ -188,7 +188,7 @@ TB
 
 ---
 
-- [ ] **Unit 2: events/kinds.py — 新增兩個 event kinds**
+- [x] **Unit 2: events/kinds.py — 新增兩個 event kinds** — landed `dfc4cf31`
 
 **Goal:** 在 `events/kinds.py` 登記 `gsc.page_signal` 和 `ranking.snapshot` 兩個 event kind，讓 CI gate 通過
 
@@ -223,7 +223,7 @@ TB
 
 ---
 
-- [ ] **Unit 3: probe-index CLI**
+- [x] **Unit 3: probe-index CLI** — landed `dfc4cf31`
 
 **Goal:** 實作 `probe-index` CLI，從 events.db 取已發布但未 probe 的外鏈頁面，透過 GSC Search Analytics 查詢是否有曝光，結果回寫 `gsc.page_signal` event
 
@@ -260,7 +260,7 @@ TB
 
 ---
 
-- [ ] **Unit 4: probe-ranking CLI**
+- [x] **Unit 4: probe-ranking CLI** — landed `dfc4cf31`
 
 **Goal:** 實作 `probe-ranking` CLI，抓 GSC Search Analytics keyword ranking snapshot 並存入 events.db
 
@@ -297,7 +297,7 @@ TB
 
 ---
 
-- [ ] **Unit 5: launchd plists + shell wrappers**
+- [x] **Unit 5: launchd plists + shell wrappers** — landed `a50fd14e`; runbook + config.example.toml updated 2026-06-16
 
 **Goal:** 新增 probe-index（每日）和 probe-ranking（每週）的 launchd 排程，讓兩個 CLI 在 cron 環境自動執行
 
@@ -326,7 +326,7 @@ TB
 
 ---
 
-- [ ] **Unit 6: /ce:health 索引狀態 + 排名趨勢面板**
+- [x] **Unit 6: /ce:health 索引狀態 + 排名趨勢面板** — landed (health_metrics.py indexation_status/ranking_trend + health.html panels + monolith_budget registered)
 
 **Goal:** 在 `/ce:health` WebUI 頁面新增兩個面板：索引狀態面板（未/已索引統計 + 清單）和排名趨勢面板（baseline vs. latest delta）
 
@@ -368,7 +368,7 @@ TB
 
 ---
 
-- [ ] **Unit 7: plan-backlinks baseline ranking hook**
+- [x] **Unit 7: plan-backlinks baseline ranking hook** — landed (probe_ranking.snapshot_baseline + core.py advisory try/except)
 
 **Goal:** 在 plan-backlinks/core.py 建鏈流程前，advisory 觸發 ranking baseline snapshot（GSC 未設定時靜默跳過）
 

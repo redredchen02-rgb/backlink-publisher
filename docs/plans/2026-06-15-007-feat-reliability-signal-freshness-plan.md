@@ -1,7 +1,7 @@
 ---
 title: "feat: Reliability signal freshness (recheck cadence + coverage alarm + selector-drift schedule)"
 type: feat
-status: active
+status: shipped
 date: 2026-06-15
 origin: docs/brainstorms/2026-06-15-reliability-observe-to-enforce-hardening-requirements.md
 claims: {}

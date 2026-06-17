@@ -1,7 +1,7 @@
 ---
 title: "feat: WebUI comprehensive UX overhaul — 7-phase incremental optimization"
 type: feat
-status: active
+status: shipped
 date: 2026-06-11
 claims:
   paths:
@@ -11,7 +11,7 @@ claims:
     - webui_app/static/css/index.css
     - webui_app/static/css/settings.css
     - webui_app/static/js/mode_toggle.js
-  shas: {}
+  shas: []
 ---
 
 # WebUI Comprehensive UX Overhaul

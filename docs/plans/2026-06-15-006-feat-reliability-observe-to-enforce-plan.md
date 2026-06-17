@@ -1,7 +1,7 @@
 ---
 title: "feat: Reliability observe→enforce (measure-first thin slice)"
 type: feat
-status: active
+status: shipped
 date: 2026-06-15
 deepened: 2026-06-15
 origin: docs/brainstorms/2026-06-15-reliability-observe-to-enforce-hardening-requirements.md

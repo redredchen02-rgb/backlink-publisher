@@ -1,9 +1,10 @@
 ---
 title: "feat: Settings page tier grouping full-page UX restructure"
 type: feat
-status: active
+status: shipped
 date: 2026-06-12
 origin: docs/brainstorms/2026-06-12-settings-tier-ux-requirements.md
+claims: {}
 ---
 
 # feat: Settings 頁面 Tier 分組 UX 全頁重構
@@ -130,7 +131,7 @@ graph TB
     U4 --> U5[U5: Cold start 總覽 CTA]
 ```
 
-- [ ] **Unit 1: 左側導航 Tier 子分組**
+- [x] **Unit 1: 左側導航 Tier 子分組**
 
 **Goal:** sidebar 「发布渠道」group 改為 3 個帶 tier 標籤的 sub-group，每組顯示渠道名稱 + 數量
 
@@ -168,7 +169,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 2: settings.html 配置區 Tier Section Headers**
+- [x] **Unit 2: settings.html 配置區 Tier Section Headers**
 
 **Goal:** `pane-channels` 區域加 3 個 tier section wrapper，T1 在最前，hardcoded 卡片按 tier 歸入對應 section
 
@@ -203,7 +204,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 3: `_settings_cardless_channels.html` Tier 過濾參數化**
+- [x] **Unit 3: `_settings_cardless_channels.html` Tier 過濾參數化**
 
 **Goal:** 讓 cardless 模板接受 `tier` context 變量，只渲染對應 tier 的渠道；加入 T3 mastodon coming-soon stub
 
@@ -240,7 +241,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 4: T1 渠道卡片視覺強化**
+- [x] **Unit 4: T1 渠道卡片視覺強化**
 
 **Goal:** T1 anon 渠道卡片加綠色左側 accent border；`_settings_binding_anon.html` 加「試發布」主要 CTA 按鈕
 
@@ -275,7 +276,7 @@ graph TB
 
 ---
 
-- [ ] **Unit 5: Cold Start 總覽 T1 CTA 強化**
+- [x] **Unit 5: Cold Start 總覽 T1 CTA 強化**
 
 **Goal:** Cold start 狀態（無真實綁定）下，總覽 panel 的 T1 渠道卡片加「⚡ 立即試發布」行動標籤
 

@@ -1,6 +1,6 @@
 ---
 date: 2026-06-09
-status: active
+status: shipped
 type: feat
 origin: docs/brainstorms/2026-06-09-v040-operator-autonomy-requirements.md
 claims:
