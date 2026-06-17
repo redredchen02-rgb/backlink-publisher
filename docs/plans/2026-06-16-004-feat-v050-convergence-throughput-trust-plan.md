@@ -443,7 +443,7 @@ M3 信任層（2 週）
 
 ### 並行背景工作
 
-- [ ] **Unit 10: 002 U7 HTTP client 統一（27 檔 import requests 收口）**
+- [x] **Unit 10: 002 U7 HTTP client 統一（27 檔 import requests 收口）** — `98677dd`
 
 **Goal:** src/ 所有裸 `import requests` 收口為 `_util/http_client.py`，SSL context 統一。
 
