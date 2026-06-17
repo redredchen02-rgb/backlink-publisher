@@ -10,11 +10,11 @@
     {% elif vs.state == 'warn' %}
         <span class="badge-status warn"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ vs.label }}</span>
     {% elif vs.state == 'cap_reached' %}
-        <span class="badge-status" style="background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;">
+        <span class="badge-status" style="background:var(--surface-raised);color:var(--text-secondary);border:1px solid var(--border);">
             <i class="bi bi-pause-circle-fill me-1"></i>{{ vs.label }}
         </span>
     {% elif vs.state == 'permission_denied' %}
-        <span class="badge-status" style="background:#faf5ff;color:#7c3aed;border:1px solid #c4b5fd;">
+        <span class="badge-status" style="background:var(--violet-soft);color:var(--violet-text);border:1px solid rgba(139,92,246,0.35);">
             <i class="bi bi-lock-fill me-1"></i>{{ vs.label }}
         </span>
     {% else %}
@@ -35,9 +35,9 @@
     计数在 UTC 午夜自动重置。
 </div>
 {% elif vs.state == 'permission_denied' %}
-<div class="alert" style="background:#faf5ff;border:1px solid #c4b5fd;margin-bottom:16px;">
-    <i class="bi bi-lock-fill me-1" style="color:#7c3aed;"></i>
-    <strong style="color:#7c3aed;">WebUI 无法读取 Cookie 文件（uid 不匹配）</strong><br/>
+<div class="note-box" style="margin-bottom:16px;">
+    <i class="bi bi-lock-fill me-1" style="color:var(--violet-text);"></i>
+    <strong style="color:var(--violet-text);">WebUI 无法读取 Cookie 文件（uid 不匹配）</strong><br/>
     <code>{{ vs.guide }}</code>
 </div>
 {% elif vs.state == 'ok' %}

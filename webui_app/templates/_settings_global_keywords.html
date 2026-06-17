@@ -23,15 +23,15 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     {% for domain in all_targets %}
                     {% set kws = target_anchor_keywords.get(domain, []) %}
-                    <details style="margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-                        <summary style="padding:10px 14px;cursor:pointer;background:#f8fafc;font-size:13px;user-select:none;">
+                    <details style="margin-bottom:12px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                        <summary style="padding:10px 14px;cursor:pointer;background:var(--surface-raised);font-size:13px;user-select:none;">
                             <strong>{{ domain }}</strong>
                             <span class="badge {% if kws %}bg-success{% else %}bg-warning text-dark{% endif %} ms-2" style="font-size:11px;">
                                 {% if kws %}{{ kws | length }} 个关键词{% else %}未配置{% endif %}
                             </span>
                         </summary>
                         <div style="padding:12px 14px;">
-                            <label class="form-label" style="font-size:12px;color:#64748b;">
+                            <label class="form-label" style="font-size:12px;color:var(--text-secondary);">
                                 关键词（每行一个）：
                             </label>
                             <textarea

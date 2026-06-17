@@ -98,7 +98,7 @@
                         {% endfor %}
                         <div class="url-item">
                             <span class="url-badge extra">+</span>
-                            <input type="url" class="form-control" name="url_new" placeholder="+ 添加更多附加连结..." style="border: 2px dashed #ccc;">
+                            <input type="url" class="form-control" name="url_new" placeholder="+ 添加更多附加连结..." style="border: 2px dashed var(--border);">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary">
@@ -175,7 +175,7 @@
                     <div class="info-box">
                         <h6><i class="bi bi-info-circle me-1"></i>抓取的页面信息</h6>
                         {% for m in meta_info %}
-                        <div style="background: white;padding: 12px;margin: 8px 0;border-radius: 8px;">
+                        <div style="background: var(--surface-overlay);padding: 12px;margin: 8px 0;border-radius: 8px;">
                             <strong style="color: var(--primary);">{{ m.url|truncate(60) }}</strong><br>
                             <small style="color: var(--secondary);">{{ m.title[:80] }}</small>
                         </div>
@@ -264,7 +264,7 @@
                            style="color:var(--primary);">查看</a>
                         <img src="{{ plan.cover_image_url }}" alt="cover"
                              loading="lazy" style="display:block;max-height:80px;margin-top:4px;
-                                                   border-radius:4px;border:1px solid #e5e7eb;">
+                                                   border-radius:4px;border:1px solid var(--border);">
                     </div>
                     {% endif %}
 
@@ -354,9 +354,9 @@
                                 <option value="draft">存草稿</option>
                                 <option value="publish">正式发布</option>
                             </select>
-                            <label class="tier-1-check-label" style="font-size:12px;white-space:nowrap;cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid #d1d5db;background:#f9fafb;">
+                            <label class="tier-1-check-label" style="font-size:12px;white-space:nowrap;cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface-raised);">
                                 <input type="checkbox" name="tier_1" value="1" style="margin-right:3px;vertical-align:text-bottom;">
-                                <i class="bi bi-star-fill" style="font-size:10px;color:#f59e0b;"></i> 仅Tier1
+                                <i class="bi bi-star-fill" style="font-size:10px;color:var(--warning);"></i> 仅Tier1
                             </label>
                             <button type="submit" class="btn btn-success" style="border-radius:0 10px 10px 0;">
                                 <i class="bi bi-upload me-2"></i>发布
@@ -388,16 +388,16 @@
                             <option value="draft">存草稿</option>
                             <option value="publish">正式发布</option>
                         </select>
-                        <label class="tier-1-check-label" style="font-size:12px;white-space:nowrap;cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid #d1d5db;background:#f9fafb;">
+                        <label class="tier-1-check-label" style="font-size:12px;white-space:nowrap;cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface-raised);">
                             <input type="checkbox" name="tier_1" value="1" style="margin-right:3px;vertical-align:text-bottom;">
-                            <i class="bi bi-star-fill" style="font-size:10px;color:#f59e0b;"></i> 仅Tier1
+                            <i class="bi bi-star-fill" style="font-size:10px;color:var(--warning);"></i> 仅Tier1
                         </label>
                         <button type="submit" class="btn btn-success" style="border-radius:0 10px 10px 0;">
                             <i class="bi bi-upload me-2"></i>发布到 {{ config.platform }}
                         </button>
                     </div>
                     {% include '_banner_status_chip.html' %}
-                    <div style="font-size:12px;color:#6b7280;margin-top:6px;">
+                    <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
                         「存草稿」= 保存到平台草稿箱，「正式发布」= 立即公开上线
                     </div>
                 </form>
@@ -421,7 +421,7 @@
                     发布成功！
                 </div>
                 {% elif _ps == 'partial_success' %}
-                <div class="success-box mb-3" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-left-color:var(--warning);color:#92400e;">
+                <div class="success-box mb-3" style="background:var(--warning-soft);border-left-color:var(--warning);color:var(--warning-text);">
                     <i class="bi bi-exclamation-triangle me-2"></i>
                     部分发布成功 ({{ n_ok }}/{{ n_total }})
                 </div>
@@ -477,7 +477,7 @@
         
         {% if error %}
         <div class="card">
-            <div class="card-header" style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);">
+            <div class="card-header" style="background: var(--danger-soft);">
                 <i class="bi bi-exclamation-triangle me-2"></i>错误
             </div>
             <div class="card-body">

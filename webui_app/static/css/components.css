@@ -131,3 +131,45 @@
 }
 .ui-error__retry { border-color: rgba(248, 113, 113, 0.4); }
 .ui-error__retry:hover { border-color: var(--danger); }
+
+/* ── Note box (settings help / callout panels) ───────────────────────────────
+ * Console-themed replacement for the light pastel note boxes that were inlined
+ * across the settings channel partials. Variant sets background + border; the
+ * title inherits the matching status-text token. Body text is secondary. */
+.note-box {
+    background: var(--surface-raised);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+.note-box:last-child { margin-bottom: 0; }
+.note-box--warn    { background: var(--warning-soft); border-color: rgba(245, 158, 11, 0.35); }
+.note-box--success { background: var(--success-soft); border-color: rgba(16, 185, 129, 0.35); }
+.note-box--info    { background: var(--info-soft);    border-color: rgba(56, 189, 248, 0.35); }
+
+.note-box__title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+.note-box--warn    .note-box__title { color: var(--warning-text); }
+.note-box--success .note-box__title { color: var(--success-text); }
+.note-box--info    .note-box__title { color: var(--info-text); }
+
+.note-box__body {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+.note-box__body:last-child { margin-bottom: 0; }
+
+/* Readonly "copy this value" mono inputs inside note boxes — dark console field
+ * instead of the inline white background they used to carry. */
+.note-box .form-control[readonly] {
+    background: var(--surface-base);
+    color: var(--text);
+    border-color: var(--glass-border);
+}

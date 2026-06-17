@@ -10,53 +10,53 @@
                 </div>
 
                 <!-- 步骤 1：Google Cloud Console OAuth 配置 -->
-                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
-                    <p style="font-size:13px;font-weight:600;margin-bottom:10px;color:#92400e;">
+                <div class="note-box note-box--warn" style="margin-bottom:20px;">
+                    <p class="note-box__title">
                         <i class="bi bi-exclamation-triangle-fill me-1"></i>
                         Step 1 — 在 Google Cloud Console 注册回调网址
                     </p>
-                    <p style="font-size:12px;color:#78350f;margin-bottom:10px;">
+                    <p class="note-box__body">
                         前往 <a href="https://console.cloud.google.com/apis/credentials" target="_blank">API &amp; Services → 凭据</a>，
                         打开你的 OAuth 2.0 客户端 ID，根据你的 <strong>客户端类型</strong> 选择对应操作：
                     </p>
 
                     <!-- 桌面应用（推荐） -->
-                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 14px;margin-bottom:10px;">
-                        <p style="font-size:12px;font-weight:700;color:#166534;margin-bottom:6px;">
+                    <div class="note-box note-box--success" style="border-radius:6px;padding:10px 14px;">
+                        <p class="note-box__title" style="font-size:12px;">
                             ✓ 推荐：桌面应用 (Desktop application)
                         </p>
-                        <p style="font-size:12px;color:#15803d;margin-bottom:8px;">
+                        <p class="note-box__body">
                             在「已获授权的重定向 URI」中只需添加：
                         </p>
                         <div style="display:flex;align-items:center;gap:8px;max-width:320px;">
                             <input type="text" class="form-control form-control-sm" value="http://localhost" readonly
-                                   style="font-family:monospace;font-size:12px;background:#fff;flex:1;">
+                                   style="font-family:monospace;font-size:12px;flex:1;">
                             <button class="btn btn-success btn-sm" type="button"
                                     data-action="copy-localhost">
                                 <i class="bi bi-clipboard"></i>
                             </button>
                         </div>
-                        <p style="font-size:11px;color:#166534;margin-top:6px;margin-bottom:0;">
+                        <p class="note-box__body" style="font-size:11px;margin-top:6px;">
                             桌面应用只需注册 <code>http://localhost</code>，Google 自动允许任意端口，无需注册完整路径。
                         </p>
                     </div>
 
                     <!-- Web 应用 -->
-                    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:10px 14px;">
-                        <p style="font-size:12px;font-weight:700;color:#9a3412;margin-bottom:6px;">
+                    <div class="note-box note-box--warn" style="border-radius:6px;padding:10px 14px;">
+                        <p class="note-box__title" style="font-size:12px;">
                             Web 应用 (Web application) — 需注册完整回调网址：
                         </p>
                         <div class="input-group" style="max-width:520px;">
                             <input type="text" class="form-control form-control-sm"
                                    id="callbackUriDisplay"
                                    value="{{ callback_uri }}" readonly
-                                   style="font-family:monospace;font-size:12px;background:#fff;">
+                                   style="font-family:monospace;font-size:12px;">
                             <button class="btn btn-warning btn-sm" type="button"
                                     data-action="copy-uri" id="copyBtn">
                                 <i class="bi bi-clipboard me-1"></i>复制
                             </button>
                         </div>
-                        <p style="font-size:11px;color:#9a3412;margin-top:6px;margin-bottom:0;">
+                        <p class="note-box__body" style="font-size:11px;margin-top:6px;">
                             网址必须与上方完全一致（含端口号），否则会出现 redirect_uri_mismatch。
                         </p>
                     </div>
@@ -66,7 +66,7 @@
                 <form method="POST" action="/settings/blogger/oauth-start"
                       id="oauthCredForm">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <p style="font-size:13px;font-weight:600;margin-bottom:10px;color:#374151;">
+                    <p style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-primary);">
                         Step 2 — 填入 OAuth 凭据
                     </p>
                     <div class="row g-3 mb-3">
@@ -93,8 +93,8 @@
 
                     <!-- 已綁定狀態顯示 -->
                     {% if blogger_client_id %}
-                    <div class="mb-3 p-2" style="background:#f0fdf4;border:1px solid #bbf7d0;
-                         border-radius:6px;font-size:12px;color:#166534;display:flex;
+                    <div class="mb-3 note-box note-box--success"
+                         style="font-size:12px;color:var(--success-text);display:flex;
                          align-items:center;gap:8px;">
                         <i class="bi bi-check-circle-fill"></i>
                         凭据已绑定：<code style="font-size:11px;">{{ blogger_client_id[:24] }}…</code>
@@ -147,7 +147,7 @@
                 <!-- Blog ID 映射子区块 -->
                 <div id="blogger-blog-ids">
                     <p class="fw-semibold mb-2" style="font-size:14px;">
-                        <i class="bi bi-diagram-3 me-2" style="color:#4f46e5;"></i>Blogger Blog ID 映射
+                        <i class="bi bi-diagram-3 me-2" style="color:var(--primary);"></i>Blogger Blog ID 映射
                     </p>
                     <p class="text-muted" style="font-size:13px;">
                         将每个目标主域名映射到对应的 Blogger Blog ID。<br>
