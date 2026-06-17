@@ -307,7 +307,7 @@ flowchart TB
 **Verification:**
 - 完成一次单笔发布全程不跳出工作台页；每步状态与忙碌态可见；草稿状态栏数据正确。
 
-- [ ] **Unit 5: 监控聚合看板**
+- [x] **Unit 5: 监控聚合看板**
 
 **Goal:** 新增「今日异常优先」聚合看板，汇总保活/健康/权益/优化为卡片，可一键深钻 + 就地快捷操作。
 
@@ -340,7 +340,7 @@ flowchart TB
 **Verification:**
 - 一页内看到全部监控异常并按优先级排序；任一数据源故障不致整页 500；深钻与快捷操作可用。
 
-- [ ] **Unit 6: 监控只读 JSON 端点（equity / optimization）**
+- [x] **Unit 6: 监控只读 JSON 端点（equity / optimization）**
 
 **Goal:** 为 equity_ledger / optimization_status 补只读 JSON 端点，供 U5 聚合复用。
 
