@@ -31,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
-import requests
+from requests import Response
 from bs4 import BeautifulSoup
 
 from backlink_publisher._util.errors import ExternalServiceError, InputValidationError
@@ -85,7 +85,7 @@ class WorkMetadata:
 # ── Decoding helpers ─────────────────────────────────────────────────────────
 
 
-def _decode(body: bytes, resp: requests.Response) -> str:
+def _decode(body: bytes, resp: Response) -> str:
     encoding = resp.encoding or resp.apparent_encoding or "utf-8"
     try:
         return body.decode(encoding, errors="replace")

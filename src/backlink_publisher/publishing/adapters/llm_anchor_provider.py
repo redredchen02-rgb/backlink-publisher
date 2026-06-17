@@ -34,7 +34,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-import requests
+from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
 from backlink_publisher.http import post as http_post
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
@@ -369,7 +369,7 @@ def _is_retryable(exc: Exception) -> bool:
         return False
     if isinstance(exc, _TransientHTTPError):
         return True
-    if isinstance(exc, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
+    if isinstance(exc, (ReqTimeout, ReqConnError)):
         return True
     return False
 
