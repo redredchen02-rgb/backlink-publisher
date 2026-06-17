@@ -52,14 +52,24 @@ def _resolve_stale_days() -> int:
     return days if days > 0 else 30
 
 
-@bp.route("/ce:equity-ledger", methods=["GET"])
-def equity_ledger():
-    stale_days = _resolve_stale_days()
-    cfg = _g_cache('config', load_config)
+def _build_rows(stale_days: int) -> tuple[list[dict], int]:
+    """Shared ledger-row builder for the HTML page and the JSON endpoint.
+
+    Single source of truth so /ce:equity-ledger and /api/equity-ledger never
+    drift. Returns (rows, stale_count); each row carries its missing-dofollow set.
+    """
     rows = [row.to_jsonl_dict() for row in build_ledger(stale_days=stale_days)]
     stale_count = sum(1 for r in rows if r["liveness"] in ("stale", "failed"))
     for r in rows:
         r["missing_dofollow_platforms"] = _compute_missing(r)
+    return rows, stale_count
+
+
+@bp.route("/ce:equity-ledger", methods=["GET"])
+def equity_ledger():
+    stale_days = _resolve_stale_days()
+    cfg = _g_cache('config', load_config)
+    rows, stale_count = _build_rows(stale_days)
     return _render(
         "equity_ledger.html",
         rows=rows,
@@ -68,6 +78,21 @@ def equity_ledger():
         exact_match_threshold=cfg.anchor_alarm.exact_ratio_ceiling,
         active_page='equity',
     )
+
+
+@bp.route("/api/equity-ledger", methods=["GET"])
+def equity_ledger_json():
+    """Read-only JSON twin of the ledger page (for the monitor hub, U5/U6).
+
+    Derives from the same _build_rows() as the HTML route — no recomputation, no
+    drift. Fail-open: never 500s; on error returns ok=false with an empty list.
+    """
+    stale_days = _resolve_stale_days()
+    try:
+        rows, stale_count = _build_rows(stale_days)
+    except Exception as exc:  # read-only dashboard data must never 500
+        return jsonify({"ok": False, "error": str(exc), "rows": [], "stale_days": stale_days, "stale_count": 0})
+    return jsonify({"ok": True, "rows": rows, "stale_days": stale_days, "stale_count": stale_count})
 
 
 @bp.route("/ce:equity-ledger/recheck", methods=["POST"])
