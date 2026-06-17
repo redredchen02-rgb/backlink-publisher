@@ -101,11 +101,15 @@ ALLOWLIST: dict[str, str] = {
         "not the publish path. Tracked migration candidate."
     ),
     "webui_app/routes/image_gen.py:32": (
-        "Image-gen /models listing for the WebUI dropdown; loopback operator tool. "
-        "Tracked migration candidate."
+        "Image-gen /models probe targets the operator's OpenAI-compatible gateway, "
+        "which is typically loopback/private (127.0.0.1, LAN). http_client's SSRF "
+        "guard blocks 127.0.0.0/8 and 192.168/16 (verified), so migrating would "
+        "break the local-gateway probe. Structural exemption, not a backlog item."
     ),
     "webui_app/routes/image_gen.py:58": (
-        "Image-gen model detail fetch sibling of the :32 listing. Tracked."
+        "FRW balance probe sibling of the :32 listing; same loopback/private "
+        "operator-gateway target that http_client's SSRF guard would block. "
+        "Structural exemption."
     ),
 }
 
