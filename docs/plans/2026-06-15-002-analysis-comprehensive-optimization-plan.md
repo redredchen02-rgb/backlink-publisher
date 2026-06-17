@@ -3,6 +3,7 @@ title: "analysis: Comprehensive Codebase Optimization Plan (current-state audit)
 type: analysis
 status: shipped
 date: 2026-06-15
+claims: {}
 ---
 
 # 全面代码库优化计划（基于 2026-06-15 实际状态审计）

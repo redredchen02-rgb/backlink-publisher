@@ -11,7 +11,7 @@ claims:
     - webui_app/static/css/index.css
     - webui_app/static/css/settings.css
     - webui_app/static/js/mode_toggle.js
-  shas: {}
+  shas: []
 ---
 
 # WebUI Comprehensive UX Overhaul

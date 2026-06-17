@@ -4,6 +4,7 @@ type: feat
 status: shipped
 date: 2026-06-12
 origin: docs/brainstorms/2026-06-12-settings-tier-ux-requirements.md
+claims: {}
 ---
 
 # feat: Settings 頁面 Tier 分組 UX 全頁重構
