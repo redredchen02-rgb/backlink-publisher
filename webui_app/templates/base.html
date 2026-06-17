@@ -47,14 +47,16 @@
                     <a href="/batch-campaign" class="global-nav__item{% if (active_page | default('')) == 'batch_campaign' %} active{% endif %}" aria-label="批量任务管理">批量任务</a>
                 </div>
                 
-                {% if not lite_edition %}
                 <div class="global-nav__group">
                     <span class="global-nav__group-label">监控</span>
                     <a href="/ce:keep-alive" class="global-nav__item{% if (active_page | default('')) == 'keep_alive' %} active{% endif %}" aria-label="保活监控">保活</a>
+                    {% if not lite_edition %}
                     <a href="/survival-dashboard" class="global-nav__item{% if (active_page | default('')) == 'survival_dashboard' %} active{% endif %}" aria-label="存活率统计">存活率</a>
                     <a href="/ce:health" class="global-nav__item{% if (active_page | default('')) == 'health' %} active{% endif %}" aria-label="健康状态">健康</a>
                     <a href="/ce:command-center" class="global-nav__item{% if (active_page | default('')) == 'command_center' %} active{% endif %}" aria-label="指挥中心">指挥</a>
+                    {% endif %}
                 </div>
+                {% if not lite_edition %}
                 
                 <div class="global-nav__group">
                     <span class="global-nav__group-label">配置</span>

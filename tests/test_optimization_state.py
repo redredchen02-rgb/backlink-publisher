@@ -38,9 +38,9 @@ class TestLoad:
         """Loading when no file exists returns default state, not error."""
         assert not tmp_state.path.exists()
         data = tmp_state.load()
-        assert data["version"] == 1
-        assert data["weights"] == {}
-        assert data["stats"] == {}
+        assert data["version"] == 2
+        assert data["weights"] == {"default": {}}
+        assert data["stats"] == {"default": {}}
 
     def test_save_then_load_roundtrip(self, tmp_state):
         """Save then load returns identical data."""
@@ -60,14 +60,14 @@ class TestLoad:
         """Corrupt JSON loads as default state (graceful fallback)."""
         tmp_state.path.write_text("not-json{{{")
         data = tmp_state.load()
-        assert data["version"] == 1
-        assert data["weights"] == {}
+        assert data["version"] == 2
+        assert data["weights"] == {"default": {}}
 
     def test_missing_version_key_treated_as_corrupt(self, tmp_state):
         """Missing 'version' key triggers fallback to defaults."""
         tmp_state.path.write_text(json.dumps({"weights": {}}))
         data = tmp_state.load()
-        assert data["version"] == 1
+        assert data["version"] == 2
 
 
 # ---------------------------------------------------------------------------
@@ -93,14 +93,14 @@ class TestGetSetWeight:
         tmp_state.set_weight("blogger", 0.5, rule="canary_drift",
                               reason="first_drift")
         data = tmp_state.load()
-        adj = data["weights"]["blogger"]["adjustments"]
+        adj = data["weights"]["default"]["blogger"]["adjustments"]
         assert len(adj) == 1
         assert adj[0]["rule"] == "canary_drift"
 
         tmp_state.set_weight("blogger", 0.25, rule="canary_drift",
                               reason="second_drift")
         data = tmp_state.load()
-        adj = data["weights"]["blogger"]["adjustments"]
+        adj = data["weights"]["default"]["blogger"]["adjustments"]
         assert len(adj) == 2
         assert adj[1]["multiplier"] == 0.5  # 0.25/0.5
 
@@ -119,22 +119,22 @@ class TestUpdateStats:
     def test_update_stats_creates_entry(self, tmp_state):
         tmp_state.update_stats("blogger", {"total_published": 10, "alive_count": 8})
         data = tmp_state.load()
-        assert data["stats"]["blogger"]["total_published"] == 10
-        assert data["stats"]["blogger"]["alive_count"] == 8
+        assert data["stats"]["default"]["blogger"]["total_published"] == 10
+        assert data["stats"]["default"]["blogger"]["alive_count"] == 8
 
     def test_update_stats_merges_without_overwrite(self, tmp_state):
         tmp_state.update_stats("blogger", {"total_published": 10})
         tmp_state.update_stats("blogger", {"alive_count": 8})
         data = tmp_state.load()
-        assert data["stats"]["blogger"]["total_published"] == 10
-        assert data["stats"]["blogger"]["alive_count"] == 8
+        assert data["stats"]["default"]["blogger"]["total_published"] == 10
+        assert data["stats"]["default"]["blogger"]["alive_count"] == 8
 
     def test_update_stats_separate_platforms(self, tmp_state):
         tmp_state.update_stats("blogger", {"total_published": 5})
         tmp_state.update_stats("medium", {"total_published": 3})
         data = tmp_state.load()
-        assert data["stats"]["blogger"]["total_published"] == 5
-        assert data["stats"]["medium"]["total_published"] == 3
+        assert data["stats"]["default"]["blogger"]["total_published"] == 5
+        assert data["stats"]["default"]["medium"]["total_published"] == 3
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ class TestResetAndSummary:
         tmp_state.reset_weights()
         data = tmp_state.load()
         assert data["weights"] == {}
-        assert data["stats"]["blogger"]["total_published"] == 10
+        assert data["stats"]["default"]["blogger"]["total_published"] == 10
 
     def test_to_summary_empty(self, tmp_state):
         summary = tmp_state.to_summary()
