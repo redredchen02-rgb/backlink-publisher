@@ -163,7 +163,7 @@ graph TB
 - Edge：enforce 但 channel 不在 allowlist → 不 skip、不 emit skip 決策
 **Verification:** 測試綠；events.db 出現首筆 `skipped_policy`（測試環境）；確認真實翻轉留 Phase 1 R1
 
-- [ ] **Unit 4: recheck/liveness 輸出接縫 + 下游浮現驗證**
+- [x] **Unit 4: recheck/liveness 輸出接縫 + 下游浮現驗證**
 
 **Goal:** 證明 recheck 對死鏈寫出非 ALIVE 的 `link.rechecked`，且下游（equity ledger / liveness）真的浮現它——堵死「探針跑了但 liveness 永遠 0」的接縫。
 **Requirements:** R0.1（recheck）

@@ -50,6 +50,31 @@ def test_emit_writes_events_with_verdict_and_columns(store):
     assert by_aid[1]["target_url"] == "https://my.site/"
 
 
+@pytest.mark.parametrize("dead", [verdicts.HOST_GONE, verdicts.LINK_STRIPPED, verdicts.DOFOLLOW_LOST])
+def test_dead_verdicts_are_recorded_not_silently_dropped(store, dead):
+    """Phase 0 U4 hard-output lock: every dead/degraded verdict must land a real
+    LINK_RECHECKED row carrying that verdict — the output seam, not just 'no error'.
+    A dead link that leaves no event is the build-but-silent failure mode.
+
+    NOTE (Phase 0 U4, C-boundary): the *downstream* surfacing — a dead recheck
+    actually lowering the equity-ledger live/live_dofollow count — is NOT verified
+    here. `ledger/aggregate.py::_link_liveness` derives liveness from
+    `verified_at`/`verify_error`, structurally ignoring the `link.rechecked`
+    verdict, so a dead recheck may not surface in ledger liveness. That seam is
+    recorded as an open item in `debt_registry.toml`
+    (slug: recheck-ledger-liveness-seam) and deferred to Phase 1 — NOT fixed
+    inline (would be a consumer behavior change beyond verify-before-activate)."""
+    written = emit_recheck(store, [_result(1, dead)])
+    assert written == 1
+    rows = store.query(
+        "SELECT payload_json FROM events WHERE kind = ?", (LINK_RECHECKED,)
+    )
+    assert len(rows) == 1
+    payload = json.loads(rows[0]["payload_json"])
+    assert payload["verdict"] == dead
+    assert payload["verdict"] != verdicts.ALIVE
+
+
 def test_dry_preview_rows_without_verdict_are_skipped(store):
     written = emit_recheck(store, [{"live_url": "x", "will_probe": True}])
     assert written == 0
