@@ -182,6 +182,27 @@ def test_claim_no_stewardship_model_resolved_is_true() -> None:
     )
 
 
+# ─── recheck-ledger-liveness-seam → resolved: liveness consults recheck verdict ─
+
+def test_claim_recheck_ledger_liveness_seam_resolved_is_true() -> None:
+    """``recheck-ledger-liveness-seam`` is resolved (PR #31) — the ledger
+    liveness derivation must consult the latest ``link.rechecked`` verdict so a
+    dead recheck overrides a stale ``verified_at``.
+
+    Falsifiable: if the override is reverted, ``_link_liveness`` no longer takes
+    a recheck verdict and these markers vanish from aggregate.py — re-open the
+    debt rather than letting the undercounting-inverse silently return."""
+    assert "recheck-ledger-liveness-seam" in ITEMS
+    assert ITEMS["recheck-ledger-liveness-seam"]["status"] == "resolved"
+    aggregate = REPO_ROOT / "src" / "backlink_publisher" / "ledger" / "aggregate.py"
+    assert aggregate.exists(), "ledger/aggregate.py vanished"
+    assert _grep("recheck_verdict", aggregate) and _grep("is_deterministic_dead", aggregate), (
+        "recheck-ledger-liveness-seam is 'resolved' but ledger/aggregate.py no "
+        "longer threads the recheck verdict into liveness. Re-open the debt or "
+        "restore the override (dead link.rechecked must lower the live count)."
+    )
+
+
 # ─── meta: every resolved/mitigated item must have a claim test ───────────────
 #
 # This is the anti-rot backstop. If someone marks a debt resolved/mitigated
@@ -197,6 +218,7 @@ _CLAIM_TEST_SLUGS: set[str] = {
     "no-recon-schema",
     "orphan-code-unknown",
     "debt-registry-staleness",
+    "recheck-ledger-liveness-seam",
     "no-stewardship-model",
 }
 
