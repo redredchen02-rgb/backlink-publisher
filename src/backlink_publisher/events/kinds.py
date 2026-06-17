@@ -89,6 +89,12 @@ RELIABILITY_DECISION: Final = "reliability.decision"
 #: links for the same target are dead within 14 days. Deduped per target per
 #: 14d window to avoid re-alerting on persistent decay.
 DECAY_ALERT: Final = "decay.alert"
+#: History row live_url deduped against existing articles (IntegrityError on
+#: add_article). Replaces the silent skipped_due_to_dedup int counter so the
+#: dedup rate is queryable. Dual-written with the int counter during the
+#: transition period (Plan 2026-06-16-004 Unit 9). live_url is the load-bearing
+#: field — the UNIQUE key that caused the collision.
+PUBLISH_INTENT_DEDUPED: Final = "publish.intent_deduped"
 #: GSC Search Analytics page-signal probe (Plan 2026-06-16-003 Unit 2).
 #: Written directly by the ``probe-index`` CLI via ``EventStore.append``.
 #: ``has_impressions=True`` means the page appeared in GSC Search Analytics
@@ -127,6 +133,7 @@ KINDS: Final[frozenset[str]] = frozenset(
         DECAY_ALERT,
         GSC_PAGE_SIGNAL,
         RANKING_SNAPSHOT,
+        PUBLISH_INTENT_DEDUPED,
     }
 )
 
@@ -209,6 +216,9 @@ REQUIRED_FIELDS: Final[dict[str, frozenset[str]]] = {
     # date_range_start/end identify the non-overlapping query window so baseline
     # vs follow-up comparisons are statistically valid.
     RANKING_SNAPSHOT: frozenset({"keyword", "avg_position", "date_range_start", "date_range_end"}),
+    # live_url is the UNIQUE key that caused the IntegrityError collision —
+    # the load-bearing field for auditing dedup rate and correlating to articles.
+    PUBLISH_INTENT_DEDUPED: frozenset({"live_url"}),
 }
 
 
