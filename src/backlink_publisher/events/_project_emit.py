@@ -78,6 +78,17 @@ def _emit_confirmed_history_row(
             article_id = store.add_article(article, conn=conn)
         except sqlite3.IntegrityError:
             skipped += 1
+            store.append(
+                kinds.PUBLISH_INTENT_DEDUPED,
+                {"live_url": live_url, "target_url": target_url,
+                 "platform": row.get("platform")},
+                target_url=target_url,
+                host=host_of(live_url),
+                ts_raw=ts_raw,
+                ts_utc=ts_utc,
+                conn=conn,
+                pending_quarantines=pending_quarantines,
+            )
             continue
         articles += 1
         store.append(
