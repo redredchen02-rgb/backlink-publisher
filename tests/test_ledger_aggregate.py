@@ -216,3 +216,82 @@ def test_live_dofollow_platforms_serialized(store):
     assert d["live_dofollow_platforms"] == ["medium"]
     # round-trips through JSON (the CLI emits it one-per-line on stdout).
     assert json.loads(json.dumps(d))["live_dofollow_platforms"] == ["medium"]
+
+
+# ── recheck verdict overrides stale verified_at (recheck-ledger-liveness-seam) ─
+# U4-deferred downstream assertion: a dead link.rechecked verdict must lower
+# live_links / live_dofollow even when verified_at is still fresh. write_verified_at
+# only advances on ALIVE, so without this the dead link stays counted as live.
+
+from backlink_publisher.recheck import verdicts  # noqa: E402
+from backlink_publisher.recheck.events_io import emit_recheck  # noqa: E402
+
+
+def _recheck(store, live_url, verdict, platform="medium"):
+    emit_recheck(store, [{
+        "live_url": live_url, "target_url": T, "host": "h",
+        "article_id": None, "platform": platform, "verdict": verdict,
+        "reason": None, "source": "events",
+    }])
+
+
+def test_host_gone_recheck_drops_live_dofollow(store):
+    # medium link is fresh-verified dofollow → baseline live + live_dofollow.
+    fresh = (datetime.now() - timedelta(days=3)).isoformat(timespec="seconds")
+    base = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
+    assert base.live_links == 1
+    assert base.live_dofollow == 1
+
+    # A later host_gone recheck for that same live_url must override the stale
+    # verified_at: the link is now dead despite the unchanged verified_at.
+    _recheck(store, "https://medium.com/l1", verdicts.HOST_GONE)
+    row = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
+    assert row.live_links == 0
+    assert row.live_dofollow == 0
+    assert "medium" not in row.live_dofollow_platforms
+    assert row.liveness == "failed"
+
+
+def test_link_stripped_recheck_drops_live_link(store):
+    fresh = (datetime.now() - timedelta(days=3)).isoformat(timespec="seconds")
+    _recheck(store, "https://medium.com/l1", verdicts.LINK_STRIPPED)
+    row = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
+    assert row.live_links == 0
+    assert row.live_dofollow == 0
+
+
+def test_dofollow_lost_recheck_keeps_live_but_not_dofollow(store):
+    fresh = (datetime.now() - timedelta(days=3)).isoformat(timespec="seconds")
+    _recheck(store, "https://medium.com/l1", verdicts.DOFOLLOW_LOST)
+    row = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
+    # Still live (rel-stripped, not dead) but no longer a dofollow link.
+    assert row.live_links == 1
+    assert row.live_dofollow == 0
+    assert row.live_dofollow_platforms == []
+
+
+def test_alive_recheck_keeps_link_live(store):
+    fresh = (datetime.now() - timedelta(days=3)).isoformat(timespec="seconds")
+    _recheck(store, "https://medium.com/l1", verdicts.ALIVE)
+    row = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
+    assert row.live_links == 1
+    assert row.live_dofollow == 1
+
+
+def test_probe_error_recheck_does_not_override(store):
+    # Indeterminate verdict must not override the recorded fresh verify signal.
+    fresh = (datetime.now() - timedelta(days=3)).isoformat(timespec="seconds")
+    _recheck(store, "https://medium.com/l1", verdicts.PROBE_ERROR)
+    row = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
+    assert row.live_links == 1
+    assert row.live_dofollow == 1
+
+
+def test_latest_recheck_wins_alive_after_host_gone(store):
+    # host_gone then a later alive → link recovered, counted live again.
+    fresh = (datetime.now() - timedelta(days=3)).isoformat(timespec="seconds")
+    _recheck(store, "https://medium.com/l1", verdicts.HOST_GONE)
+    _recheck(store, "https://medium.com/l1", verdicts.ALIVE)
+    row = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
+    assert row.live_links == 1
+    assert row.live_dofollow == 1

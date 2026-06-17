@@ -31,6 +31,8 @@ from backlink_publisher.publishing import registry
 # on the caller having imported adapters.
 import backlink_publisher.publishing.adapters  # noqa: F401,E402
 
+from backlink_publisher.recheck.verdicts import DOFOLLOW_LOST as _DOFOLLOW_LOST
+
 from .model import DofollowBreakdown, LedgerRow, worst_liveness
 from .sources import LinkRecord, build_target_buckets
 
@@ -106,8 +108,60 @@ def _classify(
     return "nofollow", registry.referral_value(platform)
 
 
-def _link_liveness(link: LinkRecord, now: datetime, stale_days: int) -> str:
-    """Per-link liveness from the recorded verify signal (no fetching)."""
+def _load_recheck_liveness(store: "EventStore") -> dict[str, str]:
+    """Return ``{canonical live_url: latest recheck verdict}`` for links whose
+    freshest ``link.rechecked`` verdict is dead/degraded.
+
+    Mirrors ``_load_confirmed_dofollow_urls`` (one full-table scan, recency by
+    ``ts_utc`` with ``events.id`` tiebreak) by reusing the shared
+    ``latest_link_verdicts`` reader so the "latest verdict per link" invariant
+    can't drift. Only ``host_gone`` / ``link_stripped`` (deterministic dead) and
+    ``dofollow_lost`` (live-but-nofollow) are surfaced — ``alive`` keeps the
+    link live and ``probe_error`` is indeterminate, so neither overrides the
+    recorded ``verified_at`` signal. ``aid:`` fallback keys are dropped: the
+    ledger joins links by canonical ``live_url`` only.
+    """
+    from backlink_publisher.recheck.latest_verdicts import latest_link_verdicts
+    from backlink_publisher.recheck.verdicts import (
+        DETERMINISTIC_DEAD,
+        DOFOLLOW_LOST,
+    )
+
+    if store is None:
+        return {}
+
+    overriding = DETERMINISTIC_DEAD | {DOFOLLOW_LOST}
+    latest, _unkeyable = latest_link_verdicts(store)
+    out: dict[str, str] = {}
+    for key, lv in latest.items():
+        if key.startswith("aid:"):
+            continue
+        verdict = lv.payload.get("verdict")
+        if verdict in overriding:
+            out[key] = verdict
+    return out
+
+
+def _link_liveness(
+    link: LinkRecord,
+    now: datetime,
+    stale_days: int,
+    *,
+    recheck_verdict: str | None = None,
+) -> str:
+    """Per-link liveness from the recorded verify signal (no fetching).
+
+    A dead latest ``link.rechecked`` verdict (``host_gone`` / ``link_stripped``)
+    overrides a stale ``verified_at`` — ``write_verified_at`` only advances on
+    ALIVE verdicts, so a dead recheck would otherwise leave the link counted as
+    live (the inverse of the live-dofollow-undercounting learning). A benign or
+    absent recheck (``alive`` / ``probe_error`` / never rechecked) leaves
+    ``recheck_verdict`` None and the recorded verify signal governs.
+    """
+    from backlink_publisher.recheck.verdicts import is_deterministic_dead
+
+    if recheck_verdict is not None and is_deterministic_dead(recheck_verdict):
+        return "failed"
     if link.verify_error:
         return "failed"
     if not link.verified_at:
@@ -142,6 +196,10 @@ def build_ledger(
     # NOT reassign the caller's local variable).
     store = store or _EventStore()
     confirmed_dofollow_urls = _load_confirmed_dofollow_urls(store)
+    # Latest dead/degraded recheck verdict per canonical live_url. A host_gone /
+    # link_stripped verdict drops the link from live_links; dofollow_lost keeps
+    # it live but strips it from live_dofollow (live-but-nofollow).
+    recheck_liveness = _load_recheck_liveness(store)
 
     now = datetime.now()
     buckets = build_target_buckets(store=store, history=history)
@@ -162,11 +220,15 @@ def build_ledger(
         row_level = False
 
         for link in bucket.links.values():
+            recheck_verdict = recheck_liveness.get(link.live_url)
             cls, referral = _classify(
                 link.platform,
                 confirmed_dofollow_urls=confirmed_dofollow_urls,
                 live_url=link.live_url,
             )
+            # dofollow_lost: link is live but its rel now strips weight, so it no
+            # longer counts toward live_dofollow even on a dofollow platform.
+            dofollow_lost = recheck_verdict == _DOFOLLOW_LOST
             if cls == "dofollow":
                 breakdown.dofollow += 1
             elif cls == "uncertain":
@@ -183,11 +245,13 @@ def build_ledger(
             if link.platform:
                 platforms.add(link.platform)
 
-            status = _link_liveness(link, now, stale_days)
+            status = _link_liveness(
+                link, now, stale_days, recheck_verdict=recheck_verdict
+            )
             statuses.append(status)
             if status == "live":
                 live_links += 1
-                if cls == "dofollow":
+                if cls == "dofollow" and not dofollow_lost:
                     live_dofollow += 1
                     if link.platform:
                         live_dofollow_platforms.add(link.platform)
