@@ -443,7 +443,7 @@ M3 信任層（2 週）
 
 ### 並行背景工作
 
-- [x] **Unit 10: 002 U7 HTTP client 統一（27 檔 import requests 收口）** — `98677dd`
+- [x] **Unit 10: 002 U7 HTTP client 統一（27 檔 import requests 收口）** — `98677dd` (batch 1) + batch 2 收口 (#33/#35/#36/#37/#38). 16 deferred 全部處置：可遷的 7 個遷至 http_client（OAuth/status-code 語義靠 `raise_for_status=False`、私網端點靠 `allow_private=True`）；http_form_post 結構性保留 raw + 內聯 `_guard_ssrf`。剩餘 allowlist 全為結構性豁免
 
 **Goal:** src/ 所有裸 `import requests` 收口為 `_util/http_client.py`，SSL context 統一。
 

@@ -418,7 +418,7 @@ class TestProviderRefresh:
         result = DefaultCredentialProvider().refresh(cred, descriptor, mock_config)
         assert result is None
 
-    @patch("requests.post")
+    @patch("backlink_publisher.publishing.session.provider.http_client.post")
     def test_oauth_refresh_success(self, mock_post: MagicMock, mock_config: MagicMock) -> None:
         mock_post.return_value = MagicMock(ok=True, status_code=200)
         mock_post.return_value.json.return_value = {"access_token": "new_tok"}
@@ -443,7 +443,7 @@ class TestProviderRefresh:
         assert result is not None
         assert result.token == "new_tok"
 
-    @patch("requests.post")
+    @patch("backlink_publisher.publishing.session.provider.http_client.post")
     def test_oauth_refresh_failure(self, mock_post: MagicMock, mock_config: MagicMock) -> None:
         mock_post.return_value = MagicMock(ok=False, status_code=400)
         mock_post.return_value.text = "invalid_grant"
