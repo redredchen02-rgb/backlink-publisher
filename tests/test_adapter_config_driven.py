@@ -333,7 +333,7 @@ class TestApiKeyAuth:
         config = _FakeConfig(api_keys={"testapi": "sk-secret-123"})
 
         with mock.patch(
-            "backlink_publisher.publishing.adapters.config_driven.requests.post",
+            "backlink_publisher.publishing.adapters.config_driven.http_client.post",
             return_value=resp,
         ) as mpost:
             result = adapter_api.publish(
@@ -363,7 +363,7 @@ class TestApiKeyAuth:
         config = _FakeConfig(api_keys={"testapi": "q-key-789"})
 
         with mock.patch(
-            "backlink_publisher.publishing.adapters.config_driven.requests.post",
+            "backlink_publisher.publishing.adapters.config_driven.http_client.post",
             return_value=resp,
         ) as mpost:
             result = adapter.publish(
@@ -389,7 +389,7 @@ class TestApiKeyAuth:
         config = _FakeConfig(api_keys={"testapi": "sk-bad-key"})
 
         with mock.patch(
-            "backlink_publisher.publishing.adapters.config_driven.requests.post",
+            "backlink_publisher.publishing.adapters.config_driven.http_client.post",
             return_value=resp,
         ):
             with pytest.raises(ExternalServiceError, match="401"):
@@ -437,7 +437,7 @@ class TestPermalinkResolution:
         config = _FakeConfig(api_keys={"testapi": "sk-key"})
 
         with mock.patch(
-            "backlink_publisher.publishing.adapters.config_driven.requests.post",
+            "backlink_publisher.publishing.adapters.config_driven.http_client.post",
             return_value=resp,
         ):
             result = adapter.publish(
@@ -460,7 +460,7 @@ class TestPermalinkResolution:
         config = _FakeConfig(api_keys={"testapi": "sk-key"})
 
         with mock.patch(
-            "backlink_publisher.publishing.adapters.config_driven.requests.post",
+            "backlink_publisher.publishing.adapters.config_driven.http_client.post",
             return_value=resp,
         ):
             result = adapter.publish(

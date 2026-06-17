@@ -21,6 +21,7 @@ from typing import Any
 import requests
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
@@ -312,12 +313,18 @@ class ConfigDrivenAdapter(Publisher):
             time.sleep(min_delay)
 
         try:
-            resp = requests.post(
+            resp = http_client.post(
                 url,
                 json=body_dict,
                 headers=headers,
                 timeout=30.0,
+                raise_for_status=False,
+                allow_private=True,
             )
+        except ExternalServiceError:
+            # SSRF block / connection failure already a domain error — keep its
+            # message (e.g. the SSRF block_reason) rather than masking it.
+            raise
         except Exception as exc:
             raise ExternalServiceError(
                 f"API POST to {_host(endpoint)} failed "

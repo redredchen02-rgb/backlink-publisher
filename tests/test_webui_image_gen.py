@@ -100,7 +100,7 @@ def test_test_image_gen_success(client, tmp_path, monkeypatch):
     }
     fake_resp.text = "ok"
 
-    with patch("webui_app.routes.image_gen.requests.get", return_value=fake_resp):
+    with patch("webui_app.routes.image_gen.http_client.get", return_value=fake_resp):
         resp = client.post("/settings/test-image-gen")
 
     data = resp.get_json()
@@ -120,7 +120,7 @@ def test_test_image_gen_auth_failed(client, tmp_path, monkeypatch):
     fake_resp.text = "invalid_api_key"
     fake_resp.json.return_value = {"error": "bad"}
 
-    with patch("webui_app.routes.image_gen.requests.get", return_value=fake_resp):
+    with patch("webui_app.routes.image_gen.http_client.get", return_value=fake_resp):
         resp = client.post("/settings/test-image-gen")
 
     data = resp.get_json()
@@ -139,7 +139,7 @@ def test_test_image_gen_404_on_models_still_ok(client, tmp_path, monkeypatch):
     fake_resp.status_code = 404
     fake_resp.text = "404 page not found"
 
-    with patch("webui_app.routes.image_gen.requests.get", return_value=fake_resp):
+    with patch("webui_app.routes.image_gen.http_client.get", return_value=fake_resp):
         resp = client.post("/settings/test-image-gen")
 
     data = resp.get_json()
@@ -157,7 +157,7 @@ def test_test_image_gen_network_error(client, tmp_path, monkeypatch):
     _seed_token(tmp_path)
 
     with patch(
-        "webui_app.routes.image_gen.requests.get",
+        "webui_app.routes.image_gen.http_client.get",
         side_effect=requests.ConnectionError("dns fail"),
     ):
         resp = client.post("/settings/test-image-gen")
@@ -199,7 +199,7 @@ def test_test_image_gen_frw_success(client, tmp_path, monkeypatch):
     }
     fake_resp.text = "ok"
 
-    with patch("webui_app.routes.image_gen.requests.get", return_value=fake_resp) as mock_get:
+    with patch("webui_app.routes.image_gen.http_client.get", return_value=fake_resp) as mock_get:
         resp = client.post("/settings/test-image-gen")
 
     data = resp.get_json()
@@ -223,7 +223,7 @@ def test_test_image_gen_frw_auth_failed(client, tmp_path, monkeypatch):
     fake_resp.status_code = 401
     fake_resp.text = "invalid key"
 
-    with patch("webui_app.routes.image_gen.requests.get", return_value=fake_resp):
+    with patch("webui_app.routes.image_gen.http_client.get", return_value=fake_resp):
         resp = client.post("/settings/test-image-gen")
 
     data = resp.get_json()
@@ -241,7 +241,7 @@ def test_test_image_gen_frw_forbidden(client, tmp_path, monkeypatch):
     fake_resp.status_code = 403
     fake_resp.text = "ip not whitelisted"
 
-    with patch("webui_app.routes.image_gen.requests.get", return_value=fake_resp):
+    with patch("webui_app.routes.image_gen.http_client.get", return_value=fake_resp):
         resp = client.post("/settings/test-image-gen")
 
     data = resp.get_json()

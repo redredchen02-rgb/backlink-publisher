@@ -18,7 +18,8 @@ import base64
 
 from flask import Blueprint, jsonify, request
 
-import requests
+from backlink_publisher._util.errors import ExternalServiceError
+from backlink_publisher._util.http_client import http_client
 
 from ..helpers._request_cache import _g_cache
 
@@ -29,8 +30,14 @@ def _probe_openai(base_url: str, api_key: str, model: str) -> dict:
     """Probe OpenAI-compatible gateway via GET /models."""
     headers = {"Authorization": f"Bearer {api_key}"}
     try:
-        resp = requests.get(f"{base_url}/models", headers=headers, timeout=10)
-    except requests.RequestException as exc:
+        resp = http_client.get(
+            f"{base_url}/models",
+            headers=headers,
+            timeout=10,
+            raise_for_status=False,
+            allow_private=True,
+        )
+    except ExternalServiceError as exc:
         return {"ok": False, "error": f"network error: {exc}"}
 
     if resp.status_code == 401:
@@ -55,10 +62,14 @@ def _probe_frw(base_url: str, api_key: str, model: str) -> dict:
     """Probe FRW native API via GET /api/frwapi/v1/balance (X-Api-Key auth)."""
     headers = {"X-Api-Key": api_key}
     try:
-        resp = requests.get(
-            f"{base_url}/api/frwapi/v1/balance", headers=headers, timeout=10
+        resp = http_client.get(
+            f"{base_url}/api/frwapi/v1/balance",
+            headers=headers,
+            timeout=10,
+            raise_for_status=False,
+            allow_private=True,
         )
-    except requests.RequestException as exc:
+    except ExternalServiceError as exc:
         return {"ok": False, "error": f"network error: {exc}"}
 
     if resp.status_code == 401:
