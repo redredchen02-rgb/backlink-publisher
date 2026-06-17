@@ -26,14 +26,14 @@
     border: none;
     border-radius: 999px;
     color: #fff;
-    background: var(--gradient, linear-gradient(135deg, #6366f1 0%, #4f46e5 100%));
-    box-shadow: var(--shadow-brand, 0 10px 25px -5px rgba(79, 70, 229, 0.3));
+    background: var(--gradient, linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%));
+    box-shadow: var(--shadow-brand, 0 8px 24px -8px rgba(0, 0, 0, 0.6));
     cursor: pointer;
     font-size: 0.9rem;
     transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 .copilot-fab:hover {
-    box-shadow: var(--shadow-brand-hover, 0 15px 30px -5px rgba(79, 70, 229, 0.4));
+    box-shadow: var(--shadow-brand-hover, 0 12px 28px -8px rgba(0, 0, 0, 0.7));
     transform: translateY(-1px);
 }
 .copilot-fab__icon { font-size: 1.05rem; }
@@ -59,17 +59,14 @@
     z-index: 1090;
     display: flex;
     flex-direction: column;
-    background: #fff;
-    border-left: 1px solid var(--border, #e5e7eb);
-    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.12);
+    /* Console dark by default — the app shell is always dark-themed. Fallbacks
+       carry the token value for standalone pages that omit tokens.css. */
+    background: var(--surface-overlay, #1b2330);
+    color: var(--text, #cbd5e1);
+    border-left: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.5);
     transform: translateX(100%);
     transition: transform 0.22s ease;
-}
-
-/* Dark mode copilot panel */
-[data-theme="dark"] .copilot-panel {
-    background: #1e293b;
-    border-left-color: #334155;
 }
 .copilot-panel--open { transform: translateX(0); }
 
@@ -79,7 +76,7 @@
     justify-content: space-between;
     padding: 16px 18px;
     color: #fff;
-    background: var(--gradient, linear-gradient(135deg, #6366f1 0%, #4f46e5 100%));
+    background: var(--gradient, linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%));
 }
 .copilot-panel__title { margin: 0; font-size: 1.05rem; font-weight: 600; }
 .copilot-panel__close {
@@ -105,20 +102,20 @@
     margin-bottom: 12px;
 }
 .copilot-banner--warn {
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fcd34d;
+    background: var(--warning-soft, rgba(245, 158, 11, 0.16));
+    color: var(--warning-text, #fde68a);
+    border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .copilot-state {
     padding: 14px 4px;
-    color: var(--text, #374151);
+    color: var(--text, #cbd5e1);
     font-size: 0.9rem;
 }
-.copilot-state--error { color: #b91c1c; }
+.copilot-state--error { color: var(--danger-text, #fca5a5); }
 .copilot-empty__title { font-weight: 600; margin: 0 0 4px; }
 .copilot-empty__hint {
-    color: var(--secondary, #6b7280);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.58));
     font-size: 0.85rem;
     margin: 0;
 }
@@ -132,15 +129,15 @@
     gap: 10px;
 }
 .copilot-finding {
-    border: 1px solid var(--border, #e5e7eb);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
     border-left-width: 4px;
     border-radius: 10px;
     padding: 10px 12px;
-    background: var(--light, #f9fafb);
+    background: var(--surface-raised, #141a24);
 }
-.copilot-finding--critical { border-left-color: var(--danger, #ef4444); }
-.copilot-finding--warning { border-left-color: var(--warning, #f59e0b); }
-.copilot-finding--info { border-left-color: var(--secondary, #6b7280); }
+.copilot-finding--critical { border-left-color: var(--danger, #f87171); }
+.copilot-finding--warning { border-left-color: var(--warning, #fbbf24); }
+.copilot-finding--info { border-left-color: var(--secondary, #94a3b8); }
 .copilot-finding__head {
     display: flex;
     align-items: center;
@@ -149,18 +146,18 @@
 }
 .copilot-finding__prio {
     font-weight: 700;
-    color: var(--secondary, #6b7280);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.58));
     font-size: 0.8rem;
 }
 .copilot-finding__summary {
     margin: 2px 0 6px;
-    color: var(--dark, #1f2937);
+    color: var(--text-primary, rgba(255, 255, 255, 0.92));
     font-size: 0.9rem;
 }
 .copilot-finding__meta { display: flex; gap: 8px; }
 .copilot-src {
     font-size: 0.78rem;
-    color: var(--primary, #4f46e5);
+    color: var(--primary, #38bdf8);
     cursor: pointer;
     text-decoration: underline;
     text-underline-offset: 2px;
@@ -174,13 +171,13 @@
     padding: 1px 6px;
     border-radius: 999px;
 }
-.copilot-fresh--live { background: #d1fae5; color: #065f46; }
-.copilot-fresh--cached { background: #e5e7eb; color: #374151; }
+.copilot-fresh--live { background: var(--success-soft, rgba(16, 185, 129, 0.16)); color: var(--success-text, #6ee7b7); }
+.copilot-fresh--cached { background: rgba(255, 255, 255, 0.08); color: var(--text-secondary, rgba(255, 255, 255, 0.58)); }
 
 .copilot-tools {
     margin-top: 14px;
     font-size: 0.8rem;
-    color: var(--secondary, #6b7280);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.58));
 }
 .copilot-tools__list {
     list-style: none;
@@ -190,27 +187,26 @@
     flex-direction: column;
     gap: 3px;
 }
-.copilot-tool--err { color: #b91c1c; }
+.copilot-tool--err { color: var(--danger-text, #fca5a5); }
 
 .copilot-panel__qa {
-    border-top: 1px solid var(--border, #e5e7eb);
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
     padding: 14px 16px;
     text-align: center;
 }
 .copilot-qa--locked {
-    background: var(--light, #f9fafb);
-    color: var(--secondary, #6b7280);
+    background: var(--surface-raised, #141a24);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.58));
 }
 .copilot-qa__lock { font-size: 1.3rem; }
 .copilot-qa__title {
     font-weight: 600;
     margin: 4px 0 2px;
-    color: var(--text, #374151);
+    color: var(--text, #cbd5e1);
 }
 .copilot-qa__hint { font-size: 0.8rem; margin: 0 0 8px; }
-/* btn-outline-primary text (#0d6efd) is only 4.3:1 on the locked panel's
-   #f9fafb — darken to a WCAG-AA blue (~6.2:1) without leaving the brand. */
-.copilot-qa__bind { color: #0a58ca; }
+/* Console-cyan link affordance for the bind CTA on the dark locked panel. */
+.copilot-qa__bind { color: var(--primary, #38bdf8); }
 
 /* Unlocked Q&A form (U6) */
 .copilot-qa--unlocked {
@@ -218,7 +214,7 @@
     flex-direction: column;
     gap: 0;
     padding: 0 !important;
-    background: var(--light, #f9fafb);
+    background: var(--surface-raised, #141a24);
 }
 .copilot-qa__convo {
     max-height: 240px;
@@ -230,14 +226,14 @@
     font-size: 0.85rem;
 }
 .copilot-qa__greeting {
-    color: var(--secondary, #6b7280);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.58));
     margin: 4px 0;
     text-align: center;
     font-size: 0.82rem;
 }
 .copilot-qa__q {
     align-self: flex-end;
-    background: var(--gradient, linear-gradient(135deg, #6366f1 0%, #4f46e5 100%));
+    background: var(--gradient, linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%));
     color: #fff;
     padding: 6px 12px;
     border-radius: 14px 14px 4px 14px;
@@ -247,25 +243,25 @@
 }
 .copilot-qa__a {
     align-self: flex-start;
-    background: #fff;
-    color: var(--text, #374151);
+    background: var(--surface-overlay, #1b2330);
+    color: var(--text, #cbd5e1);
     padding: 6px 12px;
     border-radius: 14px 14px 14px 4px;
     max-width: 85%;
     word-break: break-word;
     line-height: 1.4;
-    border: 1px solid var(--border, #e5e7eb);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
 }
 .copilot-qa__err {
     padding: 6px 12px;
     font-size: 0.8rem;
-    color: #b91c1c;
-    background: #fef2f2;
-    border-top: 1px solid var(--border, #e5e7eb);
+    color: var(--danger-text, #fca5a5);
+    background: var(--danger-soft, rgba(239, 68, 68, 0.16));
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
 }
 .copilot-qa__loading {
     align-self: center;
-    color: var(--secondary, #6b7280);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.58));
     font-size: 0.8rem;
     display: flex;
     align-items: center;
@@ -276,21 +272,23 @@
     display: flex;
     gap: 6px;
     padding: 8px 12px;
-    border-top: 1px solid var(--border, #e5e7eb);
-    background: #fff;
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    background: var(--surface-overlay, #1b2330);
 }
 .copilot-qa__input {
     flex: 1;
-    border: 1px solid var(--border, #e5e7eb);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
     border-radius: 20px;
     padding: 7px 14px;
     font-size: 0.85rem;
+    background: var(--surface-base, #0b0f17);
+    color: var(--text, #cbd5e1);
     outline: none;
     transition: border-color 0.15s ease;
 }
 .copilot-qa__input:focus {
-    border-color: var(--primary, #6366f1);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    border-color: var(--primary, #38bdf8);
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
 }
 .copilot-qa__send {
     border: none;
@@ -299,7 +297,7 @@
     font-size: 0.85rem;
     font-weight: 500;
     color: #fff;
-    background: var(--gradient, linear-gradient(135deg, #6366f1 0%, #4f46e5 100%));
+    background: var(--gradient, linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%));
     cursor: pointer;
     transition: opacity 0.15s ease;
 }
