@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/scripts/run-citations-periodic.sh</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/scripts/run-citations-periodic.sh</string>
     </array>
     <!-- Daily 06:00 (after recheck 04:30, selector-drift 05:00).
          Conservative quota defaults: --max-pairs 5 / --cost-cap 10 per run.
@@ -21,11 +21,11 @@
         <integer>0</integer>
     </dict>
     <key>WorkingDirectory</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher</string>
     <key>StandardOutPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/citations-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/citations-launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/citations-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/citations-launchd.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

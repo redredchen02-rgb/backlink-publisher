@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/scripts/run-full-pipeline.sh</string>
+        <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/scripts/run-full-pipeline.sh</string>
         <string>gap</string>
     </array>
     <!-- Run daily at 04:00 (after recheck at 04:30 — pipeline publishes, recheck verifies next morning) -->
@@ -23,11 +23,11 @@
         <integer>0</integer>
     </dict>
     <key>WorkingDirectory</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher</string>
     <key>StandardOutPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/pipeline-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/pipeline-launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/dex/YDEX/INPORTANT WORK/外链/backlink-publisher-69/backlink-publisher/logs/pipeline-launchd.log</string>
+    <string>/Users/dex/YDEX/INPORTANT WORK/BACKLINK/backlink-publisher-69/backlink-publisher/logs/pipeline-launchd.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
