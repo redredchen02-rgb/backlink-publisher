@@ -49,8 +49,16 @@ def state(tmp_path: Path) -> OptimizationState:
 
 
 def _make_state_data(**overrides: dict) -> dict:
-    """Return a default state dict, merging any *overrides*."""
+    """Return a default (v2) state dict, merging any *overrides*.
+
+    ``stats`` and ``weights`` overrides are written as flat ``{platform: ...}``
+    maps for readability; this helper wraps them into the v2 ``"default"``
+    language namespace so they match what ``state.load()`` feeds the engine.
+    """
     data = default_state()
+    for key in ("stats", "weights"):
+        if key in overrides:
+            overrides[key] = {"default": overrides[key]}
     data.update(overrides)
     return data
 
