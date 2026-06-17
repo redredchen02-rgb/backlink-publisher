@@ -71,13 +71,19 @@ ALLOWLIST: dict[str, str] = {
     #     semantics. These are candidates for incremental migration to http_client
     #     but are allowlisted today with a tracked reason; the gate will catch
     #     NEW raw sites even while these remain.
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:104": (
-        "Form-GET to detect anti-bot challenge before posting; uses a bespoke "
-        "challenge detector (detect_challenge). Tracked migration candidate."
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:122": (
+        "Form-GET whose 503/403 status IS the anti-bot challenge signal "
+        "(detect_challenge). http_client's urllib3 Retry has 503 in its "
+        "status_forcelist, so it would retry then mask the 503 as an opaque "
+        "error — the challenge would never be observed. SSRF is enforced inline "
+        "via _guard_ssrf(); raw requests is required for challenge visibility."
     ),
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:167": (
-        "Form-POST submission sibling of the :104 GET; same challenge-aware "
-        "rationale. Tracked migration candidate."
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:186": (
+        "Create-exactly-once form POST (non-idempotent; a retry risks a "
+        "DUPLICATE live backlink — P2 fix). http_client retries POSTs on "
+        "429/5xx + connection errors, which would violate that contract. SSRF "
+        "is enforced inline via _guard_ssrf(); raw requests is required to keep "
+        "the single-attempt + 503-challenge semantics."
     ),
     "src/backlink_publisher/publishing/session/provider.py:230": (
         "Session-provider credential probe; part of the credential lifecycle, "

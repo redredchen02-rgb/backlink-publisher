@@ -31,6 +31,15 @@ class _Resp:
         self.headers = {"server": server} if server else {}
 
 
+@pytest.fixture(autouse=True)
+def _neutralize_ssrf():
+    """fetch_form/submit_form guard SSRF before the (mocked) request; the real
+    check would do a live DNS lookup. Default it to 'allowed' so the request
+    mocks drive behaviour. The dedicated guard tests below override this."""
+    with mock.patch.object(hfp, "_check_url_for_ssrf", return_value=None):
+        yield
+
+
 # --------------------------------------------------------------------------- #
 # detect_challenge
 # --------------------------------------------------------------------------- #
@@ -222,3 +231,27 @@ def test_attach_link_verification_never_raises_on_verifier_skip() -> None:
     with mock.patch.object(hfp, "verify_link_attributes", return_value=skipped):
         meta = hfp.attach_link_verification("https://x/y")
     assert meta["link_attr_verification"]["verification"] == "skipped"
+
+
+# --------------------------------------------------------------------------- #
+# _guard_ssrf — inline SSRF protection (raw requests keeps no-retry semantics)
+# --------------------------------------------------------------------------- #
+
+
+def test_fetch_form_blocks_ssrf_before_request() -> None:
+    """A blocked URL must raise before any request is issued."""
+    with mock.patch.object(hfp, "_check_url_for_ssrf", return_value="blocked_ip:169.254.0.0/16"):
+        with mock.patch.object(hfp.requests, "get") as mget:
+            with pytest.raises(ExternalServiceError) as exc:
+                hfp.fetch_form("http://169.254.169.254/latest/meta-data")
+    mget.assert_not_called()
+    assert "SSRF" in str(exc.value)
+
+
+def test_submit_form_blocks_ssrf_before_request() -> None:
+    """The create-POST must not fire when SSRF-blocked."""
+    with mock.patch.object(hfp, "_check_url_for_ssrf", return_value="blocked_ip:127.0.0.0/8"):
+        with mock.patch.object(hfp.requests, "post") as mpost:
+            with pytest.raises(ExternalServiceError):
+                hfp.submit_form("http://127.0.0.1/edit.php", {"txt": "x"})
+    mpost.assert_not_called()

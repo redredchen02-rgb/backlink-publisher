@@ -39,6 +39,7 @@ from urllib.parse import urlparse
 import requests
 
 from backlink_publisher._util.errors import AntiBotChallengeError, ExternalServiceError
+from backlink_publisher._util.net_safety import _check_url_for_ssrf
 
 from .link_attr_verifier import verify_link_attributes
 
@@ -98,8 +99,25 @@ def detect_challenge(response: Any) -> bool:
     return has_marker
 
 
+def _guard_ssrf(url: str) -> None:
+    """Block SSRF before a raw request.
+
+    This module keeps raw ``requests`` (see the call-site comments + the
+    no-raw-requests gate allowlist) because the shared ``http_client`` retries
+    POSTs and retries 503 — both incompatible with the create-exactly-once POST
+    and the 503-as-anti-bot-challenge detection here. SSRF protection, the one
+    thing http_client would otherwise provide, is enforced inline instead.
+    """
+    blocked = _check_url_for_ssrf(url)
+    if blocked:
+        raise ExternalServiceError(
+            f"SSRF check blocked form request to {_host(url)} (block_reason={blocked})"
+        )
+
+
 def fetch_form(url: str, *, timeout: float = DEFAULT_TIMEOUT) -> requests.Response:
     """GET the form page. Raise on challenge or transport/HTTP failure."""
+    _guard_ssrf(url)
     try:
         resp = requests.get(
             url, timeout=timeout, headers={"User-Agent": _USER_AGENT}
@@ -163,6 +181,7 @@ def submit_form(
     A challenge raises ``AntiBotChallengeError``; a non-2xx/3xx status raises
     ``ExternalServiceError``.
     """
+    _guard_ssrf(url)
     try:
         resp = requests.post(
             url,
