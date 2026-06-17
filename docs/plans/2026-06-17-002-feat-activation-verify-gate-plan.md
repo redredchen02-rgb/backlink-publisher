@@ -183,7 +183,7 @@ graph TB
 - Integration：死鏈 → ledger 存活計數**下降**（下游浮現）；**若紅 → 記 debt + 推 Phase 1，不就地修**
 **Verification:** recheck 對死鏈寫出非 ALIVE event（硬門）；下游 ledger 斷言已建立——綠，或紅但有 `debt_registry.toml` 條目 + Phase 1 追蹤
 
-- [ ] **Unit 5: #24-class 半遷移 reader 系統性掃描**
+- [x] **Unit 5: #24-class 半遷移 reader 系統性掃描**
 
 **Goal:** 找出其他「schema 遷移過、但某 reader 仍消費舊慣例」的隱患，逐個判斷修復或記 debt。
 **Requirements:** R0.3
