@@ -205,7 +205,7 @@ graph TB
 - Test expectation：稽查本身無行為變更；產出是 audit doc + 命中項的修復測試（feature-bearing 部分隨命中而定）
 **Verification:** audit doc **逐一列舉所有 versioned store + 每個 store 的全部 reader** 一致性結論（非僅 grep 命中）；只就地修 #24-同嚴重度命中，其餘 `debt_registry.toml` 有條目 + Phase 1 追蹤
 
-- [ ] **Unit 6: 流程門 — 紅 integration 阻斷激活**
+- [x] **Unit 6: 流程門 — 紅 integration 阻斷激活**
 
 **Goal:** 制度化「子系統 tier 測試為紅時不得激活」，並防 #24 式「紅被容忍」再發生。
 **Requirements:** R0.2
