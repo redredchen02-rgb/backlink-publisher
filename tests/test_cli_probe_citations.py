@@ -227,6 +227,70 @@ def test_probe_mocked_emits_jsonl(isolated, capsys, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Positive-output verification (Phase 0 U2): real events.db projection,
+# not just stdout shape. A green mock test that never wrote a row is exactly
+# the build-but-silent gap Phase 0 exists to close.
+# ---------------------------------------------------------------------------
+
+
+def test_probe_writes_citation_rows_with_floor_fields(isolated, tmp_path):
+    """--probe must land non-empty CITATION_OBSERVED rows in events.db, each
+    carrying the required floor fields (verdict/engine/query). urls is NOT a
+    floor field (kinds.py), so it is best-effort and not asserted non-empty."""
+    cfg = _make_cfg(
+        with_geo=True,
+        probe_queries={"example.com": ["best widgets", "top widgets"]},
+        brand_aliases={"example.com": ["ExampleBrand"]},
+    )
+    store = EventStore(path=tmp_path / "events.db")
+
+    def _fake_dispatch(engine_name, query, probe_cfg):
+        return _ok_probe_result()
+
+    with patch("backlink_publisher.cli.probe_citations.load_config", return_value=cfg):
+        with patch("backlink_publisher.cli.probe_citations._single_run_lock", _acquired_lock):
+            with patch("backlink_publisher.cli.probe_citations.EventStore", return_value=store):
+                with patch("backlink_publisher.geo.engines.dispatch_probe", side_effect=_fake_dispatch):
+                    result = cli.main(["--probe"])
+
+    assert result is None
+    rows = store.query(
+        "SELECT payload_json FROM events WHERE kind = ?", (CITATION_OBSERVED,)
+    )
+    assert len(rows) >= 2, "probe wrote no citation.observed rows — build-but-silent"
+    for (payload_json,) in rows:
+        payload = json.loads(payload_json)
+        for field in ("verdict", "engine", "query"):
+            assert payload.get(field), f"floor field {field!r} empty in {payload}"
+
+
+def test_probe_absent_still_records_row(isolated, tmp_path):
+    """An 'absent' verdict (no citation) must still be recorded, not silently
+    dropped — absence is a real signal."""
+    cfg = _make_cfg(
+        with_geo=True,
+        probe_queries={"example.com": ["best widgets"]},
+    )
+    store = EventStore(path=tmp_path / "events.db")
+
+    def _absent_dispatch(engine_name, query, probe_cfg):
+        return _absent_probe_result()
+
+    with patch("backlink_publisher.cli.probe_citations.load_config", return_value=cfg):
+        with patch("backlink_publisher.cli.probe_citations._single_run_lock", _acquired_lock):
+            with patch("backlink_publisher.cli.probe_citations.EventStore", return_value=store):
+                with patch("backlink_publisher.geo.engines.dispatch_probe", side_effect=_absent_dispatch):
+                    result = cli.main(["--probe"])
+
+    assert result is None
+    rows = store.query(
+        "SELECT payload_json FROM events WHERE kind = ?", (CITATION_OBSERVED,)
+    )
+    assert len(rows) >= 1, "absent verdict was not recorded"
+    assert json.loads(rows[0][0]).get("verdict")  # verdict present (absent/etc.)
+
+
+# ---------------------------------------------------------------------------
 # Test: --probe with no GEO config → DependencyError/exit 3
 # ---------------------------------------------------------------------------
 

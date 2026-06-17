@@ -133,6 +133,82 @@ class TestStateToRulesToWeight:
 
 
 # ---------------------------------------------------------------------------
+# Regression lock — v2 language-namespace schema (Phase 0 U1, guards PR #24)
+# ---------------------------------------------------------------------------
+
+
+class TestV2NamespaceRegressionLock:
+    """Positive characterization lock for the PR #24 bug class.
+
+    PR #24: ``evaluate_rules`` dispatched each rule with the raw, un-resolved
+    ``state_data`` instead of the namespace-flattened ``resolved_state_data``.
+    With the v2 schema (``stats``/``weights`` nested under the ``"default"``
+    language key), the rules iterated the literal key ``"default"`` as if it
+    were a platform, matched nothing, and every weight silently stayed 1.0 —
+    while shape-only tests stayed green.
+
+    These tests assert the POSITIVE outcome on a real v2-nested state: rules
+    actually fire and adjust weight. If a future change re-dispatches the raw
+    state_data (or otherwise breaks the namespace unwrap), ``evaluate_rules``
+    returns an empty list and these tests go red — by design.
+    """
+
+    def test_v2_state_is_namespace_nested(self, tmp_path: Path, monkeypatch):
+        """Document the schema the engine must consume: weights/stats nested
+        under the 'default' language key (not flat {platform: ...})."""
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+        state = OptimizationState()
+        state.update_stats("blogger", {
+            "drift_count": 5, "total_published": 10, "alive_count": 8, "dofollow_count": 6,
+        })
+        data = state.load()
+        assert data.get("version") == 2
+        assert "default" in data["stats"], "v2 stats must be nested under 'default'"
+        assert "blogger" in data["stats"]["default"]
+
+    def test_canary_drift_fires_on_v2_nested_state(self, tmp_path: Path, monkeypatch):
+        """#24 regression lock: rules must fire (non-empty results with a real
+        weight reduction) when fed a v2-nested state. Empty results here == the
+        engine is iterating the 'default' key as a platform again (#24)."""
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+        state = OptimizationState()
+        state.update_stats("blogger", {
+            "drift_count": 5, "total_published": 10, "alive_count": 8, "dofollow_count": 6,
+        })
+        data = state.load()
+
+        # Assert on evaluate_rules' RuleResult objects directly (apply_results
+        # returns only an int count, not the results).
+        results = evaluate_rules(data, rule_filter=RULE_CANARY_DRIFT)
+        assert results, "evaluate_rules returned no results on v2 state — PR #24 regression"
+        applied = [r for r in results if r.applied]
+        assert applied, "no rule applied a weight change on v2 state — PR #24 regression"
+        assert applied[0].platform == "blogger"
+        assert applied[0].new_weight < applied[0].old_weight, (
+            f"weight not reduced (new={applied[0].new_weight}, old={applied[0].old_weight})"
+        )
+
+        # And the applied result reaches the persisted state (output seam).
+        count = apply_results(state, results)
+        assert count >= 1
+        assert state.get_weight("blogger", default=1.0) < 1.0
+
+    def test_no_phantom_default_platform(self, tmp_path: Path, monkeypatch):
+        """The literal language key 'default' must never surface as a platform
+        in results — that was the visible symptom of #24."""
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+        state = OptimizationState()
+        state.update_stats("blogger", {
+            "drift_count": 5, "total_published": 10, "alive_count": 8, "dofollow_count": 6,
+        })
+        data = state.load()
+        results = evaluate_rules(data)
+        assert all(r.platform != "default" for r in results), (
+            "'default' language key leaked as a platform — PR #24 regression"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Integration: CLI pipeline (subprocess)
 # ---------------------------------------------------------------------------
 

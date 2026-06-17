@@ -76,3 +76,53 @@ def test_mastodon_health_gate_skip_is_reachable(cfg):
     pub.assert_not_called()
     assert out.status == "skipped_policy"
     assert [r["decision"] for r in _decisions()] == ["skipped_policy"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 0 U3 — mode/allowlist routing locks ("configured != verified": prove the
+# gate actually differentiates by mode and allowlist, not just that it can skip).
+# ---------------------------------------------------------------------------
+
+
+def _cfg_with(tmp_path, monkeypatch, *, mode: str, allowlist: str):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CIRCUIT_COOLDOWN_S", "300")
+    monkeypatch.setenv(POLICY_ENV, mode)
+    monkeypatch.setenv(ENFORCE_ALLOWLIST_ENV, allowlist)
+
+    class _Cfg:
+        config_dir = tmp_path
+
+    return _Cfg()
+
+
+def test_observe_mode_records_would_skip_not_skip(tmp_path, monkeypatch):
+    """observe mode on an unbound channel must record `would_skip_policy` (NOT
+    `skipped_policy`) and must still attempt the publish — proving mode routing,
+    not just that a skip can fire."""
+    cfg = _cfg_with(tmp_path, monkeypatch, mode="observe", allowlist="mastodon")
+    with patch(_GET_STATUS, return_value={"status": "unbound"}), \
+         patch(_ADAPTER_PUB) as pub:
+        publish_with_policy("mastodon", payload={"id": "1"}, config=cfg)
+
+    decisions = [r["decision"] for r in _decisions()]
+    assert "would_skip_policy" in decisions
+    assert "skipped_policy" not in decisions  # observe never hard-skips
+    pub.assert_called()  # observe proceeds to attempt the publish
+
+
+def test_enforce_channel_outside_allowlist_does_not_hard_skip(tmp_path, monkeypatch):
+    """enforce mode but the channel is NOT in the allowlist → behaves like observe
+    (would_skip_policy, no hard skip). Proves the allowlist actually gates which
+    channels enforce, rather than enforce applying globally."""
+    cfg = _cfg_with(tmp_path, monkeypatch, mode="enforce", allowlist="devto")
+    with patch(_GET_STATUS, return_value={"status": "unbound"}), \
+         patch(_ADAPTER_PUB) as pub:
+        publish_with_policy("mastodon", payload={"id": "1"}, config=cfg)
+
+    decisions = [r["decision"] for r in _decisions()]
+    assert "skipped_policy" not in decisions, (
+        "mastodon outside allowlist must not be hard-skipped under enforce"
+    )
+    assert "would_skip_policy" in decisions
+    pub.assert_called()

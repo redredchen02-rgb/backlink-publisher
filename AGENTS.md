@@ -110,6 +110,16 @@ The product's core is the four-stage chain **plan → validate → publish → r
 
 A "build a Phase 1–N machine" brainstorm **may not enter `/ce:plan` until its cheap falsification gate returns `GO`** in `docs/ideation/gate-verdicts.md`. Pure-read detection / probes / refactors are exempt. A `KILL` permanently parks the downstream stage; `INCONCLUSIVE` must resample (never default to GO); `BLOCKED` (Tier-2 GA4/GSC credentials unavailable) parks the stage until credentials exist. Run the gate with `gate-probe --gate <id>`. Evidence rows carry aggregate / host-stripped values — **never raw operator money-page URLs** (the no-operator-domain rule applies to `docs/ideation/`, not only `docs/solutions/`).
 
+### Activation readiness — verify-before-activate (Plan 2026-06-17-002, Phase 0)
+
+Before activating a "built-but-unrun" subsystem (flipping enforce mode, loading a launchd plist, scheduling a probe):
+
+1. **The subsystem's integration tests must actually pass (green)** — not merely "have no skip marker". A *plain red* test (the #24 failure mode) blocks activation of that subsystem.
+2. **A `debt:`/`reason=` ref does not unlock activation.** It keeps a red test visible in the backlog; the subsystem stays blocked until the test is green.
+3. **Do not `--admin`-merge past a subsystem's red integration** to enable its activation.
+
+Gate: run `tests/test_activation_readiness_tripwire.py` (no test file hidden) + `assert_subsystem_green(<name>)`, per `docs/runbooks/2026-06-17-activation-readiness.md`. If activation lags verification by >2 weeks, re-run first.
+
 ### Publish-path forward-path drift (Plan 2026-05-27-006)
 
 After each publish (fresh **and** `--resume`), `publish-backlinks` records a per-platform forward-path verdict in `canary-health.json` under the `_publish_path` sibling key (disjoint from the `canary-targets` evergreen records). This is a **distinct signal** from the evergreen decay detected by `canary-targets`:
