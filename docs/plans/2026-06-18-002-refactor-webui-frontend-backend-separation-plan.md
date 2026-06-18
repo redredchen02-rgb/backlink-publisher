@@ -352,7 +352,9 @@ flowchart TB
 
 ### Phase 2 — 其余页面 + 退役 Jinja
 
-- [ ] **U7：逐页迁移其余页面 + 转换剩余 HTML / dual-mode 路由**
+- [ ] **U7：逐页迁移其余页面 + 转换剩余 HTML / dual-mode 路由**（进行中——逐页 PR）
+
+> **U7 进度（逐页迁移）**：✅ **历史页**（`/api/v1/history*` + Vue `/history`，已迁，旧 `/ce:history*` 加法式保留待 U8 退役）。⏳ 待迁：drafts / sites / schedule / batch / batch_campaign / profiles。🔴 **Settings 为独立硬子单元**（~25 分片 + Jinja macro CSRF 绑定陷阱 + 凭证写端点，须在传输层测安全回归：伪造 Origin 仍 403 / `ALLOW_NETWORK=1` 仍拒 / 文件仍 `0600`）——单独一 PR、放最后。已迁导航页：发布工作台 `/`、监控 `/monitor`、历史 `/history`。
 
 **Goal:** 逐页（或小簇）迁移 history/drafts/settings/sites/batch/batch_campaign/schedule/profiles 等；把剩余 ~24 HTML-only + ~15 dual-mode 路由转 `/api/v1`；测试随路由按决策树迁移。
 
