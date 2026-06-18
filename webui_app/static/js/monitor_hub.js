@@ -9,6 +9,7 @@
  */
 import { fetchJson } from './lib/api.js';
 import { renderSkeleton, renderEmpty, renderError } from './ui/states.js';
+import { classifyError } from './ui/errors.js';
 
 const grid = document.getElementById('hubGrid');
 const refreshBtn = document.getElementById('hubRefresh');
@@ -58,17 +59,25 @@ function cardEl(card) {
     }, [head, headline, detail, footer.children.length ? footer : null]);
 }
 
+// Region load failure → inline renderError from the shared taxonomy (toast is
+// reserved for transient action feedback). All error copy now flows from
+// classifyError so "出错了" reads the same here as on index/settings.
+function showError(input) {
+    const c = classifyError(input);
+    renderError(grid, { title: c.title, message: c.message, onRetry: load });
+}
+
 async function load() {
     renderSkeleton(grid, { rows: 4, label: '加载监控数据…' });
     let data;
     try {
         data = await fetchJson('/api/monitor-hub');
     } catch (err) {
-        renderError(grid, { title: '加载失败', message: String(err && err.message || err), onRetry: load });
+        showError(err);   // network/timeout, non-JSON HTTP, 5xx → classified
         return;
     }
     if (!data || data.ok === false) {
-        renderError(grid, { title: '聚合不可用', message: (data && data.error) || '未知错误', onRetry: load });
+        showError(data || {});   // {ok:false, status?, error?} → classified by status
         return;
     }
     const cards = data.cards || [];

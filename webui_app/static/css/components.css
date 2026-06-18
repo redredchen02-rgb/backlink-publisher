@@ -173,3 +173,31 @@
     color: var(--text);
     border-color: var(--glass-border);
 }
+
+/* ── Semantic action buttons (token-driven, base.html-linked) ────────────────
+ * Core-flow templates use these instead of raw Bootstrap colour classes
+ * (btn-primary / btn-warning), so the token-compliance gate
+ * (test_webui_css_no_raw_colors) stays green while the look matches the
+ * existing token-styled buttons. Layout/size classes (btn, btn-sm) still come
+ * from Bootstrap; only the colour is tokenized here. */
+.btn-app-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+.btn-app-primary:hover,
+.btn-app-primary:focus {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    color: #fff;
+}
+.btn-app-warning {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: var(--dark);
+}
+.btn-app-warning:hover,
+.btn-app-warning:focus {
+    filter: brightness(1.06);
+    color: var(--dark);
+}

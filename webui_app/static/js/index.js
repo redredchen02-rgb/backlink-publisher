@@ -11,9 +11,18 @@ import { createConfigForm } from './lib/profiles.js';
 import { bindPasteInput } from './url_derive.js';
 import { initModeToggle } from './mode_toggle.js';
 import { fetchJson } from './lib/api.js';
+import { renderEmpty, renderError } from './ui/states.js';
+import { classifyError } from './ui/errors.js';
 
 const BOOT = window.__indexBootstrap || {};
 const PLATFORM_SLUGS = BOOT.platform_slugs || [];
+// has_channels: whether any publish channel is bound (server-injected from
+// bound_platforms). false => true zero-config; true => config exists.
+const HAS_CHANNELS = BOOT.has_channels === true;
+
+function goToSettings() {
+  window.location.href = '/settings';
+}
 const cf = createConfigForm({ plansData: BOOT.plans_list || [], profiles: BOOT.profiles || [] });
 
 function loadHistory(id) {
@@ -111,6 +120,28 @@ function _initHistoryFilter() {
   let currentStatus = 'all';
   let currentPlatform = 'all';
 
+  // Filtered-empty cause #2 (has config, current filter has no results): unified
+  // renderEmpty with「当前条件无结果」+ a clear-filter action — NEVER the 去配置 CTA.
+  // renderEmpty calls replaceChildren (idempotent + cheap), so we render on every
+  // empty filter instead of guarding with a once-flag that could keep a stale view.
+  function showFilteredEmpty() {
+    if (!emptyFiltered) return;
+    emptyFiltered.style.display = '';
+    renderEmpty(emptyFiltered, {
+      icon: 'bi-funnel',
+      title: '当前条件无结果',
+      message: '没有符合当前筛选的记录，试试切换或清除筛选条件。',
+      actionLabel: '清除筛选',
+      onAction: () => {
+        currentStatus = 'all';
+        currentPlatform = 'all';
+        chips.forEach((c) => c.classList.toggle('active', c.dataset.filterValue === 'all'));
+        applyFilter();
+        if (typeof rewireBulkSelect === 'function') rewireBulkSelect();
+      },
+    });
+  }
+
   function applyFilter() {
     let visible = 0;
     items.forEach((item) => {
@@ -118,7 +149,8 @@ function _initHistoryFilter() {
       const matchPlatform = (currentPlatform === 'all') || (item.dataset.platform === currentPlatform);
       if (matchStatus && matchPlatform) { item.style.display = ''; visible++; } else { item.style.display = 'none'; }
     });
-    if (emptyFiltered) emptyFiltered.style.display = visible === 0 ? '' : 'none';
+    if (visible === 0) showFilteredEmpty();
+    else if (emptyFiltered) emptyFiltered.style.display = 'none';
   }
 
   function initCounts() {
@@ -305,6 +337,43 @@ function _initHealthBar() {
   });
 }
 
+// ── Empty-state onboarding (U2: R2) ──────────────────────────────
+// Unifies the three "empty" causes on the zero-history container:
+//   1. true zero-config (no bound channel)   → renderEmpty + 去配置 CTA
+//   2. has config but this view has no data   → renderEmpty, NO config CTA
+//   3. the state itself could not be derived  → renderError (not an empty state)
+// Cause #2 for filters is handled inline in _initHistoryFilter (clear-filter).
+function _initEmptyState() {
+  const container = document.getElementById('indexEmptyState');
+  if (!container) return;  // history is non-empty; nothing to render
+  try {
+    if (!HAS_CHANNELS) {
+      renderEmpty(container, {
+        icon: 'bi-rocket-takeoff',
+        title: '先去配置一个发布渠道',
+        message: '还没有绑定任何渠道，去设置页绑定第一个渠道即可开始发布。',
+        actionLabel: '去配置',
+        onAction: goToSettings,
+      });
+    } else {
+      renderEmpty(container, {
+        icon: 'bi-inbox',
+        title: '当前条件无结果',
+        message: '还没有发布记录，去「新建任务」发布第一条外链。',
+      });
+    }
+  } catch (err) {
+    // Region load failure → inline renderError via the shared taxonomy (toast is
+    // for transient action feedback only). Same title/message source everywhere.
+    const c = classifyError(err);
+    renderError(container, {
+      title: c.title,
+      message: c.message,
+      onRetry: () => window.location.reload(),
+    });
+  }
+}
+
 // ── boot ─────────────────────────────────────────────────────────
 function _boot() {
   _initActions();
@@ -316,6 +385,7 @@ function _boot() {
   _initFlashDismiss();
   _initProNudge();
   _initHealthBar();
+  _initEmptyState();
 }
 
 if (document.readyState === 'loading') on(document, 'DOMContentLoaded', _boot); else _boot();
