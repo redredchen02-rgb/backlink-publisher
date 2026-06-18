@@ -67,25 +67,45 @@ function showError(input) {
     renderError(grid, { title: c.title, message: c.message, onRetry: load });
 }
 
+// In-flight guard: rapid refresh (or a refresh racing the initial load) fires
+// concurrent load()s. Without this, a slower-returning EARLIER request would
+// overwrite a faster-returning LATER one (out-of-order render). Each load aborts
+// the prior in-flight fetch and ignores any response whose controller was
+// superseded, so only the newest load ever renders.
+let inFlight = null;
+
 async function load() {
+    if (inFlight) inFlight.abort();
+    const ctrl = new AbortController();
+    inFlight = ctrl;
+
     renderSkeleton(grid, { rows: 4, label: '加载监控数据…' });
-    let data;
     try {
-        data = await fetchJson('/api/monitor-hub');
-    } catch (err) {
-        showError(err);   // network/timeout, non-JSON HTTP, 5xx → classified
-        return;
+        let data;
+        try {
+            data = await fetchJson('/api/monitor-hub', { signal: ctrl.signal });
+        } catch (err) {
+            if (ctrl.signal.aborted) return;   // superseded by a newer load → drop
+            showError(err);   // network/timeout, non-JSON HTTP, 5xx → classified
+            return;
+        }
+        if (ctrl.signal.aborted) return;   // a newer load started while awaiting → drop
+        if (!data || data.ok === false) {
+            showError(data || {});   // {ok:false, status?, error?} → classified by status
+            return;
+        }
+        const cards = data.cards || [];
+        if (!cards.length) {
+            renderEmpty(grid, { icon: 'bi-check2-circle', title: '今日无异常', message: '所有监控子系统状态正常。' });
+            return;
+        }
+        grid.replaceChildren(...cards.map(cardEl));
+    } finally {
+        // Every settled exit clears the handle so it never lies about "in flight".
+        // A SUPERSEDED ctrl (aborted by a newer load) leaves inFlight pointing at
+        // that newer load, so guard on identity before clearing.
+        if (inFlight === ctrl) inFlight = null;
     }
-    if (!data || data.ok === false) {
-        showError(data || {});   // {ok:false, status?, error?} → classified by status
-        return;
-    }
-    const cards = data.cards || [];
-    if (!cards.length) {
-        renderEmpty(grid, { icon: 'bi-check2-circle', title: '今日无异常', message: '所有监控子系统状态正常。' });
-        return;
-    }
-    grid.replaceChildren(...cards.map(cardEl));
 }
 
 if (refreshBtn) refreshBtn.addEventListener('click', load);
