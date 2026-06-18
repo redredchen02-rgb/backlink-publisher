@@ -46,6 +46,8 @@ def register_blueprints(app: Flask) -> None:
     # Plan 2026-06-18-002 U1 — versioned JSON API surface (/api/v1). First
     # blueprint to use url_prefix; RFC 9457 error handlers wired below.
     from ..api.v1 import bp as api_v1_bp, register_api_error_handlers
+    # Plan 2026-06-18-002 U3 — flag-gated SPA catch-all under /app/*.
+    from .spa import bp as spa_bp
 
     for bp in (main_bp, pipeline_bp, pipeline_publish_bp, batch_bp, checkpoint_bp,
                history_bp, drafts_bp, settings_basic_bp, llm_bp, oauth_bp,
@@ -58,7 +60,7 @@ def register_blueprints(app: Flask) -> None:
                equity_gap_bp, equity_batch_recheck_bp,
                optimization_status_bp, command_center_bp,
                survival_dashboard_bp, publish_defaults_bp,
-               batch_sites_bp, api_v1_bp):
+               batch_sites_bp, api_v1_bp, spa_bp):
         app.register_blueprint(bp)
 
     # RFC 9457 problem+json for the /api/v1 surface (path-scoped 404/405 +

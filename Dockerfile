@@ -18,6 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . .
 RUN pip install --no-cache-dir -e ".[dev]"
 
+# ── Frontend build stage (Plan 2026-06-18-002 U3) ──────
+# Builds the Vue SPA to webui_app/spa_dist. Needs frontend/ plus the shared
+# design tokens (main.ts imports webui_app/static/css/tokens.css).
+FROM node:22-slim AS frontend-builder
+WORKDIR /build
+COPY frontend ./frontend
+COPY webui_app/static/css ./webui_app/static/css
+RUN cd frontend && npm ci && npm run build
+# -> /build/webui_app/spa_dist
+
 # ── Runtime stage ──────────────────────────────────────
 FROM python:3.11-slim
 
@@ -53,6 +63,11 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY . .
+
+# Copy the built SPA bundle from the frontend stage (served by Flask under
+# /app/* when BACKLINK_PUBLISHER_SPA=1; the flag stays OFF by default so the
+# legacy Jinja UI remains the default through the strangler-fig migration).
+COPY --from=frontend-builder /build/webui_app/spa_dist ./webui_app/spa_dist
 
 # Install playwright browsers (Chromium only)
 RUN python -m playwright install chromium 2>/dev/null || true

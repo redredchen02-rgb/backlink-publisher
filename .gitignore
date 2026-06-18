@@ -175,3 +175,11 @@ start-local.sh
 *.njsproj
 *.sln
 *.sw*
+
+# Frontend (Plan 2026-06-18-002 U3) — build artifacts, not source
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+# SPA build output served by Flask under /app/* — produced by `vite build`
+# (or the Docker Node stage), never committed.
+webui_app/spa_dist/
