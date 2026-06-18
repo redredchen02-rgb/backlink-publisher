@@ -265,6 +265,50 @@ class HistoryIdsRequestSchema(Schema):
     ids = fields.List(fields.String(), required=True)
 
 
+# ── draft queue — Plan 2026-06-18-002 U7 ────────────────────────────────────
+
+
+class DraftItemSchema(Schema):
+    """One draft-queue row (drafts_store)."""
+
+    id = fields.String(required=True)
+    target_url = fields.String(required=True)
+    platform = fields.String()
+    language = fields.String()
+    publish_mode = fields.String()
+    status = fields.String(metadata={"description": "pending | scheduled | published | failed."})
+    scheduled_at = fields.String(allow_none=True)
+    created_at = fields.String()
+    article_urls = fields.List(fields.String())
+    error = fields.String(allow_none=True)
+
+
+class DraftListSchema(Schema):
+    items = fields.List(fields.Nested(DraftItemSchema), required=True)
+
+
+class DraftMutationResultSchema(Schema):
+    """Refreshed list + optional message (a warning when a job lingered)."""
+
+    items = fields.List(fields.Nested(DraftItemSchema), required=True)
+    message = fields.String()
+
+
+class DraftIdRequestSchema(Schema):
+    id = fields.String(required=True)
+
+
+class DraftScheduleRequestSchema(Schema):
+    id = fields.String(required=True)
+    scheduled_at = fields.String(
+        required=True, metadata={"description": "ISO-8601 datetime to publish at."}
+    )
+
+
+class DraftIdsRequestSchema(Schema):
+    ids = fields.List(fields.String(), required=True)
+
+
 class ProblemErrorItemSchema(Schema):
     """One field-level validation error inside a ProblemDetails.errors[]."""
 

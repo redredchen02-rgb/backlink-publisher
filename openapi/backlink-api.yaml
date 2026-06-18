@@ -344,6 +344,174 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts:
+    get:
+      operationId: getDrafts
+      summary: Full draft-queue list (newest first).
+      tags:
+      - drafts
+      responses:
+        '200':
+          description: Draft list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftList'
+  /api/v1/drafts/schedule:
+    post:
+      operationId: scheduleDraft
+      summary: "Schedule a draft at an ISO-8601 datetime \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftScheduleRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing/invalid id or datetime.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/publish-now:
+    post:
+      operationId: publishDraftNow
+      summary: "Publish a draft now (schedules ~5s out) \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/cancel:
+    post:
+      operationId: cancelDraft
+      summary: "Cancel a scheduled draft (back to pending) \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/delete:
+    post:
+      operationId: deleteDraft
+      summary: "Delete one draft (cancels its job if scheduled) \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/bulk-delete:
+    post:
+      operationId: bulkDeleteDrafts
+      summary: "Delete multiple drafts \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdsRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing ids.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/monitor/summary:
     get:
       operationId: getMonitorSummary
@@ -810,6 +978,92 @@ components:
       - id
       additionalProperties: false
     HistoryIdsRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+      required:
+      - ids
+      additionalProperties: false
+    DraftItem:
+      type: object
+      properties:
+        id:
+          type: string
+        target_url:
+          type: string
+        platform:
+          type: string
+        language:
+          type: string
+        publish_mode:
+          type: string
+        status:
+          type: string
+          description: pending | scheduled | published | failed.
+        scheduled_at:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+        article_urls:
+          type: array
+          items:
+            type: string
+        error:
+          type:
+          - string
+          - 'null'
+      required:
+      - id
+      - target_url
+      additionalProperties: false
+    DraftList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftItem'
+      required:
+      - items
+      additionalProperties: false
+    DraftMutationResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftItem'
+        message:
+          type: string
+      required:
+      - items
+      additionalProperties: false
+    DraftIdRequest:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    DraftScheduleRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        scheduled_at:
+          type: string
+          description: ISO-8601 datetime to publish at.
+      required:
+      - id
+      - scheduled_at
+      additionalProperties: false
+    DraftIdsRequest:
       type: object
       properties:
         ids:

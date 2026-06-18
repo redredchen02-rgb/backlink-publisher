@@ -22,6 +22,11 @@ from apispec.ext.marshmallow import MarshmallowPlugin
 from .schemas import (
     AppConfigSchema,
     CsrfTokenSchema,
+    DraftIdRequestSchema,
+    DraftIdsRequestSchema,
+    DraftListSchema,
+    DraftMutationResultSchema,
+    DraftScheduleRequestSchema,
     HealthSchema,
     HistoryIdRequestSchema,
     HistoryIdsRequestSchema,
@@ -95,6 +100,11 @@ def build_spec() -> APISpec:
     spec.components.schema("HistoryMutationResult", schema=HistoryMutationResultSchema)
     spec.components.schema("HistoryIdRequest", schema=HistoryIdRequestSchema)
     spec.components.schema("HistoryIdsRequest", schema=HistoryIdsRequestSchema)
+    spec.components.schema("DraftList", schema=DraftListSchema)
+    spec.components.schema("DraftMutationResult", schema=DraftMutationResultSchema)
+    spec.components.schema("DraftIdRequest", schema=DraftIdRequestSchema)
+    spec.components.schema("DraftScheduleRequest", schema=DraftScheduleRequestSchema)
+    spec.components.schema("DraftIdsRequest", schema=DraftIdsRequestSchema)
 
     def _ok(description: str, schema: Any) -> dict[str, Any]:
         return {"description": description, "content": {"application/json": {"schema": schema}}}
@@ -314,6 +324,97 @@ def build_spec() -> APISpec:
                     "200": _ok("Refreshed list.", HistoryMutationResultSchema),
                     "404": _problem_response("History item not found."),
                     "422": _problem_response("Missing id."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts",
+        operations={
+            "get": {
+                "operationId": "getDrafts",
+                "summary": "Full draft-queue list (newest first).",
+                "tags": ["drafts"],
+                "responses": {"200": _ok("Draft list.", DraftListSchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/schedule",
+        operations={
+            "post": {
+                "operationId": "scheduleDraft",
+                "summary": "Schedule a draft at an ISO-8601 datetime → refreshed list.",
+                "tags": ["drafts"],
+                "requestBody": _body(DraftScheduleRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "422": _problem_response("Missing/invalid id or datetime."),
+                    "502": _problem_response("Persistence failure."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/publish-now",
+        operations={
+            "post": {
+                "operationId": "publishDraftNow",
+                "summary": "Publish a draft now (schedules ~5s out) → refreshed list.",
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "422": _problem_response("Missing id."),
+                    "502": _problem_response("Persistence failure."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/cancel",
+        operations={
+            "post": {
+                "operationId": "cancelDraft",
+                "summary": "Cancel a scheduled draft (back to pending) → refreshed list.",
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "422": _problem_response("Missing id."),
+                    "502": _problem_response("Persistence failure."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/delete",
+        operations={
+            "post": {
+                "operationId": "deleteDraft",
+                "summary": "Delete one draft (cancels its job if scheduled) → refreshed list.",
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "422": _problem_response("Missing id."),
+                    "502": _problem_response("Persistence failure."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/bulk-delete",
+        operations={
+            "post": {
+                "operationId": "bulkDeleteDrafts",
+                "summary": "Delete multiple drafts → refreshed list.",
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "422": _problem_response("Missing ids."),
+                    "502": _problem_response("Persistence failure."),
                 },
             }
         },
