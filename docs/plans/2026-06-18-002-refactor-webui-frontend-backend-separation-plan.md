@@ -141,7 +141,7 @@ claims: {}  # 结构性重构计划，无机器可验证行为断言；满足 po
 
 ### Deferred to Implementation
 - **apiflask vs flask-smorest** 最终取舍——执行 U1 时按团队 schema 偏好（Pydantic v2 vs marshmallow）一锤。
-- **publish 是否暴露可轮询 task-id 进度端点**——redesign 当初判定高风险未做。迁核心工作台（U5）时按后端实况：要么小改后端加 task-id，要么降级为「忙碌态 + 完成回填」（沿用 redesign 先例）。
+- ~~**publish 是否暴露可轮询 task-id 进度端点**~~ — **U5 已决（降级忙碌态）**：实测后端单笔 publish 是同步阻塞（300s 超时）、无 task-id（只有批量 campaign 另有 `/api/campaign/<id>/status` 轮询）。加 task-id 须改持有真实凭证的发布路径（redesign 当初判定高风险未做），故采保守先例：`POST /api/v1/pipeline/publish` 保持同步、partial→200、total-failure→problem+json；前端走降级忙碌态分支（提交控件 in-flight 禁用防 `dedup.db` 单飞重复提交 + 软超时文案「仍在进行，可能已完成，请勿重复提交」+ 完成回填）。task-id 进度端点若日后需要，按本格式重启。
 - **监控聚合看板数据源**——复用四路由 JSON 聚合 vs 新 `/api/v1/monitor/summary` 汇总端点。迁 U6 时按实况定（`equity`/`optimization` 当前仅 HTML，必转 JSON）。
 - **密集 ledger 表**——off-the-shelf grid（AG Grid / TanStack Table）vs 手写组件；窄屏卡片化断点。影响个别组件依赖，迁移时定。
 - **R9 跨源网络化 resume-trigger**——当出现「真实第二客户端」或「远程/多人运营」需求时，按 deferral 格式（status + rationale + trigger）重启，届时执行研究中的安全清单（每端点鉴权 + 授权 + CORS allowlist + BFF + SSRF allowlist + 密钥管理 + TLS/HSTS + ASVS 验收）。
@@ -196,7 +196,7 @@ flowchart TB
 
 ### Phase 0 — 契约与脚手架（无用户可见切换）
 
-- [ ] **U1：建立 `/api/v1` 契约骨架与 CI 契约门**
+- [x] **U1：建立 `/api/v1` 契约骨架与 CI 契约门**
 
 **Goal:** 引入 apiflask，建立 `/api/v1` url_prefix blueprint、RFC 9457 错误信封（构建于 `PipeResult`）、OpenAPI 3.1 spec 生成、CI 契约门（Spectral + oasdiff + Schemathesis）。这是 branch-by-abstraction 的 API 缝。
 
@@ -225,7 +225,7 @@ flowchart TB
 
 **Verification:** `/api/v1` 挂载；OpenAPI spec 产出且 lint 绿；CI 契约门作为 required check 绿。
 
-- [ ] **U2：暴露 context 变量 + 已 JSON 化端点为首批 `/api/v1` 端点**
+- [x] **U2：暴露 context 变量 + 已 JSON 化端点为首批 `/api/v1` 端点**
 
 **Goal:** 把 6 个 context-processor 变量 + ~43 个已 JSON-shaped 端点纳入 `/api/v1`，直接调用既有纯 services/stores，契约锁定。
 
@@ -249,7 +249,7 @@ flowchart TB
 
 **Verification:** SPA 所需全部 bootstrap 数据经 `/api/v1` 可得；契约门绿。
 
-- [ ] **U3：脚手架 Vue 3 + Vite 前端 + 单源托管 + 可移植内核移植**
+- [x] **U3：脚手架 Vue 3 + Vite 前端 + 单源托管 + 可移植内核移植**
 
 **Goal:** 在 `frontend/` 建 Vue 3.5 + Vite 8 工程；dev proxy → Flask；build → `webui_app/static/spa/`；Flask catch-all 在 `/app/*`（flag 门控）服务 `index.html`，与 Jinja 共存；移植可复用内核；引入 `tokens.css` + 已 shipped 控台设计系统；CI 加 Node build/test lane。
 
@@ -283,7 +283,7 @@ flowchart TB
 
 ### Phase 1 — Shell + 最高价值页面
 
-- [ ] **U4：迁移全局 shell（侧栏/顶栏/主题/Pro/通知）到 Vue**
+- [x] **U4：迁移全局 shell（侧栏/顶栏/主题/Pro/通知）到 Vue**
 
 **Goal:** 把全局 shell 迁入 Vue，消费 `/api/v1/app-config`；用 Vue 组件 + Pinia 事件 store **取代** `notifications.js`（该 700 行层违反反铁律：`innerHTML` 拼接 + `window.notifications` 全局、且无订阅契约）；规划 z-index（含 copilot 浮层）。
 
@@ -304,7 +304,7 @@ flowchart TB
 
 **Verification:** `/app` 全局 shell 由 Vue 渲染、观感统一控台风、通知走新订阅契约。
 
-- [ ] **U5：迁移核心发布工作台（plan/generate/validate/preview/publish）**
+- [x] **U5：迁移核心发布工作台（plan/generate/validate/preview/publish）**
 
 **Goal:** 迁移最高 churn/价值的单笔发布四阶段工作台；把其路由转 `/api/v1`（**特征化先行**）；承接 redesign 的单页分步 + 长任务进度（TanStack Query `refetchInterval` 轮询）。
 
