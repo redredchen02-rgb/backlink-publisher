@@ -43,4 +43,5 @@ def health():
 from . import app_config  # noqa: E402,F401  (Plan 2026-06-18-002 U2)
 from . import pipeline  # noqa: E402,F401  (Plan 2026-06-18-002 U5)
 from . import monitor  # noqa: E402,F401  (Plan 2026-06-18-002 U6)
+from . import history  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
 

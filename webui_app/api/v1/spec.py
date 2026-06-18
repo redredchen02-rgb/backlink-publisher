@@ -23,6 +23,10 @@ from .schemas import (
     AppConfigSchema,
     CsrfTokenSchema,
     HealthSchema,
+    HistoryIdRequestSchema,
+    HistoryIdsRequestSchema,
+    HistoryListSchema,
+    HistoryMutationResultSchema,
     MonitorSummarySchema,
     PlanRequestSchema,
     PlanResponseSchema,
@@ -87,6 +91,10 @@ def build_spec() -> APISpec:
     spec.components.schema("RegenBodyRequest", schema=RegenBodyRequestSchema)
     spec.components.schema("RegenBodyResponse", schema=RegenBodyResponseSchema)
     spec.components.schema("MonitorSummary", schema=MonitorSummarySchema)
+    spec.components.schema("HistoryList", schema=HistoryListSchema)
+    spec.components.schema("HistoryMutationResult", schema=HistoryMutationResultSchema)
+    spec.components.schema("HistoryIdRequest", schema=HistoryIdRequestSchema)
+    spec.components.schema("HistoryIdsRequest", schema=HistoryIdsRequestSchema)
 
     def _ok(description: str, schema: Any) -> dict[str, Any]:
         return {"description": description, "content": {"application/json": {"schema": schema}}}
@@ -238,6 +246,74 @@ def build_spec() -> APISpec:
                     "401": _problem_response("Auth/credential error."),
                     "422": _problem_response("Invalid request."),
                     "502": _problem_response("Publish failed / no result rows."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/history",
+        operations={
+            "get": {
+                "operationId": "getHistory",
+                "summary": "Full publish-history list.",
+                "tags": ["history"],
+                "responses": {"200": _ok("History list.", HistoryListSchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/history/delete",
+        operations={
+            "post": {
+                "operationId": "deleteHistoryItem",
+                "summary": "Delete one history entry → refreshed list.",
+                "tags": ["history"],
+                "requestBody": _body(HistoryIdRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", HistoryMutationResultSchema),
+                    "422": _problem_response("Missing id."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/history/bulk-delete",
+        operations={
+            "post": {
+                "operationId": "bulkDeleteHistory",
+                "summary": "Delete multiple history entries → refreshed list.",
+                "tags": ["history"],
+                "requestBody": _body(HistoryIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", HistoryMutationResultSchema),
+                    "422": _problem_response("Missing ids."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/history/purge-failed",
+        operations={
+            "post": {
+                "operationId": "purgeFailedHistory",
+                "summary": "Delete every 'failed' entry → refreshed list.",
+                "tags": ["history"],
+                "responses": {"200": _ok("Refreshed list.", HistoryMutationResultSchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/history/recheck",
+        operations={
+            "post": {
+                "operationId": "recheckHistoryItem",
+                "summary": "Re-verify one history entry's link liveness → refreshed list.",
+                "tags": ["history"],
+                "requestBody": _body(HistoryIdRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", HistoryMutationResultSchema),
+                    "404": _problem_response("History item not found."),
+                    "422": _problem_response("Missing id."),
                 },
             }
         },

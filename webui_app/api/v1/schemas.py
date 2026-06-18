@@ -218,6 +218,53 @@ class MonitorSummarySchema(Schema):
     )
 
 
+# ── publish history — Plan 2026-06-18-002 U7 ────────────────────────────────
+
+
+class HistoryItemSchema(Schema):
+    """One publish-history row (events.db, normalised by HistoryAPI)."""
+
+    id = fields.String(required=True)
+    target_url = fields.String(required=True)
+    created_at = fields.String()
+    platform = fields.String()
+    status = fields.String(metadata={"description": "published | failed | unknown."})
+    article_urls = fields.List(fields.String())
+    run_id = fields.String()
+    language = fields.String()
+    error = fields.String()
+    verified_at = fields.Integer(allow_none=True)
+    publish_mode = fields.String()
+    target_dofollow = fields.String(
+        metadata={"description": "dofollow | dofollow_lost | stripped | unverified."}
+    )
+
+
+class HistoryListSchema(Schema):
+    """The full history list (object envelope, never a bare array)."""
+
+    items = fields.List(fields.Nested(HistoryItemSchema), required=True)
+
+
+class HistoryMutationResultSchema(Schema):
+    """Result of a history mutation — the refreshed list plus an optional message."""
+
+    items = fields.List(fields.Nested(HistoryItemSchema), required=True)
+    message = fields.String()
+
+
+class HistoryIdRequestSchema(Schema):
+    """Single-id mutation body (delete / recheck)."""
+
+    id = fields.String(required=True)
+
+
+class HistoryIdsRequestSchema(Schema):
+    """Multi-id mutation body (bulk-delete)."""
+
+    ids = fields.List(fields.String(), required=True)
+
+
 class ProblemErrorItemSchema(Schema):
     """One field-level validation error inside a ProblemDetails.errors[]."""
 

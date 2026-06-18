@@ -237,6 +237,113 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history:
+    get:
+      operationId: getHistory
+      summary: Full publish-history list.
+      tags:
+      - history
+      responses:
+        '200':
+          description: History list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryList'
+  /api/v1/history/delete:
+    post:
+      operationId: deleteHistoryItem
+      summary: "Delete one history entry \u2192 refreshed list."
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history/bulk-delete:
+    post:
+      operationId: bulkDeleteHistory
+      summary: "Delete multiple history entries \u2192 refreshed list."
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdsRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '422':
+          description: Missing ids.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history/purge-failed:
+    post:
+      operationId: purgeFailedHistory
+      summary: "Delete every 'failed' entry \u2192 refreshed list."
+      tags:
+      - history
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+  /api/v1/history/recheck:
+    post:
+      operationId: recheckHistoryItem
+      summary: "Re-verify one history entry's link liveness \u2192 refreshed list."
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '404':
+          description: History item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/monitor/summary:
     get:
       operationId: getMonitorSummary
@@ -634,4 +741,81 @@ components:
       - anomaly_count
       - cards
       - degraded
+      additionalProperties: false
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        target_url:
+          type: string
+        created_at:
+          type: string
+        platform:
+          type: string
+        status:
+          type: string
+          description: published | failed | unknown.
+        article_urls:
+          type: array
+          items:
+            type: string
+        run_id:
+          type: string
+        language:
+          type: string
+        error:
+          type: string
+        verified_at:
+          type:
+          - integer
+          - 'null'
+        publish_mode:
+          type: string
+        target_dofollow:
+          type: string
+          description: dofollow | dofollow_lost | stripped | unverified.
+      required:
+      - id
+      - target_url
+      additionalProperties: false
+    HistoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryItem'
+      required:
+      - items
+      additionalProperties: false
+    HistoryMutationResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryItem'
+        message:
+          type: string
+      required:
+      - items
+      additionalProperties: false
+    HistoryIdRequest:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    HistoryIdsRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+      required:
+      - ids
       additionalProperties: false
