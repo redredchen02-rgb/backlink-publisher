@@ -1,7 +1,7 @@
 ---
 title: "feat: v0.5.0 三層版本節奏 — 收斂 / Throughput / 信任層"
 type: feat
-status: active
+status: shipped
 date: 2026-06-16
 origin: docs/_archive/brainstorms/2026-06-16-comprehensive-optimization-roadmap-requirements.md
 claims: {}
