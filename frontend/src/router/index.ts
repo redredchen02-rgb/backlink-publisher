@@ -20,6 +20,12 @@ export const router = createRouter({
       component: () => import('../pages/Monitor/MonitorDashboard.vue'),
     },
     {
+      // Publish history (U7); navItems maps 历史 → '/history'.
+      path: '/history',
+      name: 'history',
+      component: () => import('../pages/History/HistoryPage.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../pages/NotFound.vue'),
