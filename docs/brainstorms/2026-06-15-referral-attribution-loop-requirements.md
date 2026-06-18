@@ -3,6 +3,8 @@ date: 2026-06-15
 topic: referral-attribution-loop
 ---
 
+<!-- TOMBSTONE: do-not-revive, see PR #6 — the short-link 302 approach this doc proposes destroys dofollow; rejected by 5-persona document-review and superseded by the channel-level GA4 referral MVP. Kept as a tombstone (R8). -->
+
 # Referral 归因闭环（Close the Referral Attribution Loop）
 
 ## Problem Frame

@@ -120,5 +120,5 @@ launchctl unload scripts/com.dex.bp-probe-ranking.plist
 
 ## 相關文件
 
-- Plan doc: `docs/plans/2026-06-16-003-feat-gsc-indexation-ranking-loop-plan.md`
+- Plan doc: `docs/_archive/plans/2026-06-16-003-feat-gsc-indexation-ranking-loop-plan.md`
 - GSC API: https://developers.google.com/webmaster-tools/v1/api_reference_index

@@ -1,6 +1,6 @@
 # Publish pipeline saga runbook
 
-Origin: [`2026-05-28-publish-saga-contracts-requirements.md`](../brainstorms/2026-05-28-publish-saga-contracts-requirements.md).
+Origin: [`2026-05-28-publish-saga-contracts-requirements.md`](../_archive/brainstorms/2026-05-28-publish-saga-contracts-requirements.md).
 Plan: [`2026-05-28-005-feat-publish-saga-hardening-plan.md`](../plans/2026-05-28-005-feat-publish-saga-hardening-plan.md).
 
 This runbook documents the observable contract for every step in the `publish-backlinks` saga, the exit codes, the RECON fields that prove correctness, and the operator action for each failure mode.

@@ -9,7 +9,7 @@ platform: universal
 
 # Optimization Gaps Implementation (2026-06-05)
 
-Source: `docs/plans/2026-06-05-002-feat-optimization-gap-analysis.md`
+Source: `docs/_archive/plans/2026-06-05-002-feat-optimization-gap-analysis.md`
 
 ## Gaps Implemented
 

@@ -1,6 +1,6 @@
 # probe-citations — operations runbook
 
-Plan: `docs/plans/2026-06-16-002-feat-comprehensive-optimization-roadmap-plan.md` (Unit 3)
+Plan: `docs/_archive/plans/2026-06-16-002-feat-comprehensive-optimization-roadmap-plan.md` (Unit 3)
 
 `probe-citations` 每日探測 AI 引用狀況（Perplexity v1），將 `citation.observed` 事件寫入 events.db，供 `/ce:health` 面板展示（Phase 2 Unit 6）。
 

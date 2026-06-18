@@ -109,6 +109,6 @@ The original branches returned `True` four times correctly (the equal-known-lang
 ## Related Issues
 
 - `docs/plans/2026-05-14-001-feat-mandatory-linkcheck-lang-gate-plan.md` — Unit 1 of the larger plan that surfaced this bug while wiring R2/R4/R5 gates. R1 was an explicit prerequisite to R2 because R2 had nothing to fail against until language_matches actually rejected.
-- `docs/brainstorms/2026-05-14-mandatory-linkcheck-lang-gate-requirements.md` — bug surfaced during the brainstorm code-read for an unrelated feature.
+- `docs/_archive/brainstorms/2026-05-14-mandatory-linkcheck-lang-gate-requirements.md` — bug surfaced during the brainstorm code-read for an unrelated feature.
 - Auto memory `feedback_test-locks-in-bug.md` (auto memory [claude]) — the project's prior encounter with this exact pattern in a different module. Cross-reference this anti-pattern in any new test review.
 - `docs/solutions/test-failures/ci-test-isolation-failures-medium-brave-sleep-timeout-2026-05-13.md` — tonally adjacent ("tests pass while bug persists" family of failures via mock-every-branch lesson; not the same bug class but useful sibling reading).

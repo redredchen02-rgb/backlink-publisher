@@ -1,6 +1,6 @@
 # Runbook — Reliability observe→enforce rollout
 
-Plan: `docs/plans/2026-06-15-006-feat-reliability-observe-to-enforce-plan.md`
+Plan: `docs/_archive/plans/2026-06-15-006-feat-reliability-observe-to-enforce-plan.md`
 
 The reliability policy has three modes, resolved from
 `BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED`:

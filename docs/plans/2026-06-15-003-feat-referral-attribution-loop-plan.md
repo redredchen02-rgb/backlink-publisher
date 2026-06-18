@@ -9,6 +9,8 @@ deepened: 2026-06-15
 claims: {}  # parked/abandoned — no claims to track
 ---
 
+<!-- TOMBSTONE: do-not-revive, see PR #6 — short-link 302 destroys dofollow; rejected by 5-persona document-review. Kept on the active surface only as a tombstone (R8). -->
+
 > **PARKED 2026-06-15 — 方案不可行，勿实现。** document-review 五persona一致否决短链 302：
 > - **P0** 短链 302 毁掉外链的 dofollow 本意——money page 拿不到任何直接 dofollow 链接（产品命根子）。
 > - **P0** 短链替换打断 g5 footprint 存活检测 + 6 个发布后 dofollow 校验器（`inspect_target_anchor` 按真实 target_url 比对）。

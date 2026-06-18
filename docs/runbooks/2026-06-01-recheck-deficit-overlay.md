@@ -1,7 +1,7 @@
 # Recheck deficit-overlay operations runbook
 
 Plan: [`2026-06-01-006-feat-recheck-deficit-overlay-replan-plan.md`](../plans/2026-06-01-006-feat-recheck-deficit-overlay-replan-plan.md).
-Origin: [`2026-06-01-recheck-ledger-liveness-writeback-requirements.md`](../brainstorms/2026-06-01-recheck-ledger-liveness-writeback-requirements.md).
+Origin: [`2026-06-01-recheck-ledger-liveness-writeback-requirements.md`](../_archive/brainstorms/2026-06-01-recheck-ledger-liveness-writeback-requirements.md).
 
 `recheck-overlay` is a **read-only** CLI verb that bridges the recheck survival loop (#310) to deficit-driven re-planning (#313). It reads the *latest* `link.rechecked` verdict per link from `events.db`, discounts dead / `dofollow_lost` links from each target's `live_dofollow`, prunes the dead platform from `live_dofollow_platforms`, and re-emits the discounted equity-ledger JSONL. It **mutates nothing**.
 

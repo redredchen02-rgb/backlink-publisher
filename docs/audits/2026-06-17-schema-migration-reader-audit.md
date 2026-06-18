@@ -1,6 +1,6 @@
 # Audit — #24-class half-migrated reader scan (Phase 0 U5)
 
-Plan `docs/plans/2026-06-17-002-feat-activation-verify-gate-plan.md` R0.3.
+Plan `docs/_archive/plans/2026-06-17-002-feat-activation-verify-gate-plan.md` R0.3.
 
 **#24-class bug shape:** a schema migration (e.g. optimization-state v1→v2 nesting
 `weights`/`stats` under a `"default"` language namespace) lands in the writer +

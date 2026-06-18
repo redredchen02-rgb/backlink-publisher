@@ -63,7 +63,7 @@ tool is permitted only under all of these guardrails:
 **Authorized exceptions:**
 
 - 2026-05-27 — `generate-backlink-text` CLI verb (origin:
-  `docs/brainstorms/2026-05-27-llm-backlink-text-generation-requirements.md`,
+  `docs/_archive/brainstorms/2026-05-27-llm-backlink-text-generation-requirements.md`,
   plan: `docs/plans/2026-05-27-006-feat-generate-backlink-text-plan.md`). Owner
   authorized as an opt-in, human-reviewed content-drafting tool decoupled from the
   shipped pipeline. Do not re-flag this verb as a P0 no-runtime-LLM violation.

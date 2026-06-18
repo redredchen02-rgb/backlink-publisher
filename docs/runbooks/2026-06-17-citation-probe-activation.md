@@ -1,6 +1,6 @@
 # Runbook — citation-probe activation verification
 
-Phase 0 U2 (plan `docs/plans/2026-06-17-002-feat-activation-verify-gate-plan.md`).
+Phase 0 U2 (plan `docs/_archive/plans/2026-06-17-002-feat-activation-verify-gate-plan.md`).
 
 **Purpose:** the *one-time, real (non-mock) live run* that proves `probe-citations`
 actually writes `citation.observed` rows to events.db against the live Perplexity

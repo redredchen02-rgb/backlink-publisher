@@ -190,5 +190,5 @@ time curl -s -o /dev/null http://localhost:8888/
 
 ## Related Issues
 
-- `docs/brainstorms/2026-05-11-publisher-adapters-rewrite-requirements.md` — The larger publisher adapters rewrite explicitly deferred these webui.py fixes ("属 P2-1 单独的小修复 PR"). This solution doc is the record of that companion fix.
+- `docs/_archive/brainstorms/2026-05-11-publisher-adapters-rewrite-requirements.md` — The larger publisher adapters rewrite explicitly deferred these webui.py fixes ("属 P2-1 单独的小修复 PR"). This solution doc is the record of that companion fix.
 - `docs/plans/2026-05-11-001-feat-publisher-adapters-rewrite-plan.md` — Scope boundary referenced "webui.py missing deps" as out of scope; these fixes resolve that known gap.

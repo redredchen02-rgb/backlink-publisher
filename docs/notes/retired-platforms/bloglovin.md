@@ -44,4 +44,4 @@ criteria still fail:
 
 Conclusion: the blog-aggregation/reader product is an abandoned login-gated
 shell with no public, linkable, indexable surface. Do not implement. Brainstorm
-artifact: `docs/brainstorms/2026-05-29-bloglovin-syndication-tier-requirements.md`.
+artifact: `docs/_archive/brainstorms/2026-05-29-bloglovin-syndication-tier-requirements.md`.
