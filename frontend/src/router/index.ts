@@ -18,3 +18,13 @@ export const router = createRouter({
     },
   ],
 })
+
+// a11y: SPA navigations don't move focus. After each route change, move focus
+// to the main region so screen-reader users land on the new page content.
+router.afterEach(() => {
+  requestAnimationFrame(() => {
+    const main = document.getElementById('main')
+    if (main) main.focus()
+  })
+})
+
