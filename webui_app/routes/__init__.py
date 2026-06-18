@@ -43,6 +43,9 @@ def register_blueprints(app: Flask) -> None:
     from .survival_dashboard import bp as survival_dashboard_bp
     from .batch_sites import bp as batch_sites_bp
     from .publish_defaults import bp as publish_defaults_bp
+    # Plan 2026-06-18-002 U1 — versioned JSON API surface (/api/v1). First
+    # blueprint to use url_prefix; RFC 9457 error handlers wired below.
+    from ..api.v1 import bp as api_v1_bp, register_api_error_handlers
 
     for bp in (main_bp, pipeline_bp, pipeline_publish_bp, batch_bp, checkpoint_bp,
                history_bp, drafts_bp, settings_basic_bp, llm_bp, oauth_bp,
@@ -55,5 +58,9 @@ def register_blueprints(app: Flask) -> None:
                equity_gap_bp, equity_batch_recheck_bp,
                optimization_status_bp, command_center_bp,
                survival_dashboard_bp, publish_defaults_bp,
-               batch_sites_bp):
+               batch_sites_bp, api_v1_bp):
         app.register_blueprint(bp)
+
+    # RFC 9457 problem+json for the /api/v1 surface (path-scoped 404/405 +
+    # ApiProblem). Registered here so create_app needs no change.
+    register_api_error_handlers(app)

@@ -1,0 +1,34 @@
+# Spectral ruleset for the /api/v1 OpenAPI contract — Plan 2026-06-18-002 U1.
+# Lints openapi/backlink-api.yaml in CI. Extends the standard OpenAPI ruleset
+# and adds project conventions (snake_case wire, descriptions required).
+extends:
+  - "spectral:oas"
+
+rules:
+  # Every operation must carry a description and an operationId (stable client anchor).
+  operation-description: error
+  operation-operationId: error
+  operation-tags: warn
+
+  # Wire format convention: snake_case property names (Python-native; the SPA
+  # maps to camelCase at its own edge if it wants — the contract stays snake_case).
+  api-property-names-snake-case:
+    description: Schema property names must be snake_case.
+    message: "Property '{{property}}' must be snake_case."
+    severity: error
+    given: "$.components.schemas..properties[*]~"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-z0-9_]*$"
+
+  # Collections must never be a bare top-level array (so they can grow fields later).
+  no-top-level-array-response:
+    description: Response bodies must be objects, never bare arrays.
+    severity: error
+    given: "$.paths[*][*].responses[*].content[*].schema"
+    then:
+      field: type
+      function: pattern
+      functionOptions:
+        notMatch: "^array$"

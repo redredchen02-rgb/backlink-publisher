@@ -1,0 +1,74 @@
+# API contract gate — Plan 2026-06-18-002 U1.
+# The OpenAPI 3.1 spec is the single source of truth for /api/v1. This workflow
+# keeps it honest: (1) it can't drift from the schemas, (2) it stays lint-clean,
+# (3) breaking changes vs the base branch fail the build, (4) the live app
+# conforms to the spec. Schemathesis runs against an EPHEMERAL, credential-free,
+# network-disabled instance (single-origin threat model: never fuzz a real
+# credential-bearing app — see the plan's Single-origin Threat Model section).
+name: api-contract
+
+on:
+  pull_request:
+    paths:
+      - "openapi/**"
+      - "webui_app/api/**"
+      - ".spectral.yaml"
+      - "scripts/gen_openapi.py"
+      - ".github/workflows/api-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need the base ref for oasdiff
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e ".[dev]"
+
+      - name: Spec is not stale (drift gate)
+        run: PYTHONPATH=src python scripts/gen_openapi.py --check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Spectral lint
+        run: npx --yes @stoplight/spectral-cli lint openapi/backlink-api.yaml --ruleset .spectral.yaml
+
+      - name: oasdiff breaking-change gate (vs base branch)
+        run: |
+          git show "origin/${{ github.base_ref }}:openapi/backlink-api.yaml" > /tmp/base-spec.yaml 2>/dev/null || {
+            echo "No base spec (new file) — skipping breaking-change check."; exit 0; }
+          docker run --rm -v /tmp:/specs -v "$PWD/openapi:/new" tufin/oasdiff breaking \
+            /specs/base-spec.yaml /new/backlink-api.yaml --fail-on ERR
+
+      - name: Schemathesis conformance (ephemeral, credential-free, no network)
+        env:
+          BACKLINK_NO_FETCH_VERIFY: "1"
+          BACKLINK_PUBLISHER_CONFIG_DIR: /tmp/bp-ephemeral-config
+          BACKLINK_PUBLISHER_CACHE_DIR: /tmp/bp-ephemeral-cache
+        run: |
+          pip install schemathesis
+          PYTHONPATH=src python webui.py &
+          APP_PID=$!
+          # wait for liveness
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8888/api/v1/health && break || sleep 1
+          done
+          # Run against the committed spec file (the app does not self-serve a
+          # spec — single Flask blueprint, no APIFlask base class yet), base-url
+          # points at the ephemeral instance. GET-only until mutating endpoints
+          # exist and a write-safe fuzz harness is in place.
+          schemathesis run openapi/backlink-api.yaml \
+            --base-url http://127.0.0.1:8888 \
+            --checks all --hypothesis-max-examples 25 \
+            --exclude-method POST --exclude-method PUT --exclude-method PATCH --exclude-method DELETE \
+            || { kill $APP_PID; exit 1; }
+          kill $APP_PID

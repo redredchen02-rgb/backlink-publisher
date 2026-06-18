@@ -1,0 +1,84 @@
+info:
+  description: 'Versioned JSON API for the Backlink Publisher WebUI (Plan 2026-06-18-002,
+    front/back separation). Single-origin: served same-origin by Flask. Errors use
+    RFC 9457 problem+json.'
+  title: Backlink Publisher WebUI API
+  version: 0.3.0
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness probe.
+      description: Returns service liveness and version. No auth, no side effects.
+      tags:
+      - meta
+      responses:
+        '200':
+          description: Service is up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '404':
+          description: Unknown API resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+openapi: 3.1.0
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Always 'ok' when the service is up.
+        api_version:
+          type: string
+          description: Major API version, e.g. 'v1'.
+        version:
+          type: string
+          description: backlink-publisher package version.
+      required:
+      - api_version
+      - status
+      - version
+      additionalProperties: false
+    ProblemErrorItem:
+      type: object
+      properties:
+        field:
+          type: string
+          description: JSON pointer / field name.
+        message:
+          type: string
+          description: Human-readable reason.
+      additionalProperties: false
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Stable problem-type URI.
+        title:
+          type: string
+        status:
+          type: integer
+          description: Matches the HTTP status code.
+        detail:
+          type: string
+        instance:
+          type: string
+        error_class:
+          type: string
+          description: CLI/pipeline typed-error class, when applicable.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemErrorItem'
+      required:
+      - status
+      - title
+      - type
+      additionalProperties: false
