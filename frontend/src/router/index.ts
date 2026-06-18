@@ -7,9 +7,11 @@ export const router = createRouter({
   history: createWebHistory('/app/'),
   routes: [
     {
+      // The pipeline group's primary page IS the publish workbench (U5);
+      // navItems maps 发布工作台 → '/'.
       path: '/',
-      name: 'home',
-      component: () => import('../pages/Home.vue'),
+      name: 'publish',
+      component: () => import('../pages/Publish/PublishWorkbench.vue'),
     },
     {
       path: '/:pathMatch(.*)*',
