@@ -1,7 +1,7 @@
 ---
 title: "feat: v0.5.0 core convergence — Track A + governance closeout"
 type: feat
-status: active
+status: shipped
 date: 2026-06-18
 origin: docs/brainstorms/2026-06-18-v050-core-convergence-requirements.md
 deepened: 2026-06-18
@@ -136,7 +136,7 @@ flowchart TB
 
 ### Phase 1 — Track A（ship-blocking）
 
-- [ ] **U1: R1 — dofollow 翻牌（canary ≥2 个 uncertain adapter）**
+- [ ] **U1: R1 — dofollow 翻牌（canary ≥2 个 uncertain adapter）** ⏭️ 延后 v0.5.1（需 live operator canary + 凭证，本轮未跑；v0.5.0 已诚实解耦发版，候选清单见记忆 [[v050-core-convergence]]）。
 
 **Goal:** 对现有 `uncertain` adapter 跑 OUR-pipeline canary，翻牌 ≥2 个为 `dofollow=true`（或记录 outcome 并延 v0.5.1）。
 
@@ -261,7 +261,7 @@ flowchart TB
 
 ---
 
-- [ ] **U5: R10 — 发版门（0.4.0 → 0.5.0，诚实解耦 U1）**
+- [x] **U5: R10 — 发版门（0.4.0 → 0.5.0，诚实解耦 U1）** ✅ v0.5.0 已发布（PR #44 → 20855fe6；pyproject :7/:125→0.5.0，历史引用未动；CHANGELOG `[0.5.0]`；annotated tag `v0.5.0`（这仓首个真 tag）；GitHub Release 非 draft）。预飞 11561 passed、`test_e2e_live_publish_ratio` 仍 xfail（U1 延后未碰 publish-output seam，符合预期）。
 
 **Goal:** 定义并执行"可切版本"：版本号、CHANGELOG、全量测试、tag——gate 在 U2–U4 + U1-outcome-of-record，不硬卡 U1。
 
@@ -287,7 +287,7 @@ flowchart TB
 
 ### Phase 2 — Track B（治理，非阻塞发版）
 
-- [ ] **U6: R6 — 归档 ~68 份旧文档（反向引用门 + 用户确认 + 去重）**
+- [x] **U6: R6 — 归档 ~68 份旧文档（反向引用门 + 用户确认 + 去重）** ✅ PR #41：归档 67 份到既有 `docs/_archive/`（34 git mv + 33 git rm 去重前次遗留），反向引用 0 断链，活跃面收敛至保留集。
 
 **Goal:** 把已发布/被取代的 ~68 份文档移入既有 `docs/_archive/`，无断链、无重复。
 
@@ -313,7 +313,7 @@ flowchart TB
 
 ---
 
-- [ ] **U7: R7 — 状态归一（含本计划）+ 补勾选框**
+- [x] **U7: R7 — 状态归一（含本计划）+ 补勾选框** ✅ 本计划 → shipped（U1 延 v0.5.1）；按 git 逐 unit 核对后 `2026-06-16-004`（9/10 unit 合并，Unit 6=R1 延 v0.5.1）与 `2026-06-17-001`（7/7 unit）→ shipped；勾选框补齐。
 
 **Goal:** 归一已完成但仍标 active 的 plan 状态，补漏打的勾选框，并明确本计划自身的终态。
 
@@ -334,7 +334,7 @@ flowchart TB
 
 ---
 
-- [ ] **U8: R8 + R9 — referral 墓碑 + 单一现役索引**
+- [x] **U8: R8 + R9 — referral 墓碑 + 单一现役索引** ✅ PR #41：referral-302 plan+brainstorm 加 `<!-- TOMBSTONE -->` 勿复活标记；`docs/active-docs.md` 单一扁平现役索引。
 
 **Goal:** 给 referral-302 plan 加勿复活墓碑；产出一份**扁平、有上限**的现役文档索引。
 

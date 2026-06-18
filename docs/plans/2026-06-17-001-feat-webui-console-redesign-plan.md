@@ -1,7 +1,7 @@
 ---
 title: "feat: WebUI 控台风格 UI/UX 全面翻新"
 type: feat
-status: active
+status: shipped
 date: 2026-06-17
 origin: docs/brainstorms/2026-06-17-webui-console-redesign-requirements.md
 deepened: 2026-06-17

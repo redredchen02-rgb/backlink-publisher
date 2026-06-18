@@ -203,4 +203,4 @@ All notable changes to this project will be documented in this file.
 
 [Unreleased]: https://github.com/redredchen02-rgb/backlink-publisher/compare/v0.5.0...HEAD
 [0.5.0]: https://github.com/redredchen02-rgb/backlink-publisher/releases/tag/v0.5.0
-[0.3.0]: https://github.com/redredchen01/backlink-publisher/releases/tag/v0.3.0
+[0.3.0]: https://github.com/redredchen02-rgb/backlink-publisher/releases/tag/v0.3.0
