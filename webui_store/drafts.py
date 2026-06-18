@@ -194,16 +194,24 @@ class DraftsSqliteStore(BaseSqliteStore):
     def insert_first(self, item: dict) -> list[dict]:
         """Head-insert (legacy ``items.insert(0, item)``): newest-first.
 
-        ``inserted_at = int(time.time() * 1000)`` makes this draft sort to the
-        top via ``load()``'s ``ORDER BY inserted_at DESC``. Returns the full
-        list (newest-first) to match the legacy ``update()`` return contract.
+        ``inserted_at`` is ``max(now_ms, current_max + 1)`` so the new draft is
+        guaranteed to sort to the top via ``load()``'s ``ORDER BY inserted_at
+        DESC`` — even when a preceding ``save()`` (which offsets timestamps by
+        ``+(n-idx)``) ran in the same millisecond, or an item carries a future
+        ``inserted_at``. A bare ``now_ms`` would tie/lose under sub-ms timing
+        and silently fail to prepend. Returns the full list (newest-first) to
+        match the legacy ``update()`` return contract.
         """
         with self._lock:
-            inserted_at = _now_ms()
             item = dict(item)
 
             def _op() -> None:
                 with self._db.connect() as conn:
+                    row = conn.execute(
+                        "SELECT MAX(inserted_at) FROM drafts"
+                    ).fetchone()
+                    current_max = row[0] if row and row[0] is not None else 0
+                    inserted_at = max(_now_ms(), current_max + 1)
                     conn.execute(
                         "INSERT OR REPLACE INTO drafts (id, campaign_id, "
                         "inserted_at, data_json) VALUES (?, ?, ?, ?)",
