@@ -23,6 +23,7 @@ from .schemas import (
     AppConfigSchema,
     CsrfTokenSchema,
     HealthSchema,
+    MonitorSummarySchema,
     PlanRequestSchema,
     PlanResponseSchema,
     PlatformListSchema,
@@ -85,6 +86,7 @@ def build_spec() -> APISpec:
     spec.components.schema("PublishResponse", schema=PublishResponseSchema)
     spec.components.schema("RegenBodyRequest", schema=RegenBodyRequestSchema)
     spec.components.schema("RegenBodyResponse", schema=RegenBodyResponseSchema)
+    spec.components.schema("MonitorSummary", schema=MonitorSummarySchema)
 
     def _ok(description: str, schema: Any) -> dict[str, Any]:
         return {"description": description, "content": {"application/json": {"schema": schema}}}
@@ -236,6 +238,24 @@ def build_spec() -> APISpec:
                     "401": _problem_response("Auth/credential error."),
                     "422": _problem_response("Invalid request."),
                     "502": _problem_response("Publish failed / no result rows."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/monitor/summary",
+        operations={
+            "get": {
+                "operationId": "getMonitorSummary",
+                "summary": "Anomaly-first monitor aggregate (today's anomalies first).",
+                "description": (
+                    "Fail-open aggregate across credentials/keepalive/equity/history. "
+                    "Severity + equity-gap computed server-side (single source); the SPA "
+                    "only displays. Versioned binding of the legacy /api/monitor-hub feed."
+                ),
+                "tags": ["monitor"],
+                "responses": {
+                    "200": _ok("Anomaly-first card feed.", MonitorSummarySchema),
                 },
             }
         },

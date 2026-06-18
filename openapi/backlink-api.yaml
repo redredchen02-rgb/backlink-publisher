@@ -237,6 +237,22 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/monitor/summary:
+    get:
+      operationId: getMonitorSummary
+      summary: Anomaly-first monitor aggregate (today's anomalies first).
+      description: Fail-open aggregate across credentials/keepalive/equity/history.
+        Severity + equity-gap computed server-side (single source); the SPA only displays.
+        Versioned binding of the legacy /api/monitor-hub feed.
+      tags:
+      - monitor
+      responses:
+        '200':
+          description: Anomaly-first card feed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorSummary'
   /api/v1/pipeline/regen-body:
     post:
       operationId: regenArticleBody
@@ -560,4 +576,62 @@ components:
       - content_html
       - content_markdown
       - content_source
+      additionalProperties: false
+    MonitorAction:
+      type: object
+      properties:
+        label:
+          type: string
+        href:
+          type: string
+      required:
+      - href
+      - label
+      additionalProperties: false
+    MonitorCard:
+      type: object
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        severity:
+          type: string
+          description: danger | warning | ok | info.
+        headline:
+          type: string
+        detail:
+          type: string
+        deep_link:
+          type: string
+          description: Legacy page to drill into.
+        action:
+          anyOf:
+          - $ref: '#/components/schemas/MonitorAction'
+          - type: 'null'
+      required:
+      - deep_link
+      - detail
+      - headline
+      - key
+      - severity
+      - title
+      additionalProperties: false
+    MonitorSummary:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonitorCard'
+        anomaly_count:
+          type: integer
+          description: Count of danger+warning cards.
+        degraded:
+          type: boolean
+          description: True if the aggregator itself failed.
+      required:
+      - anomaly_count
+      - cards
+      - degraded
       additionalProperties: false

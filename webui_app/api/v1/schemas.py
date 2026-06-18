@@ -180,6 +180,44 @@ class RegenBodyResponseSchema(Schema):
     content_source = fields.String(required=True)
 
 
+# ── monitoring aggregate (anomaly-first dashboard) — Plan 2026-06-18-002 U6 ──
+
+
+class MonitorActionSchema(Schema):
+    """An in-place quick action attached to a monitor card (or null)."""
+
+    label = fields.String(required=True)
+    href = fields.String(required=True)
+
+
+class MonitorCardSchema(Schema):
+    """One subsystem card. Severity + gap computed server-side (plan R3)."""
+
+    key = fields.String(required=True)
+    title = fields.String(required=True)
+    severity = fields.String(
+        required=True, metadata={"description": "danger | warning | ok | info."}
+    )
+    headline = fields.String(required=True)
+    detail = fields.String(required=True)
+    deep_link = fields.String(
+        required=True, metadata={"description": "Legacy page to drill into."}
+    )
+    action = fields.Nested(MonitorActionSchema, allow_none=True)
+
+
+class MonitorSummarySchema(Schema):
+    """Anomaly-first aggregate feed; cards are pre-sorted most-urgent first."""
+
+    cards = fields.List(fields.Nested(MonitorCardSchema), required=True)
+    anomaly_count = fields.Integer(
+        required=True, metadata={"description": "Count of danger+warning cards."}
+    )
+    degraded = fields.Boolean(
+        required=True, metadata={"description": "True if the aggregator itself failed."}
+    )
+
+
 class ProblemErrorItemSchema(Schema):
     """One field-level validation error inside a ProblemDetails.errors[]."""
 
