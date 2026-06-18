@@ -187,6 +187,17 @@ class TestDraftsStore:
         assert result == [{"id": "b"}, {"id": "a"}]
         assert store.load() == [{"id": "b"}, {"id": "a"}]
 
+    def test_insert_first_prepends_over_future_timestamp(self, store):
+        # Regression (drafts-store ordering flake): insert_first must out-rank an
+        # existing row even when that row carries a far-future inserted_at — the
+        # same failure mode as save()+insert_first colliding within one
+        # millisecond. A bare now_ms loses the ORDER BY inserted_at DESC tiebreak;
+        # max(now_ms, current_max + 1) guarantees strict newest-first.
+        store.save([{"id": "a", "inserted_at": 9_999_999_999_999}])
+        result = store.insert_first({"id": "b"})
+        assert result[0]["id"] == "b"
+        assert store.load()[0]["id"] == "b"
+
 
 # ── Module-level singletons ──────────────────────────────────────────────────
 
