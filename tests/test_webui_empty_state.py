@@ -34,7 +34,8 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     app = create_app()
     app.config["TESTING"] = True
-    app.config["CSRF_ENABLED"] = False
+    # GET-only tests (served static JS + rendered pages); CSRF guards mutating
+    # methods only, so no CSRF toggle is needed (and raw mutation is gated).
     return app
 
 
