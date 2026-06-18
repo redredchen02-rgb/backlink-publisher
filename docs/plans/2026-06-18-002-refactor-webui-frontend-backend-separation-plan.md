@@ -142,7 +142,7 @@ claims: {}  # 结构性重构计划，无机器可验证行为断言；满足 po
 ### Deferred to Implementation
 - **apiflask vs flask-smorest** 最终取舍——执行 U1 时按团队 schema 偏好（Pydantic v2 vs marshmallow）一锤。
 - ~~**publish 是否暴露可轮询 task-id 进度端点**~~ — **U5 已决（降级忙碌态）**：实测后端单笔 publish 是同步阻塞（300s 超时）、无 task-id（只有批量 campaign 另有 `/api/campaign/<id>/status` 轮询）。加 task-id 须改持有真实凭证的发布路径（redesign 当初判定高风险未做），故采保守先例：`POST /api/v1/pipeline/publish` 保持同步、partial→200、total-failure→problem+json；前端走降级忙碌态分支（提交控件 in-flight 禁用防 `dedup.db` 单飞重复提交 + 软超时文案「仍在进行，可能已完成，请勿重复提交」+ 完成回填）。task-id 进度端点若日后需要，按本格式重启。
-- **监控聚合看板数据源**——复用四路由 JSON 聚合 vs 新 `/api/v1/monitor/summary` 汇总端点。迁 U6 时按实况定（`equity`/`optimization` 当前仅 HTML，必转 JSON）。
+- ~~**监控聚合看板数据源**~~ — **U6 已决（复用既有聚合）**：实测后端已有 `command_center._collect_subsystem_status()` + `_build_anomaly_cards()` 聚合 + `/api/monitor-hub` JSON（redesign U5 落地），equity/optimization 也已有 `/api/*` JSON 孪生。故 U6 不重算、不新建聚合逻辑——在 `/api/v1/monitor/summary` 做薄绑定复用同一对函数（gap/severity/排序留服务端，R3 单一真相源），前端只显示（按服务端已排好的 danger→warning→ok→info 序）。fail-open：子系统级降级卡 + 聚合级 `degraded` 空载 200，永不拖垮整页。前端 TanStack Query `keepPreviousData` 轮询防闪白。
 - **密集 ledger 表**——off-the-shelf grid（AG Grid / TanStack Table）vs 手写组件；窄屏卡片化断点。影响个别组件依赖，迁移时定。
 - **R9 跨源网络化 resume-trigger**——当出现「真实第二客户端」或「远程/多人运营」需求时，按 deferral 格式（status + rationale + trigger）重启，届时执行研究中的安全清单（每端点鉴权 + 授权 + CORS allowlist + BFF + SSRF allowlist + 密钥管理 + TLS/HSTS + ASVS 验收）。
 
@@ -331,7 +331,7 @@ flowchart TB
 
 **Verification:** 核心发布全程在 `/app` Vue 工作台完成；契约 + 组件 + E2E 三层绿。
 
-- [ ] **U6：迁移监控聚合看板（keep_alive/health/equity/optimization）**
+- [x] **U6：迁移监控聚合看板（keep_alive/health/equity/optimization）**
 
 **Goal:** 迁移 redesign 的「今日异常优先」聚合看板；`equity`/`optimization` 当前仅 HTML → 转 JSON；决定数据源（聚合四路由 vs 新 `/api/v1/monitor/summary`）。
 
