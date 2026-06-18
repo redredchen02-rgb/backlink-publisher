@@ -26,11 +26,11 @@ export const GROUP_LABELS: Record<NavGroup, string> = {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  // Migrated (in-SPA). The real publish workbench replaces this landing in U5.
+  // Migrated (in-SPA).
   { label: '发布工作台', group: 'pipeline', to: '/' },
+  { label: '监控聚合', group: 'monitoring', to: '/monitor' }, // migrated in U6
 
   // Legacy Jinja pages — full navigation out of the SPA until migrated.
-  { label: '监控聚合', group: 'monitoring', href: '/monitor-hub' },
   { label: '健康', group: 'monitoring', href: '/ce:health' },
   { label: '权益账本', group: 'monitoring', href: '/ce:equity-ledger' },
   { label: '保活', group: 'monitoring', href: '/ce:keep-alive' },

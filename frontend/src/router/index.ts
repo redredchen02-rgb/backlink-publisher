@@ -14,6 +14,12 @@ export const router = createRouter({
       component: () => import('../pages/Publish/PublishWorkbench.vue'),
     },
     {
+      // Monitoring aggregate dashboard (U6); navItems maps 监控聚合 → '/monitor'.
+      path: '/monitor',
+      name: 'monitor',
+      component: () => import('../pages/Monitor/MonitorDashboard.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../pages/NotFound.vue'),
