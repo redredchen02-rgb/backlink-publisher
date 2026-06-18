@@ -13,6 +13,8 @@
 
 import { fetchJson, readCsrf } from './lib/api.js';
 import { esc, on, delegate, qs } from './lib/dom.js';
+import { renderEmpty, renderError } from './ui/states.js';
+import { classifyError } from './ui/errors.js';
 
 // ── Blog ID 行管理 (blogger) ─────────────────────────────────────
 function addRow() {
@@ -600,6 +602,11 @@ function _initExtensionFilter() {
   const panel = document.getElementById('ext-area');
   if (!input || !panel) return;
   const noMatch = panel.querySelector('.ext-no-match');
+  // Cause #2 (has config, current filter has no results): unified renderEmpty
+  // with「当前条件无结果」— NO 去配置 CTA (channels already exist). The message
+  // embeds the LIVE query, so it must re-render on every no-match (renderEmpty
+  // calls replaceChildren — idempotent and cheap); only hidden is toggled when
+  // results exist. A "render once" guard would leave a stale query in the text.
   on(input, 'input', () => {
     const q = input.value.trim().toLowerCase();
     let anyVisible = false;
@@ -613,8 +620,48 @@ function _initExtensionFilter() {
       });
       group.hidden = !groupVisible;  // hide orphaned tier sub-headers
     });
-    if (noMatch) noMatch.hidden = anyVisible;
+    if (noMatch) {
+      if (!anyVisible) {
+        renderEmpty(noMatch, {
+          icon: 'bi-funnel',
+          title: '当前条件无结果',
+          message: '没有匹配「' + (input.value.trim() || '') + '」的平台，清空筛选查看全部。',
+        });
+      }
+      noMatch.hidden = anyVisible;
+    }
   });
+}
+
+// ── Empty-state onboarding (U2: R2) ──────────────────────────────
+// Cause #1 (true zero-config): the server only renders #sidebarChannelsEmpty
+// when no channel is bound. Replace its static fallback with the unified
+// renderEmpty + a「去配置」CTA that opens the 发布渠道 pane. Cause #3 (the state
+// could not be derived) falls through to renderError instead of a blank list.
+function _initChannelEmptyState() {
+  const container = document.getElementById('sidebarChannelsEmpty');
+  if (!container) return;  // channels exist; server did not render the slot
+  try {
+    renderEmpty(container, {
+      icon: 'bi-rocket-takeoff',
+      title: '还没有发布渠道',
+      message: '绑定第一个渠道即可开始发布外链。',
+      actionLabel: '去配置',
+      onAction: () => {
+        try { sessionStorage.setItem('settings:activePane', 'channels'); } catch (e) { /* ignore */ }
+        showPane('channels');
+      },
+    });
+  } catch (err) {
+    // Region load failure → inline renderError via the shared taxonomy (toast is
+    // for transient action feedback only). Same title/message source everywhere.
+    const c = classifyError(err);
+    renderError(container, {
+      title: c.title,
+      message: c.message,
+      onRetry: () => window.location.reload(),
+    });
+  }
 }
 
 // ── boot ─────────────────────────────────────────────────────────
@@ -630,6 +677,7 @@ function _boot() {
   _initOverviewPersistence();
   _initExtensionPersistence();
   _initExtensionFilter();
+  _initChannelEmptyState();
   _restoreCachedBannerImage();
   on(window, 'hashchange', () => {
     const key = _hashToPaneKey(window.location.hash);

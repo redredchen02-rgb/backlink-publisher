@@ -83,7 +83,12 @@
         {% endif %}
 
         {% else %}
-            <span class="sidebar-item disabled" aria-label="暂无渠道">（暂无渠道）</span>
+            {#- U2 (R2): zero-config (no bound channel) container. settings.js renders
+                the unified empty state here with a「去配置」CTA. The static text stays
+                as a no-JS fallback. #}
+            <div id="sidebarChannelsEmpty">
+                <span class="sidebar-item disabled" aria-label="暂无渠道">（暂无渠道）</span>
+            </div>
         {% endif %}
     </div>
 

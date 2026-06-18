@@ -245,7 +245,7 @@
                                                    placeholder="{% if notion_status.database_id_set %}已设置（重新绑定时填入）{% else %}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx{% endif %}">
                                             <small class="form-text text-muted">数据库页面 URL 中的 ID 部分。</small>
                                         </div>
-                                        <button type="submit" class="btn btn-primary">
+                                        <button type="submit" class="btn btn-app-primary">
                                             {% if notion_status.bound %}更新绑定{% else %}绑定{% endif %}
                                         </button>
                                         {% if notion_status.bound %}

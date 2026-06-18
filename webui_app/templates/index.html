@@ -73,7 +73,7 @@
             <strong>已绑定 AI 引擎，但全文生成未开启</strong> — 开启后发布内容将由 AI 自动撰写。
             {% endif %}
           </div>
-          <a href="/settings#pane-llm" class="btn btn-sm btn-primary ms-2 flex-shrink-0">
+          <a href="/settings#pane-llm" class="btn btn-sm btn-app-primary ms-2 flex-shrink-0">
             {% if not _ps.configured %}去绑定{% else %}开启全文生成{% endif %}
           </a>
           <button type="button" class="btn-close ms-2" data-action="pro-nudge-dismiss"
@@ -90,7 +90,7 @@
             <form action="/checkpoint/resume" method="POST" class="d-inline ms-2">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <input type="hidden" name="run_id" value="{{ incomplete_run.run_id }}">
-              <button type="submit" class="btn btn-warning btn-sm" aria-label="恢复未完成的发布任务">
+              <button type="submit" class="btn btn-app-warning btn-sm" aria-label="恢复未完成的发布任务">
                 <i class="bi bi-play-fill me-1"></i>恢复发布
               </button>
             </form>
@@ -172,7 +172,10 @@
 {% endblock %}
 
 {% block page_data %}
-    <script>window.__indexBootstrap = {{ {'plans_list': plans_list | default(none), 'profiles': profiles | default([]), 'platform_slugs': platforms | default([]) | map(attribute='slug') | list} | tojson }};</script>
+    {#- U2 (R2): has_channels distinguishes true zero-config (no bound channel →
+        empty-state CTA「去配置」) from has-config-but-empty (no CTA). Read from the
+        globally-injected bound_platforms — no backend change. #}
+    <script>window.__indexBootstrap = {{ {'plans_list': plans_list | default(none), 'profiles': profiles | default([]), 'platform_slugs': platforms | default([]) | map(attribute='slug') | list, 'has_channels': (bound_platforms | default([]) | length) > 0} | tojson }};</script>
     <script>window.__batchTabHint = {{ batch_tab|tojson if batch_tab is defined else 'false' }};</script>
 {% endblock %}
 

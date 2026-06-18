@@ -175,9 +175,9 @@
         .badge-status { display:inline-flex; align-items:center; gap:6px;
                         padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;
                         white-space:nowrap; }
-        .badge-status.ok  { background:rgba(16,185,129,0.2); color:var(--success-text); }
-        .badge-status.err { background:rgba(239,68,68,0.2); color:var(--danger-text); }
-        .badge-status.warn{ background:rgba(245,158,11,0.2); color:var(--warning-text); }
+        .badge-status.ok  { background:var(--success-soft); color:var(--success-text); }
+        .badge-status.err { background:var(--danger-soft); color:var(--danger-text); }
+        .badge-status.warn{ background:var(--warning-soft); color:var(--warning-text); }
         .blog-id-row { display:grid; grid-template-columns:1fr 1fr auto; gap:8px;
                        align-items:center; margin-bottom:8px; }
         .token-box { font-family:monospace; letter-spacing:.05em; }
@@ -232,7 +232,7 @@
             border:1px solid var(--glass-border); background:rgba(255,255,255,0.06); color:var(--text-secondary);
             text-decoration:none; white-space:nowrap; transition:background 0.12s,border-color 0.12s;
         }
-        .llm-preset-btn:hover { background:rgba(56,189,248,0.2); border-color:rgba(56,189,248,0.5); color:var(--primary); }
+        .llm-preset-btn:hover { background:var(--info-soft); border-color:rgba(56,189,248,0.5); color:var(--primary); }
         .llm-feature-card {
             border:1px solid var(--glass-border); border-radius:10px; overflow:hidden;
         }
@@ -295,9 +295,9 @@
             letter-spacing:0.3px; vertical-align:middle; flex-shrink:0;
         }
         /* Shared tier colour tokens — dark-mode transparent tints */
-        .tier-chip-tier-1 { background:rgba(16,185,129,0.2);  color:var(--success-text); }
-        .tier-chip-tier-2 { background:rgba(59,130,246,0.2);  color:var(--info-text); }
-        .tier-chip-tier-3 { background:rgba(245,158,11,0.2);  color:var(--warning-text); }
+        .tier-chip-tier-1 { background:var(--success-soft);  color:var(--success-text); }
+        .tier-chip-tier-2 { background:var(--info-soft);  color:var(--info-text); }
+        .tier-chip-tier-3 { background:var(--warning-soft);  color:var(--warning-text); }
         /* Subhead key chip (e.g. "T1") */
         .tier-key-chip {
             font-size:10px; font-weight:800; padding:1px 5px; border-radius:3px;
@@ -343,8 +343,8 @@
             display:inline-block; font-size:10px; padding:2px 6px;
             border-radius:4px; font-weight:600; letter-spacing:0.02em;
         }
-        .badge-dofollow.good    { background:rgba(16,185,129,0.2); color:var(--success-text); }
-        .badge-dofollow.weak    { background:rgba(239,68,68,0.2); color:var(--danger-text); }
+        .badge-dofollow.good    { background:var(--success-soft); color:var(--success-text); }
+        .badge-dofollow.weak    { background:var(--danger-soft); color:var(--danger-text); }
         /* Plan 2026-06-03-003 R10 follow-up — residual inline styles extracted from settings.html.
            Values copied verbatim from the prior inline declarations: no visual change. The
            #_loadingOverlay block stays inline (its display is JS-toggled — a data-driven exception). */
@@ -354,8 +354,8 @@
         .icon-google { color:#ea4335; }
         .icon-velog { color:#20c997; }
         .badge-status.neutral  { background:rgba(255,255,255,0.08); color:var(--text-secondary); border:1px solid var(--glass-border); }
-        .badge-status.violet   { background:rgba(139,92,246,0.2); color:var(--violet-text); border:1px solid rgba(139,92,246,0.4); }
-        .badge-status.nofollow { background:rgba(245,158,11,0.2); color:var(--warning-text); border:1px solid rgba(245,158,11,0.35); }
+        .badge-status.violet   { background:var(--violet-soft); color:var(--violet-text); border:1px solid rgba(139,92,246,0.4); }
+        .badge-status.nofollow { background:var(--warning-soft); color:var(--warning-text); border:1px solid rgba(245,158,11,0.35); }
         .badge-status.sm { font-size:10px; }
         .channel-note { font-size:12px; margin-bottom:8px; }
         .channel-note-xs { font-size:11px; }
@@ -367,7 +367,7 @@
         .input-mono { font-family:monospace; }
         .btn-inline-left { margin-left:8px; }
         .config-path-text { font-size:13px; }
-        .badge-dofollow.unknown { background:rgba(245,158,11,0.2); color:var(--warning-text); }
+        .badge-dofollow.unknown { background:var(--warning-soft); color:var(--warning-text); }
 
         /* ── Plan 2026-06-12-002: Tier grouping UX ────────────────── */
         .tier-section { margin-bottom: 32px; }
@@ -380,14 +380,14 @@
             display: inline-block; font-size: 11px; font-weight: 700;
             padding: 2px 7px; border-radius: 4px; letter-spacing: 0.03em;
         }
-        .tier-chip-tier-1 { background:rgba(16,185,129,0.2); color:var(--success-text); }
-        .tier-chip-tier-2 { background:rgba(59,130,246,0.2); color:var(--info-text); }
-        .tier-chip-tier-3 { background:rgba(139,92,246,0.2); color:var(--violet-text); }
+        .tier-chip-tier-1 { background:var(--success-soft); color:var(--success-text); }
+        .tier-chip-tier-2 { background:var(--info-soft); color:var(--info-text); }
+        .tier-chip-tier-3 { background:var(--violet-soft); color:var(--violet-text); }
         .tier-subhead-channels .tier-label { font-weight: 600; font-size: 14px; color: #1e293b; }
         .tier-subhead-channels .tier-subtitle { font-size: 12px; color: #64748b; }
-        .channel-card--anon { border-left: 3px solid #10b981; }
+        .channel-card--anon { border-left: 3px solid var(--success); }
         .badge-anon-ready {
-            font-size: 11px; background: rgba(16,185,129,0.2); color: var(--success-text);
+            font-size: 11px; background: var(--success-soft); color: var(--success-text);
             border: 1px solid rgba(16,185,129,0.4); padding: 2px 8px;
         }
         .channel-card--coming-soon { opacity: 0.55; }
@@ -403,14 +403,14 @@
             display: inline-block; font-size: 10px; font-weight: 700;
             padding: 1px 5px; border-radius: 3px; letter-spacing: 0.02em;
         }
-        .tier-chip-t1 { background:rgba(16,185,129,0.2); color:var(--success-text); }
-        .tier-chip-t2 { background:rgba(59,130,246,0.2); color:var(--info-text); }
-        .tier-chip-t3 { background:rgba(139,92,246,0.2); color:var(--violet-text); }
+        .tier-chip-t1 { background:var(--success-soft); color:var(--success-text); }
+        .tier-chip-t2 { background:var(--info-soft); color:var(--info-text); }
+        .tier-chip-t3 { background:var(--violet-soft); color:var(--violet-text); }
         .sidebar-tier-count { margin-left: auto; font-size: 10px; color: var(--text); font-weight: 500; }
         .sidebar-item--t1 { position: relative; }
         .sidebar-t1-dot {
             display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-            background: #10b981; margin-right: 6px; flex-shrink: 0;
+            background: var(--success); margin-right: 6px; flex-shrink: 0;
         }
         .sidebar-item--all-channels { font-size: 12px; color: #64748b; margin-bottom: 4px; }
         .cold-start-t1-cta {
@@ -418,4 +418,4 @@
             background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px;
             padding: 8px 12px; font-size: 13px; color: var(--success-text); margin-bottom: 10px;
         }
-        .cold-start-t1-cta i { color: #34d399; font-size: 14px; flex-shrink: 0; }
+        .cold-start-t1-cta i { color: var(--success); font-size: 14px; flex-shrink: 0; }

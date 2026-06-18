@@ -392,15 +392,14 @@
                               data-confirm="一键清除所有 status=failed 记录？\n（不影响“未核实”，那些需要批量重新核实判定）">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         </form>
-                        <div id="historyEmptyFiltered" style="display:none;">
-                            <i class="bi bi-funnel" style="font-size:48px;"></i>
-                            <p style="margin-top:10px;">当前筛选无匹配记录</p>
-                        </div>
+                        {#- U2 (R2): filtered-empty container. index.js fills it via
+                            renderEmpty「当前条件无结果」(NO 去配置 CTA — config exists). #}
+                        <div id="historyEmptyFiltered" style="display:none;"></div>
                         {% else %}
-                        <div class="history-empty-state">
-                            <i class="bi bi-inbox history-empty-state__icon"></i>
-                            <p class="history-empty-state__text">暂无历史记录</p>
-                        </div>
+                        {#- U2 (R2): zero-history container. index.js renders the unified
+                            empty state here — with a「去配置」CTA only when no channel is
+                            bound (true zero-config), else a plain「当前条件无结果」. #}
+                        <div id="indexEmptyState" class="history-empty-state"></div>
                         {% endif %}
                     </div>
                 </div>
