@@ -35,3 +35,10 @@ def health():
     return jsonify(
         {"status": "ok", "api_version": API_VERSION, "version": app_version()}
     )
+
+
+# Attach resource modules' routes to ``bp``. Imported at the bottom so each
+# module can ``from . import bp`` without a circular import (standard Flask
+# blueprint-package idiom).
+from . import app_config  # noqa: E402,F401  (Plan 2026-06-18-002 U2)
+

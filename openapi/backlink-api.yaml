@@ -25,6 +25,85 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/app-config:
+    get:
+      operationId: getAppConfig
+      summary: SPA bootstrap config (edition, Pro status, version).
+      description: Origin-guarded GET. Replaces the Jinja context-processor injection.
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Bootstrap config.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConfig'
+        '403':
+          description: Cross-origin / DNS-rebinding GET rejected.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/csrf-token:
+    get:
+      operationId: getCsrfToken
+      summary: Per-session CSRF token for the SPA fetch layer.
+      description: Origin-guarded GET. Re-read per mutating call; never cache.
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+        '403':
+          description: Cross-origin / DNS-rebinding GET rejected.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/platforms:
+    get:
+      operationId: getPlatforms
+      summary: Full registered-platform list.
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Platform list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformList'
+  /api/v1/bound-platforms:
+    get:
+      operationId: getBoundPlatforms
+      summary: Bound + manifest-visible platforms (publish-form filter).
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Bound platform list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformList'
+  /api/v1/pro-status:
+    get:
+      operationId: getProStatus
+      summary: Pro-Mode visibility summary (redaction-safe).
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Pro status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProStatusEnvelope'
 openapi: 3.1.0
 components:
   schemas:
@@ -81,4 +160,78 @@ components:
       - status
       - title
       - type
+      additionalProperties: false
+    Platform:
+      type: object
+      properties:
+        slug:
+          type: string
+        display_name:
+          type: string
+      required:
+      - display_name
+      - slug
+      additionalProperties: false
+    PlatformList:
+      type: object
+      properties:
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Platform'
+      required:
+      - platforms
+      additionalProperties: false
+    ProStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        endpoint_host:
+          type: string
+        model:
+          type: string
+        article_gen:
+          type: boolean
+        image_gen:
+          type: boolean
+        last_test: {}
+      required:
+      - configured
+      additionalProperties: false
+    ProStatusEnvelope:
+      type: object
+      properties:
+        pro_status:
+          $ref: '#/components/schemas/ProStatus'
+      required:
+      - pro_status
+      additionalProperties: false
+    AppConfig:
+      type: object
+      properties:
+        api_version:
+          type: string
+        version:
+          type: string
+        lite_edition:
+          type: boolean
+        pro_status:
+          $ref: '#/components/schemas/ProStatus'
+        llm_configured:
+          type: boolean
+      required:
+      - api_version
+      - lite_edition
+      - llm_configured
+      - pro_status
+      - version
+      additionalProperties: false
+    CsrfToken:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+      required:
+      - csrf_token
       additionalProperties: false

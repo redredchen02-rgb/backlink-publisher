@@ -19,7 +19,14 @@ from typing import Any
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
-from .schemas import HealthSchema, ProblemDetailsSchema
+from .schemas import (
+    AppConfigSchema,
+    CsrfTokenSchema,
+    HealthSchema,
+    PlatformListSchema,
+    ProblemDetailsSchema,
+    ProStatusEnvelopeSchema,
+)
 
 API_VERSION = "v1"
 
@@ -56,6 +63,13 @@ def build_spec() -> APISpec:
     )
     spec.components.schema("Health", schema=HealthSchema)
     spec.components.schema("ProblemDetails", schema=ProblemDetailsSchema)
+    spec.components.schema("PlatformList", schema=PlatformListSchema)
+    spec.components.schema("ProStatusEnvelope", schema=ProStatusEnvelopeSchema)
+    spec.components.schema("AppConfig", schema=AppConfigSchema)
+    spec.components.schema("CsrfToken", schema=CsrfTokenSchema)
+
+    def _ok(description: str, schema: Any) -> dict[str, Any]:
+        return {"description": description, "content": {"application/json": {"schema": schema}}}
 
     spec.path(
         path="/api/v1/health",
@@ -66,14 +80,72 @@ def build_spec() -> APISpec:
                 "description": "Returns service liveness and version. No auth, no side effects.",
                 "tags": ["meta"],
                 "responses": {
-                    "200": {
-                        "description": "Service is up.",
-                        "content": {
-                            "application/json": {"schema": HealthSchema}
-                        },
-                    },
+                    "200": _ok("Service is up.", HealthSchema),
                     "404": _problem_response("Unknown API resource."),
                 },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/app-config",
+        operations={
+            "get": {
+                "operationId": "getAppConfig",
+                "summary": "SPA bootstrap config (edition, Pro status, version).",
+                "description": "Origin-guarded GET. Replaces the Jinja context-processor injection.",
+                "tags": ["bootstrap"],
+                "responses": {
+                    "200": _ok("Bootstrap config.", AppConfigSchema),
+                    "403": _problem_response("Cross-origin / DNS-rebinding GET rejected."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/csrf-token",
+        operations={
+            "get": {
+                "operationId": "getCsrfToken",
+                "summary": "Per-session CSRF token for the SPA fetch layer.",
+                "description": "Origin-guarded GET. Re-read per mutating call; never cache.",
+                "tags": ["bootstrap"],
+                "responses": {
+                    "200": _ok("CSRF token.", CsrfTokenSchema),
+                    "403": _problem_response("Cross-origin / DNS-rebinding GET rejected."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/platforms",
+        operations={
+            "get": {
+                "operationId": "getPlatforms",
+                "summary": "Full registered-platform list.",
+                "tags": ["bootstrap"],
+                "responses": {"200": _ok("Platform list.", PlatformListSchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/bound-platforms",
+        operations={
+            "get": {
+                "operationId": "getBoundPlatforms",
+                "summary": "Bound + manifest-visible platforms (publish-form filter).",
+                "tags": ["bootstrap"],
+                "responses": {"200": _ok("Bound platform list.", PlatformListSchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/pro-status",
+        operations={
+            "get": {
+                "operationId": "getProStatus",
+                "summary": "Pro-Mode visibility summary (redaction-safe).",
+                "tags": ["bootstrap"],
+                "responses": {"200": _ok("Pro status.", ProStatusEnvelopeSchema)},
             }
         },
     )

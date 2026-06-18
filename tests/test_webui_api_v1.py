@@ -14,6 +14,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -112,3 +114,90 @@ def test_committed_openapi_spec_is_not_stale():
     assert committed.strip() == spec_yaml().strip(), (
         "openapi/backlink-api.yaml is stale — run `python scripts/gen_openapi.py`."
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# U2 — bootstrap/context endpoints (Plan 2026-06-18-002 U2)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def test_platforms_endpoint(client):
+    resp = client.get("/api/v1/platforms")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert isinstance(body["platforms"], list)  # object envelope, not bare array
+    for p in body["platforms"]:
+        assert "slug" in p and "display_name" in p
+
+
+def test_bound_platforms_endpoint(client):
+    resp = client.get("/api/v1/bound-platforms")
+    assert resp.status_code == 200
+    assert isinstance(resp.get_json()["platforms"], list)
+
+
+def test_pro_status_endpoint_never_leaks_api_key(client):
+    resp = client.get("/api/v1/pro-status")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert "configured" in body["pro_status"]
+    assert "api_key" not in str(body)  # redaction-safe contract
+
+
+def test_app_config_endpoint(client):
+    resp = client.get("/api/v1/app-config")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    for key in ("api_version", "version", "lite_edition", "pro_status", "llm_configured"):
+        assert key in body
+    assert "api_key" not in str(body)  # bootstrap payload must not leak secrets
+
+
+def test_csrf_token_endpoint_returns_token(client):
+    resp = client.get("/api/v1/csrf-token")
+    assert resp.status_code == 200
+    token = resp.get_json()["csrf_token"]
+    assert isinstance(token, str) and len(token) > 16
+
+
+# ── GET-time origin guard: the DNS-rebinding defense (single-origin threat model)
+
+
+@pytest.fixture
+def guard_on_app():
+    """Fresh app with the origin guard force-enabled (auto-off under pytest)."""
+    from webui_app import create_app
+
+    a = create_app(start_scheduler=False)
+    a.config["TESTING"] = True
+    a.config["PROPAGATE_EXCEPTIONS"] = False
+    a.config["SESSION_COOKIE_SECURE"] = False
+    a.config["ORIGIN_GUARD_ENABLED"] = True
+    return a
+
+
+def test_csrf_token_get_rejects_headerless_request(guard_on_app):
+    """A header-less GET (what a DNS-rebinding page sends) is 403'd when the
+    origin guard is on — the token is not disclosed cross-origin."""
+    gc = guard_on_app.test_client()
+    resp = gc.get("/api/v1/csrf-token")
+    assert resp.status_code == 403
+
+
+def test_app_config_get_rejects_evil_origin(guard_on_app):
+    gc = guard_on_app.test_client()
+    resp = gc.get("/api/v1/app-config", headers={"Origin": "http://evil.example.com"})
+    assert resp.status_code == 403
+
+
+def test_csrf_token_get_allows_loopback_origin(guard_on_app):
+    gc = guard_on_app.test_client()
+    resp = gc.get("/api/v1/csrf-token", headers={"Origin": "http://127.0.0.1:8888"})
+    assert resp.status_code == 200
+
+
+def test_non_sensitive_bootstrap_get_not_origin_gated(guard_on_app):
+    """/platforms carries no secret, so it is NOT origin-gated even guard-on."""
+    gc = guard_on_app.test_client()
+    resp = gc.get("/api/v1/platforms")
+    assert resp.status_code == 200
