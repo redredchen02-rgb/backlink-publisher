@@ -1,6 +1,6 @@
 # Runbook — activation readiness (Phase 0 U6)
 
-Plan `docs/plans/2026-06-17-002-feat-activation-verify-gate-plan.md` R0.2.
+Plan `docs/_archive/plans/2026-06-17-002-feat-activation-verify-gate-plan.md` R0.2.
 
 **Before activating any "built-but-unrun" subsystem** (flipping enforce mode,
 loading a launchd plist, scheduling a probe), run this check. It closes the #24

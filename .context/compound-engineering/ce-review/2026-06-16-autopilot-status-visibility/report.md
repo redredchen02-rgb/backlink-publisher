@@ -3,7 +3,7 @@
 **Mode:** autofix  
 **Branch:** feat/autopilot-status-visibility  
 **Base:** HEAD~1 (57e089b)  
-**Plan:** docs/plans/2026-06-16-001-feat-autopilot-status-visibility-plan.md  
+**Plan:** docs/_archive/plans/2026-06-16-001-feat-autopilot-status-visibility-plan.md  
 **Reviewers:** 8 (correctness, testing, maintainability, project-standards, kieran-python, julik-frontend-races, api-contract, reliability)
 
 ---
@@ -21,7 +21,7 @@
 ### P1 — Must fix before merge
 
 **[1] Plan doc missing `claims:` block** · `project-standards` · confidence 0.95  
-File: `docs/plans/2026-06-16-001-feat-autopilot-status-visibility-plan.md:1`  
+File: `docs/_archive/plans/2026-06-16-001-feat-autopilot-status-visibility-plan.md:1`  
 All plans dated ≥ 2026-05-20 must carry `claims:` frontmatter. `plan-claims-gate` CI will block merge without it.  
 **Fix:** Add to frontmatter:
 ```yaml

@@ -1,7 +1,7 @@
 # Dofollow canary close-out runbook
 
 Plan: [`2026-05-25-003-feat-dofollow-canary-closeout-plan.md`](../plans/2026-05-25-003-feat-dofollow-canary-closeout-plan.md).
-Origin: [`2026-05-25-remaining-channel-viability-expansion-requirements.md`](../brainstorms/2026-05-25-remaining-channel-viability-expansion-requirements.md).
+Origin: [`2026-05-25-remaining-channel-viability-expansion-requirements.md`](../_archive/brainstorms/2026-05-25-remaining-channel-viability-expansion-requirements.md).
 Probe evidence: [`docs/spike-notes/2026-05-25-dofollow-tiering-phase0-probes/findings.md`](../spike-notes/2026-05-25-dofollow-tiering-phase0-probes/findings.md).
 
 `livejournal` and `txtfyi` ship registered `dofollow="uncertain"`. This runbook is

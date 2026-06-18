@@ -86,5 +86,5 @@ When deciding where a new capability belongs:
 ## References
 
 - Plan: `docs/plans/2026-05-28-002-feat-deterministic-planning-purity-plan.md`
-- Requirements: `docs/brainstorms/2026-05-28-deterministic-planning-purity-requirements.md`
+- Requirements: `docs/_archive/brainstorms/2026-05-28-deterministic-planning-purity-requirements.md`
 - AGENTS.md — canonical project reference

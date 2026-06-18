@@ -5,7 +5,7 @@
 > **Principle:** `events.db` is tiny. Defer every latency optimization behind a
 > *measurable* trigger, and re-decide by re-running the probe — not by re-investigating.
 
-Origin: [docs/brainstorms/2026-06-01-events-db-optimization-tripwire-requirements.md](../brainstorms/2026-06-01-events-db-optimization-tripwire-requirements.md)
+Origin: [docs/_archive/brainstorms/2026-06-01-events-db-optimization-tripwire-requirements.md](../_archive/brainstorms/2026-06-01-events-db-optimization-tripwire-requirements.md)
 · Plan: [docs/plans/2026-06-01-008-feat-events-db-measurement-probe-and-tripwire-register-plan.md](../plans/2026-06-01-008-feat-events-db-measurement-probe-and-tripwire-register-plan.md)
 
 ---

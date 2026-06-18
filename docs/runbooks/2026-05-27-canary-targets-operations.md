@@ -1,7 +1,7 @@
 # Canary-targets operations runbook
 
 Plan: [`2026-05-27-001-feat-adapter-contract-canary-plan.md`](../plans/2026-05-27-001-feat-adapter-contract-canary-plan.md).
-Origin: [`2026-05-27-adapter-contract-canary-requirements.md`](../brainstorms/2026-05-27-adapter-contract-canary-requirements.md).
+Origin: [`2026-05-27-adapter-contract-canary-requirements.md`](../_archive/brainstorms/2026-05-27-adapter-contract-canary-requirements.md).
 Prior art (read first): [`2026-05-25-dofollow-canary-closeout.md`](2026-05-25-dofollow-canary-closeout.md) — this runbook **automates** that manual dofollow-canary loop. The throwaway-account gate, the "inspect the *target* anchor not the page-wide flag" rule, and "canary closed ≠ in production" all carry over verbatim.
 
 `canary-targets` is a **read-only** CLI verb that re-fetches one long-lived "canary post" per dofollow-tier platform and asserts your own backlink is still present and still dofollow. It is **advisory by default** — it surfaces drift loudly (alarm + dashboard red + publish-time WARNING) but does **not** silently halt publishing. Per-platform `hard_skip` opt-in is the only path to an actual skip.
