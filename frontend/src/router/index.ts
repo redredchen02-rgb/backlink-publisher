@@ -26,6 +26,12 @@ export const router = createRouter({
       component: () => import('../pages/History/HistoryPage.vue'),
     },
     {
+      // Draft queue (U7); navItems maps 草稿 → '/drafts'.
+      path: '/drafts',
+      name: 'drafts',
+      component: () => import('../pages/Drafts/DraftsPage.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../pages/NotFound.vue'),

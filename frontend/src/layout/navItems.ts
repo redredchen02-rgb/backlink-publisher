@@ -30,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '发布工作台', group: 'pipeline', to: '/' },
   { label: '监控聚合', group: 'monitoring', to: '/monitor' }, // migrated in U6
   { label: '历史', group: 'operations', to: '/history' }, // migrated in U7
+  { label: '草稿', group: 'operations', to: '/drafts' }, // migrated in U7
 
   // Legacy Jinja pages — full navigation out of the SPA until migrated.
   { label: '健康', group: 'monitoring', href: '/ce:health' },
