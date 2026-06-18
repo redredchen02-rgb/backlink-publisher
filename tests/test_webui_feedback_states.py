@@ -176,6 +176,23 @@ def test_settings_error_path_routes_through_classify_error():
     assert "renderError(container" in _SETTINGS_JS
 
 
+# ── concurrency: rapid refresh must not render stale (out-of-order) data ────
+
+def test_monitor_hub_load_guards_against_out_of_order_render():
+    """Rapid refresh (or refresh racing the initial load) fires concurrent
+    load()s. The loader aborts the prior in-flight fetch and drops any response
+    whose controller was superseded, so a slower EARLIER request can't overwrite
+    a faster LATER one. Lock the AbortController guard in source."""
+    # A fresh controller per load, and the prior one is aborted on re-entry.
+    assert "new AbortController()" in _MONITOR_JS
+    assert ".abort()" in _MONITOR_JS
+    # The signal is actually threaded into the fetch (else abort is inert).
+    assert "signal: ctrl.signal" in _MONITOR_JS
+    # Superseded responses are dropped on BOTH paths: the abort-reject in catch
+    # and the post-await check before rendering.
+    assert _MONITOR_JS.count("ctrl.signal.aborted") >= 2
+
+
 # ── loading consistency: core lists use renderSkeleton ─────────────────────
 
 def test_monitor_hub_loading_uses_skeleton():
