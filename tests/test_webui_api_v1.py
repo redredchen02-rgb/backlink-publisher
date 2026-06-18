@@ -171,7 +171,9 @@ def guard_on_app():
     a = create_app(start_scheduler=False)
     a.config["TESTING"] = True
     a.config["PROPAGATE_EXCEPTIONS"] = False
-    a.config["SESSION_COOKIE_SECURE"] = False
+    # These origin-guard tests issue single GETs and assert 403/200 + body; they
+    # do not depend on a session cookie round-trip, so we avoid mutating
+    # SESSION_COOKIE_SECURE (which the security-toggle gate scans for).
     a.config["ORIGIN_GUARD_ENABLED"] = True
     return a
 
