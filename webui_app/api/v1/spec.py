@@ -23,9 +23,18 @@ from .schemas import (
     AppConfigSchema,
     CsrfTokenSchema,
     HealthSchema,
+    PlanRequestSchema,
+    PlanResponseSchema,
     PlatformListSchema,
+    PreviewResponseSchema,
     ProblemDetailsSchema,
     ProStatusEnvelopeSchema,
+    PublishRequestSchema,
+    PublishResponseSchema,
+    RegenBodyRequestSchema,
+    RegenBodyResponseSchema,
+    ValidateRequestSchema,
+    ValidateResponseSchema,
 )
 
 API_VERSION = "v1"
@@ -67,9 +76,21 @@ def build_spec() -> APISpec:
     spec.components.schema("ProStatusEnvelope", schema=ProStatusEnvelopeSchema)
     spec.components.schema("AppConfig", schema=AppConfigSchema)
     spec.components.schema("CsrfToken", schema=CsrfTokenSchema)
+    spec.components.schema("PlanRequest", schema=PlanRequestSchema)
+    spec.components.schema("PlanResponse", schema=PlanResponseSchema)
+    spec.components.schema("PreviewResponse", schema=PreviewResponseSchema)
+    spec.components.schema("ValidateRequest", schema=ValidateRequestSchema)
+    spec.components.schema("ValidateResponse", schema=ValidateResponseSchema)
+    spec.components.schema("PublishRequest", schema=PublishRequestSchema)
+    spec.components.schema("PublishResponse", schema=PublishResponseSchema)
+    spec.components.schema("RegenBodyRequest", schema=RegenBodyRequestSchema)
+    spec.components.schema("RegenBodyResponse", schema=RegenBodyResponseSchema)
 
     def _ok(description: str, schema: Any) -> dict[str, Any]:
         return {"description": description, "content": {"application/json": {"schema": schema}}}
+
+    def _body(schema: Any) -> dict[str, Any]:
+        return {"required": True, "content": {"application/json": {"schema": schema}}}
 
     spec.path(
         path="/api/v1/health",
@@ -146,6 +167,93 @@ def build_spec() -> APISpec:
                 "summary": "Pro-Mode visibility summary (redaction-safe).",
                 "tags": ["bootstrap"],
                 "responses": {"200": _ok("Pro status.", ProStatusEnvelopeSchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/pipeline/plan",
+        operations={
+            "post": {
+                "operationId": "planBacklinks",
+                "summary": "Generate article plans for the given URLs.",
+                "description": "Stateless: takes inputs in the body, returns plan rows.",
+                "tags": ["pipeline"],
+                "requestBody": _body(PlanRequestSchema),
+                "responses": {
+                    "200": _ok("Generated plan rows.", PlanResponseSchema),
+                    "422": _problem_response("Invalid request (e.g. missing urls)."),
+                    "502": _problem_response("Generation failed or produced no output."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/pipeline/preview",
+        operations={
+            "post": {
+                "operationId": "previewBacklink",
+                "summary": "Single-article preview (plan one seed, return first row).",
+                "tags": ["pipeline"],
+                "requestBody": _body(PlanRequestSchema),
+                "responses": {
+                    "200": _ok("First planned row (or null).", PreviewResponseSchema),
+                    "422": _problem_response("Invalid request."),
+                    "502": _problem_response("Generation failed."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/pipeline/validate",
+        operations={
+            "post": {
+                "operationId": "validateBacklinks",
+                "summary": "Validate plan rows (URL checks skipped server-side).",
+                "tags": ["pipeline"],
+                "requestBody": _body(ValidateRequestSchema),
+                "responses": {
+                    "200": _ok("Validated rows.", ValidateResponseSchema),
+                    "422": _problem_response("Invalid request or validation error."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/pipeline/publish",
+        operations={
+            "post": {
+                "operationId": "publishBacklinks",
+                "summary": "Publish validated rows to a platform (synchronous).",
+                "description": (
+                    "Partial success returns 200 with per-row outcomes in `results`; "
+                    "total failure is a problem+json. No pollable task-id (synchronous)."
+                ),
+                "tags": ["pipeline"],
+                "requestBody": _body(PublishRequestSchema),
+                "responses": {
+                    "200": _ok("Aggregate publish result.", PublishResponseSchema),
+                    "400": _problem_response("Credential precondition failed (e.g. velog)."),
+                    "401": _problem_response("Auth/credential error."),
+                    "422": _problem_response("Invalid request."),
+                    "502": _problem_response("Publish failed / no result rows."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/pipeline/regen-body",
+        operations={
+            "post": {
+                "operationId": "regenArticleBody",
+                "summary": "Re-generate one article body via the configured LLM.",
+                "tags": ["pipeline"],
+                "requestBody": _body(RegenBodyRequestSchema),
+                "responses": {
+                    "200": _ok("Regenerated body (markdown + html).", RegenBodyResponseSchema),
+                    "400": _problem_response("LLM not configured."),
+                    "422": _problem_response("Invalid request."),
+                    "502": _problem_response("LLM call failed."),
+                },
             }
         },
     )

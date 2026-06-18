@@ -104,6 +104,176 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProStatusEnvelope'
+  /api/v1/pipeline/plan:
+    post:
+      operationId: planBacklinks
+      summary: Generate article plans for the given URLs.
+      description: 'Stateless: takes inputs in the body, returns plan rows.'
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+      responses:
+        '200':
+          description: Generated plan rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponse'
+        '422':
+          description: Invalid request (e.g. missing urls).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Generation failed or produced no output.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/pipeline/preview:
+    post:
+      operationId: previewBacklink
+      summary: Single-article preview (plan one seed, return first row).
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+      responses:
+        '200':
+          description: First planned row (or null).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResponse'
+        '422':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Generation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/pipeline/validate:
+    post:
+      operationId: validateBacklinks
+      summary: Validate plan rows (URL checks skipped server-side).
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validated rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '422':
+          description: Invalid request or validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/pipeline/publish:
+    post:
+      operationId: publishBacklinks
+      summary: Publish validated rows to a platform (synchronous).
+      description: Partial success returns 200 with per-row outcomes in `results`;
+        total failure is a problem+json. No pollable task-id (synchronous).
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishRequest'
+      responses:
+        '200':
+          description: Aggregate publish result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResponse'
+        '400':
+          description: Credential precondition failed (e.g. velog).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Auth/credential error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Publish failed / no result rows.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/pipeline/regen-body:
+    post:
+      operationId: regenArticleBody
+      summary: Re-generate one article body via the configured LLM.
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenBodyRequest'
+      responses:
+        '200':
+          description: Regenerated body (markdown + html).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegenBodyResponse'
+        '400':
+          description: LLM not configured.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: LLM call failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 openapi: 3.1.0
 components:
   schemas:
@@ -234,4 +404,160 @@ components:
           type: string
       required:
       - csrf_token
+      additionalProperties: false
+    PlanRequest:
+      type: object
+      properties:
+        urls:
+          type: array
+          description: Target URLs; urls[0] is the main URL.
+          items:
+            type: string
+        platform:
+          type: string
+          default: blogger
+        url_mode:
+          type: string
+          default: C
+        publish_mode:
+          type: string
+          default: publish
+        target_language:
+          type: string
+          default: zh-CN
+        custom_title:
+          type: string
+          default: ''
+        custom_tags:
+          type: string
+          default: ''
+        fetch_tdk:
+          type: string
+          default: 'no'
+          description: '''yes'' fetches TDK for anchor suggestions (network).'
+      required:
+      - urls
+      additionalProperties: false
+    PlanResponse:
+      type: object
+      properties:
+        plans:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - plans
+      additionalProperties: false
+    PreviewResponse:
+      type: object
+      properties:
+        plan:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
+      required:
+      - plan
+      additionalProperties: false
+    ValidateRequest:
+      type: object
+      properties:
+        plans:
+          description: JSONL string or array of plan-row objects.
+      required:
+      - plans
+      additionalProperties: false
+    ValidateResponse:
+      type: object
+      properties:
+        validated:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - validated
+      additionalProperties: false
+    PublishRequest:
+      type: object
+      properties:
+        plans:
+          description: JSONL string or array of validated plan rows.
+        platform:
+          type: string
+        publish_mode:
+          type: string
+          default: publish
+        tier_1:
+          type: boolean
+          default: false
+          description: Restrict to dofollow Tier-1 platforms only.
+        target_language:
+          type: string
+          default: zh-CN
+        target_url:
+          type: string
+          description: Optional hint to enrich history on total failure.
+      required:
+      - plans
+      - platform
+      additionalProperties: false
+    PublishResponse:
+      type: object
+      properties:
+        state:
+          type: string
+          description: all_success | partial_success.
+        n_ok:
+          type: integer
+        n_total:
+          type: integer
+        failure_detail:
+          type: string
+          description: Joined per-row failure messages (partial_success).
+        results:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - n_ok
+      - n_total
+      - results
+      - state
+      additionalProperties: false
+    RegenBodyRequest:
+      type: object
+      properties:
+        main_domain:
+          type: string
+        anchors:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+          default: ''
+        topic:
+          type:
+          - string
+          - 'null'
+      required:
+      - anchors
+      - main_domain
+      additionalProperties: false
+    RegenBodyResponse:
+      type: object
+      properties:
+        content_markdown:
+          type: string
+        content_html:
+          type: string
+        content_source:
+          type: string
+      required:
+      - content_html
+      - content_markdown
+      - content_source
       additionalProperties: false

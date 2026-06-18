@@ -41,4 +41,5 @@ def health():
 # module can ``from . import bp`` without a circular import (standard Flask
 # blueprint-package idiom).
 from . import app_config  # noqa: E402,F401  (Plan 2026-06-18-002 U2)
+from . import pipeline  # noqa: E402,F401  (Plan 2026-06-18-002 U5)
 
