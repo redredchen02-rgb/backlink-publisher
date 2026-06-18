@@ -1,0 +1,46 @@
+# E2E CI — Plan 2026-06-18-002 U5.
+# Net-new lane: builds the Vue SPA, then drives a real chromium against a live
+# single-origin Flask instance (no scheduler, no credentials) to verify the
+# publish workbench boots and the plan round-trip works end-to-end — the layer
+# the contract (pytest) and component (vitest) suites structurally cannot cover.
+name: e2e
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "webui_app/api/v1/pipeline.py"
+      - "webui_app/routes/spa.py"
+      - "tests/e2e/**"
+      - ".github/workflows/e2e.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  publish-journey:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build SPA bundle
+        run: npm ci && npm run build
+        working-directory: frontend
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Python deps
+        run: python -m pip install -e ".[dev]"
+      - name: Install chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Publish-journey E2E
+        run: python -m pytest tests/e2e/publish_journey.py -v
+        env:
+          PYTHONPATH: src
