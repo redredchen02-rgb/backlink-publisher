@@ -2,12 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 
 vi.mock('../../api/pipeline', () => ({
   planBacklinks: vi.fn(),
   validateBacklinks: vi.fn(),
   publishBacklinks: vi.fn(),
   boundPlatforms: vi.fn().mockResolvedValue({ platforms: [] }),
+}))
+
+// The config block now embeds ProfileSelector (a TanStack-Query consumer).
+vi.mock('../../api/profiles', () => ({
+  getProfiles: vi.fn().mockResolvedValue({ items: [] }),
+  saveProfile: vi.fn(),
+  deleteProfile: vi.fn(),
 }))
 
 import * as api from '../../api/pipeline'
@@ -29,7 +37,10 @@ afterEach(() => {
 })
 
 function mountWorkbench() {
-  return mount(PublishWorkbench, { global: { plugins: [pinia] } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return mount(PublishWorkbench, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
 }
 
 describe('PublishWorkbench — busy-state publish UX (degraded, no task-id)', () => {

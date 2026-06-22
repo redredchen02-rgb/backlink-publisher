@@ -32,6 +32,32 @@ export const router = createRouter({
       component: () => import('../pages/Drafts/DraftsPage.vue'),
     },
     {
+      // Work-themed site config (U7); navItems maps 站点 → '/sites'.
+      path: '/sites',
+      name: 'sites',
+      component: () => import('../pages/Sites/SitesPage.vue'),
+    },
+    {
+      // Scheduled-drafts view (U7); navItems maps 排程 → '/schedule'.
+      path: '/schedule',
+      name: 'schedule',
+      component: () => import('../pages/Schedule/SchedulePage.vue'),
+    },
+    {
+      // Batch-campaign creation (U7); navItems maps 批量 → '/batch-campaign'.
+      path: '/batch-campaign',
+      name: 'batch-campaign',
+      component: () => import('../pages/BatchCampaign/BatchCampaignPage.vue'),
+    },
+    {
+      // Settings (U7) — built section-by-section; first slice = global config
+      // (keyword pools + schedule). navItems keeps the LEGACY /settings link until
+      // the page is complete, so this route is dev-reachable by URL, not advertised.
+      path: '/settings',
+      name: 'settings',
+      component: () => import('../pages/Settings/SettingsPage.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../pages/NotFound.vue'),

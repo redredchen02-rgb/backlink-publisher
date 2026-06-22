@@ -20,6 +20,8 @@ import { usePublishStore } from '../../stores/publish'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 import type { PlanRow } from '../../api/pipeline'
+import type { Profile } from '../../api/profiles'
+import ProfileSelector from '../../components/ProfileSelector.vue'
 
 const store = usePublishStore()
 const notify = useNotificationsStore()
@@ -129,6 +131,14 @@ const platformOptions = computed(() =>
     ? store.availablePlatforms
     : [{ slug: store.config.platform, display_name: store.config.platform }],
 )
+
+// Apply a loaded publish preset onto the shared config. url_mode has no
+// workbench control, so it is intentionally not mapped.
+function applyProfile(p: Profile): void {
+  store.config.platform = p.platform
+  store.config.targetLanguage = p.language
+  store.config.publishMode = p.publish_mode
+}
 </script>
 
 <template>
@@ -168,6 +178,15 @@ const platformOptions = computed(() =>
         <input v-model="store.config.tier1" type="checkbox" />
         仅 Tier-1（dofollow）
       </label>
+      <ProfileSelector
+        class="config__profiles"
+        :current="{
+          platform: store.config.platform,
+          language: store.config.targetLanguage,
+          publishMode: store.config.publishMode,
+        }"
+        @apply="applyProfile"
+      />
     </fieldset>
 
     <!-- Step 1 — input URLs -->
@@ -277,6 +296,11 @@ const platformOptions = computed(() =>
   flex-direction: row;
   align-items: center;
   gap: 0.4rem;
+}
+.config__profiles {
+  flex-basis: 100%;
+  border-top: 1px solid var(--border, #30363d);
+  padding-top: 0.5rem;
 }
 .rows {
   margin: 0;

@@ -31,17 +31,16 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '监控聚合', group: 'monitoring', to: '/monitor' }, // migrated in U6
   { label: '历史', group: 'operations', to: '/history' }, // migrated in U7
   { label: '草稿', group: 'operations', to: '/drafts' }, // migrated in U7
+  { label: '站点', group: 'config', to: '/sites' }, // migrated in U7
+  { label: '排程', group: 'operations', to: '/schedule' }, // migrated in U7
+  { label: '批量', group: 'operations', to: '/batch-campaign' }, // migrated in U7
 
   // Legacy Jinja pages — full navigation out of the SPA until migrated.
   { label: '健康', group: 'monitoring', href: '/ce:health' },
   { label: '权益账本', group: 'monitoring', href: '/ce:equity-ledger' },
   { label: '保活', group: 'monitoring', href: '/ce:keep-alive' },
 
-  { label: '排程', group: 'operations', href: '/schedule' },
-  { label: '批量', group: 'operations', href: '/batch-campaign' },
-
   { label: '设置', group: 'config', href: '/settings' },
-  { label: '站点', group: 'config', href: '/sites' },
 ]
 
 export const GROUP_ORDER: NavGroup[] = ['pipeline', 'monitoring', 'operations', 'config']
