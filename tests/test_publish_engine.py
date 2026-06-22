@@ -292,6 +292,52 @@ def test_decision_is_pure_dataclass():
     assert d.kind == "ok" and d.exit_code == 0
 
 
+def test_throttle_zero_never_blocks():
+    """options(throttle_min=0, throttle_max=0) must not introduce a real sleep —
+    the property that lets an embedded caller run publish_rows without blocking
+    its (e.g. Flask) thread. Even on the consecutive-medium path that does call
+    _do_sleep, the duration is 0."""
+    with patch("backlink_publisher.cli._publish_helpers._do_sleep") as mock_sleep:
+        outcome = _run_rows(
+            [_ok("medium"), _ok("medium")],
+            [_payload("a", platform="medium"), _payload("b", platform="medium")],
+            _opts(platform="medium", throttle_min=0, throttle_max=0),
+        )
+    assert outcome.success_count == 2
+    # _do_sleep may fire on the consecutive-medium path, but never for >0 seconds.
+    assert all(call.args[0] == 0 for call in mock_sleep.call_args_list)
+
+
+def test_count_invariant_continue_paths_vs_abort():
+    """Continue paths (ExternalServiceError etc.) account for EVERY row
+    (success+fail+skipped+held == len(rows)); an abort path leaves later rows
+    UNPROCESSED."""
+    # Continue path: all 3 rows accounted for.
+    cont = _run_rows(
+        [_ok(), ExternalServiceError("svc"), _ok()],
+        [_payload("a"), _payload("b"), _payload("c")],
+        _opts(),
+    )
+    st = cont.state
+    accounted = (
+        st.success_count + st.fail_count
+        + st.skipped_unreachable_count + st.skipped_quarantined_count
+        + st.dedup_skip_count + st.dedup_hold_count
+    )
+    assert accounted == 3, f"continue paths must not drop a row: {accounted} != 3"
+    assert st.success_count == 2 and st.fail_count == 1
+
+    # Abort path: row2 (index 2) is never reached after the row1 DependencyError.
+    with patch("backlink_publisher.cli.publish_backlinks.adapter_publish") as mock_pub:
+        mock_pub.side_effect = [_ok(), DependencyError("oauth"), _ok()]
+        outcome = publish_rows(
+            [_payload("a"), _payload("b"), _payload("c")],
+            load_config(), options=_opts(),
+        )
+    assert outcome.dependency_aborted is True
+    assert mock_pub.call_count == 2, "abort must stop the loop — row3 not dispatched"
+
+
 def test_force_manifest_conflict_aborts_typed_exit1_no_systemexit():
     """A force on a live 'done' key (R11) is the FOURTH in-loop kill point (the
     plan's enumeration missed it). It must abort with exit 1 (UsageError, NOT 3)
