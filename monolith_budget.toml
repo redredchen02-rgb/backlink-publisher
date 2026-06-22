@@ -62,8 +62,8 @@ ceiling = 120
 rationale = "thin-WebUI Phase 2 Unit 7 (2026-05-28): main() split into two engine calls (report_from_profile + report_from_rows) extracted to _report_engine.py so the in-process PipelineAPI.report_anchors path shares it. report_anchors.py stayed at 89 SLOC — holds argparse + load_config + config_echo banner + engine call + stdout print + stderr breach lines + emit_envelope_and_exit shell only. Ceiling 120 = round_up_to_10(89+30) per policy."
 
 [files."src/backlink_publisher/cli/_publish_helpers.py"]
-ceiling = 480
-rationale = "refactor 2026-06-01: extracted the CLI layer (_build_parser argparse + _handle_checkpoint_ops + _handle_auth_expired) to cli/_publish_cli.py. The _do_sleep/_sleep_with_throttle and verify_published/_do_verify mock seams stay here (tests patch them at this module). _publish_helpers re-exports the 3 moved names. SLOC 634->442. Ceiling 480 = round_up_to_10(442+30)."
+ceiling = 530
+rationale = "refactor 2026-06-01: extracted the CLI layer (_build_parser argparse + _handle_checkpoint_ops + _handle_auth_expired) to cli/_publish_cli.py. The _do_sleep/_sleep_with_throttle and verify_published/_do_verify mock seams stay here (tests patch them at this module). _publish_helpers re-exports the 3 moved names. Plan 2026-06-22-001 U4-3 (2026-06-22): split _publish_epilogue into a pure verdict (PublishExitDecision + _decide_publish_exit, the single source of truth shared with PublishOutcome.terminal_exit_code) plus the impure stdout/SystemExit dispatch, and added the _check_token_drift(raises=False) in-process variant. SLOC 442->493 (+51 for the pure decision + dataclass + docstrings, net of the inline epilogue branches removed). Ceiling 530 = round_up_to_10(493+30)."
 
 [files."src/backlink_publisher/cli/generate_backlink_text.py"]
 ceiling = 390

@@ -226,7 +226,18 @@ def _handle_auth_expired(
     run_id: str | None,
     row: dict[str, Any],
     logger: Any,
-) -> None:
+    *,
+    raises: bool = True,
+) -> str | None:
+    """Flip the channel to expired, mark the checkpoint row, and abort on auth.
+
+    Default (``raises=True``): emit_error(exit 3) after the side effects — the
+    behaviour the resume path and seam tests rely on. ``raises=False`` is the
+    in-process variant for ``publish_rows``: it runs the same side effects
+    (mark_expired + checkpoint + log) but returns ``str(exc)`` instead of
+    raising SystemExit, so the loop can abort via the ``_AUTH_ABORT`` sentinel
+    and main maps it to exit 3 in the shell (R3a invariant preserved).
+    """
     from backlink_publisher._util.errors import emit_error
 
     try:
@@ -250,4 +261,6 @@ def _handle_auth_expired(
     )
     # error_class = the real exception type so the operator sees "AuthExpiredError"
     # (re-bind credentials), not the coarse "DependencyError" the exit-3 map yields.
-    emit_error(str(exc), exit_code=3, error_class=type(exc).__name__)
+    if raises:
+        emit_error(str(exc), exit_code=3, error_class=type(exc).__name__)
+    return str(exc)

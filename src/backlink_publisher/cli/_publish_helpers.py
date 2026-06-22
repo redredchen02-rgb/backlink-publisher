@@ -11,6 +11,7 @@ import random
 import re
 import sys
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -242,7 +243,18 @@ def _error_class(exc: Exception) -> str:
     return classify_exception(exc).value
 
 
-def _check_token_drift(initial_revs: dict[str, int]) -> None:
+def _check_token_drift(
+    initial_revs: dict[str, int], *, raises: bool = True
+) -> str | None:
+    """Detect mid-run credential rotation of an already-bound platform.
+
+    Default (``raises=True``): emit_error(exit 3) on drift — the kill-switch the
+    CLI/resume paths rely on (and the unit tests assert). ``raises=False`` is the
+    in-process variant for ``publish_rows``: it returns the abort message instead
+    of raising SystemExit, so the caller can stop the run via a typed sentinel
+    while still honouring the safety property (do NOT publish with rotated
+    credentials — the loop aborts the run, it does not continue).
+    """
     from backlink_publisher.config import snapshot_token_revs
     from backlink_publisher._util.errors import emit_error
 
@@ -255,11 +267,14 @@ def _check_token_drift(initial_revs: dict[str, int]) -> None:
     current = snapshot_token_revs(initial_revs.keys())
     for plat, init_rev in initial_revs.items():
         if current.get(plat, 0) != init_rev:
-            emit_error(
+            msg = (
                 f"error: configuration for platform {plat!r} was updated mid-run. "
-                "Aborting to prevent using revoked credentials.",
-                exit_code=3,
+                "Aborting to prevent using revoked credentials."
             )
+            if raises:
+                emit_error(msg, exit_code=3)
+            return msg
+    return None
 
 
 def _do_verify(
@@ -501,6 +516,77 @@ def _write_reconciler_report(summary: dict[str, Any] | None) -> None:
         publish_logger.warning("reconciler report write failed: %s", exc)
 
 
+@dataclass
+class PublishExitDecision:
+    """The pure exit-code verdict for a finished publish run (U4-3).
+
+    Single source of truth shared by the impure CLI epilogue (which dispatches
+    stderr + emit_error/emit_envelope_and_exit off ``kind``) and the in-process
+    ``PublishOutcome.terminal_exit_code`` — so a CLI and an embedded caller can
+    never disagree on what a given output set means. ``successful``/``failed``/
+    ``unverified`` are computed once here and reused so the recon counts match
+    the verdict exactly.
+
+    ``kind`` selects the impure dispatch; ``exit_code`` is the value it yields:
+      - "failed"         -> 4, envelope ExternalServiceError, print failed rows
+      - "all_held"       -> 3, emit_error (operator must adjudicate holds)
+      - "none_published" -> 5, emit_error
+      - "unverified"     -> 5, envelope InternalError, print unverified rows
+      - "ok"             -> 0, no exit
+    """
+
+    kind: str
+    exit_code: int
+    message: str | None
+    successful: list[dict[str, Any]]
+    failed: list[dict[str, Any]]
+    unverified: list[dict[str, Any]]
+
+
+def _decide_publish_exit(
+    outputs: list[dict[str, Any]],
+    *,
+    dry_run: bool,
+    dedup_hold_count: int,
+) -> PublishExitDecision:
+    """Pure exit-code decision for the publish epilogue (U4-3).
+
+    Replicates the epilogue's branch *precedence* exactly (NOT a count): a
+    failed output row wins over everything (exit 4); only then does a live run
+    with zero successes mean held>0 ? 3 : 5; only then does an unverified
+    success mean 5. exit 3 from this path therefore means exactly
+    "zero success AND zero failed AND holds>0".
+    """
+    successful = [r for r in outputs if r.get("error") is None]
+    failed = [r for r in outputs if r.get("error") is not None]
+    unverified = [s for s in successful if s.get("status", "").endswith("_unverified")]
+
+    if failed:
+        return PublishExitDecision(
+            "failed", 4, f"{len(failed)} payload(s) failed to publish",
+            successful, failed, unverified,
+        )
+    if not dry_run and not successful:
+        if dedup_hold_count > 0:
+            return PublishExitDecision(
+                "all_held", 3,
+                f"all {dedup_hold_count} row(s) held by the dedup gate "
+                "(uncertain/in-flight); adjudicate with --list-uncertain / "
+                "--adjudicate-uncertain, then re-run",
+                successful, failed, unverified,
+            )
+        return PublishExitDecision(
+            "none_published", 5, "no payloads were published",
+            successful, failed, unverified,
+        )
+    if unverified:
+        return PublishExitDecision(
+            "unverified", 5, f"{len(unverified)} payload(s) failed verification",
+            successful, failed, unverified,
+        )
+    return PublishExitDecision("ok", 0, None, successful, failed, unverified)
+
+
 def _publish_epilogue(
     outputs: list[dict[str, Any]],
     rows: list[dict[str, Any]],
@@ -537,9 +623,12 @@ def _publish_epilogue(
         skipped_canary=skipped_quarantined_count,
     )
 
-    successful = [r for r in outputs if r.get("error") is None]
-    failed = [r for r in outputs if r.get("error") is not None]
-    unverified = [s for s in successful if s.get("status", "").endswith("_unverified")]
+    decision = _decide_publish_exit(
+        outputs, dry_run=args.dry_run, dedup_hold_count=dedup_hold_count
+    )
+    successful, failed, unverified = (
+        decision.successful, decision.failed, decision.unverified,
+    )
 
     recon_extra: dict[str, Any] = {}
     if checkpoint_disabled:
@@ -568,35 +657,23 @@ def _publish_epilogue(
 
     from backlink_publisher._util.errors import emit_envelope_and_exit, emit_error
 
-    if failed:
+    # Impure dispatch off the pure verdict. The kinds are mutually exclusive and
+    # each emit_* raises SystemExit, so exactly one branch fires (matching the
+    # original early-exit if-chain byte-for-byte).
+    if decision.kind == "failed":
         for f in failed:
             print(f"publish failed: {f['error']}", file=sys.stderr)
-        emit_envelope_and_exit(
-            "ExternalServiceError", 4, f"{len(failed)} payload(s) failed to publish"
-        )
-
-    if not args.dry_run and not successful:
-        if dedup_hold_count > 0:
-            # Enforce held every row (uncertain/in-flight) — this is operator-action
-            # required (adjudicate the holds), not an internal error. Exit 3
-            # (DependencyError), not 5.
-            emit_error(
-                f"all {dedup_hold_count} row(s) held by the dedup gate "
-                "(uncertain/in-flight); adjudicate with --list-uncertain / "
-                "--adjudicate-uncertain, then re-run",
-                exit_code=3,
-            )
-        emit_error("no payloads were published", exit_code=5)
-
-    if unverified:
+        emit_envelope_and_exit("ExternalServiceError", 4, decision.message)
+    if decision.kind in ("all_held", "none_published"):
+        # all_held: operator-action required (adjudicate the holds), exit 3, not 5.
+        emit_error(decision.message, exit_code=decision.exit_code)
+    if decision.kind == "unverified":
         for u in unverified:
             print(
                 f"verification failed: id={u.get('id', '')} status={u.get('status', '')}",
                 file=sys.stderr,
             )
-        emit_envelope_and_exit(
-            "InternalError", 5, f"{len(unverified)} payload(s) failed verification"
-        )
+        emit_envelope_and_exit("InternalError", 5, decision.message)
 
     publish_logger.info(
         f"publish complete: {success_count} succeeded, {fail_count} failed, "
