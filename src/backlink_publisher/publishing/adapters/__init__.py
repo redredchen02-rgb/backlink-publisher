@@ -112,199 +112,216 @@ from .writeas_api import WriteasAPIAdapter
 # channel = new ``<SLUG>_MANIFEST`` dict in that file + new
 # ``**<SLUG>_MANIFEST`` splat here. The dispatcher module stays focused
 # on register() wiring and adapter imports.
-register("blogger", BloggerAPIAdapter, dofollow=True, **BLOGGER_MANIFEST)
-# Phase 1 dofollow truth audit (2026-05-26): every adapter below shipped
-# with bare ``dofollow=True`` and no evidence. Hard server-side
-# nofollow/redirect-interstitial evidence => dofollow=False; no
-# OUR-pipeline canary => dofollow="uncertain". Rationales live in
-# ``_nofollow_rationales`` (_R). Operator flips "uncertain" -> True by
-# running a fresh canary and reading verify_link_attributes (the
-# livejournal/txtfyi workflow).
-register(
-    "wordpresscom",
-    WordpresscomAPIAdapter,
-    dofollow="uncertain",  # evidence conflict (#108->#109 vs 2026-05 recheck); canary pending
-    rationale=_R["wordpresscom"],
-    referral_value="high",
-    **WORDPRESSCOM_MANIFEST,
-)
-register(
-    "hashnode",
-    HashnodeGraphQLAdapter,
-    dofollow="uncertain",
-    rationale=_R["hashnode"],
-    referral_value="high",
-    visibility="retired",
-    **HASHNODE_MANIFEST,
-)
-register(
-    "writeas",
-    WriteasAPIAdapter,
-    dofollow="uncertain",
-    rationale=_R["writeas"],
-    referral_value="low",
-    visibility="retired",
-    **WRITEAS_MANIFEST,
-)
-register(
-    "substack",
-    SubstackAPIAdapter,
-    dofollow="uncertain",  # 3rd-party live check = dofollow; OUR canary pending
-    rationale=_R["substack"],
-    referral_value="high",
-    **SUBSTACK_MANIFEST,
-)
-register(
-    "rentry",
-    RentryAPIAdapter,
-    dofollow=True,  # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty)
-    **RENTRY_MANIFEST,
-)
-register(
-    "linkedin",
-    LinkedInAPIAdapter,
-    dofollow=False,
-    rationale=_R["linkedin"],
-    referral_value="high",
-    **LINKEDIN_MANIFEST,
-    visibility="experimental",
-)
-register(
-    "tumblr",
-    TumblrAPIAdapter,
-    dofollow=False,
-    rationale=_R["tumblr"],
-    referral_value="high",
-    **TUMBLR_MANIFEST,
-)
-register(
-    "medium",
-    MediumAPIAdapter,
-    MediumBraveAdapter,
-    MediumBrowserAdapter,
-    dofollow=True,
-    **MEDIUM_MANIFEST,
-)
-register(
-    "telegraph",
-    TelegraphAPIAdapter,
-    TelegraphCdpAdapter,
-    dofollow=True,
-    **TELEGRAPH_MANIFEST,
-)
-register(
-    "velog",
-    VelogGraphQLAdapter,
-    BrowserPublishDispatcher.for_channel("velog"),
-    dofollow=True,
-    **VELOG_MANIFEST,
-)
-register(
-    "ghpages",
-    GitHubPagesAPIAdapter,
-    dofollow=True,
-    **GHPAGES_MANIFEST,
-)
-register(
-    "livejournal",
-    LivejournalAPIAdapter,
-    dofollow=False,
-    rationale=_R["livejournal"],
-    referral_value="high",
-    credential_saver=_livejournal_credential_saver,
-    **LIVEJOURNAL_MANIFEST,
-)
-register(
-    "txtfyi",
-    TxtfyiFormPostAdapter,
-    dofollow="uncertain",  # R4 canary pending; Phase 0 preliminary = dofollow
-    rationale=_R["txtfyi"],
-    referral_value="low",  # anonymous pastebin; modest DA + R4 pending
-    **TXTFYI_MANIFEST,
-)
-register(
-    "notesio",
-    NotesioFormPostAdapter,
-    dofollow="uncertain",  # R4 canary pending; 3rd-party probe 12/0 dofollow
-    rationale=_R["notesio"],
-    referral_value="low",  # anonymous pastebin; modest DA + R4 pending
-    **NOTESIO_MANIFEST,
-)
-register(
-    "devto",
-    DevtoAPIAdapter,
-    BrowserPublishDispatcher.for_channel("devto"),
-    dofollow=False,
-    rationale=_R["devto"],
-    referral_value="high",  # high DA + referral traffic + topical signal
-    **DEVTO_MANIFEST,
-)
-register(
-    "notion",
-    NotionAPIAdapter,
-    dofollow=False,
-    rationale=_R["notion"],
-    referral_value="high",  # DA ~75+, entity signal, indexation speed
-    **NOTION_MANIFEST,
-)
-register(
-    "hatena",
-    HatenaAtomPubAdapter,
-    dofollow="uncertain",  # 3rd-party probe = dofollow (11/12); OUR canary pending
-    rationale=_R["hatena"],
-    referral_value="high",  # JP high-DA + referral + indexation; AtomPub publish API
-    **HATENA_MANIFEST,
-)
-register(
-    "mastodon",
-    BrowserPublishDispatcher.for_channel("mastodon"),
-    dofollow=False,
-    rationale=_R["mastodon"],
-    **MASTODON_MANIFEST,
-    referral_value="high",  # Fediverse referral traffic + topical signal
-)
-# Plan 2026-06-01-007 Wave 1 — three new channels, all dofollow="uncertain"
-# pending an OUR-pipeline canary (the hashnode/substack/hatena discipline; the
-# canary-pending tracking artifact + deadline gate live in docs/discovery/).
-register(
-    "hackmd",
-    HackmdAPIAdapter,
-    dofollow=False,  # OUR canary 2026-06-05: nofollow confirmed (rel="noopener ugc nofollow")
-    rationale=_R["hackmd"],
-    referral_value="high",
-    **HACKMD_MANIFEST,
-)
-register(
-    "mataroa",
-    MataroaAPIAdapter,
-    dofollow=True,  # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty)
-    **MATAROA_MANIFEST,
-)
-register(
-    "gitlabpages",
-    GitLabPagesAPIAdapter,
-    dofollow="uncertain",  # rel operator-controlled, but *.gitlab.io index partial + async; OUR canary pending
-    rationale=_R["gitlabpages"],
-    referral_value="high",
-    **GITLABPAGES_MANIFEST,
-)
-# Wave-2 discovery (2026-06-01) — confirmed nofollow, high JP referral value.
-register(
-    "qiita",
-    QiitaAPIAdapter,
-    dofollow=False,  # confirmed rel=nofollow noopener on all outbound links
-    rationale=_R["qiita"],
-    referral_value="high",  # top JP dev platform, DA ~90+, high referral traffic
-    **QIITA_MANIFEST,
-)
-register(
-    "zenn",
-    ZennGitHubAdapter,
-    dofollow=False,  # confirmed rel=nofollow noopener noreferrer (36/137)
-    rationale=_R["zenn"],
-    referral_value="high",  # top JP dev platform, DA ~90+, high referral traffic
-    **ZENN_MANIFEST,
-)
+def register_all_adapters() -> None:
+    """Idempotent, explicit adapter-registry bootstrap.
+
+    Wraps the per-platform ``register(...)`` calls (the registration table stays
+    in THIS module per the CLAUDE.md adapter-registry rule). Auto-invoked once at
+    module import below, so the ~50 CLI entrypoints that rely on importing this
+    package keep working unchanged. Also a named entry the top-level facade calls
+    so a host that only touched ``publishing.registry`` (which does NOT import
+    adapters) can populate an otherwise-empty registry with one call. Idempotent:
+    a second call is a no-op (sentinel: ``blogger`` already registered).
+    """
+    if "blogger" in registered_platforms():
+        return
+    register("blogger", BloggerAPIAdapter, dofollow=True, **BLOGGER_MANIFEST)
+    # Phase 1 dofollow truth audit (2026-05-26): every adapter below shipped
+    # with bare ``dofollow=True`` and no evidence. Hard server-side
+    # nofollow/redirect-interstitial evidence => dofollow=False; no
+    # OUR-pipeline canary => dofollow="uncertain". Rationales live in
+    # ``_nofollow_rationales`` (_R). Operator flips "uncertain" -> True by
+    # running a fresh canary and reading verify_link_attributes (the
+    # livejournal/txtfyi workflow).
+    register(
+        "wordpresscom",
+        WordpresscomAPIAdapter,
+        dofollow="uncertain",  # evidence conflict (#108->#109 vs 2026-05 recheck); canary pending
+        rationale=_R["wordpresscom"],
+        referral_value="high",
+        **WORDPRESSCOM_MANIFEST,
+    )
+    register(
+        "hashnode",
+        HashnodeGraphQLAdapter,
+        dofollow="uncertain",
+        rationale=_R["hashnode"],
+        referral_value="high",
+        visibility="retired",
+        **HASHNODE_MANIFEST,
+    )
+    register(
+        "writeas",
+        WriteasAPIAdapter,
+        dofollow="uncertain",
+        rationale=_R["writeas"],
+        referral_value="low",
+        visibility="retired",
+        **WRITEAS_MANIFEST,
+    )
+    register(
+        "substack",
+        SubstackAPIAdapter,
+        dofollow="uncertain",  # 3rd-party live check = dofollow; OUR canary pending
+        rationale=_R["substack"],
+        referral_value="high",
+        **SUBSTACK_MANIFEST,
+    )
+    register(
+        "rentry",
+        RentryAPIAdapter,
+        dofollow=True,  # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty)
+        **RENTRY_MANIFEST,
+    )
+    register(
+        "linkedin",
+        LinkedInAPIAdapter,
+        dofollow=False,
+        rationale=_R["linkedin"],
+        referral_value="high",
+        **LINKEDIN_MANIFEST,
+        visibility="experimental",
+    )
+    register(
+        "tumblr",
+        TumblrAPIAdapter,
+        dofollow=False,
+        rationale=_R["tumblr"],
+        referral_value="high",
+        **TUMBLR_MANIFEST,
+    )
+    register(
+        "medium",
+        MediumAPIAdapter,
+        MediumBraveAdapter,
+        MediumBrowserAdapter,
+        dofollow=True,
+        **MEDIUM_MANIFEST,
+    )
+    register(
+        "telegraph",
+        TelegraphAPIAdapter,
+        TelegraphCdpAdapter,
+        dofollow=True,
+        **TELEGRAPH_MANIFEST,
+    )
+    register(
+        "velog",
+        VelogGraphQLAdapter,
+        BrowserPublishDispatcher.for_channel("velog"),
+        dofollow=True,
+        **VELOG_MANIFEST,
+    )
+    register(
+        "ghpages",
+        GitHubPagesAPIAdapter,
+        dofollow=True,
+        **GHPAGES_MANIFEST,
+    )
+    register(
+        "livejournal",
+        LivejournalAPIAdapter,
+        dofollow=False,
+        rationale=_R["livejournal"],
+        referral_value="high",
+        credential_saver=_livejournal_credential_saver,
+        **LIVEJOURNAL_MANIFEST,
+    )
+    register(
+        "txtfyi",
+        TxtfyiFormPostAdapter,
+        dofollow="uncertain",  # R4 canary pending; Phase 0 preliminary = dofollow
+        rationale=_R["txtfyi"],
+        referral_value="low",  # anonymous pastebin; modest DA + R4 pending
+        **TXTFYI_MANIFEST,
+    )
+    register(
+        "notesio",
+        NotesioFormPostAdapter,
+        dofollow="uncertain",  # R4 canary pending; 3rd-party probe 12/0 dofollow
+        rationale=_R["notesio"],
+        referral_value="low",  # anonymous pastebin; modest DA + R4 pending
+        **NOTESIO_MANIFEST,
+    )
+    register(
+        "devto",
+        DevtoAPIAdapter,
+        BrowserPublishDispatcher.for_channel("devto"),
+        dofollow=False,
+        rationale=_R["devto"],
+        referral_value="high",  # high DA + referral traffic + topical signal
+        **DEVTO_MANIFEST,
+    )
+    register(
+        "notion",
+        NotionAPIAdapter,
+        dofollow=False,
+        rationale=_R["notion"],
+        referral_value="high",  # DA ~75+, entity signal, indexation speed
+        **NOTION_MANIFEST,
+    )
+    register(
+        "hatena",
+        HatenaAtomPubAdapter,
+        dofollow="uncertain",  # 3rd-party probe = dofollow (11/12); OUR canary pending
+        rationale=_R["hatena"],
+        referral_value="high",  # JP high-DA + referral + indexation; AtomPub publish API
+        **HATENA_MANIFEST,
+    )
+    register(
+        "mastodon",
+        BrowserPublishDispatcher.for_channel("mastodon"),
+        dofollow=False,
+        rationale=_R["mastodon"],
+        **MASTODON_MANIFEST,
+        referral_value="high",  # Fediverse referral traffic + topical signal
+    )
+    # Plan 2026-06-01-007 Wave 1 — three new channels, all dofollow="uncertain"
+    # pending an OUR-pipeline canary (the hashnode/substack/hatena discipline; the
+    # canary-pending tracking artifact + deadline gate live in docs/discovery/).
+    register(
+        "hackmd",
+        HackmdAPIAdapter,
+        dofollow=False,  # OUR canary 2026-06-05: nofollow confirmed (rel="noopener ugc nofollow")
+        rationale=_R["hackmd"],
+        referral_value="high",
+        **HACKMD_MANIFEST,
+    )
+    register(
+        "mataroa",
+        MataroaAPIAdapter,
+        dofollow=True,  # OUR canary 2026-06-05: dofollow confirmed (2x, rel empty)
+        **MATAROA_MANIFEST,
+    )
+    register(
+        "gitlabpages",
+        GitLabPagesAPIAdapter,
+        dofollow="uncertain",  # rel operator-controlled, but *.gitlab.io index partial + async; OUR canary pending
+        rationale=_R["gitlabpages"],
+        referral_value="high",
+        **GITLABPAGES_MANIFEST,
+    )
+    # Wave-2 discovery (2026-06-01) — confirmed nofollow, high JP referral value.
+    register(
+        "qiita",
+        QiitaAPIAdapter,
+        dofollow=False,  # confirmed rel=nofollow noopener on all outbound links
+        rationale=_R["qiita"],
+        referral_value="high",  # top JP dev platform, DA ~90+, high referral traffic
+        **QIITA_MANIFEST,
+    )
+    register(
+        "zenn",
+        ZennGitHubAdapter,
+        dofollow=False,  # confirmed rel=nofollow noopener noreferrer (36/137)
+        rationale=_R["zenn"],
+        referral_value="high",  # top JP dev platform, DA ~90+, high referral traffic
+        **ZENN_MANIFEST,
+    )
+
+# Auto-invoke at import so the import-side-effect contract the ~50 CLI entrypoints
+# rely on is preserved; the facade / explicit callers re-invoke harmlessly.
+register_all_adapters()
 
 
 def publish(
