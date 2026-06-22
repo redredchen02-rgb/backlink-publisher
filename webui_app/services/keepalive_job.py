@@ -34,6 +34,9 @@ from typing import Any, Callable
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.events import EventStore
+from backlink_publisher.events._project_helpers import (  # noqa: F401 — re-exported; core home is events._project_helpers
+    _ensure_article,
+)
 from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
 from backlink_publisher.recheck.probe import recheck_link
 
@@ -58,43 +61,9 @@ from ._keepalive_engine import (  # noqa: F401 — re-exported for backward comp
 
 
 # ── Helpers that stay here (tests patch keepalive_job.recheck_link) ───────────
-
-
-def _ensure_article(store: EventStore, *, live_url: str, target_url, host, platform) -> int | None:
-    """Return the ``article_id`` for ``live_url``, registering the republished link
-    as a tracked article if it isn't one yet.
-
-    The keep-alive scorecard authority (``derive_per_target_status``) filters
-    ``article_id IS NOT NULL``, so a recheck on a brand-new republished link is
-    invisible until that link is a real article. Idempotent: a duplicate
-    ``live_url`` reuses the existing row. Never raises — returns ``None`` on an
-    empty url or any store failure (the verdict is still emitted, just unkeyed)."""
-    if not live_url:
-        return None
-    import sqlite3
-
-    from backlink_publisher._util.url import canonicalize_url
-    from backlink_publisher.events._project_helpers import article_payload
-
-    try:
-        # article_payload → canonicalize_url raises ValueError on a malformed port
-        # (mirrors the guard at gap.engine.plan_keepalive_gap); keep it INSIDE the
-        # try so a bad live_url returns None per the contract and the verdict is
-        # still emitted unkeyed — never a raise that drops the recheck entirely.
-        art = article_payload(live_url=live_url, target_url=target_url, host=host)
-        art["platform"] = platform
-        return store.add_article(art)
-    except sqlite3.IntegrityError:
-        try:
-            rows = list(store.query(
-                "SELECT article_id FROM articles WHERE live_url = ?",
-                (canonicalize_url(live_url),),
-            ))
-            return rows[0]["article_id"] if rows else None
-        except Exception:  # noqa: BLE001
-            return None
-    except Exception:  # noqa: BLE001
-        return None
+# NOTE: _ensure_article moved to backlink_publisher.events._project_helpers
+# (core home) and is re-exported above; tests call keepalive_job._ensure_article
+# directly, which resolves via that re-export.
 
 
 def _default_reverify(result: dict, store: EventStore) -> dict:

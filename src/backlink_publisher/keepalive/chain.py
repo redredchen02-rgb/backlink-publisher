@@ -138,7 +138,7 @@ def _default_reverify(result: dict, store) -> dict:
     verdict = recheck_link(record, probe=True, timeout=_PER_TARGET_TIMEOUT)
     # Register article so the confirming recheck carries an article_id.
     try:
-        from webui_app.services.keepalive_job import _ensure_article
+        from backlink_publisher.events._project_helpers import _ensure_article
         article_id = _ensure_article(
             store, live_url=url, target_url=target,
             host=record["host"], platform=platform,
@@ -267,7 +267,7 @@ def run_cycle(
     from backlink_publisher.events import EventStore
     from backlink_publisher.gap.engine import GapOptions, plan_keepalive_gap
     from backlink_publisher.keepalive.run_state import KeepaliveRunState
-    from webui_app.services.keepalive_job import RUNTIME_STICKY_PLATFORMS
+    from backlink_publisher.keepalive.sticky import RUNTIME_STICKY_PLATFORMS
 
     _log = get_logger("keepalive")
 

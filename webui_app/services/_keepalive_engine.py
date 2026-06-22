@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from backlink_publisher.events import EventStore
+from backlink_publisher.keepalive.sticky import RUNTIME_STICKY_PLATFORMS
 from backlink_publisher.recheck import selection
 from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
 from backlink_publisher.recheck.probe import recheck_link
@@ -29,8 +30,10 @@ from backlink_publisher.recheck.probe import recheck_link
 #: suspended, so the runtime republish default is blogger-only. The engine
 #: constant stays {blogger, ghpages}; the job narrows it. Public alias so the
 #: scorecard view derives the SAME gap set the job will publish (no S2↔S3 drift).
-_RUNTIME_STICKY = ("blogger",)
-RUNTIME_STICKY_PLATFORMS = _RUNTIME_STICKY
+#: Single source of truth is backlink_publisher.keepalive.sticky (core) so
+#: keepalive/chain.py reads it without importing webui_app; _RUNTIME_STICKY
+#: aliases the imported value to keep this module's existing internal name.
+_RUNTIME_STICKY = RUNTIME_STICKY_PLATFORMS
 
 #: A worker exception or a probe that raises is recorded as this verdict —
 #: "check-failed", never a gap (R1-a; the gap engine excludes probe_error).

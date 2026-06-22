@@ -222,3 +222,44 @@ def article_payload(
     if published_at_utc is not None:
         payload["published_at_utc"] = published_at_utc
     return payload
+
+
+def _ensure_article(
+    store: EventStore, *, live_url: str, target_url, host, platform
+) -> int | None:
+    """Return the ``article_id`` for ``live_url``, registering the republished link
+    as a tracked article if it isn't one yet.
+
+    The keep-alive scorecard authority (``derive_per_target_status``) filters
+    ``article_id IS NOT NULL``, so a recheck on a brand-new republished link is
+    invisible until that link is a real article. Idempotent: a duplicate
+    ``live_url`` reuses the existing row. Never raises — returns ``None`` on an
+    empty url or any store failure (the verdict is still emitted, just unkeyed).
+
+    Core home (moved from ``webui_app/services/keepalive_job.py`` to break the
+    ``keepalive/chain.py`` → ``webui_app`` reverse import); ``keepalive_job``
+    re-exports this name for backward compat.
+    """
+    if not live_url:
+        return None
+    import sqlite3
+
+    try:
+        # article_payload → canonicalize_url raises ValueError on a malformed port
+        # (mirrors the guard at gap.engine.plan_keepalive_gap); keep it INSIDE the
+        # try so a bad live_url returns None per the contract and the verdict is
+        # still emitted unkeyed — never a raise that drops the recheck entirely.
+        art = article_payload(live_url=live_url, target_url=target_url, host=host)
+        art["platform"] = platform
+        return store.add_article(art)
+    except sqlite3.IntegrityError:
+        try:
+            rows = list(store.query(
+                "SELECT article_id FROM articles WHERE live_url = ?",
+                (canonicalize_url(live_url),),
+            ))
+            return rows[0]["article_id"] if rows else None
+        except Exception:  # noqa: BLE001
+            return None
+    except Exception:  # noqa: BLE001
+        return None
