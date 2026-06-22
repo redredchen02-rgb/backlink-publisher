@@ -7,7 +7,8 @@ Maps consolidated in ``webui_app.services.credential_service`` (U3b):
   - ``_PASTE_BLOB_CHANNELS``     (auth_type "paste_blob")
   - ``_USERPASS_CRED_BASENAMES`` (auth_type "userpass")
 
-Plus ``channel_bind_save._SKIP_CHANNELS`` (dedicated-route guard, in route).
+Plus ``channel_bind_api._SKIP_CHANNELS`` (dedicated-route guard; moved into the
+ChannelBindAPI facade in Plan 2026-06-18-002 U7).
 
 Authority is SUBSET, not equality.
 """
@@ -21,7 +22,7 @@ from backlink_publisher.publishing.registry import (
     active_platforms,
     platforms_by_auth_type,
 )
-from webui_app.routes.channel_bind_save import _SKIP_CHANNELS
+from webui_app.api.channel_bind_api import _SKIP_CHANNELS
 from webui_app.services.credential_service import (
     _PASTE_BLOB_CHANNELS,
     _TOKEN_DISPATCH,

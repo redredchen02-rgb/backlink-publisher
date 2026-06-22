@@ -107,8 +107,8 @@ def client(cfg_dir, monkeypatch):
 
 
 def test_route_persists_last_test_on_success(client):
-    with patch("webui_app.routes.llm._guard_llm_endpoint", return_value=(None, None)), \
-         patch("webui_app.routes.llm._safe_get_json",
+    with patch("webui_app.api.llm_diagnostics_api._guard_llm_endpoint", return_value=(None, None)), \
+         patch("webui_app.api.llm_diagnostics_api._safe_get_json",
                return_value=(200, {"data": [{"id": "gpt-4"}]})):
         resp = client.post("/settings/test-llm-connection", data={
             "endpoint": "https://api.example.com/v1",
@@ -123,9 +123,9 @@ def test_route_persists_last_test_on_success(client):
 
 
 def test_route_persists_failed_outcome(client):
-    with patch("webui_app.routes.llm._guard_llm_endpoint", return_value=(None, None)), \
-         patch("webui_app.routes.llm._safe_get_json", return_value=(500, {})), \
-         patch("webui_app.routes.llm._safe_post_json", return_value=(500, {})):
+    with patch("webui_app.api.llm_diagnostics_api._guard_llm_endpoint", return_value=(None, None)), \
+         patch("webui_app.api.llm_diagnostics_api._safe_get_json", return_value=(500, {})), \
+         patch("webui_app.api.llm_diagnostics_api._safe_post_json", return_value=(500, {})):
         resp = client.post("/settings/test-llm-connection", data={
             "endpoint": "https://api.example.com/v1",
             "api_key": "sk-test",
@@ -139,8 +139,8 @@ def test_route_persists_failed_outcome(client):
 
 def test_route_write_failure_does_not_break_response(client):
     """Persistence is best-effort: a record failure must not 500 the test."""
-    with patch("webui_app.routes.llm._guard_llm_endpoint", return_value=(None, None)), \
-         patch("webui_app.routes.llm._safe_get_json",
+    with patch("webui_app.api.llm_diagnostics_api._guard_llm_endpoint", return_value=(None, None)), \
+         patch("webui_app.api.llm_diagnostics_api._safe_get_json",
                return_value=(200, {"data": []})), \
          patch("webui_app.services.settings_service.record_llm_test_result",
                side_effect=OSError("disk full")):

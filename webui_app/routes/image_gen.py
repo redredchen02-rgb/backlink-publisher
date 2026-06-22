@@ -1,197 +1,36 @@
 """Image-gen settings routes — Plan 2026-05-20-001 Unit 6.
 
-Provides:
+Thin HTML bindings; the connectivity probe + sample-generation logic was moved to
+the single-source ``ImageGenDiagnosticsAPI`` facade (Plan 2026-06-18-002 U7) and is
+shared with the ``/api/v1/settings/image-gen/*`` JSON routes.
+
   * ``/settings/test-image-gen`` — connectivity probe (no generation cost).
   * ``/settings/generate-sample-image`` — real generation call; returns the
     image as a base64 data-URL for preview in the settings UI.
-
-Provider dispatch:
-  * ``provider="openai"`` (default) — ``GET <base_url>/models`` probe
-    (cheapest OpenAI-compatible endpoint that doesn't bill for generation).
-  * ``provider="frw"`` — ``GET <base_url>/api/frwapi/v1/balance`` probe
-    using ``X-Api-Key`` header (FRW native API, returns credit balance).
 """
 
 from __future__ import annotations
 
-import base64
-
 from flask import Blueprint, jsonify, request
 
-from backlink_publisher._util.errors import ExternalServiceError
-from backlink_publisher._util.http_client import http_client
+# Re-export for the lift-parity tests: ``patch("...routes.image_gen.http_client.get")``
+# patches the shared singleton the facade probes call (same object via either
+# namespace), so the legacy probe tests keep working after the move to the facade.
+from backlink_publisher._util.http_client import http_client  # noqa: F401
 
-from ..helpers._request_cache import _g_cache
+from ..api.image_gen_diagnostics_api import ImageGenDiagnosticsAPI
 
 bp = Blueprint("image_gen", __name__)
-
-
-def _probe_openai(base_url: str, api_key: str, model: str) -> dict:
-    """Probe OpenAI-compatible gateway via GET /models."""
-    headers = {"Authorization": f"Bearer {api_key}"}
-    try:
-        resp = http_client.get(
-            f"{base_url}/models",
-            headers=headers,
-            timeout=10,
-            raise_for_status=False,
-            allow_private=True,
-        )
-    except ExternalServiceError as exc:
-        return {"ok": False, "error": f"network error: {exc}"}
-
-    if resp.status_code == 401:
-        return {"ok": False, "error": "auth_failed: api_key rejected — rotate via `frw-login`"}
-    if resp.status_code == 200:
-        try:
-            payload = resp.json()
-            if isinstance(payload, dict) and "data" in payload:
-                return {"ok": True, "model_count": len(payload["data"]), "configured_model": model}
-        except Exception:
-            pass
-        return {"ok": True, "model_count": 0, "configured_model": model}
-    if resp.status_code == 404:
-        # Gateway reachable but doesn't expose /models (common with private
-        # OpenAI-compatible proxies). Report ok — auth is implicitly valid
-        # since a real 401 would have been returned instead.
-        return {"ok": True, "configured_model": model, "note": "endpoint reachable (no /models)"}
-    return {"ok": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
-
-
-def _probe_frw(base_url: str, api_key: str, model: str) -> dict:
-    """Probe FRW native API via GET /api/frwapi/v1/balance (X-Api-Key auth)."""
-    headers = {"X-Api-Key": api_key}
-    try:
-        resp = http_client.get(
-            f"{base_url}/api/frwapi/v1/balance",
-            headers=headers,
-            timeout=10,
-            raise_for_status=False,
-            allow_private=True,
-        )
-    except ExternalServiceError as exc:
-        return {"ok": False, "error": f"network error: {exc}"}
-
-    if resp.status_code == 401:
-        return {"ok": False, "error": "auth_failed: api_key rejected — rotate via `frw-login`"}
-    if resp.status_code == 403:
-        return {"ok": False, "error": "forbidden: key disabled, expired, or IP not whitelisted"}
-    if resp.status_code == 200:
-        try:
-            payload = resp.json()
-            data = payload.get("data") or {}
-            credits = data.get("creditsRemaining")
-            return {
-                "ok": True,
-                "configured_model": model,
-                "frw_credits_remaining": credits,
-            }
-        except Exception:
-            pass
-        return {"ok": True, "configured_model": model}
-    return {"ok": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
 
 
 @bp.route("/settings/test-image-gen", methods=["POST"])
 def settings_test_image_gen():
     """Probe the configured image-gen endpoint and return connection status."""
-    try:
-        from backlink_publisher.config import load_config
-        from backlink_publisher._util.secrets import load_frw_token
-
-        try:
-            cfg = _g_cache('config', load_config)
-        except Exception as exc:
-            return jsonify({"ok": False, "error": f"load_config failed: {exc}"}), 200
-
-        if cfg.image_gen is None:
-            return jsonify({
-                "ok": False,
-                "error": "no_image_gen_section: add [image_gen] to config.toml first",
-            }), 200
-
-        try:
-            api_key = load_frw_token()
-        except RuntimeError as exc:
-            return jsonify({"ok": False, "error": f"no_token: {exc}"}), 200
-
-        base_url = cfg.image_gen.base_url.rstrip("/")
-        model = cfg.image_gen.model
-        provider = getattr(cfg.image_gen, "provider", "openai")
-
-        if provider == "frw":
-            result = _probe_frw(base_url, api_key, model)
-        else:
-            result = _probe_openai(base_url, api_key, model)
-
-        return jsonify(result), 200
-    except Exception as exc:
-        return jsonify({"ok": False, "error": f"unexpected: {exc}"}), 200
-
-
-_SAMPLE_PROMPT = (
-    "Professional article banner image, clean gradient background, "
-    "modern typography style, blue and white color scheme, "
-    "wide format 1200x630"
-)
+    return jsonify(ImageGenDiagnosticsAPI().test_connection().payload), 200
 
 
 @bp.route("/settings/generate-sample-image", methods=["POST"])
 def settings_generate_sample_image():
-    """Generate a real test banner and return it as a base64 data-URL.
-
-    Costs one API call.  The frontend shows the result inline so the
-    operator can confirm prompt→image quality before enabling
-    use_image_gen in config.toml.
-    """
-    try:
-        from backlink_publisher.config import load_config
-        from backlink_publisher._util.secrets import load_frw_token
-
-        try:
-            cfg = _g_cache('config', load_config)
-        except Exception as exc:
-            return jsonify({"ok": False, "error": f"load_config failed: {exc}"}), 200
-
-        if cfg.image_gen is None:
-            return jsonify({
-                "ok": False,
-                "error": "no_image_gen_section: add [image_gen] to config.toml first",
-            }), 200
-
-        try:
-            api_key = load_frw_token()
-        except RuntimeError as exc:
-            return jsonify({"ok": False, "error": f"no_token: {exc}"}), 200
-
-        payload = request.get_json(silent=True) or {}
-        prompt = (payload.get("prompt") or "").strip() or _SAMPLE_PROMPT
-
-        from backlink_publisher.publishing.adapters.image_gen import ImageGenAdapter
-
-        adapter = ImageGenAdapter(
-            base_url=cfg.image_gen.base_url,
-            model=cfg.image_gen.model,
-            banner_size=cfg.image_gen.banner_size,
-            api_key=api_key,
-            timeout_s=cfg.image_gen.timeout_s,
-            max_retries=cfg.image_gen.max_retries,
-            provider=getattr(cfg.image_gen, "provider", "openai"),
-            frw_template_id=getattr(cfg.image_gen, "frw_template_id", ""),
-        )
-
-        artifact = adapter.generate(prompt)
-        b64 = base64.b64encode(artifact.data).decode("ascii")
-        data_url = f"data:{artifact.mime};base64,{b64}"
-
-        return jsonify({
-            "ok": True,
-            "data_url": data_url,
-            "mime": artifact.mime,
-            "size_kb": round(len(artifact.data) / 1024, 1),
-            "prompt": prompt,
-            "source_url": artifact.source_url,
-        }), 200
-
-    except Exception as exc:
-        return jsonify({"ok": False, "error": f"generate failed: {exc}"}), 200
+    """Generate a real test banner and return it as a base64 data-URL (one API call)."""
+    body = request.get_json(silent=True) or {}
+    return jsonify(ImageGenDiagnosticsAPI().generate_sample(body).payload), 200

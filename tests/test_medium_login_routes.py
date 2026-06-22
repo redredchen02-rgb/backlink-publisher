@@ -575,7 +575,10 @@ class TestMediumRedirectSanitization:
         client, token = csrf_client
         def _boom(_cfg):
             raise DependencyError(_HOSTILE_MSG)
-        monkeypatch.setattr("webui_app.routes.medium_login.launch_login_window", _boom)
+        # Dispatch moved to the MediumLoginAPI facade — patch the name it resolves
+        # through. The route still sanitizes the (facade-produced) message via
+        # _safe_flash_redirect, which is what this asserts.
+        monkeypatch.setattr("webui_app.api.medium_login_api.launch_login_window", _boom)
         resp = client.post("/settings/medium/launch-browser-login",
                            data={"csrf_token": token}, headers=_origin_headers())
         assert resp.status_code == 302
@@ -585,7 +588,7 @@ class TestMediumRedirectSanitization:
         client, token = csrf_client
         def _boom(_cfg):
             raise RuntimeError(_HOSTILE_MSG)
-        monkeypatch.setattr("webui_app.routes.medium_login.clear_browser_profile", _boom)
+        monkeypatch.setattr("webui_app.api.medium_login_api.clear_browser_profile", _boom)
         resp = client.post("/settings/medium/clear-browser-login",
                            data={"csrf_token": token}, headers=_origin_headers())
         assert resp.status_code == 302
@@ -595,7 +598,7 @@ class TestMediumRedirectSanitization:
         client, token = csrf_client
         def _probe(_cfg):
             return {"logged_in": True, "username": _HOSTILE_MSG}
-        monkeypatch.setattr("webui_app.routes.medium_login.probe_login_status", _probe)
+        monkeypatch.setattr("webui_app.api.medium_login_api.probe_login_status", _probe)
         resp = client.post("/settings/medium/probe-browser-login",
                            data={"csrf_token": token}, headers=_origin_headers())
         assert resp.status_code == 302

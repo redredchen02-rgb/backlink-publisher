@@ -8,7 +8,7 @@ models. Wire format is snake_case; timestamps are RFC 3339 UTC; ids are strings.
 
 from __future__ import annotations
 
-from marshmallow import Schema, fields
+from marshmallow import INCLUDE, Schema, fields
 
 
 class HealthSchema(Schema):
@@ -307,6 +307,420 @@ class DraftScheduleRequestSchema(Schema):
 
 class DraftIdsRequestSchema(Schema):
     ids = fields.List(fields.String(), required=True)
+
+
+# ── work-themed sites config — Plan 2026-06-18-002 U7 ───────────────────────
+
+
+class SiteItemSchema(Schema):
+    """One configured site row with live autopilot status (SitesAPI.list_sites)."""
+
+    label = fields.String(required=True)
+    main_url = fields.String(required=True)
+    autopilot_enabled = fields.Boolean(required=True)
+    autopilot_interval = fields.Integer(
+        required=True, metadata={"description": "Seconds between autopilot runs."}
+    )
+    alert_pending = fields.Boolean(required=True)
+    next_run_time_iso = fields.String(
+        allow_none=True, metadata={"description": "ISO-8601 next autopilot run, or null."}
+    )
+
+
+class SiteListSchema(Schema):
+    items = fields.List(fields.Nested(SiteItemSchema), required=True)
+
+
+class SiteFormSchema(Schema):
+    """Edit-prefill payload for an existing site (textarea-joined pools)."""
+
+    main_url = fields.String(required=True)
+    list_url = fields.String()
+    work_urls = fields.String()
+    branded_pool = fields.String()
+    partial_pool = fields.String()
+    exact_pool = fields.String()
+    work_anchor_templates = fields.String()
+    count = fields.String()
+    insecure_tls = fields.Boolean()
+
+
+class SiteFormEnvelopeSchema(Schema):
+    """``{form: …|null}`` — null when the requested domain is not configured."""
+
+    form = fields.Nested(SiteFormSchema, allow_none=True, required=True)
+
+
+class SiteWidgetsSchema(Schema):
+    """Read-only side panels: plan-gap weekly summary + citation-share alert."""
+
+    plan_gap = fields.Dict(
+        required=True, metadata={"description": "status: ok|missing|invalid (+counts)."}
+    )
+    citation_alert = fields.Dict(
+        allow_none=True, metadata={"description": "{ts} when share is low, else null."}
+    )
+
+
+class SiteSaveRequestSchema(Schema):
+    """Three-URL config inputs. Blank optional pools are server-derived."""
+
+    main_url = fields.String(
+        required=True, metadata={"description": "https + host-root + single trailing slash."}
+    )
+    list_url = fields.String(load_default="")
+    work_urls = fields.String(load_default="", metadata={"description": "Newline-separated."})
+    branded_pool = fields.String(load_default="")
+    partial_pool = fields.String(load_default="")
+    exact_pool = fields.String(load_default="")
+    work_anchor_templates = fields.String(load_default="")
+    count = fields.String(load_default="10")
+    insecure_tls = fields.Boolean(load_default=False)
+
+
+class SiteSaveResultSchema(Schema):
+    """Save outcome + refreshed list. ``autofilled`` names server-derived fields."""
+
+    ok = fields.Boolean(required=True)
+    saved_domain = fields.String(required=True)
+    autofilled = fields.List(fields.String(), required=True)
+    items = fields.List(fields.Nested(SiteItemSchema), required=True)
+
+
+class SiteAutopilotRequestSchema(Schema):
+    site_url = fields.String(required=True)
+    enabled = fields.Boolean(required=True)
+    interval_seconds = fields.Integer(
+        load_default=86400, metadata={"description": "3600 (1h) … 2592000 (30d) when enabled."}
+    )
+
+
+class SiteAutopilotResultSchema(Schema):
+    """Autopilot toggle outcome + refreshed list."""
+
+    ok = fields.Boolean(required=True)
+    site_url = fields.String(required=True)
+    enabled = fields.Boolean(required=True)
+    next_run_time = fields.String(allow_none=True)
+    last_run = fields.Raw(allow_none=True)
+    items = fields.List(fields.Nested(SiteItemSchema), required=True)
+
+
+class ScrapePreviewSchema(Schema):
+    """Work-URL metadata probe. ``status`` is ok|error; fields present on ok only."""
+
+    status = fields.String(required=True, metadata={"description": "ok | error."})
+    title = fields.String()
+    description = fields.String()
+    h1 = fields.String()
+    reason = fields.String(metadata={"description": "Failure reason (status=error)."})
+
+
+# ── settings credential writes (security core) — Plan 2026-06-18-002 U7 ─────
+
+
+class TokenSaveRequestSchema(Schema):
+    """Paste-token save/clear. ``clear=true`` removes the credential file."""
+
+    token = fields.String(metadata={"description": "Secret token (omit when clearing)."})
+    clear = fields.Boolean(load_default=False)
+
+
+class NotionTokenRequestSchema(Schema):
+    """Notion credential (two fields), or ``clear=true`` to remove."""
+
+    integration_token = fields.String()
+    database_id = fields.String()
+    clear = fields.Boolean(load_default=False)
+
+
+class CredentialResultSchema(Schema):
+    """Outcome of a credential write/clear. Never echoes the secret."""
+
+    ok = fields.Boolean(required=True)
+    cleared = fields.Boolean()
+    message = fields.String()
+
+
+class ChannelCredentialRequestSchema(Schema):
+    """Registry-dispatched channel credential write (the general bind-save).
+
+    The body is heterogeneous — the channel's registered ``auth_type`` selects
+    which inputs apply: ``token`` (token), the per-field set (token_fields, e.g.
+    ``site`` / ``api_key`` / ``blog_id`` — sent as extra keys), ``blob`` (the
+    cookie JSON as a string, for paste_blob), or ``username``+``password``
+    (userpass). ``clear=true`` removes the credential file. Extra keys are
+    allowed for the dynamic token_fields case.
+    """
+
+    class Meta:
+        unknown = INCLUDE
+
+    auth_type = fields.String(
+        metadata={"description": "Optional; cross-checked against the registry."}
+    )
+    clear = fields.Boolean(load_default=False)
+    token = fields.String(metadata={"description": "token auth_type."})
+    blob = fields.String(metadata={"description": "paste_blob: cookie JSON as text."})
+    username = fields.String(metadata={"description": "userpass auth_type."})
+    password = fields.String(metadata={"description": "userpass auth_type."})
+
+
+# ── channel browser-bind flow — Plan 2026-06-18-002 U7 ──────────────────────
+
+
+class BindStartResultSchema(Schema):
+    """A launched bind job."""
+
+    job_id = fields.String(required=True)
+    channel = fields.String(required=True)
+    status = fields.String(required=True, metadata={"description": "Always 'running' on launch."})
+
+
+class BindPollResultSchema(Schema):
+    """Bind-job snapshot. Free-form lifecycle fields (status / events / message)
+    surfaced from the job registry; additional keys may appear per phase."""
+
+    class Meta:
+        unknown = INCLUDE
+
+    channel = fields.String(required=True)
+    status = fields.String(metadata={"description": "running / done / failed / …"})
+
+
+class BindResolveResultSchema(Schema):
+    """Outcome of an identity-mismatch resolution."""
+
+    resolved = fields.String(
+        required=True,
+        metadata={"description": "keep → kept|expired|noop; replace → replaced."},
+    )
+
+
+class BloggerOAuthRequestSchema(Schema):
+    """Blogger Client ID / Secret save. A blank ``client_secret`` preserves the
+    stored value (the start→callback OAuth redirect handshake stays legacy)."""
+
+    client_id = fields.String()
+    client_secret = fields.String(
+        metadata={"description": "Blank preserves the stored secret."}
+    )
+
+
+class LlmConfigRequestSchema(Schema):
+    """LLM / image-gen settings save. ``{"action": "clear"}`` resets to defaults.
+    Endpoints must be https; blank secrets preserve the stored value; the checkbox
+    fields are real JSON booleans. Extra keys (image_gen_*) are allowed."""
+
+    class Meta:
+        unknown = INCLUDE
+
+    action = fields.String(metadata={"description": '"clear" resets to defaults.'})
+    endpoint = fields.String(metadata={"description": "Must be https:// (or blank)."})
+    api_key = fields.String(metadata={"description": "0600 secret; blank preserves stored."})
+    model = fields.String()
+    temperature = fields.Float()
+    system_prompt = fields.String()
+    use_article_gen = fields.Boolean()
+    article_system_prompt = fields.String()
+    use_image_gen = fields.Boolean(
+        metadata={"description": "Requires image_gen_endpoint (https) + image_gen_model."}
+    )
+
+
+class LlmConfigViewSchema(Schema):
+    """Redaction-safe LLM/image-gen settings for the SPA form to hydrate. The two
+    secrets (api_key / image_gen_api_key) are exposed ONLY as ``has_*`` booleans —
+    never the key — so a blank submit preserves the stored value."""
+
+    endpoint = fields.String()
+    model = fields.String()
+    temperature = fields.Float()
+    system_prompt = fields.String()
+    article_system_prompt = fields.String()
+    use_article_gen = fields.Boolean()
+    use_image_gen = fields.Boolean()
+    image_gen_endpoint = fields.String()
+    image_gen_model = fields.String()
+    image_gen_banner_size = fields.String()
+    has_api_key = fields.Boolean(metadata={"description": "True if a key is stored (the key itself is never returned)."})
+    has_image_gen_api_key = fields.Boolean()
+
+
+class LlmTestConnectionRequestSchema(Schema):
+    """Connection probe inputs; blank fields fall back to the stored settings."""
+
+    endpoint = fields.String()
+    api_key = fields.String()
+    model = fields.String()
+
+
+class LlmTestGenerationRequestSchema(Schema):
+    """Generation-preview input."""
+
+    test_title = fields.String(metadata={"description": "Topic/keyword for the preview."})
+
+
+class LlmDiagnosticResultSchema(Schema):
+    """LLM diagnostic outcome. ``status`` ∈ ok|failed|error is what the client
+    branches on (NOT an RFC 9457 problem — a failed test is a successful call that
+    reports a failed probe)."""
+
+    status = fields.String(required=True)
+    message = fields.String()
+    models = fields.List(fields.String())
+    result = fields.String()
+    reason = fields.String(metadata={"description": "Structured rejection reason on a failed probe."})
+
+
+class ImageGenGenerateSampleRequestSchema(Schema):
+    """Sample-banner generation input. Endpoint/model/token come from config.toml
+    [image_gen] — only the (optional) prompt is supplied per request."""
+
+    prompt = fields.String(
+        metadata={"description": "Overrides the default banner prompt; blank uses it."}
+    )
+
+
+class ImageGenDiagnosticResultSchema(Schema):
+    """Image-gen diagnostic outcome. ``ok`` is what the client branches on (NOT an
+    RFC 9457 problem — a failed probe is a successful call that reports a failure).
+    The probe (test-connection) and the generation (generate-sample) share this
+    envelope; only the populated keys differ."""
+
+    ok = fields.Boolean(required=True)
+    error = fields.String(metadata={"description": "Failure reason (probe/generate failed)."})
+    # connectivity probe
+    model_count = fields.Integer()
+    configured_model = fields.String()
+    note = fields.String()
+    frw_credits_remaining = fields.Float(metadata={"description": "FRW provider credit balance."})
+    # sample generation
+    data_url = fields.String(metadata={"description": "base64 data-URL of the generated banner."})
+    mime = fields.String()
+    size_kb = fields.Float()
+    prompt = fields.String()
+    source_url = fields.String()
+
+
+class MediumLoginResultSchema(Schema):
+    """Medium browser-login action outcome. ``level`` (success|info|warning|danger)
+    is what the client branches on (NOT an RFC 9457 problem — a failed launch/probe
+    is a successful call reporting an operational result). No request body — the
+    launch/probe/clear actions take no inputs."""
+
+    level = fields.String(required=True)
+    message = fields.String(required=True)
+    logged_in = fields.Boolean(
+        allow_none=True,
+        metadata={"description": "Resulting publish-gating state; null = unchanged (error)."},
+    )
+
+
+class KeywordPoolsRequestSchema(Schema):
+    """Per-domain SEO anchor keyword pools. Each list holds raw keyword strings;
+    the server strips blanks, rejects any keyword >60 chars (422), and de-dups."""
+
+    pools = fields.Dict(
+        keys=fields.String(),
+        values=fields.List(fields.String()),
+        required=True,
+        metadata={"description": "{ '<domain>': ['keyword', ...] }"},
+    )
+
+
+class ScheduleSettingsRequestSchema(Schema):
+    """Publish-cadence settings. Both are clamped server-side (interval >=0.5h,
+    jitter >=0min). Doubles as the GET hydration response."""
+
+    min_interval_hours = fields.Float(metadata={"description": "Min hours between publishes (>=0.5)."})
+    jitter_minutes = fields.Integer(metadata={"description": "Random jitter, minutes (>=0)."})
+
+
+class KeywordPoolsViewSchema(Schema):
+    """GET hydration for the keyword-pool editor: the known target domains plus
+    each domain's current pool ({domain: [keyword, ...]})."""
+
+    targets = fields.List(fields.String(), required=True,
+                          metadata={"description": "Known target domains to show an editor for."})
+    pools = fields.Dict(keys=fields.String(), values=fields.List(fields.String()), required=True)
+
+
+# ── campaign profiles (preset CRUD) — Plan 2026-06-18-002 U7 ────────────────
+
+
+class ProfileItemSchema(Schema):
+    """One saved campaign profile (name-keyed publish preset)."""
+
+    name = fields.String(required=True)
+    platform = fields.String()
+    language = fields.String()
+    url_mode = fields.String()
+    publish_mode = fields.String()
+
+
+class ProfileListSchema(Schema):
+    items = fields.List(fields.Nested(ProfileItemSchema), required=True)
+
+
+class ProfileSaveRequestSchema(Schema):
+    name = fields.String(required=True)
+    platform = fields.String(load_default="blogger")
+    language = fields.String(load_default="zh-CN")
+    url_mode = fields.String(load_default="C")
+    publish_mode = fields.String(load_default="publish")
+
+
+class ProfileDeleteRequestSchema(Schema):
+    name = fields.String(required=True)
+
+
+# ── batch campaign creation — Plan 2026-06-18-002 U7 ────────────────────────
+
+
+class CampaignFormSchema(Schema):
+    """Creation-form bootstrap: platforms + connection-state partition (or null)."""
+
+    platforms = fields.List(fields.String(), required=True)
+    publish_partition = fields.Dict(
+        allow_none=True,
+        metadata={"description": "main/extension partition by connection state, or null."},
+    )
+
+
+class CampaignCreateRequestSchema(Schema):
+    """Campaign inputs. ``seeds`` is a newline-JSONL string (≤10, each seed_text)."""
+
+    seeds = fields.String(required=True)
+    platforms = fields.List(fields.String(), required=True)
+    mode = fields.String(load_default="draft", metadata={"description": "draft | publish."})
+    cap = fields.String(load_default="", metadata={"description": "Optional per-campaign cap."})
+    seed_delay = fields.String(load_default="0")
+
+
+class CampaignCreateResultSchema(Schema):
+    """New campaign id — the SPA navigates to /campaign/<id> progress next."""
+
+    campaign_id = fields.String(required=True)
+
+
+# ── scheduled drafts (read-only view) — Plan 2026-06-18-002 U7 ───────────────
+
+
+class ScheduledItemSchema(Schema):
+    """One scheduled-draft row (drafts_store, status=scheduled / has scheduled_at)."""
+
+    id = fields.String()
+    title = fields.String(metadata={"description": "Article title, or empty."})
+    target_url = fields.String()
+    platform = fields.String()
+    scheduled_at = fields.String(allow_none=True)
+    created_at = fields.String()
+    status = fields.String()
+
+
+class ScheduledListSchema(Schema):
+    items = fields.List(fields.Nested(ScheduledItemSchema), required=True)
 
 
 class ProblemErrorItemSchema(Schema):

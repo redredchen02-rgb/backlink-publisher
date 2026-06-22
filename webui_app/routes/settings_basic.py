@@ -6,15 +6,16 @@ routes consumed by the dashboard JS in Unit 5.
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, redirect, render_template, request
+from flask import Blueprint, abort, jsonify, render_template, request
 
 from backlink_publisher.config import load_config, save_config
 from backlink_publisher.publishing.adapters import verify_adapter_setup
 from backlink_publisher.publishing.registry import registered_platforms
 
+from ..api.global_settings_api import GlobalSettingsAPI
 from ..binding_status import get_channel_status
 from ..helpers._request_cache import _g_cache
-from ..helpers.contexts import _save_schedule_settings, _settings_context
+from ..helpers.contexts import _settings_context
 from ..helpers.security import _safe_flash_redirect
 
 bp = Blueprint("settings_basic", __name__)
@@ -96,60 +97,28 @@ def api_channel_dry_run(channel: str):
 
 @bp.route('/settings/save-target-keywords', methods=['POST'])
 def settings_save_target_keywords():
-    """Save SEO anchor keyword pools for all target domains."""
+    """Save SEO anchor keyword pools for all target domains. Validation / de-dup /
+    persistence is single-sourced in :class:`GlobalSettingsAPI`; this only adapts
+    the form-indexed fields into the neutral per-domain pools mapping."""
     try:
         count = int(request.form.get('domain_count', 0))
-        new_pools: dict[str, list[str]] = {}
-        dup_warnings: list[str] = []
-
+        pools: dict[str, list[str]] = {}
         for i in range(1, count + 1):
             domain = request.form.get(f'domain_{i}', '').strip()
-            raw = request.form.get(f'keywords_{i}', '')
             if not domain:
                 continue
-
-            lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
-            invalid = [ln for ln in lines if len(ln) > 60]
-            if invalid:
-                return redirect(
-                    f'/settings?flash_type=danger&flash_msg='
-                    f'关键词过长（>60字符）: {invalid[0][:30]}…'
-                )
-
-            seen: set[str] = set()
-            deduped: list[str] = []
-            for kw in lines:
-                if kw in seen:
-                    dup_warnings.append(domain)
-                else:
-                    seen.add(kw)
-                    deduped.append(kw)
-
-            new_pools[domain] = deduped
-
-        save_config(load_config(), target_anchor_keywords=new_pools,
-                    target_three_url=None)
-        msg = '关键词已保存'
-        if dup_warnings:
-            msg += f'（已自动去重 {len(set(dup_warnings))} 个域名）'
-        return _safe_flash_redirect('/settings', flash_type='success', msg=msg)
+            pools[domain] = request.form.get(f'keywords_{i}', '').splitlines()
     except Exception as e:
         return _safe_flash_redirect('/settings', flash_type='danger', msg=f'保存失败: {e}')
+    r = GlobalSettingsAPI().save_keywords(pools)
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/settings/schedule', methods=['POST'])
 def settings_schedule_save():
-    """Save schedule interval settings."""
-    try:
-        min_hours = float(request.form.get('min_interval_hours', 4))
-        jitter_mins = int(request.form.get('jitter_minutes', 30))
-        _save_schedule_settings({
-            'min_interval_hours': max(0.5, min_hours),
-            'jitter_minutes': max(0, jitter_mins),
-        })
-        return _safe_flash_redirect('/settings', flash_type='success', msg='排程设定已保存')
-    except Exception as e:
-        return _safe_flash_redirect('/settings', flash_type='danger', msg=f'保存失败: {e}')
+    """Save schedule interval settings (parse / clamp / persist single-sourced)."""
+    r = GlobalSettingsAPI().save_schedule(request.form)
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/settings/save-blog-ids', methods=['POST'])

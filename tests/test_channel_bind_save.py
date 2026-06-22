@@ -280,9 +280,11 @@ def test_token_fields_round_trip(client, tmp_path, monkeypatch):
 
     csrf = _seed_csrf(client)
     with pytest.MonkeyPatch().context() as mp:
-        # Bypass SSRF DNS resolution for test domain
+        # Bypass SSRF DNS resolution for test domain. The SSRF gate moved into
+        # the facade (Plan 2026-06-18-002 U7), so patch it there — behaviour
+        # assertion below (both fields round-trip) is unchanged.
         mp.setattr(
-            "webui_app.routes.channel_bind_save._check_url_for_ssrf",
+            "webui_app.api.channel_bind_api._check_url_for_ssrf",
             lambda url: None,
         )
         resp = _post(client, {

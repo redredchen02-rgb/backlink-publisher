@@ -121,8 +121,8 @@ class TestSaveBloggerOauth:
         csrf = _seed_csrf(client)
         cfg = MagicMock()
         cfg.blogger_oauth = None
-        with patch("webui_app.routes.oauth.load_config", return_value=cfg), \
-                patch("webui_app.routes.oauth.save_config") as save:
+        with patch("webui_app.api.oauth_api.load_config", return_value=cfg), \
+                patch("webui_app.api.oauth_api.save_config") as save:
             resp = _post(client, self.PATH,
                          {"client_id": "cid-123", "client_secret": "secret-xyz"},
                          csrf=csrf)
@@ -139,8 +139,8 @@ class TestSaveBloggerOauth:
         csrf = _seed_csrf(client)
         cfg = MagicMock()
         cfg.blogger_oauth.client_secret = _STORED_CLIENT_VALUE
-        with patch("webui_app.routes.oauth.load_config", return_value=cfg), \
-                patch("webui_app.routes.oauth.save_config") as save:
+        with patch("webui_app.api.oauth_api.load_config", return_value=cfg), \
+                patch("webui_app.api.oauth_api.save_config") as save:
             resp = _post(client, self.PATH,
                          {"client_id": "cid-123", "client_secret": ""},
                          csrf=csrf)
@@ -153,8 +153,8 @@ class TestSaveBloggerOauth:
         csrf = _seed_csrf(client)
         cfg = MagicMock()
         cfg.blogger_oauth = None
-        with patch("webui_app.routes.oauth.load_config", return_value=cfg), \
-                patch("webui_app.routes.oauth.save_config") as save:
+        with patch("webui_app.api.oauth_api.load_config", return_value=cfg), \
+                patch("webui_app.api.oauth_api.save_config") as save:
             resp = _post(client, self.PATH,
                          {"client_id": "", "client_secret": "secret-xyz"},
                          csrf=csrf)
@@ -167,8 +167,8 @@ class TestSaveBloggerOauth:
         csrf = _seed_csrf(client)
         cfg = MagicMock()
         cfg.blogger_oauth = None
-        with patch("webui_app.routes.oauth.load_config", return_value=cfg), \
-                patch("webui_app.routes.oauth.save_config",
+        with patch("webui_app.api.oauth_api.load_config", return_value=cfg), \
+                patch("webui_app.api.oauth_api.save_config",
                       side_effect=RuntimeError("disk full")):
             resp = _post(client, self.PATH,
                          {"client_id": "cid", "client_secret": "sec"},
@@ -209,7 +209,7 @@ class TestClearMediumOauth:
         csrf = _seed_csrf(client)
         _isolated_config_dir.mkdir(parents=True, exist_ok=True)
         (_isolated_config_dir / "medium-token.json").write_text("{}")
-        with patch("webui_app.routes.oauth.os.remove",
+        with patch("webui_app.api.oauth_api.os.remove",
                    side_effect=OSError("locked")):
             resp = _post(client, self.PATH, {}, csrf=csrf)
         assert resp.status_code == 302
