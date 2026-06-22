@@ -2,8 +2,9 @@
 
 Phase 1 of the thin-WebUI refactor (plan 2026-05-27-004). The fatal-error
 chokepoints in :mod:`backlink_publisher._util.errors` emit one sentinel-prefixed
-JSON line to stderr *in addition to* the existing human-readable text. The WebUI
-bridge (:mod:`webui_app.helpers.cli_runner`) parses that line into a typed
+JSON line to stderr *in addition to* the existing human-readable text. The
+pipeline bridge (:mod:`backlink_publisher.sdk._cli_runner`, re-exported via the
+``webui_app.helpers.cli_runner`` shim) parses that line into a typed
 ``PipeResult.error`` instead of slicing ``stderr[:200]`` — so the operator sees
 the real error class and full message, not a banner-truncated preview.
 

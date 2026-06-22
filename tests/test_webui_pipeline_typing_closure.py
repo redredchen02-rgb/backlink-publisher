@@ -37,7 +37,7 @@ def test_typed_payload_validation_error_shows_prefix(client):
     stderr = _publish_envelope("PayloadValidationError", "url_mode='D' not in valid set")
 
     with mock.patch(
-        "webui_app.api.pipeline_api.run_pipe_capture",
+        "backlink_publisher.sdk.api.run_pipe_capture",
         side_effect=Exception(stderr),
     ):
         with client.session_transaction() as sess:
@@ -68,7 +68,7 @@ def test_plain_stderr_shows_no_typed_prefix(client):
     stderr = f"something went wrong: {marker}"
 
     with mock.patch(
-        "webui_app.api.pipeline_api.run_pipe_capture",
+        "backlink_publisher.sdk.api.run_pipe_capture",
         side_effect=Exception(stderr),
     ):
         with client.session_transaction() as sess:
@@ -98,7 +98,7 @@ def test_oversized_error_message_is_truncated(client):
     long_stderr = "x" * 5000
 
     with mock.patch(
-        "webui_app.api.pipeline_api.run_pipe_capture",
+        "backlink_publisher.sdk.api.run_pipe_capture",
         side_effect=Exception(long_stderr),
     ):
         with client.session_transaction() as sess:
@@ -125,7 +125,7 @@ def test_error_message_html_escaped(client):
     xss_stderr = "error: <script>alert(1)</script>"
 
     with mock.patch(
-        "webui_app.api.pipeline_api.run_pipe_capture",
+        "backlink_publisher.sdk.api.run_pipe_capture",
         side_effect=Exception(xss_stderr),
     ):
         with client.session_transaction() as sess:

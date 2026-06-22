@@ -98,7 +98,7 @@ def _default_write_verified_at(store, results):
 def _default_publish_seed(seed: dict) -> dict:
     """Plan → validate → publish one seed via PipelineAPI (same as keepalive_job)."""
     import json as _json
-    from webui_app.api.pipeline_api import PipelineAPI, parse_publish_results
+    from backlink_publisher.sdk.api import PipelineAPI, parse_publish_results
 
     api = PipelineAPI()
     target, platform = seed.get("target_url"), seed.get("platform")

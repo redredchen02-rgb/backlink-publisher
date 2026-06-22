@@ -19,11 +19,12 @@ KNOWN_MODULES = {"url_meta", "history", "security", "cli_runner", "contexts"}
 
 # Documented inter-sibling edges (from → to).
 # url_meta → security: imports _TRUTHY_BYPASS.
-# cli_runner → url_meta: imports _is_fetch_verify_disabled for TTL wiring.
 # contexts → security: imports _FLASK_PORT, _ensure_csrf_token, _oauth_callback_uri.
+# NB: cli_runner is now a re-export shim over backlink_publisher.sdk._cli_runner
+# (plan 2026-06-22-001 U5a); its former cli_runner → url_meta edge
+# (_is_fetch_verify_disabled) was inlined into the SDK, so the edge no longer exists.
 ALLOWED_EDGES: set[tuple[str, str]] = {
     ("url_meta", "security"),
-    ("cli_runner", "url_meta"),
     ("contexts", "security"),
 }
 

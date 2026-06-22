@@ -422,8 +422,8 @@ def test_ensure_article_reexported_from_core():
 
 def test_chain_module_has_no_webui_app_edge_for_e2_e3():
     """chain.py must not import webui_app for _ensure_article or RUNTIME_STICKY_PLATFORMS
-    (E2/E3 removed). The only remaining webui_app reference is E1 (PipelineAPI), which
-    U5a relocates. Guards against the two edges silently regrowing before U7's gate."""
+    (E2/E3 removed). E1 (PipelineAPI) was also killed in U5a — chain.py now imports from
+    backlink_publisher.sdk.api. Zero webui_app edges should remain."""
     import ast
     from pathlib import Path
 
@@ -440,8 +440,8 @@ def test_chain_module_has_no_webui_app_edge_for_e2_e3():
                 if alias.name.startswith("webui_app"):
                     webui_imports.append(f"{alias.name} (line {node.lineno})")
 
-    # Exactly one residual edge: E1 PipelineAPI from webui_app.api.pipeline_api.
-    assert webui_imports == ["webui_app.api.pipeline_api (line 101)"], (
-        "chain.py webui_app imports drifted; E2/E3 must stay in core. Found: "
+    # U5a killed E1: chain.py now has zero webui_app edges.
+    assert webui_imports == [], (
+        "chain.py must have no webui_app imports (E1 killed in U5a). Found: "
         f"{webui_imports}"
     )
