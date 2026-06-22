@@ -22,6 +22,10 @@ from backlink_publisher._util.recon import emit_recon
 
 _AUTH_ABORT = "auth_abort"  # sentinel returned to signal epilogue must be skipped
 _ROW_CONTINUE = "continue"  # sentinel: the row was handled, advance to next
+_DEP_ABORT = "dependency_abort"  # sentinel: DependencyError aborts the run (exit 3),
+# epilogue skipped — same immediate-abort semantics as _AUTH_ABORT, but the
+# SystemExit is now raised by the CLI shell (main), not inside the loop, so the
+# engine is callable in-process and returns a typed outcome. (Plan 2026-06-22-001 U4-2)
 
 
 @dataclass
@@ -59,6 +63,10 @@ class PublishRunState:
     canary_warned: set[str] = field(default_factory=set)
     # R3a: signals main() to skip _publish_epilogue after AuthExpiredError
     auth_aborted: bool = False
+    # U4-2: DependencyError aborts the run (exit 3); main() skips _publish_epilogue
+    # and raises the exit-3 in the shell. dependency_error carries the message.
+    dependency_aborted: bool = False
+    dependency_error: str | None = None
 
 
 def run_publish_loop(
@@ -85,6 +93,9 @@ def run_publish_loop(
         )
         if result == _AUTH_ABORT:
             state.auth_aborted = True
+            return
+        if result == _DEP_ABORT:
+            state.dependency_aborted = True
             return
 
 
@@ -128,7 +139,7 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
     from backlink_publisher.schema import supported_platforms
     from backlink_publisher._util.errors import (
         AuthExpiredError, BannerUploadError, ContentRejectedError,
-        DependencyError, ExternalServiceError, emit_error,
+        DependencyError, ExternalServiceError,
     )
     from backlink_publisher._util.logger import publish_logger
     from ... import checkpoint
@@ -274,9 +285,14 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
         )
         return _ROW_CONTINUE
     except DependencyError as exc:
+        # U4-2: record the dedup failure then abort the run via a typed sentinel
+        # instead of raising SystemExit inside the loop. main() (the CLI shell)
+        # maps dependency_aborted -> emit_error(exit_code=3); an in-process caller
+        # reads the typed outcome. Immediate-abort semantics (exit 3, epilogue
+        # skipped, no stdout) are preserved — same as _AUTH_ABORT.
         record_failure(row, platform, error_class="dependency", run_id=state.run_id)
-        emit_error(str(exc), exit_code=3)
-        return _ROW_CONTINUE  # unreachable (emit_error raises); keeps mypy happy
+        state.dependency_error = str(exc)
+        return _DEP_ABORT
     except ExternalServiceError as exc:
         state.fail_count += 1
         state.run_id = _record_publish_failure(

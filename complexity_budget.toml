@@ -37,8 +37,8 @@ ceiling = 32
 rationale = "_enhance_payload orchestrates field validation, domain/language normalisation, anchor canonicalisation, and banner-path resolution (added in 705bf2c for path-traversal safety). The banner guard added 2 branches (is_relative_to + exists check), pushing CC from 29 to 31. Ceiling 32 gives 1 headroom; extraction of the banner-resolution block deferred to a focused refactor PR."
 
 [functions."src/backlink_publisher/cli/publish_backlinks/__init__.py::main"]
-ceiling = 33
-rationale = "publish-backlinks CLI entry point: orchestrates row validation, tier-1 filtering, platform lease acquisition, the dedup enforce/precondition/force-manifest flow, checkpoint creation, and the row-level publish loop. U5 added --tier-1 filtering (3 branches: skip/keep/empty) on top of an already-dense coordinator. Extracting the tier-filter block to a named helper would add indirection without reducing gateway logic — the block is a self-contained for-loop over rows that returns early on empty. CC 33 is the new baseline; keep at exact seed, no headroom per budget policy."
+ceiling = 35
+rationale = "publish-backlinks CLI entry point: orchestrates row validation, tier-1 filtering, platform lease acquisition, the dedup enforce/precondition/force-manifest flow, checkpoint creation, and the row-level publish loop. Plan 2026-06-22-001 U4-2 (2026-06-22): the publish loop no longer raises SystemExit on DependencyError (so the engine is callable in-process); main now maps state.dependency_aborted -> emit_error(exit_code=3) in the shell (the `if` branch + the `or`-default message = +2 CC, 33->35). The SystemExit moved OUT of the loop INTO the shell. U4-5 will thin main() into a publish_rows adapter and re-baseline this ceiling LOWER; until then CC 35 is the exact seed, no headroom per budget policy."
 
 [functions."src/backlink_publisher/cli/plan_backlinks/_payload.py::_generate_payload"]
 ceiling = 50

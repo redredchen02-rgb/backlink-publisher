@@ -221,11 +221,23 @@ def main(argv: list[str] | None = None) -> None:
             forced_keys, throttle_min, throttle_max, initial_token_revs,
         )
 
+        # U4-2: the loop no longer raises SystemExit on DependencyError; it returns
+        # with dependency_aborted set. Raise the exit-3 HERE in the shell (before the
+        # complete-recon + epilogue) to preserve the prior immediate-abort behavior
+        # (exit 3, no complete-recon, epilogue skipped, no stdout).
+        if state.dependency_aborted:
+            emit_error(
+                state.dependency_error or "dependency error during publish",
+                exit_code=3,
+            )
+
         skipped = state.skipped_unreachable_count + state.skipped_quarantined_count + state.dedup_skip_count + state.dedup_hold_count
         emit_recon("info", command="publish-backlinks", phase="complete",
                    success=str(state.success_count), fail=str(state.fail_count),
                    skipped=str(skipped))
 
+    # NB: dependency_aborted already exited above via emit_error(exit_code=3), so it
+    # cannot reach here — only auth_aborted needs guarding to skip the epilogue.
     if not state.auth_aborted:
         _publish_epilogue(
                 state.outputs,
