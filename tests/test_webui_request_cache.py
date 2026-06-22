@@ -173,9 +173,7 @@ def _get_function_source(module, func_name: str) -> str | None:
 _WRITE_HANDLER_SPECS = [
     # (module_dotted_path, function_name)
     ("webui_app.routes.settings_basic", "settings_save_target_keywords"),
-    ("webui_app.routes.settings_basic", "settings_save_medium_token"),
-    ("webui_app.routes.settings_basic", "settings_clear_medium_token"),
-    ("webui_app.routes.settings_basic", "settings_clear_medium_token"),
+    # settings_{save,clear}_medium_token removed in U8 (Medium integration tokens retired).
     ("webui_app.routes.settings_basic", "settings_revoke_blogger"),
     ("webui_app.routes.sites", "sites_save_three_url"),
     ("webui_app.routes.oauth", "settings_save_blogger_oauth"),

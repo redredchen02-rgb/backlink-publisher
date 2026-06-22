@@ -718,6 +718,22 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/notion/status:
+    get:
+      operationId: getNotionStatus
+      summary: 'Notion card state: whether a credential is stored + the database_id.'
+      description: 'Read-only: ``configured`` (a token file with an integration_token
+        exists) and the non-secret ``database_id`` for display. The integration_token
+        is never returned. No secrets, no guard.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Notion credential state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotionStatus'
   /api/v1/settings/channels/{channel}/credential:
     post:
       operationId: saveChannelCredential
@@ -943,6 +959,85 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/blogger/status:
+    get:
+      operationId: getBloggerStatus
+      summary: 'Blogger card state: authorization + saved OAuth client.'
+      description: 'Read-only: whether a token is stored, the public client_id, client_secret_set
+        boolean (never the secret), and the callback URI to register in Google Cloud
+        Console. No secrets, no guard.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Blogger authorization + client state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BloggerStatus'
+  /api/v1/settings/blogger/revoke:
+    post:
+      operationId: revokeBlogger
+      summary: Revoke Blogger authorization (delete the stored token file).
+      description: 'Config/file op (not a 0600 secret write), so same posture as the
+        other OAuth writes: no inline guard, Origin-protected at runtime by the app-level
+        guard. No request body.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Revoked (or already absent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '502':
+          description: Token-file delete failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/blogger/blog-ids:
+    get:
+      operationId: getBlogIds
+      summary: "The domain \u2192 Blogger Blog ID routing map."
+      description: Read-only publish-time routing map. Not a secret, no guard.
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Current blog-ID mapping.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogIdsView'
+    post:
+      operationId: saveBlogIds
+      summary: "Save the domain \u2192 Blogger Blog ID mapping."
+      description: Config write (same no-inline-guard posture as the other blogger
+        writes). Entries are stripped, blank pairs dropped, duplicate domains deduped
+        (later wins). Covered by the app-level guard.
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogIdsRequest'
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '502':
+          description: Config write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/settings/llm-config:
     get:
       operationId: getLlmConfig
@@ -1157,6 +1252,91 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/medium/status:
+    get:
+      operationId: getMediumStatus
+      summary: 'Medium channel card state: browser readiness + oauth-token presence.'
+      description: "Read-only filesystem/import probe (no Playwright launch, no network,\
+        \ no secrets). Drives the SPA Medium card's badges and the revoke button.\
+        \ No inline guard \u2014 the action POSTs keep theirs."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Medium browser readiness + oauth-token presence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumStatus'
+  /api/v1/settings/velog/status:
+    get:
+      operationId: getVelogStatus
+      summary: Velog channel card status (6 states).
+      description: 'Read-only: cookie freshness + daily quota. No secrets, no guard.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Velog channel status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VelogStatus'
+  /api/v1/settings/velog/login:
+    post:
+      operationId: velogLogin
+      summary: Spawn a headed velog-login window in a detached subprocess.
+      description: "Spawns an OS browser process, so transport-guarded inline (non-loopback\
+        \ Origin \u2192 403, refused under ALLOW_NETWORK=1). Returns the {ok, message,\
+        \ error_code, log_path} envelope, NOT problem+json \u2014 an early-died subprocess\
+        \ is a successful call. No request body."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Spawn outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VelogLoginResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/channels:
+    get:
+      operationId: listChannelOverview
+      summary: List every WebUI-visible channel with its binding status.
+      description: "Read-only: registry \u2212 hidden_from_ui composed with each channel's\
+        \ offline status (bound/identity/dofollow/blockers). No secrets \u2014 the\
+        \ per-channel credential writes keep their guards."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Channel binding status list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelOverviewList'
+  /api/v1/settings/channels/forms:
+    get:
+      operationId: listChannelForms
+      summary: List the binding-form schema for every fixed-credential channel.
+      description: "Static form metadata (which fields to render for token / token_fields\
+        \ / paste_blob / userpass channels). No secrets, no bind-state \u2014 the\
+        \ SPA joins bound/identity from the overview by slug."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Per-channel binding-form schemas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelFormsList'
   /api/v1/settings/keywords:
     get:
       operationId: getKeywordPools
@@ -2520,6 +2700,122 @@ components:
       - level
       - message
       additionalProperties: false
+    MediumBrowserStatus:
+      type: object
+      properties:
+        state:
+          type: string
+        playwright_installed:
+          type: boolean
+        profile_has_cookies:
+          type: boolean
+        cookies_age_days:
+          type:
+          - integer
+          - 'null'
+        singleton_lock_present:
+          type: boolean
+        logged_in:
+          type: boolean
+      required:
+      - logged_in
+      - playwright_installed
+      - profile_has_cookies
+      - singleton_lock_present
+      - state
+      additionalProperties: false
+    MediumStatus:
+      type: object
+      properties:
+        browser:
+          $ref: '#/components/schemas/MediumBrowserStatus'
+        oauth_token_exists:
+          type: boolean
+      required:
+      - browser
+      - oauth_token_exists
+      additionalProperties: false
+    VelogStatus:
+      type: object
+      properties:
+        state:
+          type: string
+        label:
+          type: string
+        guide:
+          type: string
+        cookies_path:
+          type: string
+        count:
+          type: integer
+        cap:
+          type: integer
+      required:
+      - label
+      - state
+      additionalProperties: false
+    VelogLoginResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+        error_code:
+          type:
+          - string
+          - 'null'
+        log_path:
+          type: string
+      required:
+      - message
+      - ok
+      additionalProperties: false
+    BloggerStatus:
+      type: object
+      properties:
+        authorized:
+          type: boolean
+        client_id:
+          type: string
+        client_secret_set:
+          type: boolean
+        callback_uri:
+          type: string
+      required:
+      - authorized
+      - client_secret_set
+      additionalProperties: false
+    NotionStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        database_id:
+          type: string
+      required:
+      - configured
+      additionalProperties: false
+    BlogIdsView:
+      type: object
+      properties:
+        blog_ids:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - blog_ids
+      additionalProperties: false
+    BlogIdsRequest:
+      type: object
+      properties:
+        blog_ids:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - blog_ids
+      additionalProperties: false
     KeywordPoolsRequest:
       type: object
       properties:
@@ -2550,6 +2846,109 @@ components:
       required:
       - pools
       - targets
+      additionalProperties: false
+    ChannelOverviewItem:
+      type: object
+      properties:
+        slug:
+          type: string
+        display_name:
+          type: string
+        auth_type:
+          type:
+          - string
+          - 'null'
+        bound:
+          type: boolean
+        identity:
+          type:
+          - string
+          - 'null'
+        dofollow:
+          description: true | false | "uncertain"
+        last_verify_result:
+          type:
+          - string
+          - 'null'
+        blockers:
+          type: array
+          items:
+            type: string
+      required:
+      - bound
+      - display_name
+      - slug
+      additionalProperties: false
+    ChannelOverviewList:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelOverviewItem'
+      required:
+      - channels
+      additionalProperties: false
+    BindingField:
+      type: object
+      properties:
+        name:
+          type: string
+          description: POST field name (save-path source of truth).
+        label:
+          type: string
+        type:
+          type: string
+          description: text | password | url | textarea
+        placeholder:
+          type: string
+        help:
+          type: string
+        secret:
+          type: boolean
+      required:
+      - label
+      - name
+      - secret
+      - type
+      additionalProperties: false
+    ChannelForm:
+      type: object
+      properties:
+        slug:
+          type: string
+        display_name:
+          type: string
+        auth_type:
+          type: string
+          description: token | token_fields | paste_blob | userpass
+        supports_clear:
+          type: boolean
+        save_via:
+          type: string
+          description: credential (generic /credential dispatch) | token (/channels/<ch>/token
+            paste route)
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/BindingField'
+      required:
+      - auth_type
+      - display_name
+      - fields
+      - save_via
+      - slug
+      - supports_clear
+      additionalProperties: false
+    ChannelFormsList:
+      type: object
+      properties:
+        forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelForm'
+      required:
+      - forms
       additionalProperties: false
     ScheduleSettingsRequest:
       type: object

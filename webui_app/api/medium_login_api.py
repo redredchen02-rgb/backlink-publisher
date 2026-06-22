@@ -99,3 +99,27 @@ class MediumLoginAPI:
             )
         except Exception as e:
             return MediumLoginResult("danger", f"清除失败: {e}")
+
+    def status(self, *, probe_logged_in: bool) -> dict:
+        """Read-only Medium card state: browser-fallback readiness + whether an
+        OAuth token file exists. Pure filesystem/import read — no Playwright launch,
+        no network. ``probe_logged_in`` is the transport-supplied publish-gating
+        flag (``session["medium_probe_logged_in"]``); kept out of the facade so it
+        stays flask-free (mirrors the ``session_op`` seam on the action methods)."""
+        from backlink_publisher.config.tokens import load_medium_token
+
+        from ..helpers.channel_probes import _get_medium_browser_status
+
+        cfg = _g_cache("config", load_config)
+        bs = _get_medium_browser_status(cfg, session={"medium_probe_logged_in": probe_logged_in})
+        return {
+            "browser": {
+                "state": bs["state"],
+                "playwright_installed": bs["playwright_installed"],
+                "profile_has_cookies": bs["profile_has_cookies"],
+                "cookies_age_days": bs["cookies_age_days"],
+                "singleton_lock_present": bs["singleton_lock_present"],
+                "logged_in": bs["state"] == "logged_in",
+            },
+            "oauth_token_exists": bool(load_medium_token()),
+        }

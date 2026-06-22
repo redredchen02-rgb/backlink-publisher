@@ -21,7 +21,7 @@ outcome rides in ``level`` (success/info/warning/danger), always HTTP 200.
 
 from __future__ import annotations
 
-from flask import jsonify
+from flask import jsonify, session
 
 from ...helpers.security import _check_bind_origin_or_abort, _refuse_when_allow_network
 from ..medium_login_api import MediumLoginAPI
@@ -78,3 +78,12 @@ def api_medium_clear():
         _refuse_when_allow_network()
         _check_bind_origin_or_abort()
     return _render(MediumLoginAPI().clear())
+
+
+@bp.get("/settings/medium/status")
+def api_medium_status():
+    """Read-only Medium card state: browser-fallback readiness + oauth-token
+    presence. No guard — a status read with no secrets (the action POSTs above keep
+    their inline guards). ``medium_probe_logged_in`` is the session publish-gating
+    flag set by a prior probe; passed into the flask-free facade explicitly."""
+    return jsonify(MediumLoginAPI().status(probe_logged_in=bool(session.get("medium_probe_logged_in"))))

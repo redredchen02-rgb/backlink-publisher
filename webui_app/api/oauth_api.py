@@ -64,6 +64,33 @@ class OAuthAPI:
             return OAuthResult("danger", f"清除失败: {e}", "channel-medium",
                                error_class="persistence_failure")
 
+    def revoke_blogger(self) -> OAuthResult:
+        """Revoke Blogger authorization by deleting the stored token file (moved
+        from the legacy ``/settings/revoke-blogger`` route)."""
+        cfg = load_config()
+        try:
+            cfg.blogger_token_path.unlink(missing_ok=True)
+            return OAuthResult("success", "Blogger 授权已撤销", "channel-blogger")
+        except Exception as e:
+            return OAuthResult("danger", f"撤销失败: {e}", "channel-blogger",
+                               error_class="persistence_failure")
+
+    def blogger_status(self) -> dict:
+        """Read-only Blogger card state: authorization + the saved OAuth client.
+        No secrets — ``client_id`` is the public app id (the legacy template renders
+        it too); the secret is exposed ONLY as ``client_secret_set``."""
+        from backlink_publisher.config.tokens import load_blogger_token
+
+        from ..helpers.security import _oauth_callback_uri
+
+        cfg = load_config()
+        return {
+            "authorized": bool(load_blogger_token(cfg.blogger_token_path)),
+            "client_id": cfg.blogger_oauth.client_id if cfg.blogger_oauth else "",
+            "client_secret_set": bool(cfg.blogger_oauth and cfg.blogger_oauth.client_secret),
+            "callback_uri": _oauth_callback_uri(),
+        }
+
     def save_blogger(self, client_id: str, client_secret: str) -> OAuthResult:
         """Persist Blogger Client ID / Secret. A blank secret preserves the stored
         one (the template no longer round-trips the secret in HTML)."""

@@ -434,6 +434,15 @@ class NotionTokenRequestSchema(Schema):
     clear = fields.Boolean(load_default=False)
 
 
+class NotionStatusSchema(Schema):
+    """Notion card state. ``configured`` = a token file with an integration_token
+    exists; ``database_id`` is the non-secret target database, echoed for display.
+    The integration_token itself is NEVER returned."""
+
+    configured = fields.Boolean(required=True)
+    database_id = fields.String()
+
+
 class CredentialResultSchema(Schema):
     """Outcome of a credential write/clear. Never echoes the secret."""
 
@@ -617,6 +626,76 @@ class MediumLoginResultSchema(Schema):
     )
 
 
+class MediumBrowserStatusSchema(Schema):
+    """Medium browser-fallback readiness — filesystem/import read, no secrets.
+    ``state`` ∈ not_installed | no_profile | profile_exists_unverified | logged_in."""
+
+    state = fields.String(required=True)
+    playwright_installed = fields.Boolean(required=True)
+    profile_has_cookies = fields.Boolean(required=True)
+    cookies_age_days = fields.Integer(allow_none=True)
+    singleton_lock_present = fields.Boolean(required=True)
+    logged_in = fields.Boolean(required=True)
+
+
+class MediumStatusSchema(Schema):
+    """GET hydration for the Medium channel card: browser readiness + whether an
+    OAuth token file exists (drives the revoke button). No secret values."""
+
+    browser = fields.Nested(MediumBrowserStatusSchema, required=True)
+    oauth_token_exists = fields.Boolean(required=True)
+
+
+class VelogStatusSchema(Schema):
+    """Velog channel card status. ``state`` ∈ err | warn | ok | fresh | cap_reached
+    | permission_denied. ``cookies_path`` is a local file path (not a secret);
+    ``guide`` is the operator remediation hint; ``count``/``cap`` are the daily quota."""
+
+    state = fields.String(required=True)
+    label = fields.String(required=True)
+    guide = fields.String()
+    cookies_path = fields.String()
+    count = fields.Integer()
+    cap = fields.Integer()
+
+
+class VelogLoginResultSchema(Schema):
+    """Velog-login spawn outcome envelope (always HTTP 200; NOT problem+json — an
+    early-died subprocess is a successful call reporting a result). ``error_code``
+    is null on success; ``log_path`` is where the detached process keeps writing."""
+
+    ok = fields.Boolean(required=True)
+    message = fields.String(required=True)
+    error_code = fields.String(allow_none=True)
+    log_path = fields.String()
+
+
+class BloggerStatusSchema(Schema):
+    """GET hydration for the Blogger card: authorization state + the saved OAuth
+    client. ``client_id`` is the public app id (not a secret); the secret is exposed
+    ONLY as ``client_secret_set``. ``callback_uri`` is what to register in Google
+    Cloud Console for the Web-application client type."""
+
+    authorized = fields.Boolean(required=True)
+    client_id = fields.String()
+    client_secret_set = fields.Boolean(required=True)
+    callback_uri = fields.String()
+
+
+class BlogIdsViewSchema(Schema):
+    """The domain → Blogger Blog ID routing map (publish-time routing, not a
+    secret)."""
+
+    blog_ids = fields.Dict(keys=fields.String(), values=fields.String(), required=True)
+
+
+class BlogIdsRequestSchema(Schema):
+    """Save the domain → Blogger Blog ID mapping. Entries are stripped; blank
+    domain/id pairs dropped; a later domain wins on duplicate."""
+
+    blog_ids = fields.Dict(keys=fields.String(), values=fields.String(), required=True)
+
+
 class KeywordPoolsRequestSchema(Schema):
     """Per-domain SEO anchor keyword pools. Each list holds raw keyword strings;
     the server strips blanks, rejects any keyword >60 chars (422), and de-dups."""
@@ -635,6 +714,57 @@ class ScheduleSettingsRequestSchema(Schema):
 
     min_interval_hours = fields.Float(metadata={"description": "Min hours between publishes (>=0.5)."})
     jitter_minutes = fields.Integer(metadata={"description": "Random jitter, minutes (>=0)."})
+
+
+class ChannelOverviewItemSchema(Schema):
+    """One WebUI-visible channel's binding status (read-only). ``identity`` is the
+    bound account name (not a secret); ``dofollow`` is True/False/"uncertain"."""
+
+    slug = fields.String(required=True)
+    display_name = fields.String(required=True)
+    auth_type = fields.String(allow_none=True)
+    bound = fields.Boolean(required=True)
+    identity = fields.String(allow_none=True)
+    dofollow = fields.Raw(allow_none=True, metadata={"description": "true | false | \"uncertain\""})
+    last_verify_result = fields.String(allow_none=True)
+    blockers = fields.List(fields.String())
+
+
+class ChannelOverviewListSchema(Schema):
+    channels = fields.List(fields.Nested(ChannelOverviewItemSchema), required=True)
+
+
+class BindingFieldSchema(Schema):
+    """One input in a channel binding form — presentation metadata only, never a
+    value. ``secret`` marks a password input (never pre-filled; blank submit
+    preserves the stored secret). ``type`` ∈ text | password | url | textarea."""
+
+    name = fields.String(required=True, metadata={"description": "POST field name (save-path source of truth)."})
+    label = fields.String(required=True)
+    type = fields.String(required=True, metadata={"description": "text | password | url | textarea"})
+    placeholder = fields.String()
+    help = fields.String()
+    secret = fields.Boolean(required=True)
+
+
+class ChannelFormSchema(Schema):
+    """A fixed-credential channel's binding form: which fields the SPA renders.
+    Bind-state (bound/identity) is NOT here — the SPA joins it from the overview."""
+
+    slug = fields.String(required=True)
+    display_name = fields.String(required=True)
+    auth_type = fields.String(required=True, metadata={"description": "token | token_fields | paste_blob | userpass"})
+    supports_clear = fields.Boolean(required=True)
+    save_via = fields.String(
+        required=True,
+        metadata={"description": "credential (generic /credential dispatch) | token (/channels/<ch>/token paste route)"},
+    )
+    # ``form_fields`` not ``fields`` — the latter shadows marshmallow's Schema.fields.
+    form_fields = fields.List(fields.Nested(BindingFieldSchema), required=True, data_key="fields")
+
+
+class ChannelFormsListSchema(Schema):
+    forms = fields.List(fields.Nested(ChannelFormSchema), required=True)
 
 
 class KeywordPoolsViewSchema(Schema):

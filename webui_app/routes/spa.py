@@ -4,9 +4,10 @@ Single-origin: the SPA bundle (``frontend/`` built into ``webui_app/spa_dist``)
 is served by Flask, so there is no second origin and the existing
 loopback + same-origin + CSRF model is preserved.
 
-Flag-gated by ``BACKLINK_PUBLISHER_SPA`` so it is inert by default — the legacy
-Jinja UI stays the default through the strangler-fig migration, and ``/app``
-404s until an operator opts in (and the bundle has actually been built).
+Default-ON as of Plan 2026-06-18-002 U8 (the SPA is now the default UI): ``/app/*``
+serves the built bundle unless an operator opts OUT with ``BACKLINK_PUBLISHER_SPA=0``
+(the legacy Jinja pages stay live at their own URLs as dual-stack escape hatches
+until they are retired). ``/app`` still 404s if the bundle has not been built.
 
 Routing: an existing file under ``spa_dist`` is served verbatim (hashed assets
 at ``/app/assets/*``); anything else returns ``index.html`` so client-side routes
@@ -29,7 +30,8 @@ _SPA_DIR = Path(__file__).resolve().parent.parent / "spa_dist"
 
 
 def _spa_enabled() -> bool:
-    return os.environ.get("BACKLINK_PUBLISHER_SPA", "0") == "1"
+    # Default ON (U8 — SPA is the default UI). Opt out with BACKLINK_PUBLISHER_SPA=0.
+    return os.environ.get("BACKLINK_PUBLISHER_SPA", "1") != "0"
 
 
 @bp.get("/app")

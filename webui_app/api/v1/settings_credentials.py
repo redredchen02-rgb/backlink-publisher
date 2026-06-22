@@ -31,6 +31,7 @@ import stat
 from flask import current_app, jsonify, request
 
 from backlink_publisher.config import load_config, save_notion_token
+from backlink_publisher.config.tokens import load_notion_token
 from backlink_publisher.publishing.registry import auth_type as _registry_auth_type
 
 from ...helpers.security import _check_bind_origin_or_abort, _refuse_when_allow_network
@@ -144,3 +145,16 @@ def settings_save_notion_token():
     except Exception:
         raise ApiProblem(502, "Failed to save Notion token", error_class="persistence_failure")
     return jsonify({"ok": True, "message": "notion token 已绑定 ✓"})
+
+
+@bp.get("/settings/notion/status")
+def settings_notion_status():
+    """Notion card state: whether a credential is stored + the (non-secret) database_id.
+
+    Read-only — the integration_token is NEVER returned, only ``configured``. No
+    secret leaves the box, so (like the other status GETs) no inline transport guard.
+    """
+    data = load_notion_token() or {}
+    integration_token = str(data.get("integration_token") or "").strip()
+    database_id = str(data.get("database_id") or "").strip()
+    return jsonify({"configured": bool(integration_token), "database_id": database_id})

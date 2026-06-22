@@ -123,111 +123,48 @@ def settings_schedule_save():
 
 @bp.route('/settings/save-blog-ids', methods=['POST'])
 def settings_save_blog_ids():
+    # Cleaning + save moved to BloggerSettingsAPI (single source shared with
+    # /api/v1/settings/blogger/blog-ids). The parallel form lists are the legacy
+    # transport encoding; the facade strips / drops empties / dedups by domain.
+    from ..api.blogger_settings_api import BloggerSettingsAPI
     domains = request.form.getlist('domain[]')
     blog_ids_list = request.form.getlist('blog_id[]')
-    mapping = {d.strip(): b.strip() for d, b in zip(domains, blog_ids_list)
-               if d.strip() and b.strip()}
-    try:
-        cfg = load_config()
-        cfg.blogger_blog_ids = mapping
-        save_config(cfg, extra_blogger_ids={}, target_three_url=None)
-        return _safe_flash_redirect(
-            '/settings', flash_type='success',
-            msg='Blog ID 映射已保存', fragment='channel-blogger')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'保存失败: {e}', fragment='channel-blogger')
+    r = BloggerSettingsAPI().save_blog_ids(dict(zip(domains, blog_ids_list)))
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
-@bp.route('/settings/save-medium-token', methods=['POST'])
-def settings_save_medium_token():
-    token = request.form.get('medium_token', '').strip()
-    try:
-        save_config(load_config(), medium_token=token, target_three_url=None)
-        msg = 'Medium Token 已保存' if token else 'Medium Token 已清除'
-        return _safe_flash_redirect(
-            '/settings', flash_type='success', msg=msg, fragment='channel-medium')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'保存失败: {e}', fragment='channel-medium')
-
-
-@bp.route('/settings/clear-medium-token', methods=['POST'])
-def settings_clear_medium_token():
-    try:
-        save_config(load_config(), medium_token="", target_three_url=None)
-        return _safe_flash_redirect(
-            '/settings', flash_type='success',
-            msg='Medium Token 已清除', fragment='channel-medium')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'清除失败: {e}', fragment='channel-medium')
+# Medium Integration-Token save/clear routes removed (Plan 2026-06-18-002 U8, medium-IT
+# slice): Medium discontinued integration tokens (API archived 2023-03-02); the field
+# is plaintext config (cfg.medium_integration_token), not a 0600 secret. The publish
+# path still honours any existing value, but the management UI is retired — no SPA
+# migration (operators with a legacy token edit config.toml directly).
 
 
 @bp.route('/settings/revoke-blogger', methods=['POST'])
 def settings_revoke_blogger():
-    cfg = load_config()
-    try:
-        cfg.blogger_token_path.unlink(missing_ok=True)
-        return _safe_flash_redirect(
-            '/settings', flash_type='success',
-            msg='Blogger 授权已撤销', fragment='channel-blogger')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'撤销失败: {e}', fragment='channel-blogger')
+    # Revoke moved to OAuthAPI (single source shared with /api/v1/settings/blogger/revoke).
+    from ..api.oauth_api import OAuthAPI
+    r = OAuthAPI().revoke_blogger()
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/api/velog/login', methods=['POST'])
 def api_velog_login():
     """Spawn velog-login in a detached subprocess (headed Playwright).
 
-    The operator completes social login in the popped-up Chromium window.
-    Probes briefly for early startup crash (e.g. Playwright missing).
+    The operator completes social login in the popped-up Chromium window. The
+    spawn + error_code→message mapping moved to ``VelogLoginAPI`` (single source
+    shared with ``/api/v1/settings/velog/login``); this route keeps the legacy
+    200/500 status contract.
     """
-    from ..services.browser_login import spawn_browser_login
+    from ..api.velog_login_api import VelogLoginAPI
 
-    result = spawn_browser_login("backlink_publisher.cli.velog_login")
-    if not result.ok:
-        # Extract error_code from structured log lines so the UI can show a
-        # specific message instead of raw JSON events.
-        import re as _re
-        error_code = "playwright_launch_failed"
-        if result.error:
-            m = _re.search(r'"error_code":\s*"([^"]+)"', result.error)
-            if m:
-                error_code = m.group(1)
-        _MESSAGES = {
-            "profile_in_use": (
-                "已有一个绑定窗口正在运行。"
-                "请关闭已打开的 Chromium 窗口后再试。"
-            ),
-            "playwright_not_installed": (
-                "Playwright 未安装。"
-                "请在终端运行：python -m playwright install chromium"
-            ),
-            "login_url_unreachable": (
-                "无法打开 velog.io，请检查网络连接后再试。"
-            ),
-        }
-        message = _MESSAGES.get(
-            error_code,
-            "启动失败，请在终端运行 velog-login 并查看输出。",
-        )
-        return jsonify({
-            "ok": False,
-            "error_code": error_code,
-            "message": message,
-            "log_path": str(result.log_path),
-        }), 500
-
-    return jsonify({
-        "ok": True,
-        "log_path": str(result.log_path),
-    })
+    r = VelogLoginAPI().login()
+    body = {"ok": r.ok, "message": r.message, "log_path": r.log_path}
+    if r.ok:
+        return jsonify(body)
+    body["error_code"] = r.error_code
+    return jsonify(body), 500
 
 
 @bp.route('/api/velog/status', methods=['GET'])

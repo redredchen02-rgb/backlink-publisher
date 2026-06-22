@@ -129,3 +129,50 @@ def test_clear_refused_under_allow_network(client, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_ALLOW_NETWORK", "1")
     resp = client.post("/api/v1/settings/medium/clear-browser-login", headers=_headers())
     assert resp.status_code == 403
+
+
+# ── GET status (read-only card hydration, no guard) ──────────────────────────
+
+
+def test_status_returns_browser_readiness_and_oauth_presence(client):
+    """The Medium card hydrates from this read: browser readiness + oauth-token
+    presence. No fresh config → no profile, no token."""
+    resp = client.get("/api/v1/settings/medium/status")
+    assert resp.status_code == 200, resp.data[:300]
+    body = resp.get_json()
+    assert set(body) == {"browser", "oauth_token_exists"}
+    b = body["browser"]
+    for key in ("state", "playwright_installed", "profile_has_cookies",
+                "cookies_age_days", "singleton_lock_present", "logged_in"):
+        assert key in b, f"missing browser.{key}"
+    assert body["oauth_token_exists"] is False
+    assert b["profile_has_cookies"] is False
+
+
+def test_status_reflects_probe_logged_in_session_flag(client):
+    """``logged_in`` mirrors the publish-gating session flag a prior probe set —
+    but only once a profile exists (state machine: no_profile dominates)."""
+    with client.session_transaction() as sess:
+        sess["medium_probe_logged_in"] = True
+    resp = client.get("/api/v1/settings/medium/status")
+    body = resp.get_json()
+    # fresh config has no profile, so state stays no_profile and logged_in False
+    assert body["browser"]["state"] == "no_profile"
+    assert body["browser"]["logged_in"] is False
+
+
+def test_status_is_a_read_no_guard_needed(client, monkeypatch):
+    """A status read carries no secret and spawns nothing — it must answer 200 even
+    off-loopback / under ALLOW_NETWORK=1 (unlike the action POSTs)."""
+    monkeypatch.setenv("BACKLINK_PUBLISHER_ALLOW_NETWORK", "1")
+    resp = client.get("/api/v1/settings/medium/status",
+                      headers={"Origin": "http://evil.example.com"})
+    assert resp.status_code == 200
+
+
+def test_status_leaks_no_token_value(client):
+    """The status read exposes only an ``oauth_token_exists`` boolean — never a
+    token value or masked string."""
+    blob = client.get("/api/v1/settings/medium/status").get_data(as_text=True)
+    for forbidden in ("integration_token", "access_token", "masked"):
+        assert forbidden not in blob

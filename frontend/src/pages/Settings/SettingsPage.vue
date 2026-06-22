@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// Settings page (Plan 2026-06-18-002 U7) — built section-by-section. This first
-// slice is the GLOBAL config (keyword pools + publish cadence), consuming the
-// GlobalSettingsAPI GET/POST endpoints. The channel / LLM / OAuth / diagnostics
-// sections land in later slices; until the page is complete the sidebar keeps the
-// LEGACY /settings link (navItems href), so this SPA route is dev-reachable by URL
-// but not yet advertised (no UX regression: the legacy page still has every form).
+// Settings page (Plan 2026-06-18-002 U7) — built section-by-section, now COMPLETE:
+// global config (keyword pools + publish cadence), channel binding + per-channel
+// action cards (Medium / velog / Blogger / Blog-ID), and AI integration (LLM +
+// cover-image). As of §5 the console nav points here (navItems `to`), so this is
+// the PRIMARY settings entry; the legacy Jinja /settings page survives only until
+// U8 retirement (a few legacy-only escape hatches still link out to it).
 import { computed, reactive, ref, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import {
@@ -17,6 +17,15 @@ import {
 import { ApiError } from '../../api/client'
 import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import ChannelsCard from './ChannelsCard.vue'
+import ChannelBindingCard from './ChannelBindingCard.vue'
+import MediumCard from './MediumCard.vue'
+import VelogCard from './VelogCard.vue'
+import BloggerCard from './BloggerCard.vue'
+import NotionCard from './NotionCard.vue'
+import BlogIdsCard from './BlogIdsCard.vue'
+import LlmSettingsCard from './LlmSettingsCard.vue'
+import SettingsSidebar from './SettingsSidebar.vue'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -133,13 +142,29 @@ async function onSaveSchedule(): Promise<void> {
     <header class="settings__head">
       <h1>设置</h1>
       <p class="muted">
-        全局配置（关键词池 · 排程节奏）。渠道凭证 / LLM / OAuth 仍在
-        <a href="/settings">旧设置页</a>，正逐段迁入。
+        渠道绑定与动作 · 全局配置（关键词池 · 排程） · AI 整合（LLM · 封面图）——全部在此页管理。
       </p>
     </header>
 
-    <!-- SEO anchor keyword pools -->
-    <section class="card" aria-labelledby="kw-h">
+    <div class="settings__layout">
+      <SettingsSidebar class="settings__nav" />
+
+      <div class="settings__main">
+        <!-- channel binding status (read-only overview) -->
+        <div id="sec-channels"><ChannelsCard /></div>
+
+        <!-- channel credential binding forms (fixed-credential auth types) -->
+        <div id="sec-binding"><ChannelBindingCard /></div>
+
+        <!-- per-channel action cards (browser-login / oauth) -->
+        <div id="sec-medium"><MediumCard /></div>
+        <div id="sec-velog"><VelogCard /></div>
+        <div id="sec-blogger"><BloggerCard /></div>
+        <div id="sec-notion"><NotionCard /></div>
+        <div id="sec-blogids"><BlogIdsCard /></div>
+
+        <!-- SEO anchor keyword pools -->
+        <section id="sec-keywords" class="card" aria-labelledby="kw-h">
       <h2 id="kw-h">SEO 锚文本关键词池</h2>
       <p class="muted">
         生成的外链文章从这里选关键词作锚文本，替代裸域名。每个 target 建议 5–10 个；一行一个，
@@ -148,10 +173,10 @@ async function onSaveSchedule(): Promise<void> {
       <StateBlock
         :state="keywordState"
         :error="keywordsQuery.error.value"
-        empty-text="暂无已知 target 站——请先在旧设置页配置 Blogger Blog ID 映射。"
+        empty-text="暂无已知 target 站——请先在上方「Blogger Blog ID 映射」配置。"
         @retry="keywordsQuery.refetch()"
       >
-        <form @submit.prevent="onSaveKeywords">
+        <form data-test="keyword-form" @submit.prevent="onSaveKeywords">
           <details v-for="domain in keywordTargets" :key="domain" class="kw-domain">
             <summary>
               <strong>{{ domain }}</strong>
@@ -173,8 +198,8 @@ async function onSaveSchedule(): Promise<void> {
       </StateBlock>
     </section>
 
-    <!-- publish cadence -->
-    <section class="card" aria-labelledby="sch-h">
+        <!-- publish cadence -->
+        <section id="sec-schedule" class="card" aria-labelledby="sch-h">
       <h2 id="sch-h">排程发布设定</h2>
       <p class="muted">控制草稿队列的发布节奏，避免短时间大量上稿被平台识别。</p>
       <StateBlock
@@ -182,7 +207,7 @@ async function onSaveSchedule(): Promise<void> {
         :error="scheduleQuery.error.value"
         @retry="scheduleQuery.refetch()"
       >
-        <form class="sched" @submit.prevent="onSaveSchedule">
+        <form class="sched" data-test="schedule-form" @submit.prevent="onSaveSchedule">
           <div class="field">
             <label for="min-int">最小发布间隔（小时）</label>
             <input
@@ -213,6 +238,11 @@ async function onSaveSchedule(): Promise<void> {
         </form>
       </StateBlock>
     </section>
+
+        <!-- AI integration (LLM + image-gen) -->
+        <div id="sec-ai"><LlmSettingsCard /></div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -221,7 +251,27 @@ async function onSaveSchedule(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  max-width: 760px;
+  max-width: 1000px;
+}
+.settings__layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.settings__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .settings__layout {
+    grid-template-columns: 1fr;
+  }
+  .settings__nav {
+    display: none;
+  }
 }
 .settings__head h1 {
   margin: 0 0 0.25rem;

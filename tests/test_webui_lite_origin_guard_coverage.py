@@ -145,6 +145,10 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # documented hole — the runtime protection is asserted unconditionally there.
 
 _CSRF_ONLY_SNAPSHOT_COUNT = 98  # routes with CSRF but no inline Origin guard as of 2026-06-22
+# -2 (100->98): U8 medium-IT slice removed the legacy POST /settings/{save,clear}-medium-token
+# routes (config writes, no inline guard — they were in this count). Medium discontinued
+# integration tokens; the management UI is retired (no SPA replacement). Tightening the
+# ceiling keeps it exact. (The assertion is <=, so a stale 100 would have passed silently.)
 # +6 v0.4.0 routes (U4-U8): /settings/channels/<ch>/probe-liveness, /publish/quick,
 # /publish/save-defaults, /sites/batch-queue, /sites/autopilot,
 # /dashboard/autopilot-alert/dismiss — all internal-only endpoints protected
@@ -190,6 +194,17 @@ _CSRF_ONLY_SNAPSHOT_COUNT = 98  # routes with CSRF but no inline Origin guard as
 # schedule} routes' posture (no inline guard): they write GLOBAL config
 # (target_anchor_keywords in config.toml / schedule-settings.json), NOT 0600
 # credential files. Covered at runtime by the _global_origin_guard.
+# +1 (98->99): U7 Settings blogger card — POST /api/v1/settings/blogger/revoke
+# (delete the blogger token file). Same posture as the migrated blogger-oauth /
+# medium-oauth-clear routes (no inline guard): a config/token-file op, NOT a 0600
+# secret WRITE, covered at runtime by the _global_origin_guard. (The new
+# /api/v1/settings/blogger/status is a GET — non-mutating, never counted. The
+# velog login route is inline-guarded like medium — EXCLUDED, not added.)
+# +1 (99->100): U7 Settings blogger card (slice 6) — POST /api/v1/settings/blogger/
+# blog-ids (save the domain→Blogger Blog ID routing map). Same posture as the other
+# blogger writes (no inline guard): a config write, NOT a 0600 secret write, covered
+# at runtime by the _global_origin_guard. (The paired GET .../blog-ids is
+# non-mutating, never counted.)
 
 
 def test_csrf_only_route_count_snapshot(app):

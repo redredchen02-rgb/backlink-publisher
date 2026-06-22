@@ -139,3 +139,59 @@ def test_clear_medium_remove_failure_is_502(client, _isolated_config_dir):
     with patch("webui_app.api.oauth_api.os.remove", side_effect=OSError("locked")):
         resp = client.post("/api/v1/settings/medium-oauth/clear", headers=_headers())
     assert resp.status_code == 502
+
+
+# ── blogger status (read-only, no guard) ─────────────────────────────────────
+
+
+def test_blogger_status_unconfigured(client):
+    resp = client.get("/api/v1/settings/blogger/status")
+    assert resp.status_code == 200, resp.data[:300]
+    body = resp.get_json()
+    assert body["authorized"] is False
+    assert body["client_secret_set"] is False
+    assert body["client_id"] == ""
+    assert body["callback_uri"].endswith("/settings/blogger/oauth-callback")
+
+
+def test_blogger_status_reports_client_without_leaking_secret(client):
+    cfg = MagicMock()
+    cfg.blogger_oauth.client_id = "cid-public.apps.googleusercontent.com"
+    cfg.blogger_oauth.client_secret = "GOCSPX-super-secret-value"
+    with patch("webui_app.api.oauth_api.load_config", return_value=cfg), \
+            patch("backlink_publisher.config.tokens.load_blogger_token", return_value={"token": "t"}):
+        resp = client.get("/api/v1/settings/blogger/status")
+    body = resp.get_json()
+    assert body["authorized"] is True
+    assert body["client_id"] == "cid-public.apps.googleusercontent.com"
+    assert body["client_secret_set"] is True
+    # the secret VALUE is never returned — only the boolean
+    assert "GOCSPX-super-secret-value" not in resp.get_data(as_text=True)
+
+
+# ── blogger revoke (delete token file) ───────────────────────────────────────
+
+
+def test_revoke_blogger_deletes_token_file(client, _isolated_config_dir):
+    from backlink_publisher.config import load_config
+    p = load_config().blogger_token_path
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{}")
+    resp = client.post("/api/v1/settings/blogger/revoke", headers=_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+    assert not p.exists()
+
+
+def test_revoke_blogger_absent_token_still_ok(client, _isolated_config_dir):
+    resp = client.post("/api/v1/settings/blogger/revoke", headers=_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+
+def test_revoke_blogger_delete_failure_is_502(client):
+    cfg = MagicMock()
+    cfg.blogger_token_path.unlink.side_effect = OSError("locked")
+    with patch("webui_app.api.oauth_api.load_config", return_value=cfg):
+        resp = client.post("/api/v1/settings/blogger/revoke", headers=_headers())
+    assert resp.status_code == 502

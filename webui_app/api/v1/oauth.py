@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from flask import jsonify, request
 
+from ..blogger_settings_api import BloggerSettingsAPI
 from ..oauth_api import OAuthAPI
 from . import bp
 from .errors import ApiProblem
@@ -48,3 +49,36 @@ def settings_save_blogger_oauth():
 def settings_clear_medium_oauth():
     """Revoke a stored Medium token (delete medium-token.json)."""
     return _render(OAuthAPI().clear_medium())
+
+
+@bp.get("/settings/blogger/status")
+def settings_blogger_status():
+    """Read-only Blogger card state: authorization + saved OAuth client + the
+    callback URI to register in Google Cloud Console. No secrets (only a
+    ``client_secret_set`` boolean), so no inline guard."""
+    return jsonify(OAuthAPI().blogger_status())
+
+
+@bp.post("/settings/blogger/revoke")
+def settings_revoke_blogger():
+    """Revoke Blogger authorization (delete the stored token file). Same posture as
+    the other OAuth writes: no inline guard (config/file op, not a 0600 secret
+    write), Origin-protected at runtime by the app-level guard."""
+    return _render(OAuthAPI().revoke_blogger())
+
+
+@bp.get("/settings/blogger/blog-ids")
+def settings_get_blog_ids():
+    """The current domain → Blogger Blog ID routing map. Read-only, no secrets."""
+    return jsonify({"blog_ids": BloggerSettingsAPI().get_blog_ids()})
+
+
+@bp.post("/settings/blogger/blog-ids")
+def settings_save_blog_ids():
+    """Save the domain → Blogger Blog ID mapping (config write, same no-inline-guard
+    posture as the other blogger writes). Body: ``{"blog_ids": {domain: id}}``."""
+    data = request.get_json(silent=True)
+    mapping = data.get("blog_ids") if isinstance(data, dict) else None
+    if not isinstance(mapping, dict):
+        mapping = {}
+    return _render(BloggerSettingsAPI().save_blog_ids(mapping))

@@ -50,9 +50,9 @@ export const router = createRouter({
       component: () => import('../pages/BatchCampaign/BatchCampaignPage.vue'),
     },
     {
-      // Settings (U7) — built section-by-section; first slice = global config
-      // (keyword pools + schedule). navItems keeps the LEGACY /settings link until
-      // the page is complete, so this route is dev-reachable by URL, not advertised.
+      // Settings (U7) — built section-by-section, complete as of §5. The console
+      // nav now points here (navItems `to`), making this the PRIMARY settings
+      // entry; the legacy Jinja /settings page survives only until U8 retirement.
       path: '/settings',
       name: 'settings',
       component: () => import('../pages/Settings/SettingsPage.vue'),

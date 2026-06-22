@@ -59,10 +59,19 @@ from .schemas import (
     ImageGenGenerateSampleRequestSchema,
     ImageGenDiagnosticResultSchema,
     MediumLoginResultSchema,
+    MediumStatusSchema,
+    VelogStatusSchema,
+    VelogLoginResultSchema,
+    BloggerStatusSchema,
+    BlogIdsViewSchema,
+    BlogIdsRequestSchema,
     KeywordPoolsRequestSchema,
     KeywordPoolsViewSchema,
+    ChannelOverviewListSchema,
+    ChannelFormsListSchema,
     ScheduleSettingsRequestSchema,
     CredentialResultSchema,
+    NotionStatusSchema,
     NotionTokenRequestSchema,
     ProfileDeleteRequestSchema,
     ProfileListSchema,
@@ -170,8 +179,17 @@ def build_spec() -> APISpec:
     spec.components.schema("ImageGenGenerateSampleRequest", schema=ImageGenGenerateSampleRequestSchema)
     spec.components.schema("ImageGenDiagnosticResult", schema=ImageGenDiagnosticResultSchema)
     spec.components.schema("MediumLoginResult", schema=MediumLoginResultSchema)
+    spec.components.schema("MediumStatus", schema=MediumStatusSchema)
+    spec.components.schema("VelogStatus", schema=VelogStatusSchema)
+    spec.components.schema("VelogLoginResult", schema=VelogLoginResultSchema)
+    spec.components.schema("BloggerStatus", schema=BloggerStatusSchema)
+    spec.components.schema("NotionStatus", schema=NotionStatusSchema)
+    spec.components.schema("BlogIdsView", schema=BlogIdsViewSchema)
+    spec.components.schema("BlogIdsRequest", schema=BlogIdsRequestSchema)
     spec.components.schema("KeywordPoolsRequest", schema=KeywordPoolsRequestSchema)
     spec.components.schema("KeywordPoolsView", schema=KeywordPoolsViewSchema)
+    spec.components.schema("ChannelOverviewList", schema=ChannelOverviewListSchema)
+    spec.components.schema("ChannelFormsList", schema=ChannelFormsListSchema)
     spec.components.schema("ScheduleSettingsRequest", schema=ScheduleSettingsRequestSchema)
 
     def _ok(description: str, schema: Any) -> dict[str, Any]:
@@ -626,6 +644,24 @@ def build_spec() -> APISpec:
         },
     )
     spec.path(
+        path="/api/v1/settings/notion/status",
+        operations={
+            "get": {
+                "operationId": "getNotionStatus",
+                "summary": "Notion card state: whether a credential is stored + the database_id.",
+                "description": (
+                    "Read-only: ``configured`` (a token file with an integration_token "
+                    "exists) and the non-secret ``database_id`` for display. The "
+                    "integration_token is never returned. No secrets, no guard."
+                ),
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Notion credential state.", NotionStatusSchema),
+                },
+            }
+        },
+    )
+    spec.path(
         path="/api/v1/settings/channels/{channel}/credential",
         operations={
             "post": {
@@ -764,6 +800,72 @@ def build_spec() -> APISpec:
         },
     )
     spec.path(
+        path="/api/v1/settings/blogger/status",
+        operations={
+            "get": {
+                "operationId": "getBloggerStatus",
+                "summary": "Blogger card state: authorization + saved OAuth client.",
+                "description": (
+                    "Read-only: whether a token is stored, the public client_id, "
+                    "client_secret_set boolean (never the secret), and the callback "
+                    "URI to register in Google Cloud Console. No secrets, no guard."
+                ),
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Blogger authorization + client state.", BloggerStatusSchema),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/settings/blogger/revoke",
+        operations={
+            "post": {
+                "operationId": "revokeBlogger",
+                "summary": "Revoke Blogger authorization (delete the stored token file).",
+                "description": (
+                    "Config/file op (not a 0600 secret write), so same posture as the "
+                    "other OAuth writes: no inline guard, Origin-protected at runtime "
+                    "by the app-level guard. No request body."
+                ),
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Revoked (or already absent).", CredentialResultSchema),
+                    "502": _problem_response("Token-file delete failed."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/settings/blogger/blog-ids",
+        operations={
+            "get": {
+                "operationId": "getBlogIds",
+                "summary": "The domain → Blogger Blog ID routing map.",
+                "description": "Read-only publish-time routing map. Not a secret, no guard.",
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Current blog-ID mapping.", BlogIdsViewSchema),
+                },
+            },
+            "post": {
+                "operationId": "saveBlogIds",
+                "summary": "Save the domain → Blogger Blog ID mapping.",
+                "description": (
+                    "Config write (same no-inline-guard posture as the other blogger "
+                    "writes). Entries are stripped, blank pairs dropped, duplicate "
+                    "domains deduped (later wins). Covered by the app-level guard."
+                ),
+                "tags": ["settings"],
+                "requestBody": _body(BlogIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Saved.", CredentialResultSchema),
+                    "502": _problem_response("Config write failed."),
+                },
+            },
+        },
+    )
+    spec.path(
         path="/api/v1/settings/llm-config",
         operations={
             "get": {
@@ -898,6 +1000,94 @@ def build_spec() -> APISpec:
                 }
             },
         )
+    spec.path(
+        path="/api/v1/settings/medium/status",
+        operations={
+            "get": {
+                "operationId": "getMediumStatus",
+                "summary": "Medium channel card state: browser readiness + oauth-token presence.",
+                "description": (
+                    "Read-only filesystem/import probe (no Playwright launch, no "
+                    "network, no secrets). Drives the SPA Medium card's badges and the "
+                    "revoke button. No inline guard — the action POSTs keep theirs."
+                ),
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Medium browser readiness + oauth-token presence.", MediumStatusSchema),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/settings/velog/status",
+        operations={
+            "get": {
+                "operationId": "getVelogStatus",
+                "summary": "Velog channel card status (6 states).",
+                "description": "Read-only: cookie freshness + daily quota. No secrets, no guard.",
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Velog channel status.", VelogStatusSchema),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/settings/velog/login",
+        operations={
+            "post": {
+                "operationId": "velogLogin",
+                "summary": "Spawn a headed velog-login window in a detached subprocess.",
+                "description": (
+                    "Spawns an OS browser process, so transport-guarded inline "
+                    "(non-loopback Origin → 403, refused under ALLOW_NETWORK=1). Returns "
+                    "the {ok, message, error_code, log_path} envelope, NOT problem+json — "
+                    "an early-died subprocess is a successful call. No request body."
+                ),
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Spawn outcome.", VelogLoginResultSchema),
+                    "403": _problem_response("Non-loopback Origin or ALLOW_NETWORK=1."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/settings/channels",
+        operations={
+            "get": {
+                "operationId": "listChannelOverview",
+                "summary": "List every WebUI-visible channel with its binding status.",
+                "description": (
+                    "Read-only: registry − hidden_from_ui composed with each "
+                    "channel's offline status (bound/identity/dofollow/blockers). No "
+                    "secrets — the per-channel credential writes keep their guards."
+                ),
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Channel binding status list.", ChannelOverviewListSchema),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/settings/channels/forms",
+        operations={
+            "get": {
+                "operationId": "listChannelForms",
+                "summary": "List the binding-form schema for every fixed-credential channel.",
+                "description": (
+                    "Static form metadata (which fields to render for token / "
+                    "token_fields / paste_blob / userpass channels). No secrets, no "
+                    "bind-state — the SPA joins bound/identity from the overview by slug."
+                ),
+                "tags": ["settings"],
+                "responses": {
+                    "200": _ok("Per-channel binding-form schemas.", ChannelFormsListSchema),
+                },
+            }
+        },
+    )
     spec.path(
         path="/api/v1/settings/keywords",
         operations={

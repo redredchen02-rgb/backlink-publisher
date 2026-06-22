@@ -127,25 +127,8 @@ class TestSettingsRoutes:
         assert resp.status_code == 302
         assert resp.headers["Location"].startswith("/settings?")
 
-    def test_save_medium_token_with_value_redirects(self, client):
-        resp = client.post(
-            "/settings/save-medium-token",
-            data={"medium_token": "Bearer test-token-1234"},
-        )
-        assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
-
-    def test_save_medium_token_empty_redirects(self, client):
-        resp = client.post(
-            "/settings/save-medium-token", data={"medium_token": ""},
-        )
-        assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
-
-    def test_clear_medium_token_redirects(self, client):
-        resp = client.post("/settings/clear-medium-token")
-        assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+    # Medium Integration-Token routes removed in U8 (Medium discontinued the tokens;
+    # the management UI is retired — see settings_basic.py). No replacement endpoint.
 
     def test_clear_medium_oauth_redirects(self, client):
         resp = client.post("/settings/clear-medium-oauth")

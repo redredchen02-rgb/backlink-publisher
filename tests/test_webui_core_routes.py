@@ -306,16 +306,15 @@ class TestGetRoutes:
         combined = b"".join(p.read_bytes() for p in candidates)
         combined += (static_js / "settings.js").read_bytes()
 
-        # 12 form action URLs (10 channel-related + 2 global).
+        # 10 form action URLs (8 channel-related + 2 global).
         # /settings/medium/oauth-start removed: Medium closed new app registration
-        # 2023-03-02. Three browser-login routes added in Plan 013 Phase B.
+        # 2023-03-02. /settings/{save,clear}-medium-token removed in U8 (integration
+        # tokens discontinued, management UI retired).
         form_action_urls = [
             b'/settings/blogger/oauth-start',
             b'/settings/save-blogger-oauth',
             b'/settings/revoke-blogger',
             b'/settings/save-blog-ids',
-            b'/settings/save-medium-token',
-            b'/settings/clear-medium-token',
             b'/settings/clear-medium-oauth',
             b'/settings/medium/launch-browser-login',
             b'/settings/medium/probe-browser-login',
@@ -330,22 +329,21 @@ class TestGetRoutes:
         dom_ids = [
             b'id="oauthCredForm"',
             b'id="clientSecretInput"',
-            b'id="mediumTokenInput"',
             b'id="blogger-blog-ids"',
             b'id="blogIdRows"',
             b'id="callbackUriDisplay"',
             b'id="copyBtn"',
             b'id="secretEye"',
-            b'id="eyeIcon"',
         ]
+        # mediumTokenInput / eyeIcon removed in U8 with the Integration-Token block.
         for dom_id in dom_ids:
             assert dom_id in combined, f"missing DOM id: {dom_id!r}"
 
-        # 5 handler call sites — Plan 007 U3 migrated inline on* to data-action.
+        # 4 handler call sites — Plan 007 U3 migrated inline on* to data-action.
+        # toggle-token removed in U8 (medium Integration-Token block retired).
         js_handlers = [
             b'data-action="copy-uri"',
             b'data-action="toggle-secret"',
-            b'data-action="toggle-token"',
             b'data-action="add-row"',
             b'data-action="remove-row"',
         ]
@@ -407,8 +405,6 @@ class TestGetRoutes:
         # Both omitted here; test env has neither token file nor cookies.
         # launch + probe are rendered when state != 'not_installed' (Playwright installed).
         medium_urls = {
-            "/settings/save-medium-token",
-            "/settings/clear-medium-token",
             "/settings/medium/launch-browser-login",
             "/settings/medium/probe-browser-login",
         }

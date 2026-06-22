@@ -28,10 +28,20 @@ def fake_spa(tmp_path, monkeypatch):
     return tmp_path
 
 
-def test_app_404_when_flag_off(client, monkeypatch):
-    monkeypatch.delenv("BACKLINK_PUBLISHER_SPA", raising=False)
+def test_app_404_when_flag_explicitly_off(client, monkeypatch, fake_spa):
+    # U8: the SPA is default-ON; BACKLINK_PUBLISHER_SPA=0 is the opt-out. With a
+    # built bundle present, only the explicit "0" should fall back to legacy (404).
+    monkeypatch.setenv("BACKLINK_PUBLISHER_SPA", "0")
     assert client.get("/app").status_code == 404
     assert client.get("/app/").status_code == 404
+
+
+def test_app_serves_by_default_without_the_flag(client, monkeypatch, fake_spa):
+    # U8: with the flag UNSET, the SPA serves (default-ON) — this is the flip.
+    monkeypatch.delenv("BACKLINK_PUBLISHER_SPA", raising=False)
+    resp = client.get("/app")
+    assert resp.status_code == 200
+    assert b"SPA_INDEX_MARKER" in resp.data
 
 
 def test_app_serves_index_when_enabled(client, monkeypatch, fake_spa):

@@ -57,4 +57,6 @@ from . import llm  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: LLM set
 from . import image_gen  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: image-gen diagnostics)
 from . import medium_login  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: medium browser-login)
 from . import global_settings  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: global keywords/schedule saves)
+from . import channels  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: channel overview read)
+from . import velog  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: velog status + login)
 
