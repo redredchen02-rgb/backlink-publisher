@@ -140,15 +140,15 @@ async function onClearOauth(): Promise<void> {
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .warn {
   color: var(--warning);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .medium__status {
   display: flex;
@@ -168,7 +168,7 @@ async function onClearOauth(): Promise<void> {
   justify-content: space-between;
   gap: 0.5rem;
   margin-top: 0.85rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .secondary {
   background: transparent;
@@ -179,7 +179,7 @@ async function onClearOauth(): Promise<void> {
   background: transparent;
 }
 .tag {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
   border: 1px solid var(--border);

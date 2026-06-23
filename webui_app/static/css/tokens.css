@@ -94,6 +94,24 @@
      * Jinja body stays on Outfit (base.html / index.css). */
     --font-sans: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 
+    /* Type scale — dense console ratio ~1.1; values match current dominant
+     * ad-hoc sizes so token adoption causes zero visual regression. */
+    --text-xs:   0.75rem;   /* 12px — micro labels, chips, badge text */
+    --text-sm:   0.8rem;    /* 12.8px — secondary text, small table meta */
+    --text-base: 0.85rem;   /* 13.6px — primary body, nav items, table content */
+    --text-lg:   0.9rem;    /* 14.4px — slightly emphasized content */
+    --text-xl:   1.05rem;   /* 16.8px — card headings, subheadings */
+    --text-2xl:  1.375rem;  /* 22px — page H1, major headings */
+
+    /* Font weight */
+    --font-weight-medium:   500;
+    --font-weight-semibold: 600;
+    --font-weight-bold:     700;
+
+    /* Line height */
+    --leading-tight:  1.25;
+    --leading-normal: 1.5;
+
     /* ── On-accent text (net new) ───────────────────────────────────────────
      * Text rendered ON a --primary (#38bdf8) surface. Near-black, ≥4.5:1 vs
      * #38bdf8. Replaces hardcoded #0d1117 in .primary button rules (Unit 6). */

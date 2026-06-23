@@ -175,11 +175,11 @@ async function onRevoke(): Promise<void> {
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .blogger__status {
   display: flex;
@@ -194,7 +194,7 @@ async function onRevoke(): Promise<void> {
   background: var(--surface-base);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   word-break: break-all;
 }
 .blogger__form {
@@ -210,7 +210,7 @@ async function onRevoke(): Promise<void> {
 .field input {
   padding: 0.4rem 0.5rem;
   font-family: var(--font-mono, monospace);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .blogger__actions {
   display: flex;
@@ -229,7 +229,7 @@ async function onRevoke(): Promise<void> {
   background: transparent;
 }
 .tag {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
   border: 1px solid var(--border);

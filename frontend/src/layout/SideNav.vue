@@ -54,7 +54,7 @@ import {
   padding: 0.25rem 0.5rem 0.75rem;
 }
 .sidenav__group-label {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
@@ -71,7 +71,7 @@ import {
   border-radius: var(--radius-sm, 4px);
   color: var(--text-primary);
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 .sidenav__link:hover {
   background: var(--surface-overlay);

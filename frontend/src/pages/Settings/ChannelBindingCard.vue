@@ -195,11 +195,11 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .bind {
   border: 1px solid var(--border);
@@ -234,7 +234,7 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 .field textarea {
   padding: 0.4rem 0.5rem;
   font-family: var(--font-mono, monospace);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .field textarea {
   resize: vertical;
@@ -249,7 +249,7 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   background: transparent;
 }
 .tag {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
   border: 1px solid var(--border);

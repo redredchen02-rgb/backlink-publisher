@@ -127,11 +127,11 @@ async function onSave(): Promise<void> {
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .row {
   display: flex;
@@ -140,7 +140,7 @@ async function onSave(): Promise<void> {
 }
 .row input {
   padding: 0.4rem 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .row input:first-child {
   flex: 2;

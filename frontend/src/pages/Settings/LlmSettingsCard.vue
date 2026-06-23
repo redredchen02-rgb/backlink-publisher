@@ -335,11 +335,11 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .grp {
   border: 1px solid var(--border);
@@ -350,7 +350,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 .grp legend,
 .grp > summary {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
   padding: 0 0.4rem;
 }
 .grp > summary {
@@ -359,7 +359,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 }
 label {
   display: block;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   margin: 0.5rem 0 0.2rem;
 }
 input[type='text'],
@@ -371,7 +371,7 @@ textarea {
 }
 textarea {
   font-family: var(--font-mono, monospace);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 .row2 {
   display: flex;
@@ -389,7 +389,7 @@ textarea {
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.75rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .indent {
   padding-left: 1rem;
@@ -404,7 +404,7 @@ textarea {
   margin-top: 0.6rem;
 }
 .diag__r {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .diag__r.ok {
   color: var(--success);

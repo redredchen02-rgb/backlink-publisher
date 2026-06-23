@@ -284,11 +284,11 @@ async function onSaveSchedule(): Promise<void> {
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .kw-domain {
   border: 1px solid var(--border);
@@ -306,13 +306,13 @@ async function onSaveSchedule(): Promise<void> {
 }
 .kw-count {
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 .kw-domain textarea {
   width: 100%;
   margin: 0.4rem 0 0.75rem;
   font-family: var(--font-mono, monospace);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .kw-domain label {
   display: block;

@@ -1,14 +1,27 @@
 /* Minimal app shell styles — consume tokens.css custom properties only.
    No hardcoded colours (anti-rot: tokens are the single source). */
 :root {
-  color-scheme: dark light;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   background: var(--surface-base);
   color: var(--text-primary);
-  font-family: var(--font-sans, system-ui, sans-serif);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+/* Explicit heading sizes — suppress UA-default 2em/1.5em cascade in SPA */
+h1 { font-size: var(--text-2xl); font-weight: var(--font-weight-bold);    line-height: var(--leading-tight); margin: 0; }
+h2 { font-size: var(--text-xl);  font-weight: var(--font-weight-semibold); line-height: var(--leading-tight); margin: 0; }
+h3 { font-size: var(--text-lg);  font-weight: var(--font-weight-semibold); line-height: var(--leading-tight); margin: 0; }
+h4 { font-size: var(--text-base);font-weight: var(--font-weight-medium);   line-height: var(--leading-tight); margin: 0; }
+
+/* Tabular numbers — IDs, counts, status codes stay column-aligned */
+.tabular, .data-table td.num, .data-table td.id, .data-table td.status {
+  font-variant-numeric: tabular-nums;
 }
 
 .app-shell {

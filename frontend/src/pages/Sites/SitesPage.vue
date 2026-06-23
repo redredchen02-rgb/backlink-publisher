@@ -383,7 +383,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
 }
 label.checkbox {
   flex-direction: row;
@@ -408,7 +408,7 @@ select {
 }
 .field-error {
   color: var(--danger);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .saved {
   color: var(--success);
@@ -448,14 +448,14 @@ button.link {
   background: var(--surface-raised);
   padding: 0.6rem;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   max-height: 200px;
   overflow: auto;
 }
 .ap-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
 }
 .ap-table th,
 .ap-table td {

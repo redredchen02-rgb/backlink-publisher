@@ -79,14 +79,14 @@ watch(
 }
 .toast__msg {
   flex: 1;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 .toast__close {
   background: none;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   line-height: 1;
 }
 </style>

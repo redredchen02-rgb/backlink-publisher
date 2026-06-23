@@ -173,7 +173,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
 }
 label.platform {
   flex-direction: row;
@@ -205,11 +205,11 @@ input[type='number'] {
 }
 .field-error {
   color: var(--danger);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 button.primary {
   background: var(--primary);

@@ -164,6 +164,6 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
   display: flex;
   gap: 0.75rem;
   margin-top: 0.25rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 </style>

@@ -69,7 +69,7 @@ const config = useQuery({
   gap: 0.75rem;
 }
 .pill {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -85,6 +85,6 @@ const config = useQuery({
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
 }
 </style>

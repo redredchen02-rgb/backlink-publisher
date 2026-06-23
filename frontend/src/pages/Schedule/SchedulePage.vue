@@ -72,7 +72,7 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 .sched-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
 }
 .sched-table th,
 .sched-table td {
@@ -90,6 +90,6 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
   background: var(--surface-overlay);
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 </style>

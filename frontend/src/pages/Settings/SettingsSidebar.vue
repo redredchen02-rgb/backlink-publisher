@@ -74,17 +74,17 @@ function jumpTo(id: string): void {
   border-radius: 8px;
 }
 .snav__count {
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--success);
 }
 .snav__label {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 .snav__warn {
   flex-basis: 100%;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--warning);
 }
 .snav__list {
@@ -103,7 +103,7 @@ function jumpTo(id: string): void {
   padding: 0.35rem 0.5rem;
   border-radius: 6px;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 .snav__item:hover {
