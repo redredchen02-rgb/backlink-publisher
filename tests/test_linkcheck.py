@@ -208,3 +208,107 @@ def test_check_urls_non_str_element_does_not_crash_batch() -> None:
 
     assert results["https://ok.example/"] == (True, None)
     assert 123 in results
+
+
+# ── _dedup_key fail-soft branches (Lane L3) ──────────────────────────────────
+
+
+@pytest.mark.parametrize("scalar", [123, True, 3.14])
+def test_dedup_key_non_str_returns_input_unchanged(scalar: object) -> None:
+    """A non-str scalar is out of contract but returned verbatim (identity), so
+    it carries its own dedup key rather than crashing canonicalize_url."""
+    from backlink_publisher.linkcheck.http import _dedup_key
+
+    assert _dedup_key(scalar) is scalar
+
+
+@pytest.mark.parametrize("bad", ["http://[invalid", "http://[::1", "http://["])
+def test_dedup_key_unparseable_url_returns_input_unchanged(bad: str) -> None:
+    """A URL whose urlsplit raises ValueError falls back to the raw string,
+    unmodified, instead of propagating the exception."""
+    from backlink_publisher.linkcheck.http import _dedup_key
+
+    assert _dedup_key(bad) == bad
+
+
+# ── check_urls batch-size / pool-saturation (Lane L3) ────────────────────────
+
+
+def test_check_urls_empty_list_short_circuits() -> None:
+    """An empty input returns {} via the early return, before any dedup work."""
+    from backlink_publisher.linkcheck.http import check_urls
+
+    with patch("backlink_publisher.linkcheck._check_url_once") as mocked:
+        results = check_urls([])
+
+    assert results == {}
+    assert mocked.call_count == 0
+
+
+def test_check_urls_single_url_short_circuit() -> None:
+    """A single distinct URL takes the no-thread-pool short-circuit branch and
+    still returns the correct per-URL verdict."""
+    from backlink_publisher.linkcheck.http import check_urls
+
+    with patch(
+        "backlink_publisher.linkcheck._check_url_once",
+        return_value=(True, None),
+    ) as mocked:
+        results = check_urls(["https://only.example/"])
+
+    assert results == {"https://only.example/": (True, None)}
+    assert mocked.call_count == 1
+
+
+@pytest.mark.parametrize("n", [2, 50])
+def test_check_urls_batch_dedups_and_checks_all(n: int) -> None:
+    """N distinct URLs (including pool-saturation at N=50) each get exactly one
+    reachability check, and every original input gets a result entry."""
+    from backlink_publisher.linkcheck.http import check_urls
+
+    calls: list[str] = []
+
+    def fake_once(url: str) -> tuple[bool, str | None]:
+        calls.append(url)
+        return (True, None)
+
+    originals = [f"https://host{i}.example/p" for i in range(n)]
+    with patch("backlink_publisher.linkcheck._check_url_once", side_effect=fake_once):
+        results = check_urls(originals)
+
+    assert set(results) == set(originals)
+    assert all(results[u] == (True, None) for u in originals)
+    assert len(calls) == n, "each distinct canonical checked exactly once"
+
+
+def test_check_urls_perf_stats_records_pool_telemetry() -> None:
+    """The opt-in perf_stats sink is populated with pool-sizing telemetry and
+    is purely observational — results are unchanged. At N=50 with the default
+    max-concurrent of 10, the pool caps at 10 and 40 tasks queue."""
+    from backlink_publisher.linkcheck.http import check_urls
+
+    n = 50
+    originals = [f"https://host{i}.example/p" for i in range(n)]
+    stats: dict[str, object] = {}
+    with patch("backlink_publisher.linkcheck._check_url_once", return_value=(True, None)):
+        results = check_urls(originals, perf_stats=stats)
+
+    assert set(results) == set(originals)
+    assert stats["pool_size_requested"] == 10
+    assert stats["actual_workers_spawned"] == 10
+    assert stats["queue_depth"] == n - 10
+
+
+def test_check_urls_perf_stats_single_url_branch() -> None:
+    """The single-URL short-circuit also records telemetry (pool of 1, no queue)."""
+    from backlink_publisher.linkcheck.http import check_urls
+
+    stats: dict[str, object] = {}
+    with patch("backlink_publisher.linkcheck._check_url_once", return_value=(True, None)):
+        check_urls(["https://only.example/"], perf_stats=stats)
+
+    assert stats == {
+        "pool_size_requested": 1,
+        "actual_workers_spawned": 1,
+        "queue_depth": 0,
+    }

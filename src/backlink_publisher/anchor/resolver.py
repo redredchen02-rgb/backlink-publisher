@@ -24,6 +24,7 @@ import logging
 import random
 import re
 import unicodedata
+import weakref
 from typing import Callable
 
 from backlink_publisher.publishing.adapters.llm_anchor_provider import (
@@ -176,6 +177,60 @@ _RATIO_RULES: dict[str, Callable[[str], bool]] = {
 }
 
 
+# ─── Static-pool memoization ────────────────────────────────────────────────
+#
+# ``get_anchor_pool_v2`` walks ``config.target_anchor_pools_v2`` (two key
+# probes + nested ``.get`` chain) on every ``resolve_anchor`` call. The pool is
+# config-pinned and never mutated in place after load (populated once in
+# ``config.loader``), so the result for a given
+# ``(config, main_domain, url_category, anchor_type)`` slot is stable for the
+# life of that ``Config`` object — making it safe to memoize.
+#
+# Cache identity is ``id(config)``. To stay correct across id recycling (a
+# freed Config's id reused by a different object), each entry also stores a
+# ``weakref`` to the config it was built for; a lookup whose weakref no longer
+# resolves to the *same* object is treated as a miss and rebuilt. The entry is
+# dropped automatically when the Config is garbage-collected (weakref callback),
+# so the cache cannot leak across plan runs.
+_POOL_CACHE: dict[
+    int, tuple["weakref.ref[Config]", dict[tuple[str, str, str], list[str]]]
+] = {}
+
+
+def _cached_anchor_pool(
+    config: Config,
+    main_domain: str,
+    url_category: str,
+    anchor_type: str,
+) -> list[str]:
+    """Memoized wrapper over :func:`get_anchor_pool_v2`, keyed on config identity.
+
+    Returns the same list object ``get_anchor_pool_v2`` would; callers only
+    read it (the ``[w for w in pool ...]`` comprehension), so sharing the
+    reference is safe.
+    """
+    cfg_id = id(config)
+    entry = _POOL_CACHE.get(cfg_id)
+    if entry is not None and entry[0]() is config:
+        slot_cache = entry[1]
+    else:
+        slot_cache = {}
+
+        def _evict(_ref: "weakref.ref[Config]", _key: int = cfg_id) -> None:
+            current = _POOL_CACHE.get(_key)
+            if current is not None and current[0] is _ref:
+                del _POOL_CACHE[_key]
+
+        _POOL_CACHE[cfg_id] = (weakref.ref(config, _evict), slot_cache)
+
+    slot_key = (main_domain, url_category, anchor_type)
+    pool = slot_cache.get(slot_key)
+    if pool is None:
+        pool = get_anchor_pool_v2(config, main_domain, url_category, anchor_type)
+        slot_cache[slot_key] = pool
+    return pool
+
+
 def resolve_anchor(
     *,
     url_category: str,
@@ -208,10 +263,19 @@ def resolve_anchor(
     rng = rng or random.Random()
     recent_set = set(recent_texts)
 
-    # 1. Try the static pool first.
-    pool = get_anchor_pool_v2(config, main_domain, url_category, anchor_type)
+    # ``language`` is a static config string (zh-CN default), constant across
+    # every candidate in this call. Resolve the per-language ratio rule ONCE
+    # here instead of re-indexing ``_RATIO_RULES`` inside ``_passes_filters``
+    # for each candidate. ``_resolve_ratio_rule`` mirrors the defensive
+    # normalization ``_passes_filters`` applies so behavior is bit-exact.
+    ratio_check = _resolve_ratio_rule(language)
+
+    # 1. Try the static pool first (memoized — see ``_cached_anchor_pool``).
+    pool = _cached_anchor_pool(config, main_domain, url_category, anchor_type)
     pool_candidates = [
-        w for w in pool if _passes_filters(w, language) and w not in recent_set
+        w
+        for w in pool
+        if _passes_filters_with_rule(w, ratio_check) and w not in recent_set
     ]
     if pool_candidates:
         return rng.choice(pool_candidates)
@@ -230,7 +294,7 @@ def resolve_anchor(
     )
     candidates = provider.generate_candidates(request)
     for c in candidates:
-        if _passes_filters(c, language) and c not in recent_set:
+        if _passes_filters_with_rule(c, ratio_check) and c not in recent_set:
             return c
     return None
 
@@ -254,11 +318,35 @@ def _passes_filters(text: str, language: str = "zh-CN") -> bool:
     preparatory-only (no production caller per pass-2 P0 revert of scheduler
     activation).
     """
+    return _passes_filters_with_rule(text, _resolve_ratio_rule(language))
+
+
+def _resolve_ratio_rule(language: str | None) -> Callable[[str], bool] | None:
+    """Resolve the per-language ratio callable (or ``None`` to skip the check).
+
+    Extracted so :func:`resolve_anchor` can resolve the rule ONCE per call
+    rather than re-indexing :data:`_RATIO_RULES` for every candidate. Applies
+    the same defensive normalization :func:`_passes_filters` historically did
+    (strip + ``zh-CN`` default) so the verdict is bit-exact. Languages absent
+    from :data:`_RATIO_RULES` (ru/en in v1) resolve to ``None`` — the baseline
+    checks still run but no script-ratio filter does.
+    """
+    language = language.strip() if language else "zh-CN"
+    return _RATIO_RULES.get(language)
+
+
+def _passes_filters_with_rule(
+    text: str, ratio_check: Callable[[str], bool] | None
+) -> bool:
+    """Baseline anchor checks + a pre-resolved ratio rule.
+
+    Shared body of :func:`_passes_filters` and the per-candidate loop in
+    :func:`resolve_anchor`. ``ratio_check`` is the already-resolved rule
+    callable (``None`` skips the ratio check), so the dict lookup happens once
+    per ``resolve_anchor`` call instead of once per candidate.
+    """
     if not isinstance(text, str):
         return False
-    # Normalize language arg defensively — production callers pass canonical
-    # strings but tests/fixtures may include accidental whitespace.
-    language = language.strip() if language else "zh-CN"
     length = len(text)
     if length < _MIN_ANCHOR_LEN or length > _MAX_ANCHOR_LEN:
         return False
@@ -266,11 +354,6 @@ def _passes_filters(text: str, language: str = "zh-CN") -> bool:
         return False
     if _UNSAFE_ANCHOR_CHARS.search(text):
         return False
-    # Language-specific ratio dispatch. Languages absent from _RATIO_RULES
-    # (ru/en in v1) skip the ratio check — the baseline checks above still
-    # apply. Pre-Unit-4 single-arg callers default to "zh-CN" and exercise
-    # the existing CJK ratio path unchanged.
-    ratio_check = _RATIO_RULES.get(language)
     if ratio_check is None:
         return True
     return ratio_check(text)

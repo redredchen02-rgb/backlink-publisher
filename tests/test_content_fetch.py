@@ -233,6 +233,58 @@ def test_url_error_with_timeout_reason_classified_as_timeout():
     assert reason == "timeout"
 
 
+# ── http status classification helper (shared by both _check_once sites) ────
+
+
+# (code, expected canonical reason) — representative 4xx, 5xx, and an edge code.
+_HTTP_CLASSIFY_CASES = [
+    (404, "http_404"),
+    (451, "http_451"),
+    (500, "http_5xx"),
+    (503, "http_5xx"),
+    (418, "http_418"),
+]
+
+
+@pytest.mark.parametrize("code,expected_reason", _HTTP_CLASSIFY_CASES)
+def test_classify_http_code_helper_returns_canonical_reason(code, expected_reason):
+    """The extracted helper buckets 5xx into http_5xx and keeps the exact
+    http_<code> label for every other non-200 status (4xx + edge codes)."""
+    from backlink_publisher.content.fetch import _classify_http_code
+
+    assert _classify_http_code(code) == expected_reason
+
+
+@pytest.mark.parametrize("code,expected_reason", _HTTP_CLASSIFY_CASES)
+def test_httperror_path_routes_through_classify_helper(code, expected_reason):
+    """HTTPError path (raised by opener.open ~ fetch.py:199) classifies via
+    _classify_http_code. 5xx retries; the others short-circuit, but the reason
+    string must match the helper for every code."""
+    err = HTTPError("https://example.com/", code, "X", {}, BytesIO(b""))
+    with patch(
+        "backlink_publisher.content.fetch._SSRF_OPENER.open", side_effect=err
+    ):
+        ok, reason, title = verify_url_has_content(f"https://example.com/c{code}")
+    assert ok is False
+    assert reason == expected_reason
+    assert title is None
+
+
+@pytest.mark.parametrize("code,expected_reason", _HTTP_CLASSIFY_CASES)
+def test_non_200_getcode_path_routes_through_classify_helper(code, expected_reason):
+    """Non-200 getcode() path (resp.getcode() != 200 ~ fetch.py:221) classifies
+    via the same helper, so it stays in lockstep with the HTTPError path."""
+    body = b"<html><head><title>X</title></head><body>x</body></html>"
+    with patch(
+        "backlink_publisher.content.fetch._SSRF_OPENER.open",
+        return_value=_mock_response(code, body),
+    ):
+        ok, reason, title = verify_url_has_content(f"https://example.com/g{code}")
+    assert ok is False
+    assert reason == expected_reason
+    assert title is None
+
+
 # ── invalid URLs ──────────────────────────────────────────────────────────
 
 
