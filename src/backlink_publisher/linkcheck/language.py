@@ -163,6 +163,16 @@ EN_HINTS = [
     "what", "so", "up", "out", "if", "about", "who", "get", "which", "go",
 ]
 
+#: Pre-compiled word-boundary patterns for the Latin EN_HINTS, built once at
+#: module load (mirrors :data:`_NOISE_PATTERNS`). ``_score_language`` previously
+#: recompiled ``\b{hint}\b`` for every hint on every call; the regex is static,
+#: so compile it once here and look up by lowercased hint. Keyed by the
+#: lowercased hint to match the ``hint.lower()`` lookup in ``_score_language``.
+_EN_HINT_PATTERNS = {
+    hint.lower(): re.compile(rf"\b{re.escape(hint.lower())}\b") for hint in EN_HINTS
+}
+
+
 #: Korean particles + endings. Backstop for the codepoint short-circuit when
 #: a ko article has Hangul ratio < 0.30 (Hanja-heavy newspaper / academic
 #: text). Plan 2026-05-18-006 Unit 2 R6: ≥30 entries — high-frequency
@@ -191,7 +201,13 @@ def _score_language(text: str, hints: list[str], use_word_boundary: bool = False
     if use_word_boundary:
         for hint in hints:
             hint_lower = hint.lower()
-            score += len(re.findall(rf"\b{re.escape(hint_lower)}\b", lower))
+            # Reuse the module-level pre-compiled pattern when present (EN_HINTS,
+            # built once at import); fall back to an ad-hoc compile only for
+            # hints not in the static set (defensive — preserves old behavior).
+            pattern = _EN_HINT_PATTERNS.get(hint_lower)
+            if pattern is None:
+                pattern = re.compile(rf"\b{re.escape(hint_lower)}\b")
+            score += len(pattern.findall(lower))
     else:
         for hint in hints:
             score += lower.count(hint.lower())
