@@ -20,12 +20,14 @@ import {
   type DraftMutationResult,
 } from '../../api/drafts'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 
 const QKEY = ['drafts']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 
 const query = useQuery({ queryKey: QKEY, queryFn: listDrafts })
 const items = computed<DraftItem[]>(() => query.data.value?.items ?? [])
@@ -47,8 +49,7 @@ function toggle(id: string): void {
 }
 
 function reportError(e: unknown): void {
-  const c = classifyError(e)
-  notify.push(`${c.title}：${c.message}`, 'error')
+  toastError(e)
 }
 
 async function run(fn: () => Promise<DraftMutationResult>): Promise<void> {
@@ -162,8 +163,8 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border, #30363d);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 .draft__main {
   display: flex;
@@ -183,9 +184,9 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   flex-wrap: wrap;
 }
 .status[data-status='scheduled'] {
-  color: var(--accent, #58a6ff);
+  color: var(--primary);
 }
 .status[data-status='failed'] {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 </style>

@@ -23,6 +23,8 @@ import {
             :to="item.to!"
             class="sidenav__link"
             active-class="is-active"
+            exact-active-class="is-active"
+            aria-current-value="page"
           >
             {{ item.label }}
           </RouterLink>
@@ -45,8 +47,8 @@ import {
   width: 13rem;
   flex-shrink: 0;
   padding: 0.75rem;
-  border-right: 1px solid var(--border-subtle, #30363d);
-  background: var(--bg-raised, #161b22);
+  border-right: 1px solid var(--border);
+  background: var(--surface-raised);
   overflow-y: auto;
 }
 .sidenav__brand {
@@ -54,10 +56,10 @@ import {
   padding: 0.25rem 0.5rem 0.75rem;
 }
 .sidenav__group-label {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   padding: 0.75rem 0.5rem 0.25rem;
 }
 .sidenav__list {
@@ -67,22 +69,24 @@ import {
 }
 .sidenav__link {
   display: block;
-  padding: 0.4rem 0.5rem;
-  border-radius: var(--radius-sm, 4px);
-  color: var(--text-primary, #e6edf3);
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 .sidenav__link:hover {
-  background: var(--bg-overlay, #1f2630);
+  background: var(--surface-overlay);
 }
 .sidenav__link.is-active {
-  background: var(--bg-overlay, #1f2630);
-  color: var(--accent-info, #58a6ff);
-  font-weight: 600;
+  background: var(--surface-overlay);
+  color: var(--primary);  /* active nav = primary accent; --info same value today, semantics differ */
+  font-weight: var(--font-weight-semibold);
+  border-left: 2px solid var(--primary);  /* non-colour indicator for colour-blind operators */
+  padding-left: calc(var(--control-pad-x) - 2px);  /* compensate for border width */
 }
 .sidenav__link--legacy {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 .sidenav__legacy-mark {
   opacity: 0.7;

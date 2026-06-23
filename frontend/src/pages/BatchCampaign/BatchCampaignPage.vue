@@ -17,10 +17,11 @@ import {
 } from '../../api/campaigns'
 import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const formQuery = useQuery({ queryKey: ['campaigns', 'form'], queryFn: getCampaignForm })
 
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
@@ -82,8 +83,7 @@ async function onSubmit(): Promise<void> {
         return
       }
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     submitting.value = false
   }
@@ -158,22 +158,22 @@ async function onSubmit(): Promise<void> {
   gap: 0.9rem;
 }
 fieldset {
-  border: 1px solid var(--border, #30363d);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 legend {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   padding: 0 0.4rem;
 }
 label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
 }
 label.platform {
   flex-direction: row;
@@ -196,28 +196,23 @@ label.platform {
 }
 textarea,
 input[type='number'] {
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border, #30363d);
-  border-radius: 6px;
-  background: var(--bg-raised, #161b22);
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
   color: inherit;
   font: inherit;
 }
 .field-error {
-  color: var(--danger, #f85149);
-  font-size: 0.8rem;
+  color: var(--danger);
+  font-size: var(--text-sm);
 }
 .muted {
-  color: var(--muted, #8b949e);
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
 button.primary {
-  background: var(--accent, #58a6ff);
-  color: #0d1117;
-  border: none;
-  border-radius: 6px;
   padding: 0.45rem 1rem;
-  font-weight: 600;
   cursor: pointer;
 }
 </style>

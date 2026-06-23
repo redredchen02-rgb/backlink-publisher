@@ -19,13 +19,14 @@ import {
   type ChannelBindingForm,
 } from '../../api/settings'
 import { ApiError } from '../../api/client'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const formsQuery = useQuery({ queryKey: ['settings', 'channel-forms'], queryFn: getChannelForms })
@@ -109,8 +110,7 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
       notify.push(detail || '凭据校验失败', 'warning')
       return
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     savingSlug.value = null
   }
@@ -188,22 +188,22 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--bg-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
-  border-radius: 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
 .bind {
-  border: 1px solid var(--border, #30363d);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   margin-bottom: 0.6rem;
   overflow: hidden;
 }
@@ -232,9 +232,9 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 }
 .field input,
 .field textarea {
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
   font-family: var(--font-mono, monospace);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .field textarea {
   resize: vertical;
@@ -244,21 +244,21 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   gap: 0.6rem;
 }
 .danger {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
   background: transparent;
 }
 .tag {
-  font-size: 0.72rem;
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
-  border: 1px solid var(--border, #30363d);
+  font-size: var(--text-xs);
+  padding: 0.05rem var(--control-pad-x);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
 }
 .tag--ok {
-  color: var(--accent-success, #3fb950);
+  color: var(--success);
   border-color: currentColor;
 }
 .tag--muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 </style>

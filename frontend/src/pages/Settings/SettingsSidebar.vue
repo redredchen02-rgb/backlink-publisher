@@ -69,23 +69,23 @@ function jumpTo(id: string): void {
   align-items: baseline;
   gap: 0.35rem;
   padding: 0.6rem 0.75rem;
-  background: var(--bg-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
-  border-radius: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 .snav__count {
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   font-weight: 600;
-  color: var(--accent-success, #3fb950);
+  color: var(--success);
 }
 .snav__label {
-  font-size: 0.8rem;
-  color: var(--text-secondary, #8b949e);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 .snav__warn {
   flex-basis: 100%;
-  font-size: 0.75rem;
-  color: var(--accent-warning, #d29922);
+  font-size: var(--text-xs);
+  color: var(--warning);
 }
 .snav__list {
   list-style: none;
@@ -101,13 +101,13 @@ function jumpTo(id: string): void {
   background: transparent;
   border: none;
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
-  color: var(--text-secondary, #8b949e);
-  font-size: 0.85rem;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
   cursor: pointer;
 }
 .snav__item:hover {
-  background: var(--bg, #0d1117);
-  color: var(--text-primary, #e6edf3);
+  background: var(--surface-base);
+  color: var(--text-primary);
 }
 </style>

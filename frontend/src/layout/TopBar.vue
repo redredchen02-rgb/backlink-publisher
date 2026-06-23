@@ -50,17 +50,17 @@ const config = useQuery({
   align-items: center;
   gap: 1rem;
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border-subtle, #30363d);
-  background: var(--bg-raised, #161b22);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
 }
 .topbar__search {
   flex: 1;
   max-width: 28rem;
   padding: 0.35rem 0.6rem;
-  border-radius: var(--radius-sm, 4px);
-  border: 1px solid var(--border-subtle, #30363d);
-  background: var(--bg-base, #0d1117);
-  color: var(--text-primary, #e6edf3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-base);
+  color: var(--text-primary);
 }
 .topbar__right {
   margin-left: auto;
@@ -69,22 +69,22 @@ const config = useQuery({
   gap: 0.75rem;
 }
 .pill {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle, #30363d);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
 }
 .pill--on {
-  color: var(--accent-success, #2ea043);
-  border-color: var(--accent-success, #2ea043);
+  color: var(--success);
+  border-color: var(--success);
 }
 .pill--off {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 .topbar__theme {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
 }
 </style>

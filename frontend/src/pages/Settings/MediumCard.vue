@@ -18,13 +18,14 @@ import {
   clearMediumOauth,
   type MediumActionResult,
 } from '../../api/settings'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore, type Severity } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'medium-status'], queryFn: getMediumStatus })
@@ -65,8 +66,7 @@ async function runAction(
     notify.push(r.message, severityOf(r.level))
     await qc.invalidateQueries({ queryKey: ['settings', 'medium-status'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 
@@ -77,8 +77,7 @@ async function onClearOauth(): Promise<void> {
     notify.push(r.message, 'success')
     await qc.invalidateQueries({ queryKey: ['settings', 'medium-status'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 </script>
@@ -133,22 +132,22 @@ async function onClearOauth(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--bg-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
-  border-radius: 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
 .warn {
-  color: var(--accent-warning, #d29922);
-  font-size: 0.8rem;
+  color: var(--warning);
+  font-size: var(--text-sm);
 }
 .medium__status {
   display: flex;
@@ -168,35 +167,35 @@ async function onClearOauth(): Promise<void> {
   justify-content: space-between;
   gap: 0.5rem;
   margin-top: 0.85rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .secondary {
   background: transparent;
 }
 .danger {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
   background: transparent;
 }
 .tag {
-  font-size: 0.72rem;
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
-  border: 1px solid var(--border, #30363d);
+  font-size: var(--text-xs);
+  padding: 0.05rem var(--control-pad-x);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
 }
 .tag--ok {
-  color: var(--accent-success, #3fb950);
+  color: var(--success);
   border-color: currentColor;
 }
 .tag--warn {
-  color: var(--accent-warning, #d29922);
+  color: var(--warning);
   border-color: currentColor;
 }
 .tag--err {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
 }
 .tag--muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 </style>

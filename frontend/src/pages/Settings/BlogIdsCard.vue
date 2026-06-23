@@ -6,8 +6,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getBlogIds, saveBlogIds } from '../../api/settings'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -18,6 +18,7 @@ interface Row {
 }
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'blog-ids'], queryFn: getBlogIds })
@@ -69,8 +70,7 @@ async function onSave(): Promise<void> {
     notify.push(r.message || 'Blog ID 映射已保存', 'success')
     await qc.invalidateQueries({ queryKey: ['settings', 'blog-ids'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     saving.value = false
   }
@@ -120,18 +120,18 @@ async function onSave(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--bg-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
-  border-radius: 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
 .row {
   display: flex;
@@ -139,8 +139,8 @@ async function onSave(): Promise<void> {
   margin-bottom: 0.5rem;
 }
 .row input {
-  padding: 0.4rem 0.5rem;
-  font-size: 0.85rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  font-size: var(--text-base);
 }
 .row input:first-child {
   flex: 2;
@@ -158,7 +158,7 @@ async function onSave(): Promise<void> {
   background: transparent;
 }
 .danger {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
   background: transparent;
   padding: 0 0.6rem;

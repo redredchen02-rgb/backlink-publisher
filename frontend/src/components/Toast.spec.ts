@@ -18,7 +18,8 @@ describe('Toast', () => {
 
     store.push('hello', 'success')
     await w.vm.$nextTick()
-    expect(w.find('[role="region"][aria-label="通知"]').exists()).toBe(true)
+    // Dual live-region structure: one assertive (errors) + one polite (others)
+    expect(w.find('[aria-live="assertive"]').exists()).toBe(true)
     expect(w.find('[aria-live="polite"]').exists()).toBe(true)
     expect(w.text()).toContain('hello')
 
@@ -32,5 +33,21 @@ describe('Toast', () => {
     useNotificationsStore().push('boom', 'error')
     await w.vm.$nextTick()
     expect(w.find('[role="alert"]').exists()).toBe(true)
+  })
+
+  it('success toast routes to polite region, NOT assertive', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    useNotificationsStore().push('saved!', 'success')
+    await w.vm.$nextTick()
+    expect(w.find('[aria-live="polite"]').text()).toContain('saved!')
+    expect(w.find('[aria-live="assertive"]').text()).not.toContain('saved!')
+  })
+
+  it('error toast routes to assertive region, NOT polite', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    useNotificationsStore().push('failed!', 'error')
+    await w.vm.$nextTick()
+    expect(w.find('[aria-live="assertive"]').text()).toContain('failed!')
+    expect(w.find('[aria-live="polite"]').text()).not.toContain('failed!')
   })
 })
