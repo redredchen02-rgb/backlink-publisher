@@ -10,7 +10,7 @@ message mapping are single-sourced there, so this port cannot drift them.
 Security: ``login`` spawns a detached OS browser process, so — like the medium /
 bind routes — it enforces the Origin / ALLOW_NETWORK guards INLINE (the ``api_v1``
 blueprint does not inherit the legacy blueprint's per-route guards), gated on CSRF
-config. The action returns the ``{ok, message, error_code, log_path}`` envelope
+config. The action returns the ``{ok, message, error_code, has_log}`` envelope
 (NOT problem+json) always at HTTP 200 — a spawn that died early is a successful
 call reporting an operational result. ``status`` is an unguarded read.
 """
@@ -44,5 +44,5 @@ def api_velog_login():
         "ok": r.ok,
         "message": r.message,
         "error_code": r.error_code,
-        "log_path": r.log_path,
+        "has_log": bool(r.log_path),  # don't expose filesystem path to client
     })

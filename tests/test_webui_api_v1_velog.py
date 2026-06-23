@@ -97,7 +97,7 @@ def test_login_ok_envelope(client, monkeypatch):
     body = resp.get_json()
     assert body["ok"] is True
     assert body["error_code"] is None
-    assert body["log_path"] == "/tmp/velog.log"
+    assert body["has_log"] is True  # full path redacted; only presence returned
     assert body["message"]
 
 

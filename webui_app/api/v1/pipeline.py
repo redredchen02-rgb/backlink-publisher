@@ -49,9 +49,10 @@ from .errors import ApiProblem, from_pipe_result
 
 _api = PipelineAPI()
 
-# CLI exit_code → HTTP status. 2 = input/validation, 3 = auth/credential,
+# CLI exit_code → HTTP status. 1 = conflict/force-manifest (usage error),
+# 2 = input/validation, 3 = auth/credential,
 # 4 = upstream/external (also publish partial, handled before this is consulted).
-_EXIT_STATUS = {2: 422, 3: 401, 4: 502}
+_EXIT_STATUS = {1: 422, 2: 422, 3: 401, 4: 502}
 
 
 def _status_for(result: Any) -> int:
