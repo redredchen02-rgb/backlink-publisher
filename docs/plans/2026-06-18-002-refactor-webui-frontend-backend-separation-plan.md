@@ -1,7 +1,7 @@
 ---
 title: "refactor: WebUI 前后端分离 — 纯 JSON API + Vue 3 SPA（单源同部署）"
 type: refactor
-status: active
+status: completed
 date: 2026-06-18
 deepened: 2026-06-18
 claims: {}  # 结构性重构计划，无机器可验证行为断言；满足 post-2026-05-20 plan-claims gate（plan-check exit 0）
@@ -352,7 +352,7 @@ flowchart TB
 
 ### Phase 2 — 其余页面 + 退役 Jinja
 
-- [ ] **U7：逐页迁移其余页面 + 转换剩余 HTML / dual-mode 路由**（进行中——逐页 PR）
+- [x] **U7：逐页迁移其余页面 + 转换剩余 HTML / dual-mode 路由**（进行中——逐页 PR）
 
 > **U7 进度（逐页迁移）**：✅ **历史页**（`/api/v1/history*` + Vue `/history`）✅ **草稿队列**（`/api/v1/drafts*` + Vue `/drafts`，旧 `?tab=draft` → 独立页）✅ **站点配置**（`/api/v1/sites*` 6 路由 + Vue `/sites`）。站点抽 `SitesAPI` facade（`webui_app/api/sites_api.py`，复用既有 `url_meta`/`config` 派生原语）；**核心页范围**：配置表单（①②③ 含服务端 TDK/sitemap 派生 + 422 字段级 `errors[]`）+ Autopilot 表（④ toggle/间隔，scheduler-sync 失败→502 回滚）+ Plan-Gap/citation 只读 widgets。**⑥ 批量操作表（`batch_sites.py`）刻意不迁——归属独立「batch」单元**。旧 `/ce:*`/Jinja 路由加法式保留待 U8 退役（旧 `routes/sites.py` 未动，计划已许可迁移窗双真相）。
 > ✅ **排程**（`/api/v1/schedule` 只读 + Vue `/schedule`，复用 `scheduled_api.list_scheduled`，fail-soft 空列表）。
@@ -404,7 +404,7 @@ flowchart TB
 
 **Verification:** 所有页面在 `/app` 由 Vue 渲染、数据全走 `/api/v1`；覆盖 ≥80%。
 
-- [ ] **U8：退役 Jinja 服务端渲染路径**
+- [x] **U8：退役 Jinja 服务端渲染路径**
 
 **Goal:** 所有页 100% 落 SPA 后，删除 Jinja 模板 + 服务端渲染路由 + `asset_version` + Bootstrap head 脚本 + `page_data` islands；SPA 成默认 UI（`/` → SPA）；移除 flag 门控；删除已迁移的 HTML golden-master 测试。
 
@@ -434,7 +434,7 @@ flowchart TB
 
 ### Phase 3 — 仓库/文档/运营收敛（用户要的「整理」）
 
-- [ ] **U9：文档与仓库收敛 + 部署/CI 固化**
+- [x] **U9：文档与仓库收敛 + 部署/CI 固化**
 
 **Goal:** 更新 `ARCHITECTURE.md`/`AGENTS.md`/`webui_app/AGENTS.md`/`CLAUDE.md` 反映 API + SPA 新架构；以「有构建前端规则 + 反铁律→Vue 映射」**正式取代**「零构建铁律」；收敛冗余 `OPTIMIZATION_*_REPORT.md`（4 份 → distill/归档）；记录 R9 延后触发条件。
 

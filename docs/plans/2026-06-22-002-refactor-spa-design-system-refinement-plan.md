@@ -200,7 +200,7 @@ flowchart TB
 
 ### Phase 1 — token 收口 + 守卫（闸门）
 
-- [ ] **Unit 1: token alias 桥 + `--font-sans`/`--on-primary` 净新增 + 分层注释（即时修复，零 `.vue` 改动）**
+- [x] **Unit 1： token alias 桥 + `--font-sans`/`--on-primary` 净新增 + 分层注释（即时修复，零 `.vue` 改动）**
 
 **Goal:** `tokens.css` 加 15 个 alias(指向规范控台值)+ 净新增 `--font-sans`(系统栈)/`--on-primary`(近黑)，让 SPA **零 `.vue` 改动即切回控台青蓝**。可逆,是闸门。
 
@@ -225,7 +225,7 @@ flowchart TB
 
 **Verification:** 干净页全控台青蓝;改一处值两面级联;alias 仅指规范 token(除 `--radius-sm/md` 临时字面,U6 替换)。
 
-- [ ] **Unit 2: canonical 化 — ~20 个 `.vue` 的 `var()` 改规范名**
+- [x] **Unit 2： canonical 化 — ~20 个 `.vue` 的 `var()` 改规范名**
 
 **Goal:** 把 SPA 的 15 个幻影名全改为规范名;alias 桥仍在(兜底未删)。
 
@@ -246,7 +246,7 @@ flowchart TB
 
 **Verification:** `frontend/src` 无幻影名引用;既有 spec 全绿;SideNav/Toast 语义映射正确。
 
-- [ ] **Unit 3: token 漂移守卫（前端 vitest，挂 `frontend.yml`）**
+- [x] **Unit 3： token 漂移守卫（前端 vitest，挂 `frontend.yml`）**
 
 **Goal:** vitest 守卫:`frontend/src` 每个 `var(--x)` 解析到 `tokens.css` 定义名;禁 hex/rgb 字面兜底。U2 后立即落地保护下游。
 
@@ -267,7 +267,7 @@ flowchart TB
 
 **Verification:** 守卫为 required 且绿;故意写坏一个 `var()` 使 `frontend.yml` lane 实际变红。
 
-- [ ] **Unit 4: 删 hex/rgb 兜底（~23 文件 / ~164 处）+ 删 alias 桥（守卫保护）**
+- [x] **Unit 4： 删 hex/rgb 兜底（~23 文件 / ~164 处）+ 删 alias 桥（守卫保护）**
 
 **Goal:** 删 `frontend/src` 全部字面颜色兜底(GitHub-dark `#161b22/#30363d/#0d1117/#58a6ff/#2ea043/#3fb950/#f85149/#d29922` 及 `#8b949e×25`/`#e6edf3×7`/`#1f2630×6`/`#3b82f6`/`#2d2410`),并删 U1 alias 桥,只留规范名 + 净新增 token。
 
@@ -286,7 +286,7 @@ flowchart TB
 
 ### Phase 2 — 四维 token 体系
 
-- [ ] **Unit 5: 排版 — SPA `--font-sans` + 定步长字号阶梯（单一标题方案）+ 字重/行高/tabular-nums**
+- [x] **Unit 5： 排版 — SPA `--font-sans` + 定步长字号阶梯（单一标题方案）+ 字重/行高/tabular-nums**
 
 **Goal:** SPA 排版 token 体系:统一正文字体(SPA)、定步长字号阶梯、字重/行高、数字列等宽;统一标题层级。**不改 Jinja body 字体**。
 
@@ -310,7 +310,7 @@ flowchart TB
 
 **Verification:** SPA 无 UA-默认标题;字号收敛到单一阶梯;数字列对齐;Jinja 字体未变。
 
-- [ ] **Unit 6: 间距 / 圆角 / 控件密度 token + 基础控件规则 + 圆角用途映射**
+- [x] **Unit 6： 间距 / 圆角 / 控件密度 token + 基础控件规则 + 圆角用途映射**
 
 **Goal:** 4px 基间距阶梯 + 圆角阶梯(**含用途映射**)取代 ad-hoc rem(实测 ~33 个不同 rem 值)与 5 个 ad-hoc 圆角;补基础表单控件规则 + 控件密度 token,消除 ~15 处复制粘贴 `0.4rem 0.5rem`。
 
@@ -333,7 +333,7 @@ flowchart TB
 
 **Verification:** ad-hoc rem/圆角收敛;圆角按用途映射;~15 处控件 padding 归一;Jinja 不破版。
 
-- [ ] **Unit 7: 配色 / 对比 / 无障碍硬化（不动调色板取值、不动主题契约）**
+- [x] **Unit 7： 配色 / 对比 / 无障碍硬化（不动调色板取值、不动主题契约）**
 
 **Goal:** 补 WCAG 2.2 AA 与无障碍缺口;**不碰 `theme.ts`/双主题(保留 R5)**。
 
@@ -357,7 +357,7 @@ flowchart TB
 
 ### Phase 3 — 按面应用
 
-- [ ] **Unit 8: 密集表 + 数据列模式（统一行密度/等宽列/截断/单一窄屏策略）**
+- [x] **Unit 8： 密集表 + 数据列模式（统一行密度/等宽列/截断/单一窄屏策略）**
 
 **Goal:** 共享密集表约定应用到 History/Schedule/Sites:统一密度、ID/计数/状态/URL 列 `--font-mono`+`tabular-nums`、单一截断 token、**单一窄屏策略**。
 
@@ -378,7 +378,7 @@ flowchart TB
 
 **Verification:** 三表密度/截断/窄屏策略一致;数据列等宽;无三套不一致截断残留。
 
-- [ ] **Unit 9: 统一状态 / 反馈契约（stale 矩阵 + empty 文案契约 + 共享 useErrorToast + VueQuery 条件化）**
+- [x] **Unit 9： 统一状态 / 反馈契约（stale 矩阵 + empty 文案契约 + 共享 useErrorToast + VueQuery 条件化）**
 
 **Goal:** 补齐四态:stale 升一等(**含状态矩阵**)、每页 empty 文案契约、表单反馈单一约定、共享 `useErrorToast`、Toast/忙碌态收口;复用既有契约不改逻辑。
 

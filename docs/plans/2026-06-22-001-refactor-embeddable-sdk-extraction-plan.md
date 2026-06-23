@@ -220,7 +220,7 @@ graph TB
 
 ---
 
-- [ ] **U1: 落库 — 64 项未提交改动到干净检查点（Phase 0 前置闸门）**
+- [x] **U1： 落库 — 64 项未提交改动到干净检查点（Phase 0 前置闸门）**
 
 **Goal:** 把工作树里**执行时 `git status --porcelain` 实际报告的全部未提交改动**（规划时为 64、复核时已漂移到 ~71，因 Vue 工作仍在继续）分批提交到干净检查点，消除丢失风险。改动内容（`webui_app/api/*.py` 凭证写入后端、`api/v1/*.py`、前端 Sites/Schedule/BatchCampaign/Profiles、配套测试）**属于另一条计划 `2026-06-18-002`（Vue 前后端分离）的 WIP**，由那条线拥有；本计划只把它作为开工前的**前置干净检查点闸门**。
 
@@ -243,7 +243,7 @@ graph TB
 
 ---
 
-- [ ] **U2: 移除 2 条低风险反向边（E2 `_ensure_article`、E3 `RUNTIME_STICKY_PLATFORMS`）**
+- [x] **U2： 移除 2 条低风险反向边（E2 `_ensure_article`、E3 `RUNTIME_STICKY_PLATFORMS`）**
 
 **Goal:** 把 `chain.py` 里两条函数内 webui_app import 的目标符号下沉到核心，`chain.py` 改为从核心 import；`webui` 侧留 re-export 别名保兼容。
 
@@ -274,7 +274,7 @@ graph TB
 
 ---
 
-- [ ] **U3: 显式 `register_all_adapters()`（兼容 import 副作用）**
+- [x] **U3： 显式 `register_all_adapters()`（兼容 import 副作用）**
 
 **Goal:** 把 24 个模块级 `register()` + `register_catalog_entries()` 包成一个幂等、可被门面调用、且**仍在 import 时自调**的 `register_all_adapters()`，解决「host 直接 import 子模块→registry 为空」的真实失败模式。
 
@@ -299,7 +299,7 @@ graph TB
 
 ---
 
-- [ ] **U4: publish 进程内引擎 `publish_rows`（去 SystemExit、副作用可控、浏览器隔离 opt-in）**
+- [x] **U4： publish 进程内引擎 `publish_rows`（去 SystemExit、副作用可控、浏览器隔离 opt-in）**
 
 **Goal:** 给 publish 段一个返回 typed `PublishOutcome`、绝不 `SystemExit` 的进程内入口；CLI `main()` 退化为薄 adapter。**全在 `src/`，与 Vue 零碰撞。**
 
@@ -349,7 +349,7 @@ graph TB
 
 ---
 
-- [ ] **U5: 下沉 `PipelineAPI` 到 `src/backlink_publisher/sdk/`，重指消费者（Phase 2，须等 Vue /api/v1 检查点）**
+- [x] **U5： 下沉 `PipelineAPI` 到 `src/backlink_publisher/sdk/`，重指消费者（Phase 2，须等 Vue /api/v1 检查点）**
 
 **Goal:** 把 `PipelineAPI` 整体从 `webui_app` 提到核心 `sdk/` 包，`publish()` 接 U4 的 `publish_rows` 进程内化；`webui_app/api/pipeline_api.py` 退化为 re-export shim；E1（`chain.py:101`）+ /api/v1 + scheduler + keepalive 消费者重指核心。
 
