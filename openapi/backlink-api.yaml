@@ -3,7 +3,7 @@ info:
     front/back separation). Single-origin: served same-origin by Flask. Errors use
     RFC 9457 problem+json.'
   title: Backlink Publisher WebUI API
-  version: 0.3.0
+  version: 0.5.0
 paths:
   /api/v1/health:
     get:

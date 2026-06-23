@@ -1,9 +1,9 @@
 # backlink-publisher
 
-A local-first, terminal-native backlink publishing pipeline.
+A local-first backlink publishing pipeline with a **modern SPA WebUI** and an **embeddable SDK**.
 Generates, validates, and publishes short backlink articles across **20+ platforms** (Blogger, Medium, Telegraph, Velog, Substack, dev.to, Notion, GitHub/GitLab Pages, and more) — fully pipe-friendly, cron-safe, and non-interactive.
 
-Adding a new platform is a single `register("x", XAdapter)` line — the CLI, schema, throttle gating, and tier matrix all read the adapter registry dynamically (see [AGENTS.md → Adding a new publisher adapter](AGENTS.md#adding-a-new-publisher-adapter)). A Flask **WebUI** (`python webui.py`) wraps the same pipeline for operators who prefer a browser to a terminal.
+Adding a new platform is a single `register("x", XAdapter)` line — the CLI, schema, throttle gating, and tier matrix all read the adapter registry dynamically (see [AGENTS.md → Adding a new publisher adapter](AGENTS.md#adding-a-new-publisher-adapter)). A Vue 3 **SPA WebUI** (`python webui.py`, served from `frontend/src/` via a Jinja shell) wraps the same pipeline for operators who prefer a browser to a terminal, backed by a **versioned `/api/v1` JSON REST API**. An in-process **SDK** (`src/backlink_publisher/sdk/`) lets Python callers run the publish pipeline without subprocess overhead.
 
 ## Workspace Layout
 
@@ -602,7 +602,7 @@ If a publish fails with `channel 'X' credentials expired`, open Settings (`/sett
 
 ## CLI command reference
 
-23 console entrypoints are declared in `pyproject.toml` `[project.scripts]`. The pipeline core is `plan-backlinks → validate-backlinks → publish-backlinks`; the rest are read-only analysis, channel-binding, and re-verification helpers:
+49 console entrypoints are declared in `pyproject.toml` `[project.scripts]`. The pipeline core is `plan-backlinks → validate-backlinks → publish-backlinks`; the rest are read-only analysis, channel-binding, re-verification helpers, GSC probes, and governance tools:
 
 | Command | Role |
 |---|---|
@@ -625,6 +625,16 @@ If a publish fails with `channel 'X' credentials expired`, open Settings (`/sett
 | `gate-probe` | Probe gate/throttle decisions |
 | `plan-check` / `plan-gap` | Plan-doc drift validator + coverage gap |
 | `phase0-seal` | Phase 0 seal operations |
+| `probe-index` | GSC indexation probe — records `gsc.page_signal` for published backlinks |
+| `probe-ranking` | GSC ranking snapshot — keyword position baseline vs. latest |
+| `probe-citations` | GEO AI-citation closed-loop probe |
+| `gate-probe` | Phase-0 falsification gate runner (G2, G3, G5 verdicts) |
+| `recheck-backlinks` | Post-publish survival re-probe (liveness / dofollow-drift) |
+| `click-track` | Click-tracking redirect bookkeeping |
+| `referral-attribute` | Channel-level GA4 referral attribution |
+| `debt-report` | Engineering-debt reporting |
+| `pr-opportunities` | Manual PR-outreach opportunity surfacing |
+| `bp` | Grouped overview of all CLI commands |
 
 ## Project Structure
 
@@ -650,8 +660,12 @@ backlink-publisher/                 # canonical git repo (this dir)
 │   ├── audit/ · recheck/ · scorecard/
 │   ├── config/ · schema.py · http.py · _util/
 │   └── llm/                         # optional LLM anchor provider
-├── webui_app/                       # Flask app (routes + services/)
+├── webui_app/                       # Flask app (routes + api/v1/ + services/)
+│   └── api/v1/                      # Versioned JSON REST API for SPA
 ├── webui_store/                     # WebUI state singletons
+├── frontend/                        # Vue 3 SPA (ESM, no bundler)
+│   ├── src/                         # Routes: /settings, /monitor, /history, /sites, /profiles
+│   └── styles/                      # CSS custom-property token system (tokens.css)
 ├── tests/                           # pytest suite (PYTHONHASHSEED=0)
 ├── monolith_budget.toml             # radon SLOC ceilings
 ├── complexity_budget.toml           # radon cyclomatic-complexity ceilings
