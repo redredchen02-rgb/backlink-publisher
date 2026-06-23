@@ -13,7 +13,7 @@
 import { computed, ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { deleteProfile, getProfiles, saveProfile, type Profile } from '../api/profiles'
-import { ApiError } from '../api/client'
+import { useErrorToast } from '../composables/useErrorToast'
 import { useNotificationsStore } from '../stores/notifications'
 
 const props = defineProps<{
@@ -24,6 +24,7 @@ const emit = defineEmits<{ apply: [Profile] }>()
 const PROFILES_KEY = ['profiles']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 
 const query = useQuery({ queryKey: PROFILES_KEY, queryFn: getProfiles })
 const profiles = computed<Profile[]>(() => query.data.value?.items ?? [])
@@ -57,7 +58,7 @@ async function onSave(): Promise<void> {
     newName.value = ''
     notify.push(`已保存预设：${name}`, 'info')
   } catch (e) {
-    notify.push(e instanceof ApiError ? e.message : '保存预设失败', 'error')
+    toastError(e)
   } finally {
     busy.value = false
   }
@@ -73,7 +74,7 @@ async function onDelete(): Promise<void> {
     selected.value = ''
     notify.push(`已删除预设：${name}`, 'info')
   } catch (e) {
-    notify.push(e instanceof ApiError ? e.message : '删除预设失败', 'error')
+    toastError(e)
   } finally {
     busy.value = false
   }

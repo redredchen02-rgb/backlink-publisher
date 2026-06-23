@@ -154,16 +154,7 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
   display: flex;
   gap: 0.5rem;
 }
-.rows {
-  width: 100%;
-  border-collapse: collapse;
-}
-.rows th,
-.rows td {
-  text-align: left;
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-}
+/* .rows inherits .data-table layout; only page-specific overrides below */
 .target {
   max-width: 24rem;
   overflow: hidden;

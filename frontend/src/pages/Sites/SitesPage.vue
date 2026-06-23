@@ -447,17 +447,9 @@ button.link {
   max-height: 200px;
   overflow: auto;
 }
-.ap-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-base);
-}
-.ap-table th,
+/* .ap-table inherits .data-table layout */
 .ap-table td {
-  text-align: left;
-  padding: var(--control-pad-y) var(--control-pad-x);
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
+  vertical-align: top;  /* Sites rows can wrap (multi-value controls) */
 }
 .truncate {
   max-width: 260px;

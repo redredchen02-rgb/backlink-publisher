@@ -56,6 +56,9 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
     <StateBlock
       :state="blockState"
       :error="query.error.value"
+      :is-fetching="blockState === 'ready' && query.isFetching.value"
+      :stale="query.isStale.value"
+      :last-updated="query.dataUpdatedAt.value ? new Date(query.dataUpdatedAt.value).toISOString() : undefined"
       empty-text="监控数据暂不可用，请稍后重试"
       @retry="query.refetch()"
     >
