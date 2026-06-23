@@ -64,50 +64,63 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
     from backlink_publisher.health.persistence import locked_store
 
     platforms = registered_platforms()
+    platform_set = set(platforms)
     store = EventStore()
 
     last_success: dict[str, str] = {}
     last_failure: dict[str, str] = {}
     last_error: dict[str, str] = {}
 
-    # Query last confirmed event per platform.
-    for platform in platforms:
-        try:
-            rows = store.query(
-                """
-                SELECT ts_utc
-                FROM events
-                WHERE kind = 'publish.confirmed'
-                  AND json_extract(payload_json, '$.platform') = ?
-                ORDER BY ts_utc DESC, id DESC
-                LIMIT 1
-                """,
-                (platform,),
-            )
-            if rows:
-                last_success[platform] = rows[0]["ts_utc"]
-        except Exception as exc:
-            _log.debug(f"build_platform_health: confirmed query for {platform}: {exc}")
+    # Single consolidated query over the terminal kinds both partitions need,
+    # ordered so the FIRST row seen per (platform, kind) is the most recent
+    # (ts_utc DESC, id DESC) — matching the per-platform LIMIT 1 the two old
+    # loops used. Rows are partitioned in memory once instead of issuing 2N
+    # round-trips.
+    try:
+        rows = store.query(
+            """
+            SELECT json_extract(payload_json, '$.platform') AS platform,
+                   ts_utc,
+                   kind,
+                   json_extract(payload_json, '$.error') AS error
+            FROM events
+            WHERE kind IN ('publish.confirmed', 'publish.failed', 'publish.unverified')
+            ORDER BY ts_utc DESC, id DESC
+            """,
+        )
+    except Exception as exc:
+        _log.debug(f"build_platform_health: terminal-event query failed: {exc}")
+        rows = []
 
-    # Query last failed/unverified event per platform.
-    for platform in platforms:
-        try:
-            rows = store.query(
-                """
-                SELECT ts_utc, json_extract(payload_json, '$.error') AS error
-                FROM events
-                WHERE kind IN ('publish.failed', 'publish.unverified')
-                  AND json_extract(payload_json, '$.platform') = ?
-                ORDER BY ts_utc DESC, id DESC
-                LIMIT 1
-                """,
-                (platform,),
-            )
-            if rows:
-                last_failure[platform] = rows[0]["ts_utc"]
-                last_error[platform] = _redact(rows[0].get("error") or "") or None
-        except Exception as exc:
-            _log.debug(f"build_platform_health: failure query for {platform}: {exc}")
+    for row in rows:
+        platform = row["platform"]
+        if platform not in platform_set:
+            continue
+        kind = row["kind"]
+        if kind == "publish.confirmed":
+            # First (most-recent) confirmed row per platform wins.
+            if platform not in last_success:
+                last_success[platform] = row["ts_utc"]
+        else:  # publish.failed / publish.unverified
+            if platform not in last_failure:
+                last_failure[platform] = row["ts_utc"]
+                last_error[platform] = _redact(row["error"] or "") or None
+
+    # circuit.py persists per-platform timestamps under "tripped_at_iso" in
+    # this file. Read + parse it ONCE here, then do dict lookups in the loop
+    # instead of re-reading the file per tripped platform. Missing/unreadable
+    # file → no recorded trip timestamps (same as the old per-platform guard,
+    # which only read tripped_at when the file existed).
+    circuit_state: dict = {}
+    try:
+        state_path = config.config_dir / "publish-circuit-state.json"
+        if state_path.exists():
+            import json as _json
+            raw = _json.loads(state_path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                circuit_state = raw
+    except Exception as exc:
+        _log.debug(f"build_platform_health: circuit state load failed: {exc}")
 
     result: dict[str, PlatformHealthRecord] = {}
     for platform in platforms:
@@ -119,12 +132,9 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
         try:
             tripped = circuit.is_tripped(platform, config)
             if tripped:
-                # circuit.py persists the timestamp under "tripped_at_iso".
-                state_path = config.config_dir / "publish-circuit-state.json"
-                if state_path.exists():
-                    import json as _json
-                    raw = _json.loads(state_path.read_text(encoding="utf-8"))
-                    tripped_at = raw.get(platform, {}).get("tripped_at_iso")
+                entry = circuit_state.get(platform)
+                if isinstance(entry, dict):
+                    tripped_at = entry.get("tripped_at_iso")
         except Exception as exc:
             _log.debug(f"build_platform_health: circuit check for {platform}: {exc}")
 
