@@ -182,21 +182,26 @@ def test_resume_carries_exit_code_for_checkpoint_branching():
 
 def test_invoke_capture_flags_silent_failure_on_nonempty_stdin():
     # exit 0 + empty stdout/stderr on non-empty stdin = broken entry-point.
+    # A browser-tier seed row (medium) keeps the _invoke_capture subprocess path
+    # after U5a-2 — API-tier seeds now run in-process and never reach run_pipe.
     captured = _captured("", "", 0)
     with mock.patch(
         "backlink_publisher.sdk.api.run_pipe_capture", return_value=captured
     ):
-        result = PipelineAPI().publish_seed('[{"target_url":"https://x/y"}]')
+        result = PipelineAPI().publish_seed('{"target_url":"https://x/y","platform":"medium"}')
     assert result.success is False
     assert "no output" in (result.error or "")
 
 
 def test_publish_seed_success():
+    # Browser-tier (medium) → subprocess path; exercises the _invoke_capture
+    # bridge that survives U5a-2 (API-tier publish_seed is covered in-process by
+    # tests/test_publish_inprocess_sdk_parity.py).
     captured = _captured('{"published_url":"https://m/p"}', "", 0)
     with mock.patch(
         "backlink_publisher.sdk.api.run_pipe_capture", return_value=captured
     ):
-        result = PipelineAPI().publish_seed('[{"target_url":"https://x/y"}]')
+        result = PipelineAPI().publish_seed('{"target_url":"https://x/y","platform":"medium"}')
     assert result.success is True
     assert result.rows[0]["published_url"] == "https://m/p"
 

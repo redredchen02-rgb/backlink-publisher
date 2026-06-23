@@ -33,7 +33,11 @@ def _publish_envelope(error_class: str, message: str, exit_code: int = 1) -> str
 # ── Typed publish error prefix ────────────────────────────────────────────────
 
 def test_typed_payload_validation_error_shows_prefix(client):
-    """PayloadValidationError envelope → rendered HTML contains '[PayloadValidationError]' prefix."""
+    """PayloadValidationError envelope → rendered HTML contains '[PayloadValidationError]' prefix.
+
+    Uses 'medium' (browser-tier) so the publish path routes through run_pipe_capture
+    (the mock seam). Non-browser-tier platforms use publish_inprocess since U5a-2.
+    """
     stderr = _publish_envelope("PayloadValidationError", "url_mode='D' not in valid set")
 
     with mock.patch(
@@ -41,11 +45,12 @@ def test_typed_payload_validation_error_shows_prefix(client):
         side_effect=Exception(stderr),
     ):
         with client.session_transaction() as sess:
-            sess["validated"] = [{"main_domain": "example.com", "platform": "blogger",
+            sess["validated"] = [{"main_domain": "example.com", "platform": "medium",
                                    "language": "zh-CN"}]
 
         resp = client.post("/ce:publish", data={
-            "plans": json.dumps([{"main_domain": "example.com", "platform": "blogger",
+            "platform": "medium",
+            "plans": json.dumps([{"main_domain": "example.com", "platform": "medium",
                                    "language": "zh-CN", "content_markdown": "body"}]),
         })
     body = resp.data.decode()
@@ -121,7 +126,10 @@ def test_oversized_error_message_is_truncated(client):
 # ── HTML escaping ─────────────────────────────────────────────────────────────
 
 def test_error_message_html_escaped(client):
-    """Error containing <script>alert(1)</script> → HTML has &lt;script&gt;, NOT bare tag."""
+    """Error containing <script>alert(1)</script> → HTML has &lt;script&gt;, NOT bare tag.
+
+    Uses 'medium' (browser-tier) so run_pipe_capture is the mock seam.
+    """
     xss_stderr = "error: <script>alert(1)</script>"
 
     with mock.patch(
@@ -129,11 +137,12 @@ def test_error_message_html_escaped(client):
         side_effect=Exception(xss_stderr),
     ):
         with client.session_transaction() as sess:
-            sess["validated"] = [{"main_domain": "example.com", "platform": "blogger",
+            sess["validated"] = [{"main_domain": "example.com", "platform": "medium",
                                    "language": "zh-CN"}]
 
         resp = client.post("/ce:publish", data={
-            "plans": json.dumps([{"main_domain": "example.com", "platform": "blogger",
+            "platform": "medium",
+            "plans": json.dumps([{"main_domain": "example.com", "platform": "medium",
                                    "language": "zh-CN", "content_markdown": "body"}]),
         })
     body = resp.data.decode()

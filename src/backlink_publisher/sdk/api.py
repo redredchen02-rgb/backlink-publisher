@@ -3,8 +3,10 @@
 Relocated from webui_app/api/pipeline_api.py to core (plan 2026-06-22-001 U5a).
 webui_app/api/pipeline_api.py is now a re-export shim pointing here.
 
-Phase A: still delegates to ``run_pipe`` (subprocess).  Phase B will replace
-the subprocess bridge with in-process ``publish_rows`` calls (U5a-2).
+plan/validate/report-anchors run in-process (U6/U7); publish/publish_seed run
+in-process for API-tier platforms via ``publish_rows`` (U5a-2, see
+:mod:`._publish_runtime`) and keep the CLI subprocess only for browser-tier
+platforms and ``resume`` (which needs ``run_pipe``).
 
 Every method returns a ``PipeResult`` so callers never touch raw ``run_pipe``
 or parse JSONL inline.
@@ -415,28 +417,51 @@ class PipelineAPI:
         mode: str,
         tier_1: bool = False,
     ) -> PipeResult:
-        """Run ``publish-backlinks --platform <p> --mode <m>``.
+        """Publish validated rows, **in-process** for API-tier platforms (U5a-2).
 
-        When ``tier_1=True``, appends ``--tier-1`` to restrict publishing to
-        dofollow (Tier-1) platforms only (Plan 2026-06-05-005 U6).
+        Replaces the old ``publish-backlinks`` subprocess with a direct call to
+        the SystemExit-free :func:`publish_rows` engine (serialized by a process
+        lock, leases in try/finally). The returned ``PipeResult`` is byte-for-byte
+        consistent with the old subprocess path — same exit-4-carries-rows
+        contract, same typed ``error_class``/``exit_code`` (see
+        :mod:`._publish_runtime`).
+
+        Browser-tier platforms (``medium``/``velog``/``devto``/``mastodon``) keep
+        the CLI **subprocess** path so the long-lived Flask process never spawns
+        Chrome (credential-exposure containment). ``tier_1=True`` restricts to
+        dofollow (Tier-1) platforms (Plan 2026-06-05-005 U6).
         """
-        cmd = ["publish-backlinks", "--platform", platform, "--mode", mode]
-        if tier_1:
-            cmd.append("--tier-1")
-        return self._invoke_capture(cmd, plans_jsonl, "publish-backlinks failed")
+        from backlink_publisher.publishing.reliability.policy import _is_browser_tier
+
+        from ._publish_runtime import publish_inprocess
+
+        if _is_browser_tier(platform):
+            cmd = ["publish-backlinks", "--platform", platform, "--mode", mode]
+            if tier_1:
+                cmd.append("--tier-1")
+            return self._invoke_capture(cmd, plans_jsonl, "publish-backlinks failed")
+        return publish_inprocess(plans_jsonl, platform=platform, mode=mode, tier_1=tier_1)
 
     def publish_seed(self, seed_jsonl: str) -> PipeResult:
-        """Run bare ``publish-backlinks`` (platform/mode carried in the seed row).
+        """Publish a self-describing seed (platform/mode in the payload), U5a-2.
 
-        The queue processor (``scheduler._process_queue_job``) builds a self-
-        describing seed where ``platform``/``publish_mode`` live in the payload,
-        so it invokes the CLI with no flags. Capture-based so a partial-success
-        exit still carries the published rows and the typed error/exit-code reach
-        the 429-backoff branch.
+        The queue processor (``scheduler._process_queue_job``) builds a seed where
+        ``platform``/``publish_mode`` live in the row, so no flags are passed.
+        Runs **in-process** unless any seed row targets a browser-tier platform,
+        in which case the whole batch keeps the CLI subprocess path. Either way a
+        partial-success exit still carries the published rows and the typed
+        error/exit-code reach the scheduler's 429-backoff branch.
         """
-        return self._invoke_capture(
-            ["publish-backlinks"], seed_jsonl, "publish-backlinks failed"
-        )
+        from backlink_publisher.publishing.reliability.policy import _is_browser_tier
+
+        from ._publish_runtime import publish_inprocess
+
+        rows = _parse_jsonl_rows(seed_jsonl)
+        if any(_is_browser_tier(r.get("platform", "")) for r in rows):
+            return self._invoke_capture(
+                ["publish-backlinks"], seed_jsonl, "publish-backlinks failed"
+            )
+        return publish_inprocess(seed_jsonl, platform=None, mode=None, tier_1=False)
 
     # ── resume ───────────────────────────────────────────────────────────
 
