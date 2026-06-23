@@ -18,7 +18,8 @@ describe('Toast', () => {
 
     store.push('hello', 'success')
     await w.vm.$nextTick()
-    expect(w.find('[role="region"][aria-label="通知"]').exists()).toBe(true)
+    // Dual live-region structure: one assertive (errors) + one polite (others)
+    expect(w.find('[aria-live="assertive"]').exists()).toBe(true)
     expect(w.find('[aria-live="polite"]').exists()).toBe(true)
     expect(w.text()).toContain('hello')
 
