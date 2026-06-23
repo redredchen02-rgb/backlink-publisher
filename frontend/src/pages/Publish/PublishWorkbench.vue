@@ -17,7 +17,6 @@
 // (fixed copy, never raw server text); the result card branches on `state`.
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { usePublishStore } from '../../stores/publish'
-import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 import type { PlanRow } from '../../api/pipeline'
@@ -26,7 +25,6 @@ import ProfileSelector from '../../components/ProfileSelector.vue'
 
 const store = usePublishStore()
 const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 
 const urlText = ref('')
 
@@ -82,7 +80,8 @@ function rowOutcome(row: PlanRow): { ok: boolean; text: string } {
 }
 
 function reportError(e: unknown): void {
-  toastError(e)
+  const c = classifyError(e)
+  notify.push(`${c.title}：${c.message}`, 'error')
 }
 
 async function onPlan(): Promise<void> {
@@ -268,16 +267,16 @@ function applyProfile(p: Profile): void {
   list-style: none;
   padding: 0;
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-muted, #8b949e);
 }
 .steps__on {
-  color: var(--text);
+  color: var(--text, #e6edf3);
   font-weight: 600;
 }
 .config,
 .card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
@@ -300,7 +299,7 @@ function applyProfile(p: Profile): void {
 }
 .config__profiles {
   flex-basis: 100%;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border, #30363d);
   padding-top: 0.5rem;
 }
 .rows {
@@ -314,15 +313,15 @@ function applyProfile(p: Profile): void {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  background: var(--warning-soft);
-  color: var(--text);
+  border-radius: 6px;
+  background: var(--warning-soft, #2d2410);
+  color: var(--text, #e6edf3);
 }
 .spinner {
   width: 1rem;
   height: 1rem;
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
+  border: 2px solid var(--border, #30363d);
+  border-top-color: var(--accent, #58a6ff);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -332,15 +331,15 @@ function applyProfile(p: Profile): void {
   }
 }
 .result[data-state='all_success'] {
-  border-color: var(--success);
+  border-color: var(--success, #3fb950);
 }
 .result[data-state='partial_success'] {
-  border-color: var(--warning);
+  border-color: var(--warning, #d29922);
 }
 .ok {
-  color: var(--success);
+  color: var(--success, #3fb950);
 }
 .fail {
-  color: var(--danger);
+  color: var(--danger, #f85149);
 }
 </style>

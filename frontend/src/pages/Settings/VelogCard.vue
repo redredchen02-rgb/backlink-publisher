@@ -6,14 +6,13 @@
 import { computed } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getVelogStatus, velogLogin } from '../../api/settings'
+import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
-import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore, type Severity } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'velog-status'], queryFn: getVelogStatus })
@@ -45,7 +44,8 @@ async function onLogin(): Promise<void> {
     notify.push(r.message, sev)
     await qc.invalidateQueries({ queryKey: ['settings', 'velog-status'] })
   } catch (e) {
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   }
 }
 </script>
@@ -85,18 +85,18 @@ async function onLogin(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  background: var(--bg-raised, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
   padding: 1.25rem;
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: var(--text-xl);
+  font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary);
-  font-size: var(--text-base);
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.85rem;
 }
 .velog__status {
   display: flex;
@@ -115,24 +115,24 @@ async function onLogin(): Promise<void> {
   flex-wrap: wrap;
 }
 .tag {
-  font-size: var(--text-xs);
-  padding: 0.05rem var(--control-pad-x);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border, #30363d);
 }
 .tag--ok {
-  color: var(--success);
+  color: var(--accent-success, #3fb950);
   border-color: currentColor;
 }
 .tag--warn {
-  color: var(--warning);
+  color: var(--accent-warning, #d29922);
   border-color: currentColor;
 }
 .tag--err {
-  color: var(--danger);
+  color: var(--accent-danger, #f85149);
   border-color: currentColor;
 }
 .tag--muted {
-  color: var(--text-secondary);
+  color: var(--text-secondary, #8b949e);
 }
 </style>

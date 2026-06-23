@@ -19,14 +19,13 @@ import {
   type ImageGenDiagnostic,
 } from '../../api/settings'
 import { ApiError } from '../../api/client'
-import { useErrorToast } from '../../composables/useErrorToast'
+import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 const query = useQuery({ queryKey: ['settings', 'llm'], queryFn: getLlmConfig })
 
 const form = reactive({
@@ -83,6 +82,10 @@ const genResult = ref<LlmDiagnostic | null>(null)
 const imgResult = ref<ImageGenDiagnostic | null>(null)
 const sampleResult = ref<ImageGenDiagnostic | null>(null)
 
+function toastError(e: unknown): void {
+  const c = classifyError(e)
+  notify.push(`${c.title}：${c.message}`, 'error')
+}
 
 async function onSave(): Promise<void> {
   if (saving.value) return
@@ -325,29 +328,29 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 
 <style scoped>
 .card {
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  background: var(--bg-raised, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
   padding: 1.25rem;
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: var(--text-xl);
+  font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary);
-  font-size: var(--text-base);
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.85rem;
 }
 .grp {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
   padding: 0.85rem;
   margin: 0.85rem 0;
 }
 .grp legend,
 .grp > summary {
   font-weight: 600;
-  font-size: var(--text-lg);
+  font-size: 0.9rem;
   padding: 0 0.4rem;
 }
 .grp > summary {
@@ -356,7 +359,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 }
 label {
   display: block;
-  font-size: var(--text-sm);
+  font-size: 0.82rem;
   margin: 0.5rem 0 0.2rem;
 }
 input[type='text'],
@@ -364,11 +367,11 @@ input[type='password'],
 textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: var(--control-pad-y) var(--control-pad-x);
+  padding: 0.4rem 0.5rem;
 }
 textarea {
   font-family: var(--font-mono, monospace);
-  font-size: var(--text-sm);
+  font-size: 0.82rem;
 }
 .row2 {
   display: flex;
@@ -386,11 +389,11 @@ textarea {
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.75rem;
-  font-size: var(--text-base);
+  font-size: 0.85rem;
 }
 .indent {
   padding-left: 1rem;
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--border, #30363d);
   margin: 0.5rem 0 0.5rem 0.4rem;
 }
 .diag {
@@ -401,19 +404,19 @@ textarea {
   margin-top: 0.6rem;
 }
 .diag__r {
-  font-size: var(--text-sm);
+  font-size: 0.8rem;
 }
 .diag__r.ok {
-  color: var(--success);
+  color: var(--accent-success, #3fb950);
 }
 .diag__r.bad {
-  color: var(--danger);
+  color: var(--accent-danger, #f85149);
 }
 .sample img {
   margin-top: 0.6rem;
   max-width: 100%;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border-radius: 6px;
+  border: 1px solid var(--border, #30363d);
 }
 .actions {
   display: flex;
@@ -421,6 +424,6 @@ textarea {
   margin-top: 1rem;
 }
 .actions .danger {
-  color: var(--danger);
+  color: var(--accent-danger, #f85149);
 }
 </style>

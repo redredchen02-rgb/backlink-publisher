@@ -56,9 +56,6 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
     <StateBlock
       :state="blockState"
       :error="query.error.value"
-      :is-fetching="blockState === 'ready' && query.isFetching.value"
-      :stale="query.isStale.value"
-      :last-updated="query.dataUpdatedAt.value ? new Date(query.dataUpdatedAt.value).toISOString() : undefined"
       empty-text="监控数据暂不可用，请稍后重试"
       @retry="query.refetch()"
     >
@@ -101,11 +98,11 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
   align-items: center;
 }
 .anomaly {
-  color: var(--warning);
+  color: var(--warning, #d29922);
   font-weight: 600;
 }
 .ok {
-  color: var(--success);
+  color: var(--success, #3fb950);
   font-weight: 600;
 }
 .cards {
@@ -117,25 +114,25 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
   gap: 0.75rem;
 }
 .card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border, #30363d);
   border-left-width: 3px;
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 .card[data-severity='danger'] {
-  border-left-color: var(--danger);
+  border-left-color: var(--danger, #f85149);
 }
 .card[data-severity='warning'] {
-  border-left-color: var(--warning);
+  border-left-color: var(--warning, #d29922);
 }
 .card[data-severity='ok'] {
-  border-left-color: var(--success);
+  border-left-color: var(--success, #3fb950);
 }
 .card[data-severity='info'] {
-  border-left-color: var(--primary);
+  border-left-color: var(--accent, #58a6ff);
 }
 .card__head {
   display: flex;
@@ -146,16 +143,16 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
-  background: var(--text-secondary);
+  background: var(--text-muted, #8b949e);
 }
 .card__sev[data-severity='danger'] {
-  background: var(--danger);
+  background: var(--danger, #f85149);
 }
 .card__sev[data-severity='warning'] {
-  background: var(--warning);
+  background: var(--warning, #d29922);
 }
 .card__sev[data-severity='ok'] {
-  background: var(--success);
+  background: var(--success, #3fb950);
 }
 .card__title {
   font-weight: 600;
@@ -167,6 +164,6 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
   display: flex;
   gap: 0.75rem;
   margin-top: 0.25rem;
-  font-size: var(--text-base);
+  font-size: 0.85rem;
 }
 </style>

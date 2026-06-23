@@ -15,14 +15,13 @@ import {
   revokeBlogger,
 } from '../../api/settings'
 import { ApiError, csrfToken } from '../../api/client'
+import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
-import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'blogger-status'], queryFn: getBloggerStatus })
@@ -66,7 +65,8 @@ async function onSave(): Promise<void> {
       notify.push(detail || '请填写 Client ID 和 Client Secret', 'warning')
       return
     }
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   } finally {
     saving.value = false
   }
@@ -101,7 +101,8 @@ async function onRevoke(): Promise<void> {
     notify.push(r.message || 'Blogger 授权已撤销', 'success')
     await qc.invalidateQueries({ queryKey: ['settings', 'blogger-status'] })
   } catch (e) {
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   }
 }
 </script>
@@ -167,18 +168,18 @@ async function onRevoke(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  background: var(--bg-raised, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
   padding: 1.25rem;
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: var(--text-xl);
+  font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary);
-  font-size: var(--text-base);
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.85rem;
 }
 .blogger__status {
   display: flex;
@@ -190,10 +191,10 @@ async function onRevoke(): Promise<void> {
   display: block;
   margin: 0.3rem 0 0.85rem;
   padding: 0.35rem 0.5rem;
-  background: var(--surface-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
+  background: var(--bg, #0d1117);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 6px;
+  font-size: 0.8rem;
   word-break: break-all;
 }
 .blogger__form {
@@ -207,9 +208,9 @@ async function onRevoke(): Promise<void> {
   gap: 0.3rem;
 }
 .field input {
-  padding: var(--control-pad-y) var(--control-pad-x);
+  padding: 0.4rem 0.5rem;
   font-family: var(--font-mono, monospace);
-  font-size: var(--text-base);
+  font-size: 0.85rem;
 }
 .blogger__actions {
   display: flex;
@@ -218,27 +219,27 @@ async function onRevoke(): Promise<void> {
   align-items: center;
 }
 .google {
-  color: var(--primary);
+  color: var(--accent, #58a6ff);
   border-color: currentColor;
   background: transparent;
 }
 .danger {
-  color: var(--danger);
+  color: var(--accent-danger, #f85149);
   border-color: currentColor;
   background: transparent;
 }
 .tag {
-  font-size: var(--text-xs);
-  padding: 0.05rem var(--control-pad-x);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border, #30363d);
 }
 .tag--ok {
-  color: var(--success);
+  color: var(--accent-success, #3fb950);
   border-color: currentColor;
 }
 .tag--err {
-  color: var(--danger);
+  color: var(--accent-danger, #f85149);
   border-color: currentColor;
 }
 </style>

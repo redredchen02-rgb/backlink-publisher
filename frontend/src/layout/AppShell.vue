@@ -8,7 +8,6 @@ import Toast from '../components/Toast.vue'
 
 <template>
   <div class="shell">
-    <a href="#main" class="skip-link">跳至主内容</a>
     <SideNav />
     <div class="shell__body">
       <TopBar />

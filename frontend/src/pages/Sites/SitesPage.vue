@@ -25,7 +25,6 @@ import {
 } from '../../api/sites'
 import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
-import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 
@@ -33,7 +32,6 @@ const SITES_KEY = ['sites']
 const WIDGETS_KEY = ['sites', 'widgets']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 
 const sitesQuery = useQuery({ queryKey: SITES_KEY, queryFn: listSites })
 const widgetsQuery = useQuery({ queryKey: WIDGETS_KEY, queryFn: getSitesWidgets })
@@ -87,7 +85,8 @@ async function onSave(): Promise<void> {
         return
       }
     }
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   } finally {
     saving.value = false
   }
@@ -103,7 +102,8 @@ async function onEdit(mainUrl: string): Promise<void> {
       notify.push(`已载入配置：${mainUrl}`, 'info')
     }
   } catch (e) {
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   }
 }
 
@@ -125,7 +125,8 @@ async function onPreview(): Promise<void> {
         ? `title: ${r.title}\ndescription: ${r.description}\nh1: ${r.h1}`
         : `无法读取：${r.reason ?? '未知原因'}`
   } catch (e) {
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   } finally {
     previewing.value = false
   }
@@ -176,7 +177,8 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
     qc.setQueryData(SITES_KEY, { items: r.items })
     notify.push(enabled ? '已开启 Autopilot' : '已停止 Autopilot', 'info')
   } catch (e) {
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   } finally {
     togglingUrl.value = null
   }
@@ -274,15 +276,14 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
         empty-text="尚无已配置站点"
         @retry="sitesQuery.refetch()"
       >
-        <div class="data-table-wrap">
-        <table class="ap-table data-table">
+        <table class="ap-table">
           <thead>
             <tr><th>标签</th><th>main_url</th><th>启用</th><th>间隔</th><th>状态</th><th /></tr>
           </thead>
           <tbody>
             <tr v-for="site in items" :key="site.main_url">
               <td>{{ site.label }}</td>
-              <td class="col-url muted" :title="site.main_url">{{ site.main_url }}</td>
+              <td class="muted truncate">{{ site.main_url }}</td>
               <td>
                 <input
                   type="checkbox"
@@ -323,7 +324,6 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
             </tr>
           </tbody>
         </table>
-        </div>
       </StateBlock>
     </section>
 
@@ -368,22 +368,22 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
   gap: 0.75rem;
 }
 fieldset {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
 }
 legend {
-  font-weight: var(--font-weight-semibold);
+  font-weight: 600;
   padding: 0 0.4rem;
 }
 label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: var(--text-lg);
+  font-size: 0.9rem;
 }
 label.checkbox {
   flex-direction: row;
@@ -399,37 +399,42 @@ input[type='text'],
 input[type='number'],
 textarea,
 select {
-  padding: var(--control-pad-y) var(--control-pad-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border, #30363d);
+  border-radius: 6px;
+  background: var(--bg-raised, #161b22);
   color: inherit;
   font: inherit;
 }
 .field-error {
-  color: var(--danger);
-  font-size: var(--text-sm);
+  color: var(--danger, #f85149);
+  font-size: 0.8rem;
 }
 .saved {
-  color: var(--success);
+  color: var(--success, #3fb950);
 }
 .autofilled {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--primary);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--accent, #58a6ff);
+  border-radius: 6px;
 }
 .form-actions {
   display: flex;
   gap: 0.5rem;
 }
 button.primary {
+  background: var(--accent, #58a6ff);
+  color: #0d1117;
+  border: none;
+  border-radius: 6px;
   padding: 0.45rem 1rem;
+  font-weight: 600;
   cursor: pointer;
 }
 button.link {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--accent, #58a6ff);
   cursor: pointer;
 }
 .preview-row {
@@ -440,16 +445,24 @@ button.link {
   flex: 1;
 }
 .preview-out {
-  background: var(--surface-raised);
+  background: var(--bg-raised, #161b22);
   padding: 0.6rem;
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
+  border-radius: 6px;
+  font-size: 0.82rem;
   max-height: 200px;
   overflow: auto;
 }
-/* .ap-table inherits .data-table layout */
+.ap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.ap-table th,
 .ap-table td {
-  vertical-align: top;  /* Sites rows can wrap (multi-value controls) */
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border, #30363d);
+  vertical-align: top;
 }
 .truncate {
   max-width: 260px;
@@ -458,15 +471,15 @@ button.link {
   white-space: nowrap;
 }
 .ap-status[data-tone='ok'] {
-  color: var(--success);
+  color: var(--success, #3fb950);
 }
 .ap-status[data-tone='warn'] {
-  color: var(--danger);
+  color: var(--danger, #f85149);
 }
 .citation-alert {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--warning);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--warning, #d29922);
+  border-radius: 6px;
 }
 .plan-gap {
   display: flex;
@@ -475,12 +488,12 @@ button.link {
   gap: 0.75rem;
 }
 .badge {
-  background: var(--surface-overlay);
+  background: var(--bg-overlay, #1f2630);
   padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-pill);
-  font-weight: var(--font-weight-semibold);
+  border-radius: 999px;
+  font-weight: 600;
 }
 .muted {
-  color: var(--text-secondary);
+  color: var(--muted, #8b949e);
 }
 </style>

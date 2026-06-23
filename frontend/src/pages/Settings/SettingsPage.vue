@@ -15,6 +15,7 @@ import {
   type ScheduleSettings,
 } from '../../api/settings'
 import { ApiError } from '../../api/client'
+import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
 import ChannelsCard from './ChannelsCard.vue'
 import ChannelBindingCard from './ChannelBindingCard.vue'
@@ -25,13 +26,11 @@ import NotionCard from './NotionCard.vue'
 import BlogIdsCard from './BlogIdsCard.vue'
 import LlmSettingsCard from './LlmSettingsCard.vue'
 import SettingsSidebar from './SettingsSidebar.vue'
-import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 
 // ── keyword pools ────────────────────────────────────────────────────────────
 
@@ -86,7 +85,8 @@ async function onSaveKeywords(): Promise<void> {
       notify.push(detail || '关键词校验失败（需 ≤60 字符）', 'warning')
       return
     }
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   } finally {
     savingKeywords.value = false
   }
@@ -129,7 +129,8 @@ async function onSaveSchedule(): Promise<void> {
       notify.push('排程数值无效（请填数字）', 'warning')
       return
     }
-    toastError(e)
+    const c = classifyError(e)
+    notify.push(`${c.title}：${c.message}`, 'error')
   } finally {
     savingSchedule.value = false
   }
@@ -276,22 +277,22 @@ async function onSaveSchedule(): Promise<void> {
   margin: 0 0 0.25rem;
 }
 .card {
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  background: var(--bg-raised, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
   padding: 1.25rem;
 }
 .card h2 {
   margin: 0 0 0.5rem;
-  font-size: var(--text-xl);
+  font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary);
-  font-size: var(--text-base);
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.85rem;
 }
 .kw-domain {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
   margin-bottom: 0.75rem;
   overflow: hidden;
 }
@@ -304,14 +305,14 @@ async function onSaveSchedule(): Promise<void> {
   gap: 0.5rem;
 }
 .kw-count {
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.78rem;
 }
 .kw-domain textarea {
   width: 100%;
   margin: 0.4rem 0 0.75rem;
   font-family: var(--font-mono, monospace);
-  font-size: var(--text-base);
+  font-size: 0.85rem;
 }
 .kw-domain label {
   display: block;
@@ -333,7 +334,7 @@ async function onSaveSchedule(): Promise<void> {
   gap: 0.3rem;
 }
 .field input {
-  padding: var(--control-pad-y) var(--control-pad-x);
+  padding: 0.4rem 0.5rem;
 }
 button[type='submit'] {
   margin-top: 0.75rem;

@@ -18,14 +18,12 @@ import {
   type HistoryMutationResult,
 } from '../../api/history'
 import StateBlock from '../../components/StateBlock.vue'
-import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 
 const QKEY = ['history']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 
 const query = useQuery({ queryKey: QKEY, queryFn: listHistory })
 const items = computed<HistoryItem[]>(() => query.data.value?.items ?? [])
@@ -46,7 +44,8 @@ function toggle(id: string): void {
 }
 
 function reportError(e: unknown): void {
-  toastError(e)
+  const c = classifyError(e)
+  notify.push(`${c.title}：${c.message}`, 'error')
 }
 
 /** Run a mutation, write the refreshed list back into the cache, surface message. */
@@ -99,40 +98,38 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
       empty-text="还没有发布记录"
       @retry="query.refetch()"
     >
-      <div class="data-table-wrap">
-        <table class="rows data-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>状态</th>
-              <th>目标</th>
-              <th>平台</th>
-              <th>时间</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in items" :key="row.id" :data-status="row.status">
-              <td>
-                <input
-                  type="checkbox"
-                  :checked="selected.has(row.id)"
-                  :aria-label="`选择 ${row.target_url}`"
-                  @change="toggle(row.id)"
-                />
-              </td>
-              <td class="col-status"><span class="status" :data-status="row.status">{{ row.status }}</span></td>
-              <td class="col-url target" :title="row.target_url">{{ row.target_url }}</td>
-              <td>{{ row.platform }}</td>
-              <td class="col-date muted">{{ row.created_at }}</td>
-              <td class="row-actions">
-                <button type="button" :disabled="busy" @click="onRecheck(row.id)">重核</button>
-                <button type="button" :disabled="busy" @click="onDelete(row.id)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <table class="rows">
+        <thead>
+          <tr>
+            <th></th>
+            <th>状态</th>
+            <th>目标</th>
+            <th>平台</th>
+            <th>时间</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in items" :key="row.id" :data-status="row.status">
+            <td>
+              <input
+                type="checkbox"
+                :checked="selected.has(row.id)"
+                :aria-label="`选择 ${row.target_url}`"
+                @change="toggle(row.id)"
+              />
+            </td>
+            <td><span class="status" :data-status="row.status">{{ row.status }}</span></td>
+            <td class="target">{{ row.target_url }}</td>
+            <td>{{ row.platform }}</td>
+            <td class="muted">{{ row.created_at }}</td>
+            <td class="row-actions">
+              <button type="button" :disabled="busy" @click="onRecheck(row.id)">重核</button>
+              <button type="button" :disabled="busy" @click="onDelete(row.id)">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </StateBlock>
   </section>
 </template>
@@ -154,7 +151,16 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
   display: flex;
   gap: 0.5rem;
 }
-/* .rows inherits .data-table layout; only page-specific overrides below */
+.rows {
+  width: 100%;
+  border-collapse: collapse;
+}
+.rows th,
+.rows td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border, #30363d);
+}
 .target {
   max-width: 24rem;
   overflow: hidden;
@@ -162,10 +168,10 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
   white-space: nowrap;
 }
 .status[data-status='published'] {
-  color: var(--success);
+  color: var(--success, #3fb950);
 }
 .status[data-status='failed'] {
-  color: var(--danger);
+  color: var(--danger, #f85149);
 }
 .row-actions {
   display: flex;

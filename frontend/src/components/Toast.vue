@@ -1,10 +1,8 @@
 <script setup lang="ts">
-// Toast host — renders the notifications store into aria-live regions so
-// screen readers announce transient feedback. Two separate regions required:
-// aria-live="assertive" for errors (interrupt immediately) vs "polite" for
-// success/info/warning (next idle). Dynamic per-item aria-live changes don't
-// work — the attribute must be on a static container present at page load.
-import { watch, onUnmounted } from 'vue'
+// Toast host — renders the notifications store into an aria-live region so
+// screen readers announce transient feedback (a11y half of the subscription
+// contract). Messages render via {{ }} (Vue escaping) — never innerHTML.
+import { watch } from 'vue'
 import { useNotificationsStore, type Toast } from '../stores/notifications'
 
 const store = useNotificationsStore()
@@ -14,13 +12,6 @@ const timers = new Map<number, ReturnType<typeof setTimeout>>()
 watch(
   () => store.toasts.slice(),
   (toasts: Toast[]) => {
-    // Cancel timers for manually-dismissed toasts (prevents orphaned handles)
-    for (const [id, handle] of timers) {
-      if (!toasts.find(t => t.id === id)) {
-        clearTimeout(handle)
-        timers.delete(id)
-      }
-    }
     for (const t of toasts) {
       if (t.timeout > 0 && !timers.has(t.id)) {
         timers.set(
@@ -35,36 +26,22 @@ watch(
   },
   { deep: false },
 )
-
-onUnmounted(() => { timers.forEach(clearTimeout); timers.clear() })
 </script>
 
 <template>
-  <div class="toast-host">
-    <!-- Error: assertive — screen reader interrupts immediately -->
-    <div aria-live="assertive" aria-atomic="false" class="toast-region">
-      <div
-        v-for="t in store.toasts.filter(t => t.severity === 'error')"
-        :key="t.id"
-        class="toast toast--error"
-        role="alert"
-      >
-        <span class="toast__msg">{{ t.message }}</span>
-        <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">×</button>
-      </div>
-    </div>
-    <!-- Non-error: polite — announced at next idle -->
-    <div aria-live="polite" aria-atomic="false" class="toast-region">
-      <div
-        v-for="t in store.toasts.filter(t => t.severity !== 'error')"
-        :key="t.id"
-        class="toast"
-        :class="`toast--${t.severity}`"
-        role="status"
-      >
-        <span class="toast__msg">{{ t.message }}</span>
-        <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">×</button>
-      </div>
+  <div class="toast-host" role="region" aria-label="通知">
+    <div
+      v-for="t in store.toasts"
+      :key="t.id"
+      class="toast"
+      :class="`toast--${t.severity}`"
+      :role="t.severity === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      <span class="toast__msg">{{ t.message }}</span>
+      <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">
+        ×
+      </button>
     </div>
   </div>
 </template>
@@ -72,49 +49,44 @@ onUnmounted(() => { timers.forEach(clearTimeout); timers.clear() })
 <style scoped>
 .toast-host {
   position: fixed;
-  top: var(--space-4);
-  right: var(--space-4);
+  top: 1rem;
+  right: 1rem;
   z-index: 1200;
-  max-width: 22rem;
-  pointer-events: none;
-}
-.toast-region {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  pointer-events: auto;
+  gap: 0.5rem;
+  max-width: 22rem;
 }
 .toast {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--control-pad-y) var(--space-3);
-  border-radius: var(--radius-lg);
-  background: var(--surface-overlay);
-  border-left: 3px solid var(--info);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-glass);
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md, 6px);
+  background: var(--bg-overlay, #1f2630);
+  border-left: 3px solid var(--accent-info, #3b82f6);
+  color: var(--text-primary, #e6edf3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 .toast--success {
-  border-left-color: var(--success);
+  border-left-color: var(--accent-success, #2ea043);
 }
 .toast--error {
-  border-left-color: var(--danger);
+  border-left-color: var(--accent-danger, #f85149);
 }
 .toast--warning {
-  border-left-color: var(--warning);
+  border-left-color: var(--accent-warning, #d29922);
 }
 .toast__msg {
   flex: 1;
-  font-size: var(--text-base);
+  font-size: 0.875rem;
 }
 .toast__close {
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #8b949e);
   cursor: pointer;
-  font-size: var(--text-lg);
+  font-size: 1rem;
   line-height: 1;
-  padding: 0;
 }
 </style>
