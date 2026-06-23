@@ -58,24 +58,6 @@ export const router = createRouter({
       component: () => import('../pages/Settings/SettingsPage.vue'),
     },
     {
-      // Equity-ledger detail page (U8 sub-knife 9); navItems maps 权益账本 → '/equity-ledger'.
-      path: '/equity-ledger',
-      name: 'equity-ledger',
-      component: () => import('../pages/Monitor/EquityLedgerPage.vue'),
-    },
-    {
-      // Keep-alive monitoring page (U8 sub-knife 10); navItems maps 保活 → '/keep-alive'.
-      path: '/keep-alive',
-      name: 'keep-alive',
-      component: () => import('../pages/Monitor/KeepAlivePage.vue'),
-    },
-    {
-      // Health dashboard (U8 sub-knife 11); navItems maps 健康 → '/health'.
-      path: '/health',
-      name: 'health',
-      component: () => import('../pages/Monitor/HealthPage.vue'),
-    },
-    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../pages/NotFound.vue'),
