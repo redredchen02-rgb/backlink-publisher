@@ -4,7 +4,7 @@
 // aria-live="assertive" for errors (interrupt immediately) vs "polite" for
 // success/info/warning (next idle). Dynamic per-item aria-live changes don't
 // work — the attribute must be on a static container present at page load.
-import { watch } from 'vue'
+import { watch, onUnmounted } from 'vue'
 import { useNotificationsStore, type Toast } from '../stores/notifications'
 
 const store = useNotificationsStore()
@@ -14,6 +14,13 @@ const timers = new Map<number, ReturnType<typeof setTimeout>>()
 watch(
   () => store.toasts.slice(),
   (toasts: Toast[]) => {
+    // Cancel timers for manually-dismissed toasts (prevents orphaned handles)
+    for (const [id, handle] of timers) {
+      if (!toasts.find(t => t.id === id)) {
+        clearTimeout(handle)
+        timers.delete(id)
+      }
+    }
     for (const t of toasts) {
       if (t.timeout > 0 && !timers.has(t.id)) {
         timers.set(
@@ -28,6 +35,8 @@ watch(
   },
   { deep: false },
 )
+
+onUnmounted(() => { timers.forEach(clearTimeout); timers.clear() })
 </script>
 
 <template>

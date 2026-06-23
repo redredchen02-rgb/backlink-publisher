@@ -166,7 +166,7 @@ fieldset {
   gap: 0.5rem;
 }
 legend {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   padding: 0 0.4rem;
 }
 label {
@@ -212,12 +212,7 @@ input[type='number'] {
   font-size: var(--text-base);
 }
 button.primary {
-  background: var(--primary);
-  color: #0d1117;
-  border: none;
-  border-radius: var(--radius-md);
   padding: 0.45rem 1rem;
-  font-weight: 600;
   cursor: pointer;
 }
 </style>

@@ -144,10 +144,6 @@
      * #38bdf8. Replaces hardcoded #0d1117 in .primary button rules (Unit 6). */
     --on-primary: #0d1117;
 
-    /* Radius (literals; replaced by canonical scale members in Unit 6) */
-    --radius-sm: 4px;
-    --radius-md: 6px;
-
     color-scheme: dark;
 }
 

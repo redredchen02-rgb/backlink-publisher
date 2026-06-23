@@ -4,7 +4,7 @@
 // pages had no loading gap; fetch-based pages do, so this is the regression guard.
 // Error copy comes from the classifyError taxonomy (fixed templates, never raw
 // server text). 'stale' is handled by callers via TanStack Query keep-previous-data.
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { classifyError, type Classified } from '../lib/errors'
 
 const props = withDefaults(
@@ -18,9 +18,9 @@ const props = withDefaults(
     /** True when data is stale (TanStack isStale). Shows last-updated hint. */
     stale?: boolean
     /** ISO timestamp of last successful fetch for the stale hint. */
-    lastUpdated?: string | null
+    lastUpdated?: string
   }>(),
-  { emptyText: '暂无数据', retryable: true },
+  { emptyText: '暂无数据', retryable: true, isFetching: false, stale: false },
 )
 
 const emit = defineEmits<{ retry: [] }>()
@@ -29,8 +29,17 @@ const classified = computed<Classified | null>(() =>
   props.state === 'error' ? classifyError(props.error) : null,
 )
 
+// Reactive clock for fmtRelative — updates every 60 s so the relative
+// timestamp re-renders without user interaction. Only ticks while mounted.
+const now = ref(Date.now())
+let ticker: ReturnType<typeof setInterval> | undefined
+onMounted(() => { ticker = setInterval(() => { now.value = Date.now() }, 60_000) })
+onUnmounted(() => { clearInterval(ticker) })
+
 function fmtRelative(iso: string): string {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  const ms = new Date(iso).getTime()
+  if (!Number.isFinite(ms)) return '—'
+  const diff = Math.floor((now.value - ms) / 1000)
   if (diff < 60) return '刚刚'
   if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
   return `${Math.floor(diff / 3600)} 小时前`
@@ -56,19 +65,17 @@ function fmtRelative(iso: string): string {
   </div>
 
   <template v-else>
-    <!-- Stale / refreshing strip — non-blocking, shows above content -->
-    <div
-      v-if="isFetching || stale"
-      class="state__stalebar"
-      role="status"
-      aria-live="polite"
-    >
-      <span v-if="isFetching" class="state__pulse" aria-hidden="true" />
-      <span class="state__stale-text">
-        <template v-if="isFetching">更新中…</template>
-        <template v-else-if="stale && lastUpdated">最后更新：{{ fmtRelative(lastUpdated) }}</template>
-        <template v-else-if="stale">数据可能不是最新</template>
-      </span>
+    <!-- Stale / refreshing strip — aria-live container is always present in the DOM
+         so screen readers have already registered it before content changes (WCAG). -->
+    <div class="state__stalebar" role="status" aria-live="polite">
+      <template v-if="isFetching || stale">
+        <span v-if="isFetching" class="state__pulse" aria-hidden="true" />
+        <span class="state__stale-text">
+          <template v-if="isFetching">更新中…</template>
+          <template v-else-if="stale && lastUpdated">最后更新：{{ fmtRelative(lastUpdated) }}</template>
+          <template v-else-if="stale">数据可能不是最新</template>
+        </span>
+      </template>
     </div>
     <slot />
   </template>
@@ -110,7 +117,7 @@ function fmtRelative(iso: string): string {
   .skeleton { animation: none; }  /* static gradient, no motion */
 }
 .state__title {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin: 0 0 0.25rem;
 }
 .state__stalebar {
@@ -120,6 +127,7 @@ function fmtRelative(iso: string): string {
   padding: var(--space-1) 0 var(--space-2);
   font-size: var(--text-xs);
   color: var(--text-secondary);
+  min-height: 1rem;  /* keeps layout stable when empty */
 }
 .state__pulse {
   display: inline-block;

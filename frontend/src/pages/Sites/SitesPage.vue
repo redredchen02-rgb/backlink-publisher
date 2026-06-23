@@ -378,7 +378,7 @@ fieldset {
   gap: 0.6rem;
 }
 legend {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   padding: 0 0.4rem;
 }
 label {
@@ -425,12 +425,7 @@ select {
   gap: 0.5rem;
 }
 button.primary {
-  background: var(--primary);
-  color: #0d1117;
-  border: none;
-  border-radius: var(--radius-md);
   padding: 0.45rem 1rem;
-  font-weight: 600;
   cursor: pointer;
 }
 button.link {
@@ -493,7 +488,7 @@ button.link {
   background: var(--surface-overlay);
   padding: 0.2rem 0.6rem;
   border-radius: var(--radius-pill);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .muted {
   color: var(--text-secondary);
