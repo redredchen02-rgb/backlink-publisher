@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import ssl
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,8 +18,6 @@ from backlink_publisher._util.url import (
     safe_urlparse,
 )
 
-import os as _os
-
 _DEFAULT_REQUEST_TIMEOUT = 10
 _DEFAULT_MAX_CONCURRENT = 10
 _DEFAULT_MAX_RETRIES = 2
@@ -29,28 +28,28 @@ ACCEPTABLE_CODES = {200, 301, 302}
 
 def _request_timeout() -> int:
     try:
-        return int(_os.environ.get("BACKLINK_LINKCHECK_REQUEST_TIMEOUT", _DEFAULT_REQUEST_TIMEOUT))
+        return int(os.environ.get("BACKLINK_LINKCHECK_REQUEST_TIMEOUT", _DEFAULT_REQUEST_TIMEOUT))
     except (ValueError, TypeError):
         return _DEFAULT_REQUEST_TIMEOUT
 
 
 def _max_concurrent() -> int:
     try:
-        return int(_os.environ.get("BACKLINK_LINKCHECK_MAX_CONCURRENT", _DEFAULT_MAX_CONCURRENT))
+        return int(os.environ.get("BACKLINK_LINKCHECK_MAX_CONCURRENT", _DEFAULT_MAX_CONCURRENT))
     except (ValueError, TypeError):
         return _DEFAULT_MAX_CONCURRENT
 
 
 def _max_retries() -> int:
     try:
-        return int(_os.environ.get("BACKLINK_LINKCHECK_MAX_RETRIES", _DEFAULT_MAX_RETRIES))
+        return int(os.environ.get("BACKLINK_LINKCHECK_MAX_RETRIES", _DEFAULT_MAX_RETRIES))
     except (ValueError, TypeError):
         return _DEFAULT_MAX_RETRIES
 
 
 def _retry_delay_base_s() -> int:
     try:
-        return int(_os.environ.get("BACKLINK_LINKCHECK_RETRY_DELAY_BASE_S", _DEFAULT_RETRY_DELAY_BASE_S))
+        return int(os.environ.get("BACKLINK_LINKCHECK_RETRY_DELAY_BASE_S", _DEFAULT_RETRY_DELAY_BASE_S))
     except (ValueError, TypeError):
         return _DEFAULT_RETRY_DELAY_BASE_S
 
@@ -156,10 +155,37 @@ def _dedup_key(url: object) -> str:
         return url
 
 
-def check_urls(urls: list[str]) -> dict[str, tuple[bool, str | None]]:
+def _record_perf_stats(sink: dict[str, Any], *, pool_size: int, n_tasks: int) -> None:
+    """Record pool-sizing telemetry into ``sink`` (fail-soft, non-blocking).
+
+    Default-off: only reached when a caller opts in by passing ``perf_stats``.
+    Wrapped in a broad guard so a misbehaving mapping can never perturb the
+    reachability result — diagnostics must stay strictly observational.
+    """
+    try:
+        sink["pool_size_requested"] = pool_size
+        sink["actual_workers_spawned"] = min(pool_size, n_tasks)
+        sink["queue_depth"] = max(0, n_tasks - pool_size)
+    except Exception:  # noqa: BLE001 - telemetry must never break the batch
+        opencli_logger.debug("linkcheck perf_stats sink rejected updates")
+
+
+def check_urls(
+    urls: list[str],
+    *,
+    perf_stats: dict[str, Any] | None = None,
+) -> dict[str, tuple[bool, str | None]]:
     """Check reachability of multiple URLs concurrently with retries.
 
     Returns a dict mapping URL -> (reachable, error_message).
+
+    ``perf_stats`` is an optional, keyword-only, default-off diagnostics sink.
+    When a mutable dict is passed, it is populated in-place with pool-sizing
+    telemetry (``pool_size_requested`` = ``min(_max_concurrent(), len(distinct))``,
+    ``actual_workers_spawned`` = futures submitted, ``queue_depth`` = tasks beyond
+    the worker count). It never changes behavior, never raises into the caller,
+    and is non-blocking — purely observational. Existing positional callers are
+    unaffected since the parameter is keyword-only with a ``None`` default.
     """
     results: dict[str, tuple[bool, str | None]] = {}
     if not urls:
@@ -177,6 +203,8 @@ def check_urls(urls: list[str]) -> dict[str, tuple[bool, str | None]]:
         return results
 
     if len(distinct_canonical) == 1:
+        if perf_stats is not None:
+            _record_perf_stats(perf_stats, pool_size=1, n_tasks=1)
         c = distinct_canonical[0]
         rep = canonical_to_originals[c][0]
         _, reachable, error = _check_url_with_retry(rep)
@@ -184,7 +212,10 @@ def check_urls(urls: list[str]) -> dict[str, tuple[bool, str | None]]:
             results[orig] = (reachable, error)
         return results
 
-    with ThreadPoolExecutor(max_workers=min(_max_concurrent(), len(distinct_canonical))) as pool:
+    pool_size = min(_max_concurrent(), len(distinct_canonical))
+    if perf_stats is not None:
+        _record_perf_stats(perf_stats, pool_size=pool_size, n_tasks=len(distinct_canonical))
+    with ThreadPoolExecutor(max_workers=pool_size) as pool:
         futures: dict[Any, str] = {}  # future -> canonical
         for c in distinct_canonical:
             rep = canonical_to_originals[c][0]
