@@ -23,6 +23,7 @@ import { classifyError } from '../../lib/errors'
 import type { PlanRow } from '../../api/pipeline'
 import type { Profile } from '../../api/profiles'
 import ProfileSelector from '../../components/ProfileSelector.vue'
+import ArticleReviewRow from '../../components/ArticleReviewRow.vue'
 
 const store = usePublishStore()
 const notify = useNotificationsStore()
@@ -149,7 +150,7 @@ function applyProfile(p: Profile): void {
     <ol class="steps" :data-stage="store.stage" aria-label="发布流程进度">
       <li :class="{ 'steps__on': store.stage === 'input' }">1 · 输入</li>
       <li :class="{ 'steps__on': store.stage === 'planned' }">2 · 生成</li>
-      <li :class="{ 'steps__on': store.stage === 'validated' }">3 · 验证</li>
+      <li :class="{ 'steps__on': store.stage === 'validated' }">3 · 預覽/確認</li>
       <li :class="{ 'steps__on': store.stage === 'published' }">4 · 发布</li>
     </ol>
 
@@ -215,12 +216,18 @@ function applyProfile(p: Profile): void {
       </button>
     </fieldset>
 
-    <!-- Step 3 — validated → publish -->
-    <fieldset v-if="store.validated.length" class="card">
-      <legend>3 · 已验证（{{ store.validated.length }} 篇）</legend>
-      <ul class="rows">
-        <li v-for="(row, i) in store.validated" :key="i">{{ rowLabel(row) }}</li>
-      </ul>
+    <!-- Step 3 — preview / edit → confirm publish -->
+    <fieldset v-if="store.validated.length && !store.publishResult" class="card">
+      <legend>3 · 預覽/確認（{{ store.validated.length }} 篇）</legend>
+      <div class="review-rows">
+        <ArticleReviewRow
+          v-for="(row, i) in store.validated"
+          :key="i"
+          :row="row"
+          :patch="store.edits[i] ?? {}"
+          @patch="store.patchRow(i, $event)"
+        />
+      </div>
 
       <div v-if="store.publishing" class="publish-busy" role="status" aria-live="polite">
         <span class="spinner" aria-hidden="true" />
@@ -228,7 +235,7 @@ function applyProfile(p: Profile): void {
       </div>
 
       <button type="button" class="publish-btn" :disabled="store.publishing" @click="onPublish">
-        {{ store.publishing ? '发布进行中…' : '发布' }}
+        {{ store.publishing ? '發布進行中…' : '確認並發布' }}
       </button>
     </fieldset>
 
@@ -308,6 +315,11 @@ function applyProfile(p: Profile): void {
   padding-left: 1.1rem;
   max-height: 12rem;
   overflow: auto;
+}
+.review-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 .publish-busy {
   display: flex;
