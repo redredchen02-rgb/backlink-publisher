@@ -42,23 +42,25 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
       empty-text="暂无计划发布"
       @retry="query.refetch()"
     >
-      <table class="sched-table">
-        <thead>
-          <tr><th>平台</th><th>标题</th><th>目标链接</th><th>计划时间</th><th>创建时间</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, i) in items" :key="row.id ?? i">
-            <td><span class="badge">{{ row.platform || '—' }}</span></td>
-            <td>{{ row.title || '无标题' }}</td>
-            <td class="truncate">
-              <a v-if="row.target_url" :href="row.target_url" target="_blank" rel="noopener">{{ row.target_url }}</a>
-              <span v-else>—</span>
-            </td>
-            <td>{{ fmt(row.scheduled_at) }}</td>
-            <td>{{ fmt(row.created_at) }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="data-table-wrap">
+        <table class="sched-table data-table">
+          <thead>
+            <tr><th>平台</th><th>标题</th><th>目标链接</th><th>计划时间</th><th>创建时间</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, i) in items" :key="row.id ?? i">
+              <td><span class="badge">{{ row.platform || '—' }}</span></td>
+              <td>{{ row.title || '无标题' }}</td>
+              <td class="col-url truncate">
+                <a v-if="row.target_url" :href="row.target_url" target="_blank" rel="noopener" :title="row.target_url">{{ row.target_url }}</a>
+                <span v-else>—</span>
+              </td>
+              <td class="col-date">{{ fmt(row.scheduled_at) }}</td>
+              <td class="col-date">{{ fmt(row.created_at) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </StateBlock>
   </section>
 </template>

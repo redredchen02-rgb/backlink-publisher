@@ -276,14 +276,15 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
         empty-text="尚无已配置站点"
         @retry="sitesQuery.refetch()"
       >
-        <table class="ap-table">
+        <div class="data-table-wrap">
+        <table class="ap-table data-table">
           <thead>
             <tr><th>标签</th><th>main_url</th><th>启用</th><th>间隔</th><th>状态</th><th /></tr>
           </thead>
           <tbody>
             <tr v-for="site in items" :key="site.main_url">
               <td>{{ site.label }}</td>
-              <td class="muted truncate">{{ site.main_url }}</td>
+              <td class="col-url muted" :title="site.main_url">{{ site.main_url }}</td>
               <td>
                 <input
                   type="checkbox"
@@ -324,6 +325,7 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
             </tr>
           </tbody>
         </table>
+        </div>
       </StateBlock>
     </section>
 
