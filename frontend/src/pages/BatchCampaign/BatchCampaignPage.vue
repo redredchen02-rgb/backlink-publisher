@@ -17,10 +17,11 @@ import {
 } from '../../api/campaigns'
 import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const formQuery = useQuery({ queryKey: ['campaigns', 'form'], queryFn: getCampaignForm })
 
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
@@ -82,8 +83,7 @@ async function onSubmit(): Promise<void> {
         return
       }
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     submitting.value = false
   }

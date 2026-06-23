@@ -19,13 +19,14 @@ import {
   type ImageGenDiagnostic,
 } from '../../api/settings'
 import { ApiError } from '../../api/client'
-import { classifyError } from '../../lib/errors'
+import { useErrorToast } from '../../composables/useErrorToast'
 import StateBlock from '../../components/StateBlock.vue'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const query = useQuery({ queryKey: ['settings', 'llm'], queryFn: getLlmConfig })
 
 const form = reactive({
@@ -82,10 +83,6 @@ const genResult = ref<LlmDiagnostic | null>(null)
 const imgResult = ref<ImageGenDiagnostic | null>(null)
 const sampleResult = ref<ImageGenDiagnostic | null>(null)
 
-function toastError(e: unknown): void {
-  const c = classifyError(e)
-  notify.push(`${c.title}：${c.message}`, 'error')
-}
 
 async function onSave(): Promise<void> {
   if (saving.value) return

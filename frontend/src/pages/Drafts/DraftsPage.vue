@@ -20,12 +20,14 @@ import {
   type DraftMutationResult,
 } from '../../api/drafts'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 
 const QKEY = ['drafts']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 
 const query = useQuery({ queryKey: QKEY, queryFn: listDrafts })
 const items = computed<DraftItem[]>(() => query.data.value?.items ?? [])
@@ -47,8 +49,7 @@ function toggle(id: string): void {
 }
 
 function reportError(e: unknown): void {
-  const c = classifyError(e)
-  notify.push(`${c.title}：${c.message}`, 'error')
+  toastError(e)
 }
 
 async function run(fn: () => Promise<DraftMutationResult>): Promise<void> {

@@ -6,8 +6,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getBlogIds, saveBlogIds } from '../../api/settings'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -18,6 +18,7 @@ interface Row {
 }
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'blog-ids'], queryFn: getBlogIds })
@@ -69,8 +70,7 @@ async function onSave(): Promise<void> {
     notify.push(r.message || 'Blog ID 映射已保存', 'success')
     await qc.invalidateQueries({ queryKey: ['settings', 'blog-ids'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     saving.value = false
   }

@@ -18,13 +18,14 @@ import {
   clearMediumOauth,
   type MediumActionResult,
 } from '../../api/settings'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore, type Severity } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'medium-status'], queryFn: getMediumStatus })
@@ -65,8 +66,7 @@ async function runAction(
     notify.push(r.message, severityOf(r.level))
     await qc.invalidateQueries({ queryKey: ['settings', 'medium-status'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 
@@ -77,8 +77,7 @@ async function onClearOauth(): Promise<void> {
     notify.push(r.message, 'success')
     await qc.invalidateQueries({ queryKey: ['settings', 'medium-status'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 </script>

@@ -17,6 +17,7 @@
 // (fixed copy, never raw server text); the result card branches on `state`.
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { usePublishStore } from '../../stores/publish'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 import type { PlanRow } from '../../api/pipeline'
@@ -25,6 +26,7 @@ import ProfileSelector from '../../components/ProfileSelector.vue'
 
 const store = usePublishStore()
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 
 const urlText = ref('')
 
@@ -80,8 +82,7 @@ function rowOutcome(row: PlanRow): { ok: boolean; text: string } {
 }
 
 function reportError(e: unknown): void {
-  const c = classifyError(e)
-  notify.push(`${c.title}：${c.message}`, 'error')
+  toastError(e)
 }
 
 async function onPlan(): Promise<void> {

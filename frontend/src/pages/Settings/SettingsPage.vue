@@ -15,7 +15,6 @@ import {
   type ScheduleSettings,
 } from '../../api/settings'
 import { ApiError } from '../../api/client'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
 import ChannelsCard from './ChannelsCard.vue'
 import ChannelBindingCard from './ChannelBindingCard.vue'
@@ -26,11 +25,13 @@ import NotionCard from './NotionCard.vue'
 import BlogIdsCard from './BlogIdsCard.vue'
 import LlmSettingsCard from './LlmSettingsCard.vue'
 import SettingsSidebar from './SettingsSidebar.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 
 // ── keyword pools ────────────────────────────────────────────────────────────
 
@@ -85,8 +86,7 @@ async function onSaveKeywords(): Promise<void> {
       notify.push(detail || '关键词校验失败（需 ≤60 字符）', 'warning')
       return
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     savingKeywords.value = false
   }
@@ -129,8 +129,7 @@ async function onSaveSchedule(): Promise<void> {
       notify.push('排程数值无效（请填数字）', 'warning')
       return
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     savingSchedule.value = false
   }

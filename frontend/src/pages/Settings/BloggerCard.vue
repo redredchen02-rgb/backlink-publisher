@@ -15,13 +15,14 @@ import {
   revokeBlogger,
 } from '../../api/settings'
 import { ApiError, csrfToken } from '../../api/client'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'blogger-status'], queryFn: getBloggerStatus })
@@ -65,8 +66,7 @@ async function onSave(): Promise<void> {
       notify.push(detail || '请填写 Client ID 和 Client Secret', 'warning')
       return
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     saving.value = false
   }
@@ -101,8 +101,7 @@ async function onRevoke(): Promise<void> {
     notify.push(r.message || 'Blogger 授权已撤销', 'success')
     await qc.invalidateQueries({ queryKey: ['settings', 'blogger-status'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 </script>

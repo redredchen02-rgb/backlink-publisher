@@ -11,13 +11,14 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getNotionStatus, saveNotionToken, clearNotionToken } from '../../api/settings'
 import { ApiError } from '../../api/client'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'notion-status'], queryFn: getNotionStatus })
@@ -62,8 +63,7 @@ async function onSave(): Promise<void> {
       notify.push(detail || '请填写 Integration Token 和 Database ID', 'warning')
       return
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     saving.value = false
   }
@@ -78,8 +78,7 @@ async function onClear(): Promise<void> {
     await qc.invalidateQueries({ queryKey: ['settings', 'notion-status'] })
     await qc.invalidateQueries({ queryKey: ['settings', 'channels'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 </script>

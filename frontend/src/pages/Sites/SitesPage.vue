@@ -25,6 +25,7 @@ import {
 } from '../../api/sites'
 import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 
@@ -32,6 +33,7 @@ const SITES_KEY = ['sites']
 const WIDGETS_KEY = ['sites', 'widgets']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 
 const sitesQuery = useQuery({ queryKey: SITES_KEY, queryFn: listSites })
 const widgetsQuery = useQuery({ queryKey: WIDGETS_KEY, queryFn: getSitesWidgets })
@@ -85,8 +87,7 @@ async function onSave(): Promise<void> {
         return
       }
     }
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     saving.value = false
   }
@@ -102,8 +103,7 @@ async function onEdit(mainUrl: string): Promise<void> {
       notify.push(`已载入配置：${mainUrl}`, 'info')
     }
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 
@@ -125,8 +125,7 @@ async function onPreview(): Promise<void> {
         ? `title: ${r.title}\ndescription: ${r.description}\nh1: ${r.h1}`
         : `无法读取：${r.reason ?? '未知原因'}`
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     previewing.value = false
   }
@@ -177,8 +176,7 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
     qc.setQueryData(SITES_KEY, { items: r.items })
     notify.push(enabled ? '已开启 Autopilot' : '已停止 Autopilot', 'info')
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   } finally {
     togglingUrl.value = null
   }

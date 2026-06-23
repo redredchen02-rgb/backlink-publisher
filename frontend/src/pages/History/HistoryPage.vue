@@ -18,12 +18,14 @@ import {
   type HistoryMutationResult,
 } from '../../api/history'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 
 const QKEY = ['history']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 
 const query = useQuery({ queryKey: QKEY, queryFn: listHistory })
 const items = computed<HistoryItem[]>(() => query.data.value?.items ?? [])
@@ -44,8 +46,7 @@ function toggle(id: string): void {
 }
 
 function reportError(e: unknown): void {
-  const c = classifyError(e)
-  notify.push(`${c.title}：${c.message}`, 'error')
+  toastError(e)
 }
 
 /** Run a mutation, write the refreshed list back into the cache, surface message. */

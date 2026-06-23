@@ -6,13 +6,14 @@
 import { computed } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getVelogStatus, velogLogin } from '../../api/settings'
-import { classifyError } from '../../lib/errors'
 import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore, type Severity } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 const query = useQuery({ queryKey: ['settings', 'velog-status'], queryFn: getVelogStatus })
@@ -44,8 +45,7 @@ async function onLogin(): Promise<void> {
     notify.push(r.message, sev)
     await qc.invalidateQueries({ queryKey: ['settings', 'velog-status'] })
   } catch (e) {
-    const c = classifyError(e)
-    notify.push(`${c.title}：${c.message}`, 'error')
+    toastError(e)
   }
 }
 </script>
