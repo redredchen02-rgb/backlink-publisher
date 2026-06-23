@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.6.0] - 2026-06-23
+## [0.5.0] - 2026-06-23
 
 ### Added
 
@@ -14,40 +14,26 @@ All notable changes to this project will be documented in this file.
 - **Design system** (`frontend/src/styles/`): CSS custom-property token set (`tokens.css`), `data-table` shared layout, `StateBlock` four-state component (loading / empty / error / ready) with stale indicator.
 - **`useErrorToast` composable**: XSS-safe fixed-template error classification; adopted across 13 Vue pages — raw server text never reaches the DOM.
 - **Parallel-safe optimisation lanes** (`perf/parallel-safe-lanes`): five independent correctness + performance improvements landed as cherry-picked commits; `sqlite3.Row.get` latent bug fixed.
+- Unified empty-state onboarding CTA across the index and settings pages: distinguishes true zero-config (a 去配置 call-to-action) from a filtered-empty view (清除筛选) from a load failure (inline error with retry), so an empty screen always tells the operator what to do next. (#40)
+- Shared error taxonomy (`ui/errors.js`): a closed set of network / permission / server / unknown categories with fixed copy templates, routed through the index, settings, and monitor-hub error paths so failure messaging reads identically across pages and never leaks raw server text. (#40)
+- Core-flow CSS token-compliance gate (`tests/test_webui_css_no_raw_colors.py`, allowlist-scoped to core pages): bare Bootstrap colour classes and raw colour literals on the core flow are collapsed into `tokens.css` and held there by the gate; fast-follow pages are explicitly excluded. (#40)
+- **GSC indexation + ranking feedback loop** (`probe-index`, `probe-ranking`): two new CLI commands query Google Search Console Search Analytics API to record whether published pages have GSC impressions (`gsc.page_signal`) and to snapshot keyword positions (`ranking.snapshot`). Results surface on the `/ce:health` dashboard in two new panels: GSC page-signal status and keyword ranking trend (baseline vs. latest, with delta and trend arrow). Baseline snapshot is taken advisory before `plan-backlinks` runs. Rolling 30-day dedup avoids re-probing recently checked URLs. flock guards prevent overlapping runs. LaunchAgent plists provided for daily/weekly scheduling.
+- **Autopilot status visibility**: `/sites` page now shows a `狀態` column for each site — `—` when disabled, `⚠ 上次失敗` (red) when `alert_pending`, `⏭ X 小時後` (green, computed by `formatRelative()`) when a next run is scheduled, or `排程中…` when enabled but no job queued yet. Status is server-rendered on page load; toggle action updates it immediately via JSON response `next_run_time`.
+- **Health page alert badge**: `autopilot-alert-banner` now shows a failure count badge and a `/sites →` jump link, so operators know how many sites need attention at a glance.
+
+### Fixed
+
+- `drafts insert_first` now guarantees a newly inserted draft prepends even when it collides with a future or sub-millisecond `inserted_at` timestamp — previously surfaced as an ordering "flake", it was a real bug where a fresh draft could fail to appear first. (#42)
+- `monitor_hub.load()` guards against out-of-order render under rapid refresh: a per-load `AbortController` aborts the prior in-flight fetch and drops any superseded response, so a slower earlier request can no longer overwrite a faster later one. (#43)
+- Autopilot POST rollback now restores only the affected site's config, preserving concurrent updates to other sites.
+- Scheduler module access in POST handler now uses `.get()` (same as GET), avoiding `KeyError` when the scheduler is not yet loaded.
+- `get_job()` in POST path now degrades gracefully (returns `next_run_time: null`) without triggering store rollback.
 
 ### Changed
 
 - Legacy Settings Jinja page retired; SPA at `/app/settings` replaces it. Six Jinja template files, four route modules (`bind.py`, `channel_bind_save.py`, `medium_login.py`, `token_paste.py`), and five legacy JS/CSS assets deleted.
 - `velog` login response replaces `log_path` filesystem path with `has_log` boolean (path never leaves the server).
 - `pipeline.py` `_EXIT_STATUS`: exit code 1 (conflict/force-manifest abort) now maps to HTTP 422 instead of falling through to 502.
-
-## [0.5.0] - 2026-06-18
-
-### Added (2026-06-18)
-
-- Unified empty-state onboarding CTA across the index and settings pages: distinguishes true zero-config (a 去配置 call-to-action) from a filtered-empty view (清除筛选) from a load failure (inline error with retry), so an empty screen always tells the operator what to do next. (#40)
-- Shared error taxonomy (`ui/errors.js`): a closed set of network / permission / server / unknown categories with fixed copy templates, routed through the index, settings, and monitor-hub error paths so failure messaging reads identically across pages and never leaks raw server text. (#40)
-- Core-flow CSS token-compliance gate (`tests/test_webui_css_no_raw_colors.py`, allowlist-scoped to core pages): bare Bootstrap colour classes and raw colour literals on the core flow are collapsed into `tokens.css` and held there by the gate; fast-follow pages are explicitly excluded. (#40)
-
-### Added (2026-06-16)
-
-- **GSC indexation + ranking feedback loop** (`probe-index`, `probe-ranking`): two new CLI commands query Google Search Console Search Analytics API to record whether published pages have GSC impressions (`gsc.page_signal`) and to snapshot keyword positions (`ranking.snapshot`). Results surface on the `/ce:health` dashboard in two new panels: GSC page-signal status and keyword ranking trend (baseline vs. latest, with delta and trend arrow). Baseline snapshot is taken advisory before `plan-backlinks` runs. Rolling 30-day dedup avoids re-probing recently checked URLs. flock guards prevent overlapping runs. LaunchAgent plists provided for daily/weekly scheduling.
-- **Autopilot status visibility**: `/sites` page now shows a `狀態` column for each site — `—` when disabled, `⚠ 上次失敗` (red) when `alert_pending`, `⏭ X 小時後` (green, computed by `formatRelative()`) when a next run is scheduled, or `排程中…` when enabled but no job queued yet. Status is server-rendered on page load; toggle action updates it immediately via JSON response `next_run_time`.
-- **Health page alert badge**: `autopilot-alert-banner` now shows a failure count badge and a `/sites →` jump link, so operators know how many sites need attention at a glance.
-
-### Fixed (2026-06-18)
-
-- `drafts insert_first` now guarantees a newly inserted draft prepends even when it collides with a future or sub-millisecond `inserted_at` timestamp — previously surfaced as an ordering "flake", it was a real bug where a fresh draft could fail to appear first. (#42)
-- `monitor_hub.load()` guards against out-of-order render under rapid refresh: a per-load `AbortController` aborts the prior in-flight fetch and drops any superseded response, so a slower earlier request can no longer overwrite a faster later one. (#43)
-
-### Fixed (2026-06-16)
-
-- Autopilot POST rollback now restores only the affected site's config, preserving concurrent updates to other sites.
-- Scheduler module access in POST handler now uses `.get()` (same as GET), avoiding `KeyError` when the scheduler is not yet loaded.
-- `get_job()` in POST path now degrades gracefully (returns `next_run_time: null`) without triggering store rollback.
-
-### Changed (2026-06-18)
-
 - Documentation convergence: 67 superseded plans/brainstorms archived into `docs/_archive/`, inbound references repointed, and the active doc surface collapsed to a single roster (`docs/active-docs.md`). The retired referral-302 plan carries a do-not-revive tombstone. (#41)
 
 ### Deferred

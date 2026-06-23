@@ -105,8 +105,9 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
             <tr>
               <th></th>
               <th>状态</th>
-              <th>目标</th>
+              <th>目标页</th>
               <th>平台</th>
+              <th>发布文章（点击核查内链）</th>
               <th>时间</th>
               <th></th>
             </tr>
@@ -122,11 +123,28 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
                 />
               </td>
               <td class="col-status"><span class="status" :data-status="row.status">{{ row.status }}</span></td>
-              <td class="col-url target" :title="row.target_url">{{ row.target_url }}</td>
+              <td class="col-url target" :title="row.target_url">
+                <a :href="row.target_url" target="_blank" rel="noopener" class="url-link">
+                  {{ row.target_url }}<i class="bi bi-box-arrow-up-right ext-icon"></i>
+                </a>
+              </td>
               <td>{{ row.platform }}</td>
+              <td class="col-article-urls">
+                <template v-if="row.article_urls?.length">
+                  <div v-for="(url, i) in row.article_urls" :key="i" class="article-url-row">
+                    <a :href="url" target="_blank" rel="noopener" :title="url" class="article-link">
+                      <i class="bi bi-box-arrow-up-right me-1"></i>{{ url }}
+                    </a>
+                  </div>
+                  <div v-if="row.verified_at" class="verified-at">
+                    核查于 {{ new Date(row.verified_at * 1000).toLocaleDateString('zh-CN') }}
+                  </div>
+                </template>
+                <span v-else class="muted">—</span>
+              </td>
               <td class="col-date muted">{{ row.created_at }}</td>
               <td class="row-actions">
-                <button type="button" :disabled="busy" @click="onRecheck(row.id)">重核</button>
+                <button type="button" :disabled="busy" @click="onRecheck(row.id)">重核存活</button>
                 <button type="button" :disabled="busy" @click="onDelete(row.id)">删除</button>
               </td>
             </tr>
@@ -170,5 +188,51 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 .row-actions {
   display: flex;
   gap: 0.4rem;
+}
+.url-link {
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.url-link:hover {
+  text-decoration: underline;
+  color: var(--primary);
+}
+.ext-icon {
+  flex-shrink: 0;
+  font-size: 0.7em;
+  opacity: 0.5;
+}
+.col-article-urls {
+  max-width: 32rem;
+}
+.article-url-row {
+  margin-bottom: 0.2rem;
+}
+.article-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--primary, #0d6efd);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-family: ui-monospace, monospace;
+  max-width: 30rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.article-link:hover {
+  text-decoration: underline;
+}
+.verified-at {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #6c757d);
+  margin-top: 0.15rem;
 }
 </style>

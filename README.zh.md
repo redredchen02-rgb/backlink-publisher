@@ -1,9 +1,9 @@
 # backlink-publisher
 
-本地优先、终端原生的反向链接发布流水线。
+本地优先的反向链接发布流水线，配备**现代化 SPA WebUI** 和**可嵌入 SDK**。
 跨 **20+ 平台**（Blogger、Medium、Telegraph、Velog、Substack、dev.to、Notion、GitHub/GitLab Pages 等）生成、验证并发布短篇反向链接文章——完全管道友好、Cron 安全、无需交互。
 
-新增一个平台只需一行 `register("x", XAdapter)`——CLI、schema、限流闸门、分级矩阵都从适配器注册表动态读取（详见 [AGENTS.md → Adding a new publisher adapter](AGENTS.md#adding-a-new-publisher-adapter)）。另有 Flask **WebUI**（`python webui.py`）为偏好浏览器而非终端的操作者封装同一套流水线。
+新增一个平台只需一行 `register("x", XAdapter)`——CLI、schema、限流闸门、分级矩阵都从适配器注册表动态读取（详见 [AGENTS.md → Adding a new publisher adapter](AGENTS.md#adding-a-new-publisher-adapter)）。另有 Vue 3 **SPA WebUI**（`python webui.py`，前端位于 `frontend/src/`，由 Jinja shell 承载）为偏好浏览器而非终端的操作者封装同一套流水线，底层由**版本化 `/api/v1` JSON REST API** 提供数据。进程内 **SDK**（`src/backlink_publisher/sdk/`）则让 Python 调用者无需子进程开销即可运行发布流水线。
 
 > English version: [README.md](README.md)
 
@@ -353,7 +353,7 @@ cat seeds.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --plat
 
 ## CLI 命令一览
 
-`pyproject.toml` `[project.scripts]` 声明了 23 个控制台入口。核心为 `plan-backlinks → validate-backlinks → publish-backlinks`，其余为只读分析、渠道绑定、再校验辅助：
+`pyproject.toml` `[project.scripts]` 声明了 49 个控制台入口。核心为 `plan-backlinks → validate-backlinks → publish-backlinks`，其余为只读分析、渠道绑定、再校验辅助、GSC 探针和治理工具：
 
 | 命令 | 角色 |
 |---|---|
@@ -374,6 +374,16 @@ cat seeds.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --plat
 | `gate-probe` | 探测闸门/限流决策 |
 | `plan-check` | 计划文档漂移校验 |
 | `phase0-seal` | Phase 0 封存操作 |
+| `probe-index` | GSC 收录探针 — 记录已发布反链的 `gsc.page_signal` |
+| `probe-ranking` | GSC 排名快照 — 关键词位置基准 vs. 最新 |
+| `probe-citations` | GEO AI 引用闭环探针 |
+| `gate-probe` | Phase-0 可证伪门控执行器（G2、G3、G5 判定） |
+| `recheck-backlinks` | 发布后存活再探（链接活性 / dofollow 偏移） |
+| `click-track` | 点击跟踪重定向记账 |
+| `referral-attribute` | 渠道级 GA4 引荐归因 |
+| `debt-report` | 工程债务报告 |
+| `pr-opportunities` | 手动 PR 外联机会发现 |
+| `bp` | 所有 CLI 命令分组概览 |
 
 ## 项目结构
 
@@ -399,8 +409,12 @@ backlink-publisher/                 # 规范 git 仓库（本目录）
 │   ├── audit/ · recheck/ · scorecard/
 │   ├── config/ · schema.py · http.py · _util/
 │   └── llm/                         # 可选 LLM 锚提供器
-├── webui_app/                       # Flask 应用（routes + services/）
+├── webui_app/                       # Flask 应用（routes + api/v1/ + services/）
+│   └── api/v1/                      # 版本化 JSON REST API，供 SPA 使用
 ├── webui_store/                     # WebUI 状态单例
+├── frontend/                        # Vue 3 SPA（ESM，无打包器）
+│   ├── src/                         # 路由：/settings、/monitor、/history、/sites、/profiles
+│   └── styles/                      # CSS 自定义属性令牌系统（tokens.css）
 ├── tests/                           # pytest 套件（PYTHONHASHSEED=0）
 ├── monolith_budget.toml             # radon SLOC 上限
 ├── complexity_budget.toml           # radon 圈复杂度上限
