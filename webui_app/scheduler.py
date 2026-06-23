@@ -13,7 +13,7 @@ from webui_store import history_store as _hist_store
 from webui_store import queue_store as _queue_store
 from webui_store import schedule_store as _sched_store
 
-from .api.pipeline_api import PipelineAPI
+from backlink_publisher.sdk.api import PipelineAPI
 from .services.keepalive_job import run_keepalive_for_site
 from .helpers.cli_runner import strip_cli_diagnostic_banner
 from .helpers.history import (
