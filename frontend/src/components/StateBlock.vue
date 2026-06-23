@@ -13,6 +13,12 @@ const props = withDefaults(
     error?: unknown
     emptyText?: string
     retryable?: boolean
+    /** True while a background refetch is in flight (keepPreviousData pattern). */
+    isFetching?: boolean
+    /** True when data is stale (TanStack isStale). Shows last-updated hint. */
+    stale?: boolean
+    /** ISO timestamp of last successful fetch for the stale hint. */
+    lastUpdated?: string | null
   }>(),
   { emptyText: '暂无数据', retryable: true },
 )
@@ -22,6 +28,13 @@ const emit = defineEmits<{ retry: [] }>()
 const classified = computed<Classified | null>(() =>
   props.state === 'error' ? classifyError(props.error) : null,
 )
+
+function fmtRelative(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
+  return `${Math.floor(diff / 3600)} 小时前`
+}
 </script>
 
 <template>
@@ -42,7 +55,23 @@ const classified = computed<Classified | null>(() =>
     </button>
   </div>
 
-  <slot v-else />
+  <template v-else>
+    <!-- Stale / refreshing strip — non-blocking, shows above content -->
+    <div
+      v-if="isFetching || stale"
+      class="state__stalebar"
+      role="status"
+      aria-live="polite"
+    >
+      <span v-if="isFetching" class="state__pulse" aria-hidden="true" />
+      <span class="state__stale-text">
+        <template v-if="isFetching">更新中…</template>
+        <template v-else-if="stale && lastUpdated">最后更新：{{ fmtRelative(lastUpdated) }}</template>
+        <template v-else-if="stale">数据可能不是最新</template>
+      </span>
+    </div>
+    <slot />
+  </template>
 </template>
 
 <style scoped>
@@ -83,5 +112,28 @@ const classified = computed<Classified | null>(() =>
 .state__title {
   font-weight: 600;
   margin: 0 0 0.25rem;
+}
+.state__stalebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.state__pulse {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  animation: state-pulse 1s ease-in-out infinite;
+}
+@keyframes state-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .state__pulse { animation: none; opacity: 0.7; }
 }
 </style>

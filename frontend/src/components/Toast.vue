@@ -1,7 +1,9 @@
 <script setup lang="ts">
-// Toast host — renders the notifications store into an aria-live region so
-// screen readers announce transient feedback (a11y half of the subscription
-// contract). Messages render via {{ }} (Vue escaping) — never innerHTML.
+// Toast host — renders the notifications store into aria-live regions so
+// screen readers announce transient feedback. Two separate regions required:
+// aria-live="assertive" for errors (interrupt immediately) vs "polite" for
+// success/info/warning (next idle). Dynamic per-item aria-live changes don't
+// work — the attribute must be on a static container present at page load.
 import { watch } from 'vue'
 import { useNotificationsStore, type Toast } from '../stores/notifications'
 
@@ -29,19 +31,31 @@ watch(
 </script>
 
 <template>
-  <div class="toast-host" role="region" aria-label="通知">
-    <div
-      v-for="t in store.toasts"
-      :key="t.id"
-      class="toast"
-      :class="`toast--${t.severity}`"
-      :role="t.severity === 'error' ? 'alert' : 'status'"
-      aria-live="polite"
-    >
-      <span class="toast__msg">{{ t.message }}</span>
-      <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">
-        ×
-      </button>
+  <div class="toast-host">
+    <!-- Error: assertive — screen reader interrupts immediately -->
+    <div aria-live="assertive" aria-atomic="false" class="toast-region">
+      <div
+        v-for="t in store.toasts.filter(t => t.severity === 'error')"
+        :key="t.id"
+        class="toast toast--error"
+        role="alert"
+      >
+        <span class="toast__msg">{{ t.message }}</span>
+        <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">×</button>
+      </div>
+    </div>
+    <!-- Non-error: polite — announced at next idle -->
+    <div aria-live="polite" aria-atomic="false" class="toast-region">
+      <div
+        v-for="t in store.toasts.filter(t => t.severity !== 'error')"
+        :key="t.id"
+        class="toast"
+        :class="`toast--${t.severity}`"
+        role="status"
+      >
+        <span class="toast__msg">{{ t.message }}</span>
+        <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">×</button>
+      </div>
     </div>
   </div>
 </template>
@@ -49,24 +63,28 @@ watch(
 <style scoped>
 .toast-host {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
+  top: var(--space-4);
+  right: var(--space-4);
   z-index: 1200;
+  max-width: 22rem;
+  pointer-events: none;
+}
+.toast-region {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-width: 22rem;
+  gap: var(--space-2);
+  pointer-events: auto;
 }
 .toast {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: var(--radius-md);
+  gap: var(--space-2);
+  padding: var(--control-pad-y) var(--space-3);
+  border-radius: var(--radius-lg);
   background: var(--surface-overlay);
   border-left: 3px solid var(--info);
   color: var(--text-primary);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-glass);
 }
 .toast--success {
   border-left-color: var(--success);
@@ -88,5 +106,6 @@ watch(
   cursor: pointer;
   font-size: var(--text-lg);
   line-height: 1;
+  padding: 0;
 }
 </style>

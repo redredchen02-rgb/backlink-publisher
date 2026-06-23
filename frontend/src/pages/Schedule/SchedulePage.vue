@@ -5,11 +5,13 @@
 // target / scheduled-at / created-at). Reschedule + cancel live on the Drafts
 // page (this is a calendar-style view, not a control surface). Four-state via
 // StateBlock; auto-refreshes when the tab regains focus.
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { listScheduled, type ScheduledItem } from '../../api/schedule'
 import StateBlock from '../../components/StateBlock.vue'
 
+// refetchOnWindowFocus (default true) handles tab-refocus — the old manual
+// visibilitychange listener was double-triggering alongside it.
 const query = useQuery({ queryKey: ['schedule'], queryFn: listScheduled })
 const items = computed<ScheduledItem[]>(() => query.data.value?.items ?? [])
 
@@ -24,13 +26,6 @@ function fmt(iso?: string | null): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleString('zh-CN')
 }
-
-// Refresh on tab refocus (mirrors the legacy ESM's visibilitychange handler).
-function onVisible(): void {
-  if (document.visibilityState === 'visible') query.refetch()
-}
-onMounted(() => document.addEventListener('visibilitychange', onVisible))
-onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 </script>
 
 <template>
@@ -69,28 +64,11 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 .schedule {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-.sched-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-lg);
-}
-.sched-table th,
-.sched-table td {
-  text-align: left;
-  padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-.truncate {
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: var(--space-4);
 }
 .badge {
   background: var(--surface-overlay);
-  padding: 0.15rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
   font-size: var(--text-sm);
 }
