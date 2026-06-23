@@ -193,20 +193,15 @@ def gate_with_force(
 ) -> tuple[str, DedupRecord | None]:
     """Gate wrapper applying manifest force-flags (U7c). If this row's key is in
     ``forced_keys``, force the gate (override a uncertain hold). A force on a live
-    ``done`` key surfaces a conflict and aborts the run (R11, exit 1). An honored
-    force writes a ``--forget``-parity audit entry. Returns ``(verdict, record)``;
-    in observe mode (``forced_keys`` empty) this is just :func:`gate`."""
+    ``done`` key surfaces a ``"conflict"`` verdict; the caller aborts the run with
+    exit 1 (R11) — this function does NOT raise, so it is safe to call from the
+    in-process publish_rows path (the SystemExit lives in the CLI shell, plan
+    2026-06-22-001 U4-1). An honored force writes a ``--forget``-parity audit
+    entry. Returns ``(verdict, record)``; in observe mode (``forced_keys`` empty)
+    this is just :func:`gate`."""
     key = _key_for_row(row, platform)
     force = bool(forced_keys) and key is not None and key.as_tuple() in forced_keys
     verdict, drec = gate(row, platform, run_id=run_id, force=force)
-    if verdict == "conflict":
-        from .._util.errors import emit_error
-
-        emit_error(
-            f"force-manifest conflict: {platform} key is already published "
-            "(done); refusing to re-publish — use --forget if truly intended",
-            exit_code=1,
-        )
     if force and verdict == "dispatch" and key is not None:
         from ..idempotency import audit_log
 

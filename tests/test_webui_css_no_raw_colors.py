@@ -36,7 +36,7 @@ TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "webui_app" / "templates"
 # Templates: index + settings + monitor hub (the named core-flow pages). Their
 # publish-workbench tab partials (_tab_*) + copilot panel are fast-follow and
 # intentionally excluded.
-CORE_FLOW_TEMPLATES = ("index.html", "settings.html", "monitor_hub.html")
+CORE_FLOW_TEMPLATES = ("index.html", "monitor_hub.html")  # settings.html retired U8
 
 # Raw Bootstrap *colour* classes that must be 0 in core templates. Layout/size
 # classes (btn-sm, btn-close, btn-outline-*, bg-transparent…) are NOT colour
@@ -54,10 +54,7 @@ CSS_CEILINGS = {
     # decorative varied-alpha layer tints, shadows, gradients, and the light-mode
     # health-summary fallbacks with no 1:1 semantic token.
     "index.css": 70,
-    # settings.css: status badge/tier-chip backgrounds + surface hexes tokenized;
-    # residual is google-brand hex, light-mode tier label greys, varied-alpha
-    # decorative tints with no single matching token.
-    "settings.css": 58,
+    # settings.css retired in U8 (Plan 2026-06-18-002).
     # monitor_hub.css: a single white hover tint, consistent with global_nav.css.
     "monitor_hub.css": 1,
 }

@@ -1,0 +1,178 @@
+"""Contract + security for the ``/api/v1`` Medium browser-login routes.
+
+Plan 2026-06-18-002 U7 (Settings). The launch/probe/clear dispatch was ported
+HTML→JSON via the single-source ``MediumLoginAPI`` facade; the legacy
+``/settings/medium/*-browser-login`` routes (flash-redirect + session flag +
+redirect sanitization) are covered by ``test_medium_login_routes.py``. This suite
+guards the JSON path: the action envelope (``{level, message, logged_in}``) is
+returned as-is (NOT problem+json, always HTTP 200), and — because these spawn
+browser processes / delete the login profile — the inline transport guards fire
+(forged Origin → 403, ALLOW_NETWORK=1 → 403), like the bind routes.
+
+Mock note: the Playwright helpers are patched on the facade module
+(``webui_app.api.medium_login_api.*``) — the dispatch moved there.
+"""
+
+from __future__ import annotations
+
+__tier__ = "integration"
+
+import sys
+import os
+from unittest.mock import patch
+
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from backlink_publisher._util.errors import DependencyError  # noqa: E402
+
+CSRF = "test-csrf-token"
+_FACADE = "webui_app.api.medium_login_api"
+
+
+@pytest.fixture
+def app(tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.delenv("BACKLINK_PUBLISHER_ALLOW_NETWORK", raising=False)
+    from webui_app import create_app
+    a = create_app(start_scheduler=False)
+    a.config["TESTING"] = True
+    a.config["PROPAGATE_EXCEPTIONS"] = False
+    a.config["SESSION_COOKIE_SECURE"] = False
+    return a
+
+
+@pytest.fixture
+def client(app):
+    c = app.test_client()
+    with c.session_transaction() as sess:
+        sess["csrf_token"] = CSRF
+    return c
+
+
+def _loopback_origin() -> str:
+    from webui_app.helpers.security import _FLASK_PORT
+    return f"http://127.0.0.1:{_FLASK_PORT}"
+
+
+def _headers(origin=None):
+    return {"X-CSRFToken": CSRF, "Origin": origin or _loopback_origin()}
+
+
+# ── contract (loopback Origin passes the guard) ──────────────────────────────
+
+
+def test_launch_success_sets_logged_in(client):
+    with patch(f"{_FACADE}.launch_login_window", return_value={"logged_in": True}):
+        resp = client.post("/api/v1/settings/medium/launch-browser-login", headers=_headers())
+    assert resp.status_code == 200, resp.data[:300]
+    body = resp.get_json()
+    assert body["level"] == "success"
+    assert body["logged_in"] is True
+
+
+def test_probe_logged_in_reports_username(client):
+    with patch(f"{_FACADE}.probe_login_status",
+               return_value={"logged_in": True, "username": "alice"}):
+        resp = client.post("/api/v1/settings/medium/probe-browser-login", headers=_headers())
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["level"] == "info"
+    assert body["logged_in"] is True
+    assert "@alice" in body["message"]
+
+
+def test_probe_not_logged_in_clears_flag(client):
+    with patch(f"{_FACADE}.probe_login_status", return_value={"logged_in": False}):
+        resp = client.post("/api/v1/settings/medium/probe-browser-login", headers=_headers())
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["level"] == "info"
+    assert body["logged_in"] is False
+
+
+def test_clear_success_clears_flag(client):
+    with patch(f"{_FACADE}.clear_browser_profile", return_value=None):
+        resp = client.post("/api/v1/settings/medium/clear-browser-login", headers=_headers())
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["level"] == "success"
+    assert body["logged_in"] is False
+
+
+def test_launch_dependency_error_is_warning_logged_in_null(client):
+    """A missing-Playwright DependencyError is an operational outcome (warning),
+    not a transport error — envelope, 200, logged_in unchanged (null)."""
+    with patch(f"{_FACADE}.launch_login_window", side_effect=DependencyError("no playwright")):
+        resp = client.post("/api/v1/settings/medium/launch-browser-login", headers=_headers())
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["level"] == "warning"
+    assert body["logged_in"] is None
+
+
+# ── security regression (inline guards, like bind) ───────────────────────────
+
+
+def test_launch_forged_origin_is_403(client):
+    """Spawns a browser process — a forged Origin must 403 before the view runs."""
+    resp = client.post(
+        "/api/v1/settings/medium/launch-browser-login",
+        headers={"X-CSRFToken": CSRF, "Origin": "http://evil.example.com"},
+    )
+    assert resp.status_code == 403
+
+
+def test_clear_refused_under_allow_network(client, monkeypatch):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_ALLOW_NETWORK", "1")
+    resp = client.post("/api/v1/settings/medium/clear-browser-login", headers=_headers())
+    assert resp.status_code == 403
+
+
+# ── GET status (read-only card hydration, no guard) ──────────────────────────
+
+
+def test_status_returns_browser_readiness_and_oauth_presence(client):
+    """The Medium card hydrates from this read: browser readiness + oauth-token
+    presence. No fresh config → no profile, no token."""
+    resp = client.get("/api/v1/settings/medium/status")
+    assert resp.status_code == 200, resp.data[:300]
+    body = resp.get_json()
+    assert set(body) == {"browser", "oauth_token_exists"}
+    b = body["browser"]
+    for key in ("state", "playwright_installed", "profile_has_cookies",
+                "cookies_age_days", "singleton_lock_present", "logged_in"):
+        assert key in b, f"missing browser.{key}"
+    assert body["oauth_token_exists"] is False
+    assert b["profile_has_cookies"] is False
+
+
+def test_status_reflects_probe_logged_in_session_flag(client):
+    """``logged_in`` mirrors the publish-gating session flag a prior probe set —
+    but only once a profile exists (state machine: no_profile dominates)."""
+    with client.session_transaction() as sess:
+        sess["medium_probe_logged_in"] = True
+    resp = client.get("/api/v1/settings/medium/status")
+    body = resp.get_json()
+    # fresh config has no profile, so state stays no_profile and logged_in False
+    assert body["browser"]["state"] == "no_profile"
+    assert body["browser"]["logged_in"] is False
+
+
+def test_status_is_a_read_no_guard_needed(client, monkeypatch):
+    """A status read carries no secret and spawns nothing — it must answer 200 even
+    off-loopback / under ALLOW_NETWORK=1 (unlike the action POSTs)."""
+    monkeypatch.setenv("BACKLINK_PUBLISHER_ALLOW_NETWORK", "1")
+    resp = client.get("/api/v1/settings/medium/status",
+                      headers={"Origin": "http://evil.example.com"})
+    assert resp.status_code == 200
+
+
+def test_status_leaks_no_token_value(client):
+    """The status read exposes only an ``oauth_token_exists`` boolean — never a
+    token value or masked string."""
+    blob = client.get("/api/v1/settings/medium/status").get_data(as_text=True)
+    for forbidden in ("integration_token", "access_token", "masked"):
+        assert forbidden not in blob

@@ -45,9 +45,9 @@ def _no_run_pipe():
         return {"stdout": "", "stderr": "", "returncode": 0}
 
     targets = [
-        ("webui_app.helpers.cli_runner.run_pipe", _fake),
-        ("webui_app.api.pipeline_api.run_pipe", _fake),
-        ("webui_app.api.pipeline_api.run_pipe_capture", _fake_capture),
+        ("backlink_publisher.sdk._cli_runner.run_pipe", _fake),
+        ("backlink_publisher.sdk.api.run_pipe", _fake),
+        ("backlink_publisher.sdk.api.run_pipe_capture", _fake_capture),
     ]
     patches = [patch(t, side_effect=f) for t, f in targets]
     for p in patches:
@@ -258,169 +258,10 @@ class TestGetRoutes:
         resp = client.get("/")
         assert resp.status_code == 200
 
-    def test_settings_returns_200(self, client):
-        resp = client.get("/settings")
-        assert resp.status_code == 200
-
-    def test_settings_with_flash_query_renders(self, client):
-        resp = client.get("/settings?flash_type=success&flash_msg=test")
-        assert resp.status_code == 200
-
-    def test_settings_html_contract(self, client):
-        """Plan 2026-05-18-011 Unit 1 — regression net for the settings
-        page channel-collapse refactor.
-
-        Asserts that the ``settings.html`` template source — or any partial
-        it includes (post-Unit-4) — still contains the load-bearing form
-        action URLs, DOM ids, and inline JS handler call names that
-        deep-links, inline JS, and browser users depend on.
-
-        Why template source, not rendered HTML: several URLs live inside
-        ``{% if blogger_token %}`` / ``{% if medium_token_set %}`` branches
-        that don't render in test conditions (clean tmp_path config). The
-        regression risk is "source accidentally drops the URL", not "config
-        flips wrong branch" — so source-level grep is the right granularity.
-        Survives the refactor: ``webui_app/templates/**/*.html`` includes
-        future partials (``_settings_channel_blogger.html`` etc.).
-
-        Also exercises the ``/settings`` GET to confirm rendering still
-        succeeds, in case a partial include path is misspelled.
-
-        Structural placement (Blogger form lives inside #channel-blogger,
-        not #channel-medium) is covered by the two ``xfail`` BeautifulSoup
-        tests below; those flip to green once the partial migration lands.
-        """
-        from pathlib import Path
-
-        # 1. /settings GET still renders successfully.
-        resp = client.get("/settings")
-        assert resp.status_code == 200
-
-        # 2. Source-level assertions across all settings templates.
-        templates_dir = Path(__file__).parent.parent / "webui_app" / "templates"
-        candidates = list(templates_dir.glob("settings*.html")) + list(
-            templates_dir.glob("_settings_*.html")
-        )
-        assert candidates, f"no settings templates under {templates_dir}"
-        static_js = Path(__file__).parent.parent / "webui_app" / "static" / "js"
-        combined = b"".join(p.read_bytes() for p in candidates)
-        combined += (static_js / "settings.js").read_bytes()
-
-        # 12 form action URLs (10 channel-related + 2 global).
-        # /settings/medium/oauth-start removed: Medium closed new app registration
-        # 2023-03-02. Three browser-login routes added in Plan 013 Phase B.
-        form_action_urls = [
-            b'/settings/blogger/oauth-start',
-            b'/settings/save-blogger-oauth',
-            b'/settings/revoke-blogger',
-            b'/settings/save-blog-ids',
-            b'/settings/save-medium-token',
-            b'/settings/clear-medium-token',
-            b'/settings/clear-medium-oauth',
-            b'/settings/medium/launch-browser-login',
-            b'/settings/medium/probe-browser-login',
-            b'/settings/medium/clear-browser-login',
-            b'/settings/save-target-keywords',
-            b'/settings/schedule',
-        ]
-        for url in form_action_urls:
-            assert url in combined, f"missing form action URL: {url!r}"
-
-        # 9 DOM ids that inline JS / deep-links / external bookmarks rely on.
-        dom_ids = [
-            b'id="oauthCredForm"',
-            b'id="clientSecretInput"',
-            b'id="mediumTokenInput"',
-            b'id="blogger-blog-ids"',
-            b'id="blogIdRows"',
-            b'id="callbackUriDisplay"',
-            b'id="copyBtn"',
-            b'id="secretEye"',
-            b'id="eyeIcon"',
-        ]
-        for dom_id in dom_ids:
-            assert dom_id in combined, f"missing DOM id: {dom_id!r}"
-
-        # 5 handler call sites — Plan 007 U3 migrated inline on* to data-action.
-        js_handlers = [
-            b'data-action="copy-uri"',
-            b'data-action="toggle-secret"',
-            b'data-action="toggle-token"',
-            b'data-action="add-row"',
-            b'data-action="remove-row"',
-        ]
-        for handler in js_handlers:
-            assert handler in combined, (
-                f"missing JS handler call: {handler!r}"
-            )
-
-    def test_blogger_forms_scoped_to_channel_panel(self, client):
-        """Plan 2026-05-18-011 Unit 1 — structural regression net for the
-        Blogger channel partial.
-
-        Asserts every Blogger-related ``<form action>`` / ``<button formaction>``
-        lives inside the ``#channel-blogger`` Collapse panel. Catches the
-        copy-paste mistake of moving the Blogger form into Medium's partial
-        during Unit 3.
-
-        Marked ``xfail`` until Unit 2 lands the Blogger partial + Collapse
-        shell. Unit 2 commit must remove this marker.
-        """
-        from bs4 import BeautifulSoup
-
-        resp = client.get("/settings")
-        soup = BeautifulSoup(resp.data, "html.parser")
-        panel = soup.find(id="channel-blogger")
-        assert panel is not None, "missing #channel-blogger collapse panel"
-
-        blogger_urls = {
-            "/settings/blogger/oauth-start",
-            "/settings/save-blogger-oauth",
-            "/settings/revoke-blogger",
-            "/settings/save-blog-ids",
-        }
-        for url in blogger_urls:
-            nodes = soup.select(
-                f'form[action="{url}"], button[formaction="{url}"]'
-            )
-            assert nodes, f"no <form action> or <button formaction> for {url}"
-            for node in nodes:
-                assert panel in node.parents, (
-                    f"{url} is not inside #channel-blogger panel"
-                )
-
-    def test_medium_forms_scoped_to_channel_panel(self, client):
-        """Plan 2026-05-18-011 Unit 1 — structural regression net for the
-        Medium channel partial. See ``test_blogger_forms_scoped_to_channel_panel``
-        for design notes. Unit 3 commit must remove this marker.
-        """
-        from bs4 import BeautifulSoup
-
-        resp = client.get("/settings")
-        soup = BeautifulSoup(resp.data, "html.parser")
-        panel = soup.find(id="channel-medium")
-        assert panel is not None, "missing #channel-medium collapse panel"
-
-        # /settings/medium/oauth-start removed in Plan 013 Phase A.
-        # /settings/clear-medium-oauth: conditionally rendered (medium_token_file_exists).
-        # /settings/medium/clear-browser-login: conditionally rendered (profile_has_cookies).
-        # Both omitted here; test env has neither token file nor cookies.
-        # launch + probe are rendered when state != 'not_installed' (Playwright installed).
-        medium_urls = {
-            "/settings/save-medium-token",
-            "/settings/clear-medium-token",
-            "/settings/medium/launch-browser-login",
-            "/settings/medium/probe-browser-login",
-        }
-        for url in medium_urls:
-            nodes = soup.select(
-                f'form[action="{url}"], button[formaction="{url}"]'
-            )
-            assert nodes, f"no <form action> or <button formaction> for {url}"
-            for node in nodes:
-                assert panel in node.parents, (
-                    f"{url} is not inside #channel-medium panel"
-                )
+    # test_settings_returns_200, test_settings_with_flash_query_renders,
+    # test_settings_html_contract, test_blogger_forms_scoped_to_channel_panel,
+    # test_medium_forms_scoped_to_channel_panel removed — legacy /settings page
+    # retired in U8 (Plan 2026-06-18-002). SPA at /app/settings replaces it.
 
     def test_sites_returns_200(self, client):
         resp = client.get("/sites")
@@ -457,7 +298,7 @@ class TestGetRoutes:
     def test_blogger_oauth_callback_missing_state_redirects(self, client):
         resp = client.get("/settings/blogger/oauth-callback")
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -487,31 +328,6 @@ class TestCsrfGuard:
 class TestSecretLeakRegression:
     """Guard against the P3 pattern reappearing — long-term credentials must
     never be re-rendered into HTML where DevTools can read them."""
-
-    def test_llm_settings_file_is_0o600(self, client):
-        """llm-settings.json holds the LLM api_key — must not be world-readable.
-
-        PR #139 hand-rolled the write path and shipped without chmod, leaving
-        the file 0644. The fix routes through ``atomic_write`` (chmods 0o600
-        on the tmp file before rename).
-        """
-        import stat as _stat
-        from webui_app.helpers.contexts import _llm_settings_file
-
-        resp = client.post("/settings/save-llm-config", data={
-            "endpoint": "https://api.example.com/v1",
-            "api_key": "sk-perms-canary",
-            "model": "gpt-4o",
-            "temperature": "0.7",
-        })
-        assert resp.status_code == 302
-        path = _llm_settings_file()
-        assert path.exists(), "settings file not created by save handler"
-        mode = _stat.S_IMODE(path.stat().st_mode)
-        assert mode == 0o600, (
-            f"llm-settings.json mode is {oct(mode)} — must be 0o600 (api_key "
-            "is a long-term secret; PR #139 originally shipped 0644)."
-        )
 
     def test_llm_settings_loose_perms_fixed_on_load(self, client):
         """O8: pre-#140 llm-settings.json files written at 0o644 must be
@@ -547,43 +363,17 @@ class TestSecretLeakRegression:
             "a pre-existing 0o644 file to 0o600 (O8)."
         )
 
-    def test_blogger_client_secret_not_rendered(self, client):
-        from backlink_publisher.config import load_config, save_config
-        canary = "GOCSPX-LEAK-CANARY-do-not-render"
-        save_config(load_config(),
-                    blogger_client_id="canary.apps.googleusercontent.com",
-                    blogger_client_secret=canary,
-                    target_three_url=None)
-        resp = client.get("/settings")
-        assert resp.status_code == 200
-        assert canary.encode() not in resp.data, (
-            "client_secret leaked into rendered HTML — check helpers.py "
-            "_settings_context and _settings_channel_blogger.html for raw "
-            "secret backfill (regression of PR #139 P3 fix)."
-        )
+    # test_blogger_client_secret_not_rendered removed — legacy /settings Jinja
+    # page retired in U8 (Plan 2026-06-18-002); the template that could leak the
+    # secret no longer exists.
 
-    def test_test_llm_generation_returns_json(self, client):
-        resp = client.post("/settings/test-llm-generation", data={})
-        assert resp.status_code == 200
-        assert resp.is_json
+    # test_llm_settings_file_is_0o600 removed — /settings/save-llm-config
+    # deregistered in U8; 0o600 perm regression covered by test_webui_api_v1_llm.py.
 
-    def test_test_image_gen_returns_json(self, client):
-        # No [image_gen] section in this isolated fixture → expect
-        # ok=False but JSON shape (no 500). Full coverage in
-        # tests/test_webui_image_gen.py.
-        resp = client.post("/settings/test-image-gen")
-        assert resp.status_code == 200
-        assert resp.is_json
-        body = resp.get_json()
-        assert "ok" in body
-
-    def test_generate_sample_image_returns_json(self, client):
-        # No [image_gen] config in isolated fixture → ok=False with error key.
-        resp = client.post("/settings/generate-sample-image")
-        assert resp.status_code == 200
-        assert resp.is_json
-        body = resp.get_json()
-        assert "ok" in body
+    # test_test_llm_generation_returns_json, test_test_image_gen_returns_json,
+    # test_generate_sample_image_returns_json removed — legacy /settings/test-*
+    # routes deregistered in U8; covered by test_webui_api_v1_llm_diagnostics.py
+    # and test_webui_api_v1_image_gen.py.
 
 
 

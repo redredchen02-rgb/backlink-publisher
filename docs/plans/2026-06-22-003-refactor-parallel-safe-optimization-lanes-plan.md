@@ -1,7 +1,7 @@
 ---
 title: "refactor: 并行不撞车的优化车道 — 5 条互斥开发车道 + runtime 并行安全/危险地图"
 type: refactor
-status: active
+status: completed
 date: 2026-06-22
 claims: {}  # 分析/规划文档；可验证断言以各车道 test_scenarios + Verification 表达，满足 post-2026-05-20 plan-claims gate（plan-check exit 0）
 ---
@@ -99,7 +99,7 @@ graph TB
 
 > 5 条车道全部并行、零先后依赖。每条建议在独立 worktree/branch 上跑自己的精简 pytest 子集（非全套 ~1 万测试），整合/合并时才跑全套。**提交一律按显式路径 staging。**
 
-- [ ] **L1：Health 聚合 perf（`health/aggregate.py`）**
+- [x] **L1：Health 聚合 perf（`health/aggregate.py`）**
 
 **Goal:** 把 build_platform_health 的 2N 次 per-platform SQL 收敛成 2 次 GROUP BY；circuit-state JSON 只读一次。
 
@@ -128,7 +128,7 @@ graph TB
 
 ---
 
-- [ ] **L2：Anchor resolver 热路径（`anchor/resolver.py`）**
+- [x] **L2：Anchor resolver 热路径（`anchor/resolver.py`）**
 
 **Goal:** 把 `_passes_filters` 热路径里的 per-candidate 字典查找移出；调查并（在 resolver 内）memoize anchor pool。
 
@@ -158,7 +158,7 @@ graph TB
 
 ---
 
-- [ ] **L3：Linkcheck 卫生 + 并发测试（`linkcheck/http.py`）**
+- [x] **L3：Linkcheck 卫生 + 并发测试（`linkcheck/http.py`）**
 
 **Goal:** 标准化 vestigial alias、加并发探针 instrumentation、补 `_dedup_key` 与批次大小的测试缺口。
 
@@ -189,7 +189,7 @@ graph TB
 
 ---
 
-- [ ] **L4：Linkcheck 语言 regex 缓存（`linkcheck/language.py`）**
+- [x] **L4：Linkcheck 语言 regex 缓存（`linkcheck/language.py`）**
 
 **Goal:** 把每次 `_score_language` 都重编译的 EN_HINTS regex 改成模块载入时预编译一次。
 
@@ -215,7 +215,7 @@ graph TB
 
 ---
 
-- [ ] **L5：Content fetch 状态码分类去重（`content/fetch.py`）**
+- [x] **L5：Content fetch 状态码分类去重（`content/fetch.py`）**
 
 **Goal:** 抽出 `_classify_http_code` helper，去掉 `_check_once` 里两段相同的 4xx/5xx 分类。
 

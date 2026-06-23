@@ -1,31 +1,24 @@
-"""/settings (GET) + /settings/save-* (non-OAuth) — Plan Unit 3.
+"""/settings/save-* (non-OAuth) + generic /api/<channel>/* channel binding API.
 
-Plan 2026-05-19-006 Unit 4 — adds generic /api/<channel>/{status,verify,dry-run}
-routes consumed by the dashboard JS in Unit 5.
+Plan 2026-05-19-006 Unit 4 — generic /api/<channel>/{status,verify,dry-run} routes.
+The legacy ``/settings`` GET (Jinja settings page) was retired in U8 (Plan
+2026-06-18-002); the SPA settings page at /app/settings replaces it.
 """
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, redirect, render_template, request
+from flask import Blueprint, abort, jsonify, request
 
 from backlink_publisher.config import load_config, save_config
 from backlink_publisher.publishing.adapters import verify_adapter_setup
 from backlink_publisher.publishing.registry import registered_platforms
 
+from ..api.global_settings_api import GlobalSettingsAPI
 from ..binding_status import get_channel_status
 from ..helpers._request_cache import _g_cache
-from ..helpers.contexts import _save_schedule_settings, _settings_context
 from ..helpers.security import _safe_flash_redirect
 
 bp = Blueprint("settings_basic", __name__)
-
-
-@bp.route('/settings')
-def settings():
-    flash_type = request.args.get('flash_type')
-    flash_msg = request.args.get('flash_msg')
-    flash = {"type": flash_type, "msg": flash_msg} if flash_type else None
-    return render_template('settings.html', **_settings_context(flash=flash))
 
 
 # ── Generic channel binding API (Plan 2026-05-19-006 Unit 4) ─────────────────
@@ -96,169 +89,74 @@ def api_channel_dry_run(channel: str):
 
 @bp.route('/settings/save-target-keywords', methods=['POST'])
 def settings_save_target_keywords():
-    """Save SEO anchor keyword pools for all target domains."""
+    """Save SEO anchor keyword pools for all target domains. Validation / de-dup /
+    persistence is single-sourced in :class:`GlobalSettingsAPI`; this only adapts
+    the form-indexed fields into the neutral per-domain pools mapping."""
     try:
         count = int(request.form.get('domain_count', 0))
-        new_pools: dict[str, list[str]] = {}
-        dup_warnings: list[str] = []
-
+        pools: dict[str, list[str]] = {}
         for i in range(1, count + 1):
             domain = request.form.get(f'domain_{i}', '').strip()
-            raw = request.form.get(f'keywords_{i}', '')
             if not domain:
                 continue
-
-            lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
-            invalid = [ln for ln in lines if len(ln) > 60]
-            if invalid:
-                return redirect(
-                    f'/settings?flash_type=danger&flash_msg='
-                    f'关键词过长（>60字符）: {invalid[0][:30]}…'
-                )
-
-            seen: set[str] = set()
-            deduped: list[str] = []
-            for kw in lines:
-                if kw in seen:
-                    dup_warnings.append(domain)
-                else:
-                    seen.add(kw)
-                    deduped.append(kw)
-
-            new_pools[domain] = deduped
-
-        save_config(load_config(), target_anchor_keywords=new_pools,
-                    target_three_url=None)
-        msg = '关键词已保存'
-        if dup_warnings:
-            msg += f'（已自动去重 {len(set(dup_warnings))} 个域名）'
-        return _safe_flash_redirect('/settings', flash_type='success', msg=msg)
+            pools[domain] = request.form.get(f'keywords_{i}', '').splitlines()
     except Exception as e:
         return _safe_flash_redirect('/settings', flash_type='danger', msg=f'保存失败: {e}')
+    r = GlobalSettingsAPI().save_keywords(pools)
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/settings/schedule', methods=['POST'])
 def settings_schedule_save():
-    """Save schedule interval settings."""
-    try:
-        min_hours = float(request.form.get('min_interval_hours', 4))
-        jitter_mins = int(request.form.get('jitter_minutes', 30))
-        _save_schedule_settings({
-            'min_interval_hours': max(0.5, min_hours),
-            'jitter_minutes': max(0, jitter_mins),
-        })
-        return _safe_flash_redirect('/settings', flash_type='success', msg='排程设定已保存')
-    except Exception as e:
-        return _safe_flash_redirect('/settings', flash_type='danger', msg=f'保存失败: {e}')
+    """Save schedule interval settings (parse / clamp / persist single-sourced)."""
+    r = GlobalSettingsAPI().save_schedule(request.form)
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/settings/save-blog-ids', methods=['POST'])
 def settings_save_blog_ids():
+    # Cleaning + save moved to BloggerSettingsAPI (single source shared with
+    # /api/v1/settings/blogger/blog-ids). The parallel form lists are the legacy
+    # transport encoding; the facade strips / drops empties / dedups by domain.
+    from ..api.blogger_settings_api import BloggerSettingsAPI
     domains = request.form.getlist('domain[]')
     blog_ids_list = request.form.getlist('blog_id[]')
-    mapping = {d.strip(): b.strip() for d, b in zip(domains, blog_ids_list)
-               if d.strip() and b.strip()}
-    try:
-        cfg = load_config()
-        cfg.blogger_blog_ids = mapping
-        save_config(cfg, extra_blogger_ids={}, target_three_url=None)
-        return _safe_flash_redirect(
-            '/settings', flash_type='success',
-            msg='Blog ID 映射已保存', fragment='channel-blogger')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'保存失败: {e}', fragment='channel-blogger')
+    r = BloggerSettingsAPI().save_blog_ids(dict(zip(domains, blog_ids_list)))
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
-@bp.route('/settings/save-medium-token', methods=['POST'])
-def settings_save_medium_token():
-    token = request.form.get('medium_token', '').strip()
-    try:
-        save_config(load_config(), medium_token=token, target_three_url=None)
-        msg = 'Medium Token 已保存' if token else 'Medium Token 已清除'
-        return _safe_flash_redirect(
-            '/settings', flash_type='success', msg=msg, fragment='channel-medium')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'保存失败: {e}', fragment='channel-medium')
-
-
-@bp.route('/settings/clear-medium-token', methods=['POST'])
-def settings_clear_medium_token():
-    try:
-        save_config(load_config(), medium_token="", target_three_url=None)
-        return _safe_flash_redirect(
-            '/settings', flash_type='success',
-            msg='Medium Token 已清除', fragment='channel-medium')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'清除失败: {e}', fragment='channel-medium')
+# Medium Integration-Token save/clear routes removed (Plan 2026-06-18-002 U8, medium-IT
+# slice): Medium discontinued integration tokens (API archived 2023-03-02); the field
+# is plaintext config (cfg.medium_integration_token), not a 0600 secret. The publish
+# path still honours any existing value, but the management UI is retired — no SPA
+# migration (operators with a legacy token edit config.toml directly).
 
 
 @bp.route('/settings/revoke-blogger', methods=['POST'])
 def settings_revoke_blogger():
-    cfg = load_config()
-    try:
-        cfg.blogger_token_path.unlink(missing_ok=True)
-        return _safe_flash_redirect(
-            '/settings', flash_type='success',
-            msg='Blogger 授权已撤销', fragment='channel-blogger')
-    except Exception as e:
-        return _safe_flash_redirect(
-            '/settings', flash_type='danger',
-            msg=f'撤销失败: {e}', fragment='channel-blogger')
+    # Revoke moved to OAuthAPI (single source shared with /api/v1/settings/blogger/revoke).
+    from ..api.oauth_api import OAuthAPI
+    r = OAuthAPI().revoke_blogger()
+    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/api/velog/login', methods=['POST'])
 def api_velog_login():
     """Spawn velog-login in a detached subprocess (headed Playwright).
 
-    The operator completes social login in the popped-up Chromium window.
-    Probes briefly for early startup crash (e.g. Playwright missing).
+    The operator completes social login in the popped-up Chromium window. The
+    spawn + error_code→message mapping moved to ``VelogLoginAPI`` (single source
+    shared with ``/api/v1/settings/velog/login``); this route keeps the legacy
+    200/500 status contract.
     """
-    from ..services.browser_login import spawn_browser_login
+    from ..api.velog_login_api import VelogLoginAPI
 
-    result = spawn_browser_login("backlink_publisher.cli.velog_login")
-    if not result.ok:
-        # Extract error_code from structured log lines so the UI can show a
-        # specific message instead of raw JSON events.
-        import re as _re
-        error_code = "playwright_launch_failed"
-        if result.error:
-            m = _re.search(r'"error_code":\s*"([^"]+)"', result.error)
-            if m:
-                error_code = m.group(1)
-        _MESSAGES = {
-            "profile_in_use": (
-                "已有一个绑定窗口正在运行。"
-                "请关闭已打开的 Chromium 窗口后再试。"
-            ),
-            "playwright_not_installed": (
-                "Playwright 未安装。"
-                "请在终端运行：python -m playwright install chromium"
-            ),
-            "login_url_unreachable": (
-                "无法打开 velog.io，请检查网络连接后再试。"
-            ),
-        }
-        message = _MESSAGES.get(
-            error_code,
-            "启动失败，请在终端运行 velog-login 并查看输出。",
-        )
-        return jsonify({
-            "ok": False,
-            "error_code": error_code,
-            "message": message,
-            "log_path": str(result.log_path),
-        }), 500
-
-    return jsonify({
-        "ok": True,
-        "log_path": str(result.log_path),
-    })
+    r = VelogLoginAPI().login()
+    body = {"ok": r.ok, "message": r.message, "log_path": r.log_path}
+    if r.ok:
+        return jsonify(body)
+    body["error_code"] = r.error_code
+    return jsonify(body), 500
 
 
 @bp.route('/api/velog/status', methods=['GET'])

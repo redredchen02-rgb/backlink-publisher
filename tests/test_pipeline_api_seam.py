@@ -22,30 +22,37 @@ from unittest import mock
 from backlink_publisher._util.error_envelope import ErrorEnvelope
 from webui_app.api.pipeline_api import PipelineAPI
 
-_WEBUI = Path(__file__).resolve().parents[1] / "webui_app"
+_REPO = Path(__file__).resolve().parents[1]
+_WEBUI = _REPO / "webui_app"
+_SDK = _REPO / "src" / "backlink_publisher" / "sdk"
 
-# run_pipe / run_pipe_capture: cli_runner defines them, pipeline_api is the sole
-# consumer. Nothing else may call them.
-_RUN_PIPE_ALLOWED = {"helpers/cli_runner.py", "api/pipeline_api.py"}
+# run_pipe / run_pipe_capture: _cli_runner defines them; PipelineAPI is the sole
+# consumer. Nothing else may call them. U5a (plan 2026-06-22-001) relocated the
+# real callers from webui_app into the core SDK (src/.../sdk/), leaving re-export
+# shims in webui_app — so the guard scans BOTH roots, each with its own allowed
+# set. Without the SDK scan a stray run_pipe call inside sdk/ would be invisible.
+_RUN_PIPE_ALLOWED = {
+    _WEBUI: {"helpers/cli_runner.py", "api/pipeline_api.py"},  # re-export shims
+    _SDK: {"api.py"},  # PipelineAPI._invoke / _invoke_capture
+}
 
-# subprocess.run / .Popen: cli_runner implements run_pipe_capture; the login &
+# subprocess.run / .Popen: _cli_runner implements run_pipe[_capture]; the login &
 # bind services spawn their own (browser-login) processes — R5 out-of-scope.
 # keepalive_job spawns the full pipeline script (gap closure) as a background
 # process (similar isolation rationale to bind_job).
 _SUBPROCESS_ALLOWED = {
-    "helpers/cli_runner.py",
-    "services/browser_login.py",
-    "services/bind_job.py",
-    "services/keepalive_job.py",
-    "routes/pipeline_dashboard.py",  # fire-and-forget background trigger (start_new_session=True)
+    _WEBUI: {
+        "helpers/cli_runner.py",
+        "services/browser_login.py",
+        "services/bind_job.py",
+        "services/keepalive_job.py",
+        "routes/pipeline_dashboard.py",  # fire-and-forget background trigger (start_new_session=True)
+    },
+    _SDK: {"_cli_runner.py"},  # run_pipe / run_pipe_capture subprocess impl
 }
 
 _RUN_PIPE_NAMES = {"run_pipe", "run_pipe_capture"}
 _SUBPROCESS_ATTRS = {"subprocess.run", "subprocess.Popen"}
-
-
-def _rel(path: Path) -> str:
-    return path.relative_to(_WEBUI).as_posix()
 
 
 def _call_quals(tree: ast.AST):
@@ -60,17 +67,30 @@ def _call_quals(tree: ast.AST):
             yield "attr", f"{func.value.id}.{func.attr}"
 
 
+def _scan_offenders(allowed_by_root: dict, *, kind_wanted: str, targets: set) -> list[str]:
+    """Walk each root's *.py; report calls to `targets` from files not in its
+    allowed set. Offender paths are prefixed with the root name to disambiguate
+    webui_app/ from the core sdk/ layer."""
+    offenders: list[str] = []
+    for root, allowed in allowed_by_root.items():
+        for path in sorted(root.rglob("*.py")):
+            rel = path.relative_to(root).as_posix()
+            if rel in allowed:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for kind, qual in _call_quals(tree):
+                if kind == kind_wanted and qual in targets:
+                    offenders.append(f"{root.name}/{rel}: calls {qual}()")
+    return offenders
+
+
 # ── static funnel guards ────────────────────────────────────────────────────
 
 
 def test_run_pipe_only_called_through_pipeline_api():
-    offenders = []
-    for path in sorted(_WEBUI.rglob("*.py")):
-        rel = _rel(path)
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for kind, qual in _call_quals(tree):
-            if kind == "name" and qual in _RUN_PIPE_NAMES and rel not in _RUN_PIPE_ALLOWED:
-                offenders.append(f"{rel}: calls {qual}()")
+    offenders = _scan_offenders(
+        _RUN_PIPE_ALLOWED, kind_wanted="name", targets=_RUN_PIPE_NAMES
+    )
     assert not offenders, (
         "run_pipe/run_pipe_capture must be called only through PipelineAPI:\n"
         + "\n".join(offenders)
@@ -78,13 +98,9 @@ def test_run_pipe_only_called_through_pipeline_api():
 
 
 def test_subprocess_not_used_for_pipeline_clis():
-    offenders = []
-    for path in sorted(_WEBUI.rglob("*.py")):
-        rel = _rel(path)
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for kind, qual in _call_quals(tree):
-            if kind == "attr" and qual in _SUBPROCESS_ATTRS and rel not in _SUBPROCESS_ALLOWED:
-                offenders.append(f"{rel}: calls {qual}()")
+    offenders = _scan_offenders(
+        _SUBPROCESS_ALLOWED, kind_wanted="attr", targets=_SUBPROCESS_ATTRS
+    )
     assert not offenders, (
         "Raw subprocess for a pipeline CLI is forbidden outside cli_runner / "
         "login services — funnel through PipelineAPI:\n" + "\n".join(offenders)
@@ -154,7 +170,7 @@ def test_resume_carries_exit_code_for_checkpoint_branching():
     for rc in (0, 4, 7):
         captured = _captured('{"published_url":"u"}', "", rc)
         with mock.patch(
-            "webui_app.api.pipeline_api.run_pipe_capture", return_value=captured
+            "backlink_publisher.sdk.api.run_pipe_capture", return_value=captured
         ):
             result = PipelineAPI().resume("20260101T000000-abcd")
         assert result.exit_code == rc, f"exit {rc} not carried"
@@ -166,21 +182,26 @@ def test_resume_carries_exit_code_for_checkpoint_branching():
 
 def test_invoke_capture_flags_silent_failure_on_nonempty_stdin():
     # exit 0 + empty stdout/stderr on non-empty stdin = broken entry-point.
+    # A browser-tier seed row (medium) keeps the _invoke_capture subprocess path
+    # after U5a-2 — API-tier seeds now run in-process and never reach run_pipe.
     captured = _captured("", "", 0)
     with mock.patch(
-        "webui_app.api.pipeline_api.run_pipe_capture", return_value=captured
+        "backlink_publisher.sdk.api.run_pipe_capture", return_value=captured
     ):
-        result = PipelineAPI().publish_seed('[{"target_url":"https://x/y"}]')
+        result = PipelineAPI().publish_seed('{"target_url":"https://x/y","platform":"medium"}')
     assert result.success is False
     assert "no output" in (result.error or "")
 
 
 def test_publish_seed_success():
+    # Browser-tier (medium) → subprocess path; exercises the _invoke_capture
+    # bridge that survives U5a-2 (API-tier publish_seed is covered in-process by
+    # tests/test_publish_inprocess_sdk_parity.py).
     captured = _captured('{"published_url":"https://m/p"}', "", 0)
     with mock.patch(
-        "webui_app.api.pipeline_api.run_pipe_capture", return_value=captured
+        "backlink_publisher.sdk.api.run_pipe_capture", return_value=captured
     ):
-        result = PipelineAPI().publish_seed('[{"target_url":"https://x/y"}]')
+        result = PipelineAPI().publish_seed('{"target_url":"https://x/y","platform":"medium"}')
     assert result.success is True
     assert result.rows[0]["published_url"] == "https://m/p"
 

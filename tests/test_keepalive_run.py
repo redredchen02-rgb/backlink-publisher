@@ -390,3 +390,58 @@ def test_publish_failure_exhaustion_skips_on_next_cycle(state_dir):
 
     assert not publish_called
     assert result["exhausted_skipped"] == 1
+
+
+# ── U2: reverse-edge removal invariants (plan 2026-06-22-001) ──────────────────
+# E2 (_ensure_article) and E3 (RUNTIME_STICKY_PLATFORMS) were moved into core so
+# keepalive/chain.py no longer imports webui_app for them. These lock the single
+# source of truth and the back-compat re-exports that tests rely on.
+
+
+def test_runtime_sticky_single_source_of_truth():
+    """All RUNTIME_STICKY_PLATFORMS aliases resolve to the one core object (is),
+    so the scorecard view and the republish job can never drift (no S2↔S3 drift)."""
+    from backlink_publisher.keepalive.sticky import RUNTIME_STICKY_PLATFORMS as core
+    from webui_app.services import _keepalive_engine as ke
+    from webui_app.services import keepalive_job as kj
+
+    assert core == ("blogger",)
+    assert ke.RUNTIME_STICKY_PLATFORMS is core
+    assert ke._RUNTIME_STICKY is core
+    assert kj.RUNTIME_STICKY_PLATFORMS is core
+
+
+def test_ensure_article_reexported_from_core():
+    """keepalive_job._ensure_article (which tests call directly) is the SAME object
+    as the core home, so the move left no behavioral fork."""
+    from backlink_publisher.events._project_helpers import _ensure_article as core_ea
+    from webui_app.services import keepalive_job as kj
+
+    assert kj._ensure_article is core_ea
+
+
+def test_chain_module_has_no_webui_app_edge_for_e2_e3():
+    """chain.py must not import webui_app for _ensure_article or RUNTIME_STICKY_PLATFORMS
+    (E2/E3 removed). E1 (PipelineAPI) was also killed in U5a — chain.py now imports from
+    backlink_publisher.sdk.api. Zero webui_app edges should remain."""
+    import ast
+    from pathlib import Path
+
+    import backlink_publisher.keepalive.chain as chain
+
+    src = Path(chain.__file__).read_text()
+    tree = ast.parse(src)
+    webui_imports: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("webui_app"):
+            webui_imports.append(f"{node.module} (line {node.lineno})")
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("webui_app"):
+                    webui_imports.append(f"{alias.name} (line {node.lineno})")
+
+    # U5a killed E1: chain.py now has zero webui_app edges.
+    assert webui_imports == [], (
+        "chain.py must have no webui_app imports (E1 killed in U5a). Found: "
+        f"{webui_imports}"
+    )

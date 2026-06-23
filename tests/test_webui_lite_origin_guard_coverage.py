@@ -73,18 +73,33 @@ def _loopback_origin() -> str:
 # at the Origin guard.  Use dummy values that won't trigger earlier returns.
 _GUARDED_ROUTES: list[tuple[str, str, dict]] = [
     ("/url-verify", "POST", {"url": "https://example.com"}),
-    ("/settings/save-channel-credential", "POST", {"channel": "hackmd", "auth_type": "token", "token": "x"}),
-    ("/settings/channels/medium/bind", "POST", {}),
-    ("/settings/channels/medium/identity-mismatch/keep", "POST", {}),
-    ("/settings/channels/medium/identity-mismatch/replace", "POST", {}),
-    ("/settings/medium/launch-browser-login", "POST", {}),
-    ("/settings/medium/probe-browser-login", "POST", {}),
-    ("/settings/medium/clear-browser-login", "POST", {}),
+    # Legacy /settings/save-channel-credential, /settings/channels/*/bind,
+    # /settings/medium/*-browser-login removed in U8 5b (Plan 2026-06-18-002) —
+    # their inline-guarded v1 equivalents appear below.
     ("/ce:keep-alive/recheck", "POST", {}),
     ("/ce:keep-alive/recheck-cancel/dummy-id", "POST", {}),
     ("/ce:keep-alive/republish", "POST", {}),
     ("/ce:health/scorecard/recheck-link", "POST", {"live_url": "https://x.com/a"}),
     ("/copilot/run-live", "POST", {}),
+    # Plan 2026-06-18-002 U7 (Settings security core): /api/v1 credential writes
+    # enforce the guards INLINE (the api_v1 blueprint does not inherit bind.py's
+    # before_request). They write 0600 secret files, so they MUST stay guarded.
+    ("/api/v1/settings/channels/devto/token", "POST", {}),
+    ("/api/v1/settings/notion-token", "POST", {}),
+    # Plan 2026-06-18-002 U7 (Settings): the general registry-dispatched bind-save,
+    # ported HTML->JSON via the single-source ChannelBindAPI facade. Same 0600
+    # credential-write posture — inline-guarded (literal in the view source, so it
+    # is excluded from the CSRF-only snapshot below; the count stays put).
+    ("/api/v1/settings/channels/hackmd/credential", "POST", {}),
+    # Plan 2026-06-18-002 U7 (Settings): the stateful browser-bind flow ported via
+    # the single-source BindAPI facade. The identity-mismatch resolution routes
+    # mutate channel_status_store + delete credential artifacts, so they MUST stay
+    # Origin-guarded (inline literal → excluded from the snapshot). The bind START
+    # route is also inline-guarded but kept out of this list: a loopback POST would
+    # launch a real bind subprocess (covered instead by test_webui_api_v1_bind.py +
+    # the global-guard sweep). The GET poll is remote_addr-guarded, not Origin-guarded.
+    ("/api/v1/settings/channels/medium/identity-mismatch/keep", "POST", {}),
+    ("/api/v1/settings/channels/medium/identity-mismatch/replace", "POST", {}),
 ]
 
 _EVIL_ORIGIN = "http://evil.example.com"
@@ -125,12 +140,67 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 71  # routes with CSRF but no inline Origin guard as of 2026-06-09
+_CSRF_ONLY_SNAPSHOT_COUNT = 91  # routes with CSRF but no inline Origin guard as of 2026-06-23
+# -2 (100->98): U8 medium-IT slice removed the legacy POST /settings/{save,clear}-medium-token
+# routes (config writes, no inline guard — they were in this count). Medium discontinued
+# integration tokens; the management UI is retired (no SPA replacement). Tightening the
+# ceiling keeps it exact. (The assertion is <=, so a stale 100 would have passed silently.)
 # +6 v0.4.0 routes (U4-U8): /settings/channels/<ch>/probe-liveness, /publish/quick,
 # /publish/save-defaults, /sites/batch-queue, /sites/autopilot,
 # /dashboard/autopilot-alert/dismiss — all internal-only endpoints protected
 # by the global CSRF guard; no bind-sensitive data, Origin guard not warranted.
 # +1: /settings/test-image-gen added in feat(image-gen) b44040d; covered by _global_origin_guard.
+# +16 (71->87): the Plan 2026-06-18-002 front/back-separation `/api/v1` mutating
+# surface (U5 pipeline plan/preview/validate/publish/regen-body; U7 history
+# delete/bulk-delete/purge-failed/recheck; U7 drafts schedule/publish-now/cancel/
+# delete/bulk-delete; U7 sites save/autopilot). These are config/queue/state JSON
+# writes, NOT bind-sensitive credential writes (the 0600 token/channel-bind routes
+# under /settings/* keep their inline _check_bind_origin_or_abort). All 16 are
+# covered at runtime by the app-level _global_origin_guard — proven unconditionally
+# by test_global_guard_covers_every_mutating_route — so an inline guard is not
+# warranted; raised here to track the inline-adoption inventory, not a new gap.
+# +3 (87->90): U7 batch_campaign + profiles units — POST /api/v1/campaigns
+# (campaign_store create) and POST /api/v1/profiles/save|delete (preset CRUD).
+# Same posture as the rest of the /api/v1 mutating surface: config/state JSON
+# writes, not 0600 credential writes, covered by the _global_origin_guard.
+# +2 (90->92): U7 Settings OAuth credential routes — POST /api/v1/settings/blogger-oauth
+# (save Client ID/Secret via save_config) and POST /api/v1/settings/medium-oauth/clear
+# (delete medium-token.json). These mirror the LEGACY oauth routes' posture, which
+# carry no inline _check_bind_origin_or_abort either — they are config writes / token
+# deletes, not the dedicated-0600-file credential writes (the channel-token / notion /
+# channel-credential / bind routes keep their inline guard). Covered at runtime by the
+# _global_origin_guard. (The Blogger oauth-start→callback redirect handshake stays
+# legacy browser-navigation and is not on /api/v1.)
+# +2 (92->94): U7 Settings LLM diagnostics — POST /api/v1/settings/llm/test-connection
+# and .../llm/test-generation. These mirror the LEGACY llm diagnostic routes' posture
+# (no inline guard): they are SSRF-guarded probes / generation previews, not credential
+# writes (the 0600 llm-config save keeps its inline guard). The endpoint URL is
+# SSRF-gated in the facade before the api_key is sent; covered at runtime by the
+# _global_origin_guard.
+# +2 (94->96): U7 Settings image-gen diagnostics — POST /api/v1/settings/image-gen/
+# test-connection and .../image-gen/generate-sample. Same posture as the LLM
+# diagnostics + the LEGACY /settings/{test-image-gen,generate-sample-image} routes
+# (no inline guard): operator-configured connectivity probe / banner-generation
+# preview, NOT a credential write. The endpoint is read from config.toml [image_gen]
+# (not user-supplied), so no SSRF gate; covered at runtime by the _global_origin_guard.
+# (The U7 medium browser-login routes — /api/v1/settings/medium/*-browser-login — are
+# inline-guarded like the bind/credential family, so they are EXCLUDED here, not added.)
+# +2 (96->98): U7 Settings global saves — POST /api/v1/settings/keywords and
+# .../settings/schedule. These mirror the LEGACY /settings/{save-target-keywords,
+# schedule} routes' posture (no inline guard): they write GLOBAL config
+# (target_anchor_keywords in config.toml / schedule-settings.json), NOT 0600
+# credential files. Covered at runtime by the _global_origin_guard.
+# +1 (98->99): U7 Settings blogger card — POST /api/v1/settings/blogger/revoke
+# (delete the blogger token file). Same posture as the migrated blogger-oauth /
+# medium-oauth-clear routes (no inline guard): a config/token-file op, NOT a 0600
+# secret WRITE, covered at runtime by the _global_origin_guard. (The new
+# /api/v1/settings/blogger/status is a GET — non-mutating, never counted. The
+# velog login route is inline-guarded like medium — EXCLUDED, not added.)
+# +1 (99->100): U7 Settings blogger card (slice 6) — POST /api/v1/settings/blogger/
+# blog-ids (save the domain→Blogger Blog ID routing map). Same posture as the other
+# blogger writes (no inline guard): a config write, NOT a 0600 secret write, covered
+# at runtime by the _global_origin_guard. (The paired GET .../blog-ids is
+# non-mutating, never counted.)
 
 
 def test_csrf_only_route_count_snapshot(app):

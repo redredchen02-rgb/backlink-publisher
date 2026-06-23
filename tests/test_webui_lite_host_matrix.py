@@ -61,7 +61,7 @@ def client(disable_csrf):
 def test_bind_status_with_loopback_passes_gate(client):
     """Loopback REMOTE_ADDR: bind GET status route passes loopback gate (404 = job not found, not 403)."""
     resp = client.get(
-        "/settings/channels/medium/bind/nonexistent-job-id",
+        "/api/v1/settings/channels/medium/bind/nonexistent-job-id",
         environ_overrides={"REMOTE_ADDR": "127.0.0.1"},
     )
     # Loopback passes gate; 404 because job_id unknown (not 403 loopback block)
@@ -71,7 +71,7 @@ def test_bind_status_with_loopback_passes_gate(client):
 def test_bind_status_with_ipv6_loopback_passes_gate(client):
     """::1 is in _LOOPBACK_HOSTS — route passes gate (404 = job not found, not 403)."""
     resp = client.get(
-        "/settings/channels/medium/bind/nonexistent-job-id",
+        "/api/v1/settings/channels/medium/bind/nonexistent-job-id",
         environ_overrides={"REMOTE_ADDR": "::1"},
     )
     assert resp.status_code != 403, "::1 loopback should not be blocked"
@@ -80,7 +80,7 @@ def test_bind_status_with_ipv6_loopback_passes_gate(client):
 def test_bind_status_with_localhost_passes_gate(client):
     """'localhost' is in _LOOPBACK_HOSTS — confirms intentional inclusion."""
     resp = client.get(
-        "/settings/channels/medium/bind/nonexistent-job-id",
+        "/api/v1/settings/channels/medium/bind/nonexistent-job-id",
         environ_overrides={"REMOTE_ADDR": "localhost"},
     )
     assert resp.status_code != 403, "'localhost' should not be blocked"
@@ -89,7 +89,7 @@ def test_bind_status_with_localhost_passes_gate(client):
 def test_bind_route_with_lan_ip_returns_403(client):
     """LAN IP REMOTE_ADDR blocked by bind blueprint before_request hook."""
     resp = client.get(
-        "/settings/channels/medium/bind/nonexistent-job-id",
+        "/api/v1/settings/channels/medium/bind/nonexistent-job-id",
         environ_overrides={"REMOTE_ADDR": "192.168.1.100"},
     )
     assert resp.status_code == 403
@@ -98,7 +98,7 @@ def test_bind_route_with_lan_ip_returns_403(client):
 def test_bind_route_with_fe80_returns_403(client):
     """fe80:: link-local blocked by bind blueprint before_request — regression guard."""
     resp = client.get(
-        "/settings/channels/medium/bind/nonexistent-job-id",
+        "/api/v1/settings/channels/medium/bind/nonexistent-job-id",
         environ_overrides={"REMOTE_ADDR": "fe80::1"},
     )
     assert resp.status_code == 403

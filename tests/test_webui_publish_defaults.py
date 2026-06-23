@@ -40,9 +40,9 @@ def _no_run_pipe():
         return {"stdout": "", "stderr": "", "returncode": 0}
 
     targets = [
-        ("webui_app.helpers.cli_runner.run_pipe", _fake),
-        ("webui_app.api.pipeline_api.run_pipe", _fake),
-        ("webui_app.api.pipeline_api.run_pipe_capture", _fake_capture),
+        ("backlink_publisher.sdk._cli_runner.run_pipe", _fake),
+        ("backlink_publisher.sdk.api.run_pipe", _fake),
+        ("backlink_publisher.sdk.api.run_pipe_capture", _fake_capture),
     ]
     patches = [patch(t, side_effect=f) for t, f in targets]
     for p in patches:

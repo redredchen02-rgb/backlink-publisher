@@ -72,8 +72,10 @@ class TestVelogManifestPresence:
         assert descriptors[0].login_endpoint == "/api/velog/login"
 
     def test_velog_bind_declares_card_template(self) -> None:
+        # Legacy card_template retired in U8 (Plan 2026-06-18-002) — velog card
+        # is now handled by the SPA at /app/settings.
         descriptors = bind_descriptors("velog")
-        assert descriptors[0].card_template == "_settings_channel_velog.html"
+        assert descriptors[0].card_template is None
 
     def test_velog_bind_extras_reference_five_special_modules(self) -> None:
         # The whole point of the pilot — these 5 paths are exactly the

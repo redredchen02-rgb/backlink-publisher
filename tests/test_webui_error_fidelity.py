@@ -78,14 +78,14 @@ class _FakeCompleted:
 def test_capture_returns_dict_with_returncode_nonzero_no_raise():
     """The whole point vs run_pipe: a non-zero exit returns stdout+code, never raises."""
     fake = _FakeCompleted(stdout="row1\nrow2\n", stderr="item failed", returncode=4)
-    with patch("webui_app.helpers.cli_runner.subprocess.run", return_value=fake):
+    with patch("backlink_publisher.sdk._cli_runner.subprocess.run", return_value=fake):
         result = run_pipe_capture(["publish-backlinks", "--resume", "rid"], "")
     assert result == {"stdout": "row1\nrow2\n", "stderr": "item failed", "returncode": 4}
 
 
 def test_capture_returns_dict_on_success():
     fake = _FakeCompleted(stdout="ok\n", stderr="", returncode=0)
-    with patch("webui_app.helpers.cli_runner.subprocess.run", return_value=fake):
+    with patch("backlink_publisher.sdk._cli_runner.subprocess.run", return_value=fake):
         result = run_pipe_capture(["validate-backlinks"], "{}\n")
     assert result["returncode"] == 0
     assert result["stdout"] == "ok\n"
@@ -95,7 +95,7 @@ def test_run_pipe_still_raises_on_nonzero():
     """run_pipe (the raising sibling) keeps its contract — capture is the opt-in."""
     from webui_app.helpers.cli_runner import run_pipe
     fake = _FakeCompleted(stdout="", stderr="boom", returncode=4)
-    with patch("webui_app.helpers.cli_runner.subprocess.run", return_value=fake):
+    with patch("backlink_publisher.sdk._cli_runner.subprocess.run", return_value=fake):
         with pytest.raises(Exception, match="boom"):
             run_pipe(["validate-backlinks"], "{}\n")
 
@@ -107,6 +107,6 @@ def test_run_pipe_silent_failure_raises_diagnostic():
     rather than be consumed as success."""
     from webui_app.helpers.cli_runner import run_pipe
     fake = _FakeCompleted(stdout="", stderr="", returncode=0)
-    with patch("webui_app.helpers.cli_runner.subprocess.run", return_value=fake):
+    with patch("backlink_publisher.sdk._cli_runner.subprocess.run", return_value=fake):
         with pytest.raises(Exception, match="produced no output"):
             run_pipe(["validate-backlinks"], "{}\n")

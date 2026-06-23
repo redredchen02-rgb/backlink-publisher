@@ -12,3 +12,7 @@ bp-*/
 docs/
 .gitattributes
 .gitignore
+# Frontend: built fresh in the Node stage; never copy host artifacts in.
+frontend/node_modules/
+frontend/dist/
+webui_app/spa_dist/

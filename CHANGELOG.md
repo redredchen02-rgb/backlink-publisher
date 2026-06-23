@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-23
+
+### Added
+
+- **Vue 3 SPA** (`frontend/src/`): full single-page application replacing the piecemeal Jinja pages. Routes: `/app/settings`, `/app/monitor`, `/app/history`, `/app/sites`, `/app/profiles`. TanStack Query for data fetching with automatic stale-indicator wiring; Pinia for SPA-local state.
+- **`/api/v1` JSON backend** (`webui_app/api/v1/`): versioned REST surface consumed by the SPA. Covers pipeline (plan / validate / preview / publish), LLM settings + diagnostics, image-gen, velog, site settings, credentials, monitor, history, profiles, and CSRF token endpoint. All endpoints emit RFC 9457 problem+json on error.
+- **Embeddable SDK runtime** (`src/backlink_publisher/sdk/`): `PipelineAPI` and `publish_inprocess()` run the publish pipeline in-process without subprocess round-trips; used by both the `/api/v1/pipeline` routes and standalone integrations.
+- **Design system** (`frontend/src/styles/`): CSS custom-property token set (`tokens.css`), `data-table` shared layout, `StateBlock` four-state component (loading / empty / error / ready) with stale indicator.
+- **`useErrorToast` composable**: XSS-safe fixed-template error classification; adopted across 13 Vue pages — raw server text never reaches the DOM.
+- **Parallel-safe optimisation lanes** (`perf/parallel-safe-lanes`): five independent correctness + performance improvements landed as cherry-picked commits; `sqlite3.Row.get` latent bug fixed.
+
+### Changed
+
+- Legacy Settings Jinja page retired; SPA at `/app/settings` replaces it. Six Jinja template files, four route modules (`bind.py`, `channel_bind_save.py`, `medium_login.py`, `token_paste.py`), and five legacy JS/CSS assets deleted.
+- `velog` login response replaces `log_path` filesystem path with `has_log` boolean (path never leaves the server).
+- `pipeline.py` `_EXIT_STATUS`: exit code 1 (conflict/force-manifest abort) now maps to HTTP 422 instead of falling through to 502.
+
 ## [0.5.0] - 2026-06-18
 
 ### Added (2026-06-18)

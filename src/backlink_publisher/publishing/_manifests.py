@@ -54,7 +54,7 @@ VELOG_MANIFEST: dict[str, Any] = dict(
             # interpolation happens at the bind backend.
             storage_state_path="<config_dir>/velog-cookies.json",
             login_endpoint="/api/velog/login",
-            card_template="_settings_channel_velog.html",
+            card_template=None,  # legacy template retired in U8 (Plan 2026-06-18-002)
             extras={
                 "browser_recipe": (
                     "backlink_publisher.publishing.browser_publish.recipes.velog"
@@ -156,7 +156,7 @@ BLOGGER_MANIFEST: dict[str, Any] = dict(
         BindDescriptor(
             backend="oauth",
             storage_state_path="<config_dir>/blogger-token.json",
-            card_template="_settings_channel_blogger.html",
+            card_template=None,  # legacy template retired in U8 (Plan 2026-06-18-002)
             extras={
                 "oauth_config_section": "blogger_oauth",
                 "token_loader": ("backlink_publisher.config.load_blogger_token"),
@@ -640,7 +640,7 @@ MEDIUM_MANIFEST: dict[str, Any] = dict(
         BindDescriptor(
             backend="cookie",
             storage_state_path="<config_dir>/medium-cookies.json",
-            card_template="_settings_channel_medium.html",
+            card_template=None,  # legacy template retired in U8 (Plan 2026-06-18-002)
             extras={
                 "integration_token_path": "<config_dir>/medium-token.json",
                 "fallback_chain": "api -> brave (macOS) -> playwright",

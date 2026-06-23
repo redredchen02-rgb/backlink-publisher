@@ -1,0 +1,174 @@
+<script setup lang="ts">
+// Publish-history page — Plan 2026-06-18-002 U7 (first page of the campaign).
+//
+// Replaces the legacy /ce:history Jinja tab. Lists publish history (four-state),
+// with per-row delete + recheck, bulk-delete via selection, and purge-failed.
+// Every mutation endpoint returns the refreshed list, so we just write the
+// response back into the query cache (no re-fetch). Action failures go through
+// classifyError → a toast (fixed copy, never raw server text).
+import { computed, ref } from 'vue'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import {
+  bulkDeleteHistory,
+  deleteHistory,
+  listHistory,
+  purgeFailedHistory,
+  recheckHistory,
+  type HistoryItem,
+  type HistoryMutationResult,
+} from '../../api/history'
+import StateBlock from '../../components/StateBlock.vue'
+import { useErrorToast } from '../../composables/useErrorToast'
+import { useNotificationsStore } from '../../stores/notifications'
+import { classifyError } from '../../lib/errors'
+
+const QKEY = ['history']
+const qc = useQueryClient()
+const notify = useNotificationsStore()
+const { toastError } = useErrorToast()
+
+const query = useQuery({ queryKey: QKEY, queryFn: listHistory })
+const items = computed<HistoryItem[]>(() => query.data.value?.items ?? [])
+
+const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
+  if (query.isPending.value) return 'loading'
+  if (query.isError.value) return 'error'
+  return items.value.length ? 'ready' : 'empty'
+})
+
+const selected = ref<Set<string>>(new Set())
+const busy = ref(false)
+
+function toggle(id: string): void {
+  const next = new Set(selected.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  selected.value = next
+}
+
+function reportError(e: unknown): void {
+  toastError(e)
+}
+
+/** Run a mutation, write the refreshed list back into the cache, surface message. */
+async function run(fn: () => Promise<HistoryMutationResult>, okMsg?: string): Promise<void> {
+  if (busy.value) return
+  busy.value = true
+  try {
+    const r = await fn()
+    qc.setQueryData(QKEY, { items: r.items })
+    selected.value = new Set()
+    if (r.message) notify.push(r.message, 'info')
+    else if (okMsg) notify.push(okMsg, 'success')
+  } catch (e) {
+    reportError(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+const onDelete = (id: string) => run(() => deleteHistory(id))
+const onRecheck = (id: string) => run(() => recheckHistory(id))
+const onPurgeFailed = () => run(purgeFailedHistory)
+const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
+
+const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
+</script>
+
+<template>
+  <section class="history">
+    <header class="history__head">
+      <h1>发布历史</h1>
+      <div class="history__actions">
+        <button
+          type="button"
+          :disabled="busy || !selected.size"
+          class="bulk-delete"
+          @click="onBulkDelete"
+        >
+          删除选中 ({{ selected.size }})
+        </button>
+        <button type="button" :disabled="busy || !hasFailed" @click="onPurgeFailed">
+          清除失败
+        </button>
+      </div>
+    </header>
+
+    <StateBlock
+      :state="blockState"
+      :error="query.error.value"
+      empty-text="还没有发布记录"
+      @retry="query.refetch()"
+    >
+      <div class="data-table-wrap">
+        <table class="rows data-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>状态</th>
+              <th>目标</th>
+              <th>平台</th>
+              <th>时间</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in items" :key="row.id" :data-status="row.status">
+              <td>
+                <input
+                  type="checkbox"
+                  :checked="selected.has(row.id)"
+                  :aria-label="`选择 ${row.target_url}`"
+                  @change="toggle(row.id)"
+                />
+              </td>
+              <td class="col-status"><span class="status" :data-status="row.status">{{ row.status }}</span></td>
+              <td class="col-url target" :title="row.target_url">{{ row.target_url }}</td>
+              <td>{{ row.platform }}</td>
+              <td class="col-date muted">{{ row.created_at }}</td>
+              <td class="row-actions">
+                <button type="button" :disabled="busy" @click="onRecheck(row.id)">重核</button>
+                <button type="button" :disabled="busy" @click="onDelete(row.id)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </StateBlock>
+  </section>
+</template>
+
+<style scoped>
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.history__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.history__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+/* .rows inherits .data-table layout; only page-specific overrides below */
+.target {
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status[data-status='published'] {
+  color: var(--success);
+}
+.status[data-status='failed'] {
+  color: var(--danger);
+}
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+</style>

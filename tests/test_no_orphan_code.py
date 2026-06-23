@@ -26,6 +26,7 @@ ALLOWLIST: set[str] = {
     "idempotency/_dedup_query.py",
     "idempotency/_schema.py",
     "publishing/_verify_adapters.py",
+    "publishing/adapters/medium_auth.py",    # imported by webui_app/medium_login.py (outside src/ scan)
     "publishing/adapters/medium_liveness.py",
     "publishing/adapters/velog/auth.py",
     "publishing/adapters/velog/utils.py",

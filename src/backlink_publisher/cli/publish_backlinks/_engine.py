@@ -22,6 +22,40 @@ from backlink_publisher._util.recon import emit_recon
 
 _AUTH_ABORT = "auth_abort"  # sentinel returned to signal epilogue must be skipped
 _ROW_CONTINUE = "continue"  # sentinel: the row was handled, advance to next
+_DEP_ABORT = "dependency_abort"  # sentinel: DependencyError aborts the run (exit 3),
+# epilogue skipped — same immediate-abort semantics as _AUTH_ABORT, but the
+# SystemExit is now raised by the CLI shell (main), not inside the loop, so the
+# engine is callable in-process and returns a typed outcome. (Plan 2026-06-22-001 U4-2)
+_CONFLICT_ABORT = "conflict_abort"  # sentinel: a force-manifest conflict (force on a
+# live "done" key, R11) aborts the run with exit 1 (UsageError, NOT 3). Only reachable
+# with a non-empty forced_keys; the SystemExit is raised by the CLI shell. (U4-1)
+
+
+@dataclass
+class PublishOptions:
+    """Typed publish-run configuration for the in-process engine (U4-1).
+
+    Field names mirror the argparse Namespace attributes the publish loop reads,
+    so a ``PublishOptions`` is a drop-in for ``args`` when passed into
+    ``run_publish_loop`` (the loop only does attribute reads). ``main()`` builds
+    one from its parsed args; an embedded SDK caller constructs it directly.
+
+    SCOPE: ``publish_rows`` consumes ALREADY-FILTERED rows. The pre-loop gates
+    (tier-1 dofollow filter, ``--preview-manifest``, ``--force-manifest``,
+    paused-platform partition, dedup enforce-precondition, lease acquisition)
+    stay in the CLI shell — they are NOT re-implemented here. ``forced_keys`` is
+    passed to ``publish_rows`` separately (it is derived from a force manifest,
+    a shell concern).
+    """
+
+    platform: str | None = None
+    mode: str | None = None
+    dry_run: bool = False
+    skip_publish_time_check: bool = False
+    no_verify: bool = False
+    reason: str | None = None
+    throttle_min: int = 60
+    throttle_max: int = 300
 
 
 @dataclass
@@ -59,6 +93,79 @@ class PublishRunState:
     canary_warned: set[str] = field(default_factory=set)
     # R3a: signals main() to skip _publish_epilogue after AuthExpiredError
     auth_aborted: bool = False
+    # U4-1: AuthExpiredError no longer SystemExits inside the loop (so the engine
+    # is callable in-process); the message + real exception class name are carried
+    # to the shell, which raises emit_error(exit_code=3, error_class=...).
+    auth_error: str | None = None
+    auth_error_class: str | None = None
+    # U4-2: DependencyError aborts the run (exit 3); main() skips _publish_epilogue
+    # and raises the exit-3 in the shell. dependency_error carries the message.
+    # U4-1 also routes mid-run token-drift (rotated credentials) through this path.
+    dependency_aborted: bool = False
+    dependency_error: str | None = None
+    # U4-1: force-manifest conflict (force on a live "done" key) aborts with exit 1
+    # (NOT 3); main() raises emit_error(exit_code=1) in the shell. conflict_error
+    # carries the message. Only set when forced_keys is non-empty.
+    conflict_aborted: bool = False
+    conflict_error: str | None = None
+
+
+@dataclass
+class PublishOutcome:
+    """Typed result of an in-process publish run (U4-1).
+
+    Wraps the loop-carried ``PublishRunState`` plus the ``checkpoint_disabled``
+    flag (computed at checkpoint-creation time, not on the state) and the
+    ``options`` used, and derives ``terminal_exit_code`` — the exit code the CLI
+    shell would raise — WITHOUT any SystemExit. An embedded caller reads
+    ``outputs`` (the successful rows) + ``terminal_exit_code`` (to map to HTTP /
+    a return value); the CLI ``main()`` still drives the impure epilogue.
+    """
+
+    state: PublishRunState
+    options: PublishOptions
+    checkpoint_disabled: bool = False
+
+    @property
+    def outputs(self) -> list[dict[str, Any]]:
+        return self.state.outputs
+
+    @property
+    def success_count(self) -> int:
+        return self.state.success_count
+
+    @property
+    def fail_count(self) -> int:
+        return self.state.fail_count
+
+    @property
+    def auth_aborted(self) -> bool:
+        return self.state.auth_aborted
+
+    @property
+    def dependency_aborted(self) -> bool:
+        return self.state.dependency_aborted
+
+    @property
+    def terminal_exit_code(self) -> int:
+        """The exit code the CLI epilogue would raise for this run (0/3/4/5).
+
+        Auth- and dependency-aborts skip the epilogue and exit 3 (the
+        AuthExpiredError / DependencyError family). Otherwise the verdict comes
+        from the SAME pure function the impure epilogue dispatches off
+        (``_decide_publish_exit``), so an embedded caller and the CLI can never
+        disagree about exit codes for the same output set.
+        """
+        if self.state.conflict_aborted:
+            return 1
+        if self.state.auth_aborted or self.state.dependency_aborted:
+            return 3
+        from backlink_publisher.cli._publish_helpers import _decide_publish_exit
+        return _decide_publish_exit(
+            self.state.outputs,
+            dry_run=self.options.dry_run,
+            dedup_hold_count=self.state.dedup_hold_count,
+        ).exit_code
 
 
 def run_publish_loop(
@@ -86,6 +193,72 @@ def run_publish_loop(
         if result == _AUTH_ABORT:
             state.auth_aborted = True
             return
+        if result == _DEP_ABORT:
+            state.dependency_aborted = True
+            return
+        if result == _CONFLICT_ABORT:
+            state.conflict_aborted = True
+            return
+
+
+def publish_rows(
+    rows: list[dict[str, Any]],
+    config: Any,
+    *,
+    options: PublishOptions,
+    forced_keys: set | None = None,
+) -> PublishOutcome:
+    """In-process publish entry point — NEVER raises SystemExit (U4-1).
+
+    Creates the resume checkpoint (fail-soft), runs the per-row publish loop, and
+    returns a typed PublishOutcome. The caller decides what to do with the
+    verdict: the CLI shell (``main``) drives the impure epilogue (stdout +
+    SystemExit); an embedded caller reads ``outcome.outputs`` +
+    ``outcome.terminal_exit_code``.
+
+    ``rows`` must be ALREADY FILTERED (see PublishOptions — the pre-loop gates
+    live in the CLI shell). Concurrency safety for concurrent in-process callers
+    (scheduler vs /api/v1) is the caller's responsibility via a process-level
+    publish lock (plan U5); ``publish_rows`` itself holds no such lock.
+    """
+    from datetime import datetime, timezone
+    from backlink_publisher.config import snapshot_token_revs
+    from backlink_publisher._util.logger import publish_logger
+    from backlink_publisher.cli._publish_helpers import _make_banner_emit
+    from ... import checkpoint
+
+    if forced_keys is None:
+        forced_keys = set()
+
+    run_id: str | None = None
+    checkpoint_disabled = False
+    if not options.dry_run:
+        try:
+            run_id, _ = checkpoint.create_checkpoint(
+                rows,
+                platform=options.platform,
+                mode=options.mode,
+                flags={"skip_publish_time_check": options.skip_publish_time_check},
+            )
+            publish_logger.info(f"publish-backlinks: run_id={run_id}")
+        except Exception as exc:
+            checkpoint_disabled = True
+            publish_logger.warning(
+                f"[WARN] checkpoint not created — this run cannot be resumed: {exc}"
+            )
+
+    state = PublishRunState(run_id=run_id)
+    ts = datetime.now(timezone.utc).isoformat()
+    banner_emit = _make_banner_emit()
+    initial_token_revs = snapshot_token_revs()
+
+    run_publish_loop(
+        rows, options, config, state, ts, banner_emit,
+        forced_keys, options.throttle_min, options.throttle_max, initial_token_revs,
+    )
+    return PublishOutcome(
+        state=state, options=options, checkpoint_disabled=checkpoint_disabled,
+    )
 
 
 def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-helpers below
@@ -128,7 +301,7 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
     from backlink_publisher.schema import supported_platforms
     from backlink_publisher._util.errors import (
         AuthExpiredError, BannerUploadError, ContentRejectedError,
-        DependencyError, ExternalServiceError, emit_error,
+        DependencyError, ExternalServiceError,
     )
     from backlink_publisher._util.logger import publish_logger
     from ... import checkpoint
@@ -215,11 +388,26 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
         extra={"id": row.get("id"), "platform": platform, "mode": mode},
     )
 
-    _check_token_drift(initial_token_revs)
+    # U4-1: mid-run credential rotation aborts the run without SystemExit-ing
+    # inside the loop (keeps publish_rows callable in-process). Same exit-3 abort
+    # semantics as DependencyError — main raises emit_error(3) in the shell.
+    drift_msg = _check_token_drift(initial_token_revs, raises=False)
+    if drift_msg:
+        state.dependency_error = drift_msg
+        return _DEP_ABORT
 
     verdict, drec = gate_with_force(
         row, platform, run_id=state.run_id, forced_keys=forced_keys, reason=args.reason
     )
+    if verdict == "conflict":
+        # U4-1: force on a live "done" key (R11). gate_with_force no longer
+        # SystemExits; abort via a typed sentinel so publish_rows stays callable
+        # in-process. main maps conflict_aborted -> emit_error(exit_code=1).
+        state.conflict_error = (
+            f"force-manifest conflict: {platform} key is already published "
+            "(done); refusing to re-publish — use --forget if truly intended"
+        )
+        return _CONFLICT_ABORT
     if verdict == "skip":
         state.outputs.append(_build_skip_row(
             row, platform, drec.live_url if drec else None, ts
@@ -256,8 +444,13 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
                 banner_emit=banner_emit,
             )
     except AuthExpiredError as exc:
+        # U4-1: run the side effects (channel flip + checkpoint mark + log) but do
+        # NOT SystemExit inside the loop; capture the message + real class so main
+        # raises emit_error(exit_code=3) in the shell (R3a epilogue-skip preserved).
         record_failure(row, platform, error_class="auth_expired", run_id=state.run_id)
-        _handle_auth_expired(exc, state.run_id, row, publish_logger)
+        _handle_auth_expired(exc, state.run_id, row, publish_logger, raises=False)
+        state.auth_error = str(exc)
+        state.auth_error_class = type(exc).__name__
         return _AUTH_ABORT
     except BannerUploadError as exc:
         state.fail_count += 1
@@ -274,9 +467,14 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
         )
         return _ROW_CONTINUE
     except DependencyError as exc:
+        # U4-2: record the dedup failure then abort the run via a typed sentinel
+        # instead of raising SystemExit inside the loop. main() (the CLI shell)
+        # maps dependency_aborted -> emit_error(exit_code=3); an in-process caller
+        # reads the typed outcome. Immediate-abort semantics (exit 3, epilogue
+        # skipped, no stdout) are preserved — same as _AUTH_ABORT.
         record_failure(row, platform, error_class="dependency", run_id=state.run_id)
-        emit_error(str(exc), exit_code=3)
-        return _ROW_CONTINUE  # unreachable (emit_error raises); keeps mypy happy
+        state.dependency_error = str(exc)
+        return _DEP_ABORT
     except ExternalServiceError as exc:
         state.fail_count += 1
         state.run_id = _record_publish_failure(

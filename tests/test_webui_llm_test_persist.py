@@ -3,7 +3,7 @@
 The connection-test outcome must survive page reloads so the nav pill /
 status header reflect "last known" health. Covers the pure
 ``record_llm_test_result`` helper (RMW preserves keys + 0o600) and the
-``/settings/test-llm-connection`` route side-effect.
+``/api/v1/settings/llm/test-connection`` route side-effect.
 """
 from __future__ import annotations
 
@@ -107,10 +107,10 @@ def client(cfg_dir, monkeypatch):
 
 
 def test_route_persists_last_test_on_success(client):
-    with patch("webui_app.routes.llm._guard_llm_endpoint", return_value=(None, None)), \
-         patch("webui_app.routes.llm._safe_get_json",
+    with patch("webui_app.api.llm_diagnostics_api._guard_llm_endpoint", return_value=(None, None)), \
+         patch("webui_app.api.llm_diagnostics_api._safe_get_json",
                return_value=(200, {"data": [{"id": "gpt-4"}]})):
-        resp = client.post("/settings/test-llm-connection", data={
+        resp = client.post("/api/v1/settings/llm/test-connection", json={
             "endpoint": "https://api.example.com/v1",
             "api_key": "sk-test",
             "model": "gpt-4",
@@ -123,10 +123,10 @@ def test_route_persists_last_test_on_success(client):
 
 
 def test_route_persists_failed_outcome(client):
-    with patch("webui_app.routes.llm._guard_llm_endpoint", return_value=(None, None)), \
-         patch("webui_app.routes.llm._safe_get_json", return_value=(500, {})), \
-         patch("webui_app.routes.llm._safe_post_json", return_value=(500, {})):
-        resp = client.post("/settings/test-llm-connection", data={
+    with patch("webui_app.api.llm_diagnostics_api._guard_llm_endpoint", return_value=(None, None)), \
+         patch("webui_app.api.llm_diagnostics_api._safe_get_json", return_value=(500, {})), \
+         patch("webui_app.api.llm_diagnostics_api._safe_post_json", return_value=(500, {})):
+        resp = client.post("/api/v1/settings/llm/test-connection", json={
             "endpoint": "https://api.example.com/v1",
             "api_key": "sk-test",
             "model": "gpt-4",
@@ -139,12 +139,12 @@ def test_route_persists_failed_outcome(client):
 
 def test_route_write_failure_does_not_break_response(client):
     """Persistence is best-effort: a record failure must not 500 the test."""
-    with patch("webui_app.routes.llm._guard_llm_endpoint", return_value=(None, None)), \
-         patch("webui_app.routes.llm._safe_get_json",
+    with patch("webui_app.api.llm_diagnostics_api._guard_llm_endpoint", return_value=(None, None)), \
+         patch("webui_app.api.llm_diagnostics_api._safe_get_json",
                return_value=(200, {"data": []})), \
          patch("webui_app.services.settings_service.record_llm_test_result",
                side_effect=OSError("disk full")):
-        resp = client.post("/settings/test-llm-connection", data={
+        resp = client.post("/api/v1/settings/llm/test-connection", json={
             "endpoint": "https://api.example.com/v1",
             "api_key": "sk-test",
             "model": "gpt-4",

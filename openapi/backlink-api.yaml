@@ -1,0 +1,2962 @@
+info:
+  description: 'Versioned JSON API for the Backlink Publisher WebUI (Plan 2026-06-18-002,
+    front/back separation). Single-origin: served same-origin by Flask. Errors use
+    RFC 9457 problem+json.'
+  title: Backlink Publisher WebUI API
+  version: 0.3.0
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness probe.
+      description: Returns service liveness and version. No auth, no side effects.
+      tags:
+      - meta
+      responses:
+        '200':
+          description: Service is up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '404':
+          description: Unknown API resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/app-config:
+    get:
+      operationId: getAppConfig
+      summary: SPA bootstrap config (edition, Pro status, version).
+      description: Origin-guarded GET. Replaces the Jinja context-processor injection.
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Bootstrap config.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConfig'
+        '403':
+          description: Cross-origin / DNS-rebinding GET rejected.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/csrf-token:
+    get:
+      operationId: getCsrfToken
+      summary: Per-session CSRF token for the SPA fetch layer.
+      description: Origin-guarded GET. Re-read per mutating call; never cache.
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+        '403':
+          description: Cross-origin / DNS-rebinding GET rejected.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/platforms:
+    get:
+      operationId: getPlatforms
+      summary: Full registered-platform list.
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Platform list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformList'
+  /api/v1/bound-platforms:
+    get:
+      operationId: getBoundPlatforms
+      summary: Bound + manifest-visible platforms (publish-form filter).
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Bound platform list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformList'
+  /api/v1/pro-status:
+    get:
+      operationId: getProStatus
+      summary: Pro-Mode visibility summary (redaction-safe).
+      tags:
+      - bootstrap
+      responses:
+        '200':
+          description: Pro status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProStatusEnvelope'
+  /api/v1/pipeline/plan:
+    post:
+      operationId: planBacklinks
+      summary: Generate article plans for the given URLs.
+      description: 'Stateless: takes inputs in the body, returns plan rows.'
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+      responses:
+        '200':
+          description: Generated plan rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponse'
+        '422':
+          description: Invalid request (e.g. missing urls).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Generation failed or produced no output.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/pipeline/preview:
+    post:
+      operationId: previewBacklink
+      summary: Single-article preview (plan one seed, return first row).
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+      responses:
+        '200':
+          description: First planned row (or null).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResponse'
+        '422':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Generation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/pipeline/validate:
+    post:
+      operationId: validateBacklinks
+      summary: Validate plan rows (URL checks skipped server-side).
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validated rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '422':
+          description: Invalid request or validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/pipeline/publish:
+    post:
+      operationId: publishBacklinks
+      summary: Publish validated rows to a platform (synchronous).
+      description: Partial success returns 200 with per-row outcomes in `results`;
+        total failure is a problem+json. No pollable task-id (synchronous).
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishRequest'
+      responses:
+        '200':
+          description: Aggregate publish result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResponse'
+        '400':
+          description: Credential precondition failed (e.g. velog).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Auth/credential error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Publish failed / no result rows.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history:
+    get:
+      operationId: getHistory
+      summary: Full publish-history list.
+      tags:
+      - history
+      responses:
+        '200':
+          description: History list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryList'
+  /api/v1/history/delete:
+    post:
+      operationId: deleteHistoryItem
+      summary: "Delete one history entry \u2192 refreshed list."
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history/bulk-delete:
+    post:
+      operationId: bulkDeleteHistory
+      summary: "Delete multiple history entries \u2192 refreshed list."
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdsRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '422':
+          description: Missing ids.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history/purge-failed:
+    post:
+      operationId: purgeFailedHistory
+      summary: "Delete every 'failed' entry \u2192 refreshed list."
+      tags:
+      - history
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+  /api/v1/history/recheck:
+    post:
+      operationId: recheckHistoryItem
+      summary: "Re-verify one history entry's link liveness \u2192 refreshed list."
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '404':
+          description: History item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts:
+    get:
+      operationId: getDrafts
+      summary: Full draft-queue list (newest first).
+      tags:
+      - drafts
+      responses:
+        '200':
+          description: Draft list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftList'
+  /api/v1/drafts/schedule:
+    post:
+      operationId: scheduleDraft
+      summary: "Schedule a draft at an ISO-8601 datetime \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftScheduleRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing/invalid id or datetime.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/publish-now:
+    post:
+      operationId: publishDraftNow
+      summary: "Publish a draft now (schedules ~5s out) \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/cancel:
+    post:
+      operationId: cancelDraft
+      summary: "Cancel a scheduled draft (back to pending) \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/delete:
+    post:
+      operationId: deleteDraft
+      summary: "Delete one draft (cancels its job if scheduled) \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/bulk-delete:
+    post:
+      operationId: bulkDeleteDrafts
+      summary: "Delete multiple drafts \u2192 refreshed list."
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdsRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing ids.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Persistence failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/sites:
+    get:
+      operationId: getSites
+      summary: All configured sites with live autopilot status.
+      tags:
+      - sites
+      responses:
+        '200':
+          description: Site list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteList'
+  /api/v1/sites/widgets:
+    get:
+      operationId: getSitesWidgets
+      summary: 'Read-only side panels: plan-gap weekly + citation-share alert.'
+      tags:
+      - sites
+      responses:
+        '200':
+          description: Side-panel data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteWidgets'
+  /api/v1/sites/form:
+    get:
+      operationId: getSiteForm
+      summary: Edit-prefill for an existing site (?domain=), or null.
+      tags:
+      - sites
+      responses:
+        '200':
+          description: Form prefill (or null).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteFormEnvelope'
+  /api/v1/sites/save:
+    post:
+      operationId: saveSite
+      summary: "Validate + derive + persist a three-URL site \u2192 refreshed list."
+      description: Blank optional pools/work_urls are server-derived (TDK + sitemap);
+        `autofilled` names the derived fields. Validation failure is a 422 problem+json
+        carrying per-field `errors[]`.
+      tags:
+      - sites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteSaveRequest'
+      responses:
+        '200':
+          description: Saved; refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSaveResult'
+        '422':
+          description: Validation failed (see errors[]).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/sites/autopilot:
+    post:
+      operationId: setSiteAutopilot
+      summary: "Enable/disable autopilot for a site \u2192 refreshed list."
+      description: "Interval must be 3600\u20262592000 when enabling. A scheduler-sync\
+        \ failure rolls back the store and returns 502 (nothing persisted)."
+      tags:
+      - sites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteAutopilotRequest'
+      responses:
+        '200':
+          description: Toggled; refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteAutopilotResult'
+        '422':
+          description: Missing site_url or out-of-range interval.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Scheduler sync failed (store rolled back).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/sites/scrape-preview:
+    get:
+      operationId: scrapeSitePreview
+      summary: Probe a work URL's title/description/h1 for the form helper.
+      description: A fetch/parse failure is a 200 with status='error' (inline hint);
+        only a missing `url` query param is a 422.
+      tags:
+      - sites
+      responses:
+        '200':
+          description: Metadata probe (status=ok|error).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScrapePreview'
+        '422':
+          description: Missing url query param.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/channels/{channel}/token:
+    post:
+      operationId: saveChannelToken
+      summary: Save/clear a paste-token channel credential (0600 file).
+      description: "THREAT-3 surface: writes a 0600 secret file. Transport-guarded\
+        \ inline \u2014 non-loopback Origin/Referer \u2192 403, refused under ALLOW_NETWORK=1.\
+        \ `clear:true` removes the file."
+      tags:
+      - settings
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenSaveRequest'
+      responses:
+        '200':
+          description: Saved/cleared (or no-op).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unknown channel / not configured.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Credential write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/notion-token:
+    post:
+      operationId: saveNotionToken
+      summary: Save/clear the Notion credential (integration_token + database_id).
+      description: 'THREAT-3 surface: writes a 0600 secret file. Same transport guards
+        as the channel-token endpoint.'
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotionTokenRequest'
+      responses:
+        '200':
+          description: Saved/cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Missing integration_token / database_id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Credential write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/notion/status:
+    get:
+      operationId: getNotionStatus
+      summary: 'Notion card state: whether a credential is stored + the database_id.'
+      description: 'Read-only: ``configured`` (a token file with an integration_token
+        exists) and the non-secret ``database_id`` for display. The integration_token
+        is never returned. No secrets, no guard.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Notion credential state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotionStatus'
+  /api/v1/settings/channels/{channel}/credential:
+    post:
+      operationId: saveChannelCredential
+      summary: Save/clear a registry-dispatched channel credential (0600 file).
+      description: "General bind-save: the channel's registered auth_type (token /\
+        \ token_fields / paste_blob / userpass / anon) selects the inputs. THREAT-3\
+        \ surface \u2014 writes a 0600 secret file; transport-guarded inline (non-loopback\
+        \ Origin \u2192 403, refused under ALLOW_NETWORK=1). SSRF/paste-blob/hostname\
+        \ validations run in the shared facade. `clear:true` removes the file."
+      tags:
+      - settings
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelCredentialRequest'
+      responses:
+        '200':
+          description: Saved/cleared (or no-op).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unknown channel / validation rejected.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Credential write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/channels/{channel}/bind:
+    post:
+      operationId: startChannelBind
+      summary: Launch a browser-login bind job for a channel.
+      description: Refuses (409) while an identity_mismatch is unresolved. Loopback-only
+        (peer + Origin); refused under ALLOW_NETWORK=1.
+      tags:
+      - settings
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Job launched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindStartResult'
+        '400':
+          description: Unknown channel / usage error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Non-loopback peer/Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Unresolved identity mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/channels/{channel}/bind/{job_id}:
+    get:
+      operationId: pollChannelBind
+      summary: Poll a bind job's status + events.
+      description: "Loopback-only (peer). Channel-scoped \u2014 a job_id from another\
+        \ channel 404s."
+      tags:
+      - settings
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Job snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindPollResult'
+        '400':
+          description: Unknown channel.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Unknown job / channel mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/channels/{channel}/identity-mismatch/keep:
+    post:
+      operationId: resolveBindKeep
+      summary: Keep the previously bound account (restore bound, never destroy).
+      description: "Atomic restore: bound \u2192 kept; if the stored credential vanished\
+        \ \u2192 expired (NOT the destructive replace path); state changed under us\
+        \ \u2192 noop."
+      tags:
+      - settings
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Resolved (kept/expired/noop).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindResolveResult'
+        '400':
+          description: Unknown channel.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Non-loopback peer/Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/channels/{channel}/identity-mismatch/replace:
+    post:
+      operationId: resolveBindReplace
+      summary: 'Accept the new account: wipe artifacts + drop to unbound.'
+      description: Deletes storage-state + last-account files; operator must re-bind.
+        Loopback-only.
+      tags:
+      - settings
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Resolved (replaced).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindResolveResult'
+        '400':
+          description: Unknown channel.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Non-loopback peer/Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/blogger-oauth:
+    post:
+      operationId: saveBloggerOauth
+      summary: Save Blogger Client ID / Secret (blank secret preserves stored).
+      description: "Credential save only \u2014 the OAuth login redirect to Google\
+        \ is a separate legacy browser-navigation route (oauth-start)."
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BloggerOAuthRequest'
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '422':
+          description: Missing Client ID / Secret.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Config write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/blogger/status:
+    get:
+      operationId: getBloggerStatus
+      summary: 'Blogger card state: authorization + saved OAuth client.'
+      description: 'Read-only: whether a token is stored, the public client_id, client_secret_set
+        boolean (never the secret), and the callback URI to register in Google Cloud
+        Console. No secrets, no guard.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Blogger authorization + client state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BloggerStatus'
+  /api/v1/settings/blogger/revoke:
+    post:
+      operationId: revokeBlogger
+      summary: Revoke Blogger authorization (delete the stored token file).
+      description: 'Config/file op (not a 0600 secret write), so same posture as the
+        other OAuth writes: no inline guard, Origin-protected at runtime by the app-level
+        guard. No request body.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Revoked (or already absent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '502':
+          description: Token-file delete failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/blogger/blog-ids:
+    get:
+      operationId: getBlogIds
+      summary: "The domain \u2192 Blogger Blog ID routing map."
+      description: Read-only publish-time routing map. Not a secret, no guard.
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Current blog-ID mapping.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogIdsView'
+    post:
+      operationId: saveBlogIds
+      summary: "Save the domain \u2192 Blogger Blog ID mapping."
+      description: Config write (same no-inline-guard posture as the other blogger
+        writes). Entries are stripped, blank pairs dropped, duplicate domains deduped
+        (later wins). Covered by the app-level guard.
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogIdsRequest'
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '502':
+          description: Config write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/llm-config:
+    get:
+      operationId: getLlmConfig
+      summary: Hydrate the LLM/image-gen settings form (redaction-safe).
+      description: Returns the form fields; the two secrets are exposed only as has_api_key
+        / has_image_gen_api_key booleans, never the key.
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Redaction-safe settings view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmConfigView'
+    post:
+      operationId: saveLlmConfig
+      summary: Save/clear LLM + image-gen settings (0600 llm-settings.json).
+      description: "THREAT-3 surface: writes a 0600 secret file (api_key). Transport-guarded\
+        \ inline \u2014 non-loopback Origin \u2192 403, refused under ALLOW_NETWORK=1.\
+        \ Endpoints must be https; blank secrets preserve the stored value; `action:clear`\
+        \ resets to defaults."
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LlmConfigRequest'
+      responses:
+        '200':
+          description: Saved/cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Non-https endpoint / image-gen validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Settings write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/llm/test-connection:
+    post:
+      operationId: testLlmConnection
+      summary: Probe the LLM endpoint (SSRF-guarded) + persist last-known health.
+      description: "Guards the endpoint URL before sending the api_key; tries /models\
+        \ then /chat/completions. Returns the diagnostic envelope (status \u2208 ok|failed|error),\
+        \ NOT problem+json \u2014 a failed probe is a successful call. Blank fields\
+        \ fall back to the stored settings."
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LlmTestConnectionRequest'
+      responses:
+        '200':
+          description: Probe outcome (ok/error).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmDiagnosticResult'
+        '400':
+          description: 'Rejected probe (failed: SSRF/invalid).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmDiagnosticResult'
+  /api/v1/settings/llm/test-generation:
+    post:
+      operationId: testLlmGeneration
+      summary: Generate an article/anchor preview from the stored LLM settings.
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LlmTestGenerationRequest'
+      responses:
+        '200':
+          description: Generation outcome (ok/error).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmDiagnosticResult'
+  /api/v1/settings/image-gen/test-connection:
+    post:
+      operationId: testImageGenConnection
+      summary: Probe the configured image-gen endpoint (no generation cost).
+      description: "Reads config.toml [image_gen] + the FRW token, then probes the\
+        \ provider (OpenAI-compatible /models or FRW /balance). Returns the diagnostic\
+        \ envelope (ok=true|false), NOT problem+json \u2014 a failed probe is a successful\
+        \ call. No request body."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Probe outcome (ok=true|false).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenDiagnosticResult'
+  /api/v1/settings/image-gen/generate-sample:
+    post:
+      operationId: generateImageGenSample
+      summary: Generate one real banner from config (costs one API call).
+      description: Generates a real test banner via the configured provider and returns
+        it as a base64 data-URL for inline preview. The optional `prompt` overrides
+        the default banner prompt. Envelope-only (ok=true|false), NOT problem+json.
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageGenGenerateSampleRequest'
+      responses:
+        '200':
+          description: Generation outcome (ok=true|false).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenDiagnosticResult'
+  /api/v1/settings/medium/launch-browser-login:
+    post:
+      operationId: launchMediumBrowserLogin
+      summary: Open a headed Chromium to log in to Medium.
+      description: "Spawns an OS browser process / deletes the login profile, so transport-guarded\
+        \ inline (non-loopback Origin \u2192 403, refused under ALLOW_NETWORK=1).\
+        \ Returns the action envelope (level \u2208 success|info|warning|danger),\
+        \ NOT problem+json \u2014 a failed launch/probe is a successful call. No request\
+        \ body."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Action outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumLoginResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/medium/probe-browser-login:
+    post:
+      operationId: probeMediumBrowserLogin
+      summary: Probe Medium login state via Playwright.
+      description: "Spawns an OS browser process / deletes the login profile, so transport-guarded\
+        \ inline (non-loopback Origin \u2192 403, refused under ALLOW_NETWORK=1).\
+        \ Returns the action envelope (level \u2208 success|info|warning|danger),\
+        \ NOT problem+json \u2014 a failed launch/probe is a successful call. No request\
+        \ body."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Action outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumLoginResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/medium/clear-browser-login:
+    post:
+      operationId: clearMediumBrowserLogin
+      summary: Delete the persistent Medium login profile.
+      description: "Spawns an OS browser process / deletes the login profile, so transport-guarded\
+        \ inline (non-loopback Origin \u2192 403, refused under ALLOW_NETWORK=1).\
+        \ Returns the action envelope (level \u2208 success|info|warning|danger),\
+        \ NOT problem+json \u2014 a failed launch/probe is a successful call. No request\
+        \ body."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Action outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumLoginResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/medium/status:
+    get:
+      operationId: getMediumStatus
+      summary: 'Medium channel card state: browser readiness + oauth-token presence.'
+      description: "Read-only filesystem/import probe (no Playwright launch, no network,\
+        \ no secrets). Drives the SPA Medium card's badges and the revoke button.\
+        \ No inline guard \u2014 the action POSTs keep theirs."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Medium browser readiness + oauth-token presence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumStatus'
+  /api/v1/settings/velog/status:
+    get:
+      operationId: getVelogStatus
+      summary: Velog channel card status (6 states).
+      description: 'Read-only: cookie freshness + daily quota. No secrets, no guard.'
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Velog channel status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VelogStatus'
+  /api/v1/settings/velog/login:
+    post:
+      operationId: velogLogin
+      summary: Spawn a headed velog-login window in a detached subprocess.
+      description: "Spawns an OS browser process, so transport-guarded inline (non-loopback\
+        \ Origin \u2192 403, refused under ALLOW_NETWORK=1). Returns the {ok, message,\
+        \ error_code, log_path} envelope, NOT problem+json \u2014 an early-died subprocess\
+        \ is a successful call. No request body."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Spawn outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VelogLoginResult'
+        '403':
+          description: Non-loopback Origin or ALLOW_NETWORK=1.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/channels:
+    get:
+      operationId: listChannelOverview
+      summary: List every WebUI-visible channel with its binding status.
+      description: "Read-only: registry \u2212 hidden_from_ui composed with each channel's\
+        \ offline status (bound/identity/dofollow/blockers). No secrets \u2014 the\
+        \ per-channel credential writes keep their guards."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Channel binding status list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelOverviewList'
+  /api/v1/settings/channels/forms:
+    get:
+      operationId: listChannelForms
+      summary: List the binding-form schema for every fixed-credential channel.
+      description: "Static form metadata (which fields to render for token / token_fields\
+        \ / paste_blob / userpass channels). No secrets, no bind-state \u2014 the\
+        \ SPA joins bound/identity from the overview by slug."
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Per-channel binding-form schemas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelFormsList'
+  /api/v1/settings/keywords:
+    get:
+      operationId: getKeywordPools
+      summary: Hydrate the keyword-pool editor (target domains + pools).
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Known targets + each domain's current pool.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeywordPoolsView'
+    post:
+      operationId: saveKeywordPools
+      summary: Save the per-domain SEO anchor keyword pools.
+      description: Strips blanks, rejects any keyword >60 chars (422), de-dups within
+        a domain, then writes target_anchor_keywords to config.
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeywordPoolsRequest'
+      responses:
+        '200':
+          description: Saved (message notes any auto-dedup).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '422':
+          description: A keyword exceeds 60 chars.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Config write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/schedule:
+    get:
+      operationId: getScheduleSettings
+      summary: Hydrate the publish-cadence form.
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Current min interval / jitter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleSettingsRequest'
+    post:
+      operationId: saveScheduleSettings
+      summary: Save the publish-cadence (min interval / jitter) settings.
+      description: Parses + clamps min_interval_hours (>=0.5) and jitter_minutes (>=0),
+        then writes schedule-settings.json.
+      tags:
+      - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleSettingsRequest'
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '422':
+          description: Non-numeric interval / jitter.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Schedule write failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/settings/medium-oauth/clear:
+    post:
+      operationId: clearMediumOauth
+      summary: Revoke a stored Medium OAuth token (delete medium-token.json).
+      tags:
+      - settings
+      responses:
+        '200':
+          description: Cleared (idempotent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResult'
+        '502':
+          description: Token delete failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/profiles:
+    get:
+      operationId: getProfiles
+      summary: All saved campaign profiles (publish presets).
+      tags:
+      - profiles
+      responses:
+        '200':
+          description: Profile list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileList'
+  /api/v1/profiles/save:
+    post:
+      operationId: saveProfile
+      summary: "Upsert a campaign profile by name \u2192 refreshed list."
+      tags:
+      - profiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileSaveRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileList'
+        '422':
+          description: Missing profile name.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/profiles/delete:
+    post:
+      operationId: deleteProfile
+      summary: "Delete a campaign profile by name \u2192 refreshed list."
+      tags:
+      - profiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileDeleteRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileList'
+        '422':
+          description: Missing profile name.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/campaigns/form:
+    get:
+      operationId: getCampaignForm
+      summary: 'Creation-form bootstrap: platforms + connection partition.'
+      tags:
+      - campaigns
+      responses:
+        '200':
+          description: Form bootstrap.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignForm'
+  /api/v1/campaigns:
+    post:
+      operationId: createCampaign
+      summary: "Validate + create a batch campaign \u2192 {campaign_id}."
+      description: "Seeds is a newline-JSONL string (\u226410, each with seed_text).\
+        \ Validation failure is a 422 problem+json with per-field errors[]. On success\
+        \ the SPA navigates to /campaign/<id> progress."
+      tags:
+      - campaigns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignCreateRequest'
+      responses:
+        '200':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignCreateResult'
+        '422':
+          description: Validation failed (see errors[]).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/schedule:
+    get:
+      operationId: getSchedule
+      summary: Drafts scheduled for future publish (read-only view).
+      description: 'Fail-soft: a query failure degrades to an empty list.'
+      tags:
+      - schedule
+      responses:
+        '200':
+          description: Scheduled draft list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledList'
+  /api/v1/monitor/summary:
+    get:
+      operationId: getMonitorSummary
+      summary: Anomaly-first monitor aggregate (today's anomalies first).
+      description: Fail-open aggregate across credentials/keepalive/equity/history.
+        Severity + equity-gap computed server-side (single source); the SPA only displays.
+        Versioned binding of the legacy /api/monitor-hub feed.
+      tags:
+      - monitor
+      responses:
+        '200':
+          description: Anomaly-first card feed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorSummary'
+  /api/v1/pipeline/regen-body:
+    post:
+      operationId: regenArticleBody
+      summary: Re-generate one article body via the configured LLM.
+      tags:
+      - pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenBodyRequest'
+      responses:
+        '200':
+          description: Regenerated body (markdown + html).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegenBodyResponse'
+        '400':
+          description: LLM not configured.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: LLM call failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+openapi: 3.1.0
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Always 'ok' when the service is up.
+        api_version:
+          type: string
+          description: Major API version, e.g. 'v1'.
+        version:
+          type: string
+          description: backlink-publisher package version.
+      required:
+      - api_version
+      - status
+      - version
+      additionalProperties: false
+    ProblemErrorItem:
+      type: object
+      properties:
+        field:
+          type: string
+          description: JSON pointer / field name.
+        message:
+          type: string
+          description: Human-readable reason.
+      additionalProperties: false
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Stable problem-type URI.
+        title:
+          type: string
+        status:
+          type: integer
+          description: Matches the HTTP status code.
+        detail:
+          type: string
+        instance:
+          type: string
+        error_class:
+          type: string
+          description: CLI/pipeline typed-error class, when applicable.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemErrorItem'
+      required:
+      - status
+      - title
+      - type
+      additionalProperties: false
+    Platform:
+      type: object
+      properties:
+        slug:
+          type: string
+        display_name:
+          type: string
+      required:
+      - display_name
+      - slug
+      additionalProperties: false
+    PlatformList:
+      type: object
+      properties:
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Platform'
+      required:
+      - platforms
+      additionalProperties: false
+    ProStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        endpoint_host:
+          type: string
+        model:
+          type: string
+        article_gen:
+          type: boolean
+        image_gen:
+          type: boolean
+        last_test: {}
+      required:
+      - configured
+      additionalProperties: false
+    ProStatusEnvelope:
+      type: object
+      properties:
+        pro_status:
+          $ref: '#/components/schemas/ProStatus'
+      required:
+      - pro_status
+      additionalProperties: false
+    AppConfig:
+      type: object
+      properties:
+        api_version:
+          type: string
+        version:
+          type: string
+        lite_edition:
+          type: boolean
+        pro_status:
+          $ref: '#/components/schemas/ProStatus'
+        llm_configured:
+          type: boolean
+      required:
+      - api_version
+      - lite_edition
+      - llm_configured
+      - pro_status
+      - version
+      additionalProperties: false
+    CsrfToken:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+      required:
+      - csrf_token
+      additionalProperties: false
+    PlanRequest:
+      type: object
+      properties:
+        urls:
+          type: array
+          description: Target URLs; urls[0] is the main URL.
+          items:
+            type: string
+        platform:
+          type: string
+          default: blogger
+        url_mode:
+          type: string
+          default: C
+        publish_mode:
+          type: string
+          default: publish
+        target_language:
+          type: string
+          default: zh-CN
+        custom_title:
+          type: string
+          default: ''
+        custom_tags:
+          type: string
+          default: ''
+        fetch_tdk:
+          type: string
+          default: 'no'
+          description: '''yes'' fetches TDK for anchor suggestions (network).'
+      required:
+      - urls
+      additionalProperties: false
+    PlanResponse:
+      type: object
+      properties:
+        plans:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - plans
+      additionalProperties: false
+    PreviewResponse:
+      type: object
+      properties:
+        plan:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
+      required:
+      - plan
+      additionalProperties: false
+    ValidateRequest:
+      type: object
+      properties:
+        plans:
+          description: JSONL string or array of plan-row objects.
+      required:
+      - plans
+      additionalProperties: false
+    ValidateResponse:
+      type: object
+      properties:
+        validated:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - validated
+      additionalProperties: false
+    PublishRequest:
+      type: object
+      properties:
+        plans:
+          description: JSONL string or array of validated plan rows.
+        platform:
+          type: string
+        publish_mode:
+          type: string
+          default: publish
+        tier_1:
+          type: boolean
+          default: false
+          description: Restrict to dofollow Tier-1 platforms only.
+        target_language:
+          type: string
+          default: zh-CN
+        target_url:
+          type: string
+          description: Optional hint to enrich history on total failure.
+      required:
+      - plans
+      - platform
+      additionalProperties: false
+    PublishResponse:
+      type: object
+      properties:
+        state:
+          type: string
+          description: all_success | partial_success.
+        n_ok:
+          type: integer
+        n_total:
+          type: integer
+        failure_detail:
+          type: string
+          description: Joined per-row failure messages (partial_success).
+        results:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - n_ok
+      - n_total
+      - results
+      - state
+      additionalProperties: false
+    RegenBodyRequest:
+      type: object
+      properties:
+        main_domain:
+          type: string
+        anchors:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+          default: ''
+        topic:
+          type:
+          - string
+          - 'null'
+      required:
+      - anchors
+      - main_domain
+      additionalProperties: false
+    RegenBodyResponse:
+      type: object
+      properties:
+        content_markdown:
+          type: string
+        content_html:
+          type: string
+        content_source:
+          type: string
+      required:
+      - content_html
+      - content_markdown
+      - content_source
+      additionalProperties: false
+    MonitorAction:
+      type: object
+      properties:
+        label:
+          type: string
+        href:
+          type: string
+      required:
+      - href
+      - label
+      additionalProperties: false
+    MonitorCard:
+      type: object
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        severity:
+          type: string
+          description: danger | warning | ok | info.
+        headline:
+          type: string
+        detail:
+          type: string
+        deep_link:
+          type: string
+          description: Legacy page to drill into.
+        action:
+          anyOf:
+          - $ref: '#/components/schemas/MonitorAction'
+          - type: 'null'
+      required:
+      - deep_link
+      - detail
+      - headline
+      - key
+      - severity
+      - title
+      additionalProperties: false
+    MonitorSummary:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonitorCard'
+        anomaly_count:
+          type: integer
+          description: Count of danger+warning cards.
+        degraded:
+          type: boolean
+          description: True if the aggregator itself failed.
+      required:
+      - anomaly_count
+      - cards
+      - degraded
+      additionalProperties: false
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        target_url:
+          type: string
+        created_at:
+          type: string
+        platform:
+          type: string
+        status:
+          type: string
+          description: published | failed | unknown.
+        article_urls:
+          type: array
+          items:
+            type: string
+        run_id:
+          type: string
+        language:
+          type: string
+        error:
+          type: string
+        verified_at:
+          type:
+          - integer
+          - 'null'
+        publish_mode:
+          type: string
+        target_dofollow:
+          type: string
+          description: dofollow | dofollow_lost | stripped | unverified.
+      required:
+      - id
+      - target_url
+      additionalProperties: false
+    HistoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryItem'
+      required:
+      - items
+      additionalProperties: false
+    HistoryMutationResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryItem'
+        message:
+          type: string
+      required:
+      - items
+      additionalProperties: false
+    HistoryIdRequest:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    HistoryIdsRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+      required:
+      - ids
+      additionalProperties: false
+    DraftItem:
+      type: object
+      properties:
+        id:
+          type: string
+        target_url:
+          type: string
+        platform:
+          type: string
+        language:
+          type: string
+        publish_mode:
+          type: string
+        status:
+          type: string
+          description: pending | scheduled | published | failed.
+        scheduled_at:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+        article_urls:
+          type: array
+          items:
+            type: string
+        error:
+          type:
+          - string
+          - 'null'
+      required:
+      - id
+      - target_url
+      additionalProperties: false
+    DraftList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftItem'
+      required:
+      - items
+      additionalProperties: false
+    DraftMutationResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftItem'
+        message:
+          type: string
+      required:
+      - items
+      additionalProperties: false
+    DraftIdRequest:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    DraftScheduleRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        scheduled_at:
+          type: string
+          description: ISO-8601 datetime to publish at.
+      required:
+      - id
+      - scheduled_at
+      additionalProperties: false
+    DraftIdsRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+      required:
+      - ids
+      additionalProperties: false
+    SiteItem:
+      type: object
+      properties:
+        label:
+          type: string
+        main_url:
+          type: string
+        autopilot_enabled:
+          type: boolean
+        autopilot_interval:
+          type: integer
+          description: Seconds between autopilot runs.
+        alert_pending:
+          type: boolean
+        next_run_time_iso:
+          type:
+          - string
+          - 'null'
+          description: ISO-8601 next autopilot run, or null.
+      required:
+      - alert_pending
+      - autopilot_enabled
+      - autopilot_interval
+      - label
+      - main_url
+      additionalProperties: false
+    SiteList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteItem'
+      required:
+      - items
+      additionalProperties: false
+    SiteForm:
+      type: object
+      properties:
+        main_url:
+          type: string
+        list_url:
+          type: string
+        work_urls:
+          type: string
+        branded_pool:
+          type: string
+        partial_pool:
+          type: string
+        exact_pool:
+          type: string
+        work_anchor_templates:
+          type: string
+        count:
+          type: string
+        insecure_tls:
+          type: boolean
+      required:
+      - main_url
+      additionalProperties: false
+    SiteFormEnvelope:
+      type: object
+      properties:
+        form:
+          anyOf:
+          - $ref: '#/components/schemas/SiteForm'
+          - type: 'null'
+      required:
+      - form
+      additionalProperties: false
+    SiteWidgets:
+      type: object
+      properties:
+        plan_gap:
+          type: object
+          description: 'status: ok|missing|invalid (+counts).'
+          additionalProperties: {}
+        citation_alert:
+          type:
+          - object
+          - 'null'
+          description: '{ts} when share is low, else null.'
+          additionalProperties: {}
+      required:
+      - plan_gap
+      additionalProperties: false
+    SiteSaveRequest:
+      type: object
+      properties:
+        main_url:
+          type: string
+          description: https + host-root + single trailing slash.
+        list_url:
+          type: string
+          default: ''
+        work_urls:
+          type: string
+          default: ''
+          description: Newline-separated.
+        branded_pool:
+          type: string
+          default: ''
+        partial_pool:
+          type: string
+          default: ''
+        exact_pool:
+          type: string
+          default: ''
+        work_anchor_templates:
+          type: string
+          default: ''
+        count:
+          type: string
+          default: '10'
+        insecure_tls:
+          type: boolean
+          default: false
+      required:
+      - main_url
+      additionalProperties: false
+    SiteSaveResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        saved_domain:
+          type: string
+        autofilled:
+          type: array
+          items:
+            type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteItem'
+      required:
+      - autofilled
+      - items
+      - ok
+      - saved_domain
+      additionalProperties: false
+    SiteAutopilotRequest:
+      type: object
+      properties:
+        site_url:
+          type: string
+        enabled:
+          type: boolean
+        interval_seconds:
+          type: integer
+          default: 86400
+          description: "3600 (1h) \u2026 2592000 (30d) when enabled."
+      required:
+      - enabled
+      - site_url
+      additionalProperties: false
+    SiteAutopilotResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        site_url:
+          type: string
+        enabled:
+          type: boolean
+        next_run_time:
+          type:
+          - string
+          - 'null'
+        last_run: {}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteItem'
+      required:
+      - enabled
+      - items
+      - ok
+      - site_url
+      additionalProperties: false
+    ScrapePreview:
+      type: object
+      properties:
+        status:
+          type: string
+          description: ok | error.
+        title:
+          type: string
+        description:
+          type: string
+        h1:
+          type: string
+        reason:
+          type: string
+          description: Failure reason (status=error).
+      required:
+      - status
+      additionalProperties: false
+    ScheduledItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          description: Article title, or empty.
+        target_url:
+          type: string
+        platform:
+          type: string
+        scheduled_at:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+        status:
+          type: string
+      additionalProperties: false
+    ScheduledList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledItem'
+      required:
+      - items
+      additionalProperties: false
+    CampaignForm:
+      type: object
+      properties:
+        platforms:
+          type: array
+          items:
+            type: string
+        publish_partition:
+          type:
+          - object
+          - 'null'
+          description: main/extension partition by connection state, or null.
+          additionalProperties: {}
+      required:
+      - platforms
+      additionalProperties: false
+    CampaignCreateRequest:
+      type: object
+      properties:
+        seeds:
+          type: string
+        platforms:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+          default: draft
+          description: draft | publish.
+        cap:
+          type: string
+          default: ''
+          description: Optional per-campaign cap.
+        seed_delay:
+          type: string
+          default: '0'
+      required:
+      - platforms
+      - seeds
+      additionalProperties: false
+    CampaignCreateResult:
+      type: object
+      properties:
+        campaign_id:
+          type: string
+      required:
+      - campaign_id
+      additionalProperties: false
+    ProfileItem:
+      type: object
+      properties:
+        name:
+          type: string
+        platform:
+          type: string
+        language:
+          type: string
+        url_mode:
+          type: string
+        publish_mode:
+          type: string
+      required:
+      - name
+      additionalProperties: false
+    ProfileList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileItem'
+      required:
+      - items
+      additionalProperties: false
+    ProfileSaveRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        platform:
+          type: string
+          default: blogger
+        language:
+          type: string
+          default: zh-CN
+        url_mode:
+          type: string
+          default: C
+        publish_mode:
+          type: string
+          default: publish
+      required:
+      - name
+      additionalProperties: false
+    ProfileDeleteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+      - name
+      additionalProperties: false
+    TokenSaveRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Secret token (omit when clearing).
+        clear:
+          type: boolean
+          default: false
+      additionalProperties: false
+    NotionTokenRequest:
+      type: object
+      properties:
+        integration_token:
+          type: string
+        database_id:
+          type: string
+        clear:
+          type: boolean
+          default: false
+      additionalProperties: false
+    ChannelCredentialRequest:
+      type: object
+      properties:
+        auth_type:
+          type: string
+          description: Optional; cross-checked against the registry.
+        clear:
+          type: boolean
+          default: false
+        token:
+          type: string
+          description: token auth_type.
+        blob:
+          type: string
+          description: 'paste_blob: cookie JSON as text.'
+        username:
+          type: string
+          description: userpass auth_type.
+        password:
+          type: string
+          description: userpass auth_type.
+      additionalProperties: true
+    CredentialResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        cleared:
+          type: boolean
+        message:
+          type: string
+      required:
+      - ok
+      additionalProperties: false
+    BindStartResult:
+      type: object
+      properties:
+        job_id:
+          type: string
+        channel:
+          type: string
+        status:
+          type: string
+          description: Always 'running' on launch.
+      required:
+      - channel
+      - job_id
+      - status
+      additionalProperties: false
+    BindPollResult:
+      type: object
+      properties:
+        channel:
+          type: string
+        status:
+          type: string
+          description: "running / done / failed / \u2026"
+      required:
+      - channel
+      additionalProperties: true
+    BindResolveResult:
+      type: object
+      properties:
+        resolved:
+          type: string
+          description: "keep \u2192 kept|expired|noop; replace \u2192 replaced."
+      required:
+      - resolved
+      additionalProperties: false
+    BloggerOAuthRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+          description: Blank preserves the stored secret.
+      additionalProperties: false
+    LlmConfigRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          description: '"clear" resets to defaults.'
+        endpoint:
+          type: string
+          description: Must be https:// (or blank).
+        api_key:
+          type: string
+          description: 0600 secret; blank preserves stored.
+        model:
+          type: string
+        temperature:
+          type: number
+        system_prompt:
+          type: string
+        use_article_gen:
+          type: boolean
+        article_system_prompt:
+          type: string
+        use_image_gen:
+          type: boolean
+          description: Requires image_gen_endpoint (https) + image_gen_model.
+      additionalProperties: true
+    LlmConfigView:
+      type: object
+      properties:
+        endpoint:
+          type: string
+        model:
+          type: string
+        temperature:
+          type: number
+        system_prompt:
+          type: string
+        article_system_prompt:
+          type: string
+        use_article_gen:
+          type: boolean
+        use_image_gen:
+          type: boolean
+        image_gen_endpoint:
+          type: string
+        image_gen_model:
+          type: string
+        image_gen_banner_size:
+          type: string
+        has_api_key:
+          type: boolean
+          description: True if a key is stored (the key itself is never returned).
+        has_image_gen_api_key:
+          type: boolean
+      additionalProperties: false
+    LlmTestConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+        api_key:
+          type: string
+        model:
+          type: string
+      additionalProperties: false
+    LlmTestGenerationRequest:
+      type: object
+      properties:
+        test_title:
+          type: string
+          description: Topic/keyword for the preview.
+      additionalProperties: false
+    LlmDiagnosticResult:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        models:
+          type: array
+          items:
+            type: string
+        result:
+          type: string
+        reason:
+          type: string
+          description: Structured rejection reason on a failed probe.
+      required:
+      - status
+      additionalProperties: false
+    ImageGenGenerateSampleRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: Overrides the default banner prompt; blank uses it.
+      additionalProperties: false
+    ImageGenDiagnosticResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          description: Failure reason (probe/generate failed).
+        model_count:
+          type: integer
+        configured_model:
+          type: string
+        note:
+          type: string
+        frw_credits_remaining:
+          type: number
+          description: FRW provider credit balance.
+        data_url:
+          type: string
+          description: base64 data-URL of the generated banner.
+        mime:
+          type: string
+        size_kb:
+          type: number
+        prompt:
+          type: string
+        source_url:
+          type: string
+      required:
+      - ok
+      additionalProperties: false
+    MediumLoginResult:
+      type: object
+      properties:
+        level:
+          type: string
+        message:
+          type: string
+        logged_in:
+          type:
+          - boolean
+          - 'null'
+          description: Resulting publish-gating state; null = unchanged (error).
+      required:
+      - level
+      - message
+      additionalProperties: false
+    MediumBrowserStatus:
+      type: object
+      properties:
+        state:
+          type: string
+        playwright_installed:
+          type: boolean
+        profile_has_cookies:
+          type: boolean
+        cookies_age_days:
+          type:
+          - integer
+          - 'null'
+        singleton_lock_present:
+          type: boolean
+        logged_in:
+          type: boolean
+      required:
+      - logged_in
+      - playwright_installed
+      - profile_has_cookies
+      - singleton_lock_present
+      - state
+      additionalProperties: false
+    MediumStatus:
+      type: object
+      properties:
+        browser:
+          $ref: '#/components/schemas/MediumBrowserStatus'
+        oauth_token_exists:
+          type: boolean
+      required:
+      - browser
+      - oauth_token_exists
+      additionalProperties: false
+    VelogStatus:
+      type: object
+      properties:
+        state:
+          type: string
+        label:
+          type: string
+        guide:
+          type: string
+        cookies_path:
+          type: string
+        count:
+          type: integer
+        cap:
+          type: integer
+      required:
+      - label
+      - state
+      additionalProperties: false
+    VelogLoginResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+        error_code:
+          type:
+          - string
+          - 'null'
+        log_path:
+          type: string
+      required:
+      - message
+      - ok
+      additionalProperties: false
+    BloggerStatus:
+      type: object
+      properties:
+        authorized:
+          type: boolean
+        client_id:
+          type: string
+        client_secret_set:
+          type: boolean
+        callback_uri:
+          type: string
+      required:
+      - authorized
+      - client_secret_set
+      additionalProperties: false
+    NotionStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        database_id:
+          type: string
+      required:
+      - configured
+      additionalProperties: false
+    BlogIdsView:
+      type: object
+      properties:
+        blog_ids:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - blog_ids
+      additionalProperties: false
+    BlogIdsRequest:
+      type: object
+      properties:
+        blog_ids:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - blog_ids
+      additionalProperties: false
+    KeywordPoolsRequest:
+      type: object
+      properties:
+        pools:
+          type: object
+          description: '{ ''<domain>'': [''keyword'', ...] }'
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - pools
+      additionalProperties: false
+    KeywordPoolsView:
+      type: object
+      properties:
+        targets:
+          type: array
+          description: Known target domains to show an editor for.
+          items:
+            type: string
+        pools:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - pools
+      - targets
+      additionalProperties: false
+    ChannelOverviewItem:
+      type: object
+      properties:
+        slug:
+          type: string
+        display_name:
+          type: string
+        auth_type:
+          type:
+          - string
+          - 'null'
+        bound:
+          type: boolean
+        identity:
+          type:
+          - string
+          - 'null'
+        dofollow:
+          description: true | false | "uncertain"
+        last_verify_result:
+          type:
+          - string
+          - 'null'
+        blockers:
+          type: array
+          items:
+            type: string
+      required:
+      - bound
+      - display_name
+      - slug
+      additionalProperties: false
+    ChannelOverviewList:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelOverviewItem'
+      required:
+      - channels
+      additionalProperties: false
+    BindingField:
+      type: object
+      properties:
+        name:
+          type: string
+          description: POST field name (save-path source of truth).
+        label:
+          type: string
+        type:
+          type: string
+          description: text | password | url | textarea
+        placeholder:
+          type: string
+        help:
+          type: string
+        secret:
+          type: boolean
+      required:
+      - label
+      - name
+      - secret
+      - type
+      additionalProperties: false
+    ChannelForm:
+      type: object
+      properties:
+        slug:
+          type: string
+        display_name:
+          type: string
+        auth_type:
+          type: string
+          description: token | token_fields | paste_blob | userpass
+        supports_clear:
+          type: boolean
+        save_via:
+          type: string
+          description: credential (generic /credential dispatch) | token (/channels/<ch>/token
+            paste route)
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/BindingField'
+      required:
+      - auth_type
+      - display_name
+      - fields
+      - save_via
+      - slug
+      - supports_clear
+      additionalProperties: false
+    ChannelFormsList:
+      type: object
+      properties:
+        forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelForm'
+      required:
+      - forms
+      additionalProperties: false
+    ScheduleSettingsRequest:
+      type: object
+      properties:
+        min_interval_hours:
+          type: number
+          description: Min hours between publishes (>=0.5).
+        jitter_minutes:
+          type: integer
+          description: Random jitter, minutes (>=0).
+      additionalProperties: false
