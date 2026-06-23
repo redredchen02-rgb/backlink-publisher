@@ -35,7 +35,6 @@ _JS_DIR = Path(__file__).resolve().parents[1] / "webui_app" / "static" / "js"
 _ERRORS_JS = (_JS_DIR / "ui" / "errors.js").read_text(encoding="utf-8")
 _MONITOR_JS = (_JS_DIR / "monitor_hub.js").read_text(encoding="utf-8")
 _INDEX_JS = (_JS_DIR / "index.js").read_text(encoding="utf-8")
-_SETTINGS_JS = (_JS_DIR / "settings.js").read_text(encoding="utf-8")
 _STATES_JS = (_JS_DIR / "ui" / "states.js").read_text(encoding="utf-8")
 
 _NODE = shutil.which("node")
@@ -170,11 +169,8 @@ def test_index_error_path_routes_through_classify_error():
     assert "onRetry: () => window.location.reload()" in _INDEX_JS
 
 
-def test_settings_error_path_routes_through_classify_error():
-    assert "import { classifyError } from './ui/errors.js'" in _SETTINGS_JS
-    assert "classifyError(err)" in _SETTINGS_JS
-    assert "renderError(container" in _SETTINGS_JS
-
+# test_settings_error_path_routes_through_classify_error removed — settings.js
+# retired in U8 (Plan 2026-06-18-002).
 
 # ── concurrency: rapid refresh must not render stale (out-of-order) data ────
 
@@ -243,5 +239,5 @@ def test_error_copy_rides_textcontent_not_innerhtml():
     assert not re.search(r"\.innerHTML\s*=", _ERRORS_JS)
     # The error call-sites don't hand-build the error card markup; they pass the
     # classified strings to renderError, which renders via textContent.
-    for src in (_MONITOR_JS, _INDEX_JS, _SETTINGS_JS):
+    for src in (_MONITOR_JS, _INDEX_JS):
         assert "ui-error__" not in src

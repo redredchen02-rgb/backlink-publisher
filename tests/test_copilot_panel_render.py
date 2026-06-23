@@ -24,7 +24,6 @@ from webui_app import create_app
 # url -> the template that backs it. All five must mount the panel.
 PAGE_ROUTES = {
     "/": "index.html",
-    "/settings": "settings.html",
     "/ce:equity-ledger": "equity_ledger.html",
     "/ce:health": "health.html",
     "/sites": "sites.html",

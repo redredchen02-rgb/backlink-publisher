@@ -128,24 +128,10 @@ class TestLlmRoutes:
         resp = client.get("/settings/llm-logs")
         assert resp.status_code == 404
 
-    def test_test_llm_connection_returns_json(self, client):
-        resp = client.post("/settings/test-llm-connection", data={})
-        assert resp.status_code == 200
-        assert resp.is_json
-
-    def test_save_llm_config_redirects(self, client):
-        resp = client.post(
-            "/settings/save-llm-config",
-            data={"endpoint": "https://api.example.com/v1", "api_key": "sk-test",
-                  "model": "gpt-4o", "temperature": "0.7"},
-        )
-        assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
-
-    def test_save_llm_config_clear_action_redirects(self, client):
-        resp = client.post("/settings/save-llm-config", data={"action": "clear"})
-        assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+    # test_test_llm_connection_returns_json, test_save_llm_config_redirects,
+    # test_save_llm_config_clear_action_redirects removed — legacy /settings/test-llm-*
+    # and /settings/save-llm-config routes deregistered in U8 (Plan 2026-06-18-002).
+    # Covered by test_webui_api_v1_llm.py and test_webui_api_v1_llm_diagnostics.py.
 
 
 

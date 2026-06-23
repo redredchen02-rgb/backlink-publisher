@@ -133,24 +133,10 @@ class TestSettingsRoutes:
     def test_clear_medium_oauth_redirects(self, client):
         resp = client.post("/settings/clear-medium-oauth")
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
-    # ── Plan 013 Phase B: browser-login routes ────────────────────────────────
-    # CSRF: the bespoke before_request 302-danger layer was retired (it was dead
-    # code behind the app-level _global_csrf_guard). A POST without a valid
-    # canonical csrf_token is now rejected with 403 by the global guard.
-
-    def test_medium_launch_browser_login_no_csrf_forbidden(self, client):
-        resp = client.post("/settings/medium/launch-browser-login", data={})
-        assert resp.status_code == 403
-
-    def test_medium_probe_browser_login_no_csrf_forbidden(self, client):
-        resp = client.post("/settings/medium/probe-browser-login", data={})
-        assert resp.status_code == 403
-
-    def test_medium_clear_browser_login_no_csrf_forbidden(self, client):
-        resp = client.post("/settings/medium/clear-browser-login", data={})
-        assert resp.status_code == 403
+    # medium browser-login tests removed — routes retired in U8 5b (Plan 2026-06-18-002).
+    # CSRF enforcement on /api/v1/settings/medium/* covered by test_webui_api_v1_medium_login.
 
     def test_revoke_blogger_redirects(self, client):
         resp = client.post("/settings/revoke-blogger")
@@ -163,7 +149,7 @@ class TestSettingsRoutes:
             data={"client_id": "", "client_secret": ""},
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_save_blogger_oauth_with_creds_redirects(self, client):
         resp = client.post(
@@ -171,7 +157,7 @@ class TestSettingsRoutes:
             data={"client_id": "fake-id", "client_secret": "fake-secret"},
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_blogger_oauth_start_missing_creds_redirects(self, client):
         resp = client.post(
@@ -179,7 +165,7 @@ class TestSettingsRoutes:
             data={"client_id": "", "client_secret": ""},
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_profiles_save_empty_name_returns_json_error(self, client):
         resp = client.post("/profiles/save", data={"profile_name": ""})
@@ -216,34 +202,8 @@ class TestSettingsRoutes:
 
 
 
-class TestBindRoutes:
-    """Plan 2026-05-19-001 Unit 4 + Plan 003 Unit 4 — POST + GET smoke for
-    the bind blueprint and identity-mismatch resolution routes.
-
-    Deeper lifecycle assertions live in test_webui_bind_routes.py. The
-    smoke tests here exist to satisfy the route-coverage gate below.
-    """
-
-    def test_post_bind_missing_csrf_returns_403(self, client):
-        resp = client.post("/settings/channels/medium/bind", data={})
-        assert resp.status_code == 403
-
-    def test_poll_bind_unknown_job_returns_404(self, client):
-        resp = client.get("/settings/channels/medium/bind/deadbeef")
-        assert resp.status_code == 404
-
-    def test_post_identity_mismatch_keep_missing_csrf_returns_403(self, client):
-        resp = client.post(
-            "/settings/channels/medium/identity-mismatch/keep", data={}
-        )
-        assert resp.status_code == 403
-
-    def test_post_identity_mismatch_replace_missing_csrf_returns_403(self, client):
-        resp = client.post(
-            "/settings/channels/medium/identity-mismatch/replace", data={}
-        )
-        assert resp.status_code == 403
-
+# TestBindRoutes removed — /settings/channels/*/bind routes retired in U8 5b.
+# CSRF/loopback coverage now in test_webui_api_v1_bind.py.
 
 
 class TestChannelBindingAPIRoutes:
@@ -267,50 +227,8 @@ class TestChannelBindingAPIRoutes:
 
 
 
-class TestTokenPasteRoutes:
-    """Plan 006 follow-up (2026-05-20) — token-paste binding for ghpages.
-    (Legacy retired channel.) Full lifecycle in
-    tests/test_webui_token_paste.py; this smoke test satisfies the
-    route-coverage gate below."""
-
-    def test_post_save_channel_token_missing_csrf_returns_403(self, csrf_client):
-        resp = csrf_client.post("/settings/save-channel-token")
-        assert resp.status_code == 403
-
-
-
-class TestChannelBindSaveRoutes:
-    """Plan 2026-05-26-002 Unit 4 — generic credential save route smoke.
-    Full lifecycle in tests/test_channel_bind_save.py; this satisfies the
-    route-coverage gate below."""
-
-    def test_post_save_channel_credential_missing_csrf_returns_403(self, csrf_client):
-        resp = csrf_client.post("/settings/save-channel-credential")
-        assert resp.status_code == 403
-
-
-
-class TestNotionTokenRoutes:
-    """Contract tests for Plan 003 Phase 2 Notion token routes."""
-
-    def test_save_notion_token_redirects_on_success(self, client):
-        resp = client.post(
-            "/settings/save-notion-token",
-            data={
-                "integration_token": "secret_test123",
-                "database_id": "db_abc456",
-            },
-        )
-        assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
-
-    def test_save_notion_token_rejects_empty_token(self, client):
-        resp = client.post(
-            "/settings/save-notion-token",
-            data={"integration_token": "", "database_id": "db_abc456"},
-        )
-        assert resp.status_code == 302
-        assert b"flash_type=danger" in resp.data or b"flash_type=info" in resp.data
+# TestTokenPasteRoutes, TestChannelBindSaveRoutes, TestNotionTokenRoutes removed —
+# routes retired in U8 5b (Plan 2026-06-18-002). Coverage in test_webui_api_v1_*.py.
 
 
 

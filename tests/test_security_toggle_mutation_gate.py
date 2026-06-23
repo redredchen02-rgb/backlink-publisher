@@ -44,30 +44,30 @@ _EXEMPT_FILENAMES = {"conftest.py"}
 # branch base (origin/main b14d989): 31 pairs across 25 files. May only shrink.
 GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
     {
-        ("test_channel_bind_save.py", "SESSION_COOKIE_SECURE"),
+        # test_channel_bind_save.py deleted in U8 5b (Plan 2026-06-18-002)
         ("test_drafts_bulk_routes.py", "WTF_CSRF_ENABLED"),
         ("test_e2e_history_batch_management.py", "WTF_CSRF_ENABLED"),
         ("test_history_bulk_routes.py", "WTF_CSRF_ENABLED"),
         ("test_history_recheck.py", "WTF_CSRF_ENABLED"),
         ("test_history_template_rendering.py", "WTF_CSRF_ENABLED"),
         ("test_manifest_webui_wiring.py", "WTF_CSRF_ENABLED"),
-        ("test_medium_login_routes.py", "SESSION_COOKIE_SECURE"),
+        # test_medium_login_routes.py deleted in U8 5b (Plan 2026-06-18-002)
         ("test_copilot_panel_render.py", "CSRF_ENABLED"),
         ("test_copilot_qa_render.py", "CSRF_ENABLED"),
         ("test_copilot_qna_route.py", "CSRF_ENABLED"),
-        ("test_webui_bind_routes.py", "SESSION_COOKIE_SECURE"),
+        # test_webui_bind_routes.py deleted in U8 5b (Plan 2026-06-18-002)
         ("test_webui_checkpoint.py", "WTF_CSRF_ENABLED"),
         ("test_webui_equity_ledger_recheck.py", "WTF_CSRF_ENABLED"),
         ("test_webui_equity_ledger_route.py", "WTF_CSRF_ENABLED"),
         ("test_webui_history_invariant.py", "SESSION_COOKIE_SECURE"),
         ("test_webui_history_invariant.py", "WTF_CSRF_ENABLED"),
-        ("test_webui_image_gen.py", "CSRF_ENABLED"),
+        # test_webui_image_gen.py app fixture removed in U8 5b — no longer sets CSRF_ENABLED
         ("test_webui_index_js_bootstrap.py", "CSRF_ENABLED"),
         ("test_webui_index_template_structure.py", "CSRF_ENABLED"),
         ("test_webui_publish_route.py", "CSRF_ENABLED"),
         ("test_webui_request_cache.py", "CSRF_ENABLED"),
         ("test_webui_routes_oauth.py", "SESSION_COOKIE_SECURE"),
-        ("test_webui_settings_template_split.py", "CSRF_ENABLED"),
+        # test_webui_settings_template_split.py deleted in U8 (Plan 2026-06-18-002)
         ("test_webui_static_css_served.py", "CSRF_ENABLED"),
         ("test_webui_three_url.py", "CSRF_ENABLED"),
         ("test_webui_three_url.py", "SESSION_COOKIE_SECURE"),
@@ -85,16 +85,30 @@ GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
         # feat/ai-engine-empowerment + feat/collapse-unconnected-platforms (merged 2026-06-05)
         ("test_webui_llm_test_persist.py", "CSRF_ENABLED"),
         ("test_webui_llm_test_persist.py", "WTF_CSRF_ENABLED"),
-        ("test_webui_nav_pro_pill.py", "CSRF_ENABLED"),
-        ("test_webui_nav_pro_pill.py", "WTF_CSRF_ENABLED"),
+        # test_webui_nav_pro_pill.py deleted in U8 (Plan 2026-06-18-002)
         ("test_webui_pro_nudge.py", "CSRF_ENABLED"),
         ("test_webui_pro_nudge.py", "WTF_CSRF_ENABLED"),
-        ("test_webui_settings_llm_status.py", "CSRF_ENABLED"),
-        ("test_webui_settings_llm_status.py", "WTF_CSRF_ENABLED"),
+        # test_webui_settings_llm_status.py deleted in U8 (Plan 2026-06-18-002)
         # plan 010 U3 origin-guard coverage gate (2026-06-05)
         ("test_webui_lite_origin_guard_coverage.py", "SESSION_COOKIE_SECURE"),
         # plan 008 R6 dofollow badge tests (2026-06-05)
         ("test_r6_dofollow_badge.py", "WTF_CSRF_ENABLED"),
+        # API v1 settings test files (added 2026-06-22) — each defines its own app
+        # fixture with SESSION_COOKIE_SECURE=False for HTTP test client operation.
+        ("test_webui_api_v1_bind.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_blog_ids.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_channel_bind.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_channel_forms.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_channels.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_global_settings.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_image_gen.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_llm.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_llm_diagnostics.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_medium_login.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_oauth.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_settings_credentials.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_velog.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_api_v1_notion.py", "SESSION_COOKIE_SECURE"),
     }
 )
 

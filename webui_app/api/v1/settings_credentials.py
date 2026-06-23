@@ -35,8 +35,16 @@ from backlink_publisher.config.tokens import load_notion_token
 from backlink_publisher.publishing.registry import auth_type as _registry_auth_type
 
 from ...helpers.security import _check_bind_origin_or_abort, _refuse_when_allow_network
-from ...routes.token_paste import _PASTE_ROUTE_CHANNELS
 from ...services import credential_service
+
+# Channels handled by token-paste save: token (devto) + single-field token_fields (ghpages).
+# Defined here after routes/token_paste.py was retired in U8 (Plan 2026-06-18-002).
+_PASTE_ROUTE_CHANNELS: frozenset[str] = frozenset(
+    credential_service._TOKEN_DISPATCH
+) | {
+    ch for ch in credential_service._TOKEN_FIELDS_DISPATCH
+    if credential_service._TOKEN_FIELDS_DISPATCH[ch][2] == ["token"]
+}
 from . import bp
 from .errors import ApiProblem
 

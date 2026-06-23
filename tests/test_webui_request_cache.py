@@ -95,10 +95,14 @@ def test_g_cache_cleared_between_requests(app):
     assert v1 is not v2     # different objects — cache was cleared
 
 
-# ── Integration: load_config() called once per /settings request ─────────────
+# ── Integration: load_config() called once per _settings_context() call ──────
 
 def test_load_config_called_once_per_settings_request(app, monkeypatch):
-    """_settings_context + channel_probes call load_config() but hit disk only once."""
+    """_settings_context + channel_probes call load_config() but hit disk only once.
+
+    Tests _settings_context() directly in a request context (legacy GET /settings
+    route retired in U8, Plan 2026-06-18-002; invariant still enforced by context).
+    """
     from backlink_publisher import config as _cfg_mod
     original = _cfg_mod.load_config
     calls = []
@@ -114,15 +118,15 @@ def test_load_config_called_once_per_settings_request(app, monkeypatch):
     monkeypatch.setattr(ctx_mod, 'load_config', counting_load_config)
     monkeypatch.setattr(probe_mod, 'load_config', counting_load_config)
 
-    with app.test_client() as client:
-        resp = client.get('/settings')
-        assert resp.status_code == 200
+    from webui_app.helpers.contexts import _settings_context
+    with app.test_request_context('/'):
+        _settings_context()
 
     # With flask.g caching, load_config() should be called exactly once
     # despite _settings_context + _get_velog_status + _get_blogger_token_status
     # all needing the config.
     assert len(calls) == 1, (
-        f"load_config() called {len(calls)} times in one /settings request; "
+        f"load_config() called {len(calls)} times in one _settings_context() call; "
         f"expected 1 (flask.g cache should deduplicate)"
     )
 
@@ -180,12 +184,8 @@ _WRITE_HANDLER_SPECS = [
     ("webui_app.routes.oauth", "settings_blogger_oauth_start"),
     ("webui_app.routes.oauth", "settings_blogger_oauth_callback"),
     ("webui_app.routes.llm", "_sync_image_gen_config"),
-    ("webui_app.routes.token_paste", "save_channel_token"),
-    ("webui_app.routes.token_paste", "save_notion_channel_token"),
-    ("webui_app.routes.channel_bind_save", "_save_token"),
-    ("webui_app.routes.channel_bind_save", "_save_token_fields"),
-    ("webui_app.routes.channel_bind_save", "_save_paste_blob"),
-    ("webui_app.routes.channel_bind_save", "_save_userpass"),
+    # token_paste.* and channel_bind_save.* removed in U8 5b — routes retired.
+    # Equivalent write-handlers in api/v1/settings_credentials.py covered separately.
 ]
 
 

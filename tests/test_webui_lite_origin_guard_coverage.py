@@ -73,13 +73,9 @@ def _loopback_origin() -> str:
 # at the Origin guard.  Use dummy values that won't trigger earlier returns.
 _GUARDED_ROUTES: list[tuple[str, str, dict]] = [
     ("/url-verify", "POST", {"url": "https://example.com"}),
-    ("/settings/save-channel-credential", "POST", {"channel": "hackmd", "auth_type": "token", "token": "x"}),
-    ("/settings/channels/medium/bind", "POST", {}),
-    ("/settings/channels/medium/identity-mismatch/keep", "POST", {}),
-    ("/settings/channels/medium/identity-mismatch/replace", "POST", {}),
-    ("/settings/medium/launch-browser-login", "POST", {}),
-    ("/settings/medium/probe-browser-login", "POST", {}),
-    ("/settings/medium/clear-browser-login", "POST", {}),
+    # Legacy /settings/save-channel-credential, /settings/channels/*/bind,
+    # /settings/medium/*-browser-login removed in U8 5b (Plan 2026-06-18-002) —
+    # their inline-guarded v1 equivalents appear below.
     ("/ce:keep-alive/recheck", "POST", {}),
     ("/ce:keep-alive/recheck-cancel/dummy-id", "POST", {}),
     ("/ce:keep-alive/republish", "POST", {}),
@@ -144,7 +140,7 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 98  # routes with CSRF but no inline Origin guard as of 2026-06-22
+_CSRF_ONLY_SNAPSHOT_COUNT = 91  # routes with CSRF but no inline Origin guard as of 2026-06-23
 # -2 (100->98): U8 medium-IT slice removed the legacy POST /settings/{save,clear}-medium-token
 # routes (config writes, no inline guard — they were in this count). Medium discontinued
 # integration tokens; the management UI is retired (no SPA replacement). Tightening the

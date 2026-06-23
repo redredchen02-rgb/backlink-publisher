@@ -49,11 +49,6 @@ ALLOWLIST: dict[str, str] = {
         "redirects before any body is read; http_client follows redirects and "
         "raises on non-2xx, both incompatible with the redirect-rejection gate."
     ),
-    "webui_app/routes/llm.py:36": (
-        "SSE streaming proxy of the LLM completion endpoint: stream=True + "
-        "allow_redirects=False; http_client buffers + raise_for_status which "
-        "would break server-sent-events forwarding."
-    ),
     # Note: chrome_backend.py uses self._requests (a Chrome DevTools session
     # object), NOT the top-level requests module, so the gate's regex never
     # matches it — no allowlist entry needed.
@@ -85,6 +80,15 @@ ALLOWLIST: dict[str, str] = {
         "429/5xx + connection errors, which would violate that contract. SSRF "
         "is enforced inline via _guard_ssrf(); raw requests is required to keep "
         "the single-attempt + 503-challenge semantics."
+    ),
+    # --- LLM diagnostics _safe_get_json: stream=True + allow_redirects=False
+    #     redirect-rejection gate, same structural rationale as http_guard.py:103.
+    #     The redirect-bearing header would leak the api_key; http_client follows
+    #     redirects and cannot provide the streaming content-type + size gate.
+    "webui_app/api/llm_diagnostics_api.py:58": (
+        "LLM diagnostics GET probe: needs stream=True + allow_redirects=False "
+        "for redirect-rejection (Bearer exfiltration guard) and content-type/size "
+        "checks before buffering; http_client follows redirects and buffers first."
     ),
 }
 

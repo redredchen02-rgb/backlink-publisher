@@ -1,12 +1,13 @@
-"""/settings (GET) + /settings/save-* (non-OAuth) — Plan Unit 3.
+"""/settings/save-* (non-OAuth) + generic /api/<channel>/* channel binding API.
 
-Plan 2026-05-19-006 Unit 4 — adds generic /api/<channel>/{status,verify,dry-run}
-routes consumed by the dashboard JS in Unit 5.
+Plan 2026-05-19-006 Unit 4 — generic /api/<channel>/{status,verify,dry-run} routes.
+The legacy ``/settings`` GET (Jinja settings page) was retired in U8 (Plan
+2026-06-18-002); the SPA settings page at /app/settings replaces it.
 """
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, abort, jsonify, request
 
 from backlink_publisher.config import load_config, save_config
 from backlink_publisher.publishing.adapters import verify_adapter_setup
@@ -15,18 +16,9 @@ from backlink_publisher.publishing.registry import registered_platforms
 from ..api.global_settings_api import GlobalSettingsAPI
 from ..binding_status import get_channel_status
 from ..helpers._request_cache import _g_cache
-from ..helpers.contexts import _settings_context
 from ..helpers.security import _safe_flash_redirect
 
 bp = Blueprint("settings_basic", __name__)
-
-
-@bp.route('/settings')
-def settings():
-    flash_type = request.args.get('flash_type')
-    flash_msg = request.args.get('flash_msg')
-    flash = {"type": flash_type, "msg": flash_msg} if flash_type else None
-    return render_template('settings.html', **_settings_context(flash=flash))
 
 
 # ── Generic channel binding API (Plan 2026-05-19-006 Unit 4) ─────────────────

@@ -49,7 +49,7 @@ bp = Blueprint("oauth", __name__)
 def settings_clear_medium_oauth():
     """Clear Medium OAuth token file (delegates to the single-source facade)."""
     r = OAuthAPI().clear_medium()
-    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message,
+    return _safe_flash_redirect('/app/settings', flash_type=r.level, msg=r.message,
                                 fragment=r.fragment)
 
 
@@ -63,7 +63,7 @@ def settings_save_blogger_oauth():
         request.form.get('client_id', ''),
         request.form.get('client_secret', ''),
     )
-    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message,
+    return _safe_flash_redirect('/app/settings', flash_type=r.level, msg=r.message,
                                 fragment=r.fragment)
 
 
@@ -79,7 +79,7 @@ def settings_blogger_oauth_start():
 
     if not client_id or not client_secret:
         return _safe_flash_redirect(
-            '/settings', flash_type='warning',
+            '/app/settings', flash_type='warning',
             msg='请填写 Client ID 和 Client Secret 后再登入',
             fragment='channel-blogger')
 
@@ -90,7 +90,7 @@ def settings_blogger_oauth_start():
                     target_three_url=None)
     except Exception as e:
         return _safe_flash_redirect(
-            '/settings', flash_type='danger',
+            '/app/settings', flash_type='danger',
             msg=f'凭据保存失败: {e}', fragment='channel-blogger')
 
     cb_uri = _oauth_callback_uri()
@@ -113,7 +113,7 @@ def settings_blogger_oauth_start():
         return redirect(auth_url)
     except RuntimeError as e:
         return _safe_flash_redirect(
-            '/settings', flash_type='danger',
+            '/app/settings', flash_type='danger',
             msg=f'OAuth 启动失败: {e}', fragment='channel-blogger')
 
 
@@ -123,14 +123,14 @@ def settings_blogger_oauth_callback():
     err = request.args.get('error')
     if err:
         return _safe_flash_redirect(
-            '/settings', flash_type='danger',
+            '/app/settings', flash_type='danger',
             msg=f'Google 拒绝授权: {err}', fragment='channel-blogger')
 
     state = session.get('oauth_state')
     client_config = session.get('oauth_client_config')
     if not state or not client_config:
         return _safe_flash_redirect(
-            '/settings', flash_type='warning',
+            '/app/settings', flash_type='warning',
             msg='授权会话已过期，请重新点击登入按钮',
             fragment='channel-blogger')
 
@@ -141,7 +141,7 @@ def settings_blogger_oauth_callback():
     # rather than a generic token-exchange error.
     if request.args.get('state') != state:
         return _safe_flash_redirect(
-            '/settings', flash_type='danger',
+            '/app/settings', flash_type='danger',
             msg='OAuth state 校验失败，疑似跨站请求，请重新点击登入按钮',
             fragment='channel-blogger')
 
@@ -154,7 +154,7 @@ def settings_blogger_oauth_callback():
     cb_uri = _oauth_callback_uri()
     if not _is_loopback_uri(cb_uri):
         return _safe_flash_redirect(
-            '/settings', flash_type='danger',
+            '/app/settings', flash_type='danger',
             msg=f'OAuth 回调传输安全检查失败: 回调地址 {cb_uri} 非 loopback，'
                 f'需使用 https 且不启用不安全传输旁路',
             fragment='channel-blogger')
@@ -182,10 +182,10 @@ def settings_blogger_oauth_callback():
         session.pop('oauth_client_config', None)
         session.pop('oauth_code_verifier', None)  # PKCE verifier — clear it too
         return _safe_flash_redirect(
-            '/settings', flash_type='success',
+            '/app/settings', flash_type='success',
             msg='Google 帐号授权成功！Token 已保存。',
             fragment='channel-blogger')
     except Exception as exc:
         return _safe_flash_redirect(
-            '/settings', flash_type='danger',
+            '/app/settings', flash_type='danger',
             msg=f'授权处理失败: {exc}', fragment='channel-blogger')

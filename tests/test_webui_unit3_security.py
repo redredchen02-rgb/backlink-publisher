@@ -197,8 +197,8 @@ class TestLlmEndpointGuard:
         # reaches the scheme check (ce:review maint-006 tightening).
         monkeypatch.setenv("BACKLINK_PUBLISHER_LLM_ALLOW_ANY_HOST", "1")
         resp = client.post(
-            "/settings/test-llm-connection",
-            data={"endpoint": "file:///etc/passwd", "api_key": "sk-x"},
+            "/api/v1/settings/llm/test-connection",
+            json={"endpoint": "file:///etc/passwd", "api_key": "sk-x"},
         )
         assert resp.status_code == 400
         body = resp.get_json()
@@ -208,8 +208,8 @@ class TestLlmEndpointGuard:
         # Need both api_key and endpoint to bypass the "missing fields" 200 gate.
         monkeypatch.delenv("BACKLINK_PUBLISHER_LLM_ALLOW_ANY_HOST", raising=False)
         resp = client.post(
-            "/settings/test-llm-connection",
-            data={"endpoint": "https://evil.example.com",
+            "/api/v1/settings/llm/test-connection",
+            json={"endpoint": "https://evil.example.com",
                   "api_key": "sk-attacker"},
         )
         assert resp.status_code == 400
@@ -219,8 +219,8 @@ class TestLlmEndpointGuard:
     def test_rejects_metadata_ip(self, client, monkeypatch):
         monkeypatch.setenv("BACKLINK_PUBLISHER_LLM_ALLOW_ANY_HOST", "1")
         resp = client.post(
-            "/settings/test-llm-connection",
-            data={"endpoint": "http://169.254.169.254",
+            "/api/v1/settings/llm/test-connection",
+            json={"endpoint": "http://169.254.169.254",
                   "api_key": "sk-attacker"},
         )
         assert resp.status_code == 400
@@ -231,8 +231,8 @@ class TestLlmEndpointGuard:
     def test_rejects_rfc1918(self, client, monkeypatch):
         monkeypatch.setenv("BACKLINK_PUBLISHER_LLM_ALLOW_ANY_HOST", "1")
         resp = client.post(
-            "/settings/test-llm-connection",
-            data={"endpoint": "http://10.0.0.1",
+            "/api/v1/settings/llm/test-connection",
+            json={"endpoint": "http://10.0.0.1",
                   "api_key": "sk-attacker"},
         )
         assert resp.status_code == 400
@@ -245,8 +245,8 @@ class TestLlmEndpointGuard:
         monkeypatch.setenv("BACKLINK_PUBLISHER_LLM_ALLOW_ANY_HOST", "1")
         monkeypatch.delenv("BACKLINK_PUBLISHER_LLM_ALLOW_LOOPBACK", raising=False)
         resp = client.post(
-            "/settings/test-llm-connection",
-            data={"endpoint": "http://127.0.0.1:11434",
+            "/api/v1/settings/llm/test-connection",
+            json={"endpoint": "http://127.0.0.1:11434",
                   "api_key": "sk-attacker"},
         )
         assert resp.status_code == 400
@@ -260,8 +260,8 @@ class TestLlmEndpointGuard:
         monkeypatch.setenv("BACKLINK_PUBLISHER_LLM_ALLOW_ANY_HOST", "1")
         monkeypatch.setenv("BACKLINK_PUBLISHER_LLM_ALLOW_LOOPBACK", "1")
         resp = client.post(
-            "/settings/test-llm-connection",
-            data={"endpoint": "http://127.0.0.1:11434",
+            "/api/v1/settings/llm/test-connection",
+            json={"endpoint": "http://127.0.0.1:11434",
                   "api_key": "sk-x"},
         )
         # Gate passed; downstream connection error gets caught and returned
