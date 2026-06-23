@@ -86,8 +86,8 @@
     --shadow-brand-hover: 0 12px 28px -8px rgba(0, 0, 0, 0.7);
     --shadow-glass:       0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
 
-    /* Focus ring — console cyan */
-    --focus-ring: 0 0 0 3px rgba(34, 211, 238, 0.45);
+    /* Focus ring — console cyan; alpha 0.8 for ≥3:1 contrast on surface-base */
+    --focus-ring: 0 0 0 3px rgba(34, 211, 238, 0.8);
 
     /* Spacing / radius — tighter, more rectilinear console feel */
     --radius: 10px;    /* legacy alias → see --radius-xl below */

@@ -77,6 +77,9 @@ const classified = computed<Classified | null>(() =>
     background-position: -200% 0;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }  /* static gradient, no motion */
+}
 .state__title {
   font-weight: 600;
   margin: 0 0 0.25rem;

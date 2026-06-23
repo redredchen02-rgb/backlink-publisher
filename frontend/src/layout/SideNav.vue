@@ -23,6 +23,8 @@ import {
             :to="item.to!"
             class="sidenav__link"
             active-class="is-active"
+            exact-active-class="is-active"
+            aria-current-value="page"
           >
             {{ item.label }}
           </RouterLink>
@@ -79,7 +81,9 @@ import {
 .sidenav__link.is-active {
   background: var(--surface-overlay);
   color: var(--primary);  /* active nav = primary accent; --info same value today, semantics differ */
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  border-left: 2px solid var(--primary);  /* non-colour indicator for colour-blind operators */
+  padding-left: calc(var(--control-pad-x) - 2px);  /* compensate for border width */
 }
 .sidenav__link--legacy {
   color: var(--text-secondary);

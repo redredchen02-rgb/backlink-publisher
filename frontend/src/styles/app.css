@@ -48,6 +48,32 @@ h4 { font-size: var(--text-base);font-weight: var(--font-weight-medium);   line-
   color: var(--text-secondary);
 }
 
+/* ── Skip-link — keyboard operators bypass SideNav on every page ─────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: var(--font-weight-semibold);
+  z-index: 9999;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+}
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+/* ── Reduced motion — freeze decorative animations globally ──────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── Base control rules — consume density tokens ──────────────────────── */
 button, .btn,
 select, input, textarea {
