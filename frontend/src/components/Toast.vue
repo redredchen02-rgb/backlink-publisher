@@ -63,19 +63,19 @@ watch(
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
   border-radius: var(--radius-md, 6px);
-  background: var(--bg-overlay, #1f2630);
-  border-left: 3px solid var(--accent-info, #3b82f6);
+  background: var(--surface-overlay, #1f2630);
+  border-left: 3px solid var(--info, #3b82f6);
   color: var(--text-primary, #e6edf3);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 .toast--success {
-  border-left-color: var(--accent-success, #2ea043);
+  border-left-color: var(--success, #2ea043);
 }
 .toast--error {
-  border-left-color: var(--accent-danger, #f85149);
+  border-left-color: var(--danger, #f85149);
 }
 .toast--warning {
-  border-left-color: var(--accent-warning, #d29922);
+  border-left-color: var(--warning, #d29922);
 }
 .toast__msg {
   flex: 1;

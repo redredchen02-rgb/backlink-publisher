@@ -277,7 +277,7 @@ async function onSaveSchedule(): Promise<void> {
   margin: 0 0 0.25rem;
 }
 .card {
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   border: 1px solid var(--border, #30363d);
   border-radius: 10px;
   padding: 1.25rem;

@@ -45,8 +45,8 @@ import {
   width: 13rem;
   flex-shrink: 0;
   padding: 0.75rem;
-  border-right: 1px solid var(--border-subtle, #30363d);
-  background: var(--bg-raised, #161b22);
+  border-right: 1px solid var(--border, #30363d);
+  background: var(--surface-raised, #161b22);
   overflow-y: auto;
 }
 .sidenav__brand {
@@ -74,11 +74,11 @@ import {
   font-size: 0.875rem;
 }
 .sidenav__link:hover {
-  background: var(--bg-overlay, #1f2630);
+  background: var(--surface-overlay, #1f2630);
 }
 .sidenav__link.is-active {
-  background: var(--bg-overlay, #1f2630);
-  color: var(--accent-info, #58a6ff);
+  background: var(--surface-overlay, #1f2630);
+  color: var(--primary, #38bdf8);  /* active nav = primary accent; --info same value today, semantics differ */
   font-weight: 600;
 }
 .sidenav__link--legacy {

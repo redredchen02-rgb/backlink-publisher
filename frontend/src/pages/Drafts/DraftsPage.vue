@@ -183,7 +183,7 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   flex-wrap: wrap;
 }
 .status[data-status='scheduled'] {
-  color: var(--accent, #58a6ff);
+  color: var(--primary, #58a6ff);
 }
 .status[data-status='failed'] {
   color: var(--danger, #f85149);

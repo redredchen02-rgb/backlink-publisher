@@ -71,7 +71,7 @@ function dofollowClass(v: boolean | string | null): string {
 
 <style scoped>
 .card {
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   border: 1px solid var(--border, #30363d);
   border-radius: 10px;
   padding: 1.25rem;
@@ -109,7 +109,7 @@ function dofollowClass(v: boolean | string | null): string {
 .ch__blockers {
   margin: 0.4rem 0 0;
   padding-left: 1.1rem;
-  color: var(--accent-warning, #d29922);
+  color: var(--warning, #d29922);
   font-size: 0.8rem;
 }
 .tag {
@@ -119,11 +119,11 @@ function dofollowClass(v: boolean | string | null): string {
   border: 1px solid var(--border, #30363d);
 }
 .tag--ok {
-  color: var(--accent-success, #3fb950);
+  color: var(--success, #3fb950);
   border-color: currentColor;
 }
 .tag--warn {
-  color: var(--accent-warning, #d29922);
+  color: var(--warning, #d29922);
   border-color: currentColor;
 }
 .tag--muted {

@@ -132,7 +132,7 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
   border-left-color: var(--success, #3fb950);
 }
 .card[data-severity='info'] {
-  border-left-color: var(--accent, #58a6ff);
+  border-left-color: var(--primary, #58a6ff);
 }
 .card__head {
   display: flex;
@@ -143,7 +143,7 @@ const degraded = computed(() => query.data.value?.degraded ?? false)
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
-  background: var(--text-muted, #8b949e);
+  background: var(--text-secondary, #8b949e);
 }
 .card__sev[data-severity='danger'] {
   background: var(--danger, #f85149);

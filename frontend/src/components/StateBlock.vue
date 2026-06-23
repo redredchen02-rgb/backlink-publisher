@@ -59,9 +59,9 @@ const classified = computed<Classified | null>(() =>
   border-radius: 4px;
   background: linear-gradient(
     90deg,
-    var(--bg-raised, #161b22) 25%,
-    var(--bg-overlay, #1f2630) 50%,
-    var(--bg-raised, #161b22) 75%
+    var(--surface-raised, #161b22) 25%,
+    var(--surface-overlay, #1f2630) 50%,
+    var(--surface-raised, #161b22) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite;

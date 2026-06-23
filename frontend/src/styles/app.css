@@ -6,7 +6,7 @@
 
 body {
   margin: 0;
-  background: var(--bg-base, #0d1117);
+  background: var(--surface-base, #0d1117);
   color: var(--text-primary, #e6edf3);
   font-family: var(--font-sans, system-ui, sans-serif);
 }
@@ -22,8 +22,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-subtle, #30363d);
-  background: var(--bg-raised, #161b22);
+  border-bottom: 1px solid var(--border, #30363d);
+  background: var(--surface-raised, #161b22);
 }
 
 .app-main {

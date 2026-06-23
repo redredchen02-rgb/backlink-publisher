@@ -328,7 +328,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 
 <style scoped>
 .card {
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   border: 1px solid var(--border, #30363d);
   border-radius: 10px;
   padding: 1.25rem;
@@ -407,10 +407,10 @@ textarea {
   font-size: 0.8rem;
 }
 .diag__r.ok {
-  color: var(--accent-success, #3fb950);
+  color: var(--success, #3fb950);
 }
 .diag__r.bad {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger, #f85149);
 }
 .sample img {
   margin-top: 0.6rem;
@@ -424,6 +424,6 @@ textarea {
   margin-top: 1rem;
 }
 .actions .danger {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger, #f85149);
 }
 </style>

@@ -188,7 +188,7 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   border: 1px solid var(--border, #30363d);
   border-radius: 10px;
   padding: 1.25rem;
@@ -244,7 +244,7 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   gap: 0.6rem;
 }
 .danger {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger, #f85149);
   border-color: currentColor;
   background: transparent;
 }
@@ -255,7 +255,7 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   border: 1px solid var(--border, #30363d);
 }
 .tag--ok {
-  color: var(--accent-success, #3fb950);
+  color: var(--success, #3fb950);
   border-color: currentColor;
 }
 .tag--muted {

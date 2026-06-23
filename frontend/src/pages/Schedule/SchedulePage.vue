@@ -87,7 +87,7 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
   text-overflow: ellipsis;
 }
 .badge {
-  background: var(--bg-overlay, #1f2630);
+  background: var(--surface-overlay, #1f2630);
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.8rem;

@@ -168,7 +168,7 @@ async function onRevoke(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   border: 1px solid var(--border, #30363d);
   border-radius: 10px;
   padding: 1.25rem;
@@ -191,7 +191,7 @@ async function onRevoke(): Promise<void> {
   display: block;
   margin: 0.3rem 0 0.85rem;
   padding: 0.35rem 0.5rem;
-  background: var(--bg, #0d1117);
+  background: var(--surface-base, #0d1117);
   border: 1px solid var(--border, #30363d);
   border-radius: 6px;
   font-size: 0.8rem;
@@ -219,12 +219,12 @@ async function onRevoke(): Promise<void> {
   align-items: center;
 }
 .google {
-  color: var(--accent, #58a6ff);
+  color: var(--primary, #58a6ff);
   border-color: currentColor;
   background: transparent;
 }
 .danger {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger, #f85149);
   border-color: currentColor;
   background: transparent;
 }
@@ -235,11 +235,11 @@ async function onRevoke(): Promise<void> {
   border: 1px solid var(--border, #30363d);
 }
 .tag--ok {
-  color: var(--accent-success, #3fb950);
+  color: var(--success, #3fb950);
   border-color: currentColor;
 }
 .tag--err {
-  color: var(--accent-danger, #f85149);
+  color: var(--danger, #f85149);
   border-color: currentColor;
 }
 </style>

@@ -69,14 +69,14 @@ function jumpTo(id: string): void {
   align-items: baseline;
   gap: 0.35rem;
   padding: 0.6rem 0.75rem;
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   border: 1px solid var(--border, #30363d);
   border-radius: 8px;
 }
 .snav__count {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--accent-success, #3fb950);
+  color: var(--success, #3fb950);
 }
 .snav__label {
   font-size: 0.8rem;
@@ -85,7 +85,7 @@ function jumpTo(id: string): void {
 .snav__warn {
   flex-basis: 100%;
   font-size: 0.75rem;
-  color: var(--accent-warning, #d29922);
+  color: var(--warning, #d29922);
 }
 .snav__list {
   list-style: none;
@@ -107,7 +107,7 @@ function jumpTo(id: string): void {
   cursor: pointer;
 }
 .snav__item:hover {
-  background: var(--bg, #0d1117);
+  background: var(--surface-base, #0d1117);
   color: var(--text-primary, #e6edf3);
 }
 </style>

@@ -402,7 +402,7 @@ select {
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--border, #30363d);
   border-radius: 6px;
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   color: inherit;
   font: inherit;
 }
@@ -415,7 +415,7 @@ select {
 }
 .autofilled {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--accent, #58a6ff);
+  border: 1px solid var(--primary, #58a6ff);
   border-radius: 6px;
 }
 .form-actions {
@@ -423,7 +423,7 @@ select {
   gap: 0.5rem;
 }
 button.primary {
-  background: var(--accent, #58a6ff);
+  background: var(--primary, #58a6ff);
   color: #0d1117;
   border: none;
   border-radius: 6px;
@@ -434,7 +434,7 @@ button.primary {
 button.link {
   background: none;
   border: none;
-  color: var(--accent, #58a6ff);
+  color: var(--primary, #58a6ff);
   cursor: pointer;
 }
 .preview-row {
@@ -445,7 +445,7 @@ button.link {
   flex: 1;
 }
 .preview-out {
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   padding: 0.6rem;
   border-radius: 6px;
   font-size: 0.82rem;
@@ -488,12 +488,12 @@ button.link {
   gap: 0.75rem;
 }
 .badge {
-  background: var(--bg-overlay, #1f2630);
+  background: var(--surface-overlay, #1f2630);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-weight: 600;
 }
 .muted {
-  color: var(--muted, #8b949e);
+  color: var(--text-secondary, #8b949e);
 }
 </style>

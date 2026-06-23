@@ -267,7 +267,7 @@ function applyProfile(p: Profile): void {
   list-style: none;
   padding: 0;
   margin: 0;
-  color: var(--text-muted, #8b949e);
+  color: var(--text-secondary, #8b949e);
 }
 .steps__on {
   color: var(--text, #e6edf3);
@@ -321,7 +321,7 @@ function applyProfile(p: Profile): void {
   width: 1rem;
   height: 1rem;
   border: 2px solid var(--border, #30363d);
-  border-top-color: var(--accent, #58a6ff);
+  border-top-color: var(--primary, #58a6ff);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

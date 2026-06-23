@@ -50,16 +50,16 @@ const config = useQuery({
   align-items: center;
   gap: 1rem;
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border-subtle, #30363d);
-  background: var(--bg-raised, #161b22);
+  border-bottom: 1px solid var(--border, #30363d);
+  background: var(--surface-raised, #161b22);
 }
 .topbar__search {
   flex: 1;
   max-width: 28rem;
   padding: 0.35rem 0.6rem;
   border-radius: var(--radius-sm, 4px);
-  border: 1px solid var(--border-subtle, #30363d);
-  background: var(--bg-base, #0d1117);
+  border: 1px solid var(--border, #30363d);
+  background: var(--surface-base, #0d1117);
   color: var(--text-primary, #e6edf3);
 }
 .topbar__right {
@@ -72,11 +72,11 @@ const config = useQuery({
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  border: 1px solid var(--border-subtle, #30363d);
+  border: 1px solid var(--border, #30363d);
 }
 .pill--on {
-  color: var(--accent-success, #2ea043);
-  border-color: var(--accent-success, #2ea043);
+  color: var(--success, #2ea043);
+  border-color: var(--success, #2ea043);
 }
 .pill--off {
   color: var(--text-secondary, #8b949e);

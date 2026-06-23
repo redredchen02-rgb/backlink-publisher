@@ -199,7 +199,7 @@ input[type='number'] {
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--border, #30363d);
   border-radius: 6px;
-  background: var(--bg-raised, #161b22);
+  background: var(--surface-raised, #161b22);
   color: inherit;
   font: inherit;
 }
@@ -208,11 +208,11 @@ input[type='number'] {
   font-size: 0.8rem;
 }
 .muted {
-  color: var(--muted, #8b949e);
+  color: var(--text-secondary, #8b949e);
   font-size: 0.85rem;
 }
 button.primary {
-  background: var(--accent, #58a6ff);
+  background: var(--primary, #58a6ff);
   color: #0d1117;
   border: none;
   border-radius: 6px;
