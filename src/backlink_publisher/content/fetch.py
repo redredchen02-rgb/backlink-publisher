@@ -157,6 +157,20 @@ def set_default_max_age(seconds: Optional[float]) -> None:
 
 
 
+def _classify_http_code(code: int) -> str:
+    """Map a non-200 HTTP status code to its canonical reason string.
+
+    5xx collapses to the bucket ``http_5xx`` (retry-eligible transient class);
+    every other non-200 code (4xx, 1xx/3xx that surfaced as an error, edge
+    codes like 418) keeps its exact ``http_<code>`` label. Shared by both the
+    ``HTTPError`` path and the non-200 ``getcode()`` path in :func:`_check_once`
+    so the two stay in lockstep.
+    """
+    if 500 <= code < 600:
+        return "http_5xx"
+    return f"http_{code}"
+
+
 def _check_once(
     url: str,
     timeout_seconds: Optional[float] = None,
@@ -196,12 +210,7 @@ def _check_once(
     try:
         resp = opener.open(req, timeout=effective_timeout)
     except HTTPError as exc:
-        code = exc.code
-        if 400 <= code < 500:
-            return False, f"http_{code}", None
-        if 500 <= code < 600:
-            return False, "http_5xx", None
-        return False, f"http_{code}", None
+        return False, _classify_http_code(exc.code), None
     except socket.timeout:
         return False, "timeout", None
     except URLError as exc:
@@ -220,11 +229,7 @@ def _check_once(
 
     code = resp.getcode()
     if code != 200:
-        if 400 <= code < 500:
-            return False, f"http_{code}", None
-        if 500 <= code < 600:
-            return False, "http_5xx", None
-        return False, f"http_{code}", None
+        return False, _classify_http_code(code), None
 
     try:
         body = read_html_head_window(resp, _head_scan_bytes())
