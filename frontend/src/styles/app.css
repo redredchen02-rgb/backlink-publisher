@@ -6,8 +6,8 @@
 
 body {
   margin: 0;
-  background: var(--surface-base, #0d1117);
-  color: var(--text-primary, #e6edf3);
+  background: var(--surface-base);
+  color: var(--text-primary);
   font-family: var(--font-sans, system-ui, sans-serif);
 }
 
@@ -22,8 +22,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border, #30363d);
-  background: var(--surface-raised, #161b22);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
 }
 
 .app-main {
@@ -32,5 +32,5 @@ body {
 }
 
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }

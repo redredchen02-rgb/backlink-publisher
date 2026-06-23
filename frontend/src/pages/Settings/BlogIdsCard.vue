@@ -120,8 +120,8 @@ async function onSave(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--surface-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -130,7 +130,7 @@ async function onSave(): Promise<void> {
   font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .row {
@@ -158,7 +158,7 @@ async function onSave(): Promise<void> {
   background: transparent;
 }
 .danger {
-  color: var(--danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
   background: transparent;
   padding: 0 0.6rem;

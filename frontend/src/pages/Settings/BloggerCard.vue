@@ -168,8 +168,8 @@ async function onRevoke(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--surface-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -178,7 +178,7 @@ async function onRevoke(): Promise<void> {
   font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .blogger__status {
@@ -191,8 +191,8 @@ async function onRevoke(): Promise<void> {
   display: block;
   margin: 0.3rem 0 0.85rem;
   padding: 0.35rem 0.5rem;
-  background: var(--surface-base, #0d1117);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-base);
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.8rem;
   word-break: break-all;
@@ -219,12 +219,12 @@ async function onRevoke(): Promise<void> {
   align-items: center;
 }
 .google {
-  color: var(--primary, #58a6ff);
+  color: var(--primary);
   border-color: currentColor;
   background: transparent;
 }
 .danger {
-  color: var(--danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
   background: transparent;
 }
@@ -232,14 +232,14 @@ async function onRevoke(): Promise<void> {
   font-size: 0.72rem;
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
 }
 .tag--ok {
-  color: var(--success, #3fb950);
+  color: var(--success);
   border-color: currentColor;
 }
 .tag--err {
-  color: var(--danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
 }
 </style>

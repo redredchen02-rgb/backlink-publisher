@@ -45,8 +45,8 @@ import {
   width: 13rem;
   flex-shrink: 0;
   padding: 0.75rem;
-  border-right: 1px solid var(--border, #30363d);
-  background: var(--surface-raised, #161b22);
+  border-right: 1px solid var(--border);
+  background: var(--surface-raised);
   overflow-y: auto;
 }
 .sidenav__brand {
@@ -57,7 +57,7 @@ import {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   padding: 0.75rem 0.5rem 0.25rem;
 }
 .sidenav__list {
@@ -69,20 +69,20 @@ import {
   display: block;
   padding: 0.4rem 0.5rem;
   border-radius: var(--radius-sm, 4px);
-  color: var(--text-primary, #e6edf3);
+  color: var(--text-primary);
   text-decoration: none;
   font-size: 0.875rem;
 }
 .sidenav__link:hover {
-  background: var(--surface-overlay, #1f2630);
+  background: var(--surface-overlay);
 }
 .sidenav__link.is-active {
-  background: var(--surface-overlay, #1f2630);
-  color: var(--primary, #38bdf8);  /* active nav = primary accent; --info same value today, semantics differ */
+  background: var(--surface-overlay);
+  color: var(--primary);  /* active nav = primary accent; --info same value today, semantics differ */
   font-weight: 600;
 }
 .sidenav__link--legacy {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 .sidenav__legacy-mark {
   opacity: 0.7;

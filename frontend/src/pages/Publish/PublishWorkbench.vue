@@ -267,15 +267,15 @@ function applyProfile(p: Profile): void {
   list-style: none;
   padding: 0;
   margin: 0;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 .steps__on {
-  color: var(--text, #e6edf3);
+  color: var(--text);
   font-weight: 600;
 }
 .config,
 .card {
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   display: flex;
@@ -299,7 +299,7 @@ function applyProfile(p: Profile): void {
 }
 .config__profiles {
   flex-basis: 100%;
-  border-top: 1px solid var(--border, #30363d);
+  border-top: 1px solid var(--border);
   padding-top: 0.5rem;
 }
 .rows {
@@ -314,14 +314,14 @@ function applyProfile(p: Profile): void {
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  background: var(--warning-soft, #2d2410);
-  color: var(--text, #e6edf3);
+  background: var(--warning-soft);
+  color: var(--text);
 }
 .spinner {
   width: 1rem;
   height: 1rem;
-  border: 2px solid var(--border, #30363d);
-  border-top-color: var(--primary, #58a6ff);
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -331,15 +331,15 @@ function applyProfile(p: Profile): void {
   }
 }
 .result[data-state='all_success'] {
-  border-color: var(--success, #3fb950);
+  border-color: var(--success);
 }
 .result[data-state='partial_success'] {
-  border-color: var(--warning, #d29922);
+  border-color: var(--warning);
 }
 .ok {
-  color: var(--success, #3fb950);
+  color: var(--success);
 }
 .fail {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 </style>

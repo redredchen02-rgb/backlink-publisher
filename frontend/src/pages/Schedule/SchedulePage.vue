@@ -78,7 +78,7 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 .sched-table td {
   text-align: left;
   padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid var(--border, #30363d);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 .truncate {
@@ -87,7 +87,7 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
   text-overflow: ellipsis;
 }
 .badge {
-  background: var(--surface-overlay, #1f2630);
+  background: var(--surface-overlay);
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.8rem;

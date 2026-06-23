@@ -162,7 +162,7 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 .draft__main {
@@ -183,9 +183,9 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   flex-wrap: wrap;
 }
 .status[data-status='scheduled'] {
-  color: var(--primary, #58a6ff);
+  color: var(--primary);
 }
 .status[data-status='failed'] {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 </style>

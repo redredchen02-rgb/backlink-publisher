@@ -63,19 +63,19 @@ watch(
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
   border-radius: var(--radius-md, 6px);
-  background: var(--surface-overlay, #1f2630);
-  border-left: 3px solid var(--info, #3b82f6);
-  color: var(--text-primary, #e6edf3);
+  background: var(--surface-overlay);
+  border-left: 3px solid var(--info);
+  color: var(--text-primary);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 .toast--success {
-  border-left-color: var(--success, #2ea043);
+  border-left-color: var(--success);
 }
 .toast--error {
-  border-left-color: var(--danger, #f85149);
+  border-left-color: var(--danger);
 }
 .toast--warning {
-  border-left-color: var(--warning, #d29922);
+  border-left-color: var(--warning);
 }
 .toast__msg {
   flex: 1;
@@ -84,7 +84,7 @@ watch(
 .toast__close {
   background: none;
   border: none;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;

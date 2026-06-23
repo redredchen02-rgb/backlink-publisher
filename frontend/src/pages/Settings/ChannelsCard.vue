@@ -71,8 +71,8 @@ function dofollowClass(v: boolean | string | null): string {
 
 <style scoped>
 .card {
-  background: var(--surface-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -81,7 +81,7 @@ function dofollowClass(v: boolean | string | null): string {
   font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .ch-list {
@@ -93,7 +93,7 @@ function dofollowClass(v: boolean | string | null): string {
   gap: 0.6rem;
 }
 .ch {
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem 0.85rem;
 }
@@ -109,24 +109,24 @@ function dofollowClass(v: boolean | string | null): string {
 .ch__blockers {
   margin: 0.4rem 0 0;
   padding-left: 1.1rem;
-  color: var(--warning, #d29922);
+  color: var(--warning);
   font-size: 0.8rem;
 }
 .tag {
   font-size: 0.72rem;
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
 }
 .tag--ok {
-  color: var(--success, #3fb950);
+  color: var(--success);
   border-color: currentColor;
 }
 .tag--warn {
-  color: var(--warning, #d29922);
+  color: var(--warning);
   border-color: currentColor;
 }
 .tag--muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 </style>

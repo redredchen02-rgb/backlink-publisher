@@ -121,10 +121,10 @@ async function onDelete(): Promise<void> {
   gap: 0.25rem;
 }
 .profile-selector__sep {
-  color: var(--border, #30363d);
+  color: var(--border);
   align-self: center;
 }
 .profile-selector .danger {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 </style>

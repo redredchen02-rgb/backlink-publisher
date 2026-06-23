@@ -69,23 +69,23 @@ function jumpTo(id: string): void {
   align-items: baseline;
   gap: 0.35rem;
   padding: 0.6rem 0.75rem;
-  background: var(--surface-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 .snav__count {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--success, #3fb950);
+  color: var(--success);
 }
 .snav__label {
   font-size: 0.8rem;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 .snav__warn {
   flex-basis: 100%;
   font-size: 0.75rem;
-  color: var(--warning, #d29922);
+  color: var(--warning);
 }
 .snav__list {
   list-style: none;
@@ -102,12 +102,12 @@ function jumpTo(id: string): void {
   border: none;
   padding: 0.35rem 0.5rem;
   border-radius: 6px;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.85rem;
   cursor: pointer;
 }
 .snav__item:hover {
-  background: var(--surface-base, #0d1117);
-  color: var(--text-primary, #e6edf3);
+  background: var(--surface-base);
+  color: var(--text-primary);
 }
 </style>

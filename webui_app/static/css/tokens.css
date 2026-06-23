@@ -99,34 +99,7 @@
      * #38bdf8. Replaces hardcoded #0d1117 in .primary button rules (Unit 6). */
     --on-primary: #0d1117;
 
-    /* ── Transition alias bridge ────────────────────────────────────────────
-     * Maps SPA phantom token names → canonical console token names so the
-     * Vue SPA resolves the correct values with ZERO .vue file changes.
-     * Removed in Unit 4 after Unit 2 (canonical rename) + Unit 3 (guard) land.
-     * --radius-sm/md are temporary literals here; Unit 6 promotes them to
-     * canonical scale members with the same names (Unit 4 preserves them). */
-
-    /* Surface */
-    --bg-base:    var(--surface-base);
-    --bg:         var(--surface-base);
-    --bg-raised:  var(--surface-raised);
-    --bg-overlay: var(--surface-overlay);
-
-    /* Border */
-    --border-subtle: var(--border);
-
-    /* Accent */
-    --accent:         var(--primary);
-    --accent-info:    var(--info);
-    --accent-success: var(--success);
-    --accent-danger:  var(--danger);
-    --accent-warning: var(--warning);
-
-    /* Text */
-    --text-muted: var(--text-secondary);
-    --muted:      var(--text-secondary);
-
-    /* Radius (literals; replaced by canonical --radius-sm/md in Unit 6) */
+    /* Radius (literals; replaced by canonical scale members in Unit 6) */
     --radius-sm: 4px;
     --radius-md: 6px;
 

@@ -133,8 +133,8 @@ async function onClearOauth(): Promise<void> {
 
 <style scoped>
 .card {
-  background: var(--surface-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -143,11 +143,11 @@ async function onClearOauth(): Promise<void> {
   font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .warn {
-  color: var(--warning, #d29922);
+  color: var(--warning);
   font-size: 0.8rem;
 }
 .medium__status {
@@ -174,7 +174,7 @@ async function onClearOauth(): Promise<void> {
   background: transparent;
 }
 .danger {
-  color: var(--danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
   background: transparent;
 }
@@ -182,21 +182,21 @@ async function onClearOauth(): Promise<void> {
   font-size: 0.72rem;
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
 }
 .tag--ok {
-  color: var(--success, #3fb950);
+  color: var(--success);
   border-color: currentColor;
 }
 .tag--warn {
-  color: var(--warning, #d29922);
+  color: var(--warning);
   border-color: currentColor;
 }
 .tag--err {
-  color: var(--danger, #f85149);
+  color: var(--danger);
   border-color: currentColor;
 }
 .tag--muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 </style>

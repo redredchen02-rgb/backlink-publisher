@@ -328,8 +328,8 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 
 <style scoped>
 .card {
-  background: var(--surface-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -338,11 +338,11 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
   font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .grp {
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.85rem;
   margin: 0.85rem 0;
@@ -393,7 +393,7 @@ textarea {
 }
 .indent {
   padding-left: 1rem;
-  border-left: 2px solid var(--border, #30363d);
+  border-left: 2px solid var(--border);
   margin: 0.5rem 0 0.5rem 0.4rem;
 }
 .diag {
@@ -407,16 +407,16 @@ textarea {
   font-size: 0.8rem;
 }
 .diag__r.ok {
-  color: var(--success, #3fb950);
+  color: var(--success);
 }
 .diag__r.bad {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 .sample img {
   margin-top: 0.6rem;
   max-width: 100%;
   border-radius: 6px;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
 }
 .actions {
   display: flex;
@@ -424,6 +424,6 @@ textarea {
   margin-top: 1rem;
 }
 .actions .danger {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 </style>

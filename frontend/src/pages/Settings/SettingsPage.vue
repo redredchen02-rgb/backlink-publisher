@@ -277,8 +277,8 @@ async function onSaveSchedule(): Promise<void> {
   margin: 0 0 0.25rem;
 }
 .card {
-  background: var(--surface-raised, #161b22);
-  border: 1px solid var(--border, #30363d);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -287,11 +287,11 @@ async function onSaveSchedule(): Promise<void> {
   font-size: 1.05rem;
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .kw-domain {
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 0.75rem;
   overflow: hidden;
@@ -305,7 +305,7 @@ async function onSaveSchedule(): Promise<void> {
   gap: 0.5rem;
 }
 .kw-count {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-size: 0.78rem;
 }
 .kw-domain textarea {

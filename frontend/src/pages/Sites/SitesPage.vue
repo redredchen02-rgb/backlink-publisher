@@ -368,7 +368,7 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
   gap: 0.75rem;
 }
 fieldset {
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   display: flex;
@@ -400,22 +400,22 @@ input[type='number'],
 textarea,
 select {
   padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--surface-raised, #161b22);
+  background: var(--surface-raised);
   color: inherit;
   font: inherit;
 }
 .field-error {
-  color: var(--danger, #f85149);
+  color: var(--danger);
   font-size: 0.8rem;
 }
 .saved {
-  color: var(--success, #3fb950);
+  color: var(--success);
 }
 .autofilled {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--primary, #58a6ff);
+  border: 1px solid var(--primary);
   border-radius: 6px;
 }
 .form-actions {
@@ -423,7 +423,7 @@ select {
   gap: 0.5rem;
 }
 button.primary {
-  background: var(--primary, #58a6ff);
+  background: var(--primary);
   color: #0d1117;
   border: none;
   border-radius: 6px;
@@ -434,7 +434,7 @@ button.primary {
 button.link {
   background: none;
   border: none;
-  color: var(--primary, #58a6ff);
+  color: var(--primary);
   cursor: pointer;
 }
 .preview-row {
@@ -445,7 +445,7 @@ button.link {
   flex: 1;
 }
 .preview-out {
-  background: var(--surface-raised, #161b22);
+  background: var(--surface-raised);
   padding: 0.6rem;
   border-radius: 6px;
   font-size: 0.82rem;
@@ -461,7 +461,7 @@ button.link {
 .ap-table td {
   text-align: left;
   padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid var(--border, #30363d);
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 .truncate {
@@ -471,14 +471,14 @@ button.link {
   white-space: nowrap;
 }
 .ap-status[data-tone='ok'] {
-  color: var(--success, #3fb950);
+  color: var(--success);
 }
 .ap-status[data-tone='warn'] {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 .citation-alert {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--warning, #d29922);
+  border: 1px solid var(--warning);
   border-radius: 6px;
 }
 .plan-gap {
@@ -488,12 +488,12 @@ button.link {
   gap: 0.75rem;
 }
 .badge {
-  background: var(--surface-overlay, #1f2630);
+  background: var(--surface-overlay);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-weight: 600;
 }
 .muted {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 </style>

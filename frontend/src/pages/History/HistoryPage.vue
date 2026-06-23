@@ -159,7 +159,7 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 .rows td {
   text-align: left;
   padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid var(--border, #30363d);
+  border-bottom: 1px solid var(--border);
 }
 .target {
   max-width: 24rem;
@@ -168,10 +168,10 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
   white-space: nowrap;
 }
 .status[data-status='published'] {
-  color: var(--success, #3fb950);
+  color: var(--success);
 }
 .status[data-status='failed'] {
-  color: var(--danger, #f85149);
+  color: var(--danger);
 }
 .row-actions {
   display: flex;
