@@ -159,7 +159,7 @@ async function onSubmit(): Promise<void> {
 }
 fieldset {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
@@ -196,9 +196,9 @@ label.platform {
 }
 textarea,
 input[type='number'] {
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: inherit;
   font: inherit;
@@ -215,7 +215,7 @@ button.primary {
   background: var(--primary);
   color: #0d1117;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 0.45rem 1rem;
   font-weight: 600;
   cursor: pointer;

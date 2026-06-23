@@ -330,7 +330,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 .card {
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
@@ -343,7 +343,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 }
 .grp {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 0.85rem;
   margin: 0.85rem 0;
 }
@@ -367,7 +367,7 @@ input[type='password'],
 textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
 }
 textarea {
   font-family: var(--font-mono, monospace);
@@ -415,7 +415,7 @@ textarea {
 .sample img {
   margin-top: 0.6rem;
   max-width: 100%;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
 .actions {

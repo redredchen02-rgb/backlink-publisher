@@ -57,7 +57,7 @@ const config = useQuery({
   flex: 1;
   max-width: 28rem;
   padding: 0.35rem 0.6rem;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface-base);
   color: var(--text-primary);
@@ -71,7 +71,7 @@ const config = useQuery({
 .pill {
   font-size: var(--text-xs);
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
 }
 .pill--on {

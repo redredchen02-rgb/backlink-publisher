@@ -276,7 +276,7 @@ function applyProfile(p: Profile): void {
 .config,
 .card {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
@@ -313,7 +313,7 @@ function applyProfile(p: Profile): void {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--warning-soft);
   color: var(--text);
 }

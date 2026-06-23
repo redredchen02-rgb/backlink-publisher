@@ -122,7 +122,7 @@ async function onSave(): Promise<void> {
 .card {
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
@@ -139,7 +139,7 @@ async function onSave(): Promise<void> {
   margin-bottom: 0.5rem;
 }
 .row input {
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
   font-size: var(--text-base);
 }
 .row input:first-child {

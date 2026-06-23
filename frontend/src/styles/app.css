@@ -47,3 +47,35 @@ h4 { font-size: var(--text-base);font-weight: var(--font-weight-medium);   line-
 .muted {
   color: var(--text-secondary);
 }
+
+/* ── Base control rules — consume density tokens ──────────────────────── */
+button, .btn,
+select, input, textarea {
+  border-radius: var(--radius-md);
+  padding: var(--control-pad-y) var(--control-pad-x);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+/* Primary action button */
+.btn-primary, button.primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  cursor: pointer;
+}
+.btn-primary:hover, button.primary:hover {
+  background: var(--primary-dark);
+}
+
+/* Muted / secondary button */
+.btn-ghost, button.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover, button.ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong, var(--border));
+}

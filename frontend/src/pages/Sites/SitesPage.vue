@@ -369,7 +369,7 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
 }
 fieldset {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
@@ -399,9 +399,9 @@ input[type='text'],
 input[type='number'],
 textarea,
 select {
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: inherit;
   font: inherit;
@@ -416,7 +416,7 @@ select {
 .autofilled {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--primary);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 .form-actions {
   display: flex;
@@ -426,7 +426,7 @@ button.primary {
   background: var(--primary);
   color: #0d1117;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 0.45rem 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -447,7 +447,7 @@ button.link {
 .preview-out {
   background: var(--surface-raised);
   padding: 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
   max-height: 200px;
   overflow: auto;
@@ -460,7 +460,7 @@ button.link {
 .ap-table th,
 .ap-table td {
   text-align: left;
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
@@ -479,7 +479,7 @@ button.link {
 .citation-alert {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--warning);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 .plan-gap {
   display: flex;
@@ -490,7 +490,7 @@ button.link {
 .badge {
   background: var(--surface-overlay);
   padding: 0.2rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
 }
 .muted {

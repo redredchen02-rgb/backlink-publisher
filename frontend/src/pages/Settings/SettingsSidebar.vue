@@ -71,7 +71,7 @@ function jumpTo(id: string): void {
   padding: 0.6rem 0.75rem;
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 .snav__count {
   font-size: var(--text-xl);
@@ -101,7 +101,7 @@ function jumpTo(id: string): void {
   background: transparent;
   border: none;
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: var(--text-base);
   cursor: pointer;

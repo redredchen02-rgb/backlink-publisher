@@ -62,7 +62,7 @@ watch(
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
-  border-radius: var(--radius-md, 6px);
+  border-radius: var(--radius-md);
   background: var(--surface-overlay);
   border-left: 3px solid var(--info);
   color: var(--text-primary);

@@ -56,7 +56,7 @@ const classified = computed<Classified | null>(() =>
 }
 .skeleton {
   height: 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(
     90deg,
     var(--surface-raised) 25%,

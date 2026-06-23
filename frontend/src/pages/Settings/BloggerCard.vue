@@ -170,7 +170,7 @@ async function onRevoke(): Promise<void> {
 .card {
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
@@ -193,7 +193,7 @@ async function onRevoke(): Promise<void> {
   padding: 0.35rem 0.5rem;
   background: var(--surface-base);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
   word-break: break-all;
 }
@@ -208,7 +208,7 @@ async function onRevoke(): Promise<void> {
   gap: 0.3rem;
 }
 .field input {
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
   font-family: var(--font-mono, monospace);
   font-size: var(--text-base);
 }
@@ -230,8 +230,8 @@ async function onRevoke(): Promise<void> {
 }
 .tag {
   font-size: var(--text-xs);
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
+  padding: 0.05rem var(--control-pad-x);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
 }
 .tag--ok {

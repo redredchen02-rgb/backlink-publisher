@@ -135,7 +135,7 @@ async function onClearOauth(): Promise<void> {
 .card {
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
@@ -180,8 +180,8 @@ async function onClearOauth(): Promise<void> {
 }
 .tag {
   font-size: var(--text-xs);
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
+  padding: 0.05rem var(--control-pad-x);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
 }
 .tag--ok {

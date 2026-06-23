@@ -73,7 +73,7 @@ function dofollowClass(v: boolean | string | null): string {
 .card {
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
@@ -94,7 +94,7 @@ function dofollowClass(v: boolean | string | null): string {
 }
 .ch {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 0.6rem 0.85rem;
 }
 .ch__head {
@@ -114,8 +114,8 @@ function dofollowClass(v: boolean | string | null): string {
 }
 .tag {
   font-size: var(--text-xs);
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
+  padding: 0.05rem var(--control-pad-x);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
 }
 .tag--ok {

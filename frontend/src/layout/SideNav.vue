@@ -67,8 +67,8 @@ import {
 }
 .sidenav__link {
   display: block;
-  padding: 0.4rem 0.5rem;
-  border-radius: var(--radius-sm, 4px);
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
   text-decoration: none;
   font-size: var(--text-base);

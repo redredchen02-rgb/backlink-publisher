@@ -163,7 +163,7 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 .draft__main {
   display: flex;

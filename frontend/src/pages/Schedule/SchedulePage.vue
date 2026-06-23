@@ -89,7 +89,7 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 .badge {
   background: var(--surface-overlay);
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--text-sm);
 }
 </style>

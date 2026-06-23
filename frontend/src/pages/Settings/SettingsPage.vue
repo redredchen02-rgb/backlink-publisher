@@ -279,7 +279,7 @@ async function onSaveSchedule(): Promise<void> {
 .card {
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
 }
 .card h2 {
@@ -292,7 +292,7 @@ async function onSaveSchedule(): Promise<void> {
 }
 .kw-domain {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   margin-bottom: 0.75rem;
   overflow: hidden;
 }
@@ -334,7 +334,7 @@ async function onSaveSchedule(): Promise<void> {
   gap: 0.3rem;
 }
 .field input {
-  padding: 0.4rem 0.5rem;
+  padding: var(--control-pad-y) var(--control-pad-x);
 }
 button[type='submit'] {
   margin-top: 0.75rem;
