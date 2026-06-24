@@ -325,10 +325,10 @@ def _handle_reseal(args: argparse.Namespace) -> int:
         if resp.strip().lower() not in ("y", "yes"):
             print("phase0-seal reseal: cancelled", file=sys.stderr)
             return EXIT_OK
-    for old_sha, new_sha, new_body in migrations:
+    for old_sha, new_sha, new_body_str in migrations:
         if old_sha == new_sha:
             proc = subprocess.run(
-                ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-f", "-m", new_body, new_sha],
+                ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-f", "-m", new_body_str, new_sha],
                 capture_output=True, text=True,
             )
             if proc.returncode != 0:
@@ -336,7 +336,7 @@ def _handle_reseal(args: argparse.Namespace) -> int:
                 return EXIT_MISUSE
         else:
             proc = subprocess.run(
-                ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-m", new_body, new_sha],
+                ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-m", new_body_str, new_sha],
                 capture_output=True, text=True,
             )
             if proc.returncode != 0:
@@ -388,7 +388,7 @@ def _read_seal_note_at(repo_root: Path, obj_sha: str) -> dict | None:
     if proc.returncode != 0 or not proc.stdout.strip():
         return None
     try:
-        return json.loads(proc.stdout.strip())
+        return dict(json.loads(proc.stdout.strip()))
     except json.JSONDecodeError:
         return None
 

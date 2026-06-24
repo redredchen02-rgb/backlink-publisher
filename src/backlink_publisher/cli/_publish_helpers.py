@@ -501,7 +501,7 @@ def _run_reconciler(args: Any) -> dict[str, Any] | None:
         }
     except Exception as exc:
         from backlink_publisher._util.logger import publish_logger
-        publish_logger.warning("reconciler pass failed: %s", exc)
+        publish_logger.warning(f"reconciler pass failed: {exc}")
         return None
 
 
@@ -513,7 +513,7 @@ def _write_reconciler_report(summary: dict[str, Any] | None) -> None:
         print(_json.dumps(summary, sort_keys=True))
     except Exception as exc:
         from backlink_publisher._util.logger import publish_logger
-        publish_logger.warning("reconciler report write failed: %s", exc)
+        publish_logger.warning(f"reconciler report write failed: {exc}")
 
 
 @dataclass
@@ -663,17 +663,17 @@ def _publish_epilogue(
     if decision.kind == "failed":
         for f in failed:
             print(f"publish failed: {f['error']}", file=sys.stderr)
-        emit_envelope_and_exit("ExternalServiceError", 4, decision.message)
+        emit_envelope_and_exit("ExternalServiceError", 4, decision.message or "")
     if decision.kind in ("all_held", "none_published"):
         # all_held: operator-action required (adjudicate the holds), exit 3, not 5.
-        emit_error(decision.message, exit_code=decision.exit_code)
+        emit_error(decision.message or "", exit_code=decision.exit_code)
     if decision.kind == "unverified":
         for u in unverified:
             print(
                 f"verification failed: id={u.get('id', '')} status={u.get('status', '')}",
                 file=sys.stderr,
             )
-        emit_envelope_and_exit("InternalError", 5, decision.message)
+        emit_envelope_and_exit("InternalError", 5, decision.message or "")
 
     publish_logger.info(
         f"publish complete: {success_count} succeeded, {fail_count} failed, "

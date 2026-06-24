@@ -6,4 +6,5 @@ the package split (an empty ``__main__`` would silently drop all output for the
 
 from . import main
 
-raise SystemExit(main() or 0)
+main()
+raise SystemExit(0)

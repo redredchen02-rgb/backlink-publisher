@@ -21,7 +21,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 # Populate the adapter registry so registered_platforms() is non-empty when
 # argparse help / validation runs.
@@ -431,7 +431,7 @@ def _process_seed(
         )
 
     # Unit 4: link/anchor diversity audit
-    report = audit_batch([c.row for c in surviving])
+    report = audit_batch(cast(list[dict[str, Any]], [c.row for c in surviving]))
 
     if args.dispatch == "dry-run":
         _emit_preview(surviving, report)
@@ -448,7 +448,7 @@ def _process_seed(
 
     # Unit 5: jittered burst dispatch
     summary = dispatch_burst(
-        [c.row for c in surviving], cfg, args.mode,
+        cast(list[dict[str, Any]], [c.row for c in surviving]), cfg, args.mode,
     )
     for plat, err in summary.failed:
         print(f"[burst] {seed_label} FAILED {plat}: {err}",

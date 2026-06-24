@@ -177,7 +177,7 @@ def _validate_sha_format(s: str) -> bool:
     ``origin/main`` separately so git stderr never leaks into our error path.
     """
     if not isinstance(s, str):
-        return False
+        return False  # type: ignore[unreachable]
     return bool(_SHA_RE.fullmatch(s))
 
 

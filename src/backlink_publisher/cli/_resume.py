@@ -259,8 +259,8 @@ def _publish_one_resume_item(
     banner_emit: Any,
     run_id: str,
     args: Any,
-    throttle_min: float,
-    throttle_max: float,
+    throttle_min: int,
+    throttle_max: int,
 ) -> None:
     """Phase 6 body: process exactly one resume item.
 
@@ -360,7 +360,7 @@ def _publish_one_resume_item(
         )
         # Surface the real class (AuthExpiredError), not exit-3's "DependencyError".
         emit_error(str(exc), exit_code=3, error_class=type(exc).__name__)
-        return
+        return  # type: ignore[unreachable]
     except BannerUploadError as exc:
         _record_resume_failure(
             run_id, item, exc,
@@ -370,7 +370,7 @@ def _publish_one_resume_item(
     except DependencyError as exc:
         record_failure(row, platform, error_class="dependency", run_id=run_id)
         emit_error(str(exc), exit_code=3)
-        return
+        return  # type: ignore[unreachable]
     except ExternalServiceError as exc:
         _record_resume_failure(
             run_id, item, exc,
@@ -530,7 +530,7 @@ def _run_resume(args: Any) -> None:
         ckpt = checkpoint.load_checkpoint(run_id)
     except (ValueError, FileNotFoundError) as exc:
         emit_error(str(exc), exit_code=2)
-        return
+        return  # type: ignore[unreachable]
 
     config = load_config()
     banner_emit = _make_banner_emit()

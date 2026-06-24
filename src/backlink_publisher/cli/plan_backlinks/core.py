@@ -188,17 +188,17 @@ def main(argv: list[str] | None = None) -> None:
                 urls = parse_csv(args.from_csv)
             except Exception as exc:
                 emit_error(f"failed to read CSV: {exc}", exit_code=2)
-                return
+                return  # type: ignore[unreachable]
         else:
             try:
                 urls = parse_sitemap(args.from_sitemap)
             except RuntimeError as exc:
                 emit_error(str(exc), exit_code=2)
-                return
+                return  # type: ignore[unreachable]
 
         if not urls:
             emit_error("no URLs found in input source", exit_code=2)
-            return
+            return  # type: ignore[unreachable]
 
         rows: list[dict[str, Any]] = urls_to_seed_rows(
             urls,

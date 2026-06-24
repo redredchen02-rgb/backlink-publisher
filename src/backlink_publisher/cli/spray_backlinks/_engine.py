@@ -16,7 +16,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.errors import (
     UsageError,
@@ -340,7 +340,7 @@ def _run_spray(args: Any) -> None:
                 fetch_verify_enabled=not args.no_fetch_verify,
             )
 
-        report = audit_batch([c.row for c in surviving])
+        report = audit_batch(cast(list[dict[str, Any]], [c.row for c in surviving]))
 
         seed_failed = False
         if args.dispatch == "dry-run":
@@ -355,7 +355,7 @@ def _run_spray(args: Any) -> None:
                 seed_failed = True
             else:
                 summary = dispatch_burst(
-                    [c.row for c in surviving], cfg, args.mode,
+                    cast(list[dict[str, Any]], [c.row for c in surviving]), cfg, args.mode,
                 )
                 for plat, err in summary.failed:
                     print(f"[burst] {seed_label} FAILED {plat}: {err}",

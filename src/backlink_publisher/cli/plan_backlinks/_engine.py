@@ -149,10 +149,10 @@ def _dispatch_row(
     use_native_schedulers = target_language == row["language"]
     if three_url_cfg is not None and use_native_schedulers:
         from backlink_publisher.cli.plan_backlinks import _plan_work_themed_row
-        for payload in _plan_work_themed_row(row, three_url_cfg, count=work_count):
-            payload = _apply_zero_cost_and_emit(payload, row, "work_themed")
-            _emit_link_count_recon(payload, branch="work_themed")
-            yield payload
+        for wt_payload in _plan_work_themed_row(row, three_url_cfg, count=work_count):
+            wt_payload = _apply_zero_cost_and_emit(wt_payload, row, "work_themed")
+            _emit_link_count_recon(wt_payload, branch="work_themed")
+            yield wt_payload
         return
 
     payload: dict[str, Any] | None = None

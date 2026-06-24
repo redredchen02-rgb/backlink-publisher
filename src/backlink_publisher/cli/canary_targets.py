@@ -26,7 +26,7 @@ from __future__ import annotations
 import random
 import sys
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.errors import PipelineError, UsageError, handle_error
 from backlink_publisher._util.jsonl import write_jsonl
@@ -209,7 +209,7 @@ def _is_stale(platform: str, verdict: str) -> bool:
     """
     if verdict != STATUS_ADVISORY:
         return False
-    return get_health(platform).get("consecutive_advisory", 0) >= _STALE_ADVISORY_RUNS
+    return bool(cast(int, get_health(platform).get("consecutive_advisory", 0)) >= _STALE_ADVISORY_RUNS)
 
 
 def main(argv: list[str] | None = None) -> None:

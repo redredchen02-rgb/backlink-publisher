@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     """Argparse dispatcher. Returns an exit code (never calls sys.exit directly)."""
     parser = _build_parser()
     args = parser.parse_args(argv)
-    return args.handler(args)
+    return int(args.handler(args))
 
 
 if __name__ == "__main__":  # pragma: no cover

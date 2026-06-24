@@ -13,7 +13,7 @@ from __future__ import annotations
 import unicodedata
 from datetime import datetime, timezone
 from html.parser import HTMLParser
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 from backlink_publisher.anchor.lang import check_anchor_language
@@ -209,8 +209,8 @@ def _detect_row_body_language(row: dict[str, Any]) -> tuple[str, str]:
     html_present = _is_field_present(html)
 
     if md_present and html_present:
-        md_lang = detect_language_from_markdown(md)
-        html_lang = detect_language_from_html(html)
+        md_lang = detect_language_from_markdown(cast(str, md))
+        html_lang = detect_language_from_html(cast(str, html))
         if md_lang == html_lang:
             return md_lang, "both-match"
         # Disagreement: surface as "unknown" so language_matches's escape
@@ -219,9 +219,9 @@ def _detect_row_body_language(row: dict[str, Any]) -> tuple[str, str]:
         return "unknown", f"both-mismatch:md={md_lang}/html={html_lang}"
 
     if md_present:
-        return detect_language_from_markdown(md), "markdown"
+        return detect_language_from_markdown(cast(str, md)), "markdown"
     if html_present:
-        return detect_language_from_html(html), "html"
+        return detect_language_from_html(cast(str, html)), "html"
     return "unknown", "absent"
 
 
@@ -383,7 +383,7 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
                 errors_list.append(
                     f"banner.path points to a file that does not exist: {banner_path}"
                 )
-            elif not banner.exists():
+            elif not banner.exists():  # type: ignore[attr-defined]
                 errors_list.append(
                     f"banner.path points to a file that does not exist: {banner_path}"
                 )

@@ -408,7 +408,7 @@ def _read_scheduler_state() -> dict[str, Any]:
     if not SCHEDULER_STATE_FILE.exists():
         return {}
     try:
-        return json.loads(SCHEDULER_STATE_FILE.read_text())
+        return dict(json.loads(SCHEDULER_STATE_FILE.read_text()))
     except (json.JSONDecodeError, OSError):
         return {}
 

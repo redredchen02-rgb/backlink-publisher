@@ -24,7 +24,7 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U2, 
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Literal, cast
 
 from ..idempotency import DedupKey, DedupRecord, DedupStore
 from .._util.logger import get_logger
@@ -200,7 +200,7 @@ def gate_with_force(
     entry. Returns ``(verdict, record)``; in observe mode (``forced_keys`` empty)
     this is just :func:`gate`."""
     key = _key_for_row(row, platform)
-    force = bool(forced_keys) and key is not None and key.as_tuple() in forced_keys
+    force = bool(forced_keys) and key is not None and forced_keys is not None and key.as_tuple() in forced_keys
     verdict, drec = gate(row, platform, run_id=run_id, force=force)
     if force and verdict == "dispatch" and key is not None:
         from ..idempotency import audit_log
@@ -208,7 +208,7 @@ def gate_with_force(
         audit_log.append_entry(
             action="force", platform=key.platform, target_url=key.target_url,
             account=key.account, from_state=(drec.state if drec else "absent"),
-            to_state="attempting", reason=reason, run_id=run_id,
+            to_state="attempting", reason=reason or "", run_id=run_id,
         )
     return verdict, drec
 
@@ -277,7 +277,8 @@ def _record_terminal(
             return  # failed→anything-except-done: already terminal, no-op
         allow_failed_to_done = rec.state == "failed"
         store.transition(
-            key, state, live_url=live_url, verify_ok=verify_ok, run_id=run_id,
+            key, cast(Literal["attempting", "done", "failed", "uncertain"], state),
+            live_url=live_url, verify_ok=verify_ok, run_id=run_id,
             allow_from_terminal=allow_failed_to_done,
         )
     except Exception as exc:  # observe-only: never break the run

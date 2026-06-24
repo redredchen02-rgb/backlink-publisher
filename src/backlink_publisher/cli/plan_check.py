@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as _dt
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional, cast
 
 # ---------------------------------------------------------------------------
 # Re-export from sub-modules (backward compatibility)
@@ -99,9 +99,9 @@ def _emit_error_and_exit(
             _build_json_payload(
                 plan_path=plan_path,
                 plan_date=plan_date,
-                status=json_status,
+                status=cast(Literal["pass", "drift", "schema_violation", "missing_claims"], json_status),
                 exit_code=getattr(exc, "exit_code", 2),
-                fetch_outcome=fetch_outcome,
+                fetch_outcome=cast("FetchOutcome | None", fetch_outcome),
                 paths_missing=list(paths_missing),
                 shas_unreachable=list(shas_unreachable),
             )

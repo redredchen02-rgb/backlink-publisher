@@ -32,7 +32,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, cast
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.cli._bind.channels import CHANNELS, EVENTS
@@ -499,7 +499,7 @@ class _PlaywrightBrowserRunner:
         # the channel's expected host set (R16-style defense in depth).
         def _provider(*, path) -> None:
             try:
-                raw_state = context.storage_state()
+                raw_state = cast(dict[str, Any], context.storage_state())
                 filtered = _apply_host_filter(raw_state, recipe.cookie_host_filter)
                 Path(path).write_text(json.dumps(filtered, ensure_ascii=False))
             finally:

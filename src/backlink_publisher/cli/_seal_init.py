@@ -170,8 +170,8 @@ def _handle_init(args: argparse.Namespace) -> int:
     # Confirmation prompt (skip with -y)
     if not args.yes:
         print("phase0-seal init: about to write seal notes:", file=sys.stderr)
-        for sha, body in bodies.items():
-            print(f"  {sha}: {body[:160]}{'...' if len(body) > 160 else ''}", file=sys.stderr)
+        for sha, body_str in bodies.items():
+            print(f"  {sha}: {body_str[:160]}{'...' if len(body_str) > 160 else ''}", file=sys.stderr)
         try:
             resp = input("Continue? [y/N]: ")
         except EOFError:
@@ -181,9 +181,9 @@ def _handle_init(args: argparse.Namespace) -> int:
             return EXIT_OK
 
     # Write notes (no -f; refuses if a note already exists at the SHA)
-    for sha, body in bodies.items():
+    for sha, body_str in bodies.items():
         proc = subprocess.run(
-            ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-m", body, sha],
+            ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-m", body_str, sha],
             capture_output=True, text=True,
         )
         if proc.returncode != 0:

@@ -66,7 +66,7 @@ def _sleep(seconds: float) -> None:
 def _validate_post_url_ssrf(url: str) -> Optional[str]:
     """Return block reason if SSRF-dangerous, else None. Fail-open when guard absent."""
     if _ssrf_check is None:
-        return None
+        return None  # type: ignore[unreachable]
     return _ssrf_check(url)
 
 
@@ -74,7 +74,7 @@ def _first_target_url(config: Any) -> Optional[str]:
     """Return first configured [target.*].main_url, or None."""
     ttu = getattr(config, "target_three_url", {})
     if ttu:
-        return next(iter(ttu.values())).main_url
+        return str(next(iter(ttu.values())).main_url)
     return None
 
 

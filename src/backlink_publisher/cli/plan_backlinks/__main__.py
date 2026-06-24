@@ -11,4 +11,5 @@ the `-m` form (CI's plan/validate/publish steps + webui_app's
 
 from . import main
 
-raise SystemExit(main() or 0)
+main()
+raise SystemExit(0)

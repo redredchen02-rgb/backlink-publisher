@@ -10,4 +10,5 @@ the `-m` form (CI steps + webui_app._rewrite_cli_cmd)."""
 
 from . import main
 
-raise SystemExit(main() or 0)
+main()
+raise SystemExit(0)

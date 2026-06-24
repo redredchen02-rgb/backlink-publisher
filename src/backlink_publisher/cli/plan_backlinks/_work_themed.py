@@ -159,7 +159,7 @@ def _plan_work_themed_row(
                 f"work-themed list_url unreachable for {main_domain}: {exc}",
                 exit_code=4,
             )
-            return
+            return  # type: ignore[unreachable]
 
     work_urls = work_urls[:count]
     if not work_urls:

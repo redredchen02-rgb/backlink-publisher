@@ -128,7 +128,7 @@ def _read_existing_baseline(path: Path) -> dict[str, Any] | None:
         return None
     try:
         with path.open("r", encoding="utf-8") as fh:
-            return json.load(fh)
+            return dict(json.load(fh))
     except (OSError, json.JSONDecodeError):
         return None
 

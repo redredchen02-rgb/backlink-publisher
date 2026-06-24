@@ -34,7 +34,7 @@ def _load_config_targets() -> dict[str, Any]:
         from backlink_publisher.config.loader import load_config
 
         cfg = load_config()
-        return cfg.get("targets") or {}
+        return getattr(cfg, "targets", None) or {}
     except Exception:
         return {}
 

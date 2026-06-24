@@ -237,7 +237,7 @@ def publish_rows(
             run_id, _ = checkpoint.create_checkpoint(
                 rows,
                 platform=options.platform,
-                mode=options.mode,
+                mode=options.mode or "draft",
                 flags={"skip_publish_time_check": options.skip_publish_time_check},
             )
             publish_logger.info(f"publish-backlinks: run_id={run_id}")

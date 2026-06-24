@@ -157,7 +157,7 @@ def _cookie_sanity_passes(cookies: list[dict[str, Any]]) -> bool:
     cutoff = time.time() + 7 * 86400
     for c in cookies:
         if not isinstance(c, dict):
-            continue
+            continue  # type: ignore[unreachable]
         name = c.get("name", "")
         if name in MEDIUM_AUTH_COOKIE_WHITELIST:
             return True

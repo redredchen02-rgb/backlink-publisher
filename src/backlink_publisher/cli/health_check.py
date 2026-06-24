@@ -164,7 +164,7 @@ def main(argv: list[str] | None = None) -> None:
 
     config_dir = _config_dir()
     cache_dir = _cache_dir()
-    report = _check_all(config_dir, cache_dir, fix_perms=args.fix_permissions)
+    report = _check_all(str(config_dir), str(cache_dir), fix_perms=args.fix_permissions)
 
     if args.json:
         print(json.dumps(report, indent=2))

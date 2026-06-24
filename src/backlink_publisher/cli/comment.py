@@ -196,6 +196,7 @@ def main(argv: list[str] | None = None) -> int:
         return args.handler(args) or EXIT_OK
     except PipelineError as exc:
         handle_error(exc)
+        return 1
     except NotImplementedError as exc:
         print(f"comment: {exc}", file=sys.stderr)
         return EXIT_NOT_IMPLEMENTED

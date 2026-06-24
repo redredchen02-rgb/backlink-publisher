@@ -6,7 +6,7 @@ Extracted from core.py — contains _generate_payload() and _resolve_article_anc
 from __future__ import annotations
 
 import hashlib
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from backlink_publisher.config import Config, get_anchor_keywords
@@ -104,7 +104,7 @@ def _generate_payload(
 
     anchors = _resolve_article_anchors(config, main_domain, url_mode, domain_label)
 
-    tmpl = _TEMPLATES.get(target_language, _TEMPLATES.get(language, _TEMPLATES["en"]))
+    tmpl: dict[str, Any] = cast(dict[str, Any], _TEMPLATES.get(target_language, _TEMPLATES.get(language, _TEMPLATES["en"])))
     title_tmpl = tmpl["title"].get(url_mode, tmpl["title"]["A"])
     topic_val = topic or tmpl.get("topic_fallback", "Resources")
 
