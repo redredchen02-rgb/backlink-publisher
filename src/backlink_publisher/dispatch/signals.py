@@ -11,7 +11,7 @@ All signals are read-only — no writes to any store.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher.canary.store import get_health
 from backlink_publisher.publishing.registry import (
@@ -76,7 +76,7 @@ def _get_binding(platform: str, channel_data: dict[str, Any] | None) -> str:
     rec = channel_data.get(platform)
     if rec is None or not isinstance(rec, dict):
         return "unbound"
-    return rec.get("status", "unbound")
+    return cast(str, rec.get("status", "unbound"))
 
 
 def collect_all(
@@ -100,7 +100,7 @@ def collect_all(
         dof = dofollow_status(name)
         ref = referral_value(name)
         pol = policy(name)
-        visibility_str = registry_visibility(name) or "active"
+        visibility_str = registry_visibility(name) or "active"  # type: ignore[unreachable]
 
         whitelist: tuple[str, ...] = ()
         if pol is not None and pol.language_whitelist:

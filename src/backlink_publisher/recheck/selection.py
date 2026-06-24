@@ -35,7 +35,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED, PUBLISH_UNVERIFIED
@@ -388,7 +388,7 @@ def select_unverified_candidates(
     return selected
 
 
-def read_stdin_candidates(fh) -> list[dict] | None:
+def read_stdin_candidates(fh: Any) -> list[dict[str, Any]] | None:
     """Read ``live_url`` candidates from stdin JSONL (R11), or None if no stdin.
 
     Trust boundary (SEC3): stdin is an externally-controlled URL source, so

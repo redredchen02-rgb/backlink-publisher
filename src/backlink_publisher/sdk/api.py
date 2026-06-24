@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.error_envelope import parse as _parse_envelope
 
@@ -254,9 +254,9 @@ class PipelineAPI:
             captured = run_pipe_capture(cmd, stdin)
         except Exception as exc:
             return _typed_error_result(str(exc), label)
-        rc = captured["returncode"]
-        stdout = captured["stdout"]
-        stderr = captured.get("stderr", "")
+        rc = cast(int, captured["returncode"])
+        stdout = cast(str, captured["stdout"])
+        stderr = cast(str, captured.get("stderr", ""))
         if rc == 0:
             if stdin and not stdout.strip() and not stderr.strip():
                 return PipeResult(
@@ -440,7 +440,7 @@ class PipelineAPI:
             if tier_1:
                 cmd.append("--tier-1")
             return self._invoke_capture(cmd, plans_jsonl, "publish-backlinks failed")
-        return publish_inprocess(plans_jsonl, platform=platform, mode=mode, tier_1=tier_1)
+        return cast(PipeResult, publish_inprocess(plans_jsonl, platform=platform, mode=mode, tier_1=tier_1))
 
     def publish_seed(self, seed_jsonl: str) -> PipeResult:
         """Publish a self-describing seed (platform/mode in the payload), U5a-2.
@@ -461,7 +461,7 @@ class PipelineAPI:
             return self._invoke_capture(
                 ["publish-backlinks"], seed_jsonl, "publish-backlinks failed"
             )
-        return publish_inprocess(seed_jsonl, platform=None, mode=None, tier_1=False)
+        return cast(PipeResult, publish_inprocess(seed_jsonl, platform=None, mode=None, tier_1=False))
 
     # ── resume ───────────────────────────────────────────────────────────
 

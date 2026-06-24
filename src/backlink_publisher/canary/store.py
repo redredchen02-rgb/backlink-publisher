@@ -37,7 +37,7 @@ from __future__ import annotations
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher.config.loader import _config_dir
 from webui_store.base import JsonStore, _LazyStore
@@ -107,7 +107,7 @@ def get_health(platform: str) -> dict[str, Any]:
     rec = data.get(platform)
     if rec is None:
         return dict(_HEALTH_DEFAULT)
-    return rec
+    return cast(dict[str, Any], rec)
 
 
 def list_all() -> dict[str, dict[str, Any]]:
@@ -185,7 +185,7 @@ def record_verdict(platform: str, status: str) -> dict[str, Any]:
         }
         return current
 
-    return canary_health_store.update(_apply)[platform]
+    return cast(dict[str, Any], canary_health_store.update(_apply)[platform])
 
 
 def is_quarantined(platform: str) -> bool:

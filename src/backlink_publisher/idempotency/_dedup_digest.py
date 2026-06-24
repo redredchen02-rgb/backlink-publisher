@@ -15,6 +15,8 @@ from ._store_types import _DB_FILENAME, _DIGEST_LEN, _SECRET_SUFFIX, _now, Dedup
 class DigestMixin:
     """Provides keyed HMAC digest and store token methods."""
 
+    path: Path  # provided by the concrete subclass
+
     def _secret_path(self) -> Path:
         return self.path.with_name(self.path.name + _SECRET_SUFFIX)
 

@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, cast
 
 from backlink_publisher.publishing.adapters.link_attr_verifier import inspect_target_anchor
 from backlink_publisher.gates import verdict as gv
@@ -108,7 +108,7 @@ def assess_survival(
 
     if not threshold_set:
         requested = gv.INCONCLUSIVE
-    elif survival_rate is not None and survival_rate >= survival_threshold:
+    elif survival_rate is not None and survival_rate >= cast(float, survival_threshold):
         requested = gv.GO  # fingerprint survives → footprint-gate measures a real signal
     else:
         requested = gv.KILL  # fingerprint doesn't survive → dead premise (entropy-budget)

@@ -12,6 +12,7 @@ Source: ``origin/pr/1:src/backlink_publisher/verifier.py``
 from __future__ import annotations
 
 from html.parser import HTMLParser
+from typing import Any
 
 __all__ = ["ArticleScopedCollector", "collect_article_text"]
 
@@ -71,8 +72,8 @@ class ArticleScopedCollector(HTMLParser):
         self._closed_once = False
 
         # Subtree-skip state inside article.
-        self._skip_sidebar = frozenset()
-        self._skip_article_sidebar = frozenset()
+        self._skip_sidebar: frozenset[str] = frozenset()
+        self._skip_article_sidebar: frozenset[str] = frozenset()
         self._inner_depth = 0
 
         # Output buffer.
@@ -93,7 +94,7 @@ class ArticleScopedCollector(HTMLParser):
 
     # --- override handlers ---
 
-    def handle_starttag(self, tag: str, attrs) -> None:
+    def handle_starttag(self, tag: str, attrs: Any) -> None:
         attrs_dict = dict(attrs)
         if tag == "article":
             self._article_depth += 1

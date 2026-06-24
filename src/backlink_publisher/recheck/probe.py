@@ -46,7 +46,7 @@ _DETERMINISTIC_DEAD_REASONS = frozenset({"http_404", "http_410"})
 def _probe_indexability(
     live_url: str,
     timeout: float,
-    fetch_fn: Callable[..., Any],
+    fetch_fn: Callable[..., Any] | None,
 ) -> tuple[str, str | None]:
     """Second-fetch ``live_url`` and classify its source-page indexability.
 
@@ -56,7 +56,7 @@ def _probe_indexability(
     Never raises; any fetch failure ⇒ ``unknown`` (fail-open). The tri-state map
     itself lives in :func:`recheck.indexability.classify_indexability`.
     """
-    fetch = fetch_fn or fetch_target
+    fetch: Callable[..., Any] = fetch_fn if fetch_fn is not None else fetch_target
     try:
         facts = fetch(live_url, timeout=timeout)
     except Exception as exc:  # noqa: BLE001 — never-raise; indeterminate => unknown

@@ -19,7 +19,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, cast
 
 from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.logger import opencli_logger as _log
@@ -77,7 +77,7 @@ def _lock_path(config: Config) -> Path:
 def _read_state_unsafe(state_path: Path) -> dict[str, Any]:
     if not state_path.exists():
         return {}
-    return json.loads(state_path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(state_path.read_text(encoding="utf-8")))
 
 
 def _write_state_unsafe(state_path: Path, state: dict[str, Any]) -> None:
@@ -129,4 +129,4 @@ def set_paused(platform: str, paused: bool, config: Config) -> bool:
 
 def is_paused(platform: str, config: Config) -> bool:
     """Fail-SAFE read of the pause flag (False on any read error)."""
-    return get(platform, config)["paused"]
+    return cast(bool, get(platform, config)["paused"])

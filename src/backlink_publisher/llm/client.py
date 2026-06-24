@@ -54,7 +54,7 @@ def _sanitize_input(text: str) -> str:
     HTML-attribute escaping closes that hole.
     """
     if not isinstance(text, str):
-        return ""
+        return ""  # type: ignore[unreachable]
     cleaned = _PROMPT_UNSAFE_CHARS.sub("", text)
     # Escape the five XML/HTML-attribute-significant characters.  ``&`` must
     # go first so we don't double-escape the entities we're about to write.
@@ -92,7 +92,7 @@ def _redact_for_log(text: str) -> str:
     log even if it survived the scrubs.
     """
     if not isinstance(text, str):
-        text = str(text)
+        text = str(text)  # type: ignore[unreachable]
     text = _AUTH_HEADER_RE.sub(r"\1: ***", text)
     text = _BEARER_RE.sub("Bearer ***", text)
     text = _API_KEY_RE.sub(r"\1***", text)

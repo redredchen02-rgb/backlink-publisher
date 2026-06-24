@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 # Resolve the data file relative to this module's location so the module
 # works regardless of the caller's cwd.
@@ -41,15 +41,15 @@ _DECIDED_VERDICTS = frozenset(
 )
 
 
-def _load() -> dict:
+def _load() -> dict[str, Any]:
     """Load and return the raw JSON data (not cached — file may be updated)."""
     if not _DATA_FILE.exists():
         return {"version": 1, "entries": []}
-    return json.loads(_DATA_FILE.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(_DATA_FILE.read_text(encoding="utf-8")))
 
 
-def _entries() -> list[dict]:
-    return _load().get("entries", [])
+def _entries() -> list[dict[str, Any]]:
+    return cast(list[dict[str, Any]], _load().get("entries", []))
 
 
 def get_verdict(platform: str) -> Optional[dict]:

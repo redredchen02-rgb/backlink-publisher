@@ -38,7 +38,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from backlink_publisher.recheck import verdicts
 # Canonical latest-verdict primitives live in the stable ``latest_verdicts``
@@ -215,14 +215,15 @@ def apply_discounts(
         if td is None or td.total == 0:
             out.append(row)  # passthrough, byte-for-byte identical
             continue
-        matched.add(canon)
+        canon_str = cast(str, canon)  # td is non-None only when canon is non-None
+        matched.add(canon_str)
         new_row = dict(row)  # preserve all keys; mutate only the two live fields
         live = new_row.get("live_dofollow")
         live = live if isinstance(live, int) and not isinstance(live, bool) else 0
         new_row["live_dofollow"] = max(0, live - td.total)
         # Prune only platforms with NO surviving alive link on this target — a dead
         # link must not evict a platform another live dofollow link still occupies.
-        prune = td.dead_platforms - discounts.alive_platforms.get(canon, set())
+        prune = td.dead_platforms - discounts.alive_platforms.get(canon_str, set())
         platforms = new_row.get("live_dofollow_platforms")
         if isinstance(platforms, list) and prune:
             new_row["live_dofollow_platforms"] = [

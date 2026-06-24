@@ -18,6 +18,7 @@ session, and do our render paths even preserve ``referer``?*
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 from backlink_publisher._util.markdown import _format_anchor_html
 from backlink_publisher.gates import verdict as gv
@@ -107,7 +108,7 @@ def assess_g3(
         )
 
     # 1. Static audit alone can KILL (majority strip → structurally blind).
-    if threshold_set and strip_fraction >= strip_threshold:
+    if threshold_set and strip_fraction >= cast(float, strip_threshold):
         return _v(gv.KILL, confirmed=True)
     # 2. Tier-2 credentials gate (parked, not deferred). BLOCKED bypasses the
     #    threshold coercion in build_verdict (it is not threshold-gated).

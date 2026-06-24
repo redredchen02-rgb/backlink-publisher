@@ -30,6 +30,8 @@ effect of merely importing the package).
 """
 from __future__ import annotations
 
+from typing import Any
+
 from ._util.errors import (
     AntiBotChallengeError,
     AuthExpiredError,
@@ -67,7 +69,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):  # PEP 562 — lazy facade resolution
+def __getattr__(name: str) -> Any:  # PEP 562 — lazy facade resolution
     if name in ("plan", "validate", "publish"):
         from . import sdk
 

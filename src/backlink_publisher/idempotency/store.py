@@ -42,7 +42,7 @@ from collections.abc import Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Iterator, Literal, cast
 
 from .._util.url import canonicalize_url
 from ..config import _config_dir
@@ -317,7 +317,7 @@ class DedupStore:
                 ).fetchone()
             return _row_to_record(row) if row is not None else None
 
-        return _retry_sqlite(_op)
+        return cast("DedupRecord | None", _retry_sqlite(_op))
 
     def get_many(
         self, keys: Iterable[DedupKey]
@@ -359,7 +359,7 @@ class DedupStore:
                         out[tup] = _row_to_record(row)
             return out
 
-        return _retry_sqlite(_op)
+        return cast("dict[tuple[str, str, str], DedupRecord]", _retry_sqlite(_op))
 
     def list_by_state(
         self, state: State, *, platform: str | None = None
@@ -378,7 +378,7 @@ class DedupStore:
                 rows = conn.execute(sql, params).fetchall()
             return [_row_to_record(r) for r in rows]
 
-        return _retry_sqlite(_op)
+        return cast("list[DedupRecord]", _retry_sqlite(_op))
 
     def is_stale_attempting(
         self, record: DedupRecord, *, now: float | None = None, ttl_s: int = _STALE_TTL_S
@@ -500,7 +500,7 @@ class DedupStore:
                     return GateDecision("hold", rec)
                 return GateDecision("hold", rec)
 
-        return _retry_sqlite(_op)
+        return cast("GateDecision", _retry_sqlite(_op))
 
     def intent_write(
         self,
@@ -567,7 +567,7 @@ class DedupStore:
                     )
             return IntentOutcome(won=True)
 
-        return _retry_sqlite(_op)
+        return cast("IntentOutcome", _retry_sqlite(_op))
 
     def transition(
         self,
@@ -664,7 +664,7 @@ class DedupStore:
                 )
                 return cur.rowcount > 0
 
-        return _retry_sqlite(_op)
+        return cast(bool, _retry_sqlite(_op))
 
     def set_verify_ok(self, key: DedupKey, ok: bool) -> None:
         """Record post-flight verification outcome on a ``done`` row WITHOUT
@@ -699,9 +699,9 @@ class DedupStore:
                     "WHERE platform = ? AND account = ? AND target_url = ?",
                     key.as_tuple(),
                 )
-                return row[0]
+                return cast(str, row[0])
 
-        return _retry_sqlite(_op)
+        return cast("str | None", _retry_sqlite(_op))
 
 
 # Column list shared by SELECT helpers, in DedupRecord field order.

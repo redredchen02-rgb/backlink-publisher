@@ -18,7 +18,9 @@ from pathlib import Path
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher.click_track.engine import ClickQueryOptions, handle_site
-from backlink_publisher.click_track.store import append_observed, append_query_failed
+from typing import cast
+
+from backlink_publisher.click_track.store import _Appendable, append_observed, append_query_failed
 from backlink_publisher.config import ClickTrackConfig, load_config
 from backlink_publisher.events.store import EventStore
 
@@ -127,14 +129,15 @@ def main(argv: list[str] | None = None) -> None:
         )
 
         # Persist probe results to the event store.
+        _store = cast(_Appendable, store)
         if opts.dry_run:
             pass  # no store writes in dry-run mode
         elif result.error_reason:
-            append_query_failed(store, target_site, error_reason=result.error_reason)
+            append_query_failed(_store, target_site, error_reason=result.error_reason)
         else:
             for stat in result.stats:
                 append_observed(
-                    store,
+                    _store,
                     target_site=target_site,
                     sessions=stat.sessions,
                     users=stat.users,

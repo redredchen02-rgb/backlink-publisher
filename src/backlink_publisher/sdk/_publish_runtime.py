@@ -94,7 +94,7 @@ class _PublishLeaseGuard:
         self._acquired = []
 
 
-def _read_publish_rows_strict(jsonl_str: str):
+def _read_publish_rows_strict(jsonl_str: str) -> tuple[list[dict[str, Any]], Any]:
     """Strict JSONL read mirroring ``_util.jsonl.read_jsonl(strict=True)``.
 
     The CLI shell feeds publish input through ``read_jsonl`` (strict), which
@@ -145,7 +145,7 @@ def _target_platforms(rows: list[dict[str, Any]], platform: str | None) -> set[s
     return {(platform or r.get("platform", "")) for r in rows if (platform or r.get("platform", ""))}
 
 
-def _validate_rows(rows: list[dict[str, Any]], platform: str | None):
+def _validate_rows(rows: list[dict[str, Any]], platform: str | None) -> Any:
     """Mirror the CLI shell's per-row validation gate (exit 2).
 
     Returns a failed ``PipeResult`` (InputValidationError / exit 2) for the first
@@ -196,7 +196,7 @@ def _apply_tier1_filter(
     return kept
 
 
-def _verify_setup(platforms: set[str], config: Any):
+def _verify_setup(platforms: set[str], config: Any) -> Any:
     """Mirror the CLI shell's per-platform ``verify_adapter_setup`` gate (exit 3).
 
     Returns a failed ``PipeResult`` (DependencyError / exit 3) when a platform's
@@ -226,7 +226,7 @@ def _verify_setup(platforms: set[str], config: Any):
     return None
 
 
-def _build_pipe_result(outcome: Any, *, dry_run: bool):
+def _build_pipe_result(outcome: Any, *, dry_run: bool) -> Any:
     """Map a :class:`PublishOutcome` to the ``PipeResult`` the subprocess path
     would have produced — exact parity with the CLI epilogue + ``_invoke_capture``.
 
@@ -300,7 +300,7 @@ def publish_inprocess(
     platform: str | None,
     mode: str | None,
     tier_1: bool,
-):
+) -> Any:
     """In-process publish entry — returns a ``PipeResult`` byte-for-byte
     consistent with the old ``publish-backlinks`` subprocess for API-tier runs.
 

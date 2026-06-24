@@ -6,12 +6,12 @@ monolith-budget headroom.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from bs4 import BeautifulSoup
 
 
-def read_html_head_window(resp, max_bytes: int) -> bytes:
+def read_html_head_window(resp: Any, max_bytes: int) -> bytes:
     """Stream ``resp`` and return the accumulated body up to whichever comes
     first: closing ``</head>`` tag, end of stream, or ``max_bytes``.
 
@@ -50,8 +50,8 @@ def extract_title(body: bytes) -> Optional[str]:
     og = soup.find("meta", attrs={"property": "og:title"})
     if og is not None:
         content = og.get("content", "")
-        if content and content.strip():
-            return content.strip()
+        if content and content.strip():  # type: ignore[union-attr]
+            return content.strip()  # type: ignore[union-attr]
 
     title_tag = soup.find("title")
     if title_tag is not None and title_tag.text:

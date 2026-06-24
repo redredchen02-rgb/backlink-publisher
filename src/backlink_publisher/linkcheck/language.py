@@ -241,7 +241,7 @@ def detect_language_from_markdown(text: str) -> str:
     en_score = _score_language(text, EN_HINTS, use_word_boundary=True)
     ko_score = _score_language(text, KO_HINTS)
     scores = {"zh-CN": zh_score, "ru": ru_score, "en": en_score, "ko": ko_score}
-    best = max(scores, key=scores.get)
+    best = max(scores, key=scores.get)  # type: ignore[arg-type]
     if scores[best] == 0:
         return "unknown"
     return best

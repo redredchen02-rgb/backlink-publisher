@@ -3,6 +3,8 @@ from __future__ import annotations
 import ipaddress
 import socket
 
+from typing import cast
+
 from requests import Response
 from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
 from backlink_publisher.http import get as http_get
@@ -29,7 +31,7 @@ class _ResponseTooLarge(Exception):
 def _resolve_addresses(host: str) -> list[str]:
     """Return all IP literals that ``host`` resolves to. Mockable in tests."""
     infos = socket.getaddrinfo(host, None)
-    return [info[4][0] for info in infos]
+    return [cast(str, info[4][0]) for info in infos]
 
 
 def _block_if_private(url: str) -> None:

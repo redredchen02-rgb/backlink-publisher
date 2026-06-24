@@ -75,7 +75,7 @@ def atomic_write(path: Path, text: str, mode: int = 0o600) -> None:
     machinery is single-sourced.  Readers see either the old file or the fully
     written new one — never a partial write.
     """
-    atomic_write_stream(path, lambda f: f.write(text), mode)
+    atomic_write_stream(path, lambda f: f.write(text), mode)  # type: ignore[arg-type]
 
 def rotate_snapshots(
     path: Path,

@@ -11,7 +11,10 @@ complexity of the aggregate well below the C threshold.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ._payload_types import PlannedPayload
 
 from .schema import (
     LINK_KINDS,

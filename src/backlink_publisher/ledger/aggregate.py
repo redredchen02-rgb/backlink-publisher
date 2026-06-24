@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.anchor.metrics import exact_match_ratio
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from backlink_publisher.events.store import EventStore
 
 
-def _load_confirmed_dofollow_urls(store: "EventStore") -> frozenset:
+def _load_confirmed_dofollow_urls(store: "EventStore | None") -> frozenset[str]:
     """Return canonical live_urls whose latest ``link.rechecked`` event has
     ``confirmed_dofollow=True``.
 
@@ -108,7 +108,7 @@ def _classify(
     return "nofollow", registry.referral_value(platform)
 
 
-def _load_recheck_liveness(store: "EventStore") -> dict[str, str]:
+def _load_recheck_liveness(store: "EventStore | None") -> dict[str, str]:
     """Return ``{canonical live_url: latest recheck verdict}`` for links whose
     freshest ``link.rechecked`` verdict is dead/degraded.
 
@@ -181,8 +181,8 @@ def _link_liveness(
 def build_ledger(
     *,
     stale_days: int = 30,
-    store=None,
-    history=None,
+    store: "EventStore | None" = None,
+    history: Any = None,
 ) -> list[LedgerRow]:
     """Build the per-target scorecard. ``store``/``history`` injectable for tests.
 

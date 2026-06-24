@@ -14,7 +14,7 @@ import stat
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .config import _cache_dir
 from backlink_publisher._util.io import atomic_write_json
@@ -124,7 +124,7 @@ def load_checkpoint(run_id: str) -> dict[str, Any]:
     path = _checkpoint_path(run_id)
     if not path.exists():
         raise FileNotFoundError(f"checkpoint not found: {run_id}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 _OPTIONAL_ITEM_FIELDS = (

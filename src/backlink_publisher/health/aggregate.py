@@ -104,7 +104,7 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
         else:  # publish.failed / publish.unverified
             if platform not in last_failure:
                 last_failure[platform] = row["ts_utc"]
-                last_error[platform] = _redact(row["error"] or "") or None
+                last_error[platform] = _redact(row["error"] or "") or None  # type: ignore[assignment]
 
     # circuit.py persists per-platform timestamps under "tripped_at_iso" in
     # this file. Read + parse it ONCE here, then do dict lookups in the loop

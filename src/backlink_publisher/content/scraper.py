@@ -164,7 +164,7 @@ def _extract_description(soup: BeautifulSoup) -> str | None:
     if not tag:
         return None
     content = tag.get("content", "")
-    cleaned = (content or "").strip()
+    cleaned = (content or "").strip()  # type: ignore[union-attr]
     return _truncate(cleaned, _DESC_MAX) or None
 
 
@@ -277,7 +277,7 @@ def fetch_work_urls_from_list(
 
     candidates: list[str] = []
     for anchor in soup.find_all("a", href=True):
-        href = (anchor["href"] or "").strip()
+        href = (anchor["href"] or "").strip()  # type: ignore[union-attr]
         if not href or href.startswith("#") or href.lower().startswith("mailto:"):
             continue
         candidates.append(absolutize(list_url, href))

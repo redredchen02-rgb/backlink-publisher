@@ -21,6 +21,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from typing import cast
 
 # Marker regex required in any verdict comment body for routine_comment kind.
 # MUST stay aligned with the marker template appended to routine prompts (Unit 1).
@@ -285,6 +286,7 @@ def validate_seal_schema(d: dict) -> None:
         raise SealValidationError("verdict_ref must be an object")
 
     kind = ref.get("kind")
+    required: tuple[str, ...]
     if kind == "routine_comment":
         required = _REQUIRED_VERDICT_REF_ROUTINE
     elif kind == "manual":
@@ -432,7 +434,7 @@ def _run_gh(*args: str, timeout: float = 30.0) -> dict:
         )
 
     try:
-        return json.loads(proc.stdout or "{}")
+        return cast(dict, json.loads(proc.stdout or "{}"))
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"gh api returned non-JSON: {proc.stdout[:200]!r}"

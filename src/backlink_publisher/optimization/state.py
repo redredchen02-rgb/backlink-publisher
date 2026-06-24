@@ -13,7 +13,7 @@ import os
 import tempfile
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .models import _upgrade_v1_to_v2, default_state
 from backlink_publisher.config.loader import _config_dir
@@ -258,7 +258,7 @@ class OptimizationState:
         provide their own defaults).
         """
         data = self.load()
-        return data.get("rules", {})
+        return cast(dict[str, Any], data.get("rules", {}))
 
     def reset_weights(self) -> None:
         """Clear all dynamic weights and adjustments.

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from urllib.parse import urlsplit
 
@@ -93,12 +94,12 @@ def _verified_older_than(verified_at: object, days: int, now: datetime) -> bool:
 
 
 def plan_gap(
-    rows,
+    rows: Any,
     opts: GapOptions,
     *,
     active_dofollow: list[str] | None = None,
     now: datetime | None = None,
-):
+) -> tuple[list[dict[str, Any]], SuppressionCounts, dict[str, Any]]:
     """Transform ledger rows → (seed_rows, suppression_counts, liveness_meta).
 
     ``rows`` is an iterable of equity-ledger dicts (already weakest-first).
@@ -205,7 +206,7 @@ KEEPALIVE_EXCLUDED_HOSTS = frozenset({"example.com"})
 _DEAD_VERDICTS = ("link_stripped", "host_gone")
 
 
-def _row_get(row, key, default=None):
+def _row_get(row: Any, key: str, default: Any = None) -> Any:
     """Read ``key`` from a ledger row that may be a dict (CLI JSONL) OR a
     ``LedgerRow`` dataclass (in-process ``build_ledger`` output)."""
     if isinstance(row, dict):
@@ -224,13 +225,13 @@ class KeepaliveGap:
 
 
 def plan_keepalive_gap(
-    rows,
-    per_target_status,
+    rows: Any,
+    per_target_status: Any,
     opts: GapOptions,
     *,
-    sticky_platforms=KEEPALIVE_STICKY_PLATFORMS,
-    exclude_hosts=KEEPALIVE_EXCLUDED_HOSTS,
-):
+    sticky_platforms: Any = KEEPALIVE_STICKY_PLATFORMS,
+    exclude_hosts: Any = KEEPALIVE_EXCLUDED_HOSTS,
+) -> tuple[list[dict[str, Any]], list[KeepaliveGap]]:
     """Per-link stripped-aware gap (D1): a gap is "a previously-live-dofollow
     link is now stripped", not "page has < N links". Emits republish seeds onto
     sticky platforms for each target with ≥1 dead link.

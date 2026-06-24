@@ -217,7 +217,7 @@ def route(
     else:
         reason_parts.append(strategy)
 
-    sig = signals.get(best_name) if best_name else None
+    sig = signals.get(best_name) if best_name else None  # type: ignore[assignment]
     if sig:
         dof_str = str(sig.dofollow) if sig.dofollow is not None else "unknown"
         reason_parts.append(f"dofollow={dof_str}")

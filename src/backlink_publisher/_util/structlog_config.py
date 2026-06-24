@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -40,7 +40,7 @@ def _redact_processor(
             return type(value)(_redact(v) for v in value)
         return value
 
-    return _redact(event_dict)
+    return cast(dict[str, Any], _redact(event_dict))
 
 
 def configure_structlog(
@@ -61,7 +61,7 @@ def configure_structlog(
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         structlog.dev.set_exc_info,
-        _redact_processor,
+        cast(structlog.types.Processor, _redact_processor),
     ]
 
     if json_format:

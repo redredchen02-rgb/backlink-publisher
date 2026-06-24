@@ -15,6 +15,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, Protocol
+
+
+class _Appendable(Protocol):
+    def append(self, kind: str, payload: dict[str, Any]) -> None: ...
 
 
 @dataclass
@@ -34,7 +39,7 @@ class ClickRow:
 
 
 def append_observed(
-    store: object,
+    store: _Appendable,
     *,
     target_site: str,
     sessions: int,
@@ -58,7 +63,7 @@ def append_observed(
 
 
 def append_query_failed(
-    store: object,
+    store: _Appendable,
     target_site: str,
     *,
     error_reason: str,
@@ -72,7 +77,7 @@ def append_query_failed(
 
 
 def append_query_skipped(
-    store: object,
+    store: _Appendable,
     target_site: str,
     *,
     reason: str,

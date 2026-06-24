@@ -346,7 +346,7 @@ def _passes_filters_with_rule(
     per ``resolve_anchor`` call instead of once per candidate.
     """
     if not isinstance(text, str):
-        return False
+        return False  # type: ignore[unreachable]
     length = len(text)
     if length < _MIN_ANCHOR_LEN or length > _MAX_ANCHOR_LEN:
         return False
@@ -398,7 +398,7 @@ def _passes_work_anchor_filter(text: str) -> bool:
     - blocks the fullwidth ASCII punctuation variants too
     """
     if not isinstance(text, str):
-        return False
+        return False  # type: ignore[unreachable]
     length = len(text)
     if length < _WORK_MIN_ANCHOR_LEN or length > _WORK_MAX_ANCHOR_LEN:
         return False

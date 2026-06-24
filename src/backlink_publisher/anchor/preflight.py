@@ -131,7 +131,7 @@ def validate_anchor_pool_entry(
     brand names + Hanja proper nouns are legitimate).
     """
     if not isinstance(entry, str):
-        return False, f"entry must be a string, got {type(entry).__name__}"
+        return False, f"entry must be a string, got {type(entry).__name__}"  # type: ignore[unreachable]
     normalized = unicodedata.normalize("NFC", entry)
     stripped = _strip_outer_whitespace_and_zero_width(normalized)
     if not stripped:

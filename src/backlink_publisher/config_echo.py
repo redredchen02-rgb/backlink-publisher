@@ -184,7 +184,7 @@ def banner_lines(
 def emit_banner(
     config: Config, cli_name: str, *,
     config_path: Path | str | None = None,
-    stream=None,
+    stream: Any = None,
 ) -> str:
     """Write the banner to ``stream`` (default ``sys.stderr``) and return
     the config SHA for downstream stamping into JSONL payloads.

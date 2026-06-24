@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable
-from typing import Callable
+from typing import Callable, cast
 
 from backlink_publisher.content._preflight_fetch import PreflightFacts, fetch_target
 from backlink_publisher.gates import verdict as gv
@@ -91,7 +91,7 @@ def assess_decay(
 
     if not threshold_set:
         requested = gv.INCONCLUSIVE
-    elif rate is not None and rate >= decay_threshold:
+    elif rate is not None and rate >= cast(float, decay_threshold):
         requested = gv.GO
     else:
         requested = gv.KILL

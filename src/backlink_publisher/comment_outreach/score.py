@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Any, Optional, TextIO
+from typing import Any, Optional, TextIO, cast
 
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import PipelineLogger
@@ -100,7 +100,7 @@ def score_target(target: dict[str, Any]) -> dict[str, Any]:
     authority = _authority(target)
     compliance = _compliance(indexed, comment_open, link_allowed)
     anchor_risk = _anchor_risk(target.get("anchor_text"), topic)
-    platform_risk = _PLATFORM_RISK.get(platform, 50)
+    platform_risk = _PLATFORM_RISK.get(cast(str, platform), 50)
 
     score = round(
         0.30 * relevance + 0.25 * authority + 0.25 * compliance

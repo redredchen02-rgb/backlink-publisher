@@ -26,7 +26,7 @@ Read-only; no writes, no network, no LLM.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.events import EventStore, kinds
@@ -142,9 +142,9 @@ def build_channel_scorecard(
             acc[k] += counts.get(k, 0)
 
     # Pivot every link by its resolved channel.
-    seen: dict[str, dict] = {}
+    seen: dict[str, dict[str, Any]] = {}
 
-    def channel_acc(ch: str) -> dict:
+    def channel_acc(ch: str) -> dict[str, Any]:
         return seen.setdefault(ch, {
             "total": 0, "live": 0, "live_dofollow": 0,
             "liveness": {k: 0 for k in _LIVENESS_KEYS},
@@ -157,7 +157,8 @@ def build_channel_scorecard(
             acc = channel_acc(ch)
             acc["total"] += 1
             status = _link_liveness(link, now, stale_days)
-            acc["liveness"][status] = acc["liveness"].get(status, 0) + 1
+            liveness: dict[str, int] = cast(dict[str, int], acc["liveness"])
+            liveness[status] = liveness.get(status, 0) + 1
             if status == "live":
                 acc["live"] += 1
                 if _classify(resolved)[0] == "dofollow":
@@ -175,11 +176,11 @@ def build_channel_scorecard(
 
     rows: list[ChannelScoreRow] = []
     for ch in channels:
-        acc = seen.get(ch)
-        total = acc["total"] if acc else 0
-        live = acc["live"] if acc else 0
-        live_dofollow = acc["live_dofollow"] if acc else 0
-        breakdown = acc["liveness"] if acc else {k: 0 for k in _LIVENESS_KEYS}
+        ch_acc: dict[str, Any] | None = seen.get(ch)
+        total: int = int(ch_acc["total"]) if ch_acc else 0
+        live: int = int(ch_acc["live"]) if ch_acc else 0
+        live_dofollow: int = int(ch_acc["live_dofollow"]) if ch_acc else 0
+        breakdown: dict[str, int] = cast(dict[str, int], ch_acc["liveness"]) if ch_acc else {k: 0 for k in _LIVENESS_KEYS}
         declared_dofollow, declared_referral = _declared(ch)
         small = total <= small_sample_max
         rows.append(ChannelScoreRow(

@@ -21,6 +21,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from backlink_publisher.content import fetch as content_fetch
 
@@ -126,7 +127,7 @@ _REPO_ROOT = str(Path(__file__).parents[3])
 _SRC_DIR = os.path.join(_REPO_ROOT, 'src')
 
 
-def _rewrite_cli_cmd(cmd):
+def _rewrite_cli_cmd(cmd: Any) -> tuple[Any, Any]:
     """Rewrite bare CLI command to ``sys.executable -m <module>`` with PYTHONPATH=./src.
 
     Why: the installed entry-point shims can point at a stale editable-install
@@ -145,7 +146,7 @@ def _rewrite_cli_cmd(cmd):
     return new_cmd, env
 
 
-def _base_subprocess_kwargs(stdin, cwd, env, timeout: int = 300):
+def _base_subprocess_kwargs(stdin: Any, cwd: Any, env: Any, timeout: int = 300) -> dict[str, Any]:
     """Shared kwargs for subprocess.run in run_pipe and run_pipe_capture."""
     return dict(
         input=stdin,
@@ -178,7 +179,7 @@ def surface_cli_error(stderr: str | None, *, limit: int = _MAX_SURFACED_ERROR) -
     return cleaned
 
 
-def describe_cli_error(stderr, *, limit=_MAX_SURFACED_ERROR):
+def describe_cli_error(stderr: str | None, *, limit: int = _MAX_SURFACED_ERROR) -> str:
     """Operator-facing description of a failed CLI's stderr, envelope-aware.
 
     Prefers the Unit 1 typed-error envelope (rendered ``[<error_class>] <message>``)
@@ -198,7 +199,7 @@ def describe_cli_error(stderr, *, limit=_MAX_SURFACED_ERROR):
     return surface_cli_error(stderr, limit=limit)
 
 
-def run_pipe_capture(cmd, stdin) -> dict[str, str | int]:
+def run_pipe_capture(cmd: Any, stdin: Any) -> dict[str, str | int]:
     """Run a pipeline command and return ``{stdout, stderr, returncode}``.
 
     The non-raising sibling of :func:`run_pipe`. Callers that must branch on the
@@ -213,9 +214,11 @@ def run_pipe_capture(cmd, stdin) -> dict[str, str | int]:
             **_base_subprocess_kwargs(stdin, _REPO_ROOT or os.getcwd(), env),
         )
     except subprocess.TimeoutExpired as exc:
+        _out = exc.stdout
+        _err = exc.stderr
         return {
-            'stdout': exc.stdout or '',
-            'stderr': exc.stderr or f'CLI timeout after 300 seconds',
+            'stdout': _out.decode() if isinstance(_out, bytes) else (_out or ''),
+            'stderr': _err.decode() if isinstance(_err, bytes) else (_err or 'CLI timeout after 300 seconds'),
             'returncode': -1,  # Indicate timeout
         }
     return {
@@ -225,7 +228,7 @@ def run_pipe_capture(cmd, stdin) -> dict[str, str | int]:
     }
 
 
-def run_pipe(cmd, stdin):
+def run_pipe(cmd: Any, stdin: Any) -> dict[str, str]:
     """Run a pipeline command, raising on non-zero exit or silent failure."""
     new_cmd, env = _rewrite_cli_cmd(cmd)
     try:
@@ -234,7 +237,9 @@ def run_pipe(cmd, stdin):
             **_base_subprocess_kwargs(stdin, _REPO_ROOT or os.getcwd(), env),
         )
     except subprocess.TimeoutExpired as exc:
-        raise Exception(f'CLI timeout after 300 seconds: {exc.stderr or ""}')
+        _exc_stderr = exc.stderr
+        _stderr_str = _exc_stderr.decode() if isinstance(_exc_stderr, bytes) else (_exc_stderr or "")
+        raise Exception(f'CLI timeout after 300 seconds: {_stderr_str}')
     captured = {
         'stdout': result.stdout,
         'stderr': result.stderr,
@@ -261,7 +266,7 @@ def run_pipe(cmd, stdin):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _parse_run_result(stdout: str, entry) -> list[dict]:
+def _parse_run_result(stdout: str, entry: Any) -> list[dict[str, Any]]:
     """Parse plan-backlinks JSONL stdout into per-work-url status rows."""
     rows = []
     work_urls = list(entry.work_urls or [])

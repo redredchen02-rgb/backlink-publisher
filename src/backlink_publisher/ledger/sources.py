@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.anchor import profile as anchor_profile
@@ -80,7 +80,7 @@ def _load_history(history: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
         return history
     from webui_store import history_store
 
-    return history_store.load()
+    return cast(list[dict[str, Any]], history_store.load())
 
 
 def build_target_buckets(
@@ -164,9 +164,9 @@ def build_target_buckets(
                 # Pre-bump "" domain-rollup bucket — not attributable per-target.
                 continue
             target = _canon(raw_target)
-            b = buckets.get(target)
+            b = buckets.get(target)  # type: ignore[assignment]
             if b is None:
-                continue
+                continue  # type: ignore[unreachable]
             b.profile_entries.extend(entries)
             b.has_anchor_data = True
 

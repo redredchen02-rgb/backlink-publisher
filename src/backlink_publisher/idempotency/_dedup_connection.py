@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -13,6 +14,8 @@ from ._dedup_schema import _SCHEMA_DDL
 
 class ConnectionMixin:
     """Provides SQLite connection management methods."""
+
+    path: Path  # provided by the concrete subclass
 
     def _connect_raw(self) -> sqlite3.Connection:
         """Open a connection, apply PRAGMAs + schema + file hygiene, return it."""
@@ -42,7 +45,7 @@ class ConnectionMixin:
         return conn
 
     @contextmanager
-    def connect(self) -> sqlite3.Connection:
+    def connect(self) -> Generator[sqlite3.Connection, None, None]:
         """Open a connection, apply PRAGMAs + schema, yield to caller."""
         conn = self._connect_raw()
         try:
@@ -55,7 +58,7 @@ class ConnectionMixin:
             conn.close()
 
     @contextmanager
-    def connect_immediate(self) -> sqlite3.Connection:
+    def connect_immediate(self) -> Generator[sqlite3.Connection, None, None]:
         """Like ``connect`` but opens the transaction with ``BEGIN IMMEDIATE``."""
         conn = self._connect_raw()
         conn.isolation_level = None

@@ -206,7 +206,7 @@ def emit_recon(
     """
     if reason is not None:
         fields = {**fields, "reason": reason}
-    line = RECONLine(level=level, fields=fields)  # type: ignore[arg-type]
+    line = RECONLine(level=level, fields=fields)
     print(format_recon_line(line), file=sys.stderr, flush=True)
 
 

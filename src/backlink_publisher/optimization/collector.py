@@ -16,7 +16,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher.config.loader import _config_dir as _resolve_config_dir
 
@@ -159,7 +159,7 @@ def _try_cli_collect(
         if result.returncode != 0:
             logger.debug("%s exited %d: %s", command, result.returncode, result.stderr[:200])
             return None
-        return json.loads(result.stdout)
+        return cast(dict[str, Any], json.loads(result.stdout))
     except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         logger.debug("Failed to collect from %s: %s", command, exc)
         return None

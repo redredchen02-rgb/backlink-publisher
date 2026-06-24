@@ -331,7 +331,7 @@ def seed_from_dict(data: dict[str, Any], *, strict: bool = True) -> SeedPayload:
     except Exception as exc:
         if strict:
             raise ValueError(str(exc)) from exc
-        return SeedPayload(**{k: v for k, v in data.items() if k in SeedPayload.model_fields})  # type: ignore[call-arg]
+        return SeedPayload(**{k: v for k, v in data.items() if k in SeedPayload.model_fields})
 
 
 def plan_from_dict(data: dict[str, Any], *, strict: bool = True) -> PlannedPayload:
@@ -345,4 +345,4 @@ def plan_from_dict(data: dict[str, Any], *, strict: bool = True) -> PlannedPaylo
     except Exception as exc:
         if strict:
             raise ValueError(str(exc)) from exc
-        return PlannedPayload(**{k: v for k, v in data.items() if k in PlannedPayload.model_fields})  # type: ignore[call-arg]
+        return PlannedPayload(**{k: v for k, v in data.items() if k in PlannedPayload.model_fields})

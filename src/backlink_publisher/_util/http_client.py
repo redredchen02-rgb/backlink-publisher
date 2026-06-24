@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from typing import Any
+from typing import Any, cast
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -167,7 +167,7 @@ def get_thread_local_client() -> HttpClient:
         with _lock:
             if not hasattr(_local, "client"):
                 _local.client = HttpClient()
-    return _local.client
+    return cast("HttpClient", _local.client)
 
 
 # Module-level default instance for convenience imports

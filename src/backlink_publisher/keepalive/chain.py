@@ -17,7 +17,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ _DEAD_VERDICTS = ("link_stripped", "host_gone")
 
 
 @contextlib.contextmanager
-def _cycle_lock(config_dir: Path):
+def _cycle_lock(config_dir: Path) -> Generator[bool, None, None]:
     """Non-blocking exclusive file lock for the entire recovery cycle.
 
     Yields True if acquired, False if another keepalive cycle is already running.
@@ -60,12 +60,12 @@ def _cycle_lock(config_dir: Path):
 # ── default dependency implementations ────────────────────────────────────────
 
 
-def _default_select_candidates(store):
+def _default_select_candidates(store: Any) -> list[Any]:
     from backlink_publisher.recheck import selection
     return selection.select_candidates(store, now=datetime.now())
 
 
-def _default_select_unverified(store):
+def _default_select_unverified(store: Any) -> list[Any]:
     from backlink_publisher.recheck import selection
     return selection.select_unverified_candidates(store, now=datetime.now())
 
@@ -75,27 +75,27 @@ def _default_probe(record: dict) -> dict:
     return recheck_link(record, probe=True, timeout=_PER_TARGET_TIMEOUT)
 
 
-def _default_derive_status(store):
+def _default_derive_status(store: Any) -> dict[str, Any]:
     from backlink_publisher.recheck.events_io import derive_per_target_status
     return derive_per_target_status(store)
 
 
-def _default_build_ledger(store):
+def _default_build_ledger(store: Any) -> list[Any]:
     from backlink_publisher.ledger import build_ledger
     return build_ledger(store=store)
 
 
-def _default_emit_recheck(store, results):
+def _default_emit_recheck(store: Any, results: Any) -> None:
     from backlink_publisher.recheck.events_io import emit_recheck
-    return emit_recheck(store, results)
+    emit_recheck(store, results)
 
 
-def _default_write_verified_at(store, results):
+def _default_write_verified_at(store: Any, results: Any) -> None:
     from backlink_publisher.recheck.events_io import write_verified_at
-    return write_verified_at(store, results)
+    write_verified_at(store, results)
 
 
-def _default_publish_seed(seed: dict) -> dict:
+def _default_publish_seed(seed: dict[str, Any]) -> dict[str, Any]:
     """Plan → validate → publish one seed via PipelineAPI (same as keepalive_job)."""
     import json as _json
     from backlink_publisher.sdk.api import PipelineAPI, parse_publish_results
@@ -113,7 +113,7 @@ def _default_publish_seed(seed: dict) -> dict:
     if not val_res.success:
         return {**base, "error": val_res.error or "validate failed"}
     one = (val_res.stdout or "").splitlines()
-    pub_res = api.publish((one[0] + "\n") if one else "", platform, "publish")
+    pub_res = api.publish((one[0] + "\n") if one else "", platform or "", "publish")
     rows = parse_publish_results(pub_res.stdout)
     row = rows[0] if rows else {}
     url = (row.get("published_url") or row.get("draft_url") or "").strip()
@@ -122,7 +122,7 @@ def _default_publish_seed(seed: dict) -> dict:
     return {**base, "error": (row.get("error") or pub_res.error or "publish failed")}
 
 
-def _default_reverify(result: dict, store) -> dict:
+def _default_reverify(result: dict[str, Any], store: Any) -> dict[str, Any]:
     """Probe a freshly published URL; emit + write_verified_at (same as keepalive_job)."""
     from urllib.parse import urlsplit
     from backlink_publisher.recheck.probe import recheck_link
@@ -161,7 +161,7 @@ def _default_reverify(result: dict, store) -> dict:
 # ── U2: weight gate ───────────────────────────────────────────────────────────
 
 
-def _effective_sticky(runtime_sticky: tuple[str, ...], opt_state=None) -> list[str]:
+def _effective_sticky(runtime_sticky: tuple[str, ...], opt_state: Any = None) -> list[str]:
     """Filter sticky platforms to those not circuit-broken (weight > 0).
 
     Falls back to full runtime_sticky on any OptimizationState error.
@@ -181,7 +181,7 @@ def _effective_sticky(runtime_sticky: tuple[str, ...], opt_state=None) -> list[s
 # ── U3: stat feedback ─────────────────────────────────────────────────────────
 
 
-def _update_opt_stats(platform: str, verdict: str, opt_state=None, language: str = "default") -> None:
+def _update_opt_stats(platform: str, verdict: str, opt_state: Any = None, language: str = "default") -> None:
     """RMW-increment alive_count / dofollow_count in optimization_state.json.
 
     Uses explicit load-modify-save under state._lock — NOT update_stats() which
@@ -239,7 +239,7 @@ class CycleSummary:
 
 def run_cycle(
     *,
-    store=None,
+    store: Any = None,
     dry_run: bool = False,
     max_gaps: int | None = None,
     min_age_days: int = 7,
@@ -256,7 +256,7 @@ def run_cycle(
     reverify_fn: Callable | None = None,
     plan_gap_fn: Callable | None = None,
     effective_sticky_fn: Callable | None = None,
-    run_state=None,
+    run_state: Any = None,
 ) -> dict[str, Any]:
     """Run one keepalive recovery cycle.
 
@@ -289,7 +289,7 @@ def run_cycle(
     _reverify = reverify_fn or (lambda result: _default_reverify(result, store))
     _eff_sticky = effective_sticky_fn or _effective_sticky
 
-    def _plan_gap(rows, per_target_status, opts, *, sticky_platforms=()):
+    def _plan_gap(rows: Any, per_target_status: Any, opts: Any, *, sticky_platforms: Any = ()) -> Any:
         if plan_gap_fn is not None:
             return plan_gap_fn(rows, per_target_status, opts, sticky_platforms=sticky_platforms)
         return plan_keepalive_gap(rows, per_target_status, opts, sticky_platforms=sticky_platforms)

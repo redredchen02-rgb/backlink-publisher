@@ -9,7 +9,10 @@ contract (see ``tests/test_schema_input_payload_characterization.py``).
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ._payload_types import SeedPayload
 
 from .linkcheck.language import SUPPORTED_LANGUAGES
 from .schema import (

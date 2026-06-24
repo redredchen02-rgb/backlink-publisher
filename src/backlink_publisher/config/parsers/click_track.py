@@ -30,5 +30,4 @@ def _parse_click_track(raw: dict[str, Any] | None) -> ClickTrackConfig | None:
 
     return ClickTrackConfig(
         credential_path=credential_path,
-        sites=sites,
     )
