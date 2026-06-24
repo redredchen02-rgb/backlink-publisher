@@ -38,7 +38,7 @@ def _fresh_dir(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _verify_pass(mocker):
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     )
 
@@ -208,9 +208,9 @@ def test_check_readiness_empty_is_ready():
 # Resume seam honors the precondition
 # --------------------------------------------------------------------------- #
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_blocked_when_backcatalog_missing(mock_pub, _mv, _ms, mock_cache, tmp_path):
     from backlink_publisher.checkpoint import create_checkpoint
 

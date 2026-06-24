@@ -1,4 +1,8 @@
 """Backward-compat shim — moved to backlink_publisher.cli.ops.gate_probe (plan 2026-06-24-002 U8)."""
-from __future__ import annotations
+import sys as _sys
+import backlink_publisher.cli.ops.gate_probe as _real  # noqa: F401
 
-from backlink_publisher.cli.ops.gate_probe import *  # noqa: F401, F403
+if __name__ != "__main__":
+    _sys.modules[__name__] = _real
+else:
+    _real.main()

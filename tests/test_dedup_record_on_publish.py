@@ -53,7 +53,7 @@ def _fresh_dedup_dir(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _mock_verify_pass(mocker):
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     )
 
@@ -146,7 +146,7 @@ def test_verify_failure_still_records_done(mock_pub, _mock_verify, mocker):
     """A verify flake leaves the key done (re-publish must not be unlocked)."""
     mock_pub.return_value = _drafted()
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=False, reason="404"),
     )
     # Unverified publish exits 5 (documented), but the dedup row is still done —
@@ -248,7 +248,7 @@ def test_store_failure_does_not_break_publish(mock_pub, _mock_verify, mocker):
     """Observe-safe: a dedup-store error is swallowed; the publish still succeeds."""
     mock_pub.return_value = _drafted()
     mocker.patch(
-        "backlink_publisher.cli._dedup_gate.DedupStore",
+        "backlink_publisher.cli.publish._dedup_gate.DedupStore",
         side_effect=RuntimeError("disk full"),
     )
     stdout, stderr, code = _run(json.dumps(_payload()), ["--platform", "medium"])
@@ -273,9 +273,9 @@ def _checkpoint_payload(platform="blogger", item_id="r0") -> dict:
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_success_records_done(mock_pub, _mv, _ms, mock_cache, tmp_path):
     from backlink_publisher.checkpoint import create_checkpoint
 
@@ -297,9 +297,9 @@ def test_resume_success_records_done(mock_pub, _mv, _ms, mock_cache, tmp_path):
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_http_5xx_records_uncertain(mock_pub, _mv, _ms, mock_cache, tmp_path):
     from backlink_publisher.checkpoint import create_checkpoint
 
@@ -315,9 +315,9 @@ def test_resume_http_5xx_records_uncertain(mock_pub, _mv, _ms, mock_cache, tmp_p
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_transient_records_failed(mock_pub, _mv, _ms, mock_cache, tmp_path):
     from backlink_publisher.checkpoint import create_checkpoint
 
@@ -368,10 +368,10 @@ def test_uncertain_can_still_settle_to_done():
 # --------------------------------------------------------------------------- #
 # Resume seam: in-band adapter error (returned, not raised) records failed
 # --------------------------------------------------------------------------- #
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_inband_error_records_failed_not_done(mock_pub, mock_cache, _ms, _mv, tmp_path):
     """A resume dispatch returning AdapterResult(error=...) (not raising) records
     `failed`, not `done` — parity with the fresh seam, so enforce won't later skip
@@ -439,9 +439,9 @@ def test_fresh_policy_skip_sets_policy_skip_error_class(mock_policy_pub, _mock_p
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_skips_policy_skip_items(mock_pub, _mv, _ms, mock_cache, tmp_path):
     """policy_skip items are excluded from the resume to_process list — a deliberate
     policy-gate decision must not be retried blindly on --resume."""

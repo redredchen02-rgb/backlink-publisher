@@ -160,7 +160,7 @@ class PublishOutcome:
             return 1
         if self.state.auth_aborted or self.state.dependency_aborted:
             return 3
-        from backlink_publisher.cli._publish_helpers import _decide_publish_exit
+        from backlink_publisher.cli.publish._publish_helpers import _decide_publish_exit
         return _decide_publish_exit(
             self.state.outputs,
             dry_run=self.options.dry_run,
@@ -224,7 +224,7 @@ def publish_rows(
     from datetime import datetime, timezone
     from backlink_publisher.config import snapshot_token_revs
     from backlink_publisher._util.logger import publish_logger
-    from backlink_publisher.cli._publish_helpers import _make_banner_emit
+    from backlink_publisher.cli.publish._publish_helpers import _make_banner_emit
     from ... import checkpoint
 
     if forced_keys is None:
@@ -277,10 +277,10 @@ def _dispatch_publish(
         publish_with_policy,
         _handle_auth_expired,
     )
-    from backlink_publisher.cli._publish_helpers import (
+    from backlink_publisher.cli.publish._publish_helpers import (
         _record_publish_failure, _error_class,
     )
-    from backlink_publisher.cli._dedup_gate import record_failure
+    from backlink_publisher.cli.publish._dedup_gate import record_failure
     from backlink_publisher._util.errors import (
         AuthExpiredError, BannerUploadError, ContentRejectedError,
         DependencyError, ExternalServiceError,
@@ -356,10 +356,10 @@ def _handle_publish_outcome(
     row_idx: int,
 ) -> None:
     """Record success/failure after a successful live dispatch; emit final recon."""
-    from backlink_publisher.cli._publish_helpers import (
+    from backlink_publisher.cli.publish._publish_helpers import (
         _do_verify, _record_publish_path, _try_update_ckpt_failed,
     )
-    from backlink_publisher.cli._dedup_gate import record_done, record_failure
+    from backlink_publisher.cli.publish._dedup_gate import record_done, record_failure
     from backlink_publisher._util.logger import publish_logger
     from ... import checkpoint
     from datetime import datetime, timezone
@@ -445,12 +445,12 @@ def _publish_one_row(
     # Tests patch these at backlink_publisher.cli.publish_backlinks.X; re-reading
     # the name here at call time means every @patch(...publish_backlinks.X) fires.
     from backlink_publisher.cli.publish_backlinks import adapter_publish
-    from backlink_publisher.cli._publish_helpers import (
+    from backlink_publisher.cli.publish._publish_helpers import (
         _build_failure_row, _build_skip_row, _canary_gate,
         _check_row_reachability, _check_token_drift,
         _medium_throttle_sleep,
     )
-    from backlink_publisher.cli._dedup_gate import gate_with_force
+    from backlink_publisher.cli.publish._dedup_gate import gate_with_force
     from backlink_publisher.schema import supported_platforms
     from backlink_publisher._util.logger import publish_logger
 

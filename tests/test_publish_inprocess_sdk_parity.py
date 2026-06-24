@@ -48,13 +48,13 @@ def _sandbox(tmp_path, monkeypatch):
     monkeypatch.setattr(_store, "path", cfg / "channel-status.json")
 
     with patch(
-        "backlink_publisher.cli._publish_helpers._check_row_reachability",
+        "backlink_publisher.cli.publish._publish_helpers._check_row_reachability",
         return_value=(True, None),
     ), patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     ), patch(
-        "backlink_publisher.cli._publish_helpers._medium_throttle_sleep",
+        "backlink_publisher.cli.publish._publish_helpers._medium_throttle_sleep",
     ):
         yield
 

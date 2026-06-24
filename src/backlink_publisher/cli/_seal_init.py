@@ -1,4 +1,6 @@
 """Backward-compat shim — moved to backlink_publisher.cli.admin._seal_init (plan 2026-06-24-002 U8)."""
-from __future__ import annotations
+import sys as _sys
+import backlink_publisher.cli.admin._seal_init as _real  # noqa: F401
 
-from backlink_publisher.cli.admin._seal_init import *  # noqa: F401, F403
+if __name__ != "__main__":
+    _sys.modules[__name__] = _real

@@ -347,7 +347,7 @@ def _mock_publish_check_url(monkeypatch: pytest.MonkeyPatch) -> None:
     # check_url promoted to module-level in _publish_helpers.py;
     # patch at the consumer reference per feedback_test-autouse-verify-mock.
     monkeypatch.setattr(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
         lambda _url: (True, None),
         raising=True,
     )

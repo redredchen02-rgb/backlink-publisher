@@ -121,7 +121,7 @@ class PipelineConfig:
 # Step runners
 # ---------------------------------------------------------------------------
 
-REPO_DIR = Path(__file__).resolve().parents[3]
+REPO_DIR = Path(__file__).resolve().parents[4]
 VENV_PYTHON = REPO_DIR / ".venv" / "bin" / "python"
 
 

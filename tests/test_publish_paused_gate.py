@@ -38,7 +38,7 @@ def _isolated_config_dir(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _mock_verify_pass():
     with patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     ):
         yield
