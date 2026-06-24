@@ -29,6 +29,7 @@ plan-backlinks invocation. Operators must either restart the process or call
 
 from __future__ import annotations
 
+from functools import lru_cache
 import os
 import socket  # noqa: F401 — kept for test patch backward compat
 import ssl
@@ -157,6 +158,7 @@ def set_default_max_age(seconds: Optional[float]) -> None:
 
 
 
+@lru_cache(maxsize=128)
 def _classify_http_code(code: int) -> str:
     """Map a non-200 HTTP status code to its canonical reason string.
 

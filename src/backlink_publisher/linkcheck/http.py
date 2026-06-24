@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 import os
 import socket
 import ssl
@@ -56,6 +57,7 @@ def _retry_delay_base_s() -> int:
         return _DEFAULT_RETRY_DELAY_BASE_S
 
 
+@lru_cache(maxsize=1)
 def _ssl_context() -> ssl.SSLContext:
     from backlink_publisher._util.ssl_ctx import get_ssl_context
     return get_ssl_context()

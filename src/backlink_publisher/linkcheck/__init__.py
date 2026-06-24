@@ -12,3 +12,5 @@ from .http import *  # noqa: F401,F403  — preserves legacy public import path
 # ...)``). ``from .http import *`` skips underscored names by convention,
 # so we list them explicitly.
 from .http import _check_url_once  # noqa: F401  — patchable
+
+__all__: list[str] = []

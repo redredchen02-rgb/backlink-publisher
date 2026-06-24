@@ -15,7 +15,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Any, Callable
 
 from backlink_publisher.events import EventStore
 from backlink_publisher.keepalive.sticky import RUNTIME_STICKY_PLATFORMS
@@ -111,7 +111,7 @@ class RepublishJob:
 # ── Default publish/gap/persist helpers ──────────────────────────────────────
 
 
-def _default_republish_gaps(store: EventStore):
+def _default_republish_gaps(store: EventStore) -> Any:
     """Re-derive the authoritative keep-alive gap set from fresh state.
 
     Server-side truth (D6): never trust posted gap ids. ghpages is dropped from
@@ -149,6 +149,7 @@ def _default_publish_seed(seed: dict) -> dict:
         return {**base, "error": val_res.error or "validate failed"}
     # publish only the first generated variant — one new link per gap.
     one = (val_res.stdout or "").splitlines()
+    assert platform is not None
     pub_res = api.publish((one[0] + "\n") if one else "", platform, "publish")
     rows = parse_publish_results(pub_res.stdout)
     row = rows[0] if rows else {}

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any
 """Keep-alive status view (R3 / plan 2026-06-04-001 Unit 4).
 
 Builds the per-target keep-alive scorecard the operator lands on: live-dofollow +
@@ -7,7 +9,6 @@ per-link verdict read from the ``link.rechecked`` time series — the authority 
 (recheck→ledger writeback is deferred). Bleeding targets sort first; test-data
 hosts (``example.com``) are excluded so a new operator isn't misled.
 """
-from __future__ import annotations
 
 from datetime import datetime
 from urllib.parse import urlsplit
@@ -43,7 +44,7 @@ def _max_ts(store: EventStore, kind: str) -> datetime | None:
     return latest
 
 
-def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
+def build_keepalive_view(*, store: Any=None, history: Any=None, now: Any=None) -> dict:
     """Return the keep-alive scorecard payload for the screen bootstrap.
 
     ``store``/``history``/``now`` are injectable for tests.
@@ -153,7 +154,7 @@ def build_keepalive_view(*, store=None, history=None, now=None) -> dict:
     }
 
 
-def build_cycle_status_view(*, run_state=None, opt_state=None) -> dict:
+def build_cycle_status_view(*, run_state: Any=None, opt_state: Any=None) -> dict:
     """Return automated keepalive cycle status for the WebUI panel.
 
     ``run_state`` / ``opt_state`` are injectable for tests — pass

@@ -18,8 +18,8 @@ ceiling = 250
 rationale = "thin-WebUI Phase 2 Unit 7 (2026-05-28): pure generation kernel (_cell_gate_drop, _dispatch_row, _emit_link_count_recon, _scheduler_enabled_for, PlanOutcome, plan_rows) extracted to plan_backlinks/_engine.py so the in-process PipelineAPI.plan path shares it. core.py dropped from 392 to 208 SLOC — now argparse + set_log_level + row parsing + load_config + config_echo banner + reset_stats (H2) + plan_rows call + error-print + write_jsonl + preflight/canary nudge shell only. Ceiling 250 = round_up_to_10(208+30) per policy."
 
 [files."src/backlink_publisher/cli/publish_backlinks/__init__.py"]
-ceiling = 240
-rationale = "2026-06-05 feat/continuous-optimization: optimization integration added weight dispatch, queue telemetry, optimization-state hook. Measured SLOC=230. Ceiling 240 = round_up_to_10(230+10) per ratchet policy."
+ceiling = 260
+rationale = "2026-06-24 U6 __all__ declaration added 19 names (test-seam re-exports + public entry points). SLOC 230→249. Ceiling 260 = round_up_to_10(249+10) per ratchet policy."
 
 [files."src/backlink_publisher/content/fetch.py"]
 ceiling = 250
@@ -42,8 +42,8 @@ ceiling = 500
 rationale = "Holds the 3 reducers (_project_checkpoint, _project_history, _project_drafts). Emit helpers (_emit_confirmed_history_row, _emit_drafts_confirmed, _parse_row_timestamps) extracted to _project_emit.py (2026-06-11). Ceiling tightened 620→500 = round_up_to_10(467+30) per policy."
 
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
-ceiling = 340
-rationale = "U3 auto-scan catalog registration (Plan 2026-06-05): register_catalog_entries() function (import-time YAML scan + _CATALOG_AUTO_REGISTERED cache) + tests added ~46 SLOC to reach 302. Ceiling=round_up_to_10(302+30)=340 per ratchet policy."
+ceiling = 400
+rationale = "U6 __all__ declaration added 60 names (all registered adapter classes + manifest constants + core functions). SLOC 302→364. Ceiling 400 = round_up_to_10(364+30) per ratchet policy."
 
 [files."src/backlink_publisher/cli/phase0_seal.py"]
 ceiling = 465

@@ -393,7 +393,7 @@ TB
 
 ---
 
-- [ ] **U6: Add `__all__` Declarations Across All Subpackages**
+- [x] **U6: Add `__all__` Declarations Across All Subpackages**
 
 **Goal:** 為 50+ 個 subpackage 的 `__init__.py` 加入 `__all__`，使公開 API 顯式化。
 

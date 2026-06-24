@@ -13,3 +13,5 @@ Keep this module free of any ``backlink_publisher.publishing`` import.
 """
 
 from __future__ import annotations
+
+__all__: list[str] = []

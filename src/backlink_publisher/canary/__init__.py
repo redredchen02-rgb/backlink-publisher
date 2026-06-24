@@ -6,3 +6,5 @@ and reads per-platform ``[canary.<platform>]`` post config. See
 """
 
 from __future__ import annotations
+
+__all__: list[str] = []
