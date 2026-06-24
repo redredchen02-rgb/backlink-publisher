@@ -36,9 +36,6 @@
 ceiling = 32
 rationale = "_enhance_payload orchestrates field validation, domain/language normalisation, anchor canonicalisation, and banner-path resolution (added in 705bf2c for path-traversal safety). The banner guard added 2 branches (is_relative_to + exists check), pushing CC from 29 to 31. Ceiling 32 gives 1 headroom; extraction of the banner-resolution block deferred to a focused refactor PR."
 
-[functions."src/backlink_publisher/cli/plan_backlinks/_payload.py::_generate_payload"]
-ceiling = 50
-rationale = "Deterministic-planning payload assembly: branches across language/anchor/link-density/zh-short variants and validation gating to build one plan row. Grandfathered at current CC; decomposed lazily when a feature next touches it (Plan 2026-05-29-005 R7), not in this initiative's active scope."
 
 # _project_checkpoint was extracted into 4 named handlers (_handle_checkpoint_{intent,confirmed,failed,unmapped})
 # on 2026-06-03, dropping CC from 39 to 24 — now under the CC-30 backstop. Entry removed.
