@@ -32,10 +32,9 @@
 # into a thin shell (CC 9) plus phase helpers, the heaviest being _publish_one_resume_item at
 # CC 23 — all under the CC-30 backstop, so no entry is needed for any of them. Entry removed.
 
-[functions."src/backlink_publisher/cli/_validate_payload.py::_enhance_payload"]
-ceiling = 32
-rationale = "_enhance_payload orchestrates field validation, domain/language normalisation, anchor canonicalisation, and banner-path resolution (added in 705bf2c for path-traversal safety). The banner guard added 2 branches (is_relative_to + exists check), pushing CC from 29 to 31. Ceiling 32 gives 1 headroom; extraction of the banner-resolution block deferred to a focused refactor PR."
-
+# cli/_validate_payload.py::_enhance_payload moved to validate/_payload.py (Plan 2026-06-24-002 U5):
+# implementation extracted _check_body_language_gate (CC ~11) reducing _enhance_payload CC 31→~16 — under
+# backstop; cli/_validate_payload.py is now a re-export shim (no def). Entry removed.
 
 # _project_checkpoint was extracted into 4 named handlers (_handle_checkpoint_{intent,confirmed,failed,unmapped})
 # on 2026-06-03, dropping CC from 39 to 24 — now under the CC-30 backstop. Entry removed.
@@ -55,12 +54,12 @@ rationale = "_enhance_payload orchestrates field validation, domain/language nor
 
 
 [functions."webui_app/routes/sites.py::sites_save_three_url"]
-ceiling = 38
-rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. CC 38 grandfathered at current value; decomposition deferred to the next PR that touches this route (reduce per-branch logic into URL-validator service layer at that point)."
+ceiling = 44
+rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. Ceiling bumped 38→44 after restoring mismerged assert guards (main_url/sched_mod not-None guards were partially folded into adjacent expressions, causing syntax errors; fix plan 2026-06-24-002 U5). Decomposition of the route deferred to a focused PR."
 
-[functions."src/backlink_publisher/cli/publish_backlinks/_engine.py::_publish_one_row"]
-ceiling = 35
-rationale = "Per-row publish dispatcher gating canary, reachability, bad platform, dedup, dry-run, and the adapter publish try/except block. Last CC bump from +2 when U6-of-system-optimization added RECON progress events. Grandfathered as a coordinator with many sequential pre-condition gates that don't decompose cleanly; # noqa: C901 acknowledges the shape."
+# publish_backlinks/_engine.py::_publish_one_row decomposed (Plan 2026-06-24-002 U5): extracted
+# _dispatch_publish (CC ~8) and _handle_publish_outcome (CC ~9); _publish_one_row CC 35→~12 — under backstop.
+# Entry removed.
 
 
 # spray_backlinks/core.py::main decomposed (Plan 2026-06-24-002 U2): extracted

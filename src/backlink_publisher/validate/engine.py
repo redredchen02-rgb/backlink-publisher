@@ -41,7 +41,7 @@ from backlink_publisher.schema import (
     validate_and_convert_output,
 )
 
-from backlink_publisher.cli._validate_payload import (
+from backlink_publisher.validate._payload import (
     _enhance_payload,
     _extract_hrefs_from_html,
 )

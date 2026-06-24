@@ -313,7 +313,7 @@ TB
 
 ---
 
-- [ ] **U4: Decompose `_build_links()` and `save_config()` (CC ceilings: 36, 36)**
+- [x] **U4: Decompose `_build_links()` and `save_config()` (CC ceilings: 36, 36)**
 
 **Goal:** 分別拆分 link 建構函數和 config 寫入函數，雙雙降至 CC < 30。
 
@@ -351,7 +351,7 @@ TB
 
 ---
 
-- [ ] **U5: Decompose `_publish_one_row()` and `_enhance_payload()` (CC ceilings: 35, 32)**
+- [x] **U5: Decompose `_publish_one_row()` and `_enhance_payload()` (CC ceilings: 35, 32)**
 
 **Goal:** 拆分 publish pipeline 的兩個 gatekeeper 函數，降至 CC < 30；同時修復預先存在的 layer violation（`validate/engine.py` importing from `cli/`）。
 
