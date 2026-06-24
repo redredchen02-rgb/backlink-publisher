@@ -1,30 +1,30 @@
 {
   "schema_version": 1,
-  "captured_at": "2026-06-08T04:17:45.713885+00:00",
+  "captured_at": "2026-06-24T03:01:39.197157+00:00",
   "imports": {
     "backlink_publisher": {
-      "median_ms": 0.31,
-      "p95_ms": 0.38,
+      "median_ms": 3.38,
+      "p95_ms": 10.09,
       "samples": 5
     },
     "backlink_publisher.cli.plan_backlinks": {
-      "median_ms": 541.77,
-      "p95_ms": 682.15,
+      "median_ms": 305.52,
+      "p95_ms": 643.21,
       "samples": 5
     },
     "backlink_publisher.cli.publish_backlinks": {
-      "median_ms": 288.2,
-      "p95_ms": 437.94,
+      "median_ms": 448.48,
+      "p95_ms": 905.52,
       "samples": 5
     },
     "backlink_publisher._util.io": {
-      "median_ms": 6.16,
-      "p95_ms": 6.31,
+      "median_ms": 16.22,
+      "p95_ms": 27.03,
       "samples": 5
     },
     "backlink_publisher.config": {
-      "median_ms": 26.28,
-      "p95_ms": 30.89,
+      "median_ms": 25.29,
+      "p95_ms": 34.85,
       "samples": 5
     }
   }
