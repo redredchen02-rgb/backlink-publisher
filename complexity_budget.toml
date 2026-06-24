@@ -40,13 +40,13 @@ rationale = "_enhance_payload orchestrates field validation, domain/language nor
 # _project_checkpoint was extracted into 4 named handlers (_handle_checkpoint_{intent,confirmed,failed,unmapped})
 # on 2026-06-03, dropping CC from 39 to 24 — now under the CC-30 backstop. Entry removed.
 
-[functions."src/backlink_publisher/cli/plan_backlinks/_links.py::_build_links"]
-ceiling = 36
-rationale = "Anchor/link construction for a plan row: branches over anchor source, language, dofollow tiering, and link-density paragraph placement to emit the link set. Grandfathered at current CC; lazy decomposition only when next touched, per the named-set + backstop policy."
+# _links.py::_build_links decomposed (Plan 2026-06-24-002 U4): extracted
+# _build_extra_url_candidates (CC 13), _build_category_candidates (CC 7),
+# _verify_and_filter_candidates (CC 9); _build_links CC 36→9 — under backstop. Entry removed.
 
-[functions."src/backlink_publisher/config/writer.py::save_config"]
-ceiling = 36
-rationale = "Config TOML writer: emits [blogger]/[medium]/[targets.*] sections. Section emitters (ghpages/mastodon/image_gen) extracted to private helpers when Pro Mode image_gen was added; residual CC from blogger/targets loops and preserve-unknown-sections logic."
+# config/writer.py::save_config decomposed (Plan 2026-06-24-002 U4): extracted
+# _resolve_blogger_merge (CC 11), _resolve_domain_maps (CC 9);
+# save_config CC 33→15 — under backstop. Entry removed.
 
 # config/parsers/llm.py::_parse_llm_anchor_provider was seeded at CC 31, but SEC-6 (PR #308,
 # merged to main) centralized the loose-permission warning out of the parser, dropping it to

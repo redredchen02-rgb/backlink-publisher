@@ -70,68 +70,44 @@ def _collect_candidate_urls_for_row(
     return urls
 
 
-def _build_links(
-    main_domain: str,
-    target_url: str,
-    url_mode: str,
-    extra_urls: list[str] | None = None,
-    anchors: list[str] | None = None,
-    site_url_categories: dict[str, dict[str, str]] | None = None,
-    fetch_verify_enabled: bool = True,
-    language: str = "en",
-) -> tuple[list[dict[str, Any]], set[str]]:
-    candidates: list[dict[str, Any]] = []
-
-    domain_label = main_domain.rstrip("/").replace("https://", "").replace("http://", "")
-    main_anchor = anchors[0] if anchors and len(anchors) >= 1 else domain_label
-    candidates.append({
-        "url": main_domain.rstrip("/"),
-        "anchor": main_anchor,
-        "kind": "main_domain",
-        "required": True,
-    })
-
-    if target_url != main_domain:
-        target_label = target_url.rstrip("/").replace("https://", "").replace("http://", "")
-        target_anchor = anchors[1] if anchors and len(anchors) >= 2 else target_label
-        candidates.append({
-            "url": target_url,
-            "anchor": target_anchor,
-            "kind": "target",
-            "required": True,
-        })
-
-    if extra_urls:
-        for ex_url in extra_urls[:2]:
-            parsed = urlparse(ex_url)
-            path = parsed.path
-            if language == "ko":
-                if "/page/" in path or "?page=" in ex_url:
-                    anchor = "페이지"
-                elif "/category/" in path or "/tag/" in path:
-                    anchor = "카테고리"
-                elif "/archive/" in path:
-                    anchor = "아카이브"
-                else:
-                    anchor = "관련"
+def _build_extra_url_candidates(extra_urls: list[str], language: str) -> list[dict[str, Any]]:
+    """Build candidate dicts for extra_urls with language-appropriate anchors."""
+    candidates = []
+    for ex_url in extra_urls[:2]:
+        parsed = urlparse(ex_url)
+        path = parsed.path
+        if language == "ko":
+            if "/page/" in path or "?page=" in ex_url:
+                anchor = "페이지"
+            elif "/category/" in path or "/tag/" in path:
+                anchor = "카테고리"
+            elif "/archive/" in path:
+                anchor = "아카이브"
             else:
-                if "/page/" in path or "?page=" in ex_url:
-                    anchor = "分页"
-                elif "/category/" in path or "/tag/" in path:
-                    anchor = "分类"
-                elif "/archive/" in path:
-                    anchor = "归档"
-                else:
-                    anchor = "相关"
-            candidates.append({
-                "url": ex_url.rstrip("/"),
-                "anchor": anchor,
-                "kind": "extra",
-                "required": False,
-            })
+                anchor = "관련"
+        else:
+            if "/page/" in path or "?page=" in ex_url:
+                anchor = "分页"
+            elif "/category/" in path or "/tag/" in path:
+                anchor = "分类"
+            elif "/archive/" in path:
+                anchor = "归档"
+            else:
+                anchor = "相关"
+        candidates.append({
+            "url": ex_url.rstrip("/"),
+            "anchor": anchor,
+            "kind": "extra",
+            "required": False,
+        })
+    return candidates
 
-    domain_key = main_domain.rstrip("/")
-    cats = (site_url_categories or {}).get(domain_key, {})
+
+def _build_category_candidates(
+    domain_key: str, url_mode: str, cats: dict, language: str,
+) -> list[dict[str, Any]]:
+    """Build category/detail URL candidates for B/C url_modes."""
+    candidates = []
     if url_mode in ("B", "C"):
         cat_url = cats.get("category")
         if cat_url:
@@ -166,18 +142,13 @@ def _build_links(
                 url_mode=url_mode,
                 reason="no_url_categories.detail_in_config",
             )
+    return candidates
 
-    target_max = 8
-    for surl, sanchor in _SUPPORTING_POOL:
-        if len(candidates) >= target_max:
-            break
-        candidates.append({
-            "url": surl,
-            "anchor": sanchor,
-            "kind": "supporting",
-            "required": False,
-        })
 
+def _verify_and_filter_candidates(
+    candidates: list[dict[str, Any]], fetch_verify_enabled: bool,
+) -> tuple[list[dict[str, Any]], set[str]]:
+    """Batch-verify candidate URLs; raise _ContentGateRowFailure on required-URL miss."""
     dropped_kinds: set[str] = set()
     if not fetch_verify_enabled:
         return candidates, dropped_kinds
@@ -208,6 +179,58 @@ def _build_links(
         )
 
     return links, dropped_kinds
+
+
+def _build_links(
+    main_domain: str,
+    target_url: str,
+    url_mode: str,
+    extra_urls: list[str] | None = None,
+    anchors: list[str] | None = None,
+    site_url_categories: dict[str, dict[str, str]] | None = None,
+    fetch_verify_enabled: bool = True,
+    language: str = "en",
+) -> tuple[list[dict[str, Any]], set[str]]:
+    candidates: list[dict[str, Any]] = []
+
+    domain_label = main_domain.rstrip("/").replace("https://", "").replace("http://", "")
+    main_anchor = anchors[0] if anchors else domain_label
+    candidates.append({
+        "url": main_domain.rstrip("/"),
+        "anchor": main_anchor,
+        "kind": "main_domain",
+        "required": True,
+    })
+
+    if target_url != main_domain:
+        target_label = target_url.rstrip("/").replace("https://", "").replace("http://", "")
+        target_anchor = anchors[1] if anchors and len(anchors) >= 2 else target_label
+        candidates.append({
+            "url": target_url,
+            "anchor": target_anchor,
+            "kind": "target",
+            "required": True,
+        })
+
+    if extra_urls:
+        candidates.extend(_build_extra_url_candidates(extra_urls, language))
+
+    domain_key = main_domain.rstrip("/")
+    cats = (site_url_categories or {}).get(domain_key, {})
+    candidates.extend(_build_category_candidates(domain_key, url_mode, cats, language))
+
+    target_max = 8
+    for surl, sanchor in _SUPPORTING_POOL:
+        if len(candidates) >= target_max:
+            break
+        candidates.append({
+            "url": surl,
+            "anchor": sanchor,
+            "kind": "supporting",
+            "required": False,
+        })
+
+    return _verify_and_filter_candidates(candidates, fetch_verify_enabled)
 
 
 def _build_link_density_paragraph(

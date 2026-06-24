@@ -92,6 +92,58 @@ def _sync_medium_integration_token(token: str) -> None:
     save_medium_integration_token({"integration_token": stripped})
 
 
+def _resolve_blogger_merge(
+    config: "Config",
+    existing: "Config",
+    extra_blogger_ids: "dict[str, str] | None",
+    blogger_client_id: "str | None",
+    blogger_client_secret: "str | None",
+    medium_token: "str | None",
+) -> "tuple[dict[str, str], str, str, str]":
+    """Merge caller overrides with on-disk blogger + Medium fields."""
+    blog_ids: dict[str, str] = dict(config.blogger_blog_ids)
+    if extra_blogger_ids is None:
+        for k, v in existing.blogger_blog_ids.items():
+            if k not in blog_ids:
+                blog_ids[k] = v
+    elif extra_blogger_ids:
+        blog_ids.update(extra_blogger_ids)
+
+    client_id = blogger_client_id or (
+        existing.blogger_oauth.client_id if existing.blogger_oauth else ""
+    )
+    client_secret = blogger_client_secret or (
+        existing.blogger_oauth.client_secret if existing.blogger_oauth else ""
+    )
+    token = medium_token if medium_token is not None else (
+        existing.medium_integration_token or ""
+    )
+    return blog_ids, client_id, client_secret, token
+
+
+def _resolve_domain_maps(
+    existing: "Config",
+    target_anchor_keywords: "dict | None",
+    target_three_url: "dict | None",
+    target_probe_queries: "dict | None",
+    target_brand_aliases: "dict | None",
+    ghpages_config: "GhpagesConfig | None",
+    gitlabpages_config: "GitlabPagesConfig | None",
+    mastodon_config: "MastodonConfig | None",
+    image_gen_config: "ImageGenConfig | None",
+) -> tuple:
+    """Merge caller overrides with on-disk domain maps and optional sections."""
+    kws = dict(existing.target_anchor_keywords) if target_anchor_keywords is None else dict(target_anchor_keywords)
+    three_url = dict(existing.target_three_url) if target_three_url is None else dict(target_three_url)
+    probe = dict(existing.target_probe_queries) if target_probe_queries is None else dict(target_probe_queries)
+    brand = dict(existing.target_brand_aliases) if target_brand_aliases is None else dict(target_brand_aliases)
+    ghpages_cfg = ghpages_config if ghpages_config is not None else existing.ghpages
+    gitlabpages_cfg = gitlabpages_config if gitlabpages_config is not None else existing.gitlabpages
+    mastodon_cfg = mastodon_config if mastodon_config is not None else existing.mastodon
+    image_gen_cfg = image_gen_config if image_gen_config is not None else existing.image_gen
+    return kws, three_url, probe, brand, ghpages_cfg, gitlabpages_cfg, mastodon_cfg, image_gen_cfg
+
+
 def save_config(
     config: "Config",
     path: Path | None = None,
@@ -117,55 +169,16 @@ def save_config(
 
     existing = load_config(config_path)
 
-    blog_ids: dict[str, str] = dict(config.blogger_blog_ids)
-    if extra_blogger_ids is None:
-        for k, v in existing.blogger_blog_ids.items():
-            if k not in blog_ids:
-                blog_ids[k] = v
-    elif extra_blogger_ids:
-        blog_ids.update(extra_blogger_ids)
-
-    client_id = blogger_client_id or (
-        existing.blogger_oauth.client_id if existing.blogger_oauth else ""
-    )
-    client_secret = blogger_client_secret or (
-        existing.blogger_oauth.client_secret if existing.blogger_oauth else ""
-    )
-
-    token = medium_token if medium_token is not None else (
-        existing.medium_integration_token or ""
+    blog_ids, client_id, client_secret, token = _resolve_blogger_merge(
+        config, existing, extra_blogger_ids, blogger_client_id, blogger_client_secret, medium_token,
     )
     # SEC-3: persist integration token to 0600 file instead of TOML
     _sync_medium_integration_token(token)
 
-    if target_anchor_keywords is None:
-        kws_by_domain = dict(existing.target_anchor_keywords)
-    else:
-        kws_by_domain = dict(target_anchor_keywords)
-
-    if target_three_url is None:
-        three_url_by_domain = dict(existing.target_three_url)
-    else:
-        three_url_by_domain = dict(target_three_url)
-
-    if target_probe_queries is None:
-        probe_queries_by_domain = dict(existing.target_probe_queries)
-    else:
-        probe_queries_by_domain = dict(target_probe_queries)
-
-    if target_brand_aliases is None:
-        brand_aliases_by_domain = dict(existing.target_brand_aliases)
-    else:
-        brand_aliases_by_domain = dict(target_brand_aliases)
-
-    ghpages_cfg = ghpages_config if ghpages_config is not None else existing.ghpages
-    gitlabpages_cfg = (
-        gitlabpages_config if gitlabpages_config is not None
-        else existing.gitlabpages
-    )
-    mastodon_cfg = mastodon_config if mastodon_config is not None else existing.mastodon
-    image_gen_cfg = (
-        image_gen_config if image_gen_config is not None else existing.image_gen
+    (kws_by_domain, three_url_by_domain, probe_queries_by_domain, brand_aliases_by_domain,
+     ghpages_cfg, gitlabpages_cfg, mastodon_cfg, image_gen_cfg) = _resolve_domain_maps(
+        existing, target_anchor_keywords, target_three_url, target_probe_queries,
+        target_brand_aliases, ghpages_config, gitlabpages_config, mastodon_config, image_gen_config,
     )
 
     lines: list[str] = []
