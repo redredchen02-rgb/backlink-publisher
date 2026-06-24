@@ -1,7 +1,7 @@
 ---
 title: "Optimization Phase 2: mypy strict, spray budget, test splits, exception audit"
 date: 2026-06-23
-status: active
+status: completed
 type: optimization
 priority: high
 claims:
