@@ -1,6 +1,12 @@
-# Staging Smoke Test Runbook
+---
+title: "ops: staging smoke test runbook"
+type: ops
+status: completed
+date: 2026-06-23
+claims: {}
+---
 
-Created: 2026-06-23
+# Staging Smoke Test Runbook
 
 ## Overview
 
