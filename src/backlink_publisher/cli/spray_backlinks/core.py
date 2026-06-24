@@ -308,6 +308,19 @@ def _write_per_seed_file(
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def _handle_list_checkpoints(args: Any) -> bool:
+    """Print recent checkpoints and return True if the caller should exit."""
+    if not args.list_checkpoints:
+        return False
+    checkpoints = _list_checkpoints()
+    if not checkpoints:
+        print("spray-backlinks: no checkpoints found", file=sys.stderr)
+    else:
+        for run_id, done, summary in checkpoints:
+            print(f"{run_id}  {summary} seeds", file=sys.stderr)
+    return True
+
+
 def _validate_args(args: Any) -> None:
     """Post-parse closed-set validation. Raises UsageError on violations."""
     if args.log_level not in _LOG_LEVELS:
@@ -479,13 +492,7 @@ def main(argv: list[str] | None = None) -> None:
         _validate_args(args)
         set_log_level(args.log_level)
 
-        if args.list_checkpoints:
-            checkpoints = _list_checkpoints()
-            if not checkpoints:
-                print("spray-backlinks: no checkpoints found", file=sys.stderr)
-            else:
-                for run_id, done, summary in checkpoints:
-                    print(f"{run_id}  {summary} seeds", file=sys.stderr)
+        if _handle_list_checkpoints(args):
             return
 
         from backlink_publisher._util.profiling import profile_if_enabled

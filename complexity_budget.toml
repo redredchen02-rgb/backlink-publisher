@@ -62,16 +62,11 @@ rationale = "WebUI three-URL form save: validates URL fields, applies gate check
 ceiling = 35
 rationale = "Per-row publish dispatcher gating canary, reachability, bad platform, dedup, dry-run, and the adapter publish try/except block. Last CC bump from +2 when U6-of-system-optimization added RECON progress events. Grandfathered as a coordinator with many sequential pre-condition gates that don't decompose cleanly; # noqa: C901 acknowledges the shape."
 
-[functions."src/backlink_publisher/cli/spray_backlinks/core.py::main"]
-ceiling = 35
-rationale = "spray-backlinks CLI entry point: validation, resume setup, per-seed dispatch loop, and post-loop output consolidated. CC 65→34 (2026-06-11): extracted _validate_args (CC 13), _setup_resume (CC 6), and _process_seed (CC 19) to reduce the monolithic main() to a thin coordinator. Ceiling 35 = round_up_to_10(34+1) per policy."
-# spray_backlinks/core.py::main was decomposed (Wave 3 Unit 1, 2026-06-11):
-# _run_spray (CC 48) moved to _engine.py; main() CC dropped from 65 to 5 — under backstop.
-# Entry removed. New entry for the engine function below.
 
-[functions."src/backlink_publisher/cli/spray_backlinks/_engine.py::_run_spray"]
-ceiling = 48
-rationale = "spray-backlinks run orchestrator (Wave 3 Unit 1, 2026-06-11): extracted from core.py to decouple the CLI argparse shell from execution logic. Orchestrates seed JSONL validation, checkpoint resume, per-seed expand/gate/draft/audit/dispatch loop, cross-seed governance bookkeeping, and post-loop JSONL emit + error envelope. All sub-stage functions (expand_seed, gate_candidates, audit_batch, dispatch_burst) are already extracted helpers; the remaining CC is sequential coordinator gating intrinsic to a multi-seed pipeline runner. CC 48 = exact seed, zero headroom per policy."
+# spray_backlinks/core.py::main decomposed (Plan 2026-06-24-002 U2): extracted
+# _handle_list_checkpoints (CC 4); main() CC 35→29 — under backstop. Entry removed.
+# spray_backlinks/_engine.py::_run_spray was dead code (never called by main()); deleted.
+# Entry removed.
 
 [functions."src/backlink_publisher/keepalive/chain.py::run_cycle"]
 ceiling = 45

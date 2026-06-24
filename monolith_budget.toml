@@ -141,8 +141,8 @@ ceiling = 540
 rationale = "Wave 3 Unit 1 intended to trim core.py to 171 SLOC, but rebase onto main (which added new features to core.py) resolved the conflict by keeping main's version at 512 SLOC. _engine.py and _gates.py were added as new modules but core.py itself was not trimmed. Ceiling 540 = round_up_to_10(512+30) to match current reality; split deferred to follow-up PR."
 
 [files."src/backlink_publisher/cli/spray_backlinks/_engine.py"]
-ceiling = 370
-rationale = "Wave 3 Unit 1 (2026-06-11): _engine.py expanded from 79 SLOC to 333 by absorbing _run_spray (CC 48, the multi-seed orchestration loop), _emit_preview, _main_anchor_of, _main_domain_of from core.py. Also retains original pure kernel: SprayCandidate, expand_seed, validate_platform_selection, _default_degraded, _seed_main_domain, gate_candidates. Ceiling 370 = round_up_to_10(333+30) per policy."
+ceiling = 110
+rationale = "Plan 2026-06-24-002 U2: deleted dead _run_spray (never called by main()) and its duplicate private helpers (_emit_preview, _main_anchor_of etc); _engine.py reverts to pure kernel only (SprayCandidate, expand_seed, validate_platform_selection, gate_candidates). 333 SLOC → 79 SLOC. Ceiling 110 = round_up_to_10(79+30)."
 
 [files."src/backlink_publisher/cli/spray_backlinks/_gates.py"]
 ceiling = 110
