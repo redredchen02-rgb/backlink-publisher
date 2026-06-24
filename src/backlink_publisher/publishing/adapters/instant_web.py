@@ -45,7 +45,7 @@ def _cdp_available(port: int) -> bool:
             timeout=0.5,
         ) as resp:
             return getattr(resp, "status", 200) < 400
-    except Exception:
+    except OSError:
         return False
 
 
@@ -140,7 +140,7 @@ class _ChromeSession:
         try:
             with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_S) as resp:
                 return json.loads(resp.read().decode("utf-8"))
-        except Exception:
+        except OSError:
             # Older Chrome builds used GET for /json/new.
             with urllib.request.urlopen(
                 f"{_debug_base_url(self.port)}/json/new?{encoded}",

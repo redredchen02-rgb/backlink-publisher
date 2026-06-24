@@ -40,7 +40,7 @@ def _host(url: str) -> str:
     from urllib.parse import urlparse
     try:
         return urlparse(url).netloc or "?"
-    except Exception:
+    except ValueError:
         return "?"
 
 
