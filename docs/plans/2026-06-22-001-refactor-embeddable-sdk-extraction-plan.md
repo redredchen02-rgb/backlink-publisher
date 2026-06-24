@@ -388,7 +388,7 @@ graph TB
 
 ---
 
-- [ ] **U6: 顶层门面 + 错误分类导出（`import backlink_publisher` 有意义）**
+- [x] **U6: 顶层门面 + 错误分类导出（`import backlink_publisher` 有意义）**
 
 **Goal:** 根 `__init__.py` 暴露 `__all__`：错误类（顶层）+ 懒 `plan`/`validate`/`publish`/`dispatch`/`register_all_adapters`/`registered_platforms`；`sdk/` 提供薄 `plan/validate/publish` 函数包住下沉的 PipelineAPI。**`dispatch` 的语义（深化澄清——评审：R1-R11 未定义）**：`dispatch` = 低层**单 payload** 发布入口（re-export `publishing.registry.dispatch(payload, mode, config, dry_run=False) -> AdapterResult`），与批量、带 outcome 映射的高层 `publish`（plan→validate→publish 那条）区分；面向「我只想发一个已构造好的 payload」的调用方。
 
@@ -418,7 +418,7 @@ graph TB
 
 ---
 
-- [ ] **U7: 守门测试 — 核心 ∌ webui_app（AST gate，只匹配 webui_app）**
+- [x] **U7: 守门测试 — 核心 ∌ webui_app（AST gate，只匹配 webui_app）**
 
 **Goal:** 加一道 AST pytest 守门：`src/backlink_publisher/**/*.py` 不得 import `webui_app`（顶层或函数内皆抓），放行 `webui_store`；3 条边清完后 allowlist 应为**空**。这是当初本该有、却缺失的分层防护，永久锁边界。
 
@@ -447,7 +447,7 @@ graph TB
 
 ---
 
-- [ ] **U8: 3 管线 CLI 薄包装 + golden parity + SDK 快速上手文档（R7a / R10 / R11 文档）**
+- [x] **U8: 3 管線 CLI 薄包裝 + golden parity + SDK 快速上手文档（R7a / R10 / R11 文档）**
 
 **Goal:** `plan/validate/publish` 三个 CLI 确认/改为对 SDK 的薄包装（plan/validate 已薄，repoint compute；publish 壳已在 U4 薄化），用 golden parity 证零行为变化；写 SDK quickstart + 分层文档。
 
