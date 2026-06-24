@@ -115,7 +115,7 @@ def _verify_telegraph_live(config: Config) -> VerifyResult:
 
     result_data = body.get("result") or {}
     identity = result_data.get("short_name") or token_data.get("short_name")
-    return _ok_result(identity)
+    return _ok_result(identity or "")
 
 
 _GHPAGES_VERIFY_TIMEOUT_S = 5
@@ -166,7 +166,7 @@ def _verify_ghpages_live(config: Config) -> VerifyResult:
         return _non_json("GitHub /user")
 
     identity = body.get("login") or body.get("name")
-    return _ok_result(identity)
+    return _ok_result(identity or "")
 
 
 _BLOGGER_USERS_SELF = "https://www.googleapis.com/blogger/v3/users/self"
@@ -216,7 +216,7 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
         return _non_json("blogger")
 
     identity = body.get("displayName") or body.get("id")
-    return _ok_result(identity)
+    return _ok_result(identity or "")
 
 
 _VELOG_VERIFY_TIMEOUT_S = 5
@@ -277,7 +277,7 @@ def _verify_velog_live(config: Config) -> VerifyResult:
         )
 
     identity = current_user.get("username") or current_user.get("display_name")
-    return _ok_result(identity)
+    return _ok_result(identity or "")
 
 
 def _utc_now_iso() -> str:

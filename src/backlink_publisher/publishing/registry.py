@@ -44,8 +44,11 @@ is ``publish`` (``verify_adapter_setup`` stays a module function).
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Literal, Optional, TYPE_CHECKING
+from typing import Any, Callable, Literal, Optional, TYPE_CHECKING, cast
+
+logger = logging.getLogger(__name__)
 
 from backlink_publisher.config import Config
 from backlink_publisher._util.errors import RegistryError
@@ -560,17 +563,17 @@ def dispatch_weight(name: str, language: str = "default") -> float:
         state = OptimizationState()
         data = state.load()
 
-        def _find_weight(data: dict) -> dict | None:
+        def _find_weight(data: dict) -> dict[Any, Any] | None:
             """Look up *name* in the *language* namespace, falling back to default."""
             lang_space = data.get("weights", {}).get(language, {})
             entry = lang_space.get(name)
             if entry is not None:
-                return entry
+                return cast("dict[Any, Any]", entry)
             if language != "default":
                 def_space = data.get("weights", {}).get("default", {})
                 entry = def_space.get(name)
                 if entry is not None:
-                    return entry
+                    return cast("dict[Any, Any]", entry)
             return None
 
         wentry = _find_weight(data) or {}

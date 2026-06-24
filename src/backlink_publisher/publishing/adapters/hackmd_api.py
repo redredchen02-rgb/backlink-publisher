@@ -34,7 +34,7 @@ import json
 import os
 import stat
 import time
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher.http import post as http_post
 
@@ -74,7 +74,7 @@ def _required_headers(token: str) -> dict[str, str]:
     }
 
 
-def _require_secure_mode(path) -> None:
+def _require_secure_mode(path: Any) -> None:
     """R10: refuse a group/world-readable token file (mirrors telegraph/livejournal)."""
     if path.exists():
         mode = os.stat(path).st_mode & 0o777
@@ -89,7 +89,7 @@ def _load_token(config: Config) -> str:
     """Return the API token, raising DependencyError when not configured."""
     _require_secure_mode(config.hackmd_token_path)
     data = load_hackmd_token(config.hackmd_token_path)
-    token = (data or {}).get("token", "").strip()
+    token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "HackMD API token not configured. "
@@ -174,7 +174,7 @@ class HackmdAPIAdapter(Publisher):
                 post_publish_delay_seconds=_post_publish_delay_s(),
             )
 
-        def execute():
+        def execute() -> Any:
             resp = http_post(
                 HACKMD_NOTES_API,
                 headers=_required_headers(token),

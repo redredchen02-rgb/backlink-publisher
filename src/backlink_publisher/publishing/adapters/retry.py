@@ -44,7 +44,7 @@ def _get_env_backoff(key: str, default: float) -> float:
 
 
 _DEFAULT_MAX_ATTEMPTS: int = min(max(int(_get_env_backoff("BACKLINK_RETRY_MAX_ATTEMPTS", 3)), 1), _MAX_ATTEMPTS_CEILING)
-_DEFAULT_BACKOFF_BASE: int = min(max(int(_get_env_backoff("BACKLINK_RETRY_BACKOFF_BASE", 2)), 1), _BACKOFF_BASE_CEILING)
+_DEFAULT_BACKOFF_BASE: int = min(max(int(_get_env_backoff("BACKLINK_RETRY_BACKOFF_BASE", 2)), 1), int(_BACKOFF_BASE_CEILING))
 _DEFAULT_JITTER: float = min(max(_get_env_backoff("BACKLINK_RETRY_JITTER", 0.15), 0.0), _JITTER_CEILING)
 
 DEFAULT_MAX_ATTEMPTS: int = _DEFAULT_MAX_ATTEMPTS

@@ -73,7 +73,7 @@ def emit_attempt(
         if error_class is not None:
             payload["error_class"] = error_class
         payload.update(extra)
-        _log.info(payload)
+        _log.info(payload)  # type: ignore[arg-type]
     except Exception:  # noqa: BLE001
         pass
 

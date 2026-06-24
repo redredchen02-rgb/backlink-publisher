@@ -74,7 +74,7 @@ def mastodon_publish_flow(page: Any, payload: dict[str, Any]) -> str:
         sel.POST_PUBLISHED_URL_RE,
         timeout=sel.POST_PUBLISH_REDIRECT_TIMEOUT_MS,
     )
-    return page.url
+    return str(page.url)
 
 
 # ``compose_url`` field on BrowserPublishRecipe is informational only —

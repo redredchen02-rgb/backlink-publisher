@@ -244,7 +244,7 @@ def _wait_for_editor(win_id: str, tab_id: str, max_wait: int = 20) -> bool:
             if result == "ready":
                 return True
         except Exception as exc:  # noqa: BLE001
-            log.debug("page-ready probe failed: %s", exc)
+            log.debug("page-ready probe failed: %s" % exc)
         time.sleep(_EDITOR_POLL_INTERVAL_S)
     return False
 
@@ -332,7 +332,7 @@ class MediumBraveAdapter(Publisher):
     mechanism = "browser"
 
     @classmethod
-    def available(cls, config) -> bool:
+    def available(cls, config: Config) -> bool:
         import platform as _p
         return _p.system() == "Darwin"
 

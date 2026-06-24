@@ -44,7 +44,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher.http import post as http_post
 
@@ -94,7 +94,7 @@ def _load_api_key(config: Config) -> str:
     """Return the API key, raising DependencyError when not configured."""
     token_path = config.devto_token_path
     data = load_devto_token(token_path)
-    api_key = (data or {}).get("api_key", "").strip()
+    api_key = cast(str, (data or {}).get("api_key", "")).strip()
     if not api_key:
         raise DependencyError(
             "Dev.to API key not configured. "
@@ -198,7 +198,7 @@ class DevtoAPIAdapter(Publisher):
                 draft_url="https://dev.to/dashboard",
             )
 
-        def execute():
+        def execute() -> Any:
             resp = http_post(
                 DEVTO_ARTICLES_API,
                 headers=_required_headers(api_key),
@@ -233,11 +233,11 @@ class DevtoAPIAdapter(Publisher):
                 raise ExternalServiceError(
                     f"Dev.to returned non-JSON response: {exc}"
                 )
-            published_url = body.get("url", "")
+            published_url = cast(str, body.get("url", ""))
             if not published_url:
                 # Fallback: construct from slug + username
-                slug = body.get("slug", "")
-                username = (body.get("user") or {}).get("username", "")
+                slug = cast(str, body.get("slug", ""))
+                username = cast(str, (body.get("user") or {}).get("username", ""))
                 if slug and username:
                     published_url = f"https://dev.to/{username}/{slug}"
             if not published_url:

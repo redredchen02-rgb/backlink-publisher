@@ -42,7 +42,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from xmlrpc.client import Fault, ProtocolError, SafeTransport, ServerProxy
 
 from backlink_publisher.config import Config
@@ -185,7 +185,7 @@ def _load_credentials(config: Config) -> dict[str, str]:
             f"{_CRED_FILENAME} must be 0600 (found {oct(mode)})\nRun: chmod 600 {path}"
         )
     try:
-        data = json.loads(path.read_text())
+        data = cast("dict[str, str]", json.loads(path.read_text()))
     except (json.JSONDecodeError, OSError):
         raise DependencyError(
             "Cannot parse LiveJournal credentials: file corrupt or unreadable"
@@ -211,7 +211,7 @@ class _TimeoutTransport(SafeTransport):
         super().__init__()
         self._timeout = timeout
 
-    def make_connection(self, host):  # type: ignore[no-untyped-def]
+    def make_connection(self, host: Any) -> Any:
         conn = super().make_connection(host)
         conn.timeout = self._timeout
         return conn
@@ -256,7 +256,7 @@ class LivejournalAPIAdapter(Publisher):
         retried (they are permanent).
         """
         challenge_resp = proxy.LJ.XMLRPC.getchallenge()
-        challenge = str((challenge_resp or {}).get("challenge", ""))
+        challenge = str(cast("dict[str, Any]", challenge_resp or {}).get("challenge", ""))
         if not challenge:
             raise ExternalServiceError(
                 "LiveJournal getchallenge returned no challenge"

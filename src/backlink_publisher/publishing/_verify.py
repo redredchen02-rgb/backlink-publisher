@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, field
-from typing import Iterator, Literal, Optional
+from typing import Any, Iterator, Literal, Optional
 
 VerifyResultLiteral = Literal[
     "ok",
@@ -69,12 +69,12 @@ def dry_run_intercept() -> Iterator[None]:
 
     original_send = requests.Session.send
 
-    def _intercepted(self, request, **kwargs):  # noqa: ARG001
+    def _intercepted(self: Any, request: Any, **kwargs: Any) -> None:  # noqa: ARG001
         raise DryRunInterceptError(
             f"dry-run intercept: refusing to {request.method} {request.url}"
         )
 
-    requests.Session.send = _intercepted  # type: ignore[method-assign]
+    requests.Session.send = _intercepted  # type: ignore[method-assign,assignment]
     try:
         yield
     finally:

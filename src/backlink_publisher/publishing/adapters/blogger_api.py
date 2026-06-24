@@ -147,7 +147,7 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
         url_api = f"{_BLOGGER_API}/blogs/{blog_id}/posts/"
         params = {"isDraft": "true"} if is_draft else {}
 
-        def _do_post():
+        def _do_post() -> Any:
             resp = session.post(url_api, params=params, json=body, timeout=30)
             if resp.status_code in (401, 403):
                 raise AuthExpiredError(

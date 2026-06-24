@@ -89,7 +89,7 @@ class WordpresscomAPIAdapter(Publisher):
         api_url = f"{WPCOM_API_BASE}/sites/{site}/posts/new"
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        def execute():
+        def execute() -> Any:
             resp = http_post(
                 api_url,
                 headers=headers,

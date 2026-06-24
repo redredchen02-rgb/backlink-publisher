@@ -6,7 +6,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -70,6 +70,7 @@ class CredentialProvider(ABC):
         credential: Credential,
         descriptor: SessionDescriptor,
         config: Config,
+        channel: str = "unknown",
     ) -> Credential | None:
         """Attempt to refresh *credential*.
 
@@ -100,7 +101,7 @@ class DefaultCredentialProvider(CredentialProvider):
             raise DependencyError(
                 f"No credential loader registered for channel: {channel!r}"
             )
-        return loader(self, config, descriptor)
+        return cast("Credential", loader(self, config, descriptor))
 
     def probe(
         self, session: requests.Session, descriptor: SessionDescriptor
@@ -229,7 +230,7 @@ class DefaultCredentialProvider(CredentialProvider):
 
         try:
             resp = http_client.post(
-                refresh_cfg.token_endpoint,
+                refresh_cfg.token_endpoint or "",
                 data=payload,
                 timeout=30,
                 raise_for_status=False,

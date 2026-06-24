@@ -107,7 +107,7 @@ class SubstackAPIAdapter(Publisher):
 
         api_url = "https://substack.com/api/v1/drafts"
 
-        def execute():
+        def execute() -> Any:
             resp = session.post(
                 api_url,
                 headers=headers,

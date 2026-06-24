@@ -241,7 +241,7 @@ class NotionAPIAdapter(Publisher):
                 draft_url=f"notion://database/{database_id}",
             )
 
-        def execute():
+        def execute() -> Any:
             resp = http_post(
                 NOTION_PAGES_API,
                 headers=_required_headers(integration_token),
@@ -294,7 +294,7 @@ class NotionAPIAdapter(Publisher):
         except (DependencyError, ExternalServiceError):
             raise
         except Exception as exc:
-            log.exception("Notion publish failed")
+            log.error("Notion publish failed")
             raise ExternalServiceError(
                 f"Notion publish failed ({type(exc).__name__}): {exc}"
             ) from exc

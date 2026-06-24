@@ -183,7 +183,7 @@ def _refresh_cookies(context: Any) -> None:
         try:
             live_cookies = context.cookies("https://medium.com") or []
         except Exception as exc:
-            log.warning("Failed to extract live cookies from Playwright context: %s: %s", type(exc).__name__, exc)
+            log.warning("Failed to extract live cookies from Playwright context: %s: %s" % (type(exc).__name__, exc))
             live_cookies = []
         target.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(
@@ -264,7 +264,7 @@ class MediumBrowserAdapter(Publisher):
                 )
                 context = browser.new_context()
                 if cookies:
-                    context.add_cookies(cookies)
+                    context.add_cookies(cookies)  # type: ignore[arg-type]
                 page = context.new_page()
                 try:
                     context.grant_permissions(
@@ -288,7 +288,7 @@ class MediumBrowserAdapter(Publisher):
                         except ExternalServiceError:
                             raise
                         except Exception as exc:
-                            log.debug("Medium CAPTCHA probe failed during timeout: %s", exc)
+                            log.debug("Medium CAPTCHA probe failed during timeout: %s" % exc)
                         raise  # re-raise PlaywrightTimeoutError for retry_transient_call
 
                     # Plan 2026-05-19-005 Unit 1: detect login redirect;
@@ -349,8 +349,7 @@ class MediumBrowserAdapter(Publisher):
                         except Exception as exc:
                             log.warn(
                                 "Failed to click 'Save Draft' button during fallback: %s. "
-                                "Proceeding with standard wait.",
-                                exc,
+                                "Proceeding with standard wait." % exc
                             )
                             page.wait_for_timeout(_PUBLISH_SETTLE_MS)
 
@@ -442,6 +441,6 @@ def _save_screenshot(page: Any, config: Config, article_id: str) -> None:
     try:
         shot_path = _screenshot_path(config, article_id)
         page.screenshot(path=str(shot_path))
-        log.error({"level": "ERROR", "screenshot": str(shot_path)})
+        log.error("screenshot", level="ERROR", screenshot=str(shot_path))
     except Exception as exc:
-        log.debug("Failed to capture diagnostic screenshot: %s", exc)
+        log.debug("Failed to capture diagnostic screenshot: %s" % exc)

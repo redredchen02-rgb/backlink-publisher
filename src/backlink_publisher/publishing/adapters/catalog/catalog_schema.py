@@ -22,7 +22,7 @@ Schema fields (``VALID_TOP_LEVEL_KEYS``):
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -193,7 +193,9 @@ def load_catalog_yaml(path: Path) -> dict[str, Any] | None:
         parsed = yaml.safe_load(raw)
     except yaml.YAMLError as e:
         raise CatalogValidationError(f"{path}: YAML parse error: {e}")
-    return parsed
+    if parsed is None:
+        return None
+    return cast("dict[str, Any]", parsed)
 
 
 def load_entries_from_dir(catalog_dir: Path) -> dict[str, dict[str, Any]]:

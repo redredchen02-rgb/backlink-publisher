@@ -28,7 +28,7 @@ import base64
 import hashlib
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
 from backlink_publisher.http import get as http_get, post as http_post
@@ -122,7 +122,7 @@ class ImageGenAdapter:
             if 400 <= resp.status_code < 500:
                 raise ExternalServiceError(f"image-gen {resp.status_code}: {resp.text[:200]}")
             try:
-                return resp.json()
+                return cast("dict[str, Any]", resp.json())
             except ValueError as exc:
                 raise ExternalServiceError(f"image-gen response not JSON: {exc}") from exc
 
