@@ -425,7 +425,7 @@ TB
 
 ---
 
-- [ ] **U7: Add import-linter CI Enforcement + Fix Violations**
+- [x] **U7: Add import-linter CI Enforcement + Fix Violations**
 
 **Goal:** 在 CI 中加入 import-linter，靜態攔截跨層 import 違規；首次啟用 warn-only，修復所有違規後切換強制模式。
 
@@ -486,7 +486,7 @@ TB
 
 ---
 
-- [ ] **U8: CLI Subdirectory Reorganization**
+- [x] **U8: CLI Subdirectory Reorganization**
 
 **Goal:** 將 `cli/` 的 65 個文件重組到 6 個子目錄，每個子目錄 ≤ 15 文件；命令接口向後相容。
 
