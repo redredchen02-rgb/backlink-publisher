@@ -307,7 +307,7 @@ def _validate_generated_text(
 
 
 def _emit_records(
-    records: list[dict], output_format: str, file=None
+    records: list[dict], output_format: str, file: Any = None
 ) -> None:
     """Emit output records in the chosen format (JSONL or JSON array)."""
     dest = file or sys.stdout

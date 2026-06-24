@@ -21,6 +21,7 @@ the source of truth for ``BloggerAPIAdapter.publish``.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from . import ChannelRecipe
 
@@ -30,11 +31,11 @@ _LOGIN_URL = "https://www.blogger.com/"
 _BOUND_URL_PATTERN = re.compile(r"https?://(?:www\.)?blogger\.com/(?:.*)?$")
 
 
-def _blogger_bound_predicate(page) -> None:
+def _blogger_bound_predicate(page: Any) -> None:
     page.wait_for_url(_BOUND_URL_PATTERN)
 
 
-def _blogger_cookie_host_filter(host) -> bool:
+def _blogger_cookie_host_filter(host: Any) -> bool:
     """Accept blogger.com and the google.com OAuth family.
 
     Allowed shapes:

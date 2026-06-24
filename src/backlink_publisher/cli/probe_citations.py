@@ -27,6 +27,7 @@ import json
 import sys
 import uuid
 from pathlib import Path
+from typing import Any, Iterator
 
 from backlink_publisher._util.errors import (
     DependencyError,
@@ -211,7 +212,7 @@ def main(argv: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_dry(args, cfg, selection, store) -> None:
+def _run_dry(args: Any, cfg: Any, selection: Any, store: Any) -> None:
     """Zero-network dry preview: print plan + cost ceiling, exit 0."""
     from backlink_publisher.geo.share import compute_share
 
@@ -288,7 +289,7 @@ def _run_dry(args, cfg, selection, store) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_probe(args, cfg, selection, store, *, all_pairs) -> None:
+def _run_probe(args: Any, cfg: Any, selection: Any, store: Any, *, all_pairs: Any) -> None:
     """Network probe path — requires GEO config, flock-protected."""
     geo_cfg = cfg.geo_probe_provider  # confirmed non-None by caller
 
@@ -304,7 +305,7 @@ def _run_probe(args, cfg, selection, store, *, all_pairs) -> None:
         _probe_and_emit(args, cfg, geo_cfg, selection, store, all_pairs=all_pairs)
 
 
-def _probe_and_emit(args, cfg, geo_cfg, selection, store, *, all_pairs) -> None:
+def _probe_and_emit(args: Any, cfg: Any, geo_cfg: Any, selection: Any, store: Any, *, all_pairs: Any) -> None:
     """Inner probe loop — called inside the flock context."""
     from backlink_publisher.geo.engines import dispatch_probe
     from backlink_publisher.geo.joins import build_published_article_set
@@ -321,7 +322,7 @@ def _probe_and_emit(args, cfg, geo_cfg, selection, store, *, all_pairs) -> None:
     brand_aliases_map = _build_brand_aliases_map(cfg, selection.candidates)
 
     # Injectable probe function bound to the chosen engine.
-    def _probe_fn(query: str, probe_cfg):
+    def _probe_fn(query: str, probe_cfg: Any) -> Any:
         return dispatch_probe(engine_name, query, probe_cfg)
 
     candidates = selection.candidates
@@ -381,7 +382,7 @@ def _probe_and_emit(args, cfg, geo_cfg, selection, store, *, all_pairs) -> None:
         _check_fail_on_low_share(all_targets, store)
 
 
-def _check_fail_on_low_share(all_target_urls: list[str], store) -> None:
+def _check_fail_on_low_share(all_target_urls: list[str], store: Any) -> None:
     """Advisory exit 6 if any measured above-floor target has low share.
 
     ``all_target_urls`` should contain every distinct target URL in the corpus
@@ -426,7 +427,7 @@ def _check_fail_on_low_share(all_target_urls: list[str], store) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _build_corpus(cfg) -> list[tuple[str, str]]:
+def _build_corpus(cfg: Any) -> list[tuple[str, str]]:
     """Build the (target_url, query) corpus from operator config.
 
     Uses ``cfg.target_probe_queries`` (keyed by domain, values = query list).
@@ -443,7 +444,7 @@ def _build_corpus(cfg) -> list[tuple[str, str]]:
     return pairs
 
 
-def _build_brand_aliases_map(cfg, candidates) -> dict[str, list[str]]:
+def _build_brand_aliases_map(cfg: Any, candidates: Any) -> dict[str, list[str]]:
     """Return per-target brand alias list keyed by target_url."""
     result: dict[str, list[str]] = {}
     for cand in candidates:
@@ -466,7 +467,7 @@ def _strip_scheme_host(url: str) -> str:
 
 
 @contextlib.contextmanager
-def _single_run_lock(config_dir: Path):
+def _single_run_lock(config_dir: Path) -> Iterator[bool]:
     """Non-blocking exclusive flock so overlapping cron runs don't compound.
 
     Yields True if acquired, False if another run already holds the lock.

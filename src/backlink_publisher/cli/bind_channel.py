@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Sequence
+from typing import Any, Sequence
 
 from backlink_publisher._util.errors import (
     PipelineError,
@@ -77,7 +77,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None, *, _browser_runner=None) -> None:
+def main(argv: Sequence[str] | None = None, *, _browser_runner: Any = None) -> None:
     """Entry point for the ``bind-channel`` console script.
 
     Args:

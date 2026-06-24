@@ -25,7 +25,7 @@ binding flow to write ``medium-cookies.json`` + ``medium-meta.json``
 from __future__ import annotations
 
 import sys
-from typing import Sequence
+from typing import Any, Sequence
 
 from backlink_publisher._util.errors import UsageError, handle_error
 from backlink_publisher.cli import bind_channel
@@ -34,7 +34,7 @@ from backlink_publisher.cli import bind_channel
 _BANNER = "medium-login is an alias for: bind-channel --channel medium"
 
 
-def main(argv: Sequence[str] | None = None, *, _browser_runner=None) -> None:
+def main(argv: Sequence[str] | None = None, *, _browser_runner: Any = None) -> None:
     """Entry point for the ``medium-login`` console script.
 
     Always prints the alias banner to stderr first so plan-005 readers

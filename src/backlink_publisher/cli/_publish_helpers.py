@@ -84,7 +84,7 @@ def _acquire_publish_leases(platforms: set[str], dry_run: bool) -> None:
     atexit.register(_release_acquired_leases, store, acquired, pid)
 
 
-def _partition_paused(rows, platform_arg, config):
+def _partition_paused(rows: list[dict[str, Any]], platform_arg: str | None, config: Any) -> tuple[list[dict[str, Any]], list[str]]:
     """Split *rows* into (publishable_rows, sorted_paused_platforms).
 
     A platform an operator paused via /ce:health (``LockedHealthStore.paused``)

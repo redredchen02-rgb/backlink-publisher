@@ -24,6 +24,7 @@ import re
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 from . import ChannelRecipe
 
@@ -55,7 +56,7 @@ _SIGNED_IN_UI_JS = """() => {
 }"""
 
 
-def _velog_bound_predicate(page) -> None:
+def _velog_bound_predicate(page: Any) -> None:
     """Poll until the operator finishes OAuth and the v2 Velog session is authed.
 
     Positive signal (must hold on a single iteration):
@@ -87,7 +88,7 @@ def _velog_bound_predicate(page) -> None:
     started_at = time.monotonic()
     last_nav_at: list[float | None] = [None]
 
-    def _on_nav(_frame) -> None:
+    def _on_nav(_frame: Any) -> None:
         last_nav_at[0] = time.monotonic()
 
     page.on("framenavigated", _on_nav)
@@ -130,7 +131,7 @@ def _velog_bound_predicate(page) -> None:
             return
 
 
-def _velog_cookie_host_filter(host) -> bool:
+def _velog_cookie_host_filter(host: Any) -> bool:
     """Allow only ``velog.io`` and real ``*.velog.io`` subdomains."""
     if not host or not isinstance(host, str):
         return False

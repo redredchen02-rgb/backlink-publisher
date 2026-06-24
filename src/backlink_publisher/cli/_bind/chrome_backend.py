@@ -94,7 +94,7 @@ class RealChromeBrowserRunner:
     def launch_and_wait(
         self,
         *,
-        recipe,
+        recipe: Any,
         on_browser_ready: Callable[[], None],
         on_login_detected: Callable[[], None],
     ) -> Callable[..., None]:
@@ -126,7 +126,7 @@ class RealChromeBrowserRunner:
             self._terminate_proc()
             raise ChromeLaunchError("recipe_missing_host_filter")
 
-        def _provider(*, path) -> None:
+        def _provider(*, path: Any) -> None:
             try:
                 raw_cookies = cdp.all_cookies()
                 filtered = [
@@ -255,7 +255,7 @@ _CDP_TO_PLAYWRIGHT_EVENT = {
 
 
 class _CdpClient:
-    def __init__(self, ws_url: str, *, websocket_factory=None) -> None:
+    def __init__(self, ws_url: str, *, websocket_factory: Any = None) -> None:
         if websocket_factory is None:
             try:
                 import websocket
@@ -378,7 +378,7 @@ class _CdpPage:
     def on(self, event: str, callback: Callable[..., Any]) -> None:
         self._cdp.on(event, callback)
 
-    def wait_for_url(self, pattern, timeout: int = BIND_TIMEOUT_MS) -> None:
+    def wait_for_url(self, pattern: Any, timeout: int = BIND_TIMEOUT_MS) -> None:
         deadline = time.monotonic() + (timeout / 1000.0)
         while time.monotonic() < deadline:
             if pattern.search(self.url):

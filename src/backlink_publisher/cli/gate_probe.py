@@ -16,6 +16,7 @@ Exit 0 on a completed probe (even when every page is dead); exit 1 on usage.
 from __future__ import annotations
 
 import sys
+from typing import Any
 
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
 from .. import config_echo
@@ -28,7 +29,7 @@ from backlink_publisher.gates import verdict as gv
 _GATES = ("g2", "g3", "g5")
 
 
-def _money_page_urls(cfg) -> list[str]:
+def _money_page_urls(cfg: Any) -> list[str]:
     """The operator's own money pages from ``[sites.*.url_categories]`` config.
 
     Flattens ``site_url_categories`` (``{main_domain: {category: url}}``) to a
@@ -40,7 +41,7 @@ def _money_page_urls(cfg) -> list[str]:
     return sorted(seen)
 
 
-def _run_g2(cfg, decay_threshold: float | None) -> gv.GateVerdict:
+def _run_g2(cfg: Any, decay_threshold: float | None) -> gv.GateVerdict:
     urls = _money_page_urls(cfg)
     if not urls:
         print(
@@ -53,7 +54,7 @@ def _run_g2(cfg, decay_threshold: float | None) -> gv.GateVerdict:
     return verdict
 
 
-def _run_g3(args) -> gv.GateVerdict:
+def _run_g3(args: Any) -> gv.GateVerdict:
     referral = None
     if args.referral_sessions is not None:
         # Manual override (back-compat): operator-supplied count wins.
@@ -81,7 +82,7 @@ def _run_g3(args) -> gv.GateVerdict:
     return verdict
 
 
-def _run_g5(args) -> gv.GateVerdict:
+def _run_g5(args: Any) -> gv.GateVerdict:
     import json
 
     from backlink_publisher.events import EventStore

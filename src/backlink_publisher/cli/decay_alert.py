@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 
 WINDOW_DAYS = 14
@@ -25,7 +26,7 @@ def _utc_since(window_days: int) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def run(store=None) -> int:  # noqa: ANN001
+def run(store: Any = None) -> int:
     """Check decay and emit alerts. Returns count of new decay.alert events emitted."""
     from backlink_publisher.events import EventStore
     from backlink_publisher.events.kinds import DECAY_ALERT, LINK_RECHECKED

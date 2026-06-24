@@ -208,7 +208,7 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-
 # ── Endpoint resolution + guard ───────────────────────────────────────────────
 
 
-def _resolve_client(args) -> "LLMClientConfig":  # type: ignore[name-defined]
+def _resolve_client(args: Any) -> "LLMClientConfig":  # type: ignore[name-defined]
     """Resolve LLM endpoint/key/model from CLI flags → env → config.
 
     Resolution order for each field:
@@ -329,7 +329,7 @@ def _resolve_client(args) -> "LLMClientConfig":  # type: ignore[name-defined]
     )
 
 
-def _run_dry_run(validated: list[dict], args) -> list[dict]:
+def _run_dry_run(validated: list[dict], args: Any) -> list[dict]:
     """Emit prompt previews without making any LLM call (R3).
 
     Supported modes produce a prompt preview; unsupported modes produce a
@@ -377,7 +377,7 @@ def _run_dry_run(validated: list[dict], args) -> list[dict]:
     return output
 
 
-def _run_generate(validated: list[dict], args) -> list[dict]:
+def _run_generate(validated: list[dict], args: Any) -> list[dict]:
     """Resolve config, guard endpoint, generate and validate text per candidate.
 
     Endpoint resolution + SSRF/allowlist guard run once before any HTTP call

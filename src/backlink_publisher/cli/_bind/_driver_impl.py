@@ -117,7 +117,7 @@ class BrowserRunner(Protocol):
     def launch_and_wait(
         self,
         *,
-        recipe,  # ChannelRecipe
+        recipe: Any,  # ChannelRecipe
         on_browser_ready: Callable[[], None],
         on_login_detected: Callable[[], None],
     ) -> Callable[..., None]:
@@ -246,7 +246,7 @@ def _persist_storage_state(
 def run_bind(
     *,
     channel: str,
-    recipe,  # ChannelRecipe
+    recipe: Any,  # ChannelRecipe
     _browser_runner: BrowserRunner | None = None,
 ) -> BindResult:
     """Drive a single binding session.
@@ -414,7 +414,7 @@ class _PlaywrightBrowserRunner:
     def launch_and_wait(
         self,
         *,
-        recipe,
+        recipe: Any,
         on_browser_ready: Callable[[], None],
         on_login_detected: Callable[[], None],
     ) -> Callable[..., None]:
@@ -497,7 +497,7 @@ class _PlaywrightBrowserRunner:
         # storage_state and tear down the browser. Recipe's
         # cookie_host_filter is applied here to drop cookies/origins outside
         # the channel's expected host set (R16-style defense in depth).
-        def _provider(*, path) -> None:
+        def _provider(*, path: Any) -> None:
             try:
                 raw_state = cast(dict[str, Any], context.storage_state())
                 filtered = _apply_host_filter(raw_state, recipe.cookie_host_filter)

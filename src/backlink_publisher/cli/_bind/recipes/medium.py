@@ -134,7 +134,7 @@ _ABSOLUTE_TIMEOUT_SECONDS = 1200.0
 _INNER_WAIT_TIMEOUT_MS = 1000  # per-iteration wait_for_url timeout
 
 
-def _medium_cookie_host_filter(host) -> bool:
+def _medium_cookie_host_filter(host: Any) -> bool:
     if not host or not isinstance(host, str):
         return False
     return host.lower().lstrip(".") == "medium.com"
@@ -175,7 +175,7 @@ def _cookie_sanity_passes(cookies: list[dict[str, Any]]) -> bool:
 _USERNAME_URL_RE = re.compile(r"medium\.com/@([^/?#]+)")
 
 
-def _scrape_username(page) -> str | None:
+def _scrape_username(page: Any) -> str | None:
     """Three-tier fallback to extract the operator's Medium handle.
 
     1. DOM ``[data-testid="headerUserIcon"]`` parent's ``href`` attribute
@@ -292,7 +292,7 @@ def _meta_tentative_path() -> Path:
     return _config_dir() / "medium-meta.json.tentative"
 
 
-def _write_meta_tentative(page) -> None:
+def _write_meta_tentative(page: Any) -> None:
     """Capture UA + Chromium version from the live page and persist them
     atomically to the tentative meta file (mode 0600).
 
@@ -415,7 +415,7 @@ def _medium_post_persist(config_dir: Path, storage_state_path: Path) -> Path:
     return cookies_path
 
 
-def _medium_bound_predicate(page) -> None:
+def _medium_bound_predicate(page: Any) -> None:
     """Plan 003 Unit 1 predicate. See module docstring for the full flow.
 
     Raises:
@@ -441,7 +441,7 @@ def _medium_bound_predicate(page) -> None:
     # would raise long before the absolute floor the docstring promises.
     last_nav_at: list[float | None] = [None]
 
-    def _on_nav(_frame) -> None:
+    def _on_nav(_frame: Any) -> None:
         last_nav_at[0] = time.monotonic()
 
     page.on("framenavigated", _on_nav)

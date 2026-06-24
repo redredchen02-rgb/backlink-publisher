@@ -23,6 +23,7 @@ import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from backlink_publisher._util.errors import (
     DependencyError,
@@ -106,7 +107,7 @@ def main(argv: list[str] | None = None) -> None:
         lock_fh.close()
 
 
-def _probe_and_record(gsc_cfg, keywords: list[str]) -> None:
+def _probe_and_record(gsc_cfg: Any, keywords: list[str]) -> None:
     from backlink_publisher.gsc.client import GscClient
 
     try:
@@ -177,7 +178,7 @@ def _probe_and_record(gsc_cfg, keywords: list[str]) -> None:
     _log.recon("probe_ranking_complete", keywords=len(keywords), run_id=run_id)
 
 
-def snapshot_baseline(gsc_cfg, keywords: list[str] | None = None) -> None:
+def snapshot_baseline(gsc_cfg: Any, keywords: list[str] | None = None) -> None:
     """Record a baseline ranking snapshot using the pre-build window (-60d to -30d).
 
     Called advisory from plan-backlinks/core.py before building links.

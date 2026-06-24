@@ -23,7 +23,7 @@ Unit 7's plan-012 amendment to point at this alias as the canonical entry.
 from __future__ import annotations
 
 import sys
-from typing import Sequence
+from typing import Any, Sequence
 
 from backlink_publisher._util.errors import UsageError, handle_error
 from backlink_publisher.cli import bind_channel
@@ -32,7 +32,7 @@ from backlink_publisher.cli import bind_channel
 _BANNER = "velog-login is an alias for: bind-channel --channel velog"
 
 
-def main(argv: Sequence[str] | None = None, *, _browser_runner=None) -> None:
+def main(argv: Sequence[str] | None = None, *, _browser_runner: Any = None) -> None:
     """Entry point for the ``velog-login`` console script.
 
     Always prints the alias banner to stderr first so plan-012 readers

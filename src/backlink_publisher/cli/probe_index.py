@@ -26,6 +26,7 @@ import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from backlink_publisher._util.errors import (
     DependencyError,
@@ -99,7 +100,7 @@ def main(argv: list[str] | None = None) -> None:
         lock_fh.close()
 
 
-def _run(args, cfg) -> None:
+def _run(args: Any, cfg: Any) -> None:
     store = EventStore()
     candidates = _select_candidates(store, args.max_urls)
 
@@ -167,7 +168,7 @@ def _select_candidates(store: EventStore, max_urls: int) -> list[str]:
 
 
 def _probe_and_record(
-    client, urls: list[str], store: EventStore, run_id: str
+    client: Any, urls: list[str], store: EventStore, run_id: str
 ) -> None:
     """Query GSC for page impressions and write gsc.page_signal events."""
     today = datetime.now(timezone.utc).date()

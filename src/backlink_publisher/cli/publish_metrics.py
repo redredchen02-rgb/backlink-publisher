@@ -19,6 +19,7 @@ the default stays advisory, exit 0). Read-only over events.db.
 from __future__ import annotations
 
 import sys
+from typing import Any, Iterator
 
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
 from .. import config_echo
@@ -33,7 +34,7 @@ from backlink_publisher.scorecard.success_rate import publish_success_rate
 _COVERAGE_ALARM_EXIT_CODE = 6
 
 
-def _rows(success, coverage):
+def _rows(success: Any, coverage: Any) -> Iterator[dict]:
     sr_by_channel = {c.channel: c for c in success.per_channel}
     cov_by_channel = {c.channel: c for c in coverage.per_channel}
 
