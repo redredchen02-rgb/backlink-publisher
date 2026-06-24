@@ -177,8 +177,6 @@ def fetch_url(
             exc.headers,
             exc.fp,
         ) from exc
-    except Exception:
-        raise
 
 
 def close_all_sessions() -> None:
@@ -254,8 +252,5 @@ def stream_url(
     req = Request(url, method="GET")
     req.add_header("User-Agent", USER_AGENT)
 
-    try:
-        resp = opener.open(req, timeout=timeout)
-        return resp.getcode(), resp, dict(resp.headers)
-    except Exception:
-        raise
+    resp = opener.open(req, timeout=timeout)
+    return resp.getcode(), resp, dict(resp.headers)

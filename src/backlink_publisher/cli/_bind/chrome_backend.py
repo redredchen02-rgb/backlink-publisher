@@ -104,7 +104,7 @@ class RealChromeBrowserRunner:
         page = _CdpPage(cdp)
         try:
             recipe.bound_predicate(page)
-        except Exception:
+        except Exception:  # noqa: BLE001 — re-raise after cleanup; predicate errors are opaque
             cdp.close()
             self._terminate_proc()
             raise
@@ -201,7 +201,7 @@ class RealChromeBrowserRunner:
     def _get_version(self, base: str, *, timeout_s: float) -> dict[str, Any] | None:
         try:
             resp = self._requests.get(f"{base}/json/version", timeout=timeout_s)
-        except Exception:
+        except requests.exceptions.RequestException:
             return None
         if resp.status_code != 200:
             return None
@@ -227,7 +227,7 @@ class RealChromeBrowserRunner:
                 resp = getattr(self._requests, method)(
                     f"{base}/json/new?{encoded}", timeout=_CDP_TAB_OPEN_TIMEOUT_S
                 )
-            except Exception:
+            except requests.exceptions.RequestException:
                 continue
             if resp.status_code not in (200, 201):
                 continue
@@ -245,7 +245,7 @@ class RealChromeBrowserRunner:
             return
         try:
             proc.terminate()
-        except Exception:
+        except OSError:
             pass
 
 
@@ -264,7 +264,7 @@ class _CdpClient:
             websocket_factory = websocket.create_connection
         try:
             self._ws = websocket_factory(ws_url, timeout=_CDP_WS_CONNECT_TIMEOUT_S)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — websocket lib raises varies by backend
             raise ChromeLaunchError("chrome_cdp_unavailable") from exc
         self._next_id = 1
         self._event_callbacks: dict[str, list[Callable[..., Any]]] = {}
@@ -329,7 +329,7 @@ class _CdpClient:
     def all_cookies(self) -> list[dict[str, Any]]:
         try:
             result = self.send("Network.getAllCookies")
-        except Exception:
+        except Exception:  # noqa: BLE001 — fallback to alternative CDP command
             result = self.send("Storage.getCookies")
         cookies = result.get("cookies", [])
         return cookies if isinstance(cookies, list) else []
@@ -337,7 +337,7 @@ class _CdpClient:
     def close(self) -> None:
         try:
             self._ws.close()
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
 

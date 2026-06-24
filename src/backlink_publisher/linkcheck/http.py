@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
+import socket
 import ssl
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from backlink_publisher._util.errors import ExternalServiceError
@@ -81,7 +83,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
         code = resp.getcode()
         if code in ACCEPTABLE_CODES:
             return True, None
-    except Exception:
+    except (URLError, OSError, socket.timeout):
         pass
 
     # Fallback to GET
@@ -93,7 +95,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
         if code in ACCEPTABLE_CODES:
             return True, None
         return False, f"HTTP {code}"
-    except Exception as exc:
+    except (URLError, OSError, socket.timeout) as exc:
         return False, str(exc)
 
 

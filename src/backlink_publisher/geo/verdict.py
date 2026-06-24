@@ -116,7 +116,7 @@ def _extract_redirect_destination(raw_url: str) -> str | None:
     """
     try:
         parts = urlsplit(raw_url)
-    except Exception:
+    except (ValueError, UnicodeError):
         return None
     qs = parse_qs(parts.query, keep_blank_values=False)
     for param in _REDIRECT_PARAMS:
@@ -140,7 +140,7 @@ def _canonical_host(url: str) -> str | None:
         return None
     try:
         parts = urlsplit(url)
-    except Exception:
+    except (ValueError, UnicodeError):
         return None
     if parts.scheme.lower() not in ("http", "https"):
         return None
@@ -160,7 +160,7 @@ def _canonical_host_and_path(url: str) -> tuple[str, str] | None:
     try:
         canonical = canonicalize_url(url)
         parts = urlsplit(canonical)
-    except Exception:
+    except (ValueError, UnicodeError):
         return None
     if parts.scheme.lower() not in ("http", "https"):
         return None
@@ -314,7 +314,7 @@ def classify_verdict(
             site_hit = True
         try:
             canon = canonicalize_url(url)
-        except Exception:
+        except (ValueError, UnicodeError):
             canon = url
         if canon in published_article_urls:
             article_hit = True
@@ -366,7 +366,7 @@ def _classify_url(
     # Must be http(s).
     try:
         parts = urlsplit(raw_url)
-    except Exception:
+    except (ValueError, UnicodeError):
         uncredited.append(raw_url)
         return
     scheme = parts.scheme.lower()
@@ -401,7 +401,7 @@ def _classify_url(
     # Canonicalize for matching.
     try:
         canon = canonicalize_url(raw_url)
-    except Exception:
+    except (ValueError, UnicodeError):
         uncredited.append(raw_url)
         return
 

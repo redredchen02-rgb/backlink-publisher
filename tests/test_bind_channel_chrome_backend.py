@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import requests.exceptions
 
 from backlink_publisher.cli._bind.chrome_backend import (
     RealChromeBrowserRunner,
@@ -92,8 +93,8 @@ class TestRealChromeBrowserRunner:
         fake_requests = MagicMock()
         # First call (get_version) returns None → launches
         fake_requests.get.side_effect = [
-            Exception("not available"),  # _get_version fails → launch
-            Exception("not available"),  # _wait_for_version also fails
+            requests.exceptions.ConnectionError("not available"),  # _get_version fails → launch
+            requests.exceptions.ConnectionError("not available"),  # _wait_for_version also fails
         ]
         runner = RealChromeBrowserRunner(
             chrome_bin="/bin/ls",
@@ -177,7 +178,7 @@ class TestRealChromeBrowserRunner:
 
     def test_get_version_returns_none_on_failure(self):
         fake_requests = MagicMock()
-        fake_requests.get.side_effect = Exception("timeout")
+        fake_requests.get.side_effect = requests.exceptions.Timeout("timeout")
         runner = RealChromeBrowserRunner(requests_module=fake_requests)
         assert runner._get_version("http://127.0.0.1:9222", timeout_s=0.1) is None
 
@@ -185,7 +186,7 @@ class TestRealChromeBrowserRunner:
         fake_requests = MagicMock()
         # PUT fails → GET succeeds with tab info
         fake_resp = MagicMock(status_code=200, json=lambda: {"id": "tab1"})
-        fake_requests.put.side_effect = Exception("put failed")
+        fake_requests.put.side_effect = requests.exceptions.ConnectionError("put failed")
         fake_requests.get.return_value = fake_resp
         runner = RealChromeBrowserRunner(requests_module=fake_requests)
         tab = runner._open_tab("http://127.0.0.1:9222", "https://example.com")

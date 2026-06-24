@@ -195,7 +195,7 @@ def _get_state(platform: str, config: Config) -> dict[str, Any]:
             "tripped_at_iso": entry.get("tripped_at_iso"),
             "consecutive_errors": entry.get("consecutive_errors", 0),
         }
-    except Exception:
+    except (OSError, ValueError):
         # Fail-CLOSED: corrupt state file means we should trip
         return {
             "state": CircuitState.OPEN.value,
@@ -257,7 +257,7 @@ def is_tripped(platform: str, config: Config) -> bool:
             return True
 
         return False
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         _log.warn(f"circuit state read error for {platform!r} (fail-CLOSED): {exc}")
         return True
 
