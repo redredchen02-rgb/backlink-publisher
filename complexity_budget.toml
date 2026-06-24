@@ -68,9 +68,9 @@ rationale = "Per-row publish dispatcher gating canary, reachability, bad platfor
 # spray_backlinks/_engine.py::_run_spray was dead code (never called by main()); deleted.
 # Entry removed.
 
-[functions."src/backlink_publisher/keepalive/chain.py::run_cycle"]
-ceiling = 45
-rationale = "keepalive-run chain coordinator (plan 2026-06-05-004 U1): sequences five stages — cycle lock, recheck probe, per-target-status derivation, keepalive-gap planning, publish+reverify loop — each with early-exit branches for dry-run, lock contention, empty gaps, and exhausted targets. All sub-stage logic is already extracted to private helpers (_effective_sticky, _update_opt_stats, KeepaliveRunState); the remaining CC is sequential gating intrinsic to a multi-step coordinator. Extracting further would create helper functions with no reuse value. CC 41 measured at introduction; ceiling set to 45 for minimal headroom."
+# keepalive/chain.py::run_cycle decomposed (Plan 2026-06-24-002 U3): extracted
+# _run_recheck_stage (CC 6), _filter_exhausted_seeds (CC 4), _run_publish_step (CC 9),
+# _run_reverify_step (CC 12); run_cycle CC 45→18 — under backstop. Entry removed.
 
 
 # Test-file SLOC budgets (enforced by test_no_complexity_regrowth.py).

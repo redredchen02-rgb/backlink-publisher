@@ -212,6 +212,122 @@ def _update_opt_stats(platform: str, verdict: str, opt_state: Any = None, langua
         logger.warning("Failed to update optimization stats for %s: %s", platform, exc)
 
 
+# ── stage helpers ─────────────────────────────────────────────────────────────
+
+
+def _run_recheck_stage(
+    store: Any,
+    candidates: list[Any],
+    _probe: Callable,
+    _emit: Callable,
+    _vat: Callable,
+    _log: Any,
+) -> list[dict]:
+    """Step 1: Probe all candidates; emit recheck events; respect batch budget."""
+    results: list[dict] = []
+    deadline = time.monotonic() + _BATCH_BUDGET_S
+    for candidate in candidates:
+        if time.monotonic() > deadline:
+            logger.warning("keepalive: recheck batch budget exhausted, deferring remaining")
+            break
+        try:
+            r = _probe(candidate)
+        except Exception as exc:  # noqa: BLE001
+            r = {**candidate, "verdict": "probe_error", "reason": f"probe error: {exc}"}
+        results.append(r)
+        try:
+            _emit(store, [r])
+        except Exception:  # noqa: BLE001
+            logger.debug("emit_recheck failed", exc_info=True)
+        try:
+            _vat(store, [r])
+        except Exception:  # noqa: BLE001
+            logger.debug("write_verified_at failed", exc_info=True)
+    _log.recon("keepalive_recheck_done", probed=len(results))
+    return results
+
+
+def _filter_exhausted_seeds(
+    seeds_raw: list[Any],
+    run_state: Any,
+    max_gaps: int | None,
+    summary: "CycleSummary",
+) -> list[Any]:
+    """Remove exhausted targets and apply the max_gaps cap."""
+    seeds = []
+    for seed in seeds_raw:
+        if run_state.is_exhausted(seed.get("target_url", "")):
+            summary.exhausted_skipped += 1
+        else:
+            seeds.append(seed)
+    if max_gaps is not None:
+        seeds = seeds[:max_gaps]
+    return seeds
+
+
+def _run_publish_step(
+    seeds: list[Any],
+    run_state: Any,
+    summary: "CycleSummary",
+    _publish: Callable,
+    _log: Any,
+) -> list[dict]:
+    """Step 4: Publish each seed; record failures in run_state."""
+    published_results: list[dict] = []
+    for seed in seeds:
+        try:
+            result = _publish(seed)
+        except Exception as exc:  # noqa: BLE001
+            result = {
+                "target_url": seed.get("target_url"),
+                "platform": seed.get("platform"),
+                "published_url": "",
+                "status": "failed",
+                "error": f"publish error: {exc}",
+            }
+        ok = bool((result.get("published_url") or "").strip())
+        if ok:
+            summary.published += 1
+        else:
+            _t = result.get("target_url") or ""
+            _p = result.get("platform") or ""
+            if _t and _p:
+                run_state.record_attempt(_t, _p, "publish_failed")
+        published_results.append(result)
+    _log.recon("keepalive_publish_done",
+               published=summary.published, failed=len(seeds) - summary.published)
+    return published_results
+
+
+def _run_reverify_step(
+    published_results: list[dict],
+    run_state: Any,
+    summary: "CycleSummary",
+    _reverify: Callable,
+) -> None:
+    """Step 5: Reverify newly published URLs; update opt stats on definitive verdicts."""
+    for result in published_results:
+        url = (result.get("published_url") or "").strip()
+        if not url:
+            continue
+        platform = result.get("platform") or ""
+        target_url = result.get("target_url") or ""
+        try:
+            verdict_dict = _reverify(result)
+        except Exception as exc:  # noqa: BLE001
+            verdict_dict = {"verdict": "probe_error", "reason": str(exc)}
+        v = verdict_dict.get("verdict") or "probe_error"
+        if v == "alive":
+            summary.reverified_alive += 1
+        elif v in _DEAD_VERDICTS:
+            summary.reverified_dead += 1
+            run_state.record_attempt(target_url, platform, v)
+        else:
+            summary.reverified_error += 1
+        if v != "probe_error" and platform:
+            _update_opt_stats(platform, v)
+
+
 # ── main chain ────────────────────────────────────────────────────────────────
 
 
@@ -308,33 +424,12 @@ def run_cycle(
         unverified = _select_unv(store)
         candidates = confirmed + unverified
         _log.recon("keepalive_recheck_start", candidates=len(candidates))
-
-        results: list[dict] = []
-        deadline = time.monotonic() + _BATCH_BUDGET_S
-        for candidate in candidates:
-            if time.monotonic() > deadline:
-                logger.warning("keepalive: recheck batch budget exhausted, deferring remaining")
-                break
-            try:
-                r = _probe(candidate)
-            except Exception as exc:  # noqa: BLE001
-                r = {**candidate, "verdict": "probe_error", "reason": f"probe error: {exc}"}
-            results.append(r)
-            try:
-                _emit(store, [r])
-            except Exception:  # noqa: BLE001
-                logger.debug("emit_recheck failed", exc_info=True)
-            try:
-                _vat(store, [r])
-            except Exception:  # noqa: BLE001
-                logger.debug("write_verified_at failed", exc_info=True)
-
-        _log.recon("keepalive_recheck_done", probed=len(results))
+        _run_recheck_stage(store, candidates, _probe, _emit, _vat, _log)
 
         # ── Step 2: Status derivation ──────────────────────────────────────
         per_target_status = _derive(store)
 
-        # ── Step 3: Gap planning (U2: weight gate) ─────────────────────────
+        # ── Step 3: Gap planning ───────────────────────────────────────────
         effective = _eff_sticky(RUNTIME_STICKY_PLATFORMS)
         if not effective:
             _log.recon("keepalive_all_platforms_circuit_broken")
@@ -354,70 +449,17 @@ def run_cycle(
 
         if dry_run:
             _log.recon("keepalive_dry_run", gaps=summary.gaps_found)
-            summary_dict = {**summary.to_dict(), "dry_run": True,
-                            "seeds": seeds_raw}
+            summary_dict = {**summary.to_dict(), "dry_run": True, "seeds": seeds_raw}
             return summary_dict
 
-        # Filter exhausted targets
-        seeds = []
-        for seed in seeds_raw:
-            if run_state.is_exhausted(seed.get("target_url", "")):
-                summary.exhausted_skipped += 1
-            else:
-                seeds.append(seed)
-
-        if max_gaps is not None:
-            seeds = seeds[:max_gaps]
+        # ── Filter exhausted + cap ─────────────────────────────────────────
+        seeds = _filter_exhausted_seeds(seeds_raw, run_state, max_gaps, summary)
 
         # ── Step 4: Publish ────────────────────────────────────────────────
-        published_results: list[dict] = []
-        for seed in seeds:
-            try:
-                result = _publish(seed)
-            except Exception as exc:  # noqa: BLE001
-                result = {
-                    "target_url": seed.get("target_url"),
-                    "platform": seed.get("platform"),
-                    "published_url": "",
-                    "status": "failed",
-                    "error": f"publish error: {exc}",
-                }
-            ok = bool((result.get("published_url") or "").strip())
-            if ok:
-                summary.published += 1
-            else:
-                _t = result.get("target_url") or ""
-                _p = result.get("platform") or ""
-                if _t and _p:
-                    run_state.record_attempt(_t, _p, "publish_failed")
-            published_results.append(result)
+        published_results = _run_publish_step(seeds, run_state, summary, _publish, _log)
 
-        _log.recon("keepalive_publish_done",
-                   published=summary.published, failed=len(seeds) - summary.published)
-
-        # ── Step 5: Reverify + stat feedback (U3) ─────────────────────────
-        for result in published_results:
-            url = (result.get("published_url") or "").strip()
-            if not url:
-                continue
-            platform = result.get("platform") or ""
-            target_url = result.get("target_url") or ""
-            try:
-                verdict_dict = _reverify(result)
-            except Exception as exc:  # noqa: BLE001
-                verdict_dict = {"verdict": "probe_error", "reason": str(exc)}
-            v = verdict_dict.get("verdict") or "probe_error"
-            if v == "alive":
-                summary.reverified_alive += 1
-            elif v in _DEAD_VERDICTS:
-                summary.reverified_dead += 1
-                run_state.record_attempt(target_url, platform, v)
-            else:
-                summary.reverified_error += 1
-
-            # U3: stat feedback — only for definitive verdicts
-            if v != "probe_error" and platform:
-                _update_opt_stats(platform, v)
+        # ── Step 5: Reverify + stat feedback ──────────────────────────────
+        _run_reverify_step(published_results, run_state, summary, _reverify)
 
         _log.recon(
             "keepalive_cycle_complete",
