@@ -580,3 +580,40 @@ def test_resume_records_publish_path_drift_nofollow(
     health = cstore.get_publish_path_health("blogger")
     assert health["status"] == cstore.STATUS_DRIFT_CONFIRMED
     cstore.canary_health_store.reset()
+
+
+# ── B1: empty URL on resume path ───────────────────────────────────────────────
+
+@patch("backlink_publisher.checkpoint._cache_dir")
+@patch("backlink_publisher.cli._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli._resume.adapter_publish")
+def test_resume_empty_url_result_is_unverified(
+    mock_pub, mock_verify, mock_sleep, mock_cache, tmp_path, monkeypatch
+):
+    """B1: resume dispatch returning empty published_url + draft_url must NOT mark the
+    row as verified-dofollow. _do_verify returns (False, 'no URL to verify') before
+    calling verify_published, so the row gets _unverified suffix and exit code 5."""
+    mock_cache.return_value = tmp_path / "cache"
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+
+    rows = [_make_payload(platform="blogger", item_id="r0")]
+    create_checkpoint(rows, platform="blogger", mode="publish")
+    run_id = [
+        f.stem for f in (tmp_path / "cache" / "checkpoints").glob("*.json")
+    ][0]
+
+    mock_pub.return_value = AdapterResult(
+        status="published", adapter="blogger-api", platform="blogger",
+        published_url="", draft_url="",
+    )
+
+    stdout, stderr, code = _run_publish(argv=["--resume", run_id])
+
+    assert code == 5, f"empty URL must exit 5 (unverified). stderr={stderr}"
+    lines = [l for l in stdout.strip().splitlines() if l.strip()]
+    assert lines, f"expected JSONL output, got nothing. stderr={stderr}"
+    out = json.loads(lines[0])
+    assert "unverified" in out["status"], (
+        f"empty URL must produce _unverified status, got: {out['status']!r}"
+    )

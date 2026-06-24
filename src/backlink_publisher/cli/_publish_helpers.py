@@ -288,7 +288,7 @@ def _do_verify(
         return True, ""
     verify_url = result.published_url or result.draft_url
     if not verify_url:
-        return True, ""
+        return False, "no URL to verify"
     needs_extended_wait = getattr(result, "post_publish_delay_seconds", 0) > 0
     max_wait = 30 if needs_extended_wait else 10
     required_links = [lnk["url"] for lnk in row.get("links", []) if lnk.get("required")]

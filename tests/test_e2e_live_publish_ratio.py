@@ -216,9 +216,6 @@ def test_auth_expired_aborts_without_unverified_rows(mock_vp, mock_pub, mock_set
     assert "_unverified" not in stdout
 
 
-@pytest.mark.xfail(reason="latent false-green: empty live_url skips verification "
-                          "→ not a verified-dofollow; locked status-quo pending fix",
-                   strict=False)
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 @patch("backlink_publisher.cli._publish_helpers.verify_published")
