@@ -97,3 +97,90 @@ describe('publish store — stage machine', () => {
     expect(s.plans).toEqual([])
   })
 })
+
+describe('edits and effectivePlans', () => {
+  it('effectivePlans equals validated when no edits', () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'a', title: 'A' }]
+    expect(s.effectivePlans).toEqual([{ id: 'a', title: 'A' }])
+  })
+
+  it('patchRow merges only specified fields without clobbering others', () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'a', title: 'Original', content_markdown: 'Body' }]
+    s.patchRow(0, { custom_title: 'New Title' })
+    expect(s.effectivePlans[0].custom_title).toBe('New Title')
+    expect(s.effectivePlans[0].title).toBe('Original')
+    expect(s.effectivePlans[0].content_markdown).toBe('Body')
+  })
+
+  it('patchRow accumulates patches across calls (new reference each time)', () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'a' }]
+    s.patchRow(0, { custom_title: 'X' })
+    const after1 = s.edits[0]
+    s.patchRow(0, { content_markdown: 'Y' })
+    expect(s.edits[0]).not.toBe(after1)
+    expect(s.edits[0]).toEqual({ custom_title: 'X', content_markdown: 'Y' })
+  })
+
+  it('runPublish uses effectivePlans not raw validated', async () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'a', title: 'Original' }]
+    s.patchRow(0, { custom_title: 'Edited' })
+    vi.mocked(api.publishBacklinks).mockResolvedValue({
+      state: 'all_success',
+      n_ok: 1,
+      n_total: 1,
+      results: [],
+    })
+    await s.runPublish()
+    expect(api.publishBacklinks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plans: expect.arrayContaining([
+          expect.objectContaining({ id: 'a', title: 'Original', custom_title: 'Edited' }),
+        ]),
+      }),
+    )
+  })
+
+  it('reset clears edits', () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'a' }]
+    s.patchRow(0, { custom_title: 'X' })
+    s.reset()
+    expect(s.edits).toEqual({})
+  })
+
+  it('runValidate success clears edits', async () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'old' }]
+    s.patchRow(0, { custom_title: 'Stale' })
+    s.plans = [{ id: 'a' }]
+    vi.mocked(api.validateBacklinks).mockResolvedValue({ validated: [{ id: 'a' }] })
+    await s.runValidate()
+    expect(s.edits).toEqual({})
+  })
+
+  it('runValidate failure preserves edits', async () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'old' }]
+    s.patchRow(0, { custom_title: 'Keep me' })
+    s.plans = [{ id: 'a' }]
+    vi.mocked(api.validateBacklinks).mockRejectedValue(new Error('network error'))
+    try {
+      await s.runValidate()
+    } catch {}
+    expect(s.edits[0]).toEqual({ custom_title: 'Keep me' })
+  })
+
+  it('runPlan clears edits', async () => {
+    const s = usePublishStore()
+    s.validated = [{ id: 'old' }]
+    s.patchRow(0, { custom_title: 'Stale' })
+    vi.mocked(api.planBacklinks).mockResolvedValue({ plans: [{ id: 'new' }] })
+    s.setUrls('https://a.com/')
+    await s.runPlan()
+    expect(s.edits).toEqual({})
+  })
+})

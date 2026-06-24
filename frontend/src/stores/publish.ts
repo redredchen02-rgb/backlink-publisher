@@ -17,6 +17,11 @@ import * as api from '../api/pipeline'
 
 export type Stage = 'input' | 'planned' | 'validated' | 'published'
 
+export type PlanRowPatch = {
+  custom_title?: string
+  content_markdown?: string
+}
+
 export interface PublishConfig {
   platform: string
   publishMode: string
@@ -46,6 +51,7 @@ export const usePublishStore = defineStore('publish', () => {
   const config = ref<PublishConfig>(defaultConfig())
   const plans = ref<api.PlanRow[]>([])
   const validated = ref<api.PlanRow[]>([])
+  const edits = ref<Record<number, PlanRowPatch>>({})
   const publishResult = ref<api.PublishResult | null>(null)
 
   const availablePlatforms = ref<api.Platform[]>([])
@@ -53,6 +59,20 @@ export const usePublishStore = defineStore('publish', () => {
   const planning = ref(false)
   const validating = ref(false)
   const publishing = ref(false)
+
+  const effectivePlans = computed<api.PlanRow[]>(() =>
+    validated.value.map((row, i) =>
+      edits.value[i] ? { ...row, ...edits.value[i] } : row,
+    ),
+  )
+
+  function clearEdits(): void {
+    edits.value = {}
+  }
+
+  function patchRow(idx: number, patch: PlanRowPatch): void {
+    edits.value[idx] = { ...edits.value[idx], ...patch }
+  }
 
   const stage = computed<Stage>(() => {
     if (publishResult.value) return 'published'
@@ -102,6 +122,7 @@ export const usePublishStore = defineStore('publish', () => {
       plans.value = r.plans
       // Re-planning invalidates downstream stages.
       validated.value = []
+      clearEdits()
       publishResult.value = null
     } finally {
       planning.value = false
@@ -113,6 +134,7 @@ export const usePublishStore = defineStore('publish', () => {
     try {
       const r = await api.validateBacklinks(plans.value)
       validated.value = r.validated
+      clearEdits()
       publishResult.value = null
     } finally {
       validating.value = false
@@ -126,7 +148,7 @@ export const usePublishStore = defineStore('publish', () => {
     try {
       const c = config.value
       publishResult.value = await api.publishBacklinks({
-        plans: validated.value,
+        plans: effectivePlans.value,
         platform: c.platform,
         publish_mode: c.publishMode,
         tier_1: c.tier1,
@@ -143,6 +165,7 @@ export const usePublishStore = defineStore('publish', () => {
     config.value = defaultConfig()
     plans.value = []
     validated.value = []
+    clearEdits()
     publishResult.value = null
   }
 
@@ -151,6 +174,8 @@ export const usePublishStore = defineStore('publish', () => {
     config,
     plans,
     validated,
+    edits,
+    effectivePlans,
     publishResult,
     availablePlatforms,
     planning,
@@ -163,6 +188,7 @@ export const usePublishStore = defineStore('publish', () => {
     runPlan,
     runValidate,
     runPublish,
+    patchRow,
     reset,
   }
 })
