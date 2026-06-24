@@ -106,10 +106,7 @@ class AuthExpiredError(DependencyError):
     exit_code = 3
 
     def __init__(self, *, channel: str, reason: str | None = None) -> None:
-        # Local import avoids a top-level cycle (errors.py is imported
-        # very early in package init; cli._bind.channels is leaf-level
-        # but importing the whole cli package here would be premature).
-        from backlink_publisher.cli._bind.channels import CHANNELS
+        from backlink_publisher._util.channels import CHANNELS
 
         if not channel or channel not in CHANNELS:
             raise UsageError(
