@@ -47,6 +47,18 @@ playwright install chromium
 #    open ~/.config/backlink-publisher/chrome-profile-default/
 ```
 
+## Embeddable SDK
+
+The pipeline is available as a Python SDK for in-process use — no subprocesses or CLI flags needed. See [docs/sdk-quickstart.md](docs/sdk-quickstart.md) for installation, configuration, and usage examples.
+
+```python
+from backlink_publisher import sdk
+
+result = sdk.plan({"target_url": "https://example.com/article", ...})
+validated = sdk.validate(result.rows)
+published = sdk.publish(validated.rows)
+```
+
 ## Pipeline Commands
 
 ### 1. plan-backlinks

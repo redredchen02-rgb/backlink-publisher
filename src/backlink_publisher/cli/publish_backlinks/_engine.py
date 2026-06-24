@@ -521,7 +521,7 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
 
         record_done(
             row, platform,
-            live_url=result.published_url or result.draft_url,
+            live_url=(result.published_url or result.draft_url) or None,
             verify_ok=verify_ok,
             run_id=state.run_id,
         )

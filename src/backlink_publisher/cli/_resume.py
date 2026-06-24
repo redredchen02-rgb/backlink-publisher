@@ -413,6 +413,7 @@ def _publish_one_resume_item(
     # Verify before the checkpoint write so the `done` record carries the verification
     # verdict (Plan 005 / D5) — otherwise the projector cannot tell a verified `done` from
     # an unverified one and would count unverified publishes as successes.
+    # dry_run=False: resume always executes real dispatch, never gated
     verify_ok, verify_reason = _do_verify(
         getattr(args, "no_verify", False), False, result, row
     )
@@ -427,7 +428,7 @@ def _publish_one_resume_item(
     # seam). verify_ok is orthogonal to dedup identity.
     record_done(
         row, platform,
-        live_url=result.published_url or result.draft_url,
+        live_url=(result.published_url or result.draft_url) or None,
         verify_ok=verify_ok,
         run_id=run_id,
     )
