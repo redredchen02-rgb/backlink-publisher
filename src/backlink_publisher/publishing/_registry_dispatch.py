@@ -24,6 +24,7 @@ from .registry import _REGISTRY
 
 if TYPE_CHECKING:
     from .adapters.base import AdapterResult
+    from .registry import Publisher
 
 
 def _emit_degraded(platform: str, *, failed_adapter: str, to_adapter: str) -> None:
@@ -112,7 +113,7 @@ def dispatch(
         # Entry may be a Publisher subclass (legacy) or instance
         # (BrowserPublishDispatcher.for_channel — Plan 2026-05-21-001 U2).
         is_class = isinstance(entry, type)
-        publisher_cls = entry if is_class else type(entry)
+        publisher_cls: type[Publisher] = entry if is_class else type(entry)  # type: ignore[assignment]
 
         this_name = publisher_cls.__name__
         this_mech = getattr(publisher_cls, "mechanism", "api")
@@ -145,7 +146,7 @@ def dispatch(
             pending_transient = None
 
         try:
-            adapter = entry() if is_class else entry
+            adapter: Publisher = entry() if is_class else entry  # type: ignore[operator,assignment]
             if do_banner:
                 # Lazy import avoids a top-level cycle (banner_dispatcher
                 # lives in the same publishing package and is leaf-level,

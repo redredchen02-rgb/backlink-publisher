@@ -22,6 +22,7 @@ import re
 import threading
 import time
 from pathlib import Path
+from typing import Any, cast
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config import Config
@@ -35,8 +36,8 @@ try:
     from playwright.sync_api import Error as _PWError
 except ImportError:
     sync_playwright = None          # type: ignore[assignment]
-    _PWTimeout = Exception          # type: ignore[misc]
-    _PWError = Exception            # type: ignore[misc]
+    _PWTimeout = Exception          # type: ignore[misc,assignment]
+    _PWError = Exception            # type: ignore[misc,assignment]
 
 _LOCK_FILENAME = "medium-browser.lock"
 _UI_LOCK_TIMEOUT = 10      # seconds the UI waits before fail-fast
@@ -113,7 +114,7 @@ class _FileLock:
             _thread_lock.release()
 
 
-def _probe_playwright_context(config: Config):
+def _probe_playwright_context(config: Config) -> Any:
     """Return a Playwright context for liveness probing.
 
     Non-persistent launch + browser.new_context() for probe-copy isolation.
@@ -132,7 +133,7 @@ def _probe_playwright_context(config: Config):
     return pw_cm, browser, context
 
 
-def _playwright_context(config: Config):
+def _playwright_context(config: Config) -> Any:
     """Return a Playwright persistent context (headed, anti-detect args).
 
     Used only by launch_login_window for interactive operator login.
@@ -157,11 +158,11 @@ def _playwright_context(config: Config):
     return pw_cm, ctx
 
 
-def _load_cookies_for_probe(path: Path) -> list[dict]:
+def _load_cookies_for_probe(path: Path) -> list[dict[Any, Any]]:
     """Load cookies from medium-cookies.json for probe context."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data.get("cookies", [])
+        data = cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8")))
+        return cast("list[dict[Any, Any]]", data.get("cookies", []))
     except Exception:
         return []
 

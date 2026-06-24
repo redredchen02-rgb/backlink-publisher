@@ -33,12 +33,13 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from requests.exceptions import RequestException
 from backlink_publisher.http import get as http_get, put as http_put
 
 from backlink_publisher.config import Config, load_ghpages_token
+
 from backlink_publisher._util.errors import (
     BannerUploadError,
     DependencyError,
@@ -72,7 +73,7 @@ def _load_token(config: Config) -> str:
     than returning ``None`` and bumping the failure deeper into publish path.
     """
     data = load_ghpages_token(config.ghpages_token_path)
-    token = (data or {}).get("token")
+    token: str = cast(str, (data or {}).get("token") or "")
     if not token:
         raise DependencyError(
             "GitHub Pages PAT not configured. "
@@ -167,8 +168,8 @@ def _get_existing_sha(repo: str, branch: str, path: str, token: str) -> str | No
         raise ExternalServiceError(
             f"GitHub GET contents returned HTTP {resp.status_code} — unexpected response"
         )
-    body = resp.json()
-    return body.get("sha")
+    body = cast("dict[str, Any]", resp.json())
+    return cast("str | None", body.get("sha"))
 
 
 def _put_contents(
@@ -200,7 +201,7 @@ def _put_contents(
         timeout=_HTTP_TIMEOUT_S,
     )
     if resp.status_code in (200, 201):
-        return resp.json()
+        return cast("dict[str, Any]", resp.json())
     if resp.status_code == 401:
         raise ExternalServiceError(
             "GitHub PAT rejected (HTTP 401) — re-bind with Contents:Read+Write scope"
@@ -294,7 +295,7 @@ def _put_binary_contents(
         timeout=_HTTP_TIMEOUT_S,
     )
     if resp.status_code in (200, 201):
-        return resp.json()
+        return cast("dict[str, Any]", resp.json())
     if resp.status_code == 422:
         raise _ShaRequired(None)
     raise BannerUploadError(
@@ -483,7 +484,7 @@ class GitHubPagesAPIAdapter(Publisher):
                 draft_url=_published_url(gh_cfg.repo, target_path),
             )
 
-        def _attempt(sha: str | None = None):
+        def _attempt(sha: str | None = None) -> Any:
             return _put_contents(
                 gh_cfg.repo, gh_cfg.branch, target_path, markdown,
                 commit_message, token, sha=sha,
@@ -492,7 +493,7 @@ class GitHubPagesAPIAdapter(Publisher):
         # First attempt assumes the file is new. On 422 we fetch the existing
         # sha and retry once. Beyond that we fail loud — three writes to the
         # same path inside one publish call is almost certainly a bug.
-        def execute():
+        def execute() -> Any:
             try:
                 return _attempt(sha=None)
             except _ShaRequired:

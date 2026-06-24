@@ -51,7 +51,7 @@ mimetypes.add_type("image/webp", ".webp")
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 from requests.exceptions import RequestException
 from backlink_publisher.http import post as http_post
@@ -180,7 +180,7 @@ def _load_token(config: Config) -> dict[str, str]:
         )
 
     try:
-        data = json.loads(primary.read_text())
+        data = cast("dict[str, str]", json.loads(primary.read_text()))
     except (json.JSONDecodeError, OSError) as exc:
         raise DependencyError(
             f"Cannot parse telegraph token: {exc}"
@@ -334,13 +334,13 @@ def _create_account(short_name: str) -> str:
         raise ExternalServiceError(
             f"Telegraph createAccount returned malformed body: {body}"
         )
-    return new_token
+    return str(new_token)
 
 
 def _create_page(
     access_token: str,
     title: str,
-    nodes: list[dict[str, Any]],
+    nodes: list[dict[str, Any] | str],
     return_content: bool = False,
 ) -> dict[str, Any]:
     """POST createPage.  Returns the raw Telegraph response body.
@@ -363,7 +363,7 @@ def _create_page(
             timeout=_HTTP_TIMEOUT_S,
         )
         resp.raise_for_status()
-        return resp.json()
+        return cast("dict[str, Any]", resp.json())
     except RequestException as exc:
         raise ExternalServiceError(
             f"Telegraph createPage network failure: {exc}"

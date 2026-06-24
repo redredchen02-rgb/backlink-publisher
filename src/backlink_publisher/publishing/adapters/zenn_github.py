@@ -34,7 +34,7 @@ import json
 import os
 import re
 import time
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
@@ -85,7 +85,7 @@ def _required_headers(token: str) -> dict[str, str]:
 def _load_token(config: Config) -> str:
     token_path = config.zenn_token_path
     data = load_zenn_token(token_path)
-    token = (data or {}).get("token", "").strip()
+    token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "Zenn GitHub PAT not configured. "
@@ -136,7 +136,7 @@ def _get_file_sha(repo: str, path: str, branch: str, headers: dict) -> str | Non
             timeout=_HTTP_TIMEOUT_S,
         )
         if resp.status_code == 200:
-            return resp.json().get("sha")
+            return cast("str | None", cast("dict[str, Any]", resp.json()).get("sha"))
         return None
     except Exception:  # noqa: BLE001
         return None
@@ -206,7 +206,7 @@ class ZennGitHubAdapter(Publisher):
         headers = _required_headers(token)
         encoded = base64.b64encode(markdown_content.encode()).decode()
 
-        def execute():
+        def execute() -> Any:
             # Idempotency: if the file already exists, update (PUT with sha).
             existing_sha = _get_file_sha(repo, file_path, branch, headers)
             body: dict[str, Any] = {

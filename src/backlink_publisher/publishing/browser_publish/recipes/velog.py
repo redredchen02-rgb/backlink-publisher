@@ -71,7 +71,7 @@ def velog_publish_flow(page: Any, payload: dict[str, Any]) -> str:
     page.wait_for_url(
         sel.POST_PUBLISHED_URL_RE, timeout=sel.POST_PUBLISH_REDIRECT_TIMEOUT_MS
     )
-    return page.url
+    return str(page.url)
 
 
 RECIPES["velog"] = BrowserPublishRecipe(

@@ -39,7 +39,7 @@ import stat
 import time
 from datetime import datetime, timezone
 from urllib.parse import quote
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher.http import post as http_post, put as http_put
 
@@ -70,7 +70,7 @@ def _required_headers(token: str) -> dict[str, str]:
     }
 
 
-def _require_secure_mode(path) -> None:
+def _require_secure_mode(path: Any) -> None:
     """R10: refuse a group/world-readable token file (mirrors telegraph/livejournal).
 
     Tokens are written 0o600 by safe-write, but an operator-hand-created file may
@@ -93,7 +93,7 @@ def _load_token(config: Config) -> str:
     """
     _require_secure_mode(config.gitlabpages_token_path)
     data = load_gitlabpages_token(config.gitlabpages_token_path)
-    token = (data or {}).get("token", "").strip()
+    token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "GitLab Pages PAT not configured. "
@@ -134,7 +134,7 @@ def _files_api_url(project: str, file_path: str) -> str:
     return f"{GITLAB_API}/projects/{proj}/repository/files/{path}"
 
 
-def _published_url(cfg, file_path: str) -> str:
+def _published_url(cfg: Any, file_path: str) -> str:
     """Public Pages URL for a file committed under public/.
 
     Three cases:
@@ -230,7 +230,7 @@ class GitLabPagesAPIAdapter(Publisher):
             "commit_message": commit_message,
         }
 
-        def _handle_status(resp, verb: str):
+        def _handle_status(resp: Any, verb: str) -> bool:
             """Map non-2xx to typed errors. Returns True on success, False to fall through."""
             if resp.status_code in (200, 201):
                 return True
@@ -248,7 +248,7 @@ class GitLabPagesAPIAdapter(Publisher):
                 )
             return False  # caller decides (400 markers / generic)
 
-        def execute():
+        def execute() -> Any:
             # POST creates; on 400 "already exists" → PUT updates (idempotent overwrite).
             resp = http_post(
                 url, headers=_required_headers(token), json=body, timeout=_HTTP_TIMEOUT_S,

@@ -22,7 +22,7 @@ import enum
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config.loader import _config_dir
@@ -64,7 +64,7 @@ def _load_storage_state_for_probe() -> dict[str, Any] | None:
         return None
     for attempt in (1, 2):
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            return cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8")))
         except json.JSONDecodeError:
             if attempt == 1:
                 time.sleep(0.05)
@@ -100,7 +100,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
             try:
-                context = browser.new_context(storage_state=storage_state)
+                context = browser.new_context(storage_state=storage_state)  # type: ignore[arg-type]
                 page = context.new_page()
                 try:
                     page.goto("https://medium.com/me", timeout=8000)

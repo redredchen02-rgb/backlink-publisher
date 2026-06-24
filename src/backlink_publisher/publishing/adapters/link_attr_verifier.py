@@ -11,7 +11,7 @@ failures are logged but never surface as publish failures.
 from __future__ import annotations
 
 import re
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 from urllib.parse import parse_qsl, unquote, urlparse
 from urllib.request import Request
 
@@ -452,7 +452,7 @@ def body_has_required_link(body: str, required_urls: Sequence[str]) -> bool:
     return False
 
 
-def _fetch_body_via_preflight(url, _pf, timeout) -> tuple[bytes, Optional[str]]:
+def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tuple[bytes, Optional[str]]:
     """Fetch ``url`` through the preflight SSRF-guarded opener.
 
     Reuses ``_preflight_fetch``'s scheme gate (``_is_http_url``), never-raising
@@ -512,7 +512,7 @@ def _classify_fetch_error(exc: Exception) -> str:
     reason_obj = getattr(exc, "reason", None)
     if isinstance(reason_obj, str) and reason_obj.startswith("ssrf_"):
         return "ssrf_blocked"
-    if isinstance(exc, URLError) and isinstance(getattr(exc, "reason", None), str) \
+    if isinstance(exc, URLError) and isinstance(exc.reason, str) \
             and "ssrf" in exc.reason:
         return "ssrf_blocked"
     return "network_error"

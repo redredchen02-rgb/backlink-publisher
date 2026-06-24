@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 from html.parser import HTMLParser
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from backlink_publisher._util import markdown as markdown_utils
@@ -161,7 +161,7 @@ class _TelegraphNodeBuilder(HTMLParser):
         return len(self._stack) - 1
 
     def _current_children(self) -> list[Node]:
-        return self._stack[-1]["children"]
+        return cast("list[Node]", self._stack[-1]["children"])
 
     def _bump_downgrade(self, tag: str) -> None:
         self.downgrades += 1

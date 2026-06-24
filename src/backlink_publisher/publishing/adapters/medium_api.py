@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -86,7 +86,7 @@ def _fetch_medium_user_id(session: requests.Session) -> str:
         raise AuthExpiredError(channel="medium", reason="Medium /me HTTP 401")
     if not me_resp.ok:
         raise ExternalServiceError(f"Medium /me returned HTTP {me_resp.status_code}")
-    return me_resp.json()["data"]["id"]
+    return str(cast("dict[str, Any]", me_resp.json())["data"]["id"])
 
 
 def _create_medium_post(

@@ -33,7 +33,7 @@ import time
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, cast
 
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config.loader import _config_dir
@@ -261,7 +261,7 @@ def _read_pid_file() -> dict | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text())
+        return cast("dict[Any, Any]", json.loads(path.read_text()))
     except (OSError, ValueError):
         return None
 
@@ -403,7 +403,7 @@ class ChromeAttachSession(AbstractContextManager):
     # context manager protocol
     # ------------------------------------------------------------------
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         chrome_bin = self._chrome_bin or _chrome_binary()
         if not chrome_bin:
             raise ChromeSessionError("chrome_not_available")
@@ -441,7 +441,7 @@ class ChromeAttachSession(AbstractContextManager):
         self._page = self._connect_playwright(ws_url)
         return self._page
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         # Close page first (best-effort).
         for closer in (self._page, self._browser):
             if closer is None:
@@ -459,8 +459,6 @@ class ChromeAttachSession(AbstractContextManager):
 
         if self._owned:
             self._teardown_owned_proc()
-        # Never suppress exceptions.
-        return False
 
     # ------------------------------------------------------------------
     # internal: launch + connect

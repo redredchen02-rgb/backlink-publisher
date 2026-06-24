@@ -76,7 +76,7 @@ class RentryAPIAdapter(Publisher):
 
         # Step 1: fetch the homepage for a CSRF token. This GET is
         # idempotent, so it is safe to retry on transient (429) errors.
-        def _fetch_csrf():
+        def _fetch_csrf() -> Any:
             home_resp = http_client.get(
                 RENTRY_BASE,
                 timeout=_HTTP_TIMEOUT_S,

@@ -116,7 +116,7 @@ class HashnodeGraphQLAdapter(Publisher):
             "Content-Type": "application/json",
         }
 
-        def execute():
+        def execute() -> Any:
             resp = http_post(
                 HASHNODE_GQL_API,
                 headers=headers,

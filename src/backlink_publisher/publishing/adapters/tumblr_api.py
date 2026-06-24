@@ -130,7 +130,7 @@ class TumblrAPIAdapter(Publisher):
 
         api_url = f"{TUMBLR_API_BASE}/blog/{blog_name}/post"
 
-        def execute():
+        def execute() -> Any:
             resp = http_client.post(
                 api_url,
                 auth=auth,

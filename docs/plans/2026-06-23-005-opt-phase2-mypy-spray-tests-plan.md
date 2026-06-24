@@ -22,16 +22,14 @@ Execute the four remaining high-ROI optimization items deferred from Phase 1 (Ju
 
 ## Implementation Units (ordered by dependency)
 
-### U1 — mypy strict: publishing.* subpackage
+### U1 — mypy strict: publishing.* subpackage ✅ DONE (2026-06-24)
 
 | Field | Value |
 |-------|-------|
-| **Goal** | Enable `strict = true` in mypy.ini for `src/backlink_publisher/publishing/` |
-| **Status** | Currently commented out: `# "src/backlink_publisher/publishing/.*\\.py" → strict` |
-| **Approach** | 1. Run mypy with strict=on, collect all errors. 2. Fix type errors in smallest-unit commits (adapter-by-adapter). 3. Uncomment the section in mypy.ini. 4. Confirm CI passes. |
-| **Files** | `mypy.ini`, all files under `src/backlink_publisher/publishing/` |
-| **Risks** | 20+ adapters. Adapter `register()` calls have `dofollow=` keyword requirement. May need interface type annotations. |
-| **Verify** | `mypy src/backlink_publisher/publishing/ --strict` → exit 0 |
+| **Goal** | Enable `disallow_untyped_defs = True` in mypy.ini for `src/backlink_publisher/publishing/` |
+| **Result** | Fixed 95 pre-existing type errors across 46 files; enabled strict section in mypy.ini |
+| **Files** | `mypy.ini`, 46 files under `src/backlink_publisher/publishing/` |
+| **Verify** | `mypy src/backlink_publisher/publishing/ --no-incremental` → Success: no issues found in 86 source files ✅ |
 
 ### U2 — mypy strict: events.* subpackage ✅ DONE (2026-06-24)
 

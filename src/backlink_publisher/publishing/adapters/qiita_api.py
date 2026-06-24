@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
@@ -72,7 +72,7 @@ def _required_headers(token: str) -> dict[str, str]:
 def _load_token(config: Config) -> str:
     token_path = config.qiita_token_path
     data = load_qiita_token(token_path)
-    token = (data or {}).get("token", "").strip()
+    token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "Qiita personal access token not configured. "
@@ -150,7 +150,7 @@ class QiitaAPIAdapter(Publisher):
                 post_publish_delay_seconds=_post_publish_delay_s(),
             )
 
-        def execute():
+        def execute() -> Any:
             resp = http_post(
                 _QIITA_ITEMS_API,
                 headers=_required_headers(token),

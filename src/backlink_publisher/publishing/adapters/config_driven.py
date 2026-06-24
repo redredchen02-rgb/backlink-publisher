@@ -98,9 +98,9 @@ def _resolve_permalink(
             raise ExternalServiceError(
                 f"permalink via json_path failed — response not JSON: {exc}"
             )
-        url = _resolve_jsonpath(body, permalink_arg)
-        if url:
-            return url
+        url_or_none = _resolve_jsonpath(body, permalink_arg)
+        if url_or_none:
+            return url_or_none
         raise ExternalServiceError(
             f"json_path {permalink_arg!r} resolved to None in response"
         )

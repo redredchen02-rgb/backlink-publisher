@@ -46,7 +46,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -335,8 +335,8 @@ def _apply_publish_jitter(article_id: str, last_publish_at: float) -> None:
     if jitter_min > jitter_max:
         log.warning(
             "VELOG_THROTTLE_MIN_S (%d) > VELOG_THROTTLE_MAX_S (%d); "
-            "falling back to defaults (%d, %d)",
-            jitter_min, jitter_max, _VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S,
+            "falling back to defaults (%d, %d)"
+            % (jitter_min, jitter_max, _VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S)
         )
         jitter_min, jitter_max = _VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S
     jitter = random.uniform(jitter_min, jitter_max)
@@ -424,7 +424,7 @@ def _handle_null_write_post(
 
     write_post = (resp_json2.get("data") or {}).get("writePost")
     if write_post is not None:
-        return write_post
+        return cast("dict[Any, Any]", write_post)
 
     artifact_path = _save_null_artifact(
         resp_json2, dict(resp2.headers), article_id, config

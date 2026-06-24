@@ -28,7 +28,7 @@ The tier vocabulary is sealed inside this module — adapters call
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher._util.markdown import render_to_html
 from backlink_publisher.schema import _is_field_present
@@ -98,7 +98,7 @@ def _matrix_targets_registered_platforms() -> list[str]:
     return sorted(set(ROUTE_TIER_MATRIX.keys()) - set(registered_platforms()))
 
 
-def route_tier_for(platform: str) -> str:
+def route_tier_for(platform: object) -> str:
     """Return the source-format acceptance tier for ``platform``.
 
     Normalizes input (``strip().lower()``) before lookup. Unknown platforms
@@ -132,5 +132,5 @@ def extract_publish_html(payload: dict[str, Any], platform: str) -> str:
         _is_field_present(payload.get("content_html"))
         and route_tier_for(platform) == "a"
     ):
-        return payload["content_html"]
+        return cast(str, payload["content_html"])
     return render_to_html(payload.get("content_markdown", ""))

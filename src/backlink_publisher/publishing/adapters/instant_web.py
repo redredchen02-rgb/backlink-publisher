@@ -16,7 +16,7 @@ import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backlink_publisher.cli._bind import chrome_backend as chrome
 from backlink_publisher.config import Config, _config_dir as _bp_config_dir
@@ -54,21 +54,21 @@ class _ChromeSession:
 
     def __init__(self) -> None:
         raw_port = os.environ.get("BACKLINK_PUBLISHER_REAL_CHROME_PORT")
-        self.port = int(raw_port) if raw_port else chrome._find_free_port(chrome.DEFAULT_CHROME_PORT)
+        self.port = int(raw_port) if raw_port else chrome._chrome_port()
         self.proc: subprocess.Popen[Any] | None = None
         self.client: chrome._CdpClient | None = None
         self.page: chrome._CdpPage | None = None
 
     @classmethod
     def available(cls) -> bool:
-        return chrome.discover_chrome_binary() is not None or _cdp_available(
+        return chrome._chrome_binary() is not None or _cdp_available(
             int(os.environ.get("BACKLINK_PUBLISHER_REAL_CHROME_PORT", "9222"))
         )
 
     def open(self, url: str) -> chrome._CdpPage:
         attach = os.environ.get("BACKLINK_PUBLISHER_REAL_CHROME_ATTACH") == "1"
         if not _cdp_available(self.port):
-            chrome_bin = chrome.discover_chrome_binary()
+            chrome_bin = chrome._chrome_binary()
             if not chrome_bin:
                 raise DependencyError(
                     "real Chrome not available. Install Google Chrome or set "
@@ -107,8 +107,8 @@ class _ChromeSession:
         if not ws_url:
             raise ExternalServiceError("Chrome CDP returned no websocket URL")
         self.client = chrome._CdpClient(str(ws_url))
-        self.page = chrome._CdpPage(self.client, timeout_ms=int(_PUBLISH_TIMEOUT_S * 1000))
-        self.page.goto(url)
+        self.page = chrome._CdpPage(self.client)
+        self.page.goto(url)  # type: ignore[attr-defined]
         return self.page
 
     def close(self) -> None:
@@ -139,14 +139,14 @@ class _ChromeSession:
         )
         try:
             with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_S) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                return cast("dict[str, Any]", json.loads(resp.read().decode("utf-8")))
         except OSError:
             # Older Chrome builds used GET for /json/new.
             with urllib.request.urlopen(
                 f"{_debug_base_url(self.port)}/json/new?{encoded}",
                 timeout=_HTTP_TIMEOUT_S,
             ) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                return cast("dict[str, Any]", json.loads(resp.read().decode("utf-8")))
 
 
 def _wait_for_url_change(page: chrome._CdpPage, original: str) -> str:
@@ -182,11 +182,11 @@ class TelegraphCdpAdapter(Publisher):
         session = _ChromeSession()
         try:
             page = session.open("https://telegra.ph/")
-            page.wait_for_function(
+            page.wait_for_function(  # type: ignore[attr-defined]
                 "() => !!document.querySelector('[contenteditable=\"true\"]')",
                 timeout=15000,
             )
-            page.evaluate(
+            page.evaluate(  # type: ignore[call-arg]
                 """
                 (title, body) => {
                   const fields = [...document.querySelectorAll('[contenteditable="true"]')];
@@ -218,7 +218,7 @@ class TelegraphCdpAdapter(Publisher):
         except DependencyError:
             raise
         except Exception as exc:
-            log.exception("Telegraph CDP publish failed")
+            log.error("Telegraph CDP publish failed")
             raise ExternalServiceError(f"Telegraph CDP publish failed: {exc}") from exc
         finally:
             session.close()

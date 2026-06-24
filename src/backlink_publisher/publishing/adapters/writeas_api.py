@@ -91,7 +91,7 @@ class WriteasAPIAdapter(Publisher):
         if mode == "draft":
             json_body["pinned"] = False
 
-        def execute():
+        def execute() -> Any:
             resp = http_post(
                 f"{WRITEAS_API_BASE}/posts",
                 headers=headers,

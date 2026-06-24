@@ -32,7 +32,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
 from backlink_publisher.http import post as http_post
@@ -139,7 +139,7 @@ class OpenAICompatibleProvider:
                 is_retryable=_is_retryable,
                 adapter="llm-article-provider",
             )
-            return data["choices"][0]["message"]["content"]
+            return str(data["choices"][0]["message"]["content"])
         except Exception as exc:
             _log.warning(f"LLM article generation failed, falling back to template: {exc}")
             raise
@@ -170,7 +170,7 @@ class OpenAICompatibleProvider:
                 is_retryable=_is_retryable,
                 adapter="llm-image-prompt-generator",
             )
-            return data["choices"][0]["message"]["content"].strip()
+            return str(data["choices"][0]["message"]["content"]).strip()
         except Exception as exc:
             _log.warning(f"Image prompt generation failed: {exc}")
             return f"Professional article cover for: {title}"
@@ -214,7 +214,7 @@ class OpenAICompatibleProvider:
                 f"{_redact_for_log(resp.text)}"
             )
         try:
-            return resp.json()
+            return cast("dict[str, Any]", resp.json())
         except ValueError as exc:
             raise DependencyError(
                 f"LLM provider returned non-JSON body: {_redact_for_log(resp.text)}"
@@ -379,7 +379,7 @@ def _is_retryable(exc: Exception) -> bool:
 _LONG_INPUT_MAX_LEN: int = 1000
 
 
-def _sanitize_long_input(text: str) -> str:
+def _sanitize_long_input(text: object) -> str:
     """Like :func:`_sanitize_input` — the **same** control/bidi strip and the **same**
     five-character XML-attribute escape set — but with a larger length cap for context
     fields (``thread_summary`` / ``page_title``). Keeping the escape set identical means
