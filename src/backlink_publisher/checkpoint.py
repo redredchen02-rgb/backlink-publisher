@@ -186,7 +186,7 @@ def list_incomplete() -> list[dict[str, Any]]:
     for path in candidates:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             continue
         if data.get("status") == "complete":
             continue
@@ -217,7 +217,7 @@ def list_all_runs() -> list[dict[str, Any]]:
     for path in candidates:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             continue
         results.append(data)
     results.sort(key=lambda d: d.get("started_at", ""), reverse=True)
@@ -264,6 +264,6 @@ def delete_complete() -> int:
             if data.get("status") == "complete":
                 path.unlink()
                 count += 1
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             continue
     return count

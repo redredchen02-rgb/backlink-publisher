@@ -25,7 +25,7 @@ def _parse_row_timestamps(created_at: str) -> tuple[str | None, str | None]:
 
 
 def _emit_confirmed_history_row(
-    row: dict,
+    row: dict[str, Any],
     article_urls: object,
     target_url: str | None,
     host: str | None,
@@ -33,8 +33,8 @@ def _emit_confirmed_history_row(
     ts_raw: str | None,
     ts_utc: str | None,
     store: EventStore,
-    conn: object,
-    pending_quarantines: list,
+    conn: sqlite3.Connection | None,
+    pending_quarantines: list[dict[str, Any]],
 ) -> tuple[int, int, int, bool]:
     """Emit PUBLISH_CONFIRMED event(s) for one history row.
 

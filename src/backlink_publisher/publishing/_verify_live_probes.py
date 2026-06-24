@@ -165,7 +165,7 @@ def _verify_telegraph_live(config: Config) -> VerifyResult:
 
     try:
         body = resp.json()
-    except Exception:
+    except ValueError:
         return _non_json("telegraph")
 
     if not body.get("ok"):
@@ -221,7 +221,7 @@ def _verify_ghpages_live(config: Config) -> VerifyResult:
 
     try:
         body = resp.json()
-    except Exception:
+    except ValueError:
         return _non_json("GitHub /user")
 
     identity = body.get("login") or body.get("name")
@@ -270,7 +270,7 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
 
     try:
         body = resp.json()
-    except Exception:
+    except ValueError:
         return _non_json("blogger")
 
     identity = body.get("displayName") or body.get("id")

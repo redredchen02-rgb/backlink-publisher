@@ -12,9 +12,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from .._util.url import canonicalize_url
@@ -51,7 +52,7 @@ def detect_source(path: Path) -> str:
 # ── Cursor helpers ─────────────────────────────────────────────────
 
 
-def cursor_load(conn, source: str) -> dict[str, Any]:
+def cursor_load(conn: sqlite3.Connection, source: str) -> dict[str, Any]:
     """Read the prior projection state for ``source``. Empty dict on miss."""
     row = conn.execute(
         "SELECT last_seen_state_json FROM projection_cursor WHERE source = ?",
@@ -60,7 +61,7 @@ def cursor_load(conn, source: str) -> dict[str, Any]:
     if row is None or row[0] is None:
         return {}
     try:
-        return json.loads(row[0])
+        return cast(dict[str, Any], json.loads(row[0]))
     except json.JSONDecodeError as exc:
         raise ProjectionError(
             f"projection_cursor for {source!r} is corrupted"
@@ -68,7 +69,7 @@ def cursor_load(conn, source: str) -> dict[str, Any]:
 
 
 def cursor_save(
-    conn,
+    conn: sqlite3.Connection,
     source: str,
     state: dict[str, Any],
     *,
@@ -225,7 +226,7 @@ def article_payload(
 
 
 def _ensure_article(
-    store: EventStore, *, live_url: str, target_url, host, platform
+    store: EventStore, *, live_url: str, target_url: str | None, host: str | None, platform: str | None
 ) -> int | None:
     """Return the ``article_id`` for ``live_url``, registering the republished link
     as a tracked article if it isn't one yet.

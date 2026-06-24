@@ -161,7 +161,7 @@ def _handle_checkpoint_intent(
     run_id: str,
     target_url: str | None,
     host: str | None,
-    ts_raw: str,
+    ts_raw: str | None,
     ts_utc: str | None,
     prior_state: dict[str, Any] | None,
     seen_intent_or_failed: set[tuple[str, str, str]],
@@ -204,7 +204,7 @@ def _handle_checkpoint_confirmed(
     published_url: str | None,
     target_url: str | None,
     host: str | None,
-    ts_raw: str,
+    ts_raw: str | None,
     ts_utc: str | None,
     conn: sqlite3.Connection,
     pending_quarantines: list[dict[str, Any]],
@@ -288,7 +288,7 @@ def _handle_checkpoint_failed(
     run_id: str,
     target_url: str | None,
     host: str | None,
-    ts_raw: str,
+    ts_raw: str | None,
     ts_utc: str | None,
     seen_intent_or_failed: set[tuple[str, str, str]],
     conn: sqlite3.Connection,
@@ -406,7 +406,7 @@ def _project_history(
             article_urls = row.get("article_urls") or []
             language = row.get("language") if isinstance(row.get("language"), str) else None
 
-            outcome = kinds.classify("history", status)
+            outcome = kinds.classify("history", str(status or ""))
             if outcome is kinds.PUBLISH_CONFIRMED:
                 ev, art, sk, always_mark = _emit_confirmed_history_row(
                     row, article_urls, target_url, host, language,

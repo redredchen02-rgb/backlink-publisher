@@ -28,7 +28,7 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, cast
 
 from . import kinds
 from . import schema as _schema
@@ -263,7 +263,7 @@ class EventStore:
                 assert row_id is not None
                 return int(row_id)
 
-        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+        return cast(int, _retry_sqlite(_op, sleep_fn=self._sleep_fn))
 
     def add_article(
         self,
@@ -316,7 +316,7 @@ class EventStore:
                 assert row_id is not None
                 return int(row_id)
 
-        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+        return cast(int, _retry_sqlite(_op, sleep_fn=self._sleep_fn))
 
     def update_article_verified(
         self,
@@ -363,7 +363,7 @@ class EventStore:
                 conn.row_factory = sqlite3.Row
                 return list(conn.execute(sql, params))
 
-        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+        return cast(list[sqlite3.Row], _retry_sqlite(_op, sleep_fn=self._sleep_fn))
 
     @staticmethod
     def _missing_field_record(
@@ -454,7 +454,7 @@ class EventStore:
                 )
                 return cursor.rowcount > 0
 
-        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+        return cast(bool, _retry_sqlite(_op, sleep_fn=self._sleep_fn))
 
     def acquire_lease(self, target_host: str, owner_pid: int, ttl_seconds: int = 3600) -> bool:
         """Atomically acquire a lease on target_host.
@@ -495,7 +495,7 @@ class EventStore:
                     return True
                 return False
 
-        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+        return cast(bool, _retry_sqlite(_op, sleep_fn=self._sleep_fn))
 
     def release_lease(self, target_host: str, owner_pid: int) -> None:
         """Release the lease on target_host if owned by owner_pid."""
@@ -524,4 +524,4 @@ class EventStore:
                     "started_at": row[2],
                     "expire_at": row[3],
                 }
-        return _retry_sqlite(_op, sleep_fn=self._sleep_fn)
+        return cast(dict[str, Any] | None, _retry_sqlite(_op, sleep_fn=self._sleep_fn))
