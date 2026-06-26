@@ -1,7 +1,7 @@
 ---
 title: "refactor: Codebase Decoupling — Complexity, Boundary & CLI Structure"
 type: refactor
-status: active
+status: completed
 date: 2026-06-24
 origin: docs/brainstorms/2026-06-24-001-codebase-decoupling-requirements.md
 ---

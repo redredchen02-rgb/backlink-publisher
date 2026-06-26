@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-06-23
+## [0.5.0] - 2026-06-26
 
 ### Added
 
@@ -31,6 +31,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Codebase decoupling (Phase 1–3)**: 7 grandfathered high-CC functions decomposed below CC 30 backstop; `_generate_payload` (50→8), `_run_spray` (48→removed), `run_cycle` (45→18), `_build_links` (36→9), `save_config` (33→15), `_publish_one_row` (35→5), `_enhance_payload` (32→27). All CC budget entries removed. (Plan 2026-06-24-002)
+- **`__all__` declarations**: 50+ subpackages now declare explicit `__all__`, making the public API surface auditable at a glance. Import-linter CI enforcement with 2 forbidden contracts (`domain → cli`, `_util → domain/cli`) — both KEPT. `CHANNELS` moved from `cli/_bind/channels/` to `_util/constants.py` to resolve a root layer violation. (Plans U6–U7)
+- **CLI subdirectory reorganization**: 34 CLI entry points moved from flat `cli/` into 6 functional subdirectories (`plan/`, `publish/`, `spray/`, `admin/`, `reporting/`, `ops/`). Shim modules at original paths and updated `pyproject.toml` console_scripts ensure full backward compatibility. (Plan U8)
+- **Bulk modernization**: ruff (F/E/W/UP/I rules) replaces CI `py_compile`+`ast.parse`; isort-style import reordering across 880+ files; pyupgrade (`datetime.now(UTC)` etc.); thread-safe `http_client` via `_ThreadLocalProxy`; Windows compat layer (`_compat/fcntl` shim, batch scripts, `docs/windows-setup.md`).
+- **make lint-imports** target added; CI pipeline extended with `lint-imports` step.
 - Legacy Settings Jinja page retired; SPA at `/app/settings` replaces it. Six Jinja template files, four route modules (`bind.py`, `channel_bind_save.py`, `medium_login.py`, `token_paste.py`), and five legacy JS/CSS assets deleted.
 - `velog` login response replaces `log_path` filesystem path with `has_log` boolean (path never leaves the server).
 - `pipeline.py` `_EXIT_STATUS`: exit code 1 (conflict/force-manifest abort) now maps to HTTP 422 instead of falling through to 502.

@@ -1,7 +1,7 @@
 ---
 title: "refactor: 可嵌入库/SDK 抽取 — 让别的程序能 import 这条管线"
 type: refactor
-status: active
+status: completed
 date: 2026-06-22
 deepened: 2026-06-22
 origin: docs/brainstorms/2026-06-22-embeddable-sdk-extraction-requirements.md
