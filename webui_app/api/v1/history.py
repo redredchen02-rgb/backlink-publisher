@@ -13,6 +13,8 @@ so the Pinia store just replaces its list. Validation / not-found surface as RFC
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, request
 
 from ..history_api import HistoryAPI
@@ -42,13 +44,13 @@ def _require_ids(data: dict) -> list[str]:
 
 
 @bp.get("/history")
-def history_list():
+def history_list() -> Any:
     """Full publish-history list (events.db, normalised)."""
     return jsonify({"items": _api.list()})
 
 
 @bp.post("/history/delete")
-def history_delete():
+def history_delete() -> Any:
     """Delete one history entry → refreshed list."""
     item_id = _require_id(request.get_json(silent=True) or {})
     result = _api.delete(item_id)
@@ -56,7 +58,7 @@ def history_delete():
 
 
 @bp.post("/history/bulk-delete")
-def history_bulk_delete():
+def history_bulk_delete() -> Any:
     """Delete multiple history entries → refreshed list."""
     ids = _require_ids(request.get_json(silent=True) or {})
     result = _api.bulk_delete(ids)
@@ -64,14 +66,14 @@ def history_bulk_delete():
 
 
 @bp.post("/history/purge-failed")
-def history_purge_failed():
+def history_purge_failed() -> Any:
     """Delete every ``failed`` entry → refreshed list. No-op is a 200, not an error."""
     result = _api.purge_failed()
     return jsonify({"items": _api.list(), "message": result.get("flash_msg", "")})
 
 
 @bp.post("/history/recheck")
-def history_recheck():
+def history_recheck() -> Any:
     """Re-verify one history entry's link liveness → refreshed list."""
     item_id = _require_id(request.get_json(silent=True) or {})
     result = _api.recheck(item_id)

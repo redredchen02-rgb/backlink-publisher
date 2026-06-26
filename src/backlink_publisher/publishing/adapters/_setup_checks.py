@@ -9,7 +9,7 @@ credential/binding probe formerly inlined in ``verify_adapter_setup``'s
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config import Config
@@ -20,10 +20,10 @@ from .gitlabpages import GitLabPagesAPIAdapter
 from .hackmd_api import HackmdAPIAdapter
 from .hatena_atompub import HatenaAtomPubAdapter
 from .mataroa_api import MataroaAPIAdapter
-from .qiita_api import QiitaAPIAdapter
-from .zenn_github import ZennGitHubAdapter
 from .notion_api import NotionAPIAdapter
+from .qiita_api import QiitaAPIAdapter
 from .telegraph_api import verify_telegraph_setup
+from .zenn_github import ZennGitHubAdapter
 
 
 def _check_medium_setup(config: Config) -> str | None:

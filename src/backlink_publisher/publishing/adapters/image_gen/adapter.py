@@ -30,10 +30,12 @@ import logging
 import time
 from typing import Any, cast
 
-from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
-from backlink_publisher.http import get as http_get, post as http_post
+from requests.exceptions import ConnectionError as ReqConnError
+from requests.exceptions import Timeout as ReqTimeout
 
 from backlink_publisher._util.errors import ExternalServiceError
+from backlink_publisher.http import get as http_get
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.adapters.retry import retry_transient_call
 
 from .types import BannerArtifact

@@ -20,7 +20,6 @@ from backlink_publisher.publishing._manifest_types import (
 )
 from backlink_publisher.publishing.session import Credential, SessionManager
 
-
 # ── Fixtures ────────────────────────────────────────────────────────────────────
 
 @pytest.fixture

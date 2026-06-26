@@ -10,11 +10,11 @@ import pytest
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.hackmd_api import (
-    HackmdAPIAdapter,
     _build_note_payload,
     _load_token,
     _published_url,
     _required_headers,
+    HackmdAPIAdapter,
 )
 
 _PATCH_TARGET = "backlink_publisher.publishing.adapters.hackmd_api.http_post"

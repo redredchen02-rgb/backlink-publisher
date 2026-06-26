@@ -1,16 +1,17 @@
 from dataclasses import dataclass
-from typing import Dict, Any
 import json
+from typing import Any
+
 
 @dataclass
 class AnchorData:
     main_domain: str
     total_entries: int
-    type_stats: Dict[str, Any]
-    alarm: Dict[str, Any]
+    type_stats: dict[str, Any]
+    alarm: dict[str, Any]
 
     @classmethod
-    def from_report(cls, domain: str):
+    def from_report(cls, domain: str) -> Any:
         # Funnel through PipelineAPI (Phase 2 Unit 4) instead of a raw
         # subprocess.run. report-anchors exits 6 on an anchor-distribution
         # alarm but still writes the JSON document to stdout, so the
@@ -30,7 +31,7 @@ class AnchorData:
             alarm=data.get("alarm", {})
         )
 
-    def to_chart_data(self):
+    def to_chart_data(self) -> Any:
         # Transform for e.g. ECharts
         labels = list(self.type_stats.keys())
         counts = [s["count"] for s in self.type_stats.values()]

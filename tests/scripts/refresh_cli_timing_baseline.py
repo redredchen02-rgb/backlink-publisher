@@ -11,12 +11,12 @@ slowdown, not noise.
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timezone, UTC
 import json
+from pathlib import Path
 import statistics
 import subprocess
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 
 # Mirror the constants in tests/test_cli_timing_regression.py
 SAMPLE_COUNT = 5
@@ -69,7 +69,7 @@ def main() -> int:
         )
     baseline = {
         "schema_version": SCHEMA_VERSION,
-        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "captured_at": datetime.now(UTC).isoformat(),
         "imports": measurements,
     }
     BASELINE_PATH.write_text(json.dumps(baseline, indent=2) + "\n")

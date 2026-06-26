@@ -4,9 +4,9 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
+from datetime import datetime, timedelta, timezone, UTC
 import os
 import sys
-from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -27,7 +27,7 @@ class TestCredentialAgeDays:
 
     def test_returns_days_for_recent_binding(self, monkeypatch):
         from webui_store.channel_status import credential_age_days
-        ts = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+        ts = (datetime.now(UTC) - timedelta(days=3)).isoformat()
         monkeypatch.setattr(
             "webui_store.channel_status.get_status",
             lambda ch: {"status": "bound", "bound_at": ts},
@@ -38,7 +38,7 @@ class TestCredentialAgeDays:
 
     def test_handles_z_suffix_timestamp(self, monkeypatch):
         from webui_store.channel_status import credential_age_days
-        ts = (datetime.now(timezone.utc) - timedelta(days=10)).strftime(
+        ts = (datetime.now(UTC) - timedelta(days=10)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
         monkeypatch.setattr(
@@ -53,7 +53,7 @@ class TestCredentialAgeDays:
 class TestIsNearExpiry:
     def test_true_when_bound_8_days_ago(self, monkeypatch):
         from webui_store.channel_status import is_near_expiry
-        ts = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
+        ts = (datetime.now(UTC) - timedelta(days=8)).isoformat()
         monkeypatch.setattr(
             "webui_store.channel_status.get_status",
             lambda ch: {"status": "bound", "bound_at": ts},
@@ -62,7 +62,7 @@ class TestIsNearExpiry:
 
     def test_false_when_bound_6_days_ago(self, monkeypatch):
         from webui_store.channel_status import is_near_expiry
-        ts = (datetime.now(timezone.utc) - timedelta(days=6)).isoformat()
+        ts = (datetime.now(UTC) - timedelta(days=6)).isoformat()
         monkeypatch.setattr(
             "webui_store.channel_status.get_status",
             lambda ch: {"status": "bound", "bound_at": ts},
@@ -79,7 +79,7 @@ class TestIsNearExpiry:
 
     def test_custom_threshold(self, monkeypatch):
         from webui_store.channel_status import is_near_expiry
-        ts = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+        ts = (datetime.now(UTC) - timedelta(days=3)).isoformat()
         monkeypatch.setattr(
             "webui_store.channel_status.get_status",
             lambda ch: {"status": "bound", "bound_at": ts},

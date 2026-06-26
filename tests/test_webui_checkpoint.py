@@ -3,8 +3,8 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import json
-import sys
 from pathlib import Path
+import sys
 from unittest.mock import patch
 
 import pytest

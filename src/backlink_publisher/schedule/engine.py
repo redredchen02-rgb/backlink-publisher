@@ -7,9 +7,9 @@ Flask. Pure function.
 
 from __future__ import annotations
 
-import random
 from collections.abc import Callable
 from datetime import datetime, timedelta
+import random
 from typing import Protocol
 
 

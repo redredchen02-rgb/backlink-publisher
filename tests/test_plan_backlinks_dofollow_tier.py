@@ -14,12 +14,12 @@ import pytest
 
 from backlink_publisher.cli.plan_backlinks._payload import dofollow_tier_metadata
 from backlink_publisher.publishing import adapters  # noqa: F401 — registers production platforms
+from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
     _REGISTRY,
+    Publisher,
     register,
 )
-from backlink_publisher.publishing.registry import Publisher
-from backlink_publisher.publishing.adapters.base import AdapterResult
 
 
 class _FakeAdapter(Publisher):

@@ -22,17 +22,15 @@ Usage::
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, UTC
 import json
 import os
-import sqlite3
-import stat
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import sqlite3
+import sys
 from typing import Any
 
 from backlink_publisher.config import _cache_dir, _config_dir
-
 
 _CREDENTIAL_SUFFIXES = (
     "-state.json",
@@ -110,7 +108,7 @@ def _oldest_checkpoint(config_dir: str) -> dict[str, Any]:
     if not checkpoints:
         return {"exists": True, "age_hours": 0, "count": 0}
 
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     oldest = checkpoints[0]
     age_hours = round((now - oldest.stat().st_mtime) / 3600, 1)
     return {
@@ -133,7 +131,7 @@ def _check_all(
     dedup_db = os.path.join(config_dir, "dedup.db")
 
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "events_db": _db_stats(events_db),
         "dedup_db": _db_stats(dedup_db),
         "config_dir": {

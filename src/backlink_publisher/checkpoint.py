@@ -7,17 +7,18 @@ Directory permissions: 0700.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import os
+from pathlib import Path
 import re
 import stat
 import threading
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, cast
 
-from .config import _cache_dir
 from backlink_publisher._util.io import atomic_write_json
+
+from .config import _cache_dir
 
 _RUN_ID_RE = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{8}$")
 _lock = threading.Lock()
@@ -53,7 +54,7 @@ def _atomic_write(path: Path, data: dict) -> None:
 
 
 def generate_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + os.urandom(4).hex()
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S") + "-" + os.urandom(4).hex()
 
 
 #: error_class string constants used by Unit 7 (R13 retro-revalidation) so
@@ -105,7 +106,7 @@ def create_checkpoint(
 
     data: dict[str, Any] = {
         "run_id": run_id,
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "platform": platform,
         "mode": mode,
         "status": None,

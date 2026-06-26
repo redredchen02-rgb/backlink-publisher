@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import json
 import logging
 import os
-import stat
-from collections.abc import Iterable
 from pathlib import Path
+import stat
 from typing import Any, cast
 
 #: All token-FILE-backed credential platforms, in scan order. Single source of
@@ -70,7 +70,7 @@ def _load_token(path: Path | None, default_filename: str) -> dict[str, Any] | No
     if not token_path.exists():
         return None
     try:
-        with open(token_path, "r", encoding="utf-8") as f:
+        with open(token_path, encoding="utf-8") as f:
             return cast("dict[str, Any] | None", json.load(f))
     except Exception:
         return None

@@ -11,10 +11,14 @@ from __future__ import annotations
 
 import atexit
 import os
-import pwd
-import shutil
-import tempfile
 from pathlib import Path
+import shutil
+import sys
+import tempfile
+
+# Windows 兼容: pwd 是 Unix-only 模块
+if sys.platform != "win32":
+    import pwd
 
 import pytest
 
@@ -88,11 +92,15 @@ GRANDFATHERED_EXPANDUSER_SITES: frozenset[tuple[str, int]] = frozenset(
 # can freeze a raw Path.home() constant against the real HOME.
 #
 # Step 1: Capture the real operator roots via the OS (not $HOME, which we're
-# about to overwrite). Use pwd.getpwuid to bypass any existing $HOME mutation.
+# about to overwrite). On Unix, use pwd.getpwuid to bypass any existing $HOME
+# mutation. On Windows, use USERPROFILE.
 # These are stored in REAL_CONFIG_ROOT / REAL_CACHE_ROOT so the tripwire
 # (Unit 7) can watch the operator's actual files — post-redirect Path.home()
 # and _config_dir() both resolve to the sandbox.
-_real_pw_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+if sys.platform != "win32":
+    _real_pw_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+else:
+    _real_pw_home = Path(os.environ.get("USERPROFILE", os.path.expanduser("~")))
 # Honour a pre-existing operator-exported CONFIG/CACHE override (rare, but
 # possible in CI). If set, that IS the real root.
 _pre_existing_config = os.environ.get("BACKLINK_PUBLISHER_CONFIG_DIR")
@@ -574,10 +582,14 @@ from typing import Any as _Any  # noqa: E402
 from backlink_publisher.publishing.adapters.base import (  # noqa: E402
     AdapterResult as _AdapterResult,
 )
+from backlink_publisher.publishing.registry import (
+    _REGISTRY as __REGISTRY,
+)
 from backlink_publisher.publishing.registry import (  # noqa: E402
     Publisher as _Publisher,
+)
+from backlink_publisher.publishing.registry import (
     register as _register,
-    _REGISTRY as __REGISTRY,
 )
 
 
@@ -695,7 +707,6 @@ import hashlib as _hashlib
 import sqlite3 as _sqlite3
 import subprocess as _subprocess
 
-
 # ---- Exclusion helpers -------------------------------------------------------
 
 _CHROME_PROFILE_EXCLUDES: tuple[str, ...] = (
@@ -734,7 +745,7 @@ def _tw_is_protected(filename: str) -> bool:
 
 # ---- Digest helpers ----------------------------------------------------------
 
-def _tw_sha256_file(path: Path) -> "str | None":
+def _tw_sha256_file(path: Path) -> str | None:
     """SHA-256 hex digest of path bytes, or None on any read failure."""
     try:
         data = path.read_bytes()
@@ -743,7 +754,7 @@ def _tw_sha256_file(path: Path) -> "str | None":
         return None
 
 
-def _tw_events_db_fingerprint(db_path: Path) -> "str | None":
+def _tw_events_db_fingerprint(db_path: Path) -> str | None:
     """Logical fingerprint for events.db via WAL snapshot-copy.
 
     Returns sorted-rows SHA-256 across all user tables, or None if the db is
@@ -820,7 +831,7 @@ def _tw_chrome_profile_size(config_root: Path) -> int:
 def snapshot_protected_files(
     config_root: Path,
     cache_root: Path,
-) -> "dict[str, str | None]":
+) -> dict[str, str | None]:
     """Snapshot all protected credential files under config_root and cache_root.
 
     Returns ``{relative_name: digest_or_None}`` for every file matching
@@ -853,7 +864,7 @@ def snapshot_protected_files(
 
 
 def check_protected_files(
-    initial: "dict[str, str | None]",
+    initial: dict[str, str | None],
     config_root: Path,
     cache_root: Path,
 ) -> list[str]:

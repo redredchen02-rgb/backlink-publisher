@@ -32,26 +32,25 @@ DOFOLLOW NOTICE:
 from __future__ import annotations
 
 import base64
+from datetime import datetime, UTC
 import html
 import json
 import os
-import stat
 import time
-from datetime import datetime, timezone
-from urllib.parse import quote
 from typing import Any, cast
+from urllib.parse import quote
 
-from backlink_publisher.http import post as http_post, put as http_put
-
-from backlink_publisher.config import Config, load_gitlabpages_token
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, load_gitlabpages_token
+from backlink_publisher.http import post as http_post
+from backlink_publisher.http import put as http_put
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
+
 from .base import AdapterResult
 from .ghpages import _slugify
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
-
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 GITLAB_API = "https://gitlab.com/api/v4"
 _HTTP_TIMEOUT_S = 30
@@ -59,7 +58,7 @@ _ALREADY_EXISTS = "already exists"  # GitLab 400 marker (create-on-existing AND 
 
 
 def _utc_date() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def _required_headers(token: str) -> dict[str, str]:

@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import sys
-from io import StringIO
 
 import pytest
 

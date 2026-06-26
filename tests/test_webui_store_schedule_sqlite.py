@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from webui_store.schedule import ScheduleSqliteStore, _JSON_FILENAME, _SENTINEL_NAME
-from webui_store.sqlite_base import WebUIDatabase
 from webui_store.base import Store
+from webui_store.schedule import _JSON_FILENAME, _SENTINEL_NAME, ScheduleSqliteStore
+from webui_store.sqlite_base import WebUIDatabase
 
 
 def _store(tmp_path: Path) -> ScheduleSqliteStore:

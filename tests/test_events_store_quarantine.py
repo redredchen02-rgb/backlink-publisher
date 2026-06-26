@@ -10,7 +10,6 @@ from __future__ import annotations
 __tier__ = "integration"
 import sqlite3
 
-
 from backlink_publisher.events.store import EventStore
 
 

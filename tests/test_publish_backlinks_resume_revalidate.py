@@ -9,9 +9,9 @@ naming the retro reason).
 from __future__ import annotations
 
 __tier__ = "unit"
-import sys
 from io import StringIO
 from pathlib import Path
+import sys
 from typing import Any
 from unittest.mock import patch
 

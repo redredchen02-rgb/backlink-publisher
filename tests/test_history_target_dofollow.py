@@ -15,12 +15,12 @@ import json
 import pytest
 
 from backlink_publisher.events import EventStore
-from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED
 from backlink_publisher.events.history_query import (
     derive_target_dofollow,
     get_history_item,
     list_history,
 )
+from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED
 from backlink_publisher.recheck import verdicts
 
 

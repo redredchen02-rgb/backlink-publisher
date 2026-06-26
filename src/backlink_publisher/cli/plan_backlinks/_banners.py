@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.config import Config
 
 
 def _build_banner_runtime(cfg: Config) -> dict[str, Any] | None:
@@ -22,11 +22,11 @@ def _build_banner_runtime(cfg: Config) -> dict[str, Any] | None:
         plan_logger.warn(f"image_gen disabled for this run: {exc}")
         return None
 
+    from backlink_publisher.events.store import EventStore
     from backlink_publisher.publishing.adapters.image_gen import ImageGenAdapter
     from backlink_publisher.publishing.adapters.image_gen.caps import (
         AutoDisableTracker,
     )
-    from backlink_publisher.events.store import EventStore
 
     adapter = ImageGenAdapter(
         base_url=cfg.image_gen.base_url,
@@ -53,13 +53,13 @@ def _generate_banner_for_payload(
     runtime: dict[str, Any],
     llm_provider: Any | None,
 ) -> dict[str, Any]:
+    from backlink_publisher._util.errors import ExternalServiceError
     from backlink_publisher.publishing.adapters.image_gen.caps import (
         check_caps,
         record_cap_hit,
         record_invocation,
     )
     from backlink_publisher.publishing.adapters.image_gen.storage import save_banner
-    from backlink_publisher._util.errors import ExternalServiceError
 
     tracker = runtime["tracker"]
     if tracker.disabled:

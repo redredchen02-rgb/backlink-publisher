@@ -2,9 +2,9 @@
 __tier__ = "unit"
 
 import json
+from pathlib import Path
 import threading
 import time
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +19,6 @@ from backlink_publisher.publishing.reliability.circuit import (
     reset_circuit,
     trip,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

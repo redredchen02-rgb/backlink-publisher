@@ -22,9 +22,10 @@ panel mounts on every page).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 import time
-from dataclasses import dataclass, field
-from typing import Callable
+from typing import Any
 
 from backlink_publisher.audit import (
     AuditReadError,
@@ -71,7 +72,7 @@ class AggregateResult:
 # --- per-tool adapters (own the Finding taxonomy) ------------------------------
 
 
-def adapt_equity(*, stale_days: int = 30, build=build_ledger) -> ToolResult:
+def adapt_equity(*, stale_days: int = 30, build: Any=build_ledger) -> ToolResult:
     try:
         rows = build(stale_days=stale_days)
     except Exception as exc:  # isolate: one tool's failure never sinks the rest
@@ -104,7 +105,7 @@ def adapt_equity(*, stale_days: int = 30, build=build_ledger) -> ToolResult:
     return _result("equity-ledger", findings)
 
 
-def adapt_audit(*, read=read_snapshot, diff=find_divergences) -> ToolResult:
+def adapt_audit(*, read: Any=read_snapshot, diff: Any=find_divergences) -> ToolResult:
     try:
         snapshot = read()
         records = diff(snapshot)
@@ -151,7 +152,7 @@ def adapt_cull(*, platforms=registered_platforms, dofollow=dofollow_status,
     return _result("cull-channels", findings)
 
 
-def adapt_canary(*, list_all=canary_store.list_all) -> ToolResult:
+def adapt_canary(*, list_all: Any=canary_store.list_all) -> ToolResult:
     try:
         health = list_all()
     except Exception as exc:

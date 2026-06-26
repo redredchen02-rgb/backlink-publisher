@@ -21,6 +21,7 @@ from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
+
 from .base import AdapterResult
 from .http_form_post import attach_link_verification, submit_form
 from .link_attr_verifier import required_link_urls

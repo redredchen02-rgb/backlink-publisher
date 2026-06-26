@@ -14,7 +14,6 @@ from typing import Any
 
 import pytest
 
-
 # ── helpers (same pattern as test_webui_bind_job_service.py) ─────────────────
 
 class _FakeProc:

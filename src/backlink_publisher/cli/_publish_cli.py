@@ -17,6 +17,7 @@ from typing import Any
 
 def _build_parser() -> Any:
     import argparse
+
     from backlink_publisher.publishing.registry import registered_platforms
 
     parser = argparse.ArgumentParser(
@@ -169,8 +170,9 @@ def _build_parser() -> Any:
 
 
 def _handle_checkpoint_ops(args: Any) -> None:
-    from .. import checkpoint
     from backlink_publisher._util.errors import emit_error
+
+    from .. import checkpoint
 
     exclusive = [
         args.resume, args.list_runs, args.cleanup, args.cleanup_all,

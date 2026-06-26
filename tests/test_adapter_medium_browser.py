@@ -25,14 +25,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backlink_publisher.publishing.adapters.medium_browser import MediumBrowserAdapter
-from backlink_publisher.config import Config
-from backlink_publisher.config.loader import _config_dir
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.config import Config
+from backlink_publisher.config.loader import _config_dir
+from backlink_publisher.publishing.adapters.medium_browser import MediumBrowserAdapter
 
 PAYLOAD = {
     "id": "abc123",

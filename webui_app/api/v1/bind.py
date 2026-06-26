@@ -21,6 +21,8 @@ credential writes, fired in production and the security regression battery.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import abort, jsonify, request
 
 from ...helpers.security import (
@@ -49,7 +51,7 @@ def _enforce_loopback_addr() -> None:
         abort(403)
 
 
-def _render(result):
+def _render(result: Any) -> Any:
     if not result.ok:
         raise ApiProblem(
             result.status,
@@ -61,7 +63,7 @@ def _render(result):
 
 
 @bp.post("/settings/channels/<channel>/bind")
-def api_start_bind(channel: str):
+def api_start_bind(channel: str) -> Any:
     _enforce_loopback_addr()
     if _transport_guards_active():
         _refuse_when_allow_network()
@@ -70,13 +72,13 @@ def api_start_bind(channel: str):
 
 
 @bp.get("/settings/channels/<channel>/bind/<job_id>")
-def api_poll_bind(channel: str, job_id: str):
+def api_poll_bind(channel: str, job_id: str) -> Any:
     _enforce_loopback_addr()
     return _render(BindAPI().poll(channel, job_id))
 
 
 @bp.post("/settings/channels/<channel>/identity-mismatch/keep")
-def api_identity_mismatch_keep(channel: str):
+def api_identity_mismatch_keep(channel: str) -> Any:
     _enforce_loopback_addr()
     if _transport_guards_active():
         _refuse_when_allow_network()
@@ -85,7 +87,7 @@ def api_identity_mismatch_keep(channel: str):
 
 
 @bp.post("/settings/channels/<channel>/identity-mismatch/replace")
-def api_identity_mismatch_replace(channel: str):
+def api_identity_mismatch_replace(channel: str) -> Any:
     _enforce_loopback_addr()
     if _transport_guards_active():
         _refuse_when_allow_network()

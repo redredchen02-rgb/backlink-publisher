@@ -9,7 +9,7 @@ divergence detection). Plan 2026-05-26-001.
 from __future__ import annotations
 
 from .diff import DivergenceRecord, find_divergences
-from .readers import AuditReadError, DedupAuditRow, StoreSnapshot, read_snapshot
+from .readers import AuditReadError, DedupAuditRow, read_snapshot, StoreSnapshot
 
 __all__ = [
     "AuditReadError",

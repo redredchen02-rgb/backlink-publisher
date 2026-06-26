@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, request, session
 
 from ..helpers.contexts import _render
@@ -10,7 +12,7 @@ bp = Blueprint("main", __name__)
 
 
 @bp.route('/')
-def index():
+def index() -> Any:
     config = session.get('config', {})
     tab = request.args.get('tab', '')
     flash_type = request.args.get('flash_type', '')
@@ -25,7 +27,7 @@ def index():
 
 
 @bp.route('/ce:clear', methods=['POST'])
-def ce_clear():
+def ce_clear() -> Any:
     """Clear session and restart."""
     session.clear()
     return _render('index.html', active_page='index')

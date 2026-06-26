@@ -18,7 +18,6 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Shared fixture: fresh app per test, process-global env leaks stripped
 # ---------------------------------------------------------------------------

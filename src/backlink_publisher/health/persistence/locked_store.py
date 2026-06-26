@@ -14,12 +14,13 @@ last_failure_at, last_error_msg) are derived live from EventStore.
 
 from __future__ import annotations
 
-import fcntl
+from collections.abc import Callable
+from backlink_publisher._compat import fcntl
 import json
 import os
-import time
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING, cast
+import time
+from typing import Any, cast, TYPE_CHECKING
 
 from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.logger import opencli_logger as _log

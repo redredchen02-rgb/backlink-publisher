@@ -6,7 +6,7 @@ All tests are pure-unit: no filesystem, no real HTTP.
 from __future__ import annotations
 
 __tier__ = "unit"
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import call, MagicMock, patch
 
 import pytest
 import requests
@@ -21,7 +21,6 @@ from backlink_publisher.publishing.adapters.velog_graphql import (
     _execute_write_post,
     _handle_null_write_post,
 )
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 

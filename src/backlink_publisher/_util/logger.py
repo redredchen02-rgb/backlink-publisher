@@ -17,9 +17,9 @@ extra dict can't pin the logger in a recursion loop.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import sys
-from datetime import datetime, timezone
 from typing import Any
 
 #: Case-insensitive exact-match against extra-dict keys. Any value under
@@ -112,7 +112,7 @@ class PipelineLogger:
         if not self._should_log(level):
             return
         record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "level": level,
             "logger": self.name,
             "msg": message,
@@ -149,7 +149,7 @@ class PipelineLogger:
         the level gate but not the sensitive-key sanitisation.
         """
         record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "level": "RECON",
             "logger": self.name,
             "msg": msg,

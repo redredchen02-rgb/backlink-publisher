@@ -9,10 +9,10 @@ import pytest
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.devto_api import (
-    DevtoAPIAdapter,
     _build_article_payload,
     _load_api_key,
     _required_headers,
+    DevtoAPIAdapter,
 )
 
 

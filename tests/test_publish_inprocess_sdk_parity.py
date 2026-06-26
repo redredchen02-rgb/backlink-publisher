@@ -28,7 +28,6 @@ from backlink_publisher.linkcheck.verify import VerificationResult
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.sdk.api import PipelineAPI
 
-
 # ── isolation ──────────────────────────────────────────────────────────────
 
 

@@ -22,7 +22,6 @@ import pytest
 
 from backlink_publisher.config import Config
 
-
 # ---------------------------------------------------------------------------
 # Unit 3a: medium_browser._save_screenshot() exception handling
 # ---------------------------------------------------------------------------
@@ -117,8 +116,8 @@ class TestLinkedInApiJsonDecodeHandling:
     def test_403_with_json_decode_error_raises_external_service_error(self):
         """HTTP 403 with resp.json() raising ValueError must still produce
         ExternalServiceError (not let ValueError propagate)."""
-        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
         from backlink_publisher._util.errors import ExternalServiceError
+        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
 
         adapter = LinkedInAPIAdapter()
         payload = self._make_payload()
@@ -140,8 +139,8 @@ class TestLinkedInApiJsonDecodeHandling:
     def test_403_json_decode_error_data_defaults_to_empty_dict(self):
         """When resp.json() fails for HTTP 403, the error message falls back
         to resp.text — it does NOT raise JSONDecodeError."""
-        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
         from backlink_publisher._util.errors import ExternalServiceError
+        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
 
         adapter = LinkedInAPIAdapter()
         payload = self._make_payload()
@@ -163,8 +162,8 @@ class TestLinkedInApiJsonDecodeHandling:
 
     def test_403_valid_json_uses_message_field(self):
         """HTTP 403 with valid JSON response uses the 'message' field."""
-        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
         from backlink_publisher._util.errors import ExternalServiceError
+        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
 
         adapter = LinkedInAPIAdapter()
         payload = self._make_payload()
@@ -184,8 +183,8 @@ class TestLinkedInApiJsonDecodeHandling:
 
     def test_401_raises_external_service_error_with_token_message(self):
         """HTTP 401 must raise ExternalServiceError mentioning token expiry."""
-        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
         from backlink_publisher._util.errors import ExternalServiceError
+        from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
 
         adapter = LinkedInAPIAdapter()
         payload = self._make_payload()

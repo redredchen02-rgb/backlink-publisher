@@ -14,13 +14,12 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
+from pathlib import Path
 import sys
 import types
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

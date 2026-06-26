@@ -21,7 +21,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -628,7 +627,7 @@ class TestFetchExceptionDiagnostics:
 
     def test_socket_timeout_maps_to_timeout_reason(self, client, monkeypatch):
         import socket
-        _patch_raises(monkeypatch, socket.timeout("timed out"))
+        _patch_raises(monkeypatch, TimeoutError("timed out"))
         token = _seed_csrf(client)
         resp = _post(client, {"url": "https://example.com"}, csrf=token)
         assert resp.get_json()["reason"] == "timeout"

@@ -25,12 +25,13 @@ extracted to ``_keepalive_engine.py``. This module keeps ``KeepaliveJobRegistry`
 """
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime, UTC
 import hashlib
 import json
 import threading
+from typing import Any
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Callable
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.events import EventStore
@@ -41,24 +42,23 @@ from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
 from backlink_publisher.recheck.probe import recheck_link
 
 from ._keepalive_engine import (  # noqa: F401 — re-exported for backward compat
-    GapClosureJob,
-    KeepAliveResult,
-    KeepaliveJob,
-    RepublishJob,
-    RUNTIME_STICKY_PLATFORMS,
     _DEAD_VERDICTS,
-    _PROBE_ERROR,
-    _RUNTIME_STICKY,
     _default_candidates,
     _default_persist,
     _default_probe,
     _default_publish_seed,
     _default_republish_gaps,
     _default_unverified_candidates,
+    _PROBE_ERROR,
+    _RUNTIME_STICKY,
     _site_lock,
+    GapClosureJob,
+    KeepaliveJob,
+    KeepAliveResult,
+    RepublishJob,
     run_keepalive_for_site,
+    RUNTIME_STICKY_PLATFORMS,
 )
-
 
 # ── Helpers that stay here (tests patch keepalive_job.recheck_link) ───────────
 # NOTE: _ensure_article moved to backlink_publisher.events._project_helpers
@@ -146,7 +146,7 @@ class KeepaliveJobRegistry:
                 id=job_id,
                 kind="recheck",
                 status="running",
-                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             )
             self._jobs[job_id] = job
 
@@ -216,8 +216,8 @@ class KeepaliveJobRegistry:
         (equity → plan-gap → plan → validate → publish). Only one
         gap_closure job allowed at a time.
         """
-        import subprocess
         from pathlib import Path
+        import subprocess
 
         with self._lock:
             for job in self._jobs.values():
@@ -230,13 +230,13 @@ class KeepaliveJobRegistry:
                 id=job_id,
                 kind="gap_closure",
                 status="running",
-                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             )
             self._jobs[job_id] = job
 
         repo_root = Path(__file__).resolve().parents[3]
 
-        def _run():
+        def _run() -> Any:
             try:
                 env = dict(os.environ, BP_DRY_RUN="0")
                 proc = subprocess.run(
@@ -336,7 +336,7 @@ class KeepaliveJobRegistry:
         key = sorted((s.get("target_url", ""), s.get("platform", "")) for s in seeds)
         return hashlib.sha256(json.dumps(key).encode()).hexdigest()[:16]
 
-    def issue_confirm_token(self, *, store: EventStore | None = None, gap_fn=None) -> dict[str, Any]:
+    def issue_confirm_token(self, *, store: EventStore | None = None, gap_fn: Any=None) -> dict[str, Any]:
         """Issue a single-use confirm nonce bound to the CURRENT gap set.
 
         The nonce doubles as the anti-stale / anti-double-submit guard: if the
@@ -425,7 +425,7 @@ class KeepaliveJobRegistry:
             job_id = uuid.uuid4().hex
             job = RepublishJob(
                 id=job_id, kind="republish", status="running",
-                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                started_at=datetime.now(UTC).isoformat(timespec="seconds"),
                 total=len(plan),
             )
             self._jobs[job_id] = job
@@ -437,7 +437,7 @@ class KeepaliveJobRegistry:
         worker.start()
         return job
 
-    def _run_republish(self, job, plan, publish_fn, persist_fn, recheck_fn):
+    def _run_republish(self, job: Any, plan: Any, publish_fn: Any, persist_fn: Any, recheck_fn: Any) -> Any:
         try:
             # ── publish phase (S5) ──────────────────────────────────────────
             for seed in plan:
@@ -504,7 +504,7 @@ class KeepaliveJobRegistry:
                 job.error = f"republish job failed: {exc}"
 
     @staticmethod
-    def _republish_state(job) -> str:
+    def _republish_state(job: Any) -> str:
         """Map publish + auto-recheck outcome to a terminal state (G1: no raw
         codes). A fresh URL re-stripped (S7) outranks any publish partial — it's
         the strongest signal that the destination is unreliable (D5)."""

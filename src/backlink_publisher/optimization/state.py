@@ -10,13 +10,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 import tempfile
 import threading
-from pathlib import Path
 from typing import Any, cast
 
-from .models import _upgrade_v1_to_v2, default_state
+from backlink_publisher._util.cache import _ttl_cache_delete, _ttl_cache_get, _ttl_cache_set
 from backlink_publisher.config.loader import _config_dir
+
+from .models import _upgrade_v1_to_v2, default_state
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +59,22 @@ class OptimizationState:
 
         Returns the default empty state if the file does not exist or is
         corrupt (logs a warning on corruption).
+
+        Results are cached for 5 seconds (TTL) to avoid re-reading and
+        re-parsing JSON on every ``dispatch_weight()`` call within a publish
+        batch. ``save()`` invalidates the cache automatically.
         """
+        cache_key = f"optimization_state:{self._path}"
+        cached = _ttl_cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         if not self._path.exists():
             return default_state()
 
         try:
             raw = self._path.read_text(encoding="utf-8")
             data: dict[str, Any] = json.loads(raw)
-            # Ensure the 'version' key is present (schema guard)
             if "version" not in data:
                 logger.warning(
                     "optimization_state.json missing 'version' key — "
@@ -76,6 +86,9 @@ class OptimizationState:
                     "Upgrading optimization state from v1 to v2 in-memory"
                 )
                 data = _upgrade_v1_to_v2(data)
+            # Cache for 5 seconds — weights don't change between dispatches
+            # within the same batch, but we want fast pickup from the WebUI.
+            _ttl_cache_set(cache_key, data, ttl=5.0)
             return data
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning(
@@ -89,6 +102,7 @@ class OptimizationState:
         """Atomically write state to disk.
 
         Uses tempfile + rename to prevent partial writes.
+        Invalidates the TTL cache so the next load() reads fresh data.
         """
         self._data_dir.mkdir(parents=True, exist_ok=True)
         raw = json.dumps(state, indent=2, ensure_ascii=False)
@@ -103,6 +117,8 @@ class OptimizationState:
                 fh.flush()
                 os.fsync(fh.fileno())
             os.replace(tmp_path, str(self._path))
+            # Invalidate cache so next load() reads fresh data
+            _ttl_cache_delete(f"optimization_state:{self._path}")
         except BaseException:
             # Clean up the temp file on failure
             try:

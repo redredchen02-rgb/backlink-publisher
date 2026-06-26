@@ -10,8 +10,8 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-import tomllib
 from pathlib import Path
+import tomllib
 
 import pytest
 
@@ -28,10 +28,10 @@ _REQUIRED_SCRIPTS = {
 
 
 def test_peripheral_packages_still_import():
-    import backlink_publisher.geo  # noqa: F401
-    import backlink_publisher.click_track  # noqa: F401
-    import backlink_publisher.pr_outreach  # noqa: F401
     import backlink_publisher.cli.debt_report  # noqa: F401
+    import backlink_publisher.click_track  # noqa: F401
+    import backlink_publisher.geo  # noqa: F401
+    import backlink_publisher.pr_outreach  # noqa: F401
 
 
 @pytest.fixture(scope="module")

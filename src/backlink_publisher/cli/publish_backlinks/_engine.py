@@ -15,10 +15,10 @@ This mirrors the proven cli/plan_backlinks/_engine.py pattern.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any
 
 from backlink_publisher._util.recon import emit_recon
-
 
 _AUTH_ABORT = "auth_abort"  # sentinel returned to signal epilogue must be skipped
 _ROW_CONTINUE = "continue"  # sentinel: the row was handled, advance to next
@@ -221,10 +221,12 @@ def publish_rows(
     (scheduler vs /api/v1) is the caller's responsibility via a process-level
     publish lock (plan U5); ``publish_rows`` itself holds no such lock.
     """
-    from datetime import datetime, timezone
-    from backlink_publisher.config import snapshot_token_revs
+    from datetime import datetime
+
     from backlink_publisher._util.logger import publish_logger
     from backlink_publisher.cli._publish_helpers import _make_banner_emit
+    from backlink_publisher.config import snapshot_token_revs
+
     from ... import checkpoint
 
     if forced_keys is None:
@@ -248,7 +250,7 @@ def publish_rows(
             )
 
     state = PublishRunState(run_id=run_id)
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(UTC).isoformat()
     banner_emit = _make_banner_emit()
     initial_token_revs = snapshot_token_revs()
 
@@ -282,30 +284,45 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
     # ── Late re-import of loop-called seams from the publish_backlinks namespace.
     # Tests patch these at backlink_publisher.cli.publish_backlinks.X; re-reading
     # the name here at call time means every @patch(...publish_backlinks.X) fires.
+    from datetime import datetime
+
+    from backlink_publisher._util.errors import (
+        AuthExpiredError,
+        BannerUploadError,
+        ContentRejectedError,
+        DependencyError,
+        ExternalServiceError,
+    )
+    from backlink_publisher._util.logger import publish_logger
+    from backlink_publisher.cli._dedup_gate import (
+        gate_with_force,
+        record_done,
+        record_failure,
+    )
+
+    # ── Non-seam collaborators — import from their real modules. ─────────────
+    from backlink_publisher.cli._publish_helpers import (
+        _build_failure_row,
+        _build_skip_row,
+        _canary_gate,
+        _check_row_reachability,
+        _check_token_drift,
+        _do_verify,
+        _error_class,
+        _medium_throttle_sleep,
+        _record_publish_failure,
+        _record_publish_path,
+        _try_update_ckpt_failed,
+    )
     from backlink_publisher.cli.publish_backlinks import (
+        _handle_auth_expired,
         adapter_publish,
         policy_enabled,
         publish_with_policy,
-        _handle_auth_expired,
-    )
-    # ── Non-seam collaborators — import from their real modules. ─────────────
-    from backlink_publisher.cli._publish_helpers import (
-        _build_failure_row, _build_skip_row, _canary_gate,
-        _check_row_reachability, _check_token_drift, _do_verify,
-        _error_class, _medium_throttle_sleep, _publish_epilogue,
-        _record_publish_failure, _record_publish_path, _try_update_ckpt_failed,
-    )
-    from backlink_publisher.cli._dedup_gate import (
-        gate_with_force, record_done, record_failure,
     )
     from backlink_publisher.schema import supported_platforms
-    from backlink_publisher._util.errors import (
-        AuthExpiredError, BannerUploadError, ContentRejectedError,
-        DependencyError, ExternalServiceError,
-    )
-    from backlink_publisher._util.logger import publish_logger
+
     from ... import checkpoint
-    from datetime import datetime, timezone
 
     _medium_throttle_sleep(
         row_idx, state.last_medium_success_idx,
@@ -533,7 +550,7 @@ def _publish_one_row(  # noqa: C901 -- per-row publish gate; real logic in sub-h
                     published_url=result.published_url,
                     article_urls=[u for u in (result.published_url, result.draft_url) if u],
                     adapter=result.adapter,
-                    completed_at=datetime.now(timezone.utc).isoformat(),
+                    completed_at=datetime.now(UTC).isoformat(),
                     verified=verify_ok,
                 )
             except Exception as ckpt_exc:

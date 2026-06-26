@@ -18,8 +18,8 @@ from __future__ import annotations
 from typing import Any
 
 from ..chrome_session import BrowserPublishRecipe
-from . import RECIPES
 from . import _devto_selectors as sel
+from . import RECIPES
 
 
 def devto_publish_flow(page: Any, payload: dict[str, Any]) -> str:

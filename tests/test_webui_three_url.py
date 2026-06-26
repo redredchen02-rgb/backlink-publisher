@@ -24,12 +24,13 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
+
+# Ensure the webui module is importable.
+import sys as _sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Ensure the webui module is importable.
-import sys as _sys
 _sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -130,7 +131,9 @@ class TestSitesFormRender:
     def test_prefill_from_saved_three_url_config(self, client):
         # First save a target then reload the form with ?domain=
         from backlink_publisher.config import (
-            ThreeUrlConfig, load_config, save_config,
+            load_config,
+            save_config,
+            ThreeUrlConfig,
         )
         save_config(
             load_config(),
@@ -849,7 +852,7 @@ class TestDeriveHelpers:
     def test_all_pools_always_non_empty(self):
         """ThreeUrlConfig schema invariant: every derived pool is at least
         length 1. Bottom line for all three derivers."""
-        from webui import _derive_branded_pool, _derive_partial_pool, _derive_exact_pool
+        from webui import _derive_branded_pool, _derive_exact_pool, _derive_partial_pool
         for tdk in (None, {}, {"title": "", "description": ""}):
             for url in ("https://a.com/", "https://b.c.d/"):
                 assert len(_derive_branded_pool(url, tdk)) >= 1

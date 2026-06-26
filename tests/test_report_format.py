@@ -9,8 +9,6 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 
-import backlink_publisher.publishing.adapters  # registers platforms before registry reads
-
 from backlink_publisher.cli._report_format import (
     _build_report,
     _build_tier_summary,
@@ -24,7 +22,7 @@ from backlink_publisher.cli._report_format import (
     _tier_markdown,
 )
 from backlink_publisher.config import ANCHOR_TYPES
-
+import backlink_publisher.publishing.adapters  # registers platforms before registry reads
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

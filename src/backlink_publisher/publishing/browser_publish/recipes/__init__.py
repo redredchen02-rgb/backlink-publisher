@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from ..chrome_session import BrowserPublishRecipe
 
-
 RECIPES: dict[str, BrowserPublishRecipe] = {}
 
 

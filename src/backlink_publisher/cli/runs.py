@@ -29,6 +29,7 @@ def _print_table(runs: list[dict]) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     import argparse
+
     from backlink_publisher import checkpoint
 
     parser = argparse.ArgumentParser(
@@ -77,8 +78,8 @@ def main(argv: list[str] | None = None) -> None:
     else:
         _print_table(runs)
         print(
-            f"\nResume a run: resume <run_id>  "
-            f"(or: publish-backlinks --resume <run_id>)"
+            "\nResume a run: resume <run_id>  "
+            "(or: publish-backlinks --resume <run_id>)"
         )
 
     raise SystemExit(0)

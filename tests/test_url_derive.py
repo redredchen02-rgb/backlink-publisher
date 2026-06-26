@@ -6,10 +6,8 @@ Pure-function tests — no network, no fixtures beyond stdlib.
 """
 from __future__ import annotations
 
-
 __tier__ = "unit"
-from backlink_publisher._util.url_derive import derive_path_tiers, _CATEGORY_TOKEN
-
+from backlink_publisher._util.url_derive import _CATEGORY_TOKEN, derive_path_tiers
 
 # ── path-depth dispatch ───────────────────────────────────────────────────
 

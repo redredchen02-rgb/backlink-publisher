@@ -15,12 +15,12 @@ headless verdicts a per-link reader must surface.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
 import json
 import logging
 import sqlite3
-from dataclasses import dataclass
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher._util.url import canonicalize_url
@@ -85,7 +85,7 @@ def _is_newer(
 
 
 def latest_link_verdicts(
-    store: "EventStore",
+    store: EventStore,
 ) -> tuple[dict[str, LatestVerdict], int]:
     """Read the latest ``link.rechecked`` verdict per link. Read-only.
 

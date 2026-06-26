@@ -19,7 +19,6 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
-
 # ── App fixture (no scheduler in tests) ──────────────────────────────────────
 
 
@@ -211,8 +210,8 @@ def test_route_tier_matrix_drift_assertion_still_green_after_telegraph_velog():
     existing drift test red."""
     # Re-run the assertion the matrix's own test asserts.
     from backlink_publisher.publishing.content_negotiation import (
-        ROUTE_TIER_MATRIX,
         _matrix_targets_registered_platforms,
+        ROUTE_TIER_MATRIX,
     )
 
     stale = _matrix_targets_registered_platforms()
@@ -257,6 +256,6 @@ def test_detect_language_checkout_path_not_ko():
 
 
 def test_detect_language_ko_value_in_supported_languages():
-    from webui_app.helpers.url_meta import detect_language
     from backlink_publisher.linkcheck.language import SUPPORTED_LANGUAGES
+    from webui_app.helpers.url_meta import detect_language
     assert detect_language("https://example.kr/page") in SUPPORTED_LANGUAGES

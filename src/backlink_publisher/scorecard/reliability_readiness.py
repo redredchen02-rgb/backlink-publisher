@@ -26,9 +26,9 @@ against real observe data (plan §Deferred to Implementation).
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
+import json
 
 from backlink_publisher.events import EventStore, kinds
 
@@ -81,7 +81,7 @@ def _parse_ts(value: object) -> datetime | None:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def _verdict(
@@ -117,9 +117,9 @@ def channel_readiness(
 ) -> ReadinessReport:
     """Per-channel enforce-readiness over a rolling ``window_days`` window."""
     store = store or EventStore()
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+        now = now.replace(tzinfo=UTC)
     cutoff = now - timedelta(days=window_days)
 
     # channel -> {"attempts", "would_skip", "earliest"}

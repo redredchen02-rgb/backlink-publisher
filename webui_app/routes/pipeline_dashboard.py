@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, jsonify
@@ -249,7 +249,7 @@ def _pipeline_paused() -> bool:
 # ---------------------------------------------------------------------------
 
 @bp.route("/ce:pipeline", methods=["GET"])
-def ce_pipeline():
+def ce_pipeline() -> Any:
     try:
         recent_events = _g_cache("pipeline_events", _recent_pipeline_events)
         circuit_events = _g_cache("circuit_events", _recent_circuit_events)
@@ -276,7 +276,7 @@ def ce_pipeline():
 
 
 @bp.route("/ce:pipeline/trigger", methods=["POST"])
-def ce_pipeline_trigger():
+def ce_pipeline_trigger() -> Any:
     """Trigger a pipeline run as a non-blocking background subprocess.
 
     Fire-and-forget: returns immediately; the operator monitors progress
@@ -303,7 +303,7 @@ def ce_pipeline_trigger():
 
 
 @bp.route("/ce:pipeline/pause", methods=["POST"])
-def ce_pipeline_pause():
+def ce_pipeline_pause() -> Any:
     """Pause the pipeline by writing the pause sentinel file."""
     try:
         path = _paused_sentinel_path()
@@ -317,7 +317,7 @@ def ce_pipeline_pause():
 
 
 @bp.route("/ce:pipeline/resume", methods=["POST"])
-def ce_pipeline_resume():
+def ce_pipeline_resume() -> Any:
     """Resume the pipeline by removing the pause sentinel file."""
     try:
         path = _paused_sentinel_path()

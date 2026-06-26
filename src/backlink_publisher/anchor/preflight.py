@@ -22,8 +22,8 @@ Public entry point: :func:`validate_anchor_pool_entry`. Production caller:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import unicodedata
-from typing import Iterable
 
 __all__ = [
     "validate_anchor_pool_entry",

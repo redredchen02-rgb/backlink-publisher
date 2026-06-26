@@ -4,9 +4,7 @@ from __future__ import annotations
 __tier__ = "unit"
 from unittest.mock import patch
 
-
 from backlink_publisher.linkcheck.verify import verify_published
-
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 

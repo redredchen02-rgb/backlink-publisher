@@ -22,9 +22,9 @@ score — is the safety property this unit guarantees.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import re
-from datetime import datetime, timezone
-from typing import Any, Optional, TextIO, cast
+from typing import Any, cast, TextIO
 
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import PipelineLogger
@@ -63,7 +63,7 @@ def _authority(target: dict[str, Any]) -> int:
     return 50  # neutral when no signal supplied
 
 
-def _compliance(indexed: Optional[bool], comment_open: Optional[bool], link_allowed: Optional[bool]) -> int:
+def _compliance(indexed: bool | None, comment_open: bool | None, link_allowed: bool | None) -> int:
     """How many known-good compliance signals are present, 0-100. Unknowns are neutral,
     explicit negatives subtract — conservative when a field is False, not just absent."""
     score = 50
@@ -73,7 +73,7 @@ def _compliance(indexed: Optional[bool], comment_open: Optional[bool], link_allo
     return max(0, min(100, score))
 
 
-def _anchor_risk(anchor_text: Optional[str], topic: str) -> int:
+def _anchor_risk(anchor_text: str | None, topic: str) -> int:
     """Anchor-spam risk, 0-100. Exact-match-to-topic is the classic footprint; no planned
     anchor is zero risk."""
     if not anchor_text or not anchor_text.strip():
@@ -163,11 +163,11 @@ def score_target(target: dict[str, Any]) -> dict[str, Any]:
         },
         "link_policy": link_policy,
         "anchor_policy": anchor_policy,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
 
-def qualify_targets(source: Optional[TextIO] = None, dest: Optional[TextIO] = None) -> dict[str, int]:
+def qualify_targets(source: TextIO | None = None, dest: TextIO | None = None) -> dict[str, int]:
     """Read CommentTarget JSONL, emit QualificationResult JSONL. Always exit-0 semantics:
     invalid input rows are surfaced via RECON (not silently dropped) and skipped."""
     rows = read_jsonl(source, strict=False)

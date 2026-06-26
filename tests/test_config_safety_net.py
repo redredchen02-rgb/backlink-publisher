@@ -23,7 +23,6 @@ from backlink_publisher.config import (
     save_config,
 )
 
-
 # ── _toml_heading_root: lexer-lite ───────────────────────────────────────────
 
 

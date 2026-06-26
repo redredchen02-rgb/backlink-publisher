@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import pytest
+
 from backlink_publisher.channel_discovery.decided import (
     all_decided_platforms,
     get_verdict,

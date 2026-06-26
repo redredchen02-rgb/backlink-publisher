@@ -13,7 +13,6 @@ Two auth archetypes:
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from typing import Any
@@ -25,6 +24,7 @@ from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
+
 from .base import AdapterResult
 from .http_form_post import (
     attach_link_verification,

@@ -32,8 +32,9 @@ message or log line — only the request host.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from html.parser import HTMLParser
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urlparse
 
 import requests

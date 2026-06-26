@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: backlink-publisher
-Version: 0.3.0
+Version: 0.5.0
 Summary: A local-first backlink publishing pipeline for Blogger and Medium.
 Requires-Python: >=3.11
 Requires-Dist: markdown-it-py>=4.2
-Requires-Dist: google-api-python-client>=2.196
+Requires-Dist: google-api-python-client<3,>=2.196
 Requires-Dist: google-auth-oauthlib>=1.4
 Requires-Dist: google-auth-httplib2>=0.2
 Requires-Dist: playwright<2,>=1.55
@@ -14,10 +14,11 @@ Requires-Dist: beautifulsoup4<5,>=4.13
 Requires-Dist: flask<4,>=3.1
 Requires-Dist: flask-limiter<5,>=3.5
 Requires-Dist: apscheduler<4,>=3.11
-Requires-Dist: pydantic>=2.0
+Requires-Dist: apiflask<4,>=3.1
+Requires-Dist: pydantic>=2.5
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: google-analytics-data>=0.18
-Requires-Dist: structlog>=24.1
+Requires-Dist: google-analytics-data<1,>=0.18
+Requires-Dist: structlog<26,>=24.1
 Provides-Extra: dev
 Requires-Dist: pytest>=8.4; extra == "dev"
 Requires-Dist: pytest-mock>=3.15; extra == "dev"
@@ -29,7 +30,9 @@ Requires-Dist: pytest-xdist>=3.6; extra == "dev"
 Requires-Dist: pytest-cov>=6.0; extra == "dev"
 Requires-Dist: hypothesis>=6.151; extra == "dev"
 Requires-Dist: radon==6.0.1; extra == "dev"
+Requires-Dist: ruff>=0.15; extra == "dev"
 Requires-Dist: mypy>=1.8; extra == "dev"
 Requires-Dist: mutmut>=2.4; extra == "dev"
+Requires-Dist: vulture>=2.16; extra == "dev"
 Provides-Extra: dev-webwright
 Requires-Dist: webwright @ git+https://github.com/microsoft/Webwright.git@4a46f282ec37f27d6003cc498a977939d62d9015 ; extra == "dev-webwright"

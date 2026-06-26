@@ -16,7 +16,6 @@ import warnings
 
 import pytest
 
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -56,7 +55,7 @@ class TestSafeFlashRedirect:
         assert "Set-Cookie" in loc  # text preserved, but no raw CRLF
 
     def test_caps_length(self, app):
-        from webui_app.helpers.security import _safe_flash_redirect, _FLASH_MSG_MAX_LEN
+        from webui_app.helpers.security import _FLASH_MSG_MAX_LEN, _safe_flash_redirect
         with app.test_request_context():
             resp = _safe_flash_redirect(
                 "/x", flash_type="warning", msg="A" * 500)

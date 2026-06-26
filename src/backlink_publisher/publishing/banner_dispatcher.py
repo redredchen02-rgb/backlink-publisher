@@ -45,12 +45,12 @@ spinning up the publish pipeline.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from backlink_publisher._util.errors import BannerUploadError
 from backlink_publisher.events import kinds  # dependency-free; preserves no-I/O purity
-
 
 EmitFn = Callable[[str, dict[str, Any]], None]
 

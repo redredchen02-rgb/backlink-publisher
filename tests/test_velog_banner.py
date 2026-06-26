@@ -17,10 +17,10 @@ from __future__ import annotations
 __tier__ = "unit"
 from pathlib import Path
 
+from backlink_publisher.publishing import banner_dispatcher
 from backlink_publisher.publishing.adapters.velog_graphql import (
     VelogGraphQLAdapter,
 )
-from backlink_publisher.publishing import banner_dispatcher
 
 
 def _make_adapter() -> VelogGraphQLAdapter:

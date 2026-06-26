@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
-import sys
 from pathlib import Path
-from typing import Any, Literal, Optional
+import sys
+from typing import Any, Literal
+
+from backlink_publisher._util.recon import emit_recon
 
 from ._plan_check_git import FetchOutcome
 from ._plan_check_schema import SCHEMA_VERSION
-from backlink_publisher._util.recon import emit_recon
 
 
 def _now_iso() -> str:
@@ -22,7 +23,7 @@ def _now_iso() -> str:
     Per the JSON contract (plan §Open Questions Resolved line 138).
     """
     return (
-        _dt.datetime.now(_dt.timezone.utc)
+        _dt.datetime.now(_dt.UTC)
         .isoformat(timespec="seconds")
         .replace("+00:00", "Z")
     )
@@ -54,10 +55,10 @@ def _format_human_drift(
 def _build_json_payload(
     *,
     plan_path: Path,
-    plan_date: Optional[_dt.date],
+    plan_date: _dt.date | None,
     status: Literal["pass", "drift", "schema_violation", "missing_claims"],
     exit_code: int,
-    fetch_outcome: Optional[FetchOutcome],
+    fetch_outcome: FetchOutcome | None,
     paths_missing: list[str],
     shas_unreachable: list[str],
 ) -> dict[str, Any]:
@@ -66,8 +67,8 @@ def _build_json_payload(
     ``fetch_outcome`` is ``None`` only on early-exit paths (schema violation,
     missing claims) where we never reached the git resolution layer.
     """
-    age: Optional[int]
-    skip: Optional[str]
+    age: int | None
+    skip: str | None
     if fetch_outcome is None:
         age = None
         skip = None

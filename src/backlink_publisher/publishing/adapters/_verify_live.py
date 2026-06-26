@@ -10,14 +10,17 @@ verbatim across the move.
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any
 
-from requests.exceptions import RequestException as _ReqException, Timeout as _ReqTimeout
+from requests.exceptions import RequestException as _ReqException
+from requests.exceptions import Timeout as _ReqTimeout
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError
+from backlink_publisher.config import Config
+
+from .._verify import dry_run_intercept, DryRunInterceptError, VerifyResult
 from ..registry import registered_platforms
-from .._verify import DryRunInterceptError, VerifyResult, dry_run_intercept
 from ._setup_checks import _verify_offline_setup
 
 
@@ -69,11 +72,12 @@ def _verify_live(platform: str, config: Config) -> VerifyResult:
 
 def _verify_telegraph_live(config: Config) -> VerifyResult:
     from backlink_publisher.http import post as http_post
+
     from .telegraph_api import (
-        TELEGRAPH_API,
         _HTTP_TIMEOUT_S,
         _INVALID_TOKEN_MARKERS,
         _load_token,
+        TELEGRAPH_API,
     )
 
     try:
@@ -123,7 +127,8 @@ _GHPAGES_VERIFY_TIMEOUT_S = 5
 
 def _verify_ghpages_live(config: Config) -> VerifyResult:
     from backlink_publisher.http import get as http_get
-    from .ghpages import GITHUB_API, _load_token, _required_headers
+
+    from .ghpages import _load_token, _required_headers, GITHUB_API
 
     try:
         token = _load_token(config)
@@ -174,8 +179,8 @@ _BLOGGER_VERIFY_TIMEOUT_S = 5
 
 
 def _verify_blogger_live(config: Config) -> VerifyResult:
-    from backlink_publisher.http import get as http_get
     from backlink_publisher.config import load_blogger_token
+    from backlink_publisher.http import get as http_get
 
     try:
         token_data = load_blogger_token(config.blogger_token_path)
@@ -231,6 +236,7 @@ def _verify_velog_live(config: Config) -> VerifyResult:
     from backlink_publisher.http import post as http_post
     from backlink_publisher.publishing._registry_manifest import session as get_descriptor
     from backlink_publisher.publishing.session import DefaultCredentialProvider
+
     from .velog_graphql import (
         _VELOG_GRAPHQL_ENDPOINT,
         _VELOG_REQUIRED_HEADERS,
@@ -287,8 +293,8 @@ def _utc_now_iso() -> str:
     TZ regressions bit daily-cap; same trap applies to verify timestamps
     crossing midnight boundaries).
     """
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    from datetime import datetime
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ── Shared verify result helpers ─────────────────────────────────────

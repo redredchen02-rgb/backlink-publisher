@@ -8,13 +8,15 @@ Plan: ``docs/plans/2026-05-26-004-opt-projector-budget-rescue-plan.md``
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import UTC
 import os
+from pathlib import Path
 import sqlite3
 import subprocess
 import sys
 import time
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from ..config import _config_dir
 
@@ -149,9 +151,9 @@ def _retry_sqlite(
 
 def _now_iso_utc() -> str:
     """ISO-8601 UTC timestamp, e.g. ``2026-05-18T12:00:00+00:00``."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _pid_alive(pid: int) -> bool:

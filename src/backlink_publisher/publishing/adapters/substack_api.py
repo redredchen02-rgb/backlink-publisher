@@ -5,15 +5,15 @@ import os
 import time
 from typing import Any
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _HTTP_TIMEOUT_S = 30
 _DEFAULT_POST_PUBLISH_DELAY_S: int = 60  # 60 s: Substack rate-limits aggressive publishing

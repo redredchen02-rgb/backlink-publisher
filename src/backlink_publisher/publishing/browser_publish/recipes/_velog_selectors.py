@@ -15,7 +15,6 @@ deps. Each constant carries an inline comment with the DOM context.
 
 from __future__ import annotations
 
-
 # Compose page URL.
 COMPOSE_URL = "https://velog.io/write"
 

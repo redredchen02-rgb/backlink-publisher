@@ -15,7 +15,6 @@ import json
 
 import pytest
 
-
 # ── _read_candidates unit tests ───────────────────────────────────────────────
 
 

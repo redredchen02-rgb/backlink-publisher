@@ -7,15 +7,16 @@ Extracted from ``routes/pipeline.py`` (2026-06-11).  Contains:
 from __future__ import annotations
 
 import json
-
-from backlink_publisher._util.logger import plan_logger
+from typing import Any
 
 from flask import Blueprint, request, session
+
+from backlink_publisher._util.logger import plan_logger
 
 from ..api import PipelineAPI
 from ..api.pipeline_api import publish_state_summary
 from ..helpers.cli_runner import surface_cli_error
-from ..helpers.contexts import _render, _get_velog_status
+from ..helpers.contexts import _get_velog_status, _render
 from ..helpers.history import (
     _push_history_per_row,
     _push_history_single_failure,
@@ -28,11 +29,11 @@ _api = PipelineAPI()
 
 
 @bp.route('/ce:publish', methods=['POST'])
-def ce_publish():
+def ce_publish() -> Any:
     plans = session.get('plans', '') or request.form.get('plans', '')
     config = session.get('config', {})
 
-    platform = request.form.get('platform', config.get('platform', 'blogger'))
+    platform = request.form.get('platform', config.get('platform', 'medium'))
     publish_mode = request.form.get('publish_mode', config.get('publish_mode', 'publish'))
     tier_1 = request.form.get('tier_1') in ('1', 'true')
     target_url = config.get('target_url', 'unknown')
@@ -116,7 +117,7 @@ def ce_publish():
 
 
 @bp.route('/ce:publish-chain', methods=['POST'])
-def ce_publish_chain():
+def ce_publish_chain() -> Any:
     """One-click plan → validate → publish chain.
 
     Takes the same form data as ``/ce:generate`` (URLs, platform, language,
@@ -134,7 +135,7 @@ def ce_publish_chain():
     if not urls:
         return _render('index.html', error="没有有效的连结", config=stored_config)
 
-    platform = request.form.get('platform', stored_config.get('platform', 'blogger'))
+    platform = request.form.get('platform', stored_config.get('platform', 'medium'))
     url_mode = request.form.get('url_mode', stored_config.get('url_mode', 'C'))
     publish_mode = request.form.get('publish_mode',
                                     stored_config.get('publish_mode', 'draft'))

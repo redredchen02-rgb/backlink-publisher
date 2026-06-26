@@ -13,11 +13,11 @@ which is safe for single-writer scenarios.  Concurrent CLI writers are rare
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import uuid
 
 _HISTORY_FILENAME = "publish-history.json"
 
@@ -67,7 +67,7 @@ def append_published_rows(
     path = _history_path(config_dir)
     history = _load_history(path)
     existing = _existing_article_urls(history)
-    now = verified_at or datetime.now(timezone.utc).isoformat()
+    now = verified_at or datetime.now(UTC).isoformat()
 
     new_entries: list[dict[str, Any]] = []
     for row in rows:

@@ -15,16 +15,16 @@ __tier__ = "unit"
 import io
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
-from backlink_publisher.cli.footprint import main
 from backlink_publisher.cli._footprint_baseline import _validate_reason
+from backlink_publisher.cli.footprint import main
 from backlink_publisher.footprint import SCHEMA_VERSION
-from backlink_publisher.footprint_corpus import CORPUS_NAMES, compute_fixture_set_id
+from backlink_publisher.footprint_corpus import compute_fixture_set_id, CORPUS_NAMES
 
 
 def test_default_audit_via_stdin_json(monkeypatch, capsys):

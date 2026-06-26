@@ -12,11 +12,11 @@ from typing import Any
 import pytest
 
 from webui_app.helpers.channel_tiers import (
-    TIER_BY_AUTH_TYPE,
     _is_ready,
     group_channels_by_tier,
     merge_verify_health,
     partition_channels_by_connection,
+    TIER_BY_AUTH_TYPE,
 )
 
 

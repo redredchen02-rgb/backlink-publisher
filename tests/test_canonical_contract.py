@@ -27,7 +27,6 @@ import pytest
 
 from backlink_publisher.publishing.adapters.ghpages import _build_markdown_body
 
-
 _CANONICAL = "https://example.com/article-original"
 
 
@@ -88,7 +87,6 @@ class TestGhpagesCanonical:
 
 def _capture_blogger_body(payload: dict[str, Any]) -> dict[str, Any]:
     """Capture the JSON body passed to session.post() for a Blogger publish."""
-    from unittest.mock import MagicMock, patch
     from backlink_publisher.config import BloggerOAuthConfig, Config
     from backlink_publisher.publishing.adapters.blogger_api import BloggerAPIAdapter
 

@@ -28,7 +28,6 @@ import pytest
 
 from backlink_publisher.config import Config, load_config, save_config
 
-
 EXAMPLE_TOML_PATH = (
     Path(__file__).resolve().parent.parent / "config.example.toml"
 )
@@ -162,19 +161,19 @@ def test_public_api_imports_remain_stable():
         AnchorAlarmOverride,
         BloggerOAuthConfig,
         Config,
-        LLMProviderConfig,
-        MediumOAuthConfig,
-        ThreeUrlConfig,
         get_anchor_keywords,
         get_anchor_pool_v2,
         get_three_url_config,
+        LLMProviderConfig,
         load_blogger_token,
         load_config,
         load_medium_token,
+        MediumOAuthConfig,
         merge_site_url_categories,
         resolve_blog_id,
         save_blogger_token,
         save_config,
         save_medium_token,
+        ThreeUrlConfig,
         upgrade_target_to_threeurl,
     )

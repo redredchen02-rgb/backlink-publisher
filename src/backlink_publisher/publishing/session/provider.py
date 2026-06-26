@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import json
 import os
-from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, cast
 
@@ -46,7 +46,7 @@ class CredentialProvider(ABC):
         self, channel: str, config: Config, descriptor: SessionDescriptor
     ) -> Credential:
         """Load credential data for *channel* from its stored artifact.
-        
+
         Raises ``DependencyError`` when the credential file is missing or
         unreadable, ``AuthExpiredError`` when the stored credential has
         no usable auth data.

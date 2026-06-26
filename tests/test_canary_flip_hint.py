@@ -11,9 +11,8 @@ __tier__ = "unit"
 
 
 # Populate the adapter registry so registered_platforms() has data.
-import backlink_publisher.publishing.adapters  # noqa: F401
-
 from backlink_publisher.cli._canary_flip_hint import format_canary_hint
+import backlink_publisher.publishing.adapters  # noqa: F401
 
 
 class TestDofollowChecklist:

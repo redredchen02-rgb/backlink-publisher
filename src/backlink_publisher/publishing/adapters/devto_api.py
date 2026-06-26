@@ -46,16 +46,15 @@ import os
 import time
 from typing import Any, cast
 
-from backlink_publisher.http import post as http_post
-
-from backlink_publisher.config import Config, load_devto_token
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, load_devto_token
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 DEVTO_ARTICLES_API = "https://dev.to/api/articles"
 _HTTP_TIMEOUT_S = 30

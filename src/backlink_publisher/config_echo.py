@@ -36,12 +36,12 @@ active.
 
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass
 import hashlib
 import json
 import os
-import sys
-from dataclasses import fields, is_dataclass
 from pathlib import Path
+import sys
 from typing import Any
 
 from .config import Config

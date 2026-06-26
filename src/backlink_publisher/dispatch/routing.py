@@ -7,7 +7,7 @@ coverage, and the selected strategy.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 from .signals import PlatformSignal
@@ -76,7 +76,7 @@ def _downgrade_if_stale(
 
     # Make last_ok timezone-aware if naive (assume UTC)
     if last_ok.tzinfo is None:
-        last_ok = last_ok.replace(tzinfo=timezone.utc)
+        last_ok = last_ok.replace(tzinfo=UTC)
 
     age = (now - last_ok).total_seconds() / 86400
     if age <= stale_days:
@@ -127,7 +127,7 @@ def route(
     Returns:
         RouteResult with platform name (or None) and dispatch metadata.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     row_language = row.get("language") or row.get("lang") or ""
 
     # ── Phase 1: Filter ──────────────────────────────────────────────

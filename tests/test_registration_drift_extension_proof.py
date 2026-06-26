@@ -13,13 +13,12 @@ Test-time registry population, never an import-time assert.
 """
 __tier__ = "unit"
 
-import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
-
 from backlink_publisher.publishing import registry
+import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 from backlink_publisher.publishing.registry import (
-    Publisher,
     active_platforms,
     platforms_by_auth_type,
+    Publisher,
 )
 from webui_app.services.credential_service import _TOKEN_DISPATCH
 

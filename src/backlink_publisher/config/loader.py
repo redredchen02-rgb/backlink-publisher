@@ -4,32 +4,17 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 import stat
 import tomllib
-from pathlib import Path
 
+from backlink_publisher._util.cache import _ttl_cache_get, _ttl_cache_set
 from backlink_publisher._util.errors import DependencyError
-
-from .tokens import load_medium_integration_token
-from .types import (
-    BloggerOAuthConfig,
-    ClickTrackConfig,
-    Config,
-    GhpagesConfig,
-    GitlabPagesConfig,
-    GscConfig,
-    MastodonConfig,
-    ZennConfig,
-    MediumOAuthConfig,
-    ThreeUrlConfig,
-    VelogConfig,
-)
 
 from .parsers.alarm import _parse_anchor_alarm
 from .parsers.anchor import _parse_anchor_proportions
 from .parsers.cells import _parse_cell_assignments
 from .parsers.geo import _parse_geo_probe_provider
-from .parsers.throttle import _parse_platform_throttle
 from .parsers.image_gen import _parse_image_gen
 from .parsers.llm import _llm_provider_from_sidecar, _parse_llm_anchor_provider
 from .parsers.target import (
@@ -41,6 +26,21 @@ from .parsers.three_url import (
     _normalize_domain_key,
     _parse_site_url_categories,
     _parse_target_three_url,
+)
+from .parsers.throttle import _parse_platform_throttle
+from .tokens import load_medium_integration_token
+from .types import (
+    BloggerOAuthConfig,
+    ClickTrackConfig,
+    Config,
+    GhpagesConfig,
+    GitlabPagesConfig,
+    GscConfig,
+    MastodonConfig,
+    MediumOAuthConfig,
+    ThreeUrlConfig,
+    VelogConfig,
+    ZennConfig,
 )
 
 
@@ -131,7 +131,17 @@ def _cache_dir() -> Path:
 
 
 def load_config(path: Path | None = None) -> Config:
-    """Load config from TOML file. Missing file → empty Config (not an error)."""
+    """Load config from TOML file. Missing file → empty Config (not an error).
+
+    Results are cached for 15 seconds (TTL) to avoid re-parsing TOML on every
+    HTTP request. Call ``_ttl_cache_delete("load_config")`` to force a fresh
+    read (e.g. after saving config via the WebUI).
+    """
+    # Check cache first (TTL-based, thread-safe)
+    cached = _ttl_cache_get("load_config")
+    if cached is not None:
+        return cached
+
     config_path = path or (_resolve_config_dir() / "config.toml")
     if not config_path.exists():
         # No config.toml, but a WebUI-saved llm-settings.json sidecar (or
@@ -305,7 +315,7 @@ def load_config(path: Path | None = None) -> Config:
 
     cell_assignments = _parse_cell_assignments(data.get("cells"))
 
-    return Config(
+    result = Config(
         blogger_blog_ids=blog_ids,
         blogger_oauth=blogger_oauth,
         medium_oauth=medium_oauth,
@@ -334,6 +344,9 @@ def load_config(path: Path | None = None) -> Config:
         cell_assignments=cell_assignments,
         platform_throttle=platform_throttle,
     )
+    # Cache the result (15s TTL) so repeated HTTP requests don't re-parse TOML.
+    _ttl_cache_set("load_config", result, ttl=15.0)
+    return result
 
 
 def _resolve_medium_integration_token(toml_value: str | None) -> str | None:

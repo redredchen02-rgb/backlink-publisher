@@ -20,10 +20,9 @@ import pytest
 
 from backlink_publisher.linkcheck import language as language_mod
 from backlink_publisher.linkcheck.language import (
-    EN_HINTS,
     detect_language_from_markdown,
+    EN_HINTS,
 )
-
 
 # --- (a) Golden detection verdicts — unchanged by the caching refactor -------
 

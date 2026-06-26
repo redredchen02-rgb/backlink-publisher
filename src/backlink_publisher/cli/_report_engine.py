@@ -25,16 +25,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from backlink_publisher.anchor.profile import load_profile
 from backlink_publisher.config import Config
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 
 from ._report_format import (
-    _EXIT_CODE_ALARM,
     _build_profile_report,
     _build_report,
     _build_tier_summary,
     _compute_alarm,
+    _EXIT_CODE_ALARM,
     _format_alarm_markdown,
     _format_profile_report_json,
     _format_profile_report_markdown,

@@ -16,8 +16,8 @@ the latest DEFINITIVE verdict wins per article.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
-from datetime import datetime, timezone
 from typing import Any
 
 from backlink_publisher.events.store import EventStore
@@ -40,7 +40,7 @@ _INDETERMINATE = frozenset({_v.PROBE_ERROR})
 
 
 def _utcnow() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def _parse_ts(ts_str: str | None) -> datetime | None:
@@ -49,7 +49,7 @@ def _parse_ts(ts_str: str | None) -> datetime | None:
     try:
         dt = datetime.fromisoformat(ts_str)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, TypeError):
         return None
@@ -82,7 +82,7 @@ def compute_survival(
     store = store or EventStore()
     now = now or _utcnow()
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+        now = now.replace(tzinfo=UTC)
 
     with store.connect() as conn:
         # Anchor cohort on publish.confirmed events. Group by article_id to get

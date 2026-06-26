@@ -20,7 +20,6 @@ from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import LINK_RECHECKED
 from backlink_publisher.recheck import verdicts
 
-
 # ── decay_counts helper (direct) ─────────────────────────────────────────────
 
 class TestDecayCountsHelper:

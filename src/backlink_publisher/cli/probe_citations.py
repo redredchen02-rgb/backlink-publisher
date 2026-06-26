@@ -22,16 +22,16 @@ Contract:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import contextlib
 import json
-import sys
-import uuid
 from pathlib import Path
-from typing import Any, Iterator
+import sys
+from typing import Any
+import uuid
 
 from backlink_publisher._util.errors import (
     DependencyError,
-    UsageError,
     emit_envelope_and_exit,
     emit_error,
     handle_error,
@@ -310,7 +310,6 @@ def _probe_and_emit(args: Any, cfg: Any, geo_cfg: Any, selection: Any, store: An
     from backlink_publisher.geo.engines import dispatch_probe
     from backlink_publisher.geo.joins import build_published_article_set
     from backlink_publisher.geo.run import probe_many
-    from backlink_publisher.geo.share import compute_share
 
     engine_name = args.engine
     run_id = str(uuid.uuid4())

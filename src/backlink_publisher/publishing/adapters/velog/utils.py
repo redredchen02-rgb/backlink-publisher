@@ -2,32 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import os
-import re
-from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any
 
 from backlink_publisher.config import Config
-from backlink_publisher._util.logger import opencli_logger as log
 
 from .constants import (
-    _VELOG_JITTER_MIN_S,
-    _VELOG_JITTER_MAX_S,
+    _TOKEN_FIELDS,
     _VELOG_DAILY_CAP_INITIAL,
     _VELOG_DAILY_CAP_PROD,
     UNLOCK_DATE_UTC,
-    _TIMEOUT,
-    _PROBE_TIMEOUT,
-    _LOCK_POLL_INTERVAL,
-    _LOCK_TIMEOUT,
-    _TOKEN_FIELDS,
-    _PROBE_QUERY,
-    _velog_jitter_min_s,
-    _velog_jitter_max_s,
 )
-
 
 # ── Helper functions ──────────────────────────────────────────────────────────
 
@@ -89,7 +78,7 @@ def _save_null_artifact(
 
 
 def _effective_cap() -> int:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if now >= UNLOCK_DATE_UTC:
         return _VELOG_DAILY_CAP_PROD
     return _VELOG_DAILY_CAP_INITIAL
@@ -97,7 +86,7 @@ def _effective_cap() -> int:
 
 def _utc_today_iso() -> str:
     """Return today's date in UTC as ISO-8601 — the canonical reset boundary."""
-    return datetime.now(timezone.utc).date().isoformat()
+    return datetime.now(UTC).date().isoformat()
 
 
 def _read_count(count_path: Path) -> tuple[int, float]:

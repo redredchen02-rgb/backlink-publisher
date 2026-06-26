@@ -193,6 +193,17 @@ def _check_main_domain_presence(row: dict[str, Any]) -> str | None:
 # Re-export from extracted sub-modules. All existing callers import from
 # ``backlink_publisher.schema`` — the re-exports keep those import paths
 # working without changes.
+# Pydantic v2 typed models (opt-in, additive — existing dict validation
+# unchanged). See :mod:`backlink_publisher._payload_types` for full docs.
+from ._payload_types import (  # noqa: F401, E402
+    LinkModel,
+    plan_from_dict,
+    PlannedPayload,
+    seed_from_dict,
+    SeedPayload,
+    SeoModel,
+    ValidationBlock,
+)
 from ._schema_input import (  # noqa: F401, E402
     _check_input_enumerated_values,
     _check_input_optional_field_types,
@@ -215,16 +226,4 @@ from ._schema_output import (  # noqa: F401, E402
     validate_and_convert_output,
     validate_output_payload,
     validate_publish_payload,
-)
-
-# Pydantic v2 typed models (opt-in, additive — existing dict validation
-# unchanged). See :mod:`backlink_publisher._payload_types` for full docs.
-from ._payload_types import (  # noqa: F401, E402
-    LinkModel,
-    PlannedPayload,
-    SeedPayload,
-    SeoModel,
-    ValidationBlock,
-    plan_from_dict,
-    seed_from_dict,
 )

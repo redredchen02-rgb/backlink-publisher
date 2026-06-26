@@ -5,11 +5,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+from pathlib import Path
 import secrets as _secrets
 import time
-from pathlib import Path
 
-from ._store_types import _DB_FILENAME, _DIGEST_LEN, _SECRET_SUFFIX, _now, DedupKey
+from ._store_types import _DIGEST_LEN, _SECRET_SUFFIX, DedupKey
 
 
 class DigestMixin:

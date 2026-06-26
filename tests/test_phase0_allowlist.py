@@ -13,9 +13,9 @@ uses now.
 from __future__ import annotations
 
 __tier__ = "unit"
+from pathlib import Path
 import subprocess
 import textwrap
-from pathlib import Path
 
 import pytest
 

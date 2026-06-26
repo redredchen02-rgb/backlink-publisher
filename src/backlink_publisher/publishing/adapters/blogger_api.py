@@ -11,7 +11,6 @@ mimetypes.add_type("image/webp", ".webp")
 from pathlib import Path
 from typing import Any
 
-from backlink_publisher.config import Config, resolve_blog_id
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     BannerUploadError,
@@ -19,12 +18,13 @@ from backlink_publisher._util.errors import (
     ExternalServiceError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, resolve_blog_id
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
-from .base import AdapterResult, BaseAdapter
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
+from .base import AdapterResult, BaseAdapter
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _BLOGGER_API = "https://www.googleapis.com/blogger/v3"
 

@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config import (
     Config,
     GhpagesConfig,
@@ -31,9 +32,7 @@ from backlink_publisher.config import (
     load_ghpages_token,
     save_ghpages_token,
 )
-from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing._verify import VerifyResult
-
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Helpers

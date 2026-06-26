@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __tier__ = "integration"
 
+from datetime import UTC
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -13,7 +14,6 @@ import pytest
 from backlink_publisher.cli import probe_index as cli
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -169,7 +169,7 @@ def test_select_candidates_includes_stale_probed(tmp_path: Path) -> None:
     _seed_published(store, ["https://example.com/old"])
 
     # Seed a probe event older than 30 days
-    old_ts = (datetime.now(timezone.utc) - timedelta(days=35)).isoformat()
+    old_ts = (datetime.now(UTC) - timedelta(days=35)).isoformat()
     store.append(
         GSC_PAGE_SIGNAL,
         {"page_url": "https://example.com/old", "has_impressions": False},

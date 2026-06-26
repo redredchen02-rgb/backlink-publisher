@@ -6,9 +6,9 @@ __tier__ = "integration"
 
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -218,6 +218,7 @@ class TestPrQueueRoutes:
 
 # ── Autopilot routes (Plan 2026-06-09-001 U8) ─────────────────────────────
 
+from datetime import UTC
 import sys
 import types
 
@@ -309,7 +310,7 @@ class TestSitesAutopilot:
     def test_enable_response_includes_next_run_time(self, client, monkeypatch):
         from datetime import datetime, timezone
 
-        dt = datetime(2026, 6, 17, 12, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 6, 17, 12, 0, 0, tzinfo=UTC)
         mock = _make_mock_scheduler()
         mock._scheduler.get_job.return_value.next_run_time = dt
         monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
@@ -371,7 +372,7 @@ class TestSitesAutopilotStatus:
     def test_get_sites_with_scheduler_returns_200(self, client, monkeypatch):
         from datetime import datetime, timezone
 
-        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=UTC)
         mock = _make_mock_scheduler()
         mock._scheduler.get_job.return_value.next_run_time = dt
         monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
@@ -414,7 +415,7 @@ class TestSitesAutopilotStatus:
     @staticmethod
     def _register_site(url="https://example.com/"):
         """Add a minimal ThreeUrlConfig entry so the template renders site rows."""
-        from backlink_publisher.config import ThreeUrlConfig, load_config, save_config
+        from backlink_publisher.config import load_config, save_config, ThreeUrlConfig
         save_config(load_config(), target_three_url={
             url.rstrip("/"): ThreeUrlConfig(
                 main_url=url, list_url=url,
@@ -453,15 +454,16 @@ class TestSitesAutopilotStatus:
 
     def test_html_next_run_time_shows_data_attribute(self, client, monkeypatch):
         """Branch: site.next_run_time_iso → autopilot-next-run span with data-next-run."""
-        import webui_store as _ws
         from datetime import datetime, timezone
+
+        import webui_store as _ws
 
         self._register_site()
         _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
             "https://example.com/": {"enabled": True, "interval_seconds": 86400}
         }})
         mock = _make_mock_scheduler()
-        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=UTC)
         mock._scheduler.get_job.return_value.next_run_time = dt
         monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
         resp = client.get("/sites")

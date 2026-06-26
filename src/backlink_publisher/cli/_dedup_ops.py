@@ -395,8 +395,7 @@ def _do_forget(args: Any) -> None:
     only: a glob/wildcard in either field is rejected (exit 1) so a wrong pattern
     cannot silently mass-retire backlinks."""
     from backlink_publisher._util.errors import emit_error
-    from backlink_publisher.idempotency import DedupKey, DedupStore
-    from backlink_publisher.idempotency import audit_log
+    from backlink_publisher.idempotency import audit_log, DedupKey, DedupStore
 
     platform, target_url = args.forget
     if not args.reason:

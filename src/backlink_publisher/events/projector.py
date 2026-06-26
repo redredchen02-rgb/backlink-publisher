@@ -19,16 +19,16 @@ Idempotency is layered (plan §U4):
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import logging
-from datetime import datetime, timezone
 from pathlib import Path
 
-from ._project_helpers import ProjectionError, cursor_load, cursor_save, detect_source
+from ._project_helpers import cursor_load, cursor_save, detect_source, ProjectionError
 from ._project_reducers import (
-    ProjectionResult,
     _project_checkpoint,
     _project_drafts,
     _project_history,
+    ProjectionResult,
 )
 from .store import EventStore
 
@@ -86,7 +86,7 @@ def record_projection_health(
     reaches ``_QUARANTINE_DEGRADED_RATIO`` — a healthy ``ok=True`` run can still
     be degraded if a flood of records quarantined.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     try:
         with store.connect() as conn:
             state = dict(cursor_load(conn, _HEALTH_SOURCE))

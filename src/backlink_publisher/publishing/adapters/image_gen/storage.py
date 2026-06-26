@@ -14,8 +14,8 @@ parent ``banners/`` directory does inherit the 0700 perms of
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 
 from .types import BannerArtifact
@@ -33,7 +33,7 @@ def _current_month_bucket() -> str:
     Indirected through a module-level function so tests can pin the
     bucket without having to monkeypatch ``datetime``.
     """
-    return datetime.now(timezone.utc).strftime("%Y-%m")
+    return datetime.now(UTC).strftime("%Y-%m")
 
 
 def _banner_root() -> Path:

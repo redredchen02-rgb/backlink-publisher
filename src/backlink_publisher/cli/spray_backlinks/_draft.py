@@ -13,9 +13,9 @@ fallback because the provider is neutered).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import dataclasses
 import hashlib
-from collections.abc import Callable
 from typing import Any
 
 from backlink_publisher._util.errors import DependencyError
@@ -108,10 +108,10 @@ def draft_row(
 
     Raises :class:`InputValidationError`-family on a skeleton/validation failure.
     """
+    from backlink_publisher._util.errors import InputValidationError
     from backlink_publisher.cli.plan_backlinks._engine import plan_rows
     from backlink_publisher.cli.plan_backlinks._payload import _resolve_article_anchors
     from backlink_publisher.cli.plan_backlinks._templates import _domain_label_of
-    from backlink_publisher._util.errors import InputValidationError
     from backlink_publisher.schema import validate_publish_payload
 
     # Neuter the provider so plan_rows takes its static (no-LLM) path — the only

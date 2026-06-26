@@ -8,6 +8,7 @@ an "unavailable" panel (the service already catches; the route double-guards).
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from flask import Blueprint
 
@@ -19,7 +20,7 @@ _log = logging.getLogger(__name__)
 
 
 @bp.route("/survival-dashboard", methods=["GET"])
-def survival_dashboard():
+def survival_dashboard() -> Any:
     # The render is INSIDE the try: a template fault (not just a service error)
     # must also degrade to the unavailable panel, or the docstring's "double-guard"
     # never-500 promise is false. The fallback view is then rendered separately so

@@ -20,18 +20,18 @@ Contract:
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, timedelta, UTC
+from backlink_publisher._compat import fcntl
 import json
-import sys
-import uuid
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import sys
 from typing import Any
+import uuid
 
 from backlink_publisher._util.errors import (
     DependencyError,
-    ExternalServiceError,
     emit_error,
+    ExternalServiceError,
     handle_error,
 )
 from backlink_publisher._util.logger import get_logger
@@ -171,7 +171,7 @@ def _probe_and_record(
     client: Any, urls: list[str], store: EventStore, run_id: str
 ) -> None:
     """Query GSC for page impressions and write gsc.page_signal events."""
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     start_date = (today - timedelta(days=30)).isoformat()
     end_date = today.isoformat()
     checked_at = today.isoformat()

@@ -21,6 +21,8 @@ outcome rides in ``level`` (success/info/warning/danger), always HTTP 200.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, session
 
 from ...helpers.security import _check_bind_origin_or_abort, _refuse_when_allow_network
@@ -29,7 +31,7 @@ from . import bp
 from .settings_credentials import _transport_guards_active
 
 
-def _logged_in_state(result):
+def _logged_in_state(result: Any) -> Any:
     """The publish-gating flag after this action, for the SPA: True/False when the
     facade set/cleared it, None when it left the prior state unchanged (errors)."""
     if result.session_op == "set":
@@ -39,7 +41,7 @@ def _logged_in_state(result):
     return None
 
 
-def _render(result):
+def _render(result: Any) -> Any:
     return jsonify({
         "level": result.level,
         "message": result.message,
@@ -54,7 +56,7 @@ def _render(result):
 
 
 @bp.post("/settings/medium/launch-browser-login")
-def api_medium_launch():
+def api_medium_launch() -> Any:
     """Open a headed Chromium for the user to log in to Medium."""
     if _transport_guards_active():
         _refuse_when_allow_network()
@@ -63,7 +65,7 @@ def api_medium_launch():
 
 
 @bp.post("/settings/medium/probe-browser-login")
-def api_medium_probe():
+def api_medium_probe() -> Any:
     """Probe Medium login state via a short Playwright navigation."""
     if _transport_guards_active():
         _refuse_when_allow_network()
@@ -72,7 +74,7 @@ def api_medium_probe():
 
 
 @bp.post("/settings/medium/clear-browser-login")
-def api_medium_clear():
+def api_medium_clear() -> Any:
     """Delete the persistent Chromium profile (clears stored login cookies)."""
     if _transport_guards_active():
         _refuse_when_allow_network()
@@ -81,7 +83,7 @@ def api_medium_clear():
 
 
 @bp.get("/settings/medium/status")
-def api_medium_status():
+def api_medium_status() -> Any:
     """Read-only Medium card state: browser-fallback readiness + oauth-token
     presence. No guard — a status read with no secrets (the action POSTs above keep
     their inline guards). ``medium_probe_logged_in`` is the session publish-gating

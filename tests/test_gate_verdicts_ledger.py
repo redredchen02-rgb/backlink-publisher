@@ -9,8 +9,8 @@ discipline noted for ``docs/ideation/``.
 from __future__ import annotations
 
 __tier__ = "unit"
-import re
 from pathlib import Path
+import re
 
 import pytest
 

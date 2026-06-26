@@ -6,6 +6,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import json
+
 import pytest
 
 from webui_app.services import work_themed_service as svc

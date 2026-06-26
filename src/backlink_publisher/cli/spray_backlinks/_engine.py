@@ -12,7 +12,6 @@ from typing import Any
 
 from backlink_publisher._util.errors import UsageError
 
-
 # ── Dataclasses ────────────────────────────────────────────────────────────
 
 

@@ -20,7 +20,6 @@ from backlink_publisher.config import load_config
 from backlink_publisher.config.parsers.llm import _llm_provider_from_sidecar
 from backlink_publisher.config.types import LLMProviderConfig
 
-
 # Env vars the parser consults — cleared per test so the sidecar path is
 # deterministic (env would otherwise win and shadow the sidecar).
 _LLM_ENV_VARS = (

@@ -23,12 +23,11 @@ import pytest
 
 from backlink_publisher.config import (
     DEFAULT_WORK_TEMPLATES,
-    ThreeUrlConfig,
     get_three_url_config,
     load_config,
     save_config,
+    ThreeUrlConfig,
 )
-
 
 # ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -839,8 +838,8 @@ class TestMergeSiteUrlCategories:
         """Defence against malformed main_url that would break the TOML
         basic string quoting. The webui handler validates main_url
         upstream, but defensive rejection at this layer is cheap."""
-        from backlink_publisher.config import merge_site_url_categories
         from backlink_publisher._util.errors import InputValidationError
+        from backlink_publisher.config import merge_site_url_categories
 
         cfg_path = tmp_path / "config.toml"
         with pytest.raises(InputValidationError):

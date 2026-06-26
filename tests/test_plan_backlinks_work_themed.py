@@ -19,13 +19,12 @@ from unittest.mock import patch
 
 import pytest
 
+from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher.anchor.profile import ProfileEntry, ProfileState
 from backlink_publisher.cli import plan_backlinks
 from backlink_publisher.cli.plan_backlinks import _plan_work_themed_row
 from backlink_publisher.config import Config, ThreeUrlConfig
-from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher.content.scraper import WorkMetadata
-
 
 # ── autouse isolation fixtures ──────────────────────────────────────────────
 
@@ -510,8 +509,10 @@ class TestDispatchReconInstrumentation:
 # ---------------------------------------------------------------------------
 
 
-from backlink_publisher.cli.plan_backlinks._work_themed import _further_reading_paragraph  # noqa: E402
 from backlink_publisher.cli.plan_backlinks._links import _build_link_density_paragraph  # noqa: E402
+from backlink_publisher.cli.plan_backlinks._work_themed import (
+    _further_reading_paragraph,  # noqa: E402
+)
 
 
 class TestKoreanProseBranches:

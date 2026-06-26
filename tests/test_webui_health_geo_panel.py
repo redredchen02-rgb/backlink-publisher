@@ -12,8 +12,8 @@ Covers:
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timezone, UTC
 import json
-from datetime import datetime, timezone
 
 import pytest
 
@@ -33,7 +33,7 @@ def client(tmp_path, monkeypatch):
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _seed_citation(
@@ -138,10 +138,10 @@ def test_never_probed_text_not_zero_percent(client):
             "low_confidence": False,
         }]
 
-    import webui_app.routes.health as health_route
-
     # Patch the geo panel to return a never_probed target
     import unittest.mock as mock
+
+    import webui_app.routes.health as health_route
     with mock.patch.object(health_metrics, "geo_citation_share", _fake_geo):
         # Also need to clear the _g_cache for this request
         resp = client.get("/ce:health")
@@ -149,8 +149,9 @@ def test_never_probed_text_not_zero_percent(client):
         # so we verify the template handles the state correctly by checking
         # that when geo_panel is set with never_probed, it renders as text.
         # Direct template unit test:
-        from webui_app import create_app
         import os
+
+        from webui_app import create_app
         app = create_app()
         app.config["TESTING"] = True
         with app.test_request_context():
@@ -447,10 +448,11 @@ def test_geo_citation_share_empty_db_returns_empty(tmp_path, monkeypatch):
 
 def _make_empty_health():
     """Return a minimal Health object for template rendering tests."""
-    from webui_app.health_metrics import DEFAULT_WINDOW_DAYS, Health, SuccessRate, _window_start
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    from webui_app.health_metrics import _window_start, DEFAULT_WINDOW_DAYS, Health, SuccessRate
+
+    now = datetime.now(UTC)
     return Health(
         window_days=DEFAULT_WINDOW_DAYS,
         since_utc=_window_start(now, DEFAULT_WINDOW_DAYS),

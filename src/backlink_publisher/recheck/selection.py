@@ -32,10 +32,10 @@ period rather than externalizing N/M (D8).
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, UTC
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 from urllib.parse import urlparse
 
 from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED, PUBLISH_UNVERIFIED
@@ -50,7 +50,7 @@ DEFAULT_DAYS = 14
 DEFAULT_CAP = 50
 DEFAULT_MIN_RETRY_DAYS = 1
 
-_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+_EPOCH = datetime.min.replace(tzinfo=UTC)
 
 
 def _parse_ts(value: object) -> datetime | None:
@@ -61,7 +61,7 @@ def _parse_ts(value: object) -> datetime | None:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def _is_http(url: object) -> bool:
@@ -81,7 +81,7 @@ def _host_of(url: str) -> str | None:
 
 
 def _confirmed_universe(
-    store: "EventStore",
+    store: EventStore,
     *,
     since: datetime | None,
     host: str | None,
@@ -124,7 +124,7 @@ def _confirmed_universe(
 
 
 def _recheck_cursors(
-    store: "EventStore",
+    store: EventStore,
 ) -> dict[int, tuple[datetime | None, datetime | None]]:
     """Per article_id ``(last_definitive_at, last_attempt_at)`` from events."""
     sql = (
@@ -148,7 +148,7 @@ def _recheck_cursors(
     return {aid: (v[0], v[1]) for aid, v in cursors.items()}
 
 
-def _anchor_baselines(store: "EventStore") -> dict[int, dict[str, str]]:
+def _anchor_baselines(store: EventStore) -> dict[int, dict[str, str]]:
     """Per article_id map of ``{anchor_url: anchor_text}`` from anchors_json.
 
     Best-effort: history/drafts-sourced and early article rows have
@@ -196,7 +196,7 @@ def _baseline_for(
 
 
 def select_candidates(
-    store: "EventStore",
+    store: EventStore,
     *,
     now: datetime,
     days: int = DEFAULT_DAYS,
@@ -270,7 +270,7 @@ def select_candidates(
 
 
 def _unverified_universe(
-    store: "EventStore",
+    store: EventStore,
     *,
     since: datetime | None,
     host: str | None,
@@ -333,7 +333,7 @@ DEFAULT_UNVERIFIED_MIN_RETRY_DAYS = 7
 
 
 def select_unverified_candidates(
-    store: "EventStore",
+    store: EventStore,
     *,
     now: datetime,
     cap: int = DEFAULT_UNVERIFIED_CAP,
@@ -352,7 +352,7 @@ def select_unverified_candidates(
     cursors = _recheck_cursors(store)
     baselines = _anchor_baselines(store)
 
-    now_utc = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+    now_utc = now if now.tzinfo else now.replace(tzinfo=UTC)
 
     candidates: list[dict] = []
     retry_floor = timedelta(days=min_retry_days)

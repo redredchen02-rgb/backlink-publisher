@@ -23,8 +23,8 @@ import sys
 from typing import Any
 
 from ..footprint import (
-    FootprintReport,
     analyze_corpus,
+    FootprintReport,
     format_report_markdown,
 )
 from ..footprint_corpus import CORPUS_NAMES
@@ -35,7 +35,6 @@ from ..footprint_corpus import CORPUS_NAMES
 from ._footprint_baseline import (
     _run_regenerate,
 )
-
 
 # ---------------------------------------------------------------------------
 # Default-audit mode (backwards-compat with `cat payloads.jsonl | footprint`)

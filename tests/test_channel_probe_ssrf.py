@@ -15,8 +15,8 @@ Verifies that:
 from __future__ import annotations
 
 __tier__ = "unit"
-import sys
 import os
+import sys
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -30,7 +30,6 @@ from backlink_publisher._util import http_probe
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import channel_probe  # noqa: E402
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

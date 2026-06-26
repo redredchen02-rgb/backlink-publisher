@@ -17,10 +17,10 @@ from unittest.mock import patch
 
 import pytest
 
-import webui
 from backlink_publisher.cli.keepalive_reset_exhausted import main as reset_cli_main
 from backlink_publisher.keepalive.run_state import KeepaliveRunState
 from backlink_publisher.optimization.state import OptimizationState
+import webui
 from webui_app.services.keep_alive import build_cycle_status_view
 
 _PORT = 8888

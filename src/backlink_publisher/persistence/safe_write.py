@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime, UTC
+import logging
 import os
+from pathlib import Path
 import stat
 import tempfile
-import logging
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Callable, TextIO
+from typing import TextIO
 
 _log = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ def rotate_snapshots(
         return
 
     # UTC ISO timestamp with colons replaced (Windows-safe).
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S.%fZ")
+    ts = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S.%fZ")
     snap_path = snapshot_dir / f"{ts}{file_suffix}"
     try:
         if content is not None:

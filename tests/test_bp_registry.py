@@ -6,8 +6,8 @@ This test enforces that contract at CI time.
 from __future__ import annotations
 
 __tier__ = "unit"
-import tomllib
 from pathlib import Path
+import tomllib
 
 import pytest
 

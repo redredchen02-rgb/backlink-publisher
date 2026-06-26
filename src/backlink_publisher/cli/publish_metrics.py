@@ -18,16 +18,18 @@ the default stays advisory, exit 0). Read-only over events.db.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import sys
-from typing import Any, Iterator
+from typing import Any
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
-from .. import config_echo
 from backlink_publisher._util.errors import emit_envelope_and_exit, emit_error
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher.config import load_config
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
 from backlink_publisher.scorecard.coverage import recheck_coverage
 from backlink_publisher.scorecard.success_rate import publish_success_rate
+
+from .. import config_echo
 
 #: Advisory domain-alarm exit code (the family recheck-backlinks --fail-on-dead
 #: uses). Emitted only with --alarm when within-window coverage is below target.

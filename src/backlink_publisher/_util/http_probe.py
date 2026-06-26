@@ -12,7 +12,6 @@ as a diagnostic flag but is always True in practice.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 from urllib.parse import urljoin
 
 import requests
@@ -52,7 +51,7 @@ _MAX_REDIRECTS = 10
 @dataclass
 class Hit:
     ua: str
-    status: Optional[int]
+    status: int | None
     final_url: str = ""
     redirected: bool = False
     server: str = ""
@@ -68,7 +67,7 @@ class UrlResult:
     hits: list[Hit] = field(default_factory=list)
 
 
-def _validate_url_ssrf(url: str) -> Optional[str]:
+def _validate_url_ssrf(url: str) -> str | None:
     """Return blocked reason if URL is SSRF-dangerous, else None."""
     return _ssrf_check(url)
 

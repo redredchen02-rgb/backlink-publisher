@@ -16,11 +16,11 @@ the literal ``api_key = "<value>"`` shape never lands in source (leak-check hook
 from __future__ import annotations
 
 __tier__ = "unit"
+from contextlib import redirect_stdout
 import importlib.util
 import io
-import sys
-from contextlib import redirect_stdout
 from pathlib import Path
+import sys
 
 import pytest
 

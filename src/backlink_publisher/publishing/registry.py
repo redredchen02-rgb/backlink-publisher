@@ -44,14 +44,15 @@ is ``publish`` (``verify_adapter_setup`` stays a module function).
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Literal, Optional, TYPE_CHECKING, cast
+from collections.abc import Callable
+import logging
+from typing import Any, cast, Literal, TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import RegistryError
+from backlink_publisher.config import Config
 from backlink_publisher.publishing._manifest_types import (
     _BIND_BACKEND_VALUES,
     _VISIBILITY_VALUES,
@@ -124,6 +125,7 @@ class Publisher(ABC):
 # at import time (see ``_install``).
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class RegistryEntry:
     """Aggregated metadata for a registered platform."""
@@ -138,7 +140,7 @@ class RegistryEntry:
     # Optional credential-persistence callback (Plan 2026-06-01-001 U3a).
     # Signature: (channel, config, validated_fields, write_mode) -> Path.
     # write_mode = "replace" | "merge". None = platform has no WebUI saver.
-    credential_saver: Optional[Callable[..., Any]] = None
+    credential_saver: Callable[..., Any] | None = None
     # Routing reliability discount (0.0 < weight <= 1.0; 1.0 = no discount).
     # Applied to Phase 2 Score in dispatch routing. Platforms with empirically
     # confirmed anchor-loss rates should declare a weight < 1.0 here.
@@ -314,7 +316,7 @@ def register(
     bind: list[BindDescriptor] | tuple[BindDescriptor, ...] | None = None,
     policy: Policy | None = None,        # noqa: F811 — shadows re-exported manifest helper
     visibility: Visibility = "active",   # noqa: F811 — shadows re-exported manifest helper
-    credential_saver: Optional[Callable[..., Any]] = None,  # U3a
+    credential_saver: Callable[..., Any] | None = None,  # U3a
     dispatch_weight: float = 1.0,
     session: SessionDescriptor | None = None,
 ) -> None:
@@ -519,7 +521,7 @@ def dofollow_rationale(name: str) -> str | None:
     return entry.rationale if entry else None
 
 
-def credential_saver(name: str) -> Optional[Callable[..., Any]]:
+def credential_saver(name: str) -> Callable[..., Any] | None:
     """Return the credential-persistence callback for ``name``, or ``None``.
 
     Callback signature: ``(channel, config, validated_fields, write_mode) -> Path``.
@@ -602,6 +604,10 @@ def dispatch_weight(name: str, language: str = "default") -> float:
 # Re-export from extracted sub-module. All existing callers import from
 # ``backlink_publisher.publishing.registry`` — the re-exports keep those paths
 # working without changes.
+# Re-export from extracted sub-modules. All existing callers import from
+# ``backlink_publisher.publishing.registry`` — the re-exports keep those paths
+# working without changes.
+from ._registry_dispatch import dispatch  # noqa: F401, E402
 from ._registry_manifest import (  # noqa: F401, E402
     active_platforms,
     bind_descriptors,
@@ -611,9 +617,3 @@ from ._registry_manifest import (  # noqa: F401, E402
     ui_meta,
     visibility,
 )
-
-
-# Re-export from extracted sub-modules. All existing callers import from
-# ``backlink_publisher.publishing.registry`` — the re-exports keep those paths
-# working without changes.
-from ._registry_dispatch import dispatch  # noqa: F401, E402

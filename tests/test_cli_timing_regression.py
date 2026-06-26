@@ -23,10 +23,10 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import json
+from pathlib import Path
 import statistics
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 

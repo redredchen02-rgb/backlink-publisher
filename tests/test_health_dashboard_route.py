@@ -9,7 +9,7 @@ prove a GET needs no token.
 from __future__ import annotations
 
 __tier__ = "unit"
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 import pytest
 
@@ -29,7 +29,7 @@ def client(tmp_path, monkeypatch):
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _seed_events(rows: list[dict]) -> None:

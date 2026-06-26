@@ -13,10 +13,10 @@ import pytest
 from webui_store.base import Store
 from webui_store.sqlite_base import WebUIDatabase
 from webui_store.verify_health import (
-    VerifyHealthSqliteStore,
     expired_channels,
     list_all,
     record,
+    VerifyHealthSqliteStore,
 )
 
 

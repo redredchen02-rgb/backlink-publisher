@@ -7,8 +7,8 @@ reproducible jitter. Covers happy path, non-uniform spacing, continue-on-failure
 from __future__ import annotations
 
 __tier__ = "unit"
-import random
 from dataclasses import dataclass
+import random
 
 import pytest
 

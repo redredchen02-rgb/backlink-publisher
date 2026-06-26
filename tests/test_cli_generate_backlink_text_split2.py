@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -664,6 +664,7 @@ def test_cli_dry_run_no_http_call(capsys, monkeypatch):
     """--dry-run: HTTP must never be called regardless of valid input (TST-003)."""
     import io
     import unittest.mock as mock
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     record = json.dumps({

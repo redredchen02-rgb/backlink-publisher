@@ -8,6 +8,7 @@ progress page (U5) on submit.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from flask import Blueprint, current_app, redirect, render_template, request, url_for
 
@@ -19,7 +20,7 @@ from ..helpers.security import _ensure_csrf_token
 bp = Blueprint("batch_campaign", __name__)
 
 
-def _build_publish_partition():
+def _build_publish_partition() -> Any:
     """Partition the publishable platforms by connection state for the picker.
 
     Plan 2026-06-05-007 — shared by the GET form and the POST validation-error
@@ -32,6 +33,7 @@ def _build_publish_partition():
         from backlink_publisher.config import load_config
         from backlink_publisher.publishing.registry import active_platforms
         from webui_store import channel_status
+
         from ..binding_status import get_channel_status
         from ..helpers.channel_tiers import (
             merge_verify_health,
@@ -59,7 +61,7 @@ def _build_publish_partition():
 
 
 @bp.route("/batch-campaign", methods=["GET"])
-def batch_campaign_form():
+def batch_campaign_form() -> Any:
     csrf_token = _ensure_csrf_token()
     platforms = _g_cache("registered_platforms", registered_platforms)
     return render_template(
@@ -74,7 +76,7 @@ def batch_campaign_form():
 
 
 @bp.route("/batch-campaign", methods=["POST"])
-def batch_campaign_submit():
+def batch_campaign_submit() -> Any:
     csrf_token = _ensure_csrf_token()
     platforms = _g_cache("registered_platforms", registered_platforms)
 
@@ -87,7 +89,7 @@ def batch_campaign_submit():
     errors: dict[str, str] = {}
 
     # --- Validate seeds ---
-    seed_lines = [l.strip() for l in seed_text.split("\n") if l.strip()]
+    seed_lines = [line.strip() for line in seed_text.split("\n") if line.strip()]
     if not seed_lines:
         errors["seeds"] = "至少输入一条 seed（每行一条 JSON）"
     elif len(seed_lines) > 10:
@@ -136,6 +138,7 @@ def batch_campaign_submit():
     if seed_delay:
         try:
             delay_val = max(0, int(seed_delay))
+            _ = delay_val  # validated, used below if no errors
         except (ValueError, TypeError):
             errors["seed_delay"] = "延迟必须是整数（秒）"
 

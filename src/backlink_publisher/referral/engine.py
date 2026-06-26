@@ -10,8 +10,8 @@ Shell layer: :mod:`backlink_publisher.cli.referral_attribute`.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
+import logging
 
 from backlink_publisher.click_track.engine import (
     ClickQueryOptions,

@@ -16,10 +16,10 @@ import pytest
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.adapters.qiita_api import (
-    QiitaAPIAdapter,
     _build_item_payload,
     _load_token,
     _required_headers,
+    QiitaAPIAdapter,
 )
 
 _POST = "backlink_publisher.publishing.adapters.qiita_api.http_post"

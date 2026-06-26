@@ -6,6 +6,8 @@ deficiency, and a ready-to-use CLI command. Read-only (advisory).
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify, request
 
 from backlink_publisher._util.url import canonicalize_url
@@ -27,7 +29,7 @@ def _active_dofollow_platforms() -> list[str]:
 
 
 @bp.route("/ce:equity-ledger/fill-gaps", methods=["POST"])
-def fill_gaps():
+def fill_gaps() -> Any:
     data = request.get_json(silent=True) or {}
     target = (data.get("target_url") or "").strip()
     if not target:

@@ -35,21 +35,22 @@ with ``events.id`` as a same-``ts_utc`` tiebreaker (a determinism addition over
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import json
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, cast
+from typing import cast, TYPE_CHECKING
 
 from backlink_publisher.recheck import verdicts
+
 # Canonical latest-verdict primitives live in the stable ``latest_verdicts``
 # module; re-exported here so existing call sites (``events_io``, the
 # ``gap/engine`` comment) and any ``overlay._canon_target`` reference keep
 # resolving while the NULL-article_id-safe invariant lives in one place.
 from backlink_publisher.recheck.latest_verdicts import (  # noqa: F401
-    LatestVerdict,
     _canon_target,
     _is_newer,
     latest_link_verdicts,
+    LatestVerdict,
 )
 
 if TYPE_CHECKING:
@@ -110,7 +111,7 @@ class TransformTally:
     unmatched_discount: int = 0  # discounts whose target matched no ledger row
 
 
-def _articles_targets(store: "EventStore", article_ids: set) -> dict:
+def _articles_targets(store: EventStore, article_ids: set) -> dict:
     """Best-effort ``article_id`` → canonical target_url, for recheck events whose
     own ``target_url`` column is NULL but that carry an ``article_id`` (F3).
 
@@ -134,7 +135,7 @@ def _articles_targets(store: "EventStore", article_ids: set) -> dict:
     return out
 
 
-def build_discount_map(store: "EventStore") -> DiscountResult:
+def build_discount_map(store: EventStore) -> DiscountResult:
     """Read the latest ``link.rechecked`` verdict per link and build a
     per-canonical-target discount map. Read-only; never creates events.db.
 

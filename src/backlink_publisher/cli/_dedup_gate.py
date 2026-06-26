@@ -24,10 +24,10 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U2, 
 from __future__ import annotations
 
 import os
-from typing import Any, Literal, cast
+from typing import Any, cast, Literal
 
-from ..idempotency import DedupKey, DedupRecord, DedupStore
 from .._util.logger import get_logger
+from ..idempotency import DedupKey, DedupRecord, DedupStore
 
 #: Single account per channel today; carried in the key so a future second
 #: account on the same platform is a distinct key (see plan Key Decisions).
@@ -54,8 +54,8 @@ def enforce_precondition_or_exit() -> None:
     never campaign URLs. Read the readiness with ``--check-enforce-readiness``."""
     if not enforce_enabled():
         return
-    from ..idempotency.reconcile import ACK_QUARANTINE_ENV, check_enforce_readiness
     from .._util.errors import emit_error
+    from ..idempotency.reconcile import ACK_QUARANTINE_ENV, check_enforce_readiness
 
     r = check_enforce_readiness()
     if r.ok:

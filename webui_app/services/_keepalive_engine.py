@@ -12,17 +12,16 @@ module (``webui_app.services._keepalive_engine.*``), not in keepalive_job.
 """
 from __future__ import annotations
 
-import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Callable
+from datetime import datetime
+import threading
+from typing import Any
 
 from backlink_publisher.events import EventStore
 from backlink_publisher.keepalive.sticky import RUNTIME_STICKY_PLATFORMS
 from backlink_publisher.recheck import selection
 from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
 from backlink_publisher.recheck.probe import recheck_link
-
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -111,13 +110,12 @@ class RepublishJob:
 # ── Default publish/gap/persist helpers ──────────────────────────────────────
 
 
-def _default_republish_gaps(store: EventStore):
+def _default_republish_gaps(store: EventStore) -> Any:
     """Re-derive the authoritative keep-alive gap set from fresh state.
 
     Server-side truth (D6): never trust posted gap ids. ghpages is dropped from
     the sticky set at runtime (GitHub suspended) → blogger-only seeds.
     """
-    import json as _json
 
     from backlink_publisher.gap.engine import GapOptions, plan_keepalive_gap
     from backlink_publisher.ledger import build_ledger
@@ -136,7 +134,7 @@ def _default_publish_seed(seed: dict) -> dict:
     structured per-item result (never raises; a failure is a row, not an abort)."""
     import json as _json
 
-    from backlink_publisher.sdk.api import PipelineAPI, parse_publish_results
+    from backlink_publisher.sdk.api import parse_publish_results, PipelineAPI
 
     api = PipelineAPI()
     target, platform = seed.get("target_url"), seed.get("platform")

@@ -240,7 +240,7 @@ def partition_channels_by_connection(
 
 def merge_verify_health(
     channel_statuses: dict[str, dict[str, Any]],
-    expired: "frozenset[str] | set[str] | None",
+    expired: frozenset[str] | set[str] | None,
 ) -> dict[str, dict[str, Any]]:
     """Overlay live-verify credential expiry onto the channel_status map
     (Plan 2026-06-05-008).

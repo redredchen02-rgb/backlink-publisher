@@ -66,7 +66,6 @@ class TestSSRFDefense:
         "0.0.0.0",
     ])
     def test_literal_blocked_ip_in_url_rejected(self, blocked_ip):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
         reason = _check_url_for_ssrf(f"http://{blocked_ip}/")
         assert reason is not None
         assert reason.startswith("blocked_ip:"), reason
@@ -77,7 +76,6 @@ class TestSSRFDefense:
         "151.101.1.140",
     ])
     def test_literal_public_ip_passes(self, safe_ip):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
         assert _check_url_for_ssrf(f"http://{safe_ip}/") is None
 
     @pytest.mark.parametrize("ipv6", [
@@ -86,13 +84,11 @@ class TestSSRFDefense:
         "ff02::1",
     ])
     def test_ipv6_blocked_ranges_rejected(self, ipv6):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
         reason = _check_url_for_ssrf(f"http://[{ipv6}]/")
         assert reason is not None
         assert reason.startswith("blocked_ip:")
 
     def test_hostname_resolving_to_blocked_ip_rejected(self, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
 
         def _fake_getaddrinfo(host, *args, **kwargs):
             return [(2, 1, 6, "", ("169.254.169.254", 0))]
@@ -106,7 +102,6 @@ class TestSSRFDefense:
         assert reason.startswith("blocked_ip:")
 
     def test_hostname_resolving_to_public_ip_passes(self, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
 
         def _fake_getaddrinfo(host, *args, **kwargs):
             return [(2, 1, 6, "", ("8.8.8.8", 0))]
@@ -118,7 +113,6 @@ class TestSSRFDefense:
         assert _check_url_for_ssrf("https://good.example.com/") is None
 
     def test_dns_failure_classified_as_network_error(self, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
 
         def _fake_getaddrinfo(host, *args, **kwargs):
             raise __import__("socket").gaierror("no such host")
@@ -157,11 +151,9 @@ class TestSSRFDefense:
         assert reason == "network_error"
 
     def test_invalid_host_classified_as_invalid_url(self, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
         assert _check_url_for_ssrf("http:///path") == "invalid_host"
 
     def test_redirect_handler_blocks_redirect_to_metadata_ip(self):
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
 
         handler = _SSRFSafeRedirectHandler()
         req = Request("https://good.example.com/")
@@ -172,7 +164,6 @@ class TestSSRFDefense:
         assert "ssrf_redirect" in str(excinfo.value)
 
     def test_redirect_handler_blocks_https_to_http_downgrade(self):
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
 
         handler = _SSRFSafeRedirectHandler()
         req = Request("https://safe.example.com/")
@@ -183,7 +174,6 @@ class TestSSRFDefense:
         assert "ssrf_https_downgrade" in str(excinfo.value)
 
     def test_redirect_handler_allows_redirect_to_public_ip(self, monkeypatch):
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
 
         def _fake_getaddrinfo(host, *args, **kwargs):
             return [(2, 1, 6, "", ("8.8.8.8", 0))]
@@ -202,7 +192,6 @@ class TestSSRFDefense:
 
     @pytest.mark.parametrize("bad", ["http://[invalid", "http://[::1", "http://["])
     def test_check_url_for_ssrf_malformed_returns_invalid_host_not_raises(self, bad, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
 
         def _boom(*a, **k):
             raise AssertionError("getaddrinfo must not be called for malformed input")
@@ -226,7 +215,6 @@ class TestSSRFDefense:
 
     @pytest.mark.parametrize("bad", ["http://[invalid", "http://[::1", "http://["])
     def test_redirect_handler_malformed_location_blocks_not_raises(self, bad, monkeypatch):
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
 
         def _boom(*a, **k):
             raise AssertionError("getaddrinfo must not be called for malformed redirect")

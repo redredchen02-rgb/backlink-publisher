@@ -4,6 +4,7 @@ from __future__ import annotations
 __tier__ = "unit"
 import ast
 import inspect
+
 import pytest
 
 from webui_app import create_app
@@ -113,8 +114,8 @@ def test_load_config_called_once_per_settings_request(app, monkeypatch):
 
     monkeypatch.setattr(_cfg_mod, 'load_config', counting_load_config)
     # Also patch at the consumer references
-    import webui_app.helpers.contexts as ctx_mod
     import webui_app.helpers.channel_probes as probe_mod
+    import webui_app.helpers.contexts as ctx_mod
     monkeypatch.setattr(ctx_mod, 'load_config', counting_load_config)
     monkeypatch.setattr(probe_mod, 'load_config', counting_load_config)
 
@@ -144,8 +145,8 @@ def test_load_config_called_once_per_sites_request(app, monkeypatch):
         return original()
 
     monkeypatch.setattr(_cfg_mod, 'load_config', counting_load_config)
-    import webui_app.helpers.contexts as ctx_mod
     import webui_app.helpers.channel_probes as probe_mod
+    import webui_app.helpers.contexts as ctx_mod
     import webui_app.routes.sites as sites_mod
     monkeypatch.setattr(ctx_mod, 'load_config', counting_load_config)
     monkeypatch.setattr(probe_mod, 'load_config', counting_load_config)

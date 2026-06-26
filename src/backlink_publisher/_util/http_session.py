@@ -17,22 +17,20 @@ Usage:
 
 from __future__ import annotations
 
+from http.cookiejar import CookieJar
 import ssl
 import threading
-from typing import Any, Optional
+from typing import Any
 from urllib.error import URLError
 from urllib.request import (
-    BaseHandler,
     build_opener,
     HTTPCookieProcessor,
     HTTPError,
     HTTPRedirectHandler,
     Request,
 )
-from http.cookiejar import CookieJar
 
 from backlink_publisher._util.net_safety import _check_url_for_ssrf
-from backlink_publisher._util.logger import opencli_logger
 
 # Thread-local storage for sessions
 _local = threading.local()
@@ -45,6 +43,7 @@ _cookie_jar = CookieJar()
 
 # SSL context (environment-gated insecure verification)
 from backlink_publisher._util.ssl_ctx import get_ssl_context
+
 _SSL_CTX: ssl.SSLContext = get_ssl_context()
 
 # User-Agent for identification
@@ -62,7 +61,7 @@ class _SessionRedirectHandler(HTTPRedirectHandler):
         msg: str,
         headers: Any,
         newurl: str,
-    ) -> Optional[Request]:
+    ) -> Request | None:
         """Override to add SSRF checking on redirect targets."""
         # Check SSRF before following redirect
         blocked = _check_url_for_ssrf(newurl)
@@ -125,9 +124,9 @@ def fetch_url(
     url: str,
     method: str = "GET",
     timeout: float = 10.0,
-    max_redirects: Optional[int] = None,
-    headers: Optional[dict[str, str]] = None,
-    data: Optional[bytes] = None,
+    max_redirects: int | None = None,
+    headers: dict[str, str] | None = None,
+    data: bytes | None = None,
     max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES,
 ) -> tuple[int, bytes, dict[str, str]]:
     """Fetch a URL using the shared opener.
@@ -201,7 +200,7 @@ def reset_cookie_jar() -> None:
 def head_url(
     url: str,
     timeout: float = 10.0,
-    max_redirects: Optional[int] = None,
+    max_redirects: int | None = None,
 ) -> tuple[int, dict[str, str]]:
     """Perform a HEAD request using the shared opener.
 
@@ -226,9 +225,9 @@ def head_url(
 def stream_url(
     url: str,
     timeout: float = 10.0,
-    max_redirects: Optional[int] = None,
+    max_redirects: int | None = None,
     chunk_size: int = 8192,
-    max_body_bytes: Optional[int] = None,
+    max_body_bytes: int | None = None,
 ) -> tuple[int, Any, dict[str, str]]:
     """Stream a URL response for memory-efficient large downloads.
 

@@ -6,9 +6,9 @@ __tier__ = "integration"
 
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -97,7 +97,6 @@ class TestQueueDashboardRoutes:
 
     def test_dashboard_html_template_removed(self):
         """Plan 012 Unit 2 — dashboard.html template file deleted."""
-        from pathlib import Path
         tpl = Path(__file__).resolve().parents[1] / "webui_app" / "templates" / "dashboard.html"
         assert not tpl.exists(), f"dashboard.html should be deleted but exists at {tpl}"
 

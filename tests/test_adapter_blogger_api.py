@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backlink_publisher.publishing.adapters.blogger_api import BloggerAPIAdapter
-from backlink_publisher.config import Config, BloggerOAuthConfig
 from backlink_publisher._util.errors import AuthExpiredError, DependencyError, ExternalServiceError
+from backlink_publisher.config import BloggerOAuthConfig, Config
+from backlink_publisher.publishing.adapters.blogger_api import BloggerAPIAdapter
 
 PAYLOAD = {
     "id": "abc123",

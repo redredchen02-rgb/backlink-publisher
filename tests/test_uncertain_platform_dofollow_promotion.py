@@ -11,11 +11,15 @@ from __future__ import annotations
 __tier__ = "unit"
 
 import json
+
 import pytest
 
 from backlink_publisher.events import EventStore
-from backlink_publisher.ledger.aggregate import _classify, _load_confirmed_dofollow_urls, build_ledger
-
+from backlink_publisher.ledger.aggregate import (
+    _classify,
+    _load_confirmed_dofollow_urls,
+    build_ledger,
+)
 
 # ── probe.py — emit signal ────────────────────────────────────────────────────
 
@@ -113,8 +117,8 @@ def test_emit_recheck_carries_confirmed_dofollow(tmp_path, monkeypatch):
     """emit_recheck stores confirmed_dofollow=True in the payload."""
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path / "cfg"))
     (tmp_path / "cfg").mkdir()
-    from backlink_publisher.recheck.events_io import emit_recheck
     from backlink_publisher.events.kinds import LINK_RECHECKED
+    from backlink_publisher.recheck.events_io import emit_recheck
 
     store = EventStore()
     result = {
@@ -139,8 +143,8 @@ def test_emit_recheck_absent_confirmed_dofollow_defaults_false(tmp_path, monkeyp
     """emit_recheck stores confirmed_dofollow=False when absent from result."""
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path / "cfg"))
     (tmp_path / "cfg").mkdir()
-    from backlink_publisher.recheck.events_io import emit_recheck
     from backlink_publisher.events.kinds import LINK_RECHECKED
+    from backlink_publisher.recheck.events_io import emit_recheck
 
     store = EventStore()
     result = {"verdict": "alive", "live_url": "https://sub.com/p", "platform": "medium"}
@@ -188,8 +192,8 @@ def test_load_confirmed_dofollow_urls_single_confirmed(tmp_path, monkeypatch):
     """Single event with confirmed_dofollow=True → url in set (canonicalized)."""
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path / "cfg"))
     (tmp_path / "cfg").mkdir()
-    from backlink_publisher.recheck.events_io import emit_recheck
     from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import emit_recheck
 
     store = EventStore()
     url = "https://substack.com/post2"
@@ -239,8 +243,9 @@ def test_build_ledger_uncertain_promoted_live_dofollow_count(tmp_path, monkeypat
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path / "cfg"))
     (tmp_path / "cfg").mkdir()
     from datetime import datetime
-    from backlink_publisher.recheck.events_io import emit_recheck
+
     from backlink_publisher._util.url import canonicalize_url
+    from backlink_publisher.recheck.events_io import emit_recheck
 
     store = EventStore()
     live_url = "https://substack.com/article-x"
@@ -283,6 +288,7 @@ def test_build_ledger_r5_no_double_count(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path / "cfg"))
     (tmp_path / "cfg").mkdir()
     from datetime import datetime
+
     from backlink_publisher.recheck.events_io import emit_recheck
 
     store = EventStore()

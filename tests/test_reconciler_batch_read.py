@@ -9,8 +9,8 @@ batching (``get`` called 0x, ``get_many`` once).
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timedelta, timezone, UTC
 import json
-from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -55,8 +55,8 @@ def _spy_update(monkeypatch):
 
 def test_auto_fixes_done_quarantines_stale_keeps_recent(stores, monkeypatch):
     event_store, dedup_store = stores
-    old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
-    now = datetime.now(timezone.utc).isoformat()
+    old = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # A: has a done dedup record -> auto-fix. B: no record + old -> quarantine.
     # C: no record but recent -> left for next pass.
@@ -156,7 +156,7 @@ def test_batch_read_failure_leaves_items_for_next_pass(stores, monkeypatch):
     """A dedup read failure neither auto-fixes nor quarantines — items are left
     for the next pass (matches the original per-item skip-on-get-failure)."""
     event_store, dedup_store = stores
-    old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    old = (datetime.now(UTC) - timedelta(days=2)).isoformat()
     items = [_item("G", "https://money.example/g", created_at=old)]
     monkeypatch.setattr(recon, "list_failed_items", lambda: items)
     _spy_update(monkeypatch)
@@ -178,7 +178,7 @@ def test_only_done_state_auto_fixes_others_quarantine_if_stale(stores, monkeypat
     (attempting/failed/uncertain) is treated like a gap — quarantined if stale —
     exactly as the original `record.state == "done"` branch did."""
     event_store, dedup_store = stores
-    old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    old = (datetime.now(UTC) - timedelta(days=2)).isoformat()
     # 'failed' is a real non-done state; an old item with it must NOT auto-fix.
     dedup_store.seed(
         DedupKey(platform="blogger", target_url="https://money.example/h"), "failed"

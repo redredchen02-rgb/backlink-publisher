@@ -14,7 +14,7 @@ Public surface
 
 from __future__ import annotations
 
-from .engine import ClickQueryOptions, ClickQueryResult, ClickStats, query_site, handle_site
+from .engine import ClickQueryOptions, ClickQueryResult, ClickStats, handle_site, query_site
 
 __all__ = [
     "ClickQueryOptions",

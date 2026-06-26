@@ -27,16 +27,15 @@ Plan 2026-06-10-002 U2.1 + U2.3.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass, field
+from datetime import datetime, UTC
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Data types
@@ -101,7 +100,7 @@ class PipelineConfig:
     max_rows: int = 1000
 
     @classmethod
-    def from_env(cls) -> "PipelineConfig":
+    def from_env(cls) -> PipelineConfig:
         def _env(key: str, default: str) -> str:
             return os.environ.get(key, default)
 
@@ -255,7 +254,7 @@ def run_pipeline(
 
     python = _python_base()
     result = PipelineResult(
-        started_at=datetime.now(timezone.utc).isoformat(),
+        started_at=datetime.now(UTC).isoformat(),
     )
 
     prev_stdout: str | None = None
@@ -282,7 +281,7 @@ def run_pipeline(
                     result.steps.append(sr)
                     result.result = "skipped"
                     result.message = "No gaps to fill — all targets satisfied."
-                    result.completed_at = datetime.now(timezone.utc).isoformat()
+                    result.completed_at = datetime.now(UTC).isoformat()
                     return result
         elif name == "plan-backlinks":
             cmd = [
@@ -333,7 +332,7 @@ def run_pipeline(
         if not sr.success and sr.fatal:
             result.result = "failed"
             result.message = f"Pipeline stopped at '{name}' (exit {sr.exit_code})"
-            result.completed_at = datetime.now(timezone.utc).isoformat()
+            result.completed_at = datetime.now(UTC).isoformat()
             return result
 
     # Determine overall result
@@ -348,7 +347,7 @@ def run_pipeline(
         result.result = "failed"
         result.message = "All steps failed."
 
-    result.completed_at = datetime.now(timezone.utc).isoformat()
+    result.completed_at = datetime.now(UTC).isoformat()
     return result
 
 
@@ -459,7 +458,7 @@ def record_run() -> None:
     """Record that a pipeline run just completed."""
     state = _read_scheduler_state()
     state["last_run_ts"] = time.time()
-    state["last_run_at"] = datetime.now(timezone.utc).isoformat()
+    state["last_run_at"] = datetime.now(UTC).isoformat()
     _write_scheduler_state(state)
 
 

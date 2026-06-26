@@ -11,12 +11,12 @@ Public API:
 """
 
 from . import kinds
-from .kinds import KINDS, classify
+from .kinds import classify, KINDS
 from .projector import (
-    ProjectionError,
-    ProjectionResult,
     flush_for,
     project_run_safe,
+    ProjectionError,
+    ProjectionResult,
 )
 from .store import EventStore
 

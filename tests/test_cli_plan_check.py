@@ -17,16 +17,15 @@ from __future__ import annotations
 __tier__ = "unit"
 import datetime as _dt
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import time
-from pathlib import Path
 
 import pytest
 
-from backlink_publisher.cli import plan_check as pc
 from backlink_publisher.cli import _plan_check_git as pc_git
-
+from backlink_publisher.cli import plan_check as pc
 
 # ---------------------------------------------------------------------------
 # Module-level invariants

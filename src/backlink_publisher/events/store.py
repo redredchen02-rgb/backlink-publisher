@@ -21,14 +21,16 @@ coverage to ``.db-wal``/``.db-shm``/``persona.salt`` etc).
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from datetime import UTC
 import hashlib
 import json
 import os
+from pathlib import Path
 import sqlite3
 import time
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Callable, Iterator, cast
+from typing import Any, cast
 
 from . import kinds
 from . import schema as _schema
@@ -42,6 +44,7 @@ from ._store_sqlite import (
     _set_backup_exclude_xattr,
     _tighten_wal_sidecars,
 )
+
 
 class EventStore:
     """Append-mostly SQLite store for projected events + articles.
@@ -465,8 +468,8 @@ class EventStore:
         ``cli/_publish_helpers._release_acquired_leases``).
         """
         now = _now_iso_utc()
-        from datetime import datetime, timedelta, timezone
-        expire = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
+        from datetime import datetime, timedelta
+        expire = (datetime.now(UTC) + timedelta(seconds=ttl_seconds)).isoformat()
 
         def _op() -> bool:
             with self.connect() as conn:

@@ -82,7 +82,7 @@ def _parse_llm_anchor_provider(
     base_url = env_base_url or section.get("base_url")
     model = env_model or section.get("model")
     timeout_s = section.get("timeout_s", 30.0)
-    
+
     temperature = _parse_temperature(env_temp, section.get("temperature"))
     system_prompt = env_system or section.get("system_prompt")
     use_article_gen = _parse_bool_flag(env_use_article, section, "use_article_gen")

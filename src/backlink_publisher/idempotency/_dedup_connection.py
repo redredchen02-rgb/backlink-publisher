@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import os
-import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
+import os
 from pathlib import Path
+import sqlite3
 
 from ..events._store_sqlite import _set_backup_exclude_xattr, _tighten_wal_sidecars
 from ._dedup_schema import _SCHEMA_DDL

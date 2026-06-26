@@ -23,11 +23,12 @@ HTTP boundary in each binding.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 import json
 import logging
 import re
-from dataclasses import dataclass
-from typing import Mapping
+from typing import Any
 
 from backlink_publisher._util.net_safety import _check_url_for_ssrf
 from backlink_publisher.config import load_config
@@ -159,7 +160,7 @@ class ChannelBindAPI:
     def _save_anon(self, channel: str, is_clear: bool) -> BindSaveResult:
         return _info(f"{channel} 为匿名渠道，无需凭据", channel)
 
-    def _clear(self, channel: str, auth_type: str, cfg, *, not_impl_msg: str) -> BindSaveResult:
+    def _clear(self, channel: str, auth_type: str, cfg: Any, *, not_impl_msg: str) -> BindSaveResult:
         """Shared clear path for token / token_fields / paste_blob / userpass.
 
         The success / file-absent / OSError messages are uniform across auth

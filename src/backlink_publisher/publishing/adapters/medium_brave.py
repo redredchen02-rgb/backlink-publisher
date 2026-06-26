@@ -13,18 +13,19 @@ drift that caused "-1719 index out of range" errors when tabs shift.
 
 from __future__ import annotations
 
+import json
 import platform
 import subprocess
 import time
-import json
-import uuid
 from typing import Any
+import uuid
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
+
 from .base import AdapterResult
 from .link_attr_verifier import required_link_urls, verify_link_attributes
 
@@ -244,7 +245,7 @@ def _wait_for_editor(win_id: str, tab_id: str, max_wait: int = 20) -> bool:
             if result == "ready":
                 return True
         except Exception as exc:  # noqa: BLE001
-            log.debug("page-ready probe failed: %s" % exc)
+            log.debug("page-ready probe failed: %s", exc)
         time.sleep(_EDITOR_POLL_INTERVAL_S)
     return False
 

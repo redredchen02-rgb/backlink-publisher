@@ -14,6 +14,8 @@ before_request hook — registering this blueprint does not change guard orderin
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify
 
 from .errors import (  # noqa: F401 - re-export for callers
@@ -30,7 +32,7 @@ bp = Blueprint("api_v1", __name__, url_prefix=API_V1_PREFIX)
 
 
 @bp.get("/health")
-def health():
+def health() -> Any:
     """Liveness probe — no auth, no side effects (safe under loopback GET)."""
     return jsonify(
         {"status": "ok", "api_version": API_VERSION, "version": app_version()}
@@ -40,23 +42,25 @@ def health():
 # Attach resource modules' routes to ``bp``. Imported at the bottom so each
 # module can ``from . import bp`` without a circular import (standard Flask
 # blueprint-package idiom).
-from . import app_config  # noqa: E402,F401  (Plan 2026-06-18-002 U2)
-from . import pipeline  # noqa: E402,F401  (Plan 2026-06-18-002 U5)
-from . import monitor  # noqa: E402,F401  (Plan 2026-06-18-002 U6)
-from . import history  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
-from . import drafts  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
-from . import sites  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
-from . import schedule  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
-from . import campaigns  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
-from . import profiles  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
-from . import settings_credentials  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings security core)
-from . import channel_bind  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: general credential write)
-from . import bind  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: stateful browser-bind flow)
-from . import oauth  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: OAuth credential management)
-from . import llm  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: LLM settings save)
-from . import image_gen  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: image-gen diagnostics)
-from . import medium_login  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: medium browser-login)
-from . import global_settings  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: global keywords/schedule saves)
-from . import channels  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: channel overview read)
-from . import velog  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: velog status + login)
+from . import (
+    app_config,  # noqa: E402,F401  (Plan 2026-06-18-002 U2)
+    bind,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: stateful browser-bind flow)
+    campaigns,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
+    channel_bind,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: general credential write)
+    channels,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: channel overview read)
+    drafts,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
+    global_settings,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: global keywords/schedule saves)
+    history,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
+    image_gen,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: image-gen diagnostics)
+    llm,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: LLM settings save)
+    medium_login,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: medium browser-login)
+    monitor,  # noqa: E402,F401  (Plan 2026-06-18-002 U6)
+    oauth,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: OAuth credential management)
+    pipeline,  # noqa: E402,F401  (Plan 2026-06-18-002 U5)
+    profiles,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
+    schedule,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
+    settings_credentials,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings security core)
+    sites,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
+    velog,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: velog status + login)
+)
 

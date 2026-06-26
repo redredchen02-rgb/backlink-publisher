@@ -21,11 +21,11 @@ Plan 2026-05-26-001 Unit 2.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
+import time
 from typing import Any
 
-from .readers import StoreSnapshot, _canon
+from .readers import _canon, StoreSnapshot
 
 #: R8 static source→tier map. The draft-queue ("drafts") source lands with R4
 #: as "informational"; v1 sources are all high-signal. ``dedup`` is the

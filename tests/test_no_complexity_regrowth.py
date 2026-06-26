@@ -21,8 +21,8 @@ rather than round_up_to_10(SLOC+30).
 from __future__ import annotations
 
 __tier__ = "unit"
-import tomllib
 from pathlib import Path
+import tomllib
 
 import pytest
 from radon.complexity import cc_visit

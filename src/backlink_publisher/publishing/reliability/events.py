@@ -12,14 +12,14 @@ Design constraints:
 
 from __future__ import annotations
 
+from enum import StrEnum
 import time
-from enum import Enum
 from typing import Any
 
 from backlink_publisher._util.logger import opencli_logger as _log
 
 
-class Outcome(str, Enum):
+class Outcome(StrEnum):
     SUCCESS = "success"
     AUTH_EXPIRED = "auth_expired"
     AUTH_BANNED = "auth_banned"

@@ -10,34 +10,33 @@ Covers:
 from __future__ import annotations
 
 __tier__ = "unit"
+from datetime import datetime, timezone, UTC
 import json
 import os
+from pathlib import Path
 import stat
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
-from backlink_publisher.config import Config
-from backlink_publisher.config.types import VelogConfig
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     ContentRejectedError,
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.config import Config
+from backlink_publisher.config.types import VelogConfig
 from backlink_publisher.publishing.adapters.velog_graphql import (
-    VelogGraphQLAdapter,
     _effective_cap,
     _read_count,
     _save_null_artifact,
     _slugify,
     _write_count,
+    VelogGraphQLAdapter,
 )
-
 
 # ── _slugify ──────────────────────────────────────────────────────────────────
 
@@ -62,10 +61,10 @@ class TestSlugify:
 
 class TestEffectiveCap:
     def test_before_unlock_returns_initial(self):
-        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        past = datetime(2020, 1, 1, tzinfo=UTC)
         with patch(
             "backlink_publisher.publishing.adapters.velog_graphql.UNLOCK_DATE_UTC",
-            datetime(2099, 1, 1, tzinfo=timezone.utc),
+            datetime(2099, 1, 1, tzinfo=UTC),
         ):
             cap = _effective_cap()
         assert cap == 5  # _VELOG_DAILY_CAP_INITIAL
@@ -73,7 +72,7 @@ class TestEffectiveCap:
     def test_after_unlock_returns_prod(self):
         with patch(
             "backlink_publisher.publishing.adapters.velog_graphql.UNLOCK_DATE_UTC",
-            datetime(2020, 1, 1, tzinfo=timezone.utc),
+            datetime(2020, 1, 1, tzinfo=UTC),
         ):
             cap = _effective_cap()
         assert cap == 30  # _VELOG_DAILY_CAP_PROD
@@ -89,8 +88,8 @@ class TestCountFile:
 
     def test_today_returns_count(self, tmp_path):
         p = tmp_path / "count.json"
-        from datetime import datetime, timezone
-        today = datetime.now(timezone.utc).date().isoformat()
+        from datetime import datetime
+        today = datetime.now(UTC).date().isoformat()
         p.write_text(json.dumps({"date_utc": today, "count": 3, "last_publish_at": 9999.0}))
         count, last = _read_count(p)
         assert count == 3
@@ -110,7 +109,7 @@ class TestCountFile:
         - UTC-derived implementation writes ``date_utc=2026-05-19``.
         - ``date.today()``-based implementation writes ``date_utc=2026-05-20``.
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from backlink_publisher.publishing.adapters import velog_graphql
 
@@ -130,7 +129,7 @@ class TestCountFile:
 
             @classmethod
             def now(cls, tz=None):
-                base = datetime(2026, 5, 19, 23, 30, 0, tzinfo=timezone.utc)
+                base = datetime(2026, 5, 19, 23, 30, 0, tzinfo=UTC)
                 if tz is None:
                     return _FakeDate.today()  # local naive
                 return base.astimezone(tz)

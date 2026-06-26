@@ -12,12 +12,13 @@ All dependencies are injectable so the chain is fully testable without network.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Generator
 import contextlib
+from datetime import datetime
 import logging
-import time
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Generator
+import time
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,8 @@ def _default_write_verified_at(store: Any, results: Any) -> None:
 def _default_publish_seed(seed: dict[str, Any]) -> dict[str, Any]:
     """Plan → validate → publish one seed via PipelineAPI (same as keepalive_job)."""
     import json as _json
-    from backlink_publisher.sdk.api import PipelineAPI, parse_publish_results
+
+    from backlink_publisher.sdk.api import parse_publish_results, PipelineAPI
 
     api = PipelineAPI()
     target, platform = seed.get("target_url"), seed.get("platform")
@@ -125,8 +127,9 @@ def _default_publish_seed(seed: dict[str, Any]) -> dict[str, Any]:
 def _default_reverify(result: dict[str, Any], store: Any) -> dict[str, Any]:
     """Probe a freshly published URL; emit + write_verified_at (same as keepalive_job)."""
     from urllib.parse import urlsplit
-    from backlink_publisher.recheck.probe import recheck_link
+
     from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
+    from backlink_publisher.recheck.probe import recheck_link
 
     url = (result.get("published_url") or "").strip()
     target = result.get("target_url")
@@ -251,7 +254,7 @@ def _filter_exhausted_seeds(
     seeds_raw: list[Any],
     run_state: Any,
     max_gaps: int | None,
-    summary: "CycleSummary",
+    summary: CycleSummary,
 ) -> list[Any]:
     """Remove exhausted targets and apply the max_gaps cap."""
     seeds = []
@@ -268,7 +271,7 @@ def _filter_exhausted_seeds(
 def _run_publish_step(
     seeds: list[Any],
     run_state: Any,
-    summary: "CycleSummary",
+    summary: CycleSummary,
     _publish: Callable,
     _log: Any,
 ) -> list[dict]:
@@ -302,7 +305,7 @@ def _run_publish_step(
 def _run_reverify_step(
     published_results: list[dict],
     run_state: Any,
-    summary: "CycleSummary",
+    summary: CycleSummary,
     _reverify: Callable,
 ) -> None:
     """Step 5: Reverify newly published URLs; update opt stats on definitive verdicts."""

@@ -5,7 +5,9 @@ Campaign progress page + JSON polling endpoint.
 
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, render_template, request
+from typing import Any
+
+from flask import Blueprint, current_app, jsonify, render_template
 
 from ..helpers.security import _ensure_csrf_token
 
@@ -13,7 +15,7 @@ bp = Blueprint("campaign_progress", __name__)
 
 
 @bp.route("/campaign/<campaign_id>")
-def campaign_progress_page(campaign_id: str):
+def campaign_progress_page(campaign_id: str) -> Any:
     """Render the campaign progress / results page."""
     from webui_store import campaign_store
 
@@ -45,7 +47,7 @@ def campaign_progress_page(campaign_id: str):
 
 
 @bp.route("/api/campaign/<campaign_id>/status")
-def campaign_status_api(campaign_id: str):
+def campaign_status_api(campaign_id: str) -> Any:
     """JSON polling endpoint for campaign progress."""
     from webui_store import campaign_store
 

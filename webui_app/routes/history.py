@@ -9,6 +9,8 @@ Phase A refactoring: delegates to ``HistoryAPI`` for all operations.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify, redirect, request, session
 
 from ..api import HistoryAPI
@@ -19,7 +21,7 @@ _history = HistoryAPI()
 
 
 @bp.route('/ce:history', methods=['GET', 'POST'])
-def ce_history():
+def ce_history() -> Any:
     config = session.get('config', {})
     return _render('index.html',
         history=_history.list(),
@@ -29,7 +31,7 @@ def ce_history():
 
 
 @bp.route('/ce:history/delete', methods=['POST'])
-def ce_history_delete():
+def ce_history_delete() -> Any:
     item_id = request.form.get('id', '')
     result = _history.delete(item_id)
     return _render('index.html',
@@ -39,7 +41,7 @@ def ce_history_delete():
 
 
 @bp.route('/ce:history/update-status', methods=['POST'])
-def ce_history_update_status():
+def ce_history_update_status() -> Any:
     item_id = request.form.get('id', '')
     new_status = request.form.get('status', '')
     result = _history.update_status(item_id, new_status)
@@ -50,7 +52,7 @@ def ce_history_update_status():
 
 
 @bp.route('/ce:history/reuse', methods=['POST'])
-def ce_history_reuse():
+def ce_history_reuse() -> Any:
     target_url = request.form.get('target_url', '')
     session.pop('plans', None)
     session.pop('validated', None)
@@ -62,7 +64,7 @@ def ce_history_reuse():
 
 
 @bp.route('/ce:history/bulk-delete', methods=['POST'])
-def ce_history_bulk_delete():
+def ce_history_bulk_delete() -> Any:
     """Delete multiple history entries by id."""
     ids = request.form.getlist('ids')
     result = _history.bulk_delete(ids)
@@ -71,7 +73,7 @@ def ce_history_bulk_delete():
 
 
 @bp.route('/ce:history/purge-failed', methods=['POST'])
-def ce_history_purge_failed():
+def ce_history_purge_failed() -> Any:
     """One-shot delete every history entry whose status is exactly 'failed'."""
     result = _history.purge_failed()
     flash_type = "success" if result["ok"] else "info"
@@ -79,7 +81,7 @@ def ce_history_purge_failed():
 
 
 @bp.route('/ce:history/recheck', methods=['POST'])
-def ce_history_recheck():
+def ce_history_recheck() -> Any:
     """Re-verify a single history item by id."""
     item_id = request.form.get('id', '')
     result = _history.recheck(item_id)
@@ -88,7 +90,7 @@ def ce_history_recheck():
 
 
 @bp.route('/ce:retry-task', methods=['POST'])
-def ce_retry_task():
+def ce_retry_task() -> Any:
     """Plan 012 Unit 2: moved from dashboard blueprint. URL is unchanged."""
     task_id = request.form.get('task_id', '')
     result = _history.retry_task(task_id)
@@ -98,7 +100,7 @@ def ce_retry_task():
 
 
 @bp.route('/ce:history/bulk-recheck', methods=['POST'])
-def ce_history_bulk_recheck():
+def ce_history_bulk_recheck() -> Any:
     """Re-verify multiple history entries; updates store in one pass."""
     ids = request.form.getlist('ids')
     result = _history.bulk_recheck(ids)

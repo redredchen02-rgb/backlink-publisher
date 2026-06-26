@@ -19,23 +19,27 @@ from unittest import mock
 
 import pytest
 
-from backlink_publisher.config import load_config
 from backlink_publisher._util.errors import ExternalServiceError
-from backlink_publisher.publishing.adapters.base import AdapterResult
-from backlink_publisher.publishing.registry import (
-    Publisher as _Publisher,
-    register as _register,
-    _REGISTRY as __REGISTRY,
+from backlink_publisher.cli._resume import (
+    _publish_one_resume_item,
+    _ResumeLoopState,
 )
-from backlink_publisher.publishing.reliability import circuit
 from backlink_publisher.cli.publish_backlinks._engine import (
     PublishRunState,
     run_publish_loop,
 )
-from backlink_publisher.cli._resume import (
-    _ResumeLoopState,
-    _publish_one_resume_item,
+from backlink_publisher.config import load_config
+from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher.publishing.registry import (
+    _REGISTRY as __REGISTRY,
 )
+from backlink_publisher.publishing.registry import (
+    Publisher as _Publisher,
+)
+from backlink_publisher.publishing.registry import (
+    register as _register,
+)
+from backlink_publisher.publishing.reliability import circuit
 
 _ENGINE_NS = "backlink_publisher.cli.publish_backlinks"
 _RESUME_NS = "backlink_publisher.cli._resume"

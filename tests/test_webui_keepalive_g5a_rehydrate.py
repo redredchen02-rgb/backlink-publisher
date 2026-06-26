@@ -18,7 +18,6 @@ import pytest
 from backlink_publisher.events import EventStore
 from webui_app.services.keepalive_job import KeepaliveJobRegistry
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _cand(article_id, verdict="alive", host="51acgs.com"):

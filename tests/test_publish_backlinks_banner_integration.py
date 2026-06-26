@@ -25,12 +25,11 @@ import pytest
 from backlink_publisher._util.errors import BannerUploadError
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _REGISTRY,
     dispatch,
+    Publisher,
     register,
 )
-
 
 # ── stand-in adapters (test-only registration) ─────────────────────────
 

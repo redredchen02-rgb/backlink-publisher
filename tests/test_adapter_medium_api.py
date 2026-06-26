@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests as req
 
-from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import AuthExpiredError, DependencyError, ExternalServiceError
+from backlink_publisher.config import Config
+from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
 
 PAYLOAD = {
     "id": "abc123",

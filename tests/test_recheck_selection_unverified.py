@@ -7,8 +7,8 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-import json
 from datetime import datetime, timedelta, timezone
+import json
 
 import pytest
 

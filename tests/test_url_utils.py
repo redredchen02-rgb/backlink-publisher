@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 __tier__ = "unit"
-import pytest
-
 from urllib.request import Request
+
+import pytest
 
 from backlink_publisher._util.url import (
     absolutize,

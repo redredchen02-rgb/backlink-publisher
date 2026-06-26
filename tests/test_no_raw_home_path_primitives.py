@@ -27,13 +27,12 @@ import ast
 from pathlib import Path
 from typing import NamedTuple
 
-import pytest
-
 # Import shared constants from conftest.py (tests/ is not a package).
 from conftest import (  # type: ignore[import]
     _RAW_HOME_ALLOWED_MODULE,
     GRANDFATHERED_EXPANDUSER_SITES,
 )
+import pytest
 
 # ── Scan roots ───────────────────────────────────────────────────────────────
 _REPO_ROOT = Path(__file__).resolve().parents[1]

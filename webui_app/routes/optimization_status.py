@@ -7,6 +7,7 @@ simple table. Never 500s — any read error renders an honest "unavailable".
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from flask import Blueprint, jsonify, request
 
@@ -40,7 +41,7 @@ def _read_platforms() -> list[dict]:
 
 
 @bp.route("/optimization-status", methods=["GET"])
-def optimization_status():
+def optimization_status() -> Any:
     message = request.args.get("message", "")
     try:
         from backlink_publisher.optimization import OptimizationState
@@ -61,7 +62,7 @@ def optimization_status():
 
 
 @bp.route("/api/optimization-status", methods=["GET"])
-def optimization_status_json():
+def optimization_status_json() -> Any:
     """Read-only JSON twin of the optimisation page (for the monitor hub, U5/U6).
 
     Shares OptimizationState.to_summary() with the HTML page and command_center —
@@ -76,7 +77,7 @@ def optimization_status_json():
 
 
 @bp.route("/optimization-status/set-weight", methods=["POST"])
-def set_weight():
+def set_weight() -> Any:
     """Manually override a platform's dispatch weight."""
     platform = request.form.get("platform", "").strip()
     weight_str = request.form.get("weight", "").strip()
@@ -99,7 +100,7 @@ def set_weight():
         from backlink_publisher.optimization import OptimizationState
         state = OptimizationState()
         state.set_weight(platform, weight, rule="manual",
-                         reason=f"manual override via WebUI", force=True)
+                         reason="manual override via WebUI", force=True)
         state.lock_weight(platform, locked=True)
         summary = state.to_summary()
         platforms = summary.get("platforms", [])
@@ -120,7 +121,7 @@ def set_weight():
 
 
 @bp.route("/optimization-status/unlock-weight", methods=["POST"])
-def unlock_weight():
+def unlock_weight() -> Any:
     """Release a platform's manual lock so rules can manage it again."""
     platform = request.form.get("platform", "").strip()
     if not platform:

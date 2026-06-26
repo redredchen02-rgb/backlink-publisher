@@ -11,11 +11,11 @@ import pytest
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config.types import GitlabPagesConfig
 from backlink_publisher.publishing.adapters.gitlabpages import (
-    GitLabPagesAPIAdapter,
     _build_html_body,
     _load_token,
     _published_url,
     _required_headers,
+    GitLabPagesAPIAdapter,
 )
 
 _POST = "backlink_publisher.publishing.adapters.gitlabpages.http_post"

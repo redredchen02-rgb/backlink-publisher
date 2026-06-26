@@ -14,8 +14,8 @@ from __future__ import annotations
 __tier__ = "unit"
 
 import importlib
-import tomllib
 from pathlib import Path
+import tomllib
 
 import pytest
 

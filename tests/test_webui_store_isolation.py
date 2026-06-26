@@ -13,9 +13,8 @@ __tier__ = "unit"
 import os
 from pathlib import Path
 
-
-from webui_store.base import JsonStore, _LazyStore
 from webui_store import _store_path
+from webui_store.base import _LazyStore, JsonStore
 
 
 def test_singleton_paths_resolve_to_isolated_dir():
@@ -29,8 +28,8 @@ def test_singleton_paths_resolve_to_isolated_dir():
     session start; this test asserts the contract holds after a fresh
     refresh against current env.
     """
-    from webui_store import _refresh_paths
     import webui_store
+    from webui_store import _refresh_paths
 
     _refresh_paths()
 

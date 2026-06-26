@@ -11,10 +11,9 @@ scripts/run-recheck-periodic.sh wrapper.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, UTC
 import sys
-from datetime import datetime, timedelta, timezone
 from typing import Any
-
 
 WINDOW_DAYS = 14
 THRESHOLD = 2
@@ -22,7 +21,7 @@ DEAD_VERDICTS = frozenset({"host_gone", "link_stripped", "dofollow_lost"})
 
 
 def _utc_since(window_days: int) -> str:
-    dt = datetime.now(timezone.utc) - timedelta(days=window_days)
+    dt = datetime.now(UTC) - timedelta(days=window_days)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 

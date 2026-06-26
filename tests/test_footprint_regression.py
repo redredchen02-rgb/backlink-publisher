@@ -18,30 +18,29 @@ with a ``reason:`` line and the gate downgrades failures to a loud warning.
 from __future__ import annotations
 
 __tier__ = "unit"
+from dataclasses import dataclass, field
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from backlink_publisher.footprint import (
+    analyze_corpus,
     DEFAULT_THRESHOLD_ALARM_PCT,
     DEFAULT_THRESHOLD_DRIFT_PP,
     FootprintReport,
     SCHEMA_VERSION,
     THRESHOLD_OVERRIDES,
-    analyze_corpus,
 )
 from backlink_publisher.footprint_corpus import (
-    CORPUS_NAMES,
     compute_fixture_set_id,
+    CORPUS_NAMES,
     make_corpus,
 )
-
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _BASELINES_DIR = _REPO_ROOT / "tests" / "baselines"

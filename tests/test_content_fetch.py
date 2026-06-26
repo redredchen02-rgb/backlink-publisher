@@ -19,8 +19,8 @@ default-pass mock so the production ``verify_urls_batch`` /
 from __future__ import annotations
 
 __tier__ = "e2e"
-import socket
 from io import BytesIO
+import socket
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
@@ -207,7 +207,7 @@ def test_timeout_retried_and_classified():
 
     def _raise(*args, **kwargs):
         call_count["n"] += 1
-        raise socket.timeout("timed out")
+        raise TimeoutError("timed out")
 
     with patch("backlink_publisher.content.fetch._SSRF_OPENER.open", side_effect=_raise):
         ok, reason, _ = verify_url_has_content("https://example.com/")
@@ -226,7 +226,7 @@ def test_dns_failure_classified_as_network_error():
 
 
 def test_url_error_with_timeout_reason_classified_as_timeout():
-    err = URLError(socket.timeout("read timed out"))
+    err = URLError(TimeoutError("read timed out"))
     with patch("backlink_publisher.content.fetch._SSRF_OPENER.open", side_effect=err):
         ok, reason, _ = verify_url_has_content("https://example.com/")
     assert ok is False
@@ -527,7 +527,7 @@ def test_cache_key_falls_back_on_malformed_url_without_raising():
 def test_concurrent_verify_writes_cache_without_corruption():
     """Many threads writing distinct cache entries concurrently must not raise
     or corrupt the shared dict — the ``_CACHE_LOCK`` serializes mutation."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import as_completed, ThreadPoolExecutor
 
     from backlink_publisher.content.fetch import _CACHE
 
@@ -754,8 +754,8 @@ class TestStats:
         assert snap["reason_counts"]["ok"] == 1
 
     def test_stats_record_failure_reasons(self):
-        from urllib.error import HTTPError
         from io import BytesIO
+        from urllib.error import HTTPError
 
         def _raise_404(*args, **kwargs):
             raise HTTPError("https://example.com/", 404, "NF", {}, BytesIO(b""))
@@ -1143,8 +1143,9 @@ class TestSoftFourOhFour:
 
 # ── Unit 1 (autoderive v1): timeout/redirect kwargs + body_too_small ──────
 
-from backlink_publisher._util.net_safety import _make_ssrf_opener
 from urllib.request import OpenerDirector
+
+from backlink_publisher._util.net_safety import _make_ssrf_opener
 
 
 class TestVerifyKwargs:

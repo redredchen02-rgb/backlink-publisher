@@ -14,8 +14,8 @@ server-rendered contract the panel JS depends on:
 from __future__ import annotations
 
 __tier__ = "unit"
-import re
 from pathlib import Path
+import re
 
 import pytest
 

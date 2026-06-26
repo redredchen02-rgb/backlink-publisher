@@ -10,7 +10,9 @@ plan 2026-06-04-002: Unit 1 adds POST /ce:keep-alive/recheck.
 """
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, request
+from typing import Any
+
+from flask import abort, Blueprint, jsonify, request
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher._util.url import canonicalize_url
@@ -27,7 +29,7 @@ _history = HistoryAPI()
 
 
 @bp.route("/ce:keep-alive", methods=["GET"])
-def keep_alive():
+def keep_alive() -> Any:
     flash_type = request.args.get("flash_type", "")
     flash_msg = request.args.get("flash_msg", "")
     flash = {"type": flash_type, "msg": flash_msg} if flash_type else None
@@ -39,7 +41,7 @@ def keep_alive():
 
 
 @bp.route("/ce:keep-alive/recheck", methods=["POST"])
-def start_recheck():
+def start_recheck() -> Any:
     # A recheck fires ~70 outbound probes — an outbound action — so the Origin
     # guard (sole DNS-rebinding / malicious-localhost defense) is enforced on
     # top of the app-level CSRF guard (mirror routes/bind.py).
@@ -60,7 +62,7 @@ def start_recheck():
 
 
 @bp.route("/ce:keep-alive/recheck-status/<job_id>", methods=["GET"])
-def recheck_status(job_id: str):
+def recheck_status(job_id: str) -> Any:
     # Returns only progress/rollups — never credentials or the target
     # inventory — and 404s on an unknown/guessed id (bind.py shape).
     poll = keepalive_registry.poll(job_id)
@@ -70,7 +72,7 @@ def recheck_status(job_id: str):
 
 
 @bp.route("/ce:keep-alive/recheck-cancel/<job_id>", methods=["POST"])
-def recheck_cancel(job_id: str):
+def recheck_cancel(job_id: str) -> Any:
     # Cooperative cancel: flags the worker, which stops at the next probe
     # boundary leaving a partial result. State-changing POST → Origin guard.
     _check_bind_origin_or_abort()
@@ -81,14 +83,14 @@ def recheck_cancel(job_id: str):
 
 
 @bp.route("/ce:keep-alive/republish-token", methods=["GET"])
-def republish_token():
+def republish_token() -> Any:
     # Mint a single-use confirm nonce bound to the CURRENT gap set (S3→S4). It
     # only matters together with the Origin guard + CSRF on the republish POST.
     return jsonify(keepalive_registry.issue_confirm_token())
 
 
 @bp.route("/ce:keep-alive/republish", methods=["POST"])
-def start_republish():
+def start_republish() -> Any:
     # Outbound publish — treat the body as hostile even from "the operator".
     _check_bind_origin_or_abort()
     body = request.get_json(silent=True) or {}
@@ -113,7 +115,7 @@ def start_republish():
 
 
 @bp.route("/ce:keep-alive/republish-status/<job_id>", methods=["GET"])
-def republish_status(job_id: str):
+def republish_status(job_id: str) -> Any:
     poll = keepalive_registry.poll(job_id)
     if poll is None or poll.get("kind") != "republish":
         abort(404)
@@ -121,7 +123,7 @@ def republish_status(job_id: str):
 
 
 @bp.route("/ce:keep-alive/cycle-status", methods=["GET"])
-def cycle_status():
+def cycle_status() -> Any:
     """Return last automated keepalive-run cycle data for the WebUI panel.
 
     Read-only; no auth required beyond app-level origin guard.
@@ -132,7 +134,7 @@ def cycle_status():
 
 
 @bp.route("/ce:keep-alive/reset-exhausted", methods=["POST"])
-def reset_exhausted():
+def reset_exhausted() -> Any:
     """Reset a single exhausted target so it can be retried again.
 
     Requires Origin guard (state-changing POST, matches start_recheck pattern).

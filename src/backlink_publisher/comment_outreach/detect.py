@@ -24,7 +24,6 @@ the static HTML even when the thread itself loads later.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 #: Each pattern is a specific comment/reply-region marker. Ordered loosely by platform;
 #: any single match is sufficient. Byte-regex (IGNORECASE) to run on the raw body without
@@ -51,7 +50,7 @@ _SIGNATURES: tuple[re.Pattern[bytes], ...] = (
 )
 
 
-def detect_comment_region(html: Optional[bytes]) -> Optional[bool]:
+def detect_comment_region(html: bytes | None) -> bool | None:
     """Return tri-state ``comment_open`` for a fetched page body.
 
     ``None`` when ``html`` is ``None`` (page not fetchable). Otherwise ``True`` if any

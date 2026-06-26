@@ -9,10 +9,10 @@ Follows the same discipline as ``comment_outreach/store.py``:
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, UTC
+from backlink_publisher._compat import fcntl
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +48,7 @@ def _repair_perms(path: Path) -> None:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def load_opportunities() -> list[dict[str, Any]]:

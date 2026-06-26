@@ -40,7 +40,7 @@ from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.registry import Publisher
 
 from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _QIITA_ITEMS_API = "https://qiita.com/api/v2/items"
 _HTTP_TIMEOUT_S = 30

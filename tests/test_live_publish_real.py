@@ -16,7 +16,6 @@ Safety invariants (the always-on test below asserts them WITHOUT credentials):
 from __future__ import annotations
 
 # NOTE: deliberately NO ``__tier__ = 'e2e'`` here (see module docstring).
-
 import os
 
 import pytest

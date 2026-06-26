@@ -20,14 +20,14 @@ The existing bind backend re-imports the path helpers from
 from __future__ import annotations
 
 from .chrome_session import (
-    BrowserPublishRecipe,
-    ChromeAttachSession,
-    ChromeSessionError,
+    _cdp_available,
     _chrome_binary,
     _chrome_port,
     _chrome_profile_dir,
-    _cdp_available,
     _websocket_available,
+    BrowserPublishRecipe,
+    ChromeAttachSession,
+    ChromeSessionError,
 )
 from .dispatcher import BrowserPublishDispatcher
 from .recipes import RECIPES

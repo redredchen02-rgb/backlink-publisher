@@ -28,8 +28,8 @@ This converter is intentionally narrow:
 
 from __future__ import annotations
 
-import json
 from html.parser import HTMLParser
+import json
 from typing import Any, cast
 from urllib.parse import urlparse
 

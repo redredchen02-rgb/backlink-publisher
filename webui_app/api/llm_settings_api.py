@@ -23,9 +23,9 @@ checkbox semantics gap (form = key-presence means checked; JSON = a real bool).
 
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+import json
 
 from backlink_publisher.persistence.safe_write import atomic_write
 

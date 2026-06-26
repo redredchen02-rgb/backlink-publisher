@@ -11,20 +11,20 @@ complexity of the aggregate well below the C threshold.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ._payload_types import PlannedPayload
 
 from .schema import (
+    _check_main_domain_presence,
+    _is_field_present,
     LINK_KINDS,
     MAX_CONTENT_HTML_BYTES,
     MAX_PAYLOAD_SIZE_BYTES,
     OUTPUT_ONE_OF_GROUPS,
     OUTPUT_OPTIONAL_FIELDS,
     OUTPUT_REQUIRED_FIELDS,
-    _check_main_domain_presence,
-    _is_field_present,
     reject_unsupported_platform,
 )
 
@@ -195,8 +195,9 @@ def validate_publish_payload(row: dict[str, Any]) -> list[str]:
             errors.append(msg)
 
     if not errors:
-        from ._payload_types import PlannedPayload
         from pydantic import ValidationError
+
+        from ._payload_types import PlannedPayload
 
         try:
             PlannedPayload.model_validate(row)
@@ -219,8 +220,9 @@ def validate_and_convert_output(
     Returns ``(model, [])`` on success, ``(None, errors)`` on failure.
     """
     # Lazy import avoids circular dependency: _payload_types → .schema → ._schema_output
-    from ._payload_types import PlannedPayload
     from pydantic import ValidationError
+
+    from ._payload_types import PlannedPayload
 
     errors: list[str] = []
     errors.extend(_check_output_required_fields(row))

@@ -24,8 +24,8 @@ no transport concerns — it never touches ``flask.request`` and never aborts.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
+import os
 
 from backlink_publisher.config import load_config, save_config
 

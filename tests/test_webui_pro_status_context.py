@@ -14,7 +14,6 @@ import pytest
 
 from webui_app.services import settings_service
 
-
 # ── pure summary ─────────────────────────────────────────────────────────────
 
 

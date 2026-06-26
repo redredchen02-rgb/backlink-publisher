@@ -21,7 +21,7 @@ Honesty rules baked into the queries
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from backlink_publisher.events import EventStore
 
@@ -93,8 +93,8 @@ def _window_start(now: datetime, window_days: int) -> str:
     makes the ``ts_utc >= ?`` comparison a correct lexicographic range check.
     """
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    return (now.astimezone(timezone.utc) - timedelta(days=window_days)).isoformat()
+        now = now.replace(tzinfo=UTC)
+    return (now.astimezone(UTC) - timedelta(days=window_days)).isoformat()
 
 
 def success_rate(store: EventStore, *, since_utc: str) -> SuccessRate:
@@ -240,16 +240,14 @@ def geo_citation_share(store: EventStore, *, window_days: int = DEFAULT_WINDOW_D
 
     Rolling window: last ``window_days`` days. Read-only; never raises.
     """
-    from datetime import timedelta
 
     from backlink_publisher.events.kinds import CITATION_OBSERVED
     from backlink_publisher.geo.share import (
         DEFAULT_LOW_CONFIDENCE_THRESHOLD,
         DEFAULT_MIN_SAMPLE,
-        DEFAULT_WINDOW,
     )
 
-    since = _window_start(datetime.now(timezone.utc), window_days)
+    since = _window_start(datetime.now(UTC), window_days)
 
     # Fetch per-target verdict counts and total n in the rolling window.
     # site_cited / article_cited split surfaces in the citation panel (R6).
@@ -351,7 +349,7 @@ def indexation_status(store: EventStore) -> list[dict]:
     try:
         from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL
 
-        since = _window_start(datetime.now(timezone.utc), 90)
+        since = _window_start(datetime.now(UTC), 90)
         rows = store.query(
             """
             SELECT
@@ -452,7 +450,7 @@ def build_health(
 ) -> Health:
     """Assemble the four aggregates for a single dashboard render."""
     store = store or EventStore()
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     since = _window_start(now, window_days)
     return Health(
         window_days=window_days,

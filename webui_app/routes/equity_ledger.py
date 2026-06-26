@@ -9,6 +9,7 @@ recheck (U5) are the mutation endpoints. Plan 2026-05-25-004 + 2026-06-05-001.
 from __future__ import annotations
 
 from collections import Counter
+from typing import Any
 
 from flask import Blueprint, jsonify, request
 
@@ -66,7 +67,7 @@ def _build_rows(stale_days: int) -> tuple[list[dict], int]:
 
 
 @bp.route("/ce:equity-ledger", methods=["GET"])
-def equity_ledger():
+def equity_ledger() -> Any:
     stale_days = _resolve_stale_days()
     cfg = _g_cache('config', load_config)
     rows, stale_count = _build_rows(stale_days)
@@ -81,7 +82,7 @@ def equity_ledger():
 
 
 @bp.route("/api/equity-ledger", methods=["GET"])
-def equity_ledger_json():
+def equity_ledger_json() -> Any:
     """Read-only JSON twin of the ledger page (for the monitor hub, U5/U6).
 
     Derives from the same _build_rows() as the HTML route — no recomputation, no
@@ -96,7 +97,7 @@ def equity_ledger_json():
 
 
 @bp.route("/ce:equity-ledger/recheck", methods=["POST"])
-def equity_ledger_recheck():
+def equity_ledger_recheck() -> Any:
     """On-demand recheck of one target's links (operator-initiated, U6).
 
     A canonical target can be backed by several history rows; recheck iterates
@@ -104,11 +105,10 @@ def equity_ledger_recheck():
     canonical ``update_item`` helper. The target's row is then recomputed and
     returned for in-place refresh. No scheduler, no background job.
     """
+    from backlink_publisher.events.history_query import get_history_item as _get_ev_item
     from webui_store import history_store
 
-    from backlink_publisher.events.history_query import get_history_item as _get_ev_item
-
-    def _get_history_item(item_id: str):
+    def _get_history_item(item_id: str) -> Any:
         """Look up a history item from EventStore first, fallback to history_store.
 
         history_item_ids from the ledger may be UUID8 strings (from history_store)
@@ -119,12 +119,13 @@ def equity_ledger_recheck():
             item = history_store.get_item(item_id)
         return item
 
-    from ..services.recheck import recheck_one
     from backlink_publisher.events.publish_writer import (
         map_history_entry,
         write_event,
     )
     from backlink_publisher.events.store import EventStore as _EventStore
+
+    from ..services.recheck import recheck_one
 
     data = request.get_json(silent=True) or {}
     target = data.get("target_url")

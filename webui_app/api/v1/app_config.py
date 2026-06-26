@@ -14,6 +14,8 @@ GET-time Origin/Referer check (same allowlist as the mutating guard), gated by
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import current_app, jsonify
 
 from ...helpers.security import _check_bind_origin_or_abort, _ensure_csrf_token
@@ -35,7 +37,7 @@ def _guard_sensitive_get() -> None:
 
 
 @bp.get("/csrf-token")
-def csrf_token():
+def csrf_token() -> Any:
     """Mint/return the per-session CSRF token for the SPA fetch layer.
 
     The SPA must re-read this per mutating call and never cache it (a rotated
@@ -46,7 +48,7 @@ def csrf_token():
 
 
 @bp.get("/app-config")
-def app_config():
+def app_config() -> Any:
     """Single bootstrap payload: edition, Pro status, version. Origin-guarded."""
     _guard_sensitive_get()
     return jsonify(
@@ -61,18 +63,18 @@ def app_config():
 
 
 @bp.get("/platforms")
-def platforms():
+def platforms() -> Any:
     """Full registered-platform list (slug + display_name)."""
     return jsonify({"platforms": app_meta.platforms_payload()})
 
 
 @bp.get("/bound-platforms")
-def bound_platforms():
+def bound_platforms() -> Any:
     """Publish-form filter: bound + manifest-visible platforms."""
     return jsonify({"platforms": app_meta.bound_platforms_payload()})
 
 
 @bp.get("/pro-status")
-def pro_status():
+def pro_status() -> Any:
     """Pro-Mode visibility summary (redaction-safe; never includes api_key)."""
     return jsonify({"pro_status": app_meta.pro_status_payload()})

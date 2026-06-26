@@ -10,21 +10,22 @@ via the re-export at the bottom of validate_backlinks.py.
 
 from __future__ import annotations
 
-import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from html.parser import HTMLParser
 from typing import Any, cast
+import unicodedata
 from urllib.parse import urlsplit
 
+from backlink_publisher._util.logger import validate_logger
 from backlink_publisher.anchor.lang import check_anchor_language
 from backlink_publisher.config import Config, get_anchor_pool_v2
 from backlink_publisher.linkcheck.language import (
-    SUPPORTED_LANGUAGES,
     detect_language_from_html,
     detect_language_from_markdown,
     language_matches,
+    SUPPORTED_LANGUAGES,
 )
-from backlink_publisher._util.logger import validate_logger
+
 from ..schema import _is_field_present
 
 
@@ -372,6 +373,7 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
         banner_path = banner.get("path")
         if isinstance(banner_path, str) and banner_path:
             from pathlib import Path as _P
+
             from backlink_publisher.config import _config_dir as _cfg_dir_module
             banner_resolved = _P(banner_path).resolve()
             allowed = (_cfg_dir_module() / "banners").resolve()
@@ -390,7 +392,7 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
 
     row["validation"] = {
         "status": "failed" if errors_list else "passed",
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "warnings": warnings_list,
         "errors": errors_list,
     }

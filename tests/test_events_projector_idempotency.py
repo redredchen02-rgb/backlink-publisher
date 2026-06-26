@@ -15,9 +15,9 @@ import pytest
 
 from backlink_publisher.events import (
     EventStore,
+    flush_for,
     ProjectionError,
     ProjectionResult,
-    flush_for,
 )
 
 

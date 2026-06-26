@@ -19,24 +19,24 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 from ..phase0 import validation as V
-from ..phase0.worktree import WorktreeEntry, discover_worktree_heads
+from ..phase0.worktree import discover_worktree_heads, WorktreeEntry
 from ._seal_init import (
+    _get_main_sha,
     _handle_init,
     _InitError,
-    _get_main_sha,
-    _parse_comment_url,
     _NOTES_REF,
-    EXIT_OK,
+    _parse_comment_url,
     EXIT_MISUSE,
-    EXIT_WORKTREE,
-    EXIT_VERDICT,
     EXIT_NOT_IMPLEMENTED,
+    EXIT_OK,
+    EXIT_VERDICT,
+    EXIT_WORKTREE,
 )
 
 __all__ = ["EXIT_VERDICT", "EXIT_WORKTREE"]  # exported for test access
@@ -144,7 +144,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _now_iso() -> str:
-    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _dt.datetime.now(_dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ---------------------------------------------------------------------------

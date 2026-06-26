@@ -10,8 +10,8 @@ Hosts in _EXCLUDED_HOSTS are silently omitted.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, UTC
 import json
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from backlink_publisher._util.url import canonicalize_url
@@ -38,7 +38,7 @@ def _parse_ts(ts_str: str | None) -> datetime | None:
     try:
         dt = datetime.fromisoformat(ts_str)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, TypeError):
         return None
@@ -63,7 +63,7 @@ def compute_target_trends(
     means no definitive verdicts were recorded in that bucket.
     """
     store = store or EventStore()
-    now = now or datetime.now(tz=timezone.utc)
+    now = now or datetime.now(tz=UTC)
     cutoff = now - timedelta(days=days)
     cutoff_iso = cutoff.isoformat()
 

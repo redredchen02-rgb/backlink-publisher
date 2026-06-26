@@ -17,6 +17,8 @@ call reporting an operational result. ``status`` is an unguarded read.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify
 
 from ...helpers.security import _check_bind_origin_or_abort, _refuse_when_allow_network
@@ -26,13 +28,13 @@ from .settings_credentials import _transport_guards_active
 
 
 @bp.get("/settings/velog/status")
-def api_velog_status():
+def api_velog_status() -> Any:
     """Current velog channel status — read-only, no secrets, no guard."""
     return jsonify(VelogLoginAPI().status())
 
 
 @bp.post("/settings/velog/login")
-def api_velog_login():
+def api_velog_login() -> Any:
     """Spawn a headed velog-login window in a detached subprocess."""
     # Spawns an OS browser process, so enforce the transport guards inline (the
     # api_v1 blueprint does not inherit the legacy before_request). Both abort(403).

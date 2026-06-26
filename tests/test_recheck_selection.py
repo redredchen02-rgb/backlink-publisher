@@ -8,8 +8,8 @@ trust boundary.
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timedelta, timezone, UTC
 import io
-from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -21,7 +21,7 @@ from backlink_publisher.recheck.selection import (
     select_candidates,
 )
 
-NOW = datetime(2026, 5, 29, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
 
 
 @pytest.fixture

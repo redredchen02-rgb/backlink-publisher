@@ -17,6 +17,7 @@ forged Origin → 403 and ``ALLOW_NETWORK=1`` → 403 before any write.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from flask import jsonify, request
 
@@ -27,7 +28,7 @@ from .errors import ApiProblem
 from .settings_credentials import _transport_guards_active
 
 
-def _render(result: BindSaveResult):
+def _render(result: BindSaveResult) -> Any:
     """Translate the neutral facade result to JSON 200 / RFC 9457 problem+json."""
     if result.error_class == "invalid_request":
         raise ApiProblem(422, "Credential rejected", detail=result.message,
@@ -47,7 +48,7 @@ def _render(result: BindSaveResult):
 
 
 @bp.post("/settings/channels/<channel>/credential")
-def settings_save_channel_credential(channel: str):
+def settings_save_channel_credential(channel: str) -> Any:
     """Save (or clear) a registry-dispatched channel credential → ``0600`` file.
 
     Body mirrors the legacy form fields: ``auth_type`` (optional, cross-checked

@@ -4,9 +4,9 @@ __tier__ = "unit"
 import pytest
 
 from backlink_publisher.publishing.reliability.events import (
-    Outcome,
     emit_attempt,
     now_ms,
+    Outcome,
 )
 
 

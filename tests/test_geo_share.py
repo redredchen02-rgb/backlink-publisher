@@ -16,21 +16,20 @@ Scenarios
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timedelta, timezone, UTC
 import json
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
 from backlink_publisher.geo.share import (
-    TargetShare,
     compute_share,
     compute_shares,
+    DEFAULT_LOW_CONFIDENCE_THRESHOLD,
     DEFAULT_MIN_SAMPLE,
     DEFAULT_WINDOW,
-    DEFAULT_LOW_CONFIDENCE_THRESHOLD,
+    TargetShare,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -39,11 +38,11 @@ from backlink_publisher.geo.share import (
 _TARGET = "https://target-a.com"
 _TARGET_B = "https://target-b.com"
 
-NOW = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def _utc(dt: datetime) -> str:
-    return dt.replace(tzinfo=timezone.utc).isoformat()
+    return dt.replace(tzinfo=UTC).isoformat()
 
 
 def _append_citation(

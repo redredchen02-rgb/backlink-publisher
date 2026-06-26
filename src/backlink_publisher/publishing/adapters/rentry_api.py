@@ -6,15 +6,15 @@ import re
 import time
 from typing import Any
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 RENTRY_BASE = "https://rentry.co"
 _HTTP_TIMEOUT_S = 30

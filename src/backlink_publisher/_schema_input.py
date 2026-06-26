@@ -9,19 +9,19 @@ contract (see ``tests/test_schema_input_payload_characterization.py``).
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ._payload_types import SeedPayload
 
 from .linkcheck.language import SUPPORTED_LANGUAGES
 from .schema import (
-    INPUT_SCHEMA_FIELDS,
-    INPUT_OPTIONAL_FIELDS,
-    PUBLISH_MODES,
-    URL_MODES,
     _normalize_main_domain,
+    INPUT_OPTIONAL_FIELDS,
+    INPUT_SCHEMA_FIELDS,
+    PUBLISH_MODES,
     supported_platforms,
+    URL_MODES,
 )
 
 MAX_SEED_KEYWORDS = 100
@@ -180,8 +180,9 @@ def validate_and_convert_input(
     just like :func:`validate_input_payload`.
     """
     # Lazy import avoids circular dependency: _payload_types → .schema → ._schema_input
-    from ._payload_types import SeedPayload
     from pydantic import ValidationError
+
+    from ._payload_types import SeedPayload
 
     errors: list[str] = []
     errors.extend(_check_input_required_fields(row, line_num))

@@ -32,13 +32,13 @@ scopes out (those reducers belong to 005-fix); the writes this module *owns*
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import json
 import logging
+from pathlib import Path
 import sqlite3
 import threading
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 
 from ..config import _config_dir
 from ._project_helpers import _HISTORY_FILENAME, ProjectionError
@@ -226,7 +226,7 @@ def _quarantine(
     by ``dedup_key`` UNIQUE index (reconciler path). Best-effort: a write
     failure must not escape and abort the rest of the pipeline.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     try:
         with store.connect_immediate() as conn:
             existing = conn.execute(

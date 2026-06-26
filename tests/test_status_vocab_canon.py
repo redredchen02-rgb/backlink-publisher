@@ -8,8 +8,9 @@ This test must stay green — it is the guard that keeps the vocab from drifting
 """
 __tier__ = "unit"
 
-import re
 import pathlib
+import re
+
 import pytest
 
 PLANS_DIR = pathlib.Path(__file__).parent.parent / "docs" / "plans"

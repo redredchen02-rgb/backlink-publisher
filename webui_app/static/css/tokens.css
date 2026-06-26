@@ -205,6 +205,26 @@ body {
     z-index: 1;
 }
 
+/* ── Light theme overrides ───────────────────────────────────────────────────
+ * The entire design is dark-first, but if a user or system preference forces
+ * light mode these overrides flip text/background tokens so nothing is invisible.
+ * NOTE: Most of the console UI will look wrong in light mode — this is purely
+ * a readability safety net. */
+[data-theme="light"] {
+  --text-primary: rgba(0, 0, 0, 0.88);
+  --text-secondary: rgba(0, 0, 0, 0.56);
+  --surface-base: #ffffff;
+  --surface-raised: #f3f4f6;
+  --surface-overlay: #e5e7eb;
+  --border: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.28);
+  --glass-bg: rgba(0, 0, 0, 0.03);
+  --glass-bg-fallback: #f3f4f6;
+  --glass-border: rgba(0, 0, 0, 0.10);
+  --gradient-hero: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
+  color-scheme: light;
+}
+
 /* Keyboard focus ring — shows only for keyboard navigation, not mouse clicks. */
 *:focus-visible {
     outline: none;

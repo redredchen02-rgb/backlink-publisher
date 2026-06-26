@@ -28,17 +28,14 @@ Design choices:
 from __future__ import annotations
 
 import base64
+from datetime import datetime, UTC
 import hashlib
 import json
-import time
-from datetime import datetime, timezone
 from pathlib import Path
+import time
 from typing import Any, cast
 
 from requests.exceptions import RequestException
-from backlink_publisher.http import get as http_get, put as http_put
-
-from backlink_publisher.config import Config, load_ghpages_token
 
 from backlink_publisher._util.errors import (
     BannerUploadError,
@@ -46,11 +43,14 @@ from backlink_publisher._util.errors import (
     ExternalServiceError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, load_ghpages_token
+from backlink_publisher.http import get as http_get
+from backlink_publisher.http import put as http_put
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 GITHUB_API = "https://api.github.com"
 _GITHUB_API_VERSION = "2022-11-28"
@@ -107,7 +107,7 @@ def _slugify(value: str) -> str:
 def _render_target_path(template: str, *, slug: str, date_iso: str | None = None) -> str:
     """Resolve ``{date}`` / ``{slug}`` placeholders. UTC-only dates."""
     if date_iso is None:
-        date_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date_iso = datetime.now(UTC).strftime("%Y-%m-%d")
     return template.format(date=date_iso, slug=slug)
 
 
@@ -121,7 +121,7 @@ def _build_markdown_body(payload: dict[str, Any]) -> str:
     """
     title = payload.get("title", "Untitled")
     tags = payload.get("tags", [])[:20]
-    date_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S +0000")
+    date_iso = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S +0000")
 
     front_matter_lines = [
         "---",

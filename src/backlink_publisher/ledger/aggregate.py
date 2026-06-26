@@ -16,10 +16,10 @@ worst-status-wins per target.
 
 from __future__ import annotations
 
-import json
 from collections import Counter
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+import json
+from typing import Any, TYPE_CHECKING
 
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.anchor.metrics import exact_match_ratio
@@ -30,17 +30,16 @@ from backlink_publisher.publishing import registry
 # ``unknown`` — so the engine must trigger registration itself rather than rely
 # on the caller having imported adapters.
 import backlink_publisher.publishing.adapters  # noqa: F401,E402
-
 from backlink_publisher.recheck.verdicts import DOFOLLOW_LOST as _DOFOLLOW_LOST
 
 from .model import DofollowBreakdown, LedgerRow, worst_liveness
-from .sources import LinkRecord, build_target_buckets
+from .sources import build_target_buckets, LinkRecord
 
 if TYPE_CHECKING:
     from backlink_publisher.events.store import EventStore
 
 
-def _load_confirmed_dofollow_urls(store: "EventStore | None") -> frozenset[str]:
+def _load_confirmed_dofollow_urls(store: EventStore | None) -> frozenset[str]:
     """Return canonical live_urls whose latest ``link.rechecked`` event has
     ``confirmed_dofollow=True``.
 
@@ -108,7 +107,7 @@ def _classify(
     return "nofollow", registry.referral_value(platform)
 
 
-def _load_recheck_liveness(store: "EventStore | None") -> dict[str, str]:
+def _load_recheck_liveness(store: EventStore | None) -> dict[str, str]:
     """Return ``{canonical live_url: latest recheck verdict}`` for links whose
     freshest ``link.rechecked`` verdict is dead/degraded.
 
@@ -181,7 +180,7 @@ def _link_liveness(
 def build_ledger(
     *,
     stale_days: int = 30,
-    store: "EventStore | None" = None,
+    store: EventStore | None = None,
     history: Any = None,
 ) -> list[LedgerRow]:
     """Build the per-target scorecard. ``store``/``history`` injectable for tests.

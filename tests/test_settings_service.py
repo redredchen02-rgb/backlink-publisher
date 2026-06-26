@@ -7,11 +7,11 @@ group_history, load_incomplete_run, token_paste_status, persist_three_tier_confi
 from __future__ import annotations
 
 __tier__ = "unit"
+from datetime import datetime, timedelta
 import json
 import os
-import stat
-from datetime import datetime, timedelta
 from pathlib import Path
+import stat
 from unittest.mock import MagicMock, patch
 
 import pytest

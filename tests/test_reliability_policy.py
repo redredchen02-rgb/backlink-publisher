@@ -15,11 +15,10 @@ from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceErr
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.reliability.events import Outcome
 from backlink_publisher.publishing.reliability.policy import (
-    publish_with_policy,
-    policy_enabled,
     _is_browser_tier,
+    policy_enabled,
+    publish_with_policy,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -324,8 +323,8 @@ def test_consecutive_errors_increment_counter(cfg):
 def test_record_success_resets_error_counter(cfg):
     """Successful operation resets consecutive error counter."""
     from backlink_publisher.publishing.reliability.circuit import (
-        trip_on_error,
         is_tripped,
+        trip_on_error,
     )
 
     # Trip the circuit first

@@ -14,8 +14,8 @@ rewrite failed). The full SimHash analyzer remains a follow-on.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
+import re
 from typing import Any
 
 # Near-identical bodies = the LLM rewrite did not produce distinct content.

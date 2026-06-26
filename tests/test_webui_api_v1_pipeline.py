@@ -19,8 +19,8 @@ import json
 
 import pytest
 
-import webui_app.api.v1.pipeline as pipeline_mod
 from webui_app.api.pipeline_api import PipeResult
+import webui_app.api.v1.pipeline as pipeline_mod
 
 PROBLEM_CT = "application/problem+json"
 

@@ -9,8 +9,8 @@ Public API:
 
 from __future__ import annotations
 
-from .state import OptimizationState
 from .models import RuleResult
+from .state import OptimizationState
 
 __all__ = [
     "OptimizationState",

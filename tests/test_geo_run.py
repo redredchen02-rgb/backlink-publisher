@@ -14,9 +14,9 @@ Scenarios
 from __future__ import annotations
 
 __tier__ = "integration"
-import time
 from datetime import datetime, timezone
 from pathlib import Path
+import time
 from unittest.mock import patch
 
 import pytest
@@ -24,9 +24,8 @@ import pytest
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
 from backlink_publisher.geo.engines import ProbeResult
-from backlink_publisher.geo.run import ProbeSummary, probe_many, probe_one
+from backlink_publisher.geo.run import probe_many, probe_one, ProbeSummary
 from backlink_publisher.geo.selection import ProbeCandidate
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -8,27 +8,29 @@ tests/test_resume_characterization.py + tests/test_publish_backlinks_resume*.py)
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
+import sys
 from typing import Any
 
-from backlink_publisher.config import load_config
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     BannerUploadError,
     DependencyError,
-    ExternalServiceError,
     emit_envelope_and_exit,
     emit_error,
+    ExternalServiceError,
 )
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher._util.logger import publish_logger
-from backlink_publisher.publishing.adapters import publish as adapter_publish, verify_adapter_setup
+from backlink_publisher.config import load_config
+from backlink_publisher.publishing.adapters import publish as adapter_publish
+from backlink_publisher.publishing.adapters import verify_adapter_setup
 from backlink_publisher.publishing.adapters.base import carry_link_attr_verification
 from backlink_publisher.publishing.reliability.policy import policy_enabled, publish_with_policy
-from ..schema import supported_platforms
 
+from ..schema import supported_platforms
+from ._dedup_gate import gate, is_crashed_in_flight, record_done, record_failure
 from ._publish_helpers import (
     _acquire_publish_leases,
     _check_token_drift,
@@ -39,7 +41,6 @@ from ._publish_helpers import (
     _record_publish_path,
     _sleep_with_throttle,
 )
-from ._dedup_gate import gate, is_crashed_in_flight, record_done, record_failure
 
 
 def item_to_publish_output(item: dict[str, Any]) -> dict[str, Any]:
@@ -239,7 +240,7 @@ def _resume_throttle_skip(ckpt: dict[str, Any]) -> bool:
         if item["status"] == "done" and item.get("platform") == "medium":
             try:
                 last_ts = datetime.fromisoformat(item["completed_at"])
-                elapsed = (datetime.now(timezone.utc) - last_ts).total_seconds()
+                elapsed = (datetime.now(UTC) - last_ts).total_seconds()
                 if elapsed >= 300:
                     resume_elapsed_skip_throttle = True
                 else:
@@ -304,7 +305,7 @@ def _publish_one_resume_item(
             run_id, item["id"], "done",
             published_url=(drec.live_url if drec else None),
             adapter=platform,
-            completed_at=datetime.now(timezone.utc).isoformat(),
+            completed_at=datetime.now(UTC).isoformat(),
             verified=True,
         )
         publish_logger.info(
@@ -405,7 +406,7 @@ def _publish_one_resume_item(
         )
         return
 
-    completed_at = datetime.now(timezone.utc).isoformat()
+    completed_at = datetime.now(UTC).isoformat()
     # U3: advisory forward-path drift recording (Plan 2026-05-27-006). Must run on both
     # fresh and resume paths (R7). Never gating.
     _record_publish_path(platform, result, row)

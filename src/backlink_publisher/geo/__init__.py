@@ -21,6 +21,6 @@ Design notes:
 
 from __future__ import annotations
 
-from .engines import ProbeResult, dispatch_probe
+from .engines import dispatch_probe, ProbeResult
 
 __all__ = ["ProbeResult", "dispatch_probe"]

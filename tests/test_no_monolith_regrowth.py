@@ -14,9 +14,9 @@ drift before it silently shifts ceiling math.
 from __future__ import annotations
 
 __tier__ = "unit"
+from pathlib import Path
 import tomllib
 import warnings
-from pathlib import Path
 
 import pytest
 import radon.raw

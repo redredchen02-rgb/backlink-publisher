@@ -3,7 +3,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import io
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -13,7 +13,6 @@ from backlink_publisher.bulk_input import (
     parse_sitemap,
     urls_to_seed_rows,
 )
-
 
 # ── derive_main_domain ─────────────────────────────────────────────────────────
 

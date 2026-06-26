@@ -24,8 +24,8 @@ import pytest
 
 from backlink_publisher.geo.engines import ProbeResult
 from backlink_publisher.geo.verdict import (
-    REDIRECTOR_HOSTS,
     classify_verdict,
+    REDIRECTOR_HOSTS,
 )
 
 

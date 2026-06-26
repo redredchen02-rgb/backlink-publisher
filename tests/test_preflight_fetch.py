@@ -184,7 +184,7 @@ def test_http_5xx():
 def test_timeout_distinct_from_404():
     import socket
     with patch.object(pf, "_check_url_for_ssrf", return_value=None), \
-         patch.object(pf._PREFLIGHT_OPENER, "open", side_effect=socket.timeout()):
+         patch.object(pf._PREFLIGHT_OPENER, "open", side_effect=TimeoutError()):
         facts = pf.fetch_target("https://example.com/")
     assert facts.reason == "timeout"
     assert facts.status is None

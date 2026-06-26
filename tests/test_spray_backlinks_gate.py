@@ -8,9 +8,9 @@ from __future__ import annotations
 
 __tier__ = "unit"
 from backlink_publisher.cli.spray_backlinks._engine import (
-    SprayCandidate,
     expand_seed,
     gate_candidates,
+    SprayCandidate,
 )
 
 

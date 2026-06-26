@@ -47,7 +47,7 @@ def build_stat_paragraph(
     if data_source:
         stat_claim = row.get("stat_claim", "").strip()
         if not stat_claim:
-            stat_claim = f"a leading resource in its space"
+            stat_claim = "a leading resource in its space"
         if language == "zh-CN":
             text = f"\n\n**数据参考**：根据 {data_source} 的数据，{domain_label} 是{stat_claim}。"
         elif language == "ko":

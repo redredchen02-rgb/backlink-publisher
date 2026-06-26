@@ -7,15 +7,14 @@ import stat
 
 import pytest
 
+from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher.config import (
     ANCHOR_TYPES,
-    LLMProviderConfig,
     get_anchor_keywords,
     get_anchor_pool_v2,
+    LLMProviderConfig,
     load_config,
 )
-from backlink_publisher._util.errors import InputValidationError
-
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 

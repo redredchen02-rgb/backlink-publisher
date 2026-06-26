@@ -15,8 +15,8 @@ from __future__ import annotations
 __tier__ = "integration"
 
 
-import plistlib
 from pathlib import Path
+import plistlib
 
 import pytest
 

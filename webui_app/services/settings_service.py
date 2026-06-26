@@ -6,11 +6,12 @@ contexts.py delegates data-fetching to this service; Flask coupling
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import json
 import os
-import random
-from datetime import datetime, timedelta
 from pathlib import Path
+import random
+from typing import Any
 
 from backlink_publisher import checkpoint as _checkpoint_mod
 from backlink_publisher._util.logger import plan_logger
@@ -22,12 +23,12 @@ from backlink_publisher.config import (
     upgrade_target_to_threeurl,
 )
 from backlink_publisher.events.history_query import list_history as _list_history
-
 from webui_store import (
     drafts_store as _drafts_store,
+)
+from webui_store import (
     schedule_store as _schedule_store,
 )
-
 
 # ── LLM settings ─────────────────────────────────────────────────────────────
 
@@ -251,7 +252,7 @@ def load_incomplete_run() -> dict | None:
 
 # ── Token-paste status ────────────────────────────────────────────────────────
 
-def token_paste_status(cfg, channel: str, load_fn, *, token_field: str = "token") -> dict:
+def token_paste_status(cfg: Any, channel: str, load_fn: Any, *, token_field: str = "token") -> dict:
     """Status dict for a single-token channel card.
 
     Reads the platform's token file via ``load_fn``. Returns
@@ -279,7 +280,7 @@ def token_paste_status(cfg, channel: str, load_fn, *, token_field: str = "token"
     }
 
 
-def token_paste_status_notion(cfg, load_fn) -> dict:
+def token_paste_status_notion(cfg: Any, load_fn: Any) -> dict:
     """Status dict for the Notion token-paste card (two-field variant)."""
     from backlink_publisher.publishing.registry import dofollow_status  # lazy
     try:

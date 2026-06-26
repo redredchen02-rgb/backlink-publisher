@@ -15,13 +15,13 @@ contention and removes the need for 60s cooldown.
 
 from __future__ import annotations
 
-import fcntl
+from backlink_publisher._compat import fcntl
 import json
 import os
+from pathlib import Path
 import re
 import threading
 import time
-from pathlib import Path
 from typing import Any, cast
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
@@ -32,8 +32,9 @@ _thread_lock = threading.Lock()
 
 # ── Playwright import (None when not installed) ───────────────────────────────
 try:
-    from playwright.sync_api import sync_playwright, TimeoutError as _PWTimeout
     from playwright.sync_api import Error as _PWError
+    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import TimeoutError as _PWTimeout
 except ImportError:
     sync_playwright = None          # type: ignore[assignment]
     _PWTimeout = Exception          # type: ignore[misc,assignment]
@@ -73,7 +74,7 @@ class _FileLock:
         self._timeout = timeout
         self._fd: int | None = None
 
-    def __enter__(self) -> "_FileLock":
+    def __enter__(self) -> _FileLock:
         _thread_lock.acquire()
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)

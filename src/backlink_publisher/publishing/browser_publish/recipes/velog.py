@@ -16,8 +16,8 @@ from __future__ import annotations
 from typing import Any
 
 from ..chrome_session import BrowserPublishRecipe
-from . import RECIPES
 from . import _velog_selectors as sel
+from . import RECIPES
 
 
 def velog_publish_flow(page: Any, payload: dict[str, Any]) -> str:

@@ -17,7 +17,6 @@ from backlink_publisher.cli.plan_backlinks._citability import (
     build_stat_paragraph,
 )
 
-
 # ── guard: no fabricated numbers in non-numeric path ─────────────────────────
 
 _NUMERIC_PATTERN = re.compile(r"\d+[\s]*[%×]|\d{2,}")

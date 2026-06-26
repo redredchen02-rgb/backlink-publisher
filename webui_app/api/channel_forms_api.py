@@ -24,6 +24,8 @@ source); presentation comes from ``binding_forms``.
 
 from __future__ import annotations
 
+from typing import Any
+
 _FIXED_CREDENTIAL_AUTH_TYPES = frozenset({"token", "token_fields", "paste_blob", "userpass"})
 
 # Former _SKIP_CHANNELS members with a DEDICATED SPA card (own component/endpoint),
@@ -32,7 +34,7 @@ _FIXED_CREDENTIAL_AUTH_TYPES = frozenset({"token", "token_fields", "paste_blob",
 _DEDICATED_CARD_CHANNELS = frozenset({"notion"})
 
 
-def _field_names(channel: str, auth_type: str, cs) -> list[str]:
+def _field_names(channel: str, auth_type: str, cs: Any) -> list[str]:
     """Authoritative form-field names for *channel*, from the save-path dispatch
     maps. Empty list when the generic writer has no entry (then no form is shown)."""
     if auth_type == "token":

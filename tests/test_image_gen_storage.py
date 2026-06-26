@@ -7,16 +7,14 @@ image-gen bill for an unchanged article.
 """
 from __future__ import annotations
 
-
 __tier__ = "unit"
 import pytest
 
 from backlink_publisher.publishing.adapters.image_gen.storage import (
-    save_banner,
     path_for_artifact,
+    save_banner,
 )
 from backlink_publisher.publishing.adapters.image_gen.types import BannerArtifact
-
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 _JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 30

@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
-from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
 from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapter
 
 
 @pytest.fixture

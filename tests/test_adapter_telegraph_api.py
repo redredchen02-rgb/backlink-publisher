@@ -17,9 +17,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
-
+from backlink_publisher.config import Config
 
 PAYLOAD = {
     "id": "tg-happy-1",

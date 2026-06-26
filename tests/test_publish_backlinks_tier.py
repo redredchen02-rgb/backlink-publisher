@@ -2,16 +2,15 @@
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.publishing.adapters.base import AdapterResult
-
 
 # Unique stub platform slugs per dofollow status
 _T1_DOFULL = "t1_test_full"       # dofollow=True  (Tier 1)
@@ -112,8 +111,8 @@ def _stub_tier_platforms():
     Cleans up all three slugs on teardown.
     """
     from backlink_publisher.publishing.registry import (
-        Publisher,
         _REGISTRY,
+        Publisher,
         register,
     )
 

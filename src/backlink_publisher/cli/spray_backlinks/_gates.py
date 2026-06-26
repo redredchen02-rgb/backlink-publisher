@@ -8,16 +8,18 @@ and per-seed output files).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime, UTC
 import json
 import os
-from collections.abc import Callable
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from backlink_publisher._util.io import atomic_write_json
-from backlink_publisher._util.jsonl import write_jsonl
+from backlink_publisher._util.logger import get_logger
 from backlink_publisher.config import _cache_dir
+
+_log = get_logger("spray-backlinks-gates")
 
 _SPRAY_CHECKPOINT_DIR_NAME = "spray-checkpoints"
 
@@ -47,7 +49,7 @@ def _checkpoint_path(run_id: str) -> Path:
 
 def _generate_run_id() -> str:
     """Same pattern as ``backlink_publisher.checkpoint.generate_run_id``."""
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + os.urandom(4).hex()
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S") + "-" + os.urandom(4).hex()
 
 
 def _list_checkpoints() -> list[tuple[str, int, str]]:
@@ -64,7 +66,7 @@ def _list_checkpoints() -> list[tuple[str, int, str]]:
                 done = sum(1 for s in data.get("seeds", []) if s.get("status") == "completed")
                 results.append((data.get("run_id", f.stem), done, f"{done}/{total}"))
             except Exception:
-                pass
+                _log.debug("checkpoint_json_corrupt", file=f.name)
     return results
 
 
@@ -80,7 +82,7 @@ def _save_checkpoint(
     cpath = _checkpoint_path(run_id)
     data: dict[str, Any] = {
         "run_id": run_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "args": {
             "platforms": args.platforms,
             "cap": args.cap,

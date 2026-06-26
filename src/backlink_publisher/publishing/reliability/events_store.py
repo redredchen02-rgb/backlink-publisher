@@ -14,7 +14,7 @@ quarantines an unknown value rather than persisting it.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Final
 
 from backlink_publisher.events.kinds import RELIABILITY_DECISION
@@ -65,6 +65,6 @@ def append_reliability_decision(
             "decision": decision,
             "mode": mode,
             "reason": reason,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
         },
     )

@@ -21,20 +21,21 @@ in-process ``PipelineAPI.plan()`` both call :func:`plan_rows`, differing only in
 
 from __future__ import annotations
 
-import random
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+import random
+from typing import Any
+
+from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.config import Config, get_anchor_pool_v2, get_three_url_config
+from backlink_publisher.config_echo import compute_config_sha
+from backlink_publisher.content import fetch as content_fetch
 
 # Importing the adapters package populates the registry via ``register()``
 # side effects. The engine triggers registration itself rather than relying
 # on the caller — mirrors validate/engine.py so the engine is correct
 # in-process even if no shell imported adapters first.
 import backlink_publisher.publishing.adapters  # noqa: F401
-from backlink_publisher._util.logger import plan_logger
-from backlink_publisher._util.url import canonicalize_url
-from backlink_publisher.config import Config, get_anchor_pool_v2, get_three_url_config
-from backlink_publisher.config_echo import compute_config_sha
-from backlink_publisher.content import fetch as content_fetch
 from backlink_publisher.publishing.adapters.llm_anchor_provider import (
     OpenAICompatibleProvider,
 )
@@ -42,9 +43,9 @@ from backlink_publisher.schema import validate_and_convert_input
 
 from ._banners import _build_banner_runtime, _generate_banner_for_payload
 from ._links import (
+    _collect_candidate_urls_for_row,
     _ContentGateRowFailure,
     _SUPPORTING_URLS_FOR_PREFETCH,
-    _collect_candidate_urls_for_row,
 )
 from ._payload import _generate_payload, dofollow_tier_metadata
 

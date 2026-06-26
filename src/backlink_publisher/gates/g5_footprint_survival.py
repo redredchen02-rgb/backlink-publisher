@@ -23,12 +23,12 @@ Low survival → ``KILL`` (footprint-gate built on a dead premise). High surviva
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Callable, cast
+from typing import cast
 
-from backlink_publisher.publishing.adapters.link_attr_verifier import inspect_target_anchor
 from backlink_publisher.gates import verdict as gv
+from backlink_publisher.publishing.adapters.link_attr_verifier import inspect_target_anchor
 
 InspectFn = Callable[[str, str], dict]
 

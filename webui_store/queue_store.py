@@ -20,8 +20,8 @@ Unit 5.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
+import json
 from typing import Any
 
 from backlink_publisher.events._store_sqlite import _retry_sqlite

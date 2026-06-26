@@ -20,18 +20,19 @@ candidate list after filters should trigger degrade).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import lru_cache
 import logging
 import random
 import re
 import unicodedata
 import weakref
-from typing import Callable
 
+from backlink_publisher.config import Config, get_anchor_pool_v2
 from backlink_publisher.publishing.adapters.llm_anchor_provider import (
     LLMAnchorRequest,
     OpenAICompatibleProvider,
 )
-from backlink_publisher.config import Config, get_anchor_pool_v2
 
 _log = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ def _formal_denominator(text: str) -> int:
     return sum(1 for c in text if unicodedata.category(c)[0] in ("L", "M"))
 
 
+@lru_cache(maxsize=1024)
 def _passes_zh_cn_ratio(text: str) -> bool:
     """Existing zh-CN CJK-ratio check — bit-exact preserved (R13).
 
@@ -135,6 +137,7 @@ def _passes_zh_cn_ratio(text: str) -> bool:
     return cjk_count / len(text) >= _MIN_CJK_RATIO
 
 
+@lru_cache(maxsize=1024)
 def _passes_ko_ratio(text: str) -> bool:
     """ko Hangul-ratio check (plan 2026-05-18-006 Unit 4 R13).
 
@@ -193,7 +196,7 @@ _RATIO_RULES: dict[str, Callable[[str], bool]] = {
 # dropped automatically when the Config is garbage-collected (weakref callback),
 # so the cache cannot leak across plan runs.
 _POOL_CACHE: dict[
-    int, tuple["weakref.ref[Config]", dict[tuple[str, str, str], list[str]]]
+    int, tuple[weakref.ref[Config], dict[tuple[str, str, str], list[str]]]
 ] = {}
 
 
@@ -216,7 +219,7 @@ def _cached_anchor_pool(
     else:
         slot_cache = {}
 
-        def _evict(_ref: "weakref.ref[Config]", _key: int = cfg_id) -> None:
+        def _evict(_ref: weakref.ref[Config], _key: int = cfg_id) -> None:
             current = _POOL_CACHE.get(_key)
             if current is not None and current[0] is _ref:
                 del _POOL_CACHE[_key]

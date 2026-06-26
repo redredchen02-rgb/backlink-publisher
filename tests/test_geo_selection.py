@@ -13,20 +13,19 @@ Scenarios
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timedelta, timezone, UTC
 import json
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
 from backlink_publisher.geo.selection import (
-    ProbeCandidate,
-    SelectionResult,
-    select_pairs,
-    DEFAULT_STALE_DAYS,
     DEFAULT_MAX_PAIRS,
+    DEFAULT_STALE_DAYS,
+    ProbeCandidate,
+    select_pairs,
+    SelectionResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -34,7 +33,7 @@ from backlink_publisher.geo.selection import (
 
 def _utc(dt: datetime) -> str:
     """Format a datetime as an ISO-8601 UTC string suitable for events.db."""
-    return dt.replace(tzinfo=timezone.utc).isoformat()
+    return dt.replace(tzinfo=UTC).isoformat()
 
 
 def _seed_store(store, target_url: str, query: str, ts: datetime, run_id: str = "r1"):
@@ -63,7 +62,7 @@ def store(tmp_path: Path):
     return EventStore(path=tmp_path / "events.db")
 
 
-NOW = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
 
 
 # ---------------------------------------------------------------------------

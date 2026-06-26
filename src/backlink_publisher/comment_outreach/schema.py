@@ -16,8 +16,9 @@ Tri-state fields (``indexed`` / ``comment_open`` / ``link_allowed``) validate as
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import re
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urlsplit
 
 # --- Enumerated value sets -------------------------------------------------

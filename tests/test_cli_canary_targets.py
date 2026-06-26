@@ -25,7 +25,6 @@ import pytest
 from backlink_publisher.cli import canary_targets as ct
 from backlink_publisher.content._preflight_fetch import PreflightFacts
 
-
 # --------------------------------------------------------------------------
 # Builders
 # --------------------------------------------------------------------------

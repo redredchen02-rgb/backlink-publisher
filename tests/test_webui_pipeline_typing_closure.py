@@ -11,6 +11,7 @@ import json
 from unittest import mock
 
 import pytest
+
 import webui
 
 
@@ -165,7 +166,7 @@ def test_validate_without_session_plans_no_keyerror(client):
     resp = client.post("/ce:validate", data={"platform": "blogger", "language": "zh-CN"})
     # Any status except 500 is acceptable
     assert resp.status_code != 500, (
-        f"/ce:validate without session plans raised 500 (possible KeyError)"
+        "/ce:validate without session plans raised 500 (possible KeyError)"
     )
 
 
@@ -175,5 +176,5 @@ def test_publish_without_session_validated_no_keyerror(client):
         "plans": json.dumps([{"main_domain": "example.com"}]),
     })
     assert resp.status_code != 500, (
-        f"/ce:publish without session validated raised 500 (possible KeyError)"
+        "/ce:publish without session validated raised 500 (possible KeyError)"
     )

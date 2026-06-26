@@ -1,6 +1,7 @@
 """Internal constants for the dedup store."""
 
 from __future__ import annotations
+
 from typing import Literal
 
 #: Filename of the dedup store inside ``_config_dir()``. Separate from

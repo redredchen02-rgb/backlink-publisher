@@ -3,13 +3,16 @@
 Plan 2026-05-19-006 Unit 4 — generic /api/<channel>/{status,verify,dry-run} routes.
 The legacy ``/settings`` GET (Jinja settings page) was retired in U8 (Plan
 2026-06-18-002); the SPA settings page at /app/settings replaces it.
+``/settings`` now redirects to ``/app/settings`` (Plan 2026-06-24-001).
 """
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, request
+from typing import Any
 
-from backlink_publisher.config import load_config, save_config
+from flask import abort, Blueprint, jsonify, redirect, request, url_for
+
+from backlink_publisher.config import load_config
 from backlink_publisher.publishing.adapters import verify_adapter_setup
 from backlink_publisher.publishing.registry import registered_platforms
 
@@ -21,10 +24,16 @@ from ..helpers.security import _safe_flash_redirect
 bp = Blueprint("settings_basic", __name__)
 
 
+@bp.get("/settings")
+def settings_redirect() -> Any:
+    """Redirect legacy /settings → SPA /app/settings (Plan 2026-06-24-001)."""
+    return redirect(url_for("spa.spa", subpath="settings"), 302)
+
+
 # ── Generic channel binding API (Plan 2026-05-19-006 Unit 4) ─────────────────
 
 
-def _verify_result_to_json(result) -> dict:
+def _verify_result_to_json(result: Any) -> dict:
     """Serialize VerifyResult dataclass → plain dict for JSON response."""
     return {
         "ok": result.ok,
@@ -45,7 +54,7 @@ def _require_known_channel(channel: str) -> None:
 
 
 @bp.route('/api/<channel>/status', methods=['GET'])
-def api_channel_status(channel: str):
+def api_channel_status(channel: str) -> Any:
     """Cheap offline status — config presence, no network call."""
     _require_known_channel(channel)
     config = _g_cache('config', load_config)
@@ -53,7 +62,7 @@ def api_channel_status(channel: str):
 
 
 @bp.route('/api/<channel>/verify', methods=['POST'])
-def api_channel_verify(channel: str):
+def api_channel_verify(channel: str) -> Any:
     """Live verify — calls platform's lightweight verify endpoint.
 
     CSRF guarded by app-level ``_global_csrf_guard``. Per-channel live impl
@@ -74,7 +83,7 @@ def api_channel_verify(channel: str):
 
 
 @bp.route('/api/<channel>/dry-run', methods=['POST'])
-def api_channel_dry_run(channel: str):
+def api_channel_dry_run(channel: str) -> Any:
     """Dry-run publish — validates adapter + payload without sending.
 
     Runs the publish pipeline under ``dry_run_intercept()`` which blocks any
@@ -88,7 +97,7 @@ def api_channel_dry_run(channel: str):
 
 
 @bp.route('/settings/save-target-keywords', methods=['POST'])
-def settings_save_target_keywords():
+def settings_save_target_keywords() -> Any:
     """Save SEO anchor keyword pools for all target domains. Validation / de-dup /
     persistence is single-sourced in :class:`GlobalSettingsAPI`; this only adapts
     the form-indexed fields into the neutral per-domain pools mapping."""
@@ -101,20 +110,20 @@ def settings_save_target_keywords():
                 continue
             pools[domain] = request.form.get(f'keywords_{i}', '').splitlines()
     except Exception as e:
-        return _safe_flash_redirect('/settings', flash_type='danger', msg=f'保存失败: {e}')
+        return _safe_flash_redirect('/app/settings', flash_type='danger', msg=f'保存失败: {e}')
     r = GlobalSettingsAPI().save_keywords(pools)
-    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
+    return _safe_flash_redirect('/app/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/settings/schedule', methods=['POST'])
-def settings_schedule_save():
+def settings_schedule_save() -> Any:
     """Save schedule interval settings (parse / clamp / persist single-sourced)."""
     r = GlobalSettingsAPI().save_schedule(request.form)
-    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
+    return _safe_flash_redirect('/app/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/settings/save-blog-ids', methods=['POST'])
-def settings_save_blog_ids():
+def settings_save_blog_ids() -> Any:
     # Cleaning + save moved to BloggerSettingsAPI (single source shared with
     # /api/v1/settings/blogger/blog-ids). The parallel form lists are the legacy
     # transport encoding; the facade strips / drops empties / dedups by domain.
@@ -122,7 +131,7 @@ def settings_save_blog_ids():
     domains = request.form.getlist('domain[]')
     blog_ids_list = request.form.getlist('blog_id[]')
     r = BloggerSettingsAPI().save_blog_ids(dict(zip(domains, blog_ids_list)))
-    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
+    return _safe_flash_redirect('/app/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 # Medium Integration-Token save/clear routes removed (Plan 2026-06-18-002 U8, medium-IT
@@ -133,15 +142,15 @@ def settings_save_blog_ids():
 
 
 @bp.route('/settings/revoke-blogger', methods=['POST'])
-def settings_revoke_blogger():
+def settings_revoke_blogger() -> Any:
     # Revoke moved to OAuthAPI (single source shared with /api/v1/settings/blogger/revoke).
     from ..api.oauth_api import OAuthAPI
     r = OAuthAPI().revoke_blogger()
-    return _safe_flash_redirect('/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
+    return _safe_flash_redirect('/app/settings', flash_type=r.level, msg=r.message, fragment=r.fragment)
 
 
 @bp.route('/api/velog/login', methods=['POST'])
-def api_velog_login():
+def api_velog_login() -> Any:
     """Spawn velog-login in a detached subprocess (headed Playwright).
 
     The operator completes social login in the popped-up Chromium window. The
@@ -160,14 +169,14 @@ def api_velog_login():
 
 
 @bp.route('/api/velog/status', methods=['GET'])
-def api_velog_status():
+def api_velog_status() -> Any:
     """Return current velog channel status as JSON for polling."""
     from ..helpers.contexts import _get_velog_status
     return jsonify(_get_velog_status())
 
 
 @bp.route('/settings/channels/<channel>/probe-liveness', methods=['POST'])
-def probe_channel_liveness_route(channel: str):
+def probe_channel_liveness_route(channel: str) -> Any:
     """Probe and return liveness status for one channel (R9 — Plan 2026-06-09-001 U4).
 
     Returns {"status": "alive"|"expired"|"unreachable"}.  CSRF-protected

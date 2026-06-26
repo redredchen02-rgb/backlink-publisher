@@ -15,8 +15,8 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import json
-import re
 from pathlib import Path
+import re
 
 import pytest
 

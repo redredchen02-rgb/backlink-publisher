@@ -20,7 +20,6 @@ from backlink_publisher._util.url import (
     validate_main_domain_url,
 )
 
-
 # ── safe_urlparse ─────────────────────────────────────────────────────────────
 
 
