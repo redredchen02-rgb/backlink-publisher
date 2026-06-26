@@ -185,7 +185,7 @@ def probe_many(
             remaining = len(candidates) - index
             summary.deferred += remaining
             summary.cost_cap_hit = True
-            _log.warn(
+            _log.warning(
                 "probe_many: cost cap reached",
                 probed=summary.probed,
                 cap=cost_cap,
@@ -198,7 +198,7 @@ def probe_many(
             remaining = len(candidates) - index
             summary.deferred += remaining
             summary.budget_exhausted = True
-            _log.warn(
+            _log.warning(
                 "probe_many: wall-clock budget exhausted",
                 budget_s=wall_clock_budget_s,
                 probed=summary.probed,
@@ -219,7 +219,7 @@ def probe_many(
                 engine=engine,
             )
         except Exception as exc:  # noqa: BLE001 — never-raises contract
-            _log.warn(
+            _log.warning(
                 "probe_many: probe error for target",
                 target_url=candidate.target_url,
                 query=candidate.query,

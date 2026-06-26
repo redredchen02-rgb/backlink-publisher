@@ -45,11 +45,8 @@ def _gate_banner_sentinel() -> Path:
     return _cfg._cache_dir() / "backlink-publisher" / "v0.3-gate-banner-seen"
 
 
-_GATE_BANNER_TEXT_TEMPLATE = (
-    "publish-backlinks now performs a publish-time reachability re-check "
-    "on every row before dispatch. Use --skip-publish-time-check to "
-    "restore prior behavior. This message will not repeat (sentinel: {sentinel})."
-)
+
+
 
 
 def _release_acquired_leases(store: Any, acquired: list[str], pid: int) -> None:
@@ -115,7 +112,11 @@ def _maybe_emit_gate_banner(skip_flag: bool) -> None:
     sentinel = _gate_banner_sentinel()
     if skip_flag or sentinel.exists():
         return
-    publish_logger.warn(_GATE_BANNER_TEXT_TEMPLATE.format(sentinel=sentinel))
+    publish_logger.warning(
+        f"publish-backlinks now performs a publish-time reachability re-check "
+        f"on every row before dispatch. Use --skip-publish-time-check to "
+        f"restore prior behavior. This message will not repeat (sentinel: {sentinel})."
+    )
     try:
         sentinel.parent.mkdir(parents=True, exist_ok=True)
         sentinel.touch(exist_ok=True)
@@ -209,7 +210,7 @@ def _canary_gate(
         if platform not in warned:
             warned.add(platform)
             rec = get_health(platform)
-            publish_logger.warn(
+            publish_logger.warning(
                 f"[canary] platform={platform} status={rec.get('status')} "
                 f"consecutive_failures={rec.get('consecutive_failures')} "
                 f"quarantined={rec.get('quarantined')} — "
@@ -458,7 +459,7 @@ def _record_publish_path(platform: str, result: Any, row: dict[str, Any]) -> int
         rewritten_urls = link_attr.get("target_rewritten_urls", [])
         missing_urls = link_attr.get("target_missing_urls", [])
         row_id = row.get("id", "")
-        publish_logger.warn(
+        publish_logger.warning(
             f"[publish-path-canary] id={row_id} platform={platform} verdict=drift "
             f"nofollow={nofollow_urls} rewritten={rewritten_urls} missing={missing_urls}",
             extra={"id": row_id, "platform": platform},

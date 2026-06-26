@@ -55,7 +55,7 @@ def _resolve_config_dir() -> Path:
     return _cfg._config_dir()
 
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 _SANDBOX_SENTINEL = "BACKLINK_PUBLISHER_TEST_SANDBOX"
@@ -215,7 +215,7 @@ def load_config(path: Path | None = None) -> Config:
     # continue to work; the dispatcher will prefer the work-themed flow.
     for domain_key in target_three_url:
         if domain_key in site_url_categories or domain_key in target_anchor_pools_v2:
-            _log.info(
+            log.info(
                 "[sites.%r] is in maintenance mode; consider migrating to "
                 "[targets.%r] three-URL form",
                 domain_key,
@@ -401,7 +401,7 @@ def _warn_if_loose_config_permissions(
     except OSError:
         return
     if mode != 0o600:
-        _log.warning(
+        log.warning(
             "config file %s has mode %s and contains credential sections %s; "
             "set permissions to 0600 (chmod 600) to prevent credential leakage",
             config_path,

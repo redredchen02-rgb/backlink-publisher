@@ -69,9 +69,7 @@ _CJK_BMP_RANGE = (0x4E00, 0x9FFF)
 #: to keyword scoring; the word-boundary EN_HINTS fix in this same refactor
 #: prevents the previously-silent en-misdetection path even when fallthrough
 #: happens.
-# TODO(ko-corpus-calibration): threshold=0.30 unvalidated against real ko
-# articles; revise after spike runs against ~50 Naver Blog / Tistory / Korean
-# news samples (deferred to post-merge per plan 2026-05-18-006).
+# Calibration: tracked as debt_registry.toml ko-corpus-calibration.
 _RATIO_THRESHOLD = 0.30
 
 

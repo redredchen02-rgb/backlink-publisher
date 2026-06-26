@@ -263,4 +263,4 @@ def _emit_retry(
     }
     if status_code is not None:
         msg["status_code"] = status_code
-    log.warn(**msg)
+    log.warning(**msg)

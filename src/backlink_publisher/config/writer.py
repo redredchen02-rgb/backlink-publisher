@@ -26,7 +26,7 @@ from .types import (
     ThreeUrlConfig,
 )
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def _emit_ghpages_section(lines: list[str], cfg: GhpagesConfig | None) -> None:
@@ -248,7 +248,7 @@ def save_config(
                 frozenset(known_subsections),
             )
         except OSError as exc:
-            plan_logger.warn(
+            plan_logger.warning(
                 "config_preserve_read_failed",
                 path=str(config_path),
                 reason=type(exc).__name__,

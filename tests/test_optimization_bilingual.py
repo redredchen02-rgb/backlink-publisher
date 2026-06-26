@@ -1,8 +1,8 @@
 """Tests for bilingual weight separation (v1→v2 upgrade + language spaces)."""
 
 
-__tier__ = "unit"
 from __future__ import annotations
+__tier__ = "unit"
 
 import json
 from pathlib import Path

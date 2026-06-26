@@ -1,8 +1,8 @@
 """Tests for idempotency._dedup_query module."""
 
 
-__tier__ = "unit"
 from __future__ import annotations
+__tier__ = "unit"
 
 from collections.abc import Generator
 from pathlib import Path

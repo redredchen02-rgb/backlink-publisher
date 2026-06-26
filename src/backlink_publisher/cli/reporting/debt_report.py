@@ -20,7 +20,7 @@ def main() -> None:
         print(f"debt-report: {_DEBT_FILE} not found — no debt tracked", file=sys.stderr)
         raise SystemExit(0)
 
-    registry = tomllib.loads(_DEBT_FILE.read_text())
+    registry = tomllib.loads(_DEBT_FILE.read_text(encoding="utf-8"))
     items = registry.get("items", [])
     open_count = sum(1 for i in items if i.get("status") == "open")
     print(f"debt-report: {len(items)} items ({open_count} open)", file=sys.stderr)

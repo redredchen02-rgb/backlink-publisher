@@ -156,11 +156,12 @@ def _scan_unlisted_over_backstop(
 
 
 def test_budget_file_loads_and_has_functions_table() -> None:
-    """The budget file must parse as TOML and contain a non-empty [functions] table."""
+    """The budget file must parse as TOML and contain a [functions] table (may be empty)."""
     assert BUDGET_FILE.exists(), f"{BUDGET_FILE} not found at repo root"
     assert "functions" in BUDGET, "complexity_budget.toml missing top-level [functions] table"
     assert isinstance(BUDGET["functions"], dict)
-    assert len(BUDGET["functions"]) > 0, "complexity_budget.toml has zero monitored functions"
+    # Zero entries is valid — all functions are now under the CC-30 backstop.
+    # See R12 Phase B (sites_save_three_url decomposition).
 
 
 @pytest.mark.parametrize("key", MONITORED_KEYS)

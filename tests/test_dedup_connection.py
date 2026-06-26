@@ -1,8 +1,8 @@
 """Tests for idempotency._dedup_connection module."""
 
 
-__tier__ = "unit"
 from __future__ import annotations
+__tier__ = "unit"
 
 from pathlib import Path
 import sqlite3

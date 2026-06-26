@@ -174,7 +174,8 @@ def _select_resume_items(ckpt: dict[str, Any]) -> list[dict[str, Any]]:
     try:
         from ..idempotency import DedupStore
         dedup_store: Any = DedupStore()
-    except Exception:
+    except Exception:  # noqa: BLE001
+        log.warning("resume_dedup_store_init_failed", exc_info=True)
         dedup_store = None
 
     ckpt_platform = ckpt.get("platform")
@@ -315,7 +316,7 @@ def _publish_one_resume_item(
         return
     if verdict == "hold":
         state.dedup_hold_count += 1
-        publish_logger.warn(
+        publish_logger.warning(
             f"dedup hold (uncertain/in-flight): {platform} id={item['id']}",
             extra={"id": item["id"], "platform": platform},
         )
@@ -420,7 +421,7 @@ def _publish_one_resume_item(
     )
     if not verify_ok:
         state.unverified_ids.add(item["id"])
-        publish_logger.warn(
+        publish_logger.warning(
             f"verification failed: id={item['id']} reason={verify_reason}",
             extra={"id": item["id"], "adapter": result.adapter},
         )

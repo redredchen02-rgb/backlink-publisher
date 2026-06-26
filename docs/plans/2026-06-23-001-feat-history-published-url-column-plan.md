@@ -1,7 +1,7 @@
 ---
 title: "feat: Add clickable published-URL column to History page"
 type: feat
-status: active
+status: completed
 date: 2026-06-23
 ---
 

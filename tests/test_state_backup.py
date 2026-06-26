@@ -1,8 +1,8 @@
 """Tests for cli.state_backup module."""
 
 
-__tier__ = "unit"
 from __future__ import annotations
+__tier__ = "unit"
 
 from collections.abc import Generator
 import json
@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backlink_publisher.cli.state_backup import (
+from backlink_publisher.cli.admin.state_backup import (
     _backup_db,
     _backup_dir,
     _backup_file,
@@ -30,7 +30,7 @@ def config_dir(tmp_path: Path) -> Generator[Path, None, None]:
     """Create a temporary config directory."""
     cfg_dir = tmp_path / "config"
     cfg_dir.mkdir(parents=True, exist_ok=True)
-    with patch("backlink_publisher.cli.state_backup._resolve_config_dir", return_value=cfg_dir):
+    with patch("backlink_publisher.cli.admin.state_backup._resolve_config_dir", return_value=cfg_dir):
         yield cfg_dir
 
 

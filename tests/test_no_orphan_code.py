@@ -35,6 +35,14 @@ ALLOWLIST: set[str] = {
     "_util/structlog_config.py",
     # Opt-in throttle module (2026-06-10)
     "publishing/_throttle.py",
+    # U8 CLI shims (2026-06-26) — backward-compat re-exports from subdirs
+    "cli/keepalive_run.py",
+    "cli/keepalive_status.py",
+    "cli/report_anchors.py",
+    "cli/spray_backlinks/_gates.py",
+    # CLI boilerplate + formatting — imported dynamically
+    "cli/_shared.py",
+    "_util/cli_format.py",
 }
 
 
@@ -43,7 +51,7 @@ def test_no_orphan_code():
         [sys.executable, SCRIPT],
         capture_output=True, text=True, cwd=os.path.dirname(SCRIPT),
     )
-    orphans = [l for l in result.stdout.splitlines() if l.strip()]
+    orphans = [l.replace("\\", "/") for l in result.stdout.splitlines() if l.strip()]
     if not orphans:
         return
 

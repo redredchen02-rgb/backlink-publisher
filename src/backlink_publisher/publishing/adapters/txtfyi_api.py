@@ -207,7 +207,7 @@ class TxtfyiFormPostAdapter(Publisher):
                 is_tarpit = "did not redirect" in str(exc)
                 if is_tarpit:
                     if attempt < _TARPIT_RETRY_MAX:
-                        log.warn(
+                        log.warning(
                             "txtfyi_tarpit_retry",
                             id=article_id,
                             attempt=attempt,

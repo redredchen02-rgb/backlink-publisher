@@ -53,6 +53,10 @@ class WebUIDatabase:
     it. The path must be derived externally (``_config_dir() / "webui.db"``)
     and passed in; this class must NOT call ``_default_db_path()`` from
     ``_store_sqlite`` (which resolves to ``"events.db"``).
+
+    Connections are opened per-call (same as the original behaviour). The
+    per-thread caching experiment was reverted in P11 because it caused
+    file-lock cleanup issues in test temp-directory teardown.
     """
 
     _DB_FILENAME: str = "webui.db"
@@ -97,6 +101,10 @@ class WebUIDatabase:
             raise
         finally:
             conn.close()
+
+    @classmethod
+    def close_all(cls) -> None:
+        """No-op: connections are not cached (per-call open/close)."""
 
 
 class SqliteStore(ABC):

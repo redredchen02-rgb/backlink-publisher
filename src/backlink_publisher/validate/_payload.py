@@ -270,7 +270,7 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
 
     # R3 enum guard — non-enum row.language skips R2/R4 with a WARN.
     if requested not in SUPPORTED_LANGUAGES:
-        validate_logger.warn(
+        validate_logger.warning(
             f"row {row.get('id', '?')}: language '{requested}' outside enum "
             f"{sorted(SUPPORTED_LANGUAGES)}; skipping language and anchor gates"
         )
@@ -307,7 +307,7 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
                 if total_latin_plus_cjk > 0:
                     cjk_ratio = (cjk_count + hangul_count) / total_latin_plus_cjk
                     if cjk_ratio >= 0.30:
-                        validate_logger.warn(
+                        validate_logger.warning(
                             f"body language '{detected}' != requested '{requested}', "
                             f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
                             f"downgraded from error to warning"

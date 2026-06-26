@@ -258,7 +258,7 @@ def is_tripped(platform: str, config: Config) -> bool:
 
         return False
     except (OSError, ValueError) as exc:
-        _log.warn(f"circuit state read error for {platform!r} (fail-CLOSED): {exc}")
+        _log.warning(f"circuit state read error for {platform!r} (fail-CLOSED): {exc}")
         return True
 
 

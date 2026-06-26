@@ -46,7 +46,7 @@ def _find_latest_for_slug(
 
     latest_url: str | None = None
     latest_ts: str = ""
-    with open(queue_path) as f:
+    with open(queue_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

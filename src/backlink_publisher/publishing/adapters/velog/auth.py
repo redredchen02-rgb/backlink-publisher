@@ -84,7 +84,7 @@ def _load_cookies(cookies_path: Path) -> dict[str, str]:
         )
 
     try:
-        raw = json.loads(source_path.read_text())
+        raw = json.loads(source_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise DependencyError(
             f"Cannot read velog cookies: {exc}\n"

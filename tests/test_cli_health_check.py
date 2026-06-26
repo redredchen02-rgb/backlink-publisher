@@ -1,8 +1,8 @@
 """Tests for backlink_publisher.cli.health_check (Plan U4.4)."""
 
 
-__tier__ = "unit"
 from __future__ import annotations
+__tier__ = "unit"
 
 import json
 import os
@@ -12,7 +12,7 @@ import tempfile
 
 import pytest
 
-from backlink_publisher.cli.health_check import (
+from backlink_publisher.cli.ops.health_check import (
     _check_all,
     _config_file_count,
     _credential_audit,

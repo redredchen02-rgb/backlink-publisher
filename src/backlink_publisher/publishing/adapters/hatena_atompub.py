@@ -99,7 +99,7 @@ def _load_credentials(config: Config) -> tuple[str, str, str]:
     if mode != 0o600:
         raise DependencyError(f"{_CRED_FILENAME} must be 0600 (found {oct(mode)})")
     try:
-        raw = json.loads(cred_file.read_text())
+        raw = json.loads(cred_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         raise DependencyError(
             "Cannot read Hatena credentials: file missing, corrupt, or unreadable"

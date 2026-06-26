@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from backlink_publisher.cli.keepalive_status import _build_status
+from backlink_publisher.cli.ops.keepalive_status import _build_status
 from backlink_publisher.keepalive.run_state import KeepaliveRunState
 from backlink_publisher.optimization.state import OptimizationState
 
@@ -84,7 +84,7 @@ def test_no_state_shows_no_cycle_message(d, monkeypatch, capsys):
         "backlink_publisher.cli.keepalive_status._build_status",
         lambda: _build_status(data_dir=d),
     )
-    from backlink_publisher.cli.keepalive_status import main
+    from backlink_publisher.cli.ops.keepalive_status import main
     main([])
     captured = capsys.readouterr()
     assert "No keepalive cycle has run yet" in captured.out
@@ -97,7 +97,7 @@ def test_json_output_valid(d, monkeypatch, capsys):
         "backlink_publisher.cli.keepalive_status._build_status",
         lambda: _build_status(data_dir=d),
     )
-    from backlink_publisher.cli.keepalive_status import main
+    from backlink_publisher.cli.ops.keepalive_status import main
     main(["--json"])
     captured = capsys.readouterr()
     data = json.loads(captured.out)
@@ -126,7 +126,7 @@ def test_reset_exhausted_removes_entry(d, monkeypatch, capsys):
 
     monkeypatch.setattr(KeepaliveRunState, "__init__", _patched_init)
 
-    from backlink_publisher.cli.keepalive_status import main
+    from backlink_publisher.cli.ops.keepalive_status import main
     main(["--reset-exhausted", "https://ex.example.com/pg"])
 
     rs2 = KeepaliveRunState(data_dir=d)

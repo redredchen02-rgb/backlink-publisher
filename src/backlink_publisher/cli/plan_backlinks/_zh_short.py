@@ -300,7 +300,7 @@ def _plan_zh_short_row(
         ),
     )
 
-    plan_logger.warn(
+    plan_logger.warning(
         "anchor_resolver_degraded",
         main_domain=main_domain,
         errors=last_errors,

@@ -431,7 +431,7 @@ def _run_generate(validated: list[dict], args: Any) -> list[dict]:
             output.append(_make_rejected(rec, f"unsupported_mode:{mode}"))
             continue
         except ExternalServiceError as exc:
-            generate_logger.warn(
+            generate_logger.warning(
                 "generate_transport_error",
                 detail=_redact_for_log(str(exc)),
             )
@@ -462,7 +462,7 @@ def _run_generate(validated: list[dict], args: Any) -> list[dict]:
                     )
                 except (ValueError, ExternalServiceError) as exc:
                     if isinstance(exc, ExternalServiceError):
-                        generate_logger.warn(
+                        generate_logger.warning(
                             "generate_corrective_transport_error",
                             detail=_redact_for_log(str(exc)),
                             validation_reason=vresult["reason"],

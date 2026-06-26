@@ -250,10 +250,10 @@ def main(argv: list[str] | None = None) -> None:
             delete_credential = _extract_delete_credential(result)
         except PipelineError as exc:
             reason = "publish_failed"
-            canary_logger.warn("publish_failed", platform=args.platform, error=str(exc))
+            canary_logger.warning("publish_failed", platform=args.platform, error=str(exc))
         except Exception as exc:  # noqa: BLE001
             reason = "publish_failed"
-            canary_logger.warn("publish_exception", platform=args.platform, error=repr(exc))
+            canary_logger.warning("publish_exception", platform=args.platform, error=repr(exc))
 
         # A3: fetch + inspect anchor
         if not post_url:
@@ -264,7 +264,7 @@ def main(argv: list[str] | None = None) -> None:
             blocked = _validate_post_url_ssrf(post_url)
             if blocked:
                 reason = f"ssrf_blocked:{blocked}"
-                canary_logger.warn("post_url_ssrf_blocked", platform=args.platform, reason=blocked)
+                canary_logger.warning("post_url_ssrf_blocked", platform=args.platform, reason=blocked)
             else:
                 try:
                     anchor = inspect_target_anchor(post_url, target_url)
@@ -273,7 +273,7 @@ def main(argv: list[str] | None = None) -> None:
                     rel_tokens = [t.strip() for t in raw_rel.split() if t.strip()] if raw_rel else []
                 except Exception as exc:  # noqa: BLE001
                     reason = "inspect_failed"
-                    canary_logger.warn("inspect_failed", platform=args.platform, error=repr(exc))
+                    canary_logger.warning("inspect_failed", platform=args.platform, error=repr(exc))
 
         duration_s = round(time.monotonic() - t0, 2)
         fetched_at = datetime.now(UTC).isoformat()
@@ -325,7 +325,7 @@ def main(argv: list[str] | None = None) -> None:
                 file=sys.stderr,
             )
         except Exception as exc:  # noqa: BLE001 — advisory hint must never break exit 0
-            canary_logger.warn("flip_hint_failed", platform=args.platform, error=repr(exc))
+            canary_logger.warning("flip_hint_failed", platform=args.platform, error=repr(exc))
 
     except PipelineError as exc:
         handle_error(exc)

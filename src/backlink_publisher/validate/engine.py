@@ -87,7 +87,7 @@ def load_config_tolerant() -> Config | None:
     except InputValidationError:
         raise  # cells.py fail-loud contract: unknown channel / overlap must surface
     except Exception as exc:  # noqa: BLE001 — other config-load failures are tolerated
-        validate_logger.warn(
+        validate_logger.warning(
             f"config load failed ({exc}); branded_pool fallback disabled, "
             "relying on payload-emitted snapshots only"
         )

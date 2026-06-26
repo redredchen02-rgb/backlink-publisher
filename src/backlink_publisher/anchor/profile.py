@@ -141,7 +141,7 @@ def load_profile(main_domain: str) -> ProfileState:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        plan_logger.warn(
+        plan_logger.warning(
             "anchor_profile_load_failed",
             main_domain=main_domain,
             path=str(path),
@@ -152,7 +152,7 @@ def load_profile(main_domain: str) -> ProfileState:
 
     version = raw.get("version")
     if version != _PROFILE_SCHEMA_VERSION:
-        plan_logger.warn(
+        plan_logger.warning(
             "anchor_profile_version_mismatch",
             main_domain=main_domain,
             expected=_PROFILE_SCHEMA_VERSION,
@@ -162,7 +162,7 @@ def load_profile(main_domain: str) -> ProfileState:
 
     entries_raw = raw.get("entries", [])
     if not isinstance(entries_raw, list):
-        plan_logger.warn(
+        plan_logger.warning(
             "anchor_profile_entries_malformed",
             main_domain=main_domain,
             type=type(entries_raw).__name__,
@@ -237,7 +237,7 @@ def record_article(main_domain: str, new_entries: list[ProfileEntry]) -> None:
         try:
             _profile_dir().mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            plan_logger.warn(
+            plan_logger.warning(
                 "anchor_profile_dir_create_failed",
                 main_domain=main_domain,
                 reason=type(exc).__name__,
@@ -263,7 +263,7 @@ def record_article(main_domain: str, new_entries: list[ProfileEntry]) -> None:
         try:
             atomic_write_json(_profile_path(main_domain), payload)
         except OSError as exc:
-            plan_logger.warn(
+            plan_logger.warning(
                 "anchor_profile_write_failed",
                 main_domain=main_domain,
                 reason=type(exc).__name__,

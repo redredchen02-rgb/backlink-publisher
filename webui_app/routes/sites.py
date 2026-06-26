@@ -109,19 +109,11 @@ def sites_form() -> Any:
     )
 
 
-@bp.route("/sites/save-three-url", methods=["POST"])
-def sites_save_three_url() -> Any:
-    raw = {
-        "main_url": (request.form.get("main_url") or "").strip(),
-        "list_url": (request.form.get("list_url") or "").strip(),
-        "work_urls": request.form.get("work_urls") or "",
-        "branded_pool": request.form.get("branded_pool") or "",
-        "partial_pool": request.form.get("partial_pool") or "",
-        "exact_pool": request.form.get("exact_pool") or "",
-        "work_anchor_templates": request.form.get("work_anchor_templates") or "",
-        "count": (request.form.get("count") or "10").strip(),
-        "insecure_tls": bool(request.form.get("insecure_tls")),
-    }
+def _validate_three_url_fields(raw: dict) -> tuple[dict | None, dict[str, str]]:
+    """Validate four URL fields + gate checks. Returns (validated_data, errors).
+
+    validated_data is None when there are any errors.
+    """
     errors: dict[str, str] = {}
 
     main_url = validate_main_domain_url(raw["main_url"])
@@ -167,19 +159,30 @@ def sites_save_three_url() -> Any:
             errors["work_urls"] = gate_err
 
     if errors:
-        return render_template(
-            "sites.html",
-            csrf_token=_ensure_csrf_token(),
-            form=raw, errors=errors,
-            saved="", autofilled=[],
-            flash_type="danger",
-            flash_msg="请修正下方表单错误",
-            default_templates=", ".join(DEFAULT_WORK_TEMPLATES),
-            active_page='sites',
-        ), 422
+        return None, errors
 
-    # Server-side derivation (plan 006)
+    return {
+        "main_url": main_url,
+        "list_url": list_url,
+        "work_urls": work_urls,
+        "branded_pool": branded_pool,
+        "partial_pool": partial_pool,
+        "exact_pool": exact_pool,
+        "templates": templates,
+        "insecure_tls": bool(raw.get("insecure_tls")),
+    }, {}
+
+
+def _derive_three_url_fields(data: dict) -> tuple[dict, list[str]]:
+    """Server-side derivation of empty three-URL fields. Returns (enriched, fields_derived)."""
+    main_url = data["main_url"]
+    branded_pool = data["branded_pool"]
+    partial_pool = data["partial_pool"]
+    exact_pool = data["exact_pool"]
+    work_urls = data["work_urls"]
+    list_url = data["list_url"]
     fields_derived: list[str] = []
+
     tdk: dict | None = None
     if not branded_pool or not partial_pool:
         try:
@@ -203,9 +206,10 @@ def sites_save_three_url() -> Any:
     if not work_urls:
         try:
             from backlink_publisher.content.scraper import fetch_work_urls_from_list
+
             discovered = fetch_work_urls_from_list(
                 list_url, main_url=main_url, max_candidates=10,
-                insecure_tls=raw["insecure_tls"],
+                insecure_tls=data["insecure_tls"],
             )
             if discovered:
                 work_urls = discovered
@@ -222,14 +226,58 @@ def sites_save_three_url() -> Any:
             "sites_save_autofilled", main_url=main_url, fields=fields_derived,
         )
 
+    return {
+        "main_url": main_url,
+        "list_url": list_url,
+        "work_urls": work_urls,
+        "branded_pool": branded_pool,
+        "partial_pool": partial_pool,
+        "exact_pool": exact_pool,
+        "templates": data["templates"],
+        "insecure_tls": data["insecure_tls"],
+    }, fields_derived
+
+
+@bp.route("/sites/save-three-url", methods=["POST"])
+def sites_save_three_url() -> Any:
+    raw = {
+        "main_url": (request.form.get("main_url") or "").strip(),
+        "list_url": (request.form.get("list_url") or "").strip(),
+        "work_urls": request.form.get("work_urls") or "",
+        "branded_pool": request.form.get("branded_pool") or "",
+        "partial_pool": request.form.get("partial_pool") or "",
+        "exact_pool": request.form.get("exact_pool") or "",
+        "work_anchor_templates": request.form.get("work_anchor_templates") or "",
+        "count": (request.form.get("count") or "10").strip(),
+        "insecure_tls": bool(request.form.get("insecure_tls")),
+    }
+
+    validated, errors = _validate_three_url_fields(raw)
+    if errors:
+        return render_template(
+            "sites.html",
+            csrf_token=_ensure_csrf_token(),
+            form=raw, errors=errors,
+            saved="", autofilled=[],
+            flash_type="danger",
+            flash_msg="请修正下方表单错误",
+            default_templates=", ".join(DEFAULT_WORK_TEMPLATES),
+            active_page='sites',
+        ), 422
+
+    enriched, fields_derived = _derive_three_url_fields(validated)
+
     entry = ThreeUrlConfig(
-        main_url=main_url, list_url=list_url,
-        branded_pool=branded_pool, partial_pool=partial_pool,
-        exact_pool=exact_pool, work_urls=work_urls,
-        work_anchor_templates=templates,
-        insecure_tls=raw["insecure_tls"],
+        main_url=enriched["main_url"],
+        list_url=enriched["list_url"],
+        branded_pool=enriched["branded_pool"],
+        partial_pool=enriched["partial_pool"],
+        exact_pool=enriched["exact_pool"],
+        work_urls=enriched["work_urls"],
+        work_anchor_templates=enriched["templates"],
+        insecure_tls=enriched["insecure_tls"],
     )
-    domain_key = main_url.rstrip("/")
+    domain_key = enriched["main_url"].rstrip("/")
     cfg = load_config()
     merged = dict(cfg.target_three_url)
     merged[domain_key] = entry

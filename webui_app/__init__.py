@@ -16,7 +16,7 @@ from typing import Any
 import uuid
 
 import flask
-from flask import Flask
+from flask import abort, Flask, request as _flask_req
 
 
 def _get_version_file() -> Path:
@@ -95,7 +95,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     app = Flask(__name__, template_folder=str(template_dir))
     secret_key = os.environ.get('SECRET_KEY')
     if not secret_key:
-        secret_key = 'backlink-publisher-secret-' + str(uuid.uuid4())
+        secret_key = str(uuid.uuid4())
         if os.environ.get('FLASK_ENV') != 'development':
             logging.getLogger(__name__).warning(
                 "SECRET_KEY not set in environment; using a random key. "
@@ -148,6 +148,25 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     from .routes import register_blueprints
     register_blueprints(app)
 
+    # Pre-populate the publisher adapter registry at startup so the
+    # per-request context processor does not trigger the side-effect import
+    # on every template render (P11 optimization).
+    import backlink_publisher.publishing.adapters  # noqa: F401
+    from backlink_publisher.publishing.registry import (
+        bound_platforms as registry_bound_platforms,
+    )
+    from backlink_publisher.publishing.registry import (
+        registered_platforms,
+        ui_meta,
+    )
+
+    # Per-request cache for llm-settings (loaded once per request, not per page).
+    from .helpers._request_cache import _g_cache
+    from .helpers.security import (
+        _check_bind_origin_or_abort,
+        _check_csrf_or_abort,
+    )
+
     # Inject the live registered platforms into every template render.
     # Plan 2026-05-19-002 U2 / R6: WebUI is reverse-driven by the publisher
     # registry — register("X", XAdapter) is now sufficient to make X
@@ -157,23 +176,8 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # per scope-guardian F5); i18n migration is a Deferred follow-up.
     @app.context_processor
     def inject_platforms() -> dict[str, Any]:
-        # Importing adapters at first request populates the registry
-        # side-effect — same idiom as plan_backlinks.py / publish_backlinks.py.
-        import backlink_publisher.publishing.adapters  # noqa: F401
-        from backlink_publisher.publishing.registry import (
-            bound_platforms as registry_bound_platforms,
-        )
-        from backlink_publisher.publishing.registry import (
-            registered_platforms,
-            ui_meta,
-        )
-
-        # Plan 2026-05-25-002 Unit 4a — display name reverse-lookup.
-        # When the channel's manifest declares a UiMeta, use its
-        # display_name (e.g. ghpages -> "GitHub Pages", devto -> "Dev.to").
-        # Otherwise fall back to the legacy ``s.title()`` derivation.
-        # Legacy behaviour preserved for the 7 non-velog channels until
-        # Phase 2 migrations populate their UiMeta.
+        # Adapter registry is pre-populated at startup (moved from per-request
+        # to module-level import for P11 performance optimization).
         def _display(slug: str) -> str:
             meta = ui_meta(slug)
             return meta.display_name if meta is not None else slug.title()
@@ -257,9 +261,10 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def inject_pro_status() -> dict[str, Any]:
         from .services import settings_service
         try:
-            summary = settings_service.pro_status_summary(
-                settings_service.load_llm_settings()
-            )
+            # Cache llm-settings per-request (same pattern as load_config)
+            # to avoid redundant disk reads on every page render.
+            llm_settings = _g_cache('llm_settings', settings_service.load_llm_settings)
+            summary = settings_service.pro_status_summary(llm_settings)
         except Exception as e:
             # Fail-safe: a malformed llm-settings.json must never 500 every page.
             # Log at debug so the degraded-to-inactive state is diagnosable.
@@ -293,8 +298,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
 
     @app.before_request
     def _global_csrf_guard() -> flask.Response | None:
-        from flask import request as _req
-        if _req.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        if _flask_req.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
             return
         if app.config.get('CSRF_ENABLED', True) is False:
             return
@@ -303,9 +307,8 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
         # OAuth callbacks arrive via 302 from Google with their own HMAC-signed
         # state param verified inside the handler; CSRF token can't survive
         # the cross-origin redirect.
-        if _req.endpoint and _req.endpoint.endswith('oauth_callback'):
+        if _flask_req.endpoint and _flask_req.endpoint.endswith('oauth_callback'):
             return
-        from .helpers.security import _check_csrf_or_abort
         _check_csrf_or_abort()
 
     # Plan 2026-06-05-010 R6 follow-up — app-level Origin/Referer guard.
@@ -333,17 +336,15 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
 
     @app.before_request
     def _global_origin_guard() -> flask.Response | None:
-        from flask import request as _req
-        if _req.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        if _flask_req.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
             return
         if app.config.get('ORIGIN_GUARD_ENABLED', True) is False:
             return
         # OAuth callbacks arrive via a cross-origin 302 from Google with no usable
         # Origin; they carry their own HMAC-signed state param verified in-handler
         # (the same carve-out the CSRF guard makes).
-        if _req.endpoint and _req.endpoint.endswith('oauth_callback'):
+        if _flask_req.endpoint and _flask_req.endpoint.endswith('oauth_callback'):
             return
-        from .helpers.security import _check_bind_origin_or_abort
         _check_bind_origin_or_abort()
 
     # Plan 2026-06-04-001 Unit 10 / R7+R8 — server-side LITE surface gate.
@@ -354,16 +355,13 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # uniform with any unmatched path, so it leaks no hidden-route existence.
     @app.before_request
     def _lite_surface_gate() -> flask.Response | None:
-        from flask import abort
-        from flask import request as _req
-        if is_lite_edition() and _req.blueprint in LITE_HIDDEN_BLUEPRINTS:
+        if is_lite_edition() and _flask_req.blueprint in LITE_HIDDEN_BLUEPRINTS:
             abort(404)
 
     # Global rate limiting — POST/PUT/PATCH/DELETE capped at 60 req/min per IP.
     # GET/HEAD/OPTIONS and /api/url-verify/* are exempt (the latter carries its
     # own per-session/per-host throttle via url_verify_throttle.py).
     # Auto-disabled under pytest so existing tests need no change.
-    from flask import request as _flask_req
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
     _limiter = Limiter(

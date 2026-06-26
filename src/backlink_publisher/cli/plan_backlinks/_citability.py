@@ -59,7 +59,7 @@ def build_stat_paragraph(
         return text, True
     else:
         # No data source — non-numeric assertion only, fire exactly one WARN.
-        plan_logger.warn(
+        plan_logger.warning(
             "citability_stat_degraded",
             domain_label=domain_label,
             reason="no data_source in row; emitting non-numeric assertion",

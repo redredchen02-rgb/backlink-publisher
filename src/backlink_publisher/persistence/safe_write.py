@@ -9,7 +9,7 @@ import stat
 import tempfile
 from typing import TextIO
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def atomic_write_stream(
@@ -32,7 +32,7 @@ def atomic_write_stream(
         lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_WRONLY, 0o600)
         fcntl.flock(lock_fd, fcntl.LOCK_EX)
     except Exception as exc:
-        _log.debug(f"Optional cooperative lock acquisition failed on {lock_path}: {exc}")
+        log.debug(f"Optional cooperative lock acquisition failed on {lock_path}: {exc}")
         if lock_fd is not None:
             try:
                 os.close(lock_fd)
@@ -107,7 +107,7 @@ def rotate_snapshots(
         except OSError:
             pass
     except OSError as exc:
-        _log.warning(
+        log.warning(
             f"Failed to create snapshot directory {snapshot_dir}: {exc}"
         )
         return
@@ -125,7 +125,7 @@ def rotate_snapshots(
         except OSError:
             pass
     except OSError as exc:
-        _log.warning(
+        log.warning(
             f"Failed to write snapshot {snap_path}: {exc}"
         )
         return

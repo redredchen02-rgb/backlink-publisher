@@ -1,8 +1,8 @@
 """Tests for backlink_publisher.cli.pipeline_orchestrator (Plan U2.1 + U2.3)."""
 
 
-__tier__ = "integration"
 from __future__ import annotations
+__tier__ = "integration"
 
 import json
 import os

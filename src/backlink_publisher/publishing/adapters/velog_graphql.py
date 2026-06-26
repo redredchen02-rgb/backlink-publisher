@@ -292,7 +292,7 @@ def _read_count(count_path: Path) -> tuple[int, float]:
     """Read ``(count, last_publish_at)`` from *count_path*, resetting on new UTC day."""
     today = _utc_today_iso()
     try:
-        data = json.loads(count_path.read_text())
+        data = json.loads(count_path.read_text(encoding="utf-8"))
         if data.get("date_utc") != today:
             return 0, 0.0
         return int(data.get("count", 0)), float(data.get("last_publish_at", 0.0))

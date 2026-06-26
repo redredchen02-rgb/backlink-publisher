@@ -315,7 +315,7 @@ def _load_velog_cookies(
         )
 
     try:
-        raw = json.loads(cookies_path.read_text())
+        raw = json.loads(cookies_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise DependencyError(
             f"Cannot read velog cookies: {exc}\nRun: velog-login"
@@ -471,7 +471,7 @@ def _load_substack_cookies(
         )
 
     try:
-        raw = json.loads(cookies_path.read_text())
+        raw = json.loads(cookies_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         raise DependencyError(
             "Cannot read Substack credentials: file missing, corrupt, or unreadable"

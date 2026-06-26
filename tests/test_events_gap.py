@@ -1,8 +1,8 @@
 """Tests for backlink_publisher.gap.events_gap (U1.2)."""
 
 
-__tier__ = "integration"
 from __future__ import annotations
+__tier__ = "integration"
 
 from datetime import datetime, timedelta, timezone, UTC
 

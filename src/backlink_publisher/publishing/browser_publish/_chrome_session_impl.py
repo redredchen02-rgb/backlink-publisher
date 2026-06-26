@@ -261,7 +261,7 @@ def _read_pid_file() -> dict | None:
     if not path.exists():
         return None
     try:
-        return cast("dict[Any, Any]", json.loads(path.read_text()))
+        return cast("dict[Any, Any]", json.loads(path.read_text(encoding="utf-8")))
     except (OSError, ValueError):
         return None
 

@@ -149,7 +149,7 @@ def _load_token(config: Config) -> dict[str, str]:
     if not primary.exists() and legacy.exists():
         # One-time migration.
         try:
-            data = json.loads(legacy.read_text())
+            data = json.loads(legacy.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as exc:
             raise DependencyError(
                 f"Cannot read legacy telegraph-phase0-token.json: {exc}"
@@ -181,7 +181,7 @@ def _load_token(config: Config) -> dict[str, str]:
         )
 
     try:
-        data = cast("dict[str, str]", json.loads(primary.read_text()))
+        data = cast("dict[str, str]", json.loads(primary.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError) as exc:
         raise DependencyError(
             f"Cannot parse telegraph token: {exc}"

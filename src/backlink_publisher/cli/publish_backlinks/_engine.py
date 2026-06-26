@@ -314,7 +314,7 @@ def _check_publish_preconditions(
     canary_skip, canary_reason = _canary_gate(platform, warned=state.canary_warned)
     if canary_skip:
         row_id = row.get("id", "")
-        publish_logger.warn(
+        publish_logger.warning(
             f"[publish-backlinks] row_id={row_id} platform={platform} "
             f"status=skipped_quarantined — {canary_reason}"
         )
@@ -326,7 +326,7 @@ def _check_publish_preconditions(
         ok, failing_url = _check_row_reachability(row)
         if not ok:
             row_id = row.get("id", "")
-            publish_logger.warn(
+            publish_logger.warning(
                 f"[publish-backlinks] row_id={row_id} "
                 f"status=skipped_unreachable url={failing_url}"
             )
@@ -409,7 +409,7 @@ def _check_publish_preconditions(
         return _ROW_CONTINUE
     if verdict == "hold":
         state.dedup_hold_count += 1
-        publish_logger.warn(
+        publish_logger.warning(
             f"dedup hold (uncertain/in-flight): {platform} id={row.get('id', '')}",
             extra={"id": row.get("id"), "platform": platform},
         )
@@ -558,7 +558,7 @@ def _process_publish_result(
         )
         if not verify_ok:
             state.outputs[-1]["status"] += "_unverified"
-            publish_logger.warn(
+            publish_logger.warning(
                 f"verification failed: id={row.get('id', '')} reason={verify_reason}",
                 extra={"id": row.get("id"), "adapter": result.adapter},
             )

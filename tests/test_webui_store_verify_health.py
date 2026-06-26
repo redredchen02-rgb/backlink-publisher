@@ -5,8 +5,8 @@ state; transient verdicts are no-ops.
 """
 
 
-__tier__ = "integration"
 from __future__ import annotations
+__tier__ = "integration"
 
 from pathlib import Path
 

@@ -185,7 +185,7 @@ def _load_credentials(config: Config) -> dict[str, str]:
             f"{_CRED_FILENAME} must be 0600 (found {oct(mode)})\nRun: chmod 600 {path}"
         )
     try:
-        data = cast("dict[str, str]", json.loads(path.read_text()))
+        data = cast("dict[str, str]", json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         raise DependencyError(
             "Cannot parse LiveJournal credentials: file corrupt or unreadable"

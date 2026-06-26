@@ -37,37 +37,50 @@ def _store_path(filename: str) -> Path:
     return _resolve_config_dir() / filename
 
 
+# Shared WebUIDatabase instance for all stores using webui.db.
+# Lazily resolved so test fixtures that mutate BACKLINK_PUBLISHER_CONFIG_DIR
+# before first access get the correct path. Invalidated by _refresh_paths().
+_WEBUI_DB: WebUIDatabase | None = None
+
+
+def _get_webui_db() -> WebUIDatabase:
+    global _WEBUI_DB
+    if _WEBUI_DB is None:
+        _WEBUI_DB = WebUIDatabase(_resolve_config_dir() / "webui.db")
+    return _WEBUI_DB
+
+
 def _make_schedule_store() -> ScheduleSqliteStore:
     config_dir = _resolve_config_dir()
-    store = ScheduleSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store = ScheduleSqliteStore(_get_webui_db())
     store.migrate_from_json(config_dir)
     return store
 
 
 def _make_profiles_store() -> ProfilesSqliteStore:
     config_dir = _resolve_config_dir()
-    store = ProfilesSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store = ProfilesSqliteStore(_get_webui_db())
     store.migrate_from_json(config_dir)
     return store
 
 
 def _make_queue_store() -> QueueSqliteStore:
     config_dir = _resolve_config_dir()
-    store = QueueSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store = QueueSqliteStore(_get_webui_db())
     store.migrate_from_json(config_dir)
     return store
 
 
 def _make_drafts_store() -> DraftsSqliteStore:
     config_dir = _resolve_config_dir()
-    store = DraftsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store = DraftsSqliteStore(_get_webui_db())
     store.migrate_from_json(config_dir)
     return store
 
 
 def _make_campaign_store() -> CampaignSqliteStore:
     config_dir = _resolve_config_dir()
-    store = CampaignSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    store = CampaignSqliteStore(_get_webui_db())
     store.migrate_from_json(config_dir)
     return store
 
@@ -86,13 +99,11 @@ campaign_store = _LazyStore(_make_campaign_store)
 
 
 def _make_publish_defaults_store() -> PublishDefaultsSqliteStore:
-    config_dir = _resolve_config_dir()
-    return PublishDefaultsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    return PublishDefaultsSqliteStore(_get_webui_db())
 
 
 def _make_batch_ops_store() -> BatchOpsSqliteStore:
-    config_dir = _resolve_config_dir()
-    return BatchOpsSqliteStore(WebUIDatabase(config_dir / "webui.db"))
+    return BatchOpsSqliteStore(_get_webui_db())
 
 
 publish_defaults_store = _LazyStore(_make_publish_defaults_store)
@@ -107,6 +118,9 @@ def _refresh_paths() -> None:
     must call this to discard previously-cached store instances and
     have them re-resolve from the updated env var.
     """
+    global _WEBUI_DB
+    WebUIDatabase.close_all()
+    _WEBUI_DB = None
     for store in (history_store, profiles_store, drafts_store,
                   schedule_store, queue_store, channel_status_store,
                   campaign_store, publish_defaults_store, batch_ops_store):

@@ -241,7 +241,7 @@ def _read_history(history_path: Path) -> list[dict[str, Any]]:
     if not history_path.exists():
         return []
     try:
-        data = json.loads(history_path.read_text())
+        data = json.loads(history_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise AuditReadError(f"cannot read publish-history.json: {exc}") from exc
     return data if isinstance(data, list) else []

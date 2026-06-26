@@ -57,10 +57,10 @@
 # removed on rebase onto post-SEC-6 main (the same-PR-bump discipline applied across the merge).
 
 
-[functions."webui_app/routes/sites.py::sites_save_three_url"]
-ceiling = 38
-rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. CC 38 grandfathered at current value; decomposition deferred to the next PR that touches this route (reduce per-branch logic into URL-validator service layer at that point)."
+# All functions are now under the CC-30 backstop. The [functions] section is kept
+# as an empty table so the test harness doesn't KeyError on BUDGET["functions"].
 
+[functions]
 
 # spray_backlinks/core.py::main decomposed (Plan 2026-06-24-002 U2): extracted
 # _handle_list_checkpoints (CC 4); main() CC 35→29 — under backstop. Entry removed.
@@ -83,8 +83,8 @@ rationale = "WebUI three-URL form save: validates URL fields, applies gate check
 # rationale update.
 
 [test_files."tests/test_cli_generate_backlink_text.py"]
-ceiling = 1580
-rationale = "CLI generate-backlink-text tests: covers LLM-based text generation with mock provider responses, fallback chains, error handling (timeout, malformed, empty responses), and multi-language support (en/zh-CN/ru). Ceiling raised 1070→1580 to match current 1546 SLOC (2026-06-11); split deferred to focused refactor."
+ceiling = 10
+rationale = "Shim file (4 SLOC): all tests moved to test_cli_generate_backlink_text_split1.py (557 SLOC) and _split2.py (531 SLOC). Window 10 = dust ceiling for the import+pytest.skip placeholder. R12 confirmed split is complete."
 
 [test_files."tests/test_webui_three_url.py"]
 ceiling = 1190

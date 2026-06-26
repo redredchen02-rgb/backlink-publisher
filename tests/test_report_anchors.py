@@ -15,12 +15,12 @@ from backlink_publisher.anchor.profile import (
     ProfileState,
     record_article,
 )
-from backlink_publisher.cli.report_anchors import (
+from backlink_publisher.cli._report_format import (
     _build_profile_report,
     _build_report,
     _format_profile_report_markdown,
-    main,
 )
+from backlink_publisher.cli.publish.report_anchors import main
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -228,6 +228,64 @@ class OptimizationState:
             }
             self.save(data)
 
+    def update_many_weights(
+        self,
+        updates: list[tuple[str, float, str, str, bool]],
+        language: str = "default",
+    ) -> None:
+        """Batch-set multiple weights in a single load-modify-save cycle.
+
+        Each tuple is ``(adapter_name, weight, rule, reason, intentional_zero)``.
+        More efficient than N separate ``set_weight()`` calls when applying
+        multiple rule results in sequence.
+        """
+        from .models import now_iso
+
+        with self._lock:
+            data = self.load()
+            lang_weights = data.setdefault("weights", {}).setdefault(language, {})
+
+            for adapter_name, weight, rule, reason, intentional_zero in updates:
+                existing = lang_weights.get(adapter_name, {})
+                if existing.get("locked", False):
+                    logger.info(
+                        "update_many_weights: skipping locked platform '%s' (rule=%s) — "
+                        "manual override in effect",
+                        adapter_name, rule,
+                    )
+                    continue
+
+                ts = now_iso()
+                if adapter_name in lang_weights:
+                    entry = lang_weights[adapter_name]
+                    old_current = entry.get("current", entry.get("base", 1.0))
+                    adjustments = entry.setdefault("adjustments", [])
+                else:
+                    old_current = 1.0
+                    adjustments = []
+                    data.setdefault("stats", {})
+
+                multiplier = weight / old_current if old_current != 0 else 0.0
+
+                lang_weights[adapter_name] = {
+                    "base": lang_weights.get(adapter_name, {}).get("base", old_current),
+                    "current": weight,
+                    "locked": existing.get("locked", False),
+                    "intentional_zero": intentional_zero,
+                    "updated_at": ts,
+                    "adjustments": adjustments
+                    + [
+                        {
+                            "rule": rule,
+                            "applied_at": ts,
+                            "multiplier": round(multiplier, 4),
+                            "reason": reason,
+                        }
+                    ],
+                }
+
+            self.save(data)
+
     def lock_weight(
         self,
         adapter_name: str,

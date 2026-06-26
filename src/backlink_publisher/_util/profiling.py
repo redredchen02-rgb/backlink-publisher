@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 import cProfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 import pstats
 from typing import Any
@@ -52,7 +52,7 @@ def profile_if_enabled(args: object | None = None) -> Iterator[None]:
     finally:
         profiler.disable()
         profile_dir = _get_profile_dir()
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         prof_path = profile_dir / f"profile-{timestamp}.prof"
         profiler.dump_stats(str(prof_path))
 

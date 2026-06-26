@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> None:
     # R10: --no-check-urls remains as a deprecated alias for back-compat.
     # Either flag set => URL checks disabled.
     if args.no_validate_url_check_legacy and not args.no_validate_url_check:
-        validate_logger.warn(
+        validate_logger.warning(
             "--no-check-urls is deprecated; use --no-validate-url-check. "
             "Will be removed in a future version."
         )

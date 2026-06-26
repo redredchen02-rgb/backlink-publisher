@@ -213,7 +213,7 @@ class MediumAPIAdapter(Publisher):
                 ratio = attr_check.get("blank_ratio", 1.0)
                 total = attr_check.get("total_anchors", 0)
                 if attr_check.get("verification") == "ok" and total > 0 and ratio < 0.5:
-                    log.warn(
+                    log.warning(
                         _json_log(
                             adapter="medium-api",
                             phase="attr-warn",

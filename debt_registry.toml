@@ -98,6 +98,14 @@ status = "resolved"
 resolved_date = "2026-06-16"
 
 [[items]]
+slug = "ko-corpus-calibration"
+severity = "low"
+rationale = "Korean language detection threshold (RATIO_THRESHOLD=0.30) is an uncalibrated v1 default — never validated against real Korean articles (Naver Blog, Tistory, Korean news). A Hanja-heavy article can fall through to keyword scoring. Deferred to post-merge per plan 2026-05-18-006. Requires a corpus calibration spike against ~50 real ko articles."
+discovered = "2026-05-18"
+owner = "unassigned"
+status = "open"
+
+[[items]]
 slug = "recheck-ledger-liveness-seam"
 severity = "medium"
 rationale = "Phase 0 U4 (plan 2026-06-17-002) verified recheck WRITES a non-ALIVE link.rechecked event for a dead link, but the DOWNSTREAM surfacing was unverified: ledger/aggregate.py::_link_liveness derived per-link liveness from verified_at/verify_error and structurally ignored the link.rechecked verdict, so a HOST_GONE/LINK_STRIPPED recheck did not lower the equity-ledger live/live_dofollow count (the inverse of the 2026-06-05-001 live-dofollow-undercounting gap). RESOLVED 2026-06-17 (PR #31): _link_liveness now takes the latest recheck verdict (via the shared latest_link_verdicts reader) and a deterministic-dead verdict overrides a stale verified_at; dofollow_lost keeps the link live but strips it from live_dofollow. Positive integration tests in test_ledger_aggregate.py assert the live counts actually drop."

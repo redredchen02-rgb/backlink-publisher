@@ -168,7 +168,7 @@ def _safe_mark_expired() -> None:
         from webui_store.channel_status import mark_expired
         mark_expired("medium")
     except Exception as exc:  # noqa: BLE001 — defensive
-        log.warn(
+        log.warning(
             f"medium_browser: mark_expired('medium') failed during auth-expired "
             f"propagation: {type(exc).__name__}: {exc}"
         )
@@ -210,7 +210,7 @@ def _refresh_cookies(context: Any) -> None:
                 pass
             raise
     except Exception as exc:  # noqa: BLE001 — best-effort refresh
-        log.warn(
+        log.warning(
             f"medium_browser: failed to refresh medium-cookies.json: "
             f"{type(exc).__name__}: {exc}"
         )
@@ -349,7 +349,7 @@ class MediumBrowserAdapter(Publisher):
                             page.locator(sel.SAVE_DRAFT).click()
                             page.wait_for_timeout(_SAVE_DRAFT_SETTLE_MS)
                         except Exception as exc:
-                            log.warn(
+                            log.warning(
                                 "Failed to click 'Save Draft' button during fallback. "
                                 "Proceeding with standard wait.",
                                 error=str(exc),
@@ -387,7 +387,7 @@ class MediumBrowserAdapter(Publisher):
                             ratio = attr_check.get("blank_ratio", 1.0)
                             total = attr_check.get("total_anchors", 0)
                             if attr_check.get("verification") == "ok" and total > 0 and ratio < 0.5:
-                                log.warn(
+                                log.warning(
                                     f"Medium stripped target attributes: "
                                     f"{attr_check['blank_anchors']}/{total} anchors "
                                     "retain target=_blank"

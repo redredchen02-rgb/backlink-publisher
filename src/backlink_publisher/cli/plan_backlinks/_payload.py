@@ -62,7 +62,7 @@ def _resolve_article_anchors(
     keywords = get_anchor_keywords(config, main_domain) if config is not None else []
     selected = select_anchor_keywords(keywords, url_mode, 2)
     if selected is None:
-        plan_logger.warn(
+        plan_logger.warning(
             f"anchor_keywords missing for {main_domain}, falling back to bare domain label",
             main_domain=main_domain,
         )
@@ -160,7 +160,7 @@ def _generate_body_text(
             plan_logger.info(f"LLM article body generated for {main_domain}")
             return body, "llm"
         except Exception as e:
-            plan_logger.warn(f"LLM article generation failed, falling back to template: {e}")
+            plan_logger.warning(f"LLM article generation failed, falling back to template: {e}")
     body = body_tmpl(domain=domain_label, main_domain=main_domain, anchors=anchors)
     return body, "template"
 

@@ -106,7 +106,7 @@ def load_frw_token() -> str:
         os.chmod(path, 0o600)
 
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise RuntimeError(
             f"frw-token.json malformed at {path}: {exc}\n"

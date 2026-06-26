@@ -163,7 +163,7 @@ def _plan_work_themed_row(
 
     work_urls = work_urls[:count]
     if not work_urls:
-        plan_logger.warn(
+        plan_logger.warning(
             "work-themed run: 0 candidate work URLs (fail-empty)",
             main_domain=main_domain,
             list_url=three_url_cfg.list_url,
@@ -181,7 +181,7 @@ def _plan_work_themed_row(
                 work_url, insecure_tls=three_url_cfg.insecure_tls,
             )
         except InputValidationError as exc:
-            plan_logger.warn(
+            plan_logger.warning(
                 "work-themed: invalid work_url, skipping",
                 main_domain=main_domain, url=work_url, reason=str(exc),
             )
@@ -189,7 +189,7 @@ def _plan_work_themed_row(
             continue
 
         if meta is None:
-            plan_logger.warn(
+            plan_logger.warning(
                 "work-themed: metadata fetch failed (fail-continue), skipping",
                 main_domain=main_domain, url=work_url,
             )
