@@ -13,12 +13,7 @@ import re
 import sys
 from typing import Any
 
-from ..footprint import (
-    _top_by_count_then_lex,
-    analyze_corpus,
-    SCHEMA_VERSION,
-)
-from ..footprint_corpus import (
+from backlink_publisher.footprint_corpus import (
     compute_fixture_set_id,
     CORPUS_NAMES,
     make_corpus,
@@ -83,6 +78,13 @@ def _baseline_path(output_dir: Path, corpus_name: str) -> Path:
 
 def _compute_baseline_record(corpus_name: str, reason: str) -> dict[str, Any]:
     """Generate a corpus, run ``analyze_corpus``, format the baseline JSON."""
+    # Lazy import to break circular dependency:
+    # reporting.footprint ← _footprint_baseline → reporting.footprint
+    from backlink_publisher.cli.footprint import (
+        _top_by_count_then_lex,
+        analyze_corpus,
+        SCHEMA_VERSION,
+    )
     payloads = make_corpus(corpus_name)
     report = analyze_corpus(payloads)
     if report.total_links == 0:
