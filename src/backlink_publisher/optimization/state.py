@@ -67,7 +67,7 @@ class OptimizationState:
         cache_key = f"optimization_state:{self._path}"
         cached = _ttl_cache_get(cache_key)
         if cached is not None:
-            return cached
+            return cast("dict[str, Any]", cached)
 
         if not self._path.exists():
             return default_state()

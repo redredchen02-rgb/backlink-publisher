@@ -295,7 +295,7 @@ def _download_with_cap(src_url: str) -> bytes:
             f"image-gen banner exceeds 5MB cap on CDN download "
             f"({len(content)} > {_MAX_RESPONSE_BYTES} bytes)"
         )
-    return content
+    return cast("bytes", content)
 
 
 _MIME_MAGIC: tuple[tuple[bytes, str], ...] = (

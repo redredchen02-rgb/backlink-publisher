@@ -25,7 +25,7 @@ from typing import Any
 
 from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher._util.logger import validate_logger
-from backlink_publisher.cli._validate_payload import (
+from backlink_publisher.validate._payload import (
     _enhance_payload,
     _extract_hrefs_from_html,
 )

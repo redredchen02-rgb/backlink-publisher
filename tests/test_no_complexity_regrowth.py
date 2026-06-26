@@ -142,7 +142,9 @@ def _scan_unlisted_over_backstop(
         except (SyntaxError, OSError):
             continue
         for block in blocks:
-            key = f"{relative}::{block.fullname}"
+            # Normalise to forward slashes so budget entries match across macOS (/) and
+            # Windows (\\) — the budget TOML is authored with POSIX separators.
+            key = f"{relative.replace(chr(92), '/')}::{block.fullname}"
             if key in declared_keys:
                 continue
             if block.complexity > backstop:

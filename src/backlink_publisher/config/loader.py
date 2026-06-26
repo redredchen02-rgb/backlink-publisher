@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 import stat
+from typing import cast
 import tomllib
 
 from backlink_publisher._util.cache import _ttl_cache_get, _ttl_cache_set
@@ -140,7 +141,7 @@ def load_config(path: Path | None = None) -> Config:
     # Check cache first (TTL-based, thread-safe)
     cached = _ttl_cache_get("load_config")
     if cached is not None:
-        return cached
+        return cast(Config, cached)
 
     config_path = path or (_resolve_config_dir() / "config.toml")
     if not config_path.exists():

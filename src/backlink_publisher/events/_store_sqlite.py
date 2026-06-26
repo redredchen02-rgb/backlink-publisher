@@ -95,20 +95,19 @@ def _set_backup_exclude_xattr(path: Path) -> None:
     Failures are silent (subprocess missing, kernel rejects) — the file
     is still created and usable; backup exclusion is defense-in-depth.
     """
-    if sys.platform != "darwin":
-        return
-    try:
-        subprocess.run(
-            ["xattr", "-w", _XATTR_BACKUP_EXCLUDE, "1", str(path)],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=_XATTR_TIMEOUT_S,
-        )
-    except (FileNotFoundError, subprocess.SubprocessError):
-        # xattr binary missing or subprocess died. Don't crash event-store
-        # init over a backup-hygiene improvement.
-        pass
+    if sys.platform == "darwin":
+        try:
+            subprocess.run(
+                ["xattr", "-w", _XATTR_BACKUP_EXCLUDE, "1", str(path)],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=_XATTR_TIMEOUT_S,
+            )
+        except (FileNotFoundError, subprocess.SubprocessError):
+            # xattr binary missing or subprocess died. Don't crash event-store
+            # init over a backup-hygiene improvement.
+            pass
 
 
 def _is_transient_sqlite_error(exc: sqlite3.OperationalError) -> bool:

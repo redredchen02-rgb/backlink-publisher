@@ -312,7 +312,7 @@ def _indexability_summary(results: list[dict]) -> list[str]:
 def _single_run_lock(config_dir: Path) -> Iterator[bool]:
     """Non-blocking exclusive file lock so overlapping cron runs don't compound
     (SEC1). Yields True if acquired, False if another run already holds it."""
-    import fcntl
+    from backlink_publisher._compat import fcntl
 
     config_dir.mkdir(parents=True, exist_ok=True)
     lock_path = config_dir / ".recheck-backlinks.lock"

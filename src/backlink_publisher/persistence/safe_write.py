@@ -28,7 +28,7 @@ def atomic_write_stream(
     lock_path = path.parent / (path.name + ".lock")
     lock_fd = None
     try:
-        import fcntl
+        from backlink_publisher._compat import fcntl
         lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_WRONLY, 0o600)
         fcntl.flock(lock_fd, fcntl.LOCK_EX)
     except Exception as exc:
