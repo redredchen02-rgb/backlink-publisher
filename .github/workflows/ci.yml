@@ -76,6 +76,11 @@ jobs:
         run: |
           ruff check src/ webui_app/ webui_store/
 
+      - name: Check import constraints (import-linter)
+        run: |
+          pip install import-linter
+          lint-imports
+
       - name: Verify fixtures exist
         run: |
           python generate_fixtures.py

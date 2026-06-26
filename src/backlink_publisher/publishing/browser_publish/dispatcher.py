@@ -143,7 +143,7 @@ class BrowserPublishDispatcher(Publisher):
             # …) live outside that set, so fall back to a generic
             # DependencyError with the same dispatch-chain fall-through
             # semantics.
-            from backlink_publisher.cli._bind.channels import CHANNELS
+            from backlink_publisher._util.constants import CHANNELS
 
             if self.channel in CHANNELS:
                 raise AuthExpiredError(
@@ -175,7 +175,7 @@ class BrowserPublishDispatcher(Publisher):
         NOT mask the original AuthExpiredError.
         """
         try:
-            from backlink_publisher.cli._bind.channels import CHANNELS
+            from backlink_publisher._util.constants import CHANNELS
 
             if self.channel not in CHANNELS:
                 return

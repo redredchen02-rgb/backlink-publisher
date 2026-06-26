@@ -98,7 +98,7 @@ class AuthExpiredError(DependencyError):
     event. See plan §Key Technical Decisions.
 
     Construction validates ``channel`` against the
-    ``cli._bind.channels.CHANNELS`` frozenset; ``UsageError`` is raised
+    ``_util.constants.CHANNELS`` frozenset; ``UsageError`` is raised
     for unknown / traversal payloads (defense-in-depth against supply-
     chain adapters injecting ``channel="../evil"``).
     """
@@ -109,7 +109,7 @@ class AuthExpiredError(DependencyError):
         # Local import avoids a top-level cycle (errors.py is imported
         # very early in package init; cli._bind.channels is leaf-level
         # but importing the whole cli package here would be premature).
-        from backlink_publisher.cli._bind.channels import CHANNELS
+        from backlink_publisher._util.constants import CHANNELS
 
         if not channel or channel not in CHANNELS:
             raise UsageError(

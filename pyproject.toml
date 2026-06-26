@@ -222,3 +222,102 @@ fail_under = 80
 
 [tool.coverage.json]
 pretty_print = true
+
+# ── import-linter ──────────────────────────────────────────────────────────
+# Static import-graph enforcement. Uses `forbidden` contracts (not `layers`)
+# because domain packages may legitimately import each other; only the
+# cli→domain→_util direction must be enforced one-way.
+# See docs/plans/2026-06-24-002-refactor-codebase-decoupling-plan.md §U7.
+
+[tool.importlinter]
+root_packages = ["backlink_publisher"]
+
+[[tool.importlinter.contracts]]
+name = "Domain packages must not import from cli/"
+type = "forbidden"
+source_modules = [
+    "backlink_publisher.publishing",
+    "backlink_publisher.keepalive",
+    "backlink_publisher.events",
+    "backlink_publisher.anchor",
+    "backlink_publisher.validate",
+    "backlink_publisher._util",
+    "backlink_publisher.config",
+    "backlink_publisher.content",
+    "backlink_publisher.linkcheck",
+    "backlink_publisher.gap",
+    "backlink_publisher.recheck",
+    "backlink_publisher.referral",
+    "backlink_publisher.health",
+    "backlink_publisher.canary",
+    "backlink_publisher.ledger",
+    "backlink_publisher.idempotency",
+    "backlink_publisher.optimization",
+    "backlink_publisher.scorecard",
+    "backlink_publisher.dispatch",
+    "backlink_publisher.gates",
+    "backlink_publisher.schedule",
+    "backlink_publisher.audit",
+    "backlink_publisher.geo",
+    "backlink_publisher.click_track",
+    "backlink_publisher.comment_outreach",
+    "backlink_publisher.llm",
+    "backlink_publisher.gsc",
+]
+forbidden_modules = ["backlink_publisher.cli"]
+# Pre-existing violations that require deeper refactoring (deferred):
+ignore_imports = [
+    # publishing.adapters.instant_web → cli._bind.chrome_backend
+    "backlink_publisher.publishing.adapters.instant_web -> backlink_publisher.cli._bind.chrome_backend",
+    # SDK → CLI (SDK wraps CLI commands; layer fixing deferred)
+    "backlink_publisher.sdk._publish_runtime -> backlink_publisher.cli.publish_backlinks",
+    "backlink_publisher.sdk._publish_runtime -> backlink_publisher.cli._publish_helpers",
+    "backlink_publisher.sdk.api -> backlink_publisher.cli.plan_backlinks._engine",
+    "backlink_publisher.sdk.api -> backlink_publisher.cli._report_engine",
+    # keepalive → SDK (SDK wraps CLI)
+    "backlink_publisher.keepalive.chain -> backlink_publisher.sdk.api",
+]
+
+[[tool.importlinter.contracts]]
+name = "_util must not import from domain or cli"
+type = "forbidden"
+source_modules = ["backlink_publisher._util"]
+forbidden_modules = [
+    "backlink_publisher.cli",
+    "backlink_publisher.publishing",
+    "backlink_publisher.keepalive",
+    "backlink_publisher.events",
+    "backlink_publisher.validate",
+    "backlink_publisher.config",
+    "backlink_publisher.content",
+    "backlink_publisher.linkcheck",
+    "backlink_publisher.gap",
+    "backlink_publisher.recheck",
+    "backlink_publisher.referral",
+    "backlink_publisher.health",
+    "backlink_publisher.canary",
+    "backlink_publisher.ledger",
+    "backlink_publisher.idempotency",
+    "backlink_publisher.optimization",
+    "backlink_publisher.scorecard",
+    "backlink_publisher.dispatch",
+    "backlink_publisher.gates",
+    "backlink_publisher.schedule",
+    "backlink_publisher.audit",
+    "backlink_publisher.geo",
+    "backlink_publisher.click_track",
+    "backlink_publisher.llm",
+	    "backlink_publisher.gsc",
+	    "backlink_publisher.anchor",
+]
+# Pre-existing _util → domain violations (deferred to focused refactor):
+ignore_imports = [
+    # _util.markdown uses anchor.resolver for link resolution
+    "backlink_publisher._util.markdown -> backlink_publisher.anchor.resolver",
+    # _util modules import config for shared state
+    "backlink_publisher._util.history_write -> backlink_publisher.config.loader",
+    "backlink_publisher._util.profiling -> backlink_publisher.config.loader",
+    "backlink_publisher._util.secrets -> backlink_publisher.config",
+    # _util.http_probe imports content for preflight fetching
+    "backlink_publisher._util.http_probe -> backlink_publisher.content._preflight_fetch",
+]

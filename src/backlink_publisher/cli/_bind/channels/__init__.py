@@ -1,24 +1,20 @@
-"""Channel recipe registry + single-authority CHANNELS frozenset + EVENTS.
+"""Channel recipe registry + CHANNELS frozenset + EVENTS.
 
-CHANNELS is the *only* place new browser-binding channels are added.
-Every entry point (CLI argparse, webui routes, AuthExpiredError ctor,
-mark_bound / mark_expired) imports from here and validates membership
-before constructing paths or argv — defense in depth against
-``channel=../traversal`` injection.
+``CHANNELS`` is the single-authority frozenset of supported browser-binding
+channels. It lives in ``_util.constants`` (the leaf-level shared location)
+and is re-exported here for backward compat — all old import paths work.
 
-EVENTS (Unit 2) is the closed set of RECON event names emitted by the
-``bind-channel`` CLI on stdout as JSONL. The webui's bind_job consumer
-imports the same constant; the driver validates ``event_name in EVENTS``
-at emit time so typos fail loud here rather than silently in production.
+``EVENTS`` is the closed set of RECON event names emitted by the
+``bind-channel`` CLI on stdout as JSONL and stays local (it is only
+consumed by CLI code).
+
+Plan 2026-06-24-002 U7: moved ``CHANNELS`` to ``_util.constants`` to
+resolve the ``_util → cli`` layer violation.
 """
 
 from __future__ import annotations
 
-CHANNELS: frozenset[str] = frozenset({"velog", "medium", "blogger"})
-"""The closed set of supported binding channels. Adding a new channel
-requires updating this frozenset plus shipping its recipe in
-``cli/_bind/recipes/<name>.py``."""
-
+from backlink_publisher._util.constants import CHANNELS  # noqa: F401 — re-export
 
 EVENTS: frozenset[str] = frozenset({
     "channel.bind.start",
