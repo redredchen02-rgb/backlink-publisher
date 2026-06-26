@@ -13,7 +13,6 @@ from hypothesis import strategies as st
 
 from backlink_publisher._util.url import canonicalize_url
 
-
 # ----- Lowercase / port stripping -----
 
 

@@ -24,9 +24,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import time
 from pathlib import Path  # used by callers of _cache_root, not for home expansion
-from typing import TYPE_CHECKING, Optional
+import time
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backlink_publisher.content.fetch import CheckResult
@@ -58,7 +58,7 @@ def _cache_path(url: str) -> Path:
     return _cache_root() / digest[:2] / f"{digest}.json"
 
 
-def disk_cache_get(url: str) -> "Optional[CheckResult]":
+def disk_cache_get(url: str) -> CheckResult | None:
     """Return cached result for *url*, or ``None`` on miss / expired / error."""
     if _disabled():
         return None
@@ -74,7 +74,7 @@ def disk_cache_get(url: str) -> "Optional[CheckResult]":
         return None
 
 
-def disk_cache_set(url: str, result: "CheckResult") -> None:
+def disk_cache_set(url: str, result: CheckResult) -> None:
     """Write *result* for *url* to disk cache (atomic tmp + rename)."""
     if _disabled():
         return

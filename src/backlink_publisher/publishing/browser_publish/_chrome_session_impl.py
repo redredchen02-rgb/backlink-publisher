@@ -22,18 +22,18 @@ Design notes calibrated against Unit 0 spike
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from dataclasses import dataclass
 import json
 import os
+from pathlib import Path
 import re
 import shutil
-import socket
 import stat
 import subprocess
 import time
-from contextlib import AbstractContextManager
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING, cast
+from typing import Any, cast, TYPE_CHECKING
 
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config.loader import _config_dir
@@ -501,7 +501,7 @@ class ChromeAttachSession(AbstractContextManager):
             time.sleep(_POLL_INTERVAL_S)
         return None
 
-    def _connect_playwright(self, ws_url: str) -> "Page":
+    def _connect_playwright(self, ws_url: str) -> Page:
         try:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
@@ -569,7 +569,7 @@ def _default_version_probe(base: str, timeout_s: float = 1.0) -> dict | None:
             if resp.status != 200:
                 return None
             raw = resp.read()
-    except (urllib.error.URLError, socket.timeout, ConnectionError):
+    except (TimeoutError, urllib.error.URLError, ConnectionError):
         return None
     except Exception:  # noqa: BLE001
         return None

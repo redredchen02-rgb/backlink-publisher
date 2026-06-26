@@ -16,17 +16,17 @@ Plan ref: docs/ideation/2026-05-14-round3-fresh-pass-ideation.md (#6)
 from __future__ import annotations
 
 __tier__ = "unit"
-import json
 from io import StringIO
+import json
 from unittest.mock import patch
 
 import pytest
 
 from backlink_publisher._util.logger import (
-    PipelineLogger,
+    _MAX_REDACT_DEPTH,
     _redact_in_place,
     _SENSITIVE_KEYS,
-    _MAX_REDACT_DEPTH,
+    PipelineLogger,
 )
 
 

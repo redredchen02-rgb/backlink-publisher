@@ -7,9 +7,9 @@ remote strings are capped + escaped before they can reach the committed ledger.
 from __future__ import annotations
 
 __tier__ = "unit"
-import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+import pytest
 
 from backlink_publisher.gates import verdict as gv
 

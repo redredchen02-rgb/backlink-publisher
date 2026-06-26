@@ -8,21 +8,10 @@ External callers (``adapters/__init__.py``, tests) continue to import from
 this module without changes.
 """
 
-from ._verify_setup import (  # noqa: F401
-    _SETUP_CHECKS,
-    _check_ghpages_setup,
-    _check_medium_setup,
-    _check_telegraph_setup,
-    _check_velog_setup,
-    _verify_dry_run,
-    verify_adapter_setup,
-)
 from ._verify_live_probes import (  # noqa: F401
     _BLOGGER_USERS_SELF,
     _BLOGGER_VERIFY_TIMEOUT_S,
     _GHPAGES_VERIFY_TIMEOUT_S,
-    _VELOG_CURRENT_USER_QUERY,
-    _VELOG_VERIFY_TIMEOUT_S,
     _network_error,
     _never,
     _non_json,
@@ -30,9 +19,20 @@ from ._verify_live_probes import (  # noqa: F401
     _timeout_result,
     _token_expired,
     _utc_now_iso,
+    _VELOG_CURRENT_USER_QUERY,
+    _VELOG_VERIFY_TIMEOUT_S,
     _verify_blogger_live,
     _verify_ghpages_live,
     _verify_live,
     _verify_telegraph_live,
     _verify_velog_live,
+)
+from ._verify_setup import (  # noqa: F401
+    _check_ghpages_setup,
+    _check_medium_setup,
+    _check_telegraph_setup,
+    _check_velog_setup,
+    _SETUP_CHECKS,
+    _verify_dry_run,
+    verify_adapter_setup,
 )

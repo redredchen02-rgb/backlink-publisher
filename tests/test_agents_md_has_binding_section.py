@@ -12,7 +12,6 @@ from __future__ import annotations
 __tier__ = "unit"
 from pathlib import Path
 
-
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _AGENTS_MD = _REPO_ROOT / "AGENTS.md"
 

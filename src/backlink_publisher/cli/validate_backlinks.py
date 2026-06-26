@@ -13,22 +13,23 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from .. import config_echo
-from .._util import errors
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import validate_logger
 from backlink_publisher.validate.engine import load_config_tolerant, validate_rows
 
+from .. import config_echo
+from .._util import errors
+
 # Re-export symbols from extracted sub-module so any external callers (tests,
 # downstream scripts) can still import them from validate_backlinks directly.
 from ._validate_payload import (  # noqa: F401
-    _HrefCollector,
-    _extract_hrefs_from_html,
     _check_main_domain_in_html,
-    _resolve_branded_pool,
-    _nfc_normalize_in_place,
     _detect_row_body_language,
     _enhance_payload,
+    _extract_hrefs_from_html,
+    _HrefCollector,
+    _nfc_normalize_in_place,
+    _resolve_branded_pool,
 )
 
 

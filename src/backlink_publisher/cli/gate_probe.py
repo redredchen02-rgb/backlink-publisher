@@ -18,13 +18,14 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
-from .. import config_echo
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher.config import load_config
 from backlink_publisher.gates import g2_decay, g3_referer, g5_footprint_survival
 from backlink_publisher.gates import verdict as gv
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
+
+from .. import config_echo
 
 _GATES = ("g2", "g3", "g5")
 

@@ -12,16 +12,17 @@ Unit 1.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 import json
 import logging
 import os
+from pathlib import Path
 import re
 import sqlite3
 import threading
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Callable, ClassVar, Iterator
+from typing import Any, ClassVar
 
 #: A bare SQL identifier (table name). Enforced on BlobSqliteStore subclasses
 #: because the table name is interpolated into DDL/DML (SQLite cannot bind it).

@@ -15,8 +15,7 @@ import pytest
 
 from backlink_publisher._util.errors import PipelineError, UsageError
 from backlink_publisher.cli import comment
-from backlink_publisher.comment_outreach import schema
-from backlink_publisher.comment_outreach import store
+from backlink_publisher.comment_outreach import schema, store
 
 
 @pytest.fixture

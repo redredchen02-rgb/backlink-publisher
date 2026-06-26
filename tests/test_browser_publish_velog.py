@@ -21,17 +21,16 @@ from unittest.mock import MagicMock
 import pytest
 
 from backlink_publisher._util.errors import DependencyError
-from backlink_publisher.publishing.browser_publish import RECIPES
 from backlink_publisher.publishing.browser_publish import (
     dispatcher as disp_mod,
+)
+from backlink_publisher.publishing.browser_publish import RECIPES
+from backlink_publisher.publishing.browser_publish.recipes import (
+    _velog_selectors as sel,
 )
 from backlink_publisher.publishing.browser_publish.recipes import (
     velog as velog_recipe,
 )
-from backlink_publisher.publishing.browser_publish.recipes import (
-    _velog_selectors as sel,
-)
-
 
 # ---------------------------------------------------------------------------
 # Recipe registration
@@ -148,13 +147,13 @@ class TestVelogChainFallthrough:
         """Chain shape verifies plan §Unit 4a registration."""
         # Import-side-effect loads adapters/__init__.py which registers velog.
         import backlink_publisher.publishing.adapters  # noqa: F401
-        from backlink_publisher.publishing.registry import _REGISTRY
         from backlink_publisher.publishing.adapters.velog_graphql import (
             VelogGraphQLAdapter,
         )
         from backlink_publisher.publishing.browser_publish import (
             BrowserPublishDispatcher,
         )
+        from backlink_publisher.publishing.registry import _REGISTRY
 
         chain = _REGISTRY["velog"].publishers
         assert len(chain) == 2
@@ -167,11 +166,11 @@ class TestVelogChainFallthrough:
     ):
         """When VelogGraphQLAdapter raises DependencyError, browser kicks in."""
         import backlink_publisher.publishing.adapters  # noqa: F401
-        from backlink_publisher.publishing.registry import dispatch
         from backlink_publisher.publishing.adapters.base import AdapterResult
         from backlink_publisher.publishing.adapters.velog_graphql import (
             VelogGraphQLAdapter,
         )
+        from backlink_publisher.publishing.registry import dispatch
 
         # Patch VelogGraphQLAdapter.publish to raise DependencyError.
         def fake_publish(self, payload, mode, config):

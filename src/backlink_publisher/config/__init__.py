@@ -23,14 +23,14 @@ from __future__ import annotations
 import os  # noqa: F401
 
 from ._config_io import (
-    _CONFIG_HISTORY_MAX,
     _atomic_write_text,
+    _CONFIG_HISTORY_MAX,
     _snapshot_config,  # noqa: F401
 )
 from ._merge_categories import merge_site_url_categories
 from ._toml_utils import (
-    _TOML_HEADING_RE,
     _preserve_unknown_sections,
+    _TOML_HEADING_RE,
     _toml_heading_root,
     _toml_list,
     _toml_str,  # noqa: F401
@@ -73,11 +73,11 @@ from .tokens import (
     load_linkedin_token,
     load_mataroa_token,
     load_medium_token,
-    load_qiita_token,
-    load_zenn_token,
     load_notion_token,
+    load_qiita_token,
     load_wordpresscom_token,
     load_writeas_token,
+    load_zenn_token,
     save_blogger_token,
     save_devto_token,
     save_ghpages_token,
@@ -94,12 +94,12 @@ from .tokens import (
 )
 from .types import (
     ANCHOR_TYPES,
-    DEFAULT_WORK_TEMPLATES,
     AnchorAlarmConfig,
     AnchorAlarmOverride,
     BloggerOAuthConfig,
     ClickTrackConfig,
     Config,
+    DEFAULT_WORK_TEMPLATES,
     GhpagesConfig,
     ImageGenConfig,
     LLMProviderConfig,

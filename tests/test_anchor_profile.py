@@ -10,18 +10,17 @@ from unittest.mock import patch
 import pytest
 
 from backlink_publisher.anchor.profile import (
-    ProfileEntry,
-    ProfileState,
     load_profile,
     now_iso,
-    record_article,
+    ProfileEntry,
+    ProfileState,
     recent_degradation_rate,
     recent_secondary_count_split,
     recent_texts,
     recent_type_counts,
     recent_url_category_counts,
+    record_article,
 )
-
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 

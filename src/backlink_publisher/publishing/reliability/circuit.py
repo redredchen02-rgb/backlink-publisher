@@ -34,14 +34,14 @@ Cooldown: ``BACKLINK_PUBLISHER_CIRCUIT_COOLDOWN_S`` env var (default 300 s).
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, UTC
+from enum import StrEnum
+from backlink_publisher._compat import fcntl
 import json
 import os
-import time
-from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+import time
+from typing import Any, cast, TYPE_CHECKING
 
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
 from backlink_publisher._util.io import atomic_write_json
@@ -63,7 +63,7 @@ _STATE_FILE = "publish-circuit-state.json"
 _LOCK_FILE = "publish-circuit-state.lock"
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half-open"
@@ -145,7 +145,7 @@ def _write_state_unsafe(state_path: Path, state: dict[str, Any]) -> None:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _consecutive_errors_threshold() -> int:
@@ -226,7 +226,7 @@ def is_tripped(platform: str, config: Config) -> bool:
         state = _get_state(platform, config)
         current_state = state.get("state", CircuitState.CLOSED.value)
         tripped_at_iso = state.get("tripped_at_iso")
-        tripped = state.get("tripped", False)
+        _tripped = state.get("tripped", False)
 
         # HALF_OPEN state: transition automatically after cooldown
         if current_state == CircuitState.HALF_OPEN and tripped_at_iso:

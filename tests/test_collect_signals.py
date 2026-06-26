@@ -14,8 +14,8 @@ __tier__ = "integration"
 
 import json
 import os
-import tempfile
 from pathlib import Path
+import tempfile
 from unittest.mock import patch
 
 import pytest
@@ -25,7 +25,6 @@ from backlink_publisher.optimization.collector import (
     _merge_signals,
     collect_all_signals,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -14,7 +14,6 @@ from backlink_publisher.cli import probe_ranking as cli
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import RANKING_SNAPSHOT
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

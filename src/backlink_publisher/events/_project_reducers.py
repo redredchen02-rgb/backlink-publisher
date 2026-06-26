@@ -9,28 +9,28 @@ rows for the new state. All three share the same signature::
 
 from __future__ import annotations
 
-import json
-import sqlite3
 from dataclasses import dataclass
+import json
 from pathlib import Path
+import sqlite3
 from typing import Any
 
+from .. import checkpoint
+from .._util.url import canonicalize_url
+from . import kinds
 from ._project_helpers import (
-    ProjectionError,
     article_payload,
     checkpoint_event_timestamp,
     cursor_load,
     cursor_save,
     extract_anchors,
     host_of,
+    ProjectionError,
     read_json,
     split_iso_with_offset,
     split_local_naive,
     write_quarantines,
 )
-from .._util.url import canonicalize_url
-from .. import checkpoint
-from . import kinds
 from .scrubber import scrub_text
 from .store import EventStore
 

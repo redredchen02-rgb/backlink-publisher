@@ -34,7 +34,6 @@ from backlink_publisher.publishing.registry import (
     visibility,
 )
 
-
 # Phase 3 expansion: all 28 production channels now carry a full manifest.
 # ``TestOtherPlatformsRemainLegacy`` is parametrized over the set difference
 # between registered_platforms() and _MIGRATED.  When both are equal the

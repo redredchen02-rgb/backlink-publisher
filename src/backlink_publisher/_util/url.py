@@ -13,8 +13,8 @@ Conventions:
 from __future__ import annotations
 
 from urllib.parse import (
-    ParseResult,
     parse_qsl,
+    ParseResult,
     quote,
     urlencode,
     urljoin,

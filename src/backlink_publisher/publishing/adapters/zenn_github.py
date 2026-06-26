@@ -44,7 +44,7 @@ from backlink_publisher.http import put as http_put
 from backlink_publisher.publishing.registry import Publisher
 
 from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _GITHUB_API = "https://api.github.com"
 _HTTP_TIMEOUT_S = 30

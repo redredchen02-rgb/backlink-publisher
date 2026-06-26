@@ -9,14 +9,14 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
-from backlink_publisher.config import load_config
 from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher.cli.spray_backlinks._draft import (
-    LLMNotConfiguredError,
     _default_rewrite_fn,
     _salt_id,
     draft_row,
+    LLMNotConfiguredError,
 )
+from backlink_publisher.config import load_config
 
 
 def _seed() -> dict:

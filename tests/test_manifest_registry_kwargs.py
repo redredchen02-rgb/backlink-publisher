@@ -26,9 +26,13 @@ from typing import Any
 import pytest
 
 from backlink_publisher._util.errors import RegistryError
+from backlink_publisher.publishing._manifest_types import (
+    BindDescriptor,
+    Policy,
+    UiMeta,
+)
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _BIND_BY_PLATFORM,
     _POLICY_BY_PLATFORM,
     _REGISTRY,
@@ -40,14 +44,10 @@ from backlink_publisher.publishing.registry import (
     bound_platforms,
     legacy_platforms,
     policy,
+    Publisher,
     register,
     ui_meta,
     visibility,
-)
-from backlink_publisher.publishing._manifest_types import (
-    BindDescriptor,
-    Policy,
-    UiMeta,
 )
 
 

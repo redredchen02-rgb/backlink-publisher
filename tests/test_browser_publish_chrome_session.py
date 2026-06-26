@@ -13,13 +13,11 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
-import stat
 from pathlib import Path
+import stat
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-import backlink_publisher.publishing.browser_publish._chrome_session_impl as _cs_impl
 
 from backlink_publisher.publishing.browser_publish import (
     BrowserPublishRecipe,
@@ -27,7 +25,7 @@ from backlink_publisher.publishing.browser_publish import (
     ChromeSessionError,
 )
 from backlink_publisher.publishing.browser_publish import chrome_session as cs
-
+import backlink_publisher.publishing.browser_publish._chrome_session_impl as _cs_impl
 
 # ---------------------------------------------------------------------------
 # Shared path helpers

@@ -39,12 +39,13 @@ would teach the operator to ignore the channel.
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import math
 import re
-from collections import Counter
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 from backlink_publisher.anchor.profile import ProfileEntry, ProfileState
 
@@ -138,7 +139,7 @@ def filter_window(
     Entries with unparseable ts are silently excluded.
     """
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     cutoff_seconds = days * 86400
     out: list[ProfileEntry] = []
     for e in entries:
@@ -235,7 +236,7 @@ def compute_window_metrics(entries: list[ProfileEntry]) -> WindowMetrics:
 
 
 def resolve_thresholds(
-    alarm_cfg: "AnchorAlarmConfig",
+    alarm_cfg: AnchorAlarmConfig,
     target_url: str,
     main_domain: str,
 ) -> TargetThresholds:

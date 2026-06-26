@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 import json
-import sys
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+import sys
+from typing import Any
 
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher.persistence.safe_write import atomic_write_stream

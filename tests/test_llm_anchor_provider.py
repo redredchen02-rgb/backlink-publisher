@@ -8,14 +8,13 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
+from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.publishing.adapters.llm_anchor_provider import (
-    LLMAnchorRequest,
-    OpenAICompatibleProvider,
     _redact_for_log,
     _sanitize_input,
+    LLMAnchorRequest,
+    OpenAICompatibleProvider,
 )
-from backlink_publisher._util.errors import DependencyError
-
 
 # ── autouse safety net — never hit the real network ──────────────────────────
 

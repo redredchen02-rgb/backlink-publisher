@@ -30,32 +30,34 @@ Always runs headed (Medium detects headless aggressively).
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import os
+from pathlib import Path
 import platform
 import tempfile
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     DependencyError,
     ExternalServiceError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.config.loader import _config_dir
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
+
+from . import _medium_selectors as sel
 from .base import AdapterResult
 from .link_attr_verifier import required_link_urls, verify_link_attributes
 from .retry import retry_transient_call
-from . import _medium_selectors as sel
 
 try:
-    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 except ImportError:  # pragma: no cover — tested via DependencyError path
     sync_playwright = None  # type: ignore[assignment]
     PlaywrightTimeoutError = Exception  # type: ignore[assignment,misc]
@@ -88,7 +90,7 @@ def _json_log(**kwargs: Any) -> str:
 
 
 def _screenshot_path(config: Config, article_id: str) -> Path:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     shots_dir = config.screenshot_dir
     shots_dir.mkdir(parents=True, exist_ok=True)
     return shots_dir / f"{article_id}-{ts}.png"
@@ -183,7 +185,7 @@ def _refresh_cookies(context: Any) -> None:
         try:
             live_cookies = context.cookies("https://medium.com") or []
         except Exception as exc:
-            log.warning("Failed to extract live cookies from Playwright context: %s: %s" % (type(exc).__name__, exc))
+            log.warning("Failed to extract live cookies from Playwright context: %s: %s", type(exc).__name__, exc)
             live_cookies = []
         target.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(
@@ -288,7 +290,7 @@ class MediumBrowserAdapter(Publisher):
                         except ExternalServiceError:
                             raise
                         except Exception as exc:
-                            log.debug("Medium CAPTCHA probe failed during timeout: %s" % exc)
+                            log.debug("Medium CAPTCHA probe failed during timeout: %s", exc)
                         raise  # re-raise PlaywrightTimeoutError for retry_transient_call
 
                     # Plan 2026-05-19-005 Unit 1: detect login redirect;
@@ -349,7 +351,8 @@ class MediumBrowserAdapter(Publisher):
                         except Exception as exc:
                             log.warn(
                                 "Failed to click 'Save Draft' button during fallback: %s. "
-                                "Proceeding with standard wait." % exc
+                                "Proceeding with standard wait.",
+                                exc,
                             )
                             page.wait_for_timeout(_PUBLISH_SETTLE_MS)
 
@@ -443,4 +446,4 @@ def _save_screenshot(page: Any, config: Config, article_id: str) -> None:
         page.screenshot(path=str(shot_path))
         log.error("screenshot", level="ERROR", screenshot=str(shot_path))
     except Exception as exc:
-        log.debug("Failed to capture diagnostic screenshot: %s" % exc)
+        log.debug("Failed to capture diagnostic screenshot: %s", exc)

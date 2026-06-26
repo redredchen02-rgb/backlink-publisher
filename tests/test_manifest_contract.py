@@ -34,17 +34,17 @@ from pathlib import Path
 
 import pytest
 
-import backlink_publisher.publishing.adapters as _production  # noqa: F401
 from backlink_publisher.publishing._manifest_types import (
     _BIND_BACKEND_VALUES,
     _VISIBILITY_VALUES,
     BindDescriptor,
 )
+import backlink_publisher.publishing.adapters as _production  # noqa: F401
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _REGISTRY,
     bind_descriptors,
     legacy_platforms,
+    Publisher,
     registered_platforms,
     visibility,
 )

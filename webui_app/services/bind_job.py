@@ -12,19 +12,18 @@ Public API:
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from datetime import datetime, UTC
 import json
 import os
 import subprocess
 import sys
 import threading
-import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
+import uuid
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.cli._bind.channels import CHANNELS
-
 
 BIND_ERROR_MESSAGES: dict[str, str] = {
     "bound_predicate_timeout": "登录超时，请在 5 分钟内完成浏览器登录后重试",
@@ -116,7 +115,7 @@ class BindJobRegistry:
                 id=job_id,
                 channel=channel,
                 status="running",
-                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                started_at=datetime.now(UTC).isoformat(timespec="seconds"),
                 proc=proc,
             )
             self._jobs[job_id] = job

@@ -38,8 +38,8 @@ def test_no_root_level_empty_plans_dir():
     """根目錄 plans/ 不應存在（即使是空的）。"""
     forbidden = _WORKSPACE_ROOT / "plans"
     assert not forbidden.exists(), (
-        f"根目錄 plans/ 仍然存在！"
-        f"即使為空也不應存在（混淆 agent）。"
+        "根目錄 plans/ 仍然存在！"
+        "即使為空也不應存在（混淆 agent）。"
     )
 
 

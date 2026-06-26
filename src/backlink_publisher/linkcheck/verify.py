@@ -17,11 +17,11 @@ pass ``max_wait`` (default 30s) to allow polling with backoff.
 
 from __future__ import annotations
 
-import time
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
-from urllib.request import Request, urlopen
 import ssl
+import time
+from urllib.request import Request, urlopen
 
 from backlink_publisher._util.net_safety import _check_url_for_ssrf
 from backlink_publisher._util.url import normalize_url_for_fetch

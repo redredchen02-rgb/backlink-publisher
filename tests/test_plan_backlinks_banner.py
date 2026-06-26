@@ -20,7 +20,6 @@ import pytest
 
 from backlink_publisher.cli.plan_backlinks import main as plan_main
 
-
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
 

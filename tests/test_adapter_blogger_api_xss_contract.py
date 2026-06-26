@@ -26,7 +26,6 @@ import pytest
 from backlink_publisher.config import BloggerOAuthConfig, Config
 from backlink_publisher.publishing.adapters.blogger_api import BloggerAPIAdapter
 
-
 _CONFIG = Config(
     blogger_blog_ids={"https://test.example/": "fake-blog-id"},
     blogger_oauth=BloggerOAuthConfig("cid", "csecret"),

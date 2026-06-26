@@ -6,9 +6,10 @@ the sole write target — ``history_store`` is no longer written here.
 
 from __future__ import annotations
 
-import json
-import uuid
 from datetime import datetime
+import json
+from typing import Any
+import uuid
 
 from backlink_publisher.events.history_query import list_history as _list_history
 from backlink_publisher.events.publish_writer import write_publish_result
@@ -26,7 +27,7 @@ def _apply_history_cap(hist: list[dict]) -> list[dict]:
     return hist[:_HISTORY_MAX_ITEMS]
 
 
-def _parse_publish_results(jsonl_str):
+def _parse_publish_results(jsonl_str: Any) -> Any:
     results = []
     for line in (jsonl_str or '').strip().split('\n'):
         if line.strip():

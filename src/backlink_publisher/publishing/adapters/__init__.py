@@ -80,23 +80,24 @@ from .instant_web import (
     TelegraphCdpAdapter,  # noqa: F401
 )
 from .linkedin_api import LinkedInAPIAdapter
-from .livejournal_api import LivejournalAPIAdapter, _livejournal_credential_saver
+from .livejournal_api import _livejournal_credential_saver, LivejournalAPIAdapter
 from .mataroa_api import MataroaAPIAdapter
 from .medium_api import MediumAPIAdapter
 from .medium_brave import MediumBraveAdapter
 from .medium_browser import MediumBrowserAdapter
+from .notesio_api import NotesioFormPostAdapter
 from .notion_api import NotionAPIAdapter
 from .qiita_api import QiitaAPIAdapter
 from .rentry_api import RentryAPIAdapter
-from .zenn_github import ZennGitHubAdapter
 from .substack_api import SubstackAPIAdapter
 from .telegraph_api import TelegraphAPIAdapter
 from .tumblr_api import TumblrAPIAdapter
-from .notesio_api import NotesioFormPostAdapter
 from .txtfyi_api import TxtfyiFormPostAdapter
 from .velog_graphql import VelogGraphQLAdapter
 from .wordpresscom_api import WordpresscomAPIAdapter
 from .writeas_api import WriteasAPIAdapter
+from .zenn_github import ZennGitHubAdapter
+
 
 # Register the fallback chain per platform. Adding a new platform = one
 # more ``register(...)`` call — no dispatcher changes. Each registration
@@ -349,8 +350,8 @@ def verify_adapter_setup(
     config: Config,
     *,
     mode: Literal["offline", "live", "dry-run"] = "offline",
-    payload: Optional[dict[str, Any]] = None,
-) -> Optional[VerifyResult]:
+    payload: dict[str, Any] | None = None,
+) -> VerifyResult | None:
     if mode == "live":
         return _verify_live(platform, config)
     if mode == "dry-run":
@@ -363,7 +364,6 @@ from pathlib import Path as _Path
 
 from .catalog.catalog_schema import load_all_entries as _load_catalog_entries
 from .config_driven import ConfigDrivenAdapter as _ConfigDrivenAdapter
-
 
 #: Cache of catalog-derived slugs auto-registered this import.
 #: Tests verify registration via this set.

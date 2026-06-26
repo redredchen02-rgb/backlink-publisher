@@ -17,6 +17,8 @@ migrated here — it belongs to the dedicated "batch" page unit.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, request
 
 from ..sites_api import SitesAPI
@@ -27,25 +29,25 @@ _api = SitesAPI()
 
 
 @bp.get("/sites")
-def sites_list():
+def sites_list() -> Any:
     """All configured sites with live autopilot status."""
     return jsonify({"items": _api.list_sites()})
 
 
 @bp.get("/sites/widgets")
-def sites_widgets():
+def sites_widgets() -> Any:
     """Read-only side-panel data: plan-gap weekly summary + citation-share alert."""
     return jsonify(_api.widgets())
 
 
 @bp.get("/sites/form")
-def sites_form():
+def sites_form() -> Any:
     """Prefill payload for editing an existing site (``?domain=``), or null."""
     return jsonify({"form": _api.get_form(request.args.get("domain", ""))})
 
 
 @bp.post("/sites/save")
-def sites_save():
+def sites_save() -> Any:
     """Validate + derive + persist a three-URL site → refreshed list.
 
     Validation failure is a 422 problem+json carrying per-field ``errors[]``
@@ -71,7 +73,7 @@ def sites_save():
 
 
 @bp.post("/sites/autopilot")
-def sites_autopilot():
+def sites_autopilot() -> Any:
     """Enable/disable autopilot for a site → refreshed list.
 
     Mirrors the legacy endpoint's guards (interval 3600…2592000; missing
@@ -100,7 +102,7 @@ def sites_autopilot():
 
 
 @bp.get("/sites/scrape-preview")
-def sites_scrape_preview():
+def sites_scrape_preview() -> Any:
     """Fetch title/description/h1 for a work URL (for the form's preview helper).
 
     Mirrors the legacy semantics: a fetch/parse failure is a 200 with

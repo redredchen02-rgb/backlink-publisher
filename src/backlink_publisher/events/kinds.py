@@ -271,7 +271,7 @@ Outcome = "str | _Outcome"
 
 #: Known ``(source_record_type, status) -> outcome`` classifications.
 #: A status absent from a source's map resolves to ``SOURCE_DEFAULT[source]``.
-STATUS_MAP: Final[dict[str, dict[str, "str | _Outcome"]]] = {
+STATUS_MAP: Final[dict[str, dict[str, str | _Outcome]]] = {
     # Checkpoint is the authoritative publish-outcome source: an unrecognized
     # status is genuine drift (the P0 class) -> default QUARANTINE.
     "checkpoint": {
@@ -302,14 +302,14 @@ STATUS_MAP: Final[dict[str, dict[str, "str | _Outcome"]]] = {
 #: Per-source outcome for a status absent from ``STATUS_MAP[source]``.
 #: Checkpoint defaults to QUARANTINE (drift is real); history/drafts default to
 #: NO_EMIT (they are catch-all suppressors for non-owned statuses).
-SOURCE_DEFAULT: Final[dict[str, "str | _Outcome"]] = {
+SOURCE_DEFAULT: Final[dict[str, str | _Outcome]] = {
     "checkpoint": QUARANTINE,
     "history": NO_EMIT,
     "drafts": NO_EMIT,
 }
 
 
-def classify(source_type: str, status: str) -> "str | _Outcome":
+def classify(source_type: str, status: str) -> str | _Outcome:
     """Return the classification outcome for ``(source_type, status)``.
 
     Returns either a kind string (one of ``KINDS``) or one of the sentinels

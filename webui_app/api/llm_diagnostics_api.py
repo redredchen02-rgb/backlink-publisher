@@ -22,16 +22,21 @@ transport concerns — it never touches ``flask.request`` and never aborts.
 
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+import json
+from typing import Any
 
 import requests
 
 from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.llm.http_guard import (
-    LLM_MAX_RESPONSE_BYTES as _LLM_TEST_MAX_BYTES,
     guard_llm_endpoint as _guard_llm_endpoint,
+)
+from backlink_publisher.llm.http_guard import (
+    LLM_MAX_RESPONSE_BYTES as _LLM_TEST_MAX_BYTES,
+)
+from backlink_publisher.llm.http_guard import (
     safe_post_json as _safe_post_json,
 )
 
@@ -47,7 +52,7 @@ class DiagnosticResult:
     http_status: int = 200
 
 
-def _safe_get_json(url: str, headers: dict, timeout: int = 10):
+def _safe_get_json(url: str, headers: dict, timeout: int = 10) -> Any:
     """Bounded GET with content-type + size guards. Returns ``(status, json)`` or
     raises ValueError.
 

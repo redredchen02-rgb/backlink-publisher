@@ -15,9 +15,9 @@ import pytest
 from backlink_publisher.comment_outreach import schema
 from backlink_publisher.comment_outreach.score import (
     ACCEPT_THRESHOLD,
-    SOCIAL_PLATFORMS,
     qualify_targets,
     score_target,
+    SOCIAL_PLATFORMS,
 )
 
 

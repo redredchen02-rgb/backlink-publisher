@@ -10,7 +10,7 @@ from urllib.parse import unquote
 import pytest
 from werkzeug.datastructures import MultiDict
 
-from webui_store import history_store, drafts_store
+from webui_store import drafts_store, history_store
 
 
 @pytest.fixture

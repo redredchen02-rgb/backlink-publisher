@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 __tier__ = "unit"
-import subprocess
 from pathlib import Path
-
+import subprocess
 
 from backlink_publisher.phase0.worktree import discover_worktree_heads
 

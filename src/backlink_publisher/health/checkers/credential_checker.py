@@ -12,6 +12,8 @@ class CredentialPresenceChecker(HealthChecker):
         from backlink_publisher.config import load_config
         from backlink_publisher.publishing.registry import (
             _REGISTRY as PLATFORM_REGISTRY,
+        )
+        from backlink_publisher.publishing.registry import (
             registered_platforms,
         )
 

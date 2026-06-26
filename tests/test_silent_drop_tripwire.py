@@ -9,9 +9,9 @@ answerable without grepping every error line.
 from __future__ import annotations
 
 __tier__ = "unit"
+from contextlib import redirect_stdout
 import io
 import json
-from contextlib import redirect_stdout
 from typing import Any
 
 import pytest

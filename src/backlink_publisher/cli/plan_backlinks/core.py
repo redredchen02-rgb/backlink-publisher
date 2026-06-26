@@ -13,53 +13,54 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from ... import config_echo
-from ...content import fetch as content_fetch
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before argparse
-from backlink_publisher.publishing.registry import registered_platforms
-from backlink_publisher.config import load_config
 from backlink_publisher._util.errors import emit_envelope_and_exit, emit_error
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import plan_logger
 from backlink_publisher._util.url import canonicalize_url
+from backlink_publisher.config import load_config
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before argparse
+from backlink_publisher.publishing.registry import registered_platforms
 
-# Re-export sub-module symbols so __init__.py and sibling modules
-# (._zh_short, ._work_themed) find them at their old import paths.
-from ._links import (                               # noqa: F401
-    _ContentGateRowFailure,
-    _ROW_REQUIRED_KINDS,
-    _SUPPORTING_POOL,
-    _SUPPORTING_URLS_FOR_PREFETCH,
-    _TARGET_PADDED_LINK_COUNT,
-    _build_links,
-    _build_link_density_paragraph,
-    _collect_candidate_urls_for_row,
-)
-from ._templates import (                           # noqa: F401
-    _TEMPLATES,
-    _TDK_TITLE_TMPL,
-    _domain_label_of,
-)
-from ._banners import (                             # noqa: F401
+from ... import config_echo
+from ...content import fetch as content_fetch
+from ._banners import (  # noqa: F401
     _build_banner_runtime,
     _generate_banner_for_payload,
-)
-from ._payload import (                             # noqa: F401
-    ARTICLE_LENGTH_WORDS,
-    _generate_payload,
-    _resolve_article_anchors,
-    dofollow_tier_metadata,
 )
 
 # Re-export engine symbols for backward compat (tests + __init__.py import
 # _dispatch_row / _cell_gate_drop from here).
-from ._engine import (                              # noqa: F401
-    PlanOutcome,
+from ._engine import (  # noqa: F401
     _cell_gate_drop,
     _dispatch_row,
     _emit_link_count_recon,
     _scheduler_enabled_for,
     plan_rows,
+    PlanOutcome,
+)
+
+# Re-export sub-module symbols so __init__.py and sibling modules
+# (._zh_short, ._work_themed) find them at their old import paths.
+from ._links import (  # noqa: F401
+    _build_link_density_paragraph,
+    _build_links,
+    _collect_candidate_urls_for_row,
+    _ContentGateRowFailure,
+    _ROW_REQUIRED_KINDS,
+    _SUPPORTING_POOL,
+    _SUPPORTING_URLS_FOR_PREFETCH,
+    _TARGET_PADDED_LINK_COUNT,
+)
+from ._payload import (  # noqa: F401
+    _generate_payload,
+    _resolve_article_anchors,
+    ARTICLE_LENGTH_WORDS,
+    dofollow_tier_metadata,
+)
+from ._templates import (  # noqa: F401
+    _domain_label_of,
+    _TDK_TITLE_TMPL,
+    _TEMPLATES,
 )
 
 

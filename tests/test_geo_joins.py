@@ -14,10 +14,9 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
+from backlink_publisher.geo.engines import ProbeResult
 from backlink_publisher.geo.joins import build_brand_aliases, build_published_article_set
 from backlink_publisher.geo.verdict import classify_verdict
-from backlink_publisher.geo.engines import ProbeResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers: minimal fake store

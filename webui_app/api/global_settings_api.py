@@ -21,8 +21,8 @@ transport concerns — it never touches ``flask.request`` and never aborts.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from backlink_publisher.config import load_config, save_config
 

@@ -11,14 +11,15 @@ throttle metadata, etc.).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import Any, TYPE_CHECKING
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.config import Config
 
 from .registry import _REGISTRY
 
@@ -36,7 +37,7 @@ def _emit_degraded(platform: str, *, failed_adapter: str, to_adapter: str) -> No
     breaker stays per-platform; option A).
     """
     try:
-        from .reliability.events import Outcome, emit_attempt
+        from .reliability.events import emit_attempt, Outcome
 
         emit_attempt(
             platform,
@@ -101,7 +102,7 @@ def dispatch(
 
     # Local import: reliability imports adapters, so importing transient_policy
     # at module level would re-enter this package mid-init.
-    from .reliability.transient_policy import TransientDecision, classify_transient
+    from .reliability.transient_policy import classify_transient, TransientDecision
 
     last_dep_error: DependencyError | None = None
     # A prior adapter's transient error, awaiting a fall-or-raise decision against

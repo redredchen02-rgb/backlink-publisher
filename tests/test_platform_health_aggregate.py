@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from backlink_publisher.health.aggregate import PlatformHealthRecord, build_platform_health, _redact
+from backlink_publisher.health.aggregate import _redact, build_platform_health, PlatformHealthRecord
 
 
 @pytest.fixture

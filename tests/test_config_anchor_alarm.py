@@ -4,16 +4,15 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
+from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher.anchor.metrics import (
     resolve_thresholds,
 )
 from backlink_publisher.config import (
+    _parse_anchor_alarm,
     AnchorAlarmConfig,
     AnchorAlarmOverride,
-    _parse_anchor_alarm,
 )
-from backlink_publisher._util.errors import InputValidationError
-
 
 # ── parsing ─────────────────────────────────────────────────────────────────
 

@@ -10,7 +10,6 @@ Assertions use list_history() (events.db query) instead of history_store.load().
 """
 from __future__ import annotations
 
-
 __tier__ = "unit"
 import pytest
 
@@ -159,7 +158,7 @@ class TestPushHistoryPerRow:
         assert item["error"] == "service error: 503 from medium"
 
     def test_truncates_to_max_items(self):
-        from webui_app.helpers.history import _push_history_per_row, _HISTORY_MAX_ITEMS
+        from webui_app.helpers.history import _HISTORY_MAX_ITEMS, _push_history_per_row
         new_rows = [{
             "status": "published",
             "title": "T",

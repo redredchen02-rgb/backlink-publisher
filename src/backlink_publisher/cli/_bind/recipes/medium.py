@@ -45,20 +45,19 @@ Decisions.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import os
+from pathlib import Path
 import re
 import tempfile
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from backlink_publisher.cli._bind.driver import IdentityMismatch
 from backlink_publisher.config.loader import _config_dir
 
 from . import ChannelRecipe
-
 
 _LOGIN_URL = "https://medium.com/m/signin"
 
@@ -316,7 +315,7 @@ def _write_meta_tentative(page: Any) -> None:
 
     payload = {
         "user_agent": ua,
-        "login_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "login_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "chromium_version": chromium_version,
     }
 

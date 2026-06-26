@@ -12,10 +12,10 @@ import pytest
 
 from backlink_publisher.publishing.browser_publish import RECIPES
 from backlink_publisher.publishing.browser_publish.recipes import (
-    devto as devto_recipe,
+    _devto_selectors as sel,
 )
 from backlink_publisher.publishing.browser_publish.recipes import (
-    _devto_selectors as sel,
+    devto as devto_recipe,
 )
 
 
@@ -107,11 +107,11 @@ class TestDevtoChain:
         # Plan 003 Phase 2 Unit 7 added DevtoAPIAdapter as primary;
         # BrowserPublishDispatcher remains as fallback (DependencyError path).
         import backlink_publisher.publishing.adapters  # noqa: F401
-        from backlink_publisher.publishing.registry import _REGISTRY
         from backlink_publisher.publishing.adapters.devto_api import DevtoAPIAdapter
         from backlink_publisher.publishing.browser_publish import (
             BrowserPublishDispatcher,
         )
+        from backlink_publisher.publishing.registry import _REGISTRY
 
         chain = _REGISTRY["devto"].publishers
         assert len(chain) == 2

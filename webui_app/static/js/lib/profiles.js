@@ -68,7 +68,7 @@ export function createConfigForm({ plansData = [], profiles = [] } = {}) {
         : document.querySelector('select[name="' + name + '"]');
       if (el) el.value = val;
     };
-    setVal('platform', p.platform || 'blogger');
+    setVal('platform', p.platform || 'medium');
     setVal('target_language', p.language || 'zh-CN');
     setVal('url_mode', p.url_mode || 'A');
     setVal('publish_mode', p.publish_mode || 'draft');
@@ -83,7 +83,7 @@ export function createConfigForm({ plansData = [], profiles = [] } = {}) {
       const el = document.querySelector('#batchForm select[name="' + name + '"]');
       if (el) el.value = val;
     };
-    setVal('platform', p.platform || 'blogger');
+    setVal('platform', p.platform || 'medium');
     setVal('language', p.language || 'zh-CN');
     setVal('url_mode', p.url_mode || 'A');
     setVal('publish_mode', p.publish_mode || 'draft');

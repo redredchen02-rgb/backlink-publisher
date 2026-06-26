@@ -30,7 +30,14 @@ effect of merely importing the package).
 """
 from __future__ import annotations
 
+import sys
 from typing import Any
+
+# ---- Platform compat: patch fcntl on Windows ----
+if sys.platform == "win32":
+    from backlink_publisher._compat import fcntl as _fcntl_shim
+
+    sys.modules["fcntl"] = _fcntl_shim
 
 from ._util.errors import (
     AntiBotChallengeError,

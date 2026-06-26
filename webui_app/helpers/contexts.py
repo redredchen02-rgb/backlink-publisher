@@ -7,6 +7,7 @@ All Flask-free helpers are in webui_app.services.settings_service (U4).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from flask import render_template
 
@@ -15,14 +16,17 @@ from backlink_publisher.config import (
     load_config,
 )
 from backlink_publisher.events.history_query import list_history as _list_history
-
 from webui_store import (
     drafts_store as _drafts_store,
+)
+from webui_store import (
     profiles_store as _profiles_store,
+)
+from webui_store import (
     queue_store as _queue_store,
 )
 
-from .security import _FLASK_PORT, _ensure_csrf_token, _oauth_callback_uri
+from ..services import settings_service
 from ._request_cache import _g_cache
 from .channel_probes import (
     _get_blogger_token_status,
@@ -30,12 +34,11 @@ from .channel_probes import (
     _get_velog_status,
     _image_gen_status,
 )
-from ..services import settings_service
-
+from .security import _ensure_csrf_token, _FLASK_PORT, _oauth_callback_uri
 
 # ── Thin wrappers with per-request caching ────────────────────────────────────
 
-def _llm_settings_file():
+def _llm_settings_file() -> Any:
     return settings_service.llm_settings_file()
 
 
@@ -59,19 +62,19 @@ def _persist_three_tier_config(main_url: str, category_url: str, work_url: str) 
     settings_service.persist_three_tier_config(main_url, category_url, work_url)
 
 
-def _load_incomplete_run():
+def _load_incomplete_run() -> Any:
     return settings_service.load_incomplete_run()
 
 
-def _token_paste_status(cfg, channel: str, load_fn, *, token_field: str = "token") -> dict:
+def _token_paste_status(cfg: Any, channel: str, load_fn: Any, *, token_field: str = "token") -> dict:
     return settings_service.token_paste_status(cfg, channel, load_fn, token_field=token_field)
 
 
-def _token_paste_status_notion(cfg, load_fn) -> dict:
+def _token_paste_status_notion(cfg: Any, load_fn: Any) -> dict:
     return settings_service.token_paste_status_notion(cfg, load_fn)
 
 
-def _token_paste_channels_from_registry(cfg) -> dict:
+def _token_paste_channels_from_registry(cfg: Any) -> dict:
     """Return status dicts for all registry platforms with ``backend="token-paste"``.
 
     Derives the token file path from ``BindDescriptor.storage_state_path``
@@ -85,12 +88,13 @@ def _token_paste_channels_from_registry(cfg) -> dict:
     so the template can render cards for any new platform without needing manual
     wiring in this file.
     """
+    import json as _json
+
     from backlink_publisher.publishing.registry import (
         bind_descriptors,
         dofollow_status,
         registered_platforms,
     )
-    import json as _json
 
     result: dict = {}
     config_dir = str(cfg.config_dir)
@@ -131,21 +135,20 @@ def _group_history(items: list[dict]) -> list[dict]:
 
 
 
-def _settings_context(flash=None):
-    """Build template context for the settings page."""
-    from flask import session as _flask_session
+def _load_settings_tokens(cfg: Any) -> dict[str, Any]:
+    """Load and mask credential tokens for the settings template context.
 
+    Extracted from _settings_context (148→split) to keep the main
+    context builder focused on assembly.
+    """
     from backlink_publisher.config import (
         load_devto_token,
         load_ghpages_token,
         load_medium_token,
         load_notion_token,
     )
-    from backlink_publisher.cli._bind.channels import CHANNELS
-    from webui_store.channel_status import list_all as _channel_list_all
-    from ..services.bind_job import BIND_ERROR_MESSAGES
+    from backlink_publisher.config.tokens import load_medium_integration_token as _load_it
 
-    cfg = _g_cache('config', load_config)
     token_data = load_blogger_token(cfg.blogger_token_path)
     medium_token_data = load_medium_token()
 
@@ -158,29 +161,41 @@ def _settings_context(flash=None):
 
     notion_status = _token_paste_status_notion(cfg, load_notion_token)
     devto_status = _token_paste_status(cfg, "devto", load_devto_token, token_field="api_key")
-    notion_config_summary: list[tuple[str, str]] = []
-    devto_config_summary: list[tuple[str, str]] = []
 
-    from backlink_publisher.config.tokens import load_medium_integration_token as _load_it
     _it_data = _load_it()
     _it_val = (_it_data or {}).get("integration_token", "").strip()
     token = _it_val or cfg.medium_integration_token or ""
     masked = ("*" * 8 + token[-4:]) if len(token) > 4 else ("*" * len(token))
 
-    all_targets = sorted(
-        set(cfg.blogger_blog_ids.keys()) | set(cfg.target_anchor_keywords.keys())
-    )
+    return {
+        "token_data": token_data,
+        "medium_token_data": medium_token_data,
+        "token": token,
+        "masked": masked,
+        "ghpages_status": ghpages_status,
+        "ghpages_config_summary": ghpages_config_summary,
+        "notion_status": notion_status,
+        "notion_config_summary": [],
+        "devto_status": devto_status,
+        "devto_config_summary": [],
+    }
 
-    try:
-        from ..medium_liveness import medium_liveness_check
-        medium_liveness_check()
-    except Exception:  # noqa: BLE001 — Settings render must not depend on probe
-        pass
 
+def _load_settings_channel_info(cfg: Any) -> dict[str, Any]:
+    """Load channel status, probes and partitioning for the settings template.
+
+    Extracted from _settings_context to isolate the probe-heavy section.
+    Each probe is wrapped in try/except so render never 500s.
+    """
+    from flask import session as _flask_session
+
+    from webui_store.channel_status import list_all as _channel_list_all
+
+    channel_statuses: dict[str, Any] = {}
     try:
         channel_statuses = _channel_list_all()
     except Exception:
-        channel_statuses = {}
+        pass
 
     try:
         from webui_store.channel_status import credential_age_days as _cred_age
@@ -189,22 +204,20 @@ def _settings_context(flash=None):
         channel_age_days = {}
 
     try:
-        csrf_token = _ensure_csrf_token()
+        from ..medium_liveness import medium_liveness_check
+        medium_liveness_check()
     except Exception:
-        csrf_token = ""
+        pass
 
     velog_status = _get_velog_status()
+    all_targets = sorted(
+        set(cfg.blogger_blog_ids.keys()) | set(cfg.target_anchor_keywords.keys())
+    )
 
+    # Dashboard channels via registry
     try:
-        # Plan 2026-05-25-002 Unit 4a — use ``active_platforms()`` from
-        # the registry; this composes ``registered_platforms()`` with the
-        # manifest ``visibility`` filter, so the dashboard card list now
-        # automatically excludes any future ``visibility='hidden'`` or
-        # ``visibility='retired'`` channel without needing to touch this
-        # helper. ``HIDDEN_FROM_UI`` (Unit 2a PEP 562 alias) is still the
-        # legacy fallback path but redundant once we read from
-        # ``active_platforms()`` directly.
         from backlink_publisher.publishing.registry import active_platforms
+
         from ..binding_status import get_channel_status
         dashboard_channels = [
             (name, get_channel_status(name, cfg))
@@ -213,19 +226,12 @@ def _settings_context(flash=None):
     except Exception:
         dashboard_channels = []
 
-    # Plan 2026-06-05-007 — partition the overview channels by connection state
-    # into a main area (usable: bound + anon + needs-reconnect) and a folded
-    # extension area (never-connected). Merges the channel_status lifecycle
-    # (expired / identity_mismatch, browser channels only) so failed bindings
-    # stay visible in main. Rendering must never fail because partitioning
-    # failed: fall back to None (template renders no partition).
+    # Channel partition with verify-health overlay
     try:
         from .channel_tiers import (
             merge_verify_health,
             partition_channels_by_connection,
         )
-        # Plan 2026-06-05-008: overlay live-verify credential expiry so an
-        # expired API/OAuth token surfaces as needs-reconnect, not "healthy".
         try:
             from webui_store import verify_health
             _statuses = merge_verify_health(
@@ -239,21 +245,57 @@ def _settings_context(flash=None):
     except Exception:
         dashboard_partition = None
 
+    return {
+        "channel_statuses": channel_statuses,
+        "channel_age_days": channel_age_days,
+        "velog_status": velog_status,
+        "velog_cookies_path": velog_status.get('cookies_path', ''),
+        "all_targets": all_targets,
+        "dashboard_channels": dashboard_channels,
+        "dashboard_partition": dashboard_partition,
+        "medium_browser_status": _get_medium_browser_status(cfg, session=_flask_session),
+    }
+
+
+def _settings_context(flash: Any = None) -> dict[str, Any]:
+    """Build template context for the settings page.
+
+    Delegates to focused helpers for token loading and channel probing,
+    then assembles the final template context dict.
+    """
+    from backlink_publisher.cli._bind.channels import CHANNELS
+    from webui_store.channel_status import list_all as _channel_list_all
+
+    from ..services.bind_job import BIND_ERROR_MESSAGES
+
+    cfg = _g_cache('config', load_config)
+
+    tokens = _load_settings_tokens(cfg)
+    channel_info = _load_settings_channel_info(cfg)
+
+    try:
+        csrf_token = _ensure_csrf_token()
+    except Exception:
+        csrf_token = ""
+
+    try:
+        channel_statuses = _channel_list_all()
+    except Exception:
+        channel_statuses = {}
+
     return dict(
         flash=flash,
         active_page='settings',
         csrf_token=csrf_token,
-        dashboard_channels=dashboard_channels,
-        dashboard_partition=dashboard_partition,
-        medium_browser_status=_get_medium_browser_status(cfg, session=_flask_session),
-        blogger_token=bool(token_data),
+        blogger_token=bool(tokens["token_data"]),
         blogger_client_id=cfg.blogger_oauth.client_id if cfg.blogger_oauth else "",
         blogger_client_secret_set=bool(cfg.blogger_oauth and cfg.blogger_oauth.client_secret),
         blog_ids=cfg.blogger_blog_ids,
-        medium_token_set=bool(token),
-        medium_token_masked=masked if token else "",
-        medium_token_file_exists=bool(medium_token_data),
-        medium_oauth_configured=bool(medium_token_data and cfg.medium_oauth),
+        medium_token_set=bool(tokens["token"]),
+        medium_token_masked=tokens["masked"] if tokens["token"] else "",
+        medium_token_file_exists=bool(tokens["medium_token_data"]),
+        medium_oauth_configured=bool(tokens["medium_token_data"] and cfg.medium_oauth),
+        medium_browser_status=channel_info["medium_browser_status"],
         config_path=str(cfg.config_dir / "config.toml"),
         token_path=str(cfg.blogger_token_path),
         port=_FLASK_PORT,
@@ -263,20 +305,22 @@ def _settings_context(flash=None):
         schedule_settings=_load_schedule_settings(),
         llm_settings=_load_llm_settings(),
         image_gen_status=_image_gen_status(cfg),
-        all_targets=all_targets,
+        all_targets=channel_info["all_targets"],
         target_anchor_keywords=cfg.target_anchor_keywords,
         binding_channels=sorted(CHANNELS),
         channel_statuses=channel_statuses,
-        channel_age_days=channel_age_days,
+        channel_age_days=channel_info["channel_age_days"],
         bind_error_messages=BIND_ERROR_MESSAGES,
-        velog_status=velog_status,
-        velog_cookies_path=velog_status.get('cookies_path', ''),
-        ghpages_status=ghpages_status,
-        ghpages_config_summary=ghpages_config_summary,
-        notion_status=notion_status,
-        notion_config_summary=notion_config_summary,
-        devto_status=devto_status,
-        devto_config_summary=devto_config_summary,
+        velog_status=channel_info["velog_status"],
+        velog_cookies_path=channel_info["velog_cookies_path"],
+        ghpages_status=tokens["ghpages_status"],
+        ghpages_config_summary=tokens["ghpages_config_summary"],
+        notion_status=tokens["notion_status"],
+        notion_config_summary=tokens["notion_config_summary"],
+        devto_status=tokens["devto_status"],
+        devto_config_summary=tokens["devto_config_summary"],
+        dashboard_channels=channel_info["dashboard_channels"],
+        dashboard_partition=channel_info["dashboard_partition"],
         token_paste_registry_cards=_token_paste_channels_from_registry(cfg),
     )
 
@@ -288,7 +332,7 @@ def _draft_tab_extra() -> dict:
     }
 
 
-def _render(template_name: str, **kwargs):
+def _render(template_name: str, **kwargs: Any) -> Any:
     """Render a Jinja2 template, auto-injecting common context.
 
     Auto-injected context (when not provided by caller):

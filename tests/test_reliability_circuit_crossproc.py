@@ -21,10 +21,10 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 
 from backlink_publisher.publishing.reliability import circuit
 

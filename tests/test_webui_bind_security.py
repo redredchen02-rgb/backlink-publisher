@@ -19,13 +19,13 @@ Decisions for the threat model.
 from __future__ import annotations
 
 __tier__ = "unit"
-import pytest
 from flask import Flask, jsonify
+import pytest
 
 from webui_app.helpers.security import (
     _check_bind_origin_or_abort,
-    _refuse_when_allow_network,
     _FLASK_PORT,
+    _refuse_when_allow_network,
 )
 
 

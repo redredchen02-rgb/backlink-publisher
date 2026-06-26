@@ -9,33 +9,7 @@ from __future__ import annotations
 
 import datetime as _dt
 from pathlib import Path
-from typing import Literal, Optional, cast
-
-# ---------------------------------------------------------------------------
-# Re-export from sub-modules (backward compatibility)
-# ---------------------------------------------------------------------------
-from ._plan_check_schema import (
-    PlanClaimsFilenameDateMismatch,
-    PlanClaimsFrontmatterSchemaError,
-    PlanClaimsGlobUnsupported,
-    PlanClaimsMissingOnPostCutoff,
-    SCHEMA_VERSION,
-    _check_filename_date_lock,
-    _grandfathered,
-    _parse_frontmatter,
-    _read_plan_text,
-    _validate_claims_schema,
-    _validate_sha_format,
-)
-
-from ._plan_check_git import (
-    FetchOutcome,
-    _classify_fetch_stderr,
-    _fetch_head_age_seconds,
-    _maybe_fetch_origin_main,
-    _path_exists_on_main,
-    _sha_reachable_from_main,
-)
+from typing import cast, Literal
 
 from ._plan_check_format import (
     _build_json_payload,
@@ -43,7 +17,27 @@ from ._plan_check_format import (
     _emit_recon_line,
     _format_human_drift,
 )
+from ._plan_check_git import (
+    _maybe_fetch_origin_main,
+    _path_exists_on_main,
+    _sha_reachable_from_main,
+    FetchOutcome,
+)
 
+# ---------------------------------------------------------------------------
+# Re-export from sub-modules (backward compatibility)
+# ---------------------------------------------------------------------------
+from ._plan_check_schema import (
+    _check_filename_date_lock,
+    _grandfathered,
+    _parse_frontmatter,
+    _read_plan_text,
+    _validate_claims_schema,
+    PlanClaimsFilenameDateMismatch,
+    PlanClaimsFrontmatterSchemaError,
+    PlanClaimsGlobUnsupported,
+    PlanClaimsMissingOnPostCutoff,
+)
 
 # ---------------------------------------------------------------------------
 # Unit 3: CLI dispatch — argparse, output formatters, exit-code mapping
@@ -62,7 +56,7 @@ from ._plan_check_format import (
 # ---------------------------------------------------------------------------
 
 
-def _extract_plan_date(fm: dict) -> Optional[_dt.date]:
+def _extract_plan_date(fm: dict) -> _dt.date | None:
     """Pull the typed ``date`` field from parsed frontmatter; ``None`` if absent/bad type."""
     raw = fm.get("date")
     if isinstance(raw, _dt.datetime):
@@ -74,7 +68,7 @@ def _extract_plan_date(fm: dict) -> Optional[_dt.date]:
 
 def _emit_error_and_exit(
     plan_path: Path,
-    plan_date: Optional[_dt.date],
+    plan_date: _dt.date | None,
     exc: Exception,
     *,
     stderr_msg: str,
@@ -91,6 +85,7 @@ def _emit_error_and_exit(
     — the function does not return.
     """
     import sys
+
     from backlink_publisher._util.errors import emit_envelope_and_exit
 
     print(stderr_msg, file=sys.stderr, flush=True)
@@ -129,7 +124,7 @@ def _resolve_claims(claims: object) -> tuple[list[str], list[str]]:
     return paths_missing, shas_unreachable
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     """``plan-check`` CLI entry — validate plan-doc claims against ``origin/main``.
 
     Exit-code dispatch follows plan §D3: 0/2/7/8 (with 1 reserved for
@@ -142,9 +137,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     # Local import keeps the module import-cheap (UsageError isn't needed for
     # the schema/git tiers tested in Unit 1/2).
     from backlink_publisher._util.errors import (
-        UsageError,
         emit_envelope_and_exit,
         handle_error,
+        UsageError,
     )
     # _emit_error_and_exit uses emit_envelope_and_exit via its own local import;
     # it is still needed here for the drift phase below.
@@ -180,7 +175,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         return  # pragma: no cover — handle_error always exits
 
     # --- Phase 2: read + parse frontmatter ---------------------------------
-    plan_date: Optional[_dt.date] = None
+    plan_date: _dt.date | None = None
     try:
         text = _read_plan_text(plan_path)
         fm = _parse_frontmatter(text)

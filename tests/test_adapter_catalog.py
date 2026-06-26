@@ -6,7 +6,6 @@ and directory loading semantics.
 
 from __future__ import annotations
 
-
 __tier__ = "integration"
 from pathlib import Path
 from textwrap import dedent
@@ -15,19 +14,18 @@ import pytest
 import yaml
 
 from backlink_publisher.publishing.adapters.catalog.catalog_schema import (
-    VALID_AUTH_TYPES,
-    VALID_DOFOLLOW,
-    VALID_PERMALINK_VIA,
-    VALID_REFERRAL,
-    VALID_TOP_LEVEL_KEYS,
     CatalogValidationError,
     discover_catalog_dirs,
     load_all_entries,
     load_catalog_yaml,
     load_entries_from_dir,
+    VALID_AUTH_TYPES,
+    VALID_DOFOLLOW,
+    VALID_PERMALINK_VIA,
+    VALID_REFERRAL,
+    VALID_TOP_LEVEL_KEYS,
     validate_entry,
 )
-
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
 

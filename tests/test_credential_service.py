@@ -15,7 +15,6 @@ from unittest.mock import patch
 import pytest
 
 import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
-
 from webui_app.services import credential_service
 from webui_app.services.credential_service import (
     ChannelNotConfigured,

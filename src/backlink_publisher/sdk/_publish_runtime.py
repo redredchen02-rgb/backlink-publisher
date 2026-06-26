@@ -35,7 +35,6 @@ from typing import Any
 
 from backlink_publisher._util.logger import publish_logger
 
-
 # Module-level lock. Serializes ALL in-process publish runs: the scheduler
 # autopilot job and the /api/v1 publish handler both go through publish()/
 # publish_seed() and therefore share this one lock — they cannot interleave (no
@@ -153,11 +152,12 @@ def _validate_rows(rows: list[dict[str, Any]], platform: str | None) -> Any:
     ``_prepare_publish_rows``: ``reject_unsupported_platform`` then
     ``validate_publish_payload``.
     """
-    from .api import PipeResult
     from backlink_publisher.schema import (
         reject_unsupported_platform,
         validate_publish_payload,
     )
+
+    from .api import PipeResult
 
     for idx, row in enumerate(rows, start=1):
         plat = platform or row.get("platform", "")
@@ -205,10 +205,11 @@ def _verify_setup(platforms: set[str], config: Any) -> Any:
     ``@patch(...publish_backlinks.verify_adapter_setup)`` seam used by the CLI
     golden fires for the in-process path too.
     """
-    from .api import PipeResult
     from backlink_publisher._util.errors import DependencyError
     from backlink_publisher.cli.publish_backlinks import verify_adapter_setup
     from backlink_publisher.schema import supported_platforms
+
+    from .api import PipeResult
 
     supported = supported_platforms()
     for plat in sorted(platforms):
@@ -237,9 +238,10 @@ def _build_pipe_result(outcome: Any, *, dry_run: bool) -> Any:
       exit-code → error_class mapping mirrors ``emit_error`` /
       ``emit_envelope_and_exit`` (which ``_invoke_capture`` re-parses from stderr).
     """
-    from .api import PipeResult
     from backlink_publisher._util.jsonl import write_jsonl
     from backlink_publisher.cli._publish_helpers import _decide_publish_exit
+
+    from .api import PipeResult
 
     state = outcome.state
 
@@ -309,17 +311,18 @@ def publish_inprocess(
     loop, then the outcome is mapped to a ``PipeResult``. The process lock + lease
     bracket the dispatch so concurrent in-process callers serialize.
     """
-    from .api import PipeResult
-    from backlink_publisher.config import load_config
     from backlink_publisher.cli._publish_helpers import (
         _load_throttle_config,
         _partition_paused,
     )
     from backlink_publisher.cli.publish_backlinks._engine import (
-        PublishOptions,
         publish_rows,
+        PublishOptions,
     )
+    from backlink_publisher.config import load_config
     from backlink_publisher.publishing.reliability.policy import _is_browser_tier
+
+    from .api import PipeResult
 
     # Strict JSONL parse — empty / array / malformed input returns the same
     # exit-2 InputValidationError the CLI's read_jsonl would (parity, not the

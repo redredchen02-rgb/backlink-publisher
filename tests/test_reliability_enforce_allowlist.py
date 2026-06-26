@@ -16,9 +16,9 @@ import pytest
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.reliability.circuit import trip
 from backlink_publisher.publishing.reliability.policy import (
+    enforce_allowlist,
     ENFORCE_ALLOWLIST_ENV,
     POLICY_ENV,
-    enforce_allowlist,
     publish_with_policy,
 )
 

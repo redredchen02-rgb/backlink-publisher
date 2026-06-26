@@ -98,8 +98,8 @@ class TestTokenPasteChannelsFromRegistry:
 
     @pytest.mark.usefixtures("_registry_snapshot")
     def test_new_platform_appears_after_register(self, tmp_path) -> None:
-        from backlink_publisher.publishing.registry import register
         from backlink_publisher.publishing._manifest_types import BindDescriptor
+        from backlink_publisher.publishing.registry import register
 
         register(
             "fakepaste",
@@ -118,8 +118,8 @@ class TestTokenPasteChannelsFromRegistry:
 
     @pytest.mark.usefixtures("_registry_snapshot")
     def test_unbound_when_token_file_absent(self, tmp_path) -> None:
-        from backlink_publisher.publishing.registry import register
         from backlink_publisher.publishing._manifest_types import BindDescriptor
+        from backlink_publisher.publishing.registry import register
 
         register(
             "fakepaste2",
@@ -139,8 +139,8 @@ class TestTokenPasteChannelsFromRegistry:
 
     @pytest.mark.usefixtures("_registry_snapshot")
     def test_bound_when_token_file_present(self, tmp_path) -> None:
-        from backlink_publisher.publishing.registry import register
         from backlink_publisher.publishing._manifest_types import BindDescriptor
+        from backlink_publisher.publishing.registry import register
 
         token_file = tmp_path / "fakepaste3-token.json"
         token_file.write_text(json.dumps({"token": "abcdefghijk"}), encoding="utf-8")
@@ -163,8 +163,8 @@ class TestTokenPasteChannelsFromRegistry:
 
     @pytest.mark.usefixtures("_registry_snapshot")
     def test_custom_token_field_from_extras(self, tmp_path) -> None:
-        from backlink_publisher.publishing.registry import register
         from backlink_publisher.publishing._manifest_types import BindDescriptor
+        from backlink_publisher.publishing.registry import register
 
         token_file = tmp_path / "fakepaste4-token.json"
         token_file.write_text(json.dumps({"api_key": "myapikey123456"}), encoding="utf-8")
@@ -187,8 +187,8 @@ class TestTokenPasteChannelsFromRegistry:
 
     @pytest.mark.usefixtures("_registry_snapshot")
     def test_cookie_backend_excluded(self, tmp_path) -> None:
-        from backlink_publisher.publishing.registry import register
         from backlink_publisher.publishing._manifest_types import BindDescriptor
+        from backlink_publisher.publishing.registry import register
 
         register(
             "cookie_chan",
@@ -208,8 +208,8 @@ class TestTokenPasteChannelsFromRegistry:
     @pytest.mark.usefixtures("_registry_snapshot")
     def test_requires_database_id_excluded(self, tmp_path) -> None:
         """Notion-style two-field platforms excluded (handled by explicit wiring)."""
-        from backlink_publisher.publishing.registry import register
         from backlink_publisher.publishing._manifest_types import BindDescriptor
+        from backlink_publisher.publishing.registry import register
 
         register(
             "two_field",
@@ -229,7 +229,6 @@ class TestTokenPasteChannelsFromRegistry:
 
     def test_production_hackmd_included(self, tmp_path) -> None:
         import backlink_publisher.publishing.adapters  # noqa: F401
-
         from webui_app.helpers.contexts import _token_paste_channels_from_registry
 
         result = _token_paste_channels_from_registry(self._mock_cfg(tmp_path))
@@ -238,7 +237,6 @@ class TestTokenPasteChannelsFromRegistry:
     def test_production_velog_excluded(self, tmp_path) -> None:
         """Velog uses backend=cookie — must NOT appear in token-paste cards."""
         import backlink_publisher.publishing.adapters  # noqa: F401
-
         from webui_app.helpers.contexts import _token_paste_channels_from_registry
 
         result = _token_paste_channels_from_registry(self._mock_cfg(tmp_path))
@@ -247,7 +245,6 @@ class TestTokenPasteChannelsFromRegistry:
     def test_production_notion_excluded(self, tmp_path) -> None:
         """Notion has requires_database_id — excluded from generic registry path."""
         import backlink_publisher.publishing.adapters  # noqa: F401
-
         from webui_app.helpers.contexts import _token_paste_channels_from_registry
 
         result = _token_paste_channels_from_registry(self._mock_cfg(tmp_path))

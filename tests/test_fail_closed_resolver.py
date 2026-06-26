@@ -13,12 +13,10 @@ from __future__ import annotations
 __tier__ = "unit"
 import os
 
+from conftest import SANDBOX_SENTINEL  # type: ignore[import]
 import pytest
 
 from backlink_publisher.config.loader import _cache_dir, _config_dir
-
-from conftest import SANDBOX_SENTINEL  # type: ignore[import]
-
 
 # ── Happy paths ──────────────────────────────────────────────────────────────
 

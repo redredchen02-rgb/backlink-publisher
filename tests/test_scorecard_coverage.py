@@ -6,8 +6,8 @@ so "covered" (live|failed) and "uncovered" (stale|unverified) match the scorecar
 
 __tier__ = "integration"
 
-import json
 from datetime import datetime, timedelta
+import json
 
 import pytest
 

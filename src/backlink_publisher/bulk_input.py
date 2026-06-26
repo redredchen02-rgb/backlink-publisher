@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+import xml.etree.ElementTree as ET
 
 
 def derive_main_domain(url: str) -> str:

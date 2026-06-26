@@ -12,10 +12,10 @@ from __future__ import annotations
 import os
 import re
 import secrets
+from typing import Any
 from urllib.parse import urlparse
 
 from flask import abort, request, session
-
 
 _FLASK_PORT = int(os.environ.get('PORT', 8888))
 _RUN_ID_RE = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{8}$")
@@ -28,7 +28,7 @@ _TRUTHY_BYPASS = {"1", "true", "yes"}
 _FLASH_MSG_MAX_LEN = 200
 
 
-def _check_localhost():
+def _check_localhost() -> Any:
     if request.remote_addr not in _LOOPBACK_HOSTS:
         abort(403)
 
@@ -42,6 +42,7 @@ def _safe_flash_redirect(path: str, *, flash_type: str = "", msg: str = "",
     ``_FLASH_MSG_MAX_LEN``; URL-quotes the result.
     """
     from urllib.parse import quote
+
     from flask import redirect as _flask_redirect
 
     safe_msg = msg.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
@@ -56,7 +57,7 @@ def _safe_flash_redirect(path: str, *, flash_type: str = "", msg: str = "",
     return _flask_redirect(path + qs + frag)
 
 
-def _safe_referrer_redirect(default: str = '/'):
+def _safe_referrer_redirect(default: str = '/') -> Any:
     """Same-origin guard for ``redirect(request.referrer or '/')``.
 
     Plan 2026-05-21-006 Unit 3.3 / F8: checks that the referrer's
@@ -76,12 +77,12 @@ def _safe_referrer_redirect(default: str = '/'):
     return _flask_redirect(referrer)
 
 
-def _validate_webui_run_id(run_id):
+def _validate_webui_run_id(run_id: Any) -> Any:
     if not run_id or not _RUN_ID_RE.match(run_id):
         abort(400)
 
 
-def _oauth_callback_uri():
+def _oauth_callback_uri() -> Any:
     return f'http://localhost:{_FLASK_PORT}/settings/blogger/oauth-callback'
 
 
@@ -170,7 +171,7 @@ def _check_bind_origin_or_abort() -> None:
 def _refuse_when_allow_network() -> None:
     """Hard-disable bind endpoints when BACKLINK_PUBLISHER_ALLOW_NETWORK=1."""
     if os.environ.get("BACKLINK_PUBLISHER_ALLOW_NETWORK") == "1":
-        from flask import make_response, jsonify
+        from flask import jsonify, make_response
         response = make_response(
             jsonify(
                 error="bind_disabled_under_allow_network",

@@ -17,6 +17,8 @@ at runtime by the app-level ``_global_origin_guard`` — proven by
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, request
 
 from ..blogger_settings_api import BloggerSettingsAPI
@@ -25,7 +27,7 @@ from . import bp
 from .errors import ApiProblem
 
 
-def _render(result):
+def _render(result: Any) -> Any:
     if result.error_class == "invalid_request":
         raise ApiProblem(422, "OAuth request rejected", detail=result.message,
                          error_class="invalid_request")
@@ -36,7 +38,7 @@ def _render(result):
 
 
 @bp.post("/settings/blogger-oauth")
-def settings_save_blogger_oauth():
+def settings_save_blogger_oauth() -> Any:
     """Save Blogger Client ID / Secret. Blank secret preserves the stored one."""
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -46,13 +48,13 @@ def settings_save_blogger_oauth():
 
 
 @bp.post("/settings/medium-oauth/clear")
-def settings_clear_medium_oauth():
+def settings_clear_medium_oauth() -> Any:
     """Revoke a stored Medium token (delete medium-token.json)."""
     return _render(OAuthAPI().clear_medium())
 
 
 @bp.get("/settings/blogger/status")
-def settings_blogger_status():
+def settings_blogger_status() -> Any:
     """Read-only Blogger card state: authorization + saved OAuth client + the
     callback URI to register in Google Cloud Console. No secrets (only a
     ``client_secret_set`` boolean), so no inline guard."""
@@ -60,7 +62,7 @@ def settings_blogger_status():
 
 
 @bp.post("/settings/blogger/revoke")
-def settings_revoke_blogger():
+def settings_revoke_blogger() -> Any:
     """Revoke Blogger authorization (delete the stored token file). Same posture as
     the other OAuth writes: no inline guard (config/file op, not a 0600 secret
     write), Origin-protected at runtime by the app-level guard."""
@@ -68,13 +70,13 @@ def settings_revoke_blogger():
 
 
 @bp.get("/settings/blogger/blog-ids")
-def settings_get_blog_ids():
+def settings_get_blog_ids() -> Any:
     """The current domain → Blogger Blog ID routing map. Read-only, no secrets."""
     return jsonify({"blog_ids": BloggerSettingsAPI().get_blog_ids()})
 
 
 @bp.post("/settings/blogger/blog-ids")
-def settings_save_blog_ids():
+def settings_save_blog_ids() -> Any:
     """Save the domain → Blogger Blog ID mapping (config write, same no-inline-guard
     posture as the other blogger writes). Body: ``{"blog_ids": {domain: id}}``."""
     data = request.get_json(silent=True)

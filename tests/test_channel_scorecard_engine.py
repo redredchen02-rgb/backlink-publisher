@@ -4,8 +4,8 @@ Real registry values used: medium=dofollow, blogger=dofollow, devto=nofollow(hig
 """
 __tier__ = "integration"
 
-import json
 from datetime import datetime, timedelta
+import json
 
 import pytest
 

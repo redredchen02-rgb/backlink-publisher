@@ -21,13 +21,13 @@ real store left byte-identical. Paths resolve through ``config._config_dir`` so
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import hashlib
 import json
+from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from backlink_publisher._util.url import canonicalize_url

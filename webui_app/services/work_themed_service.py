@@ -7,6 +7,7 @@ from routes/sites.py.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 # In-memory run registry — maps run_id → {main_url, summary, rows}.
 # Evicted FIFO when the cap is exceeded.  Lives here (not in cli_runner) so
@@ -36,7 +37,7 @@ def parse_lines(raw: str) -> list[str]:
     return [line.strip() for line in raw.splitlines() if line.strip()]
 
 
-def parse_plan_output(stdout: str, entry) -> list[dict]:
+def parse_plan_output(stdout: str, entry: Any) -> list[dict]:
     """Parse plan-backlinks JSONL stdout into per-work-URL success rows.
 
     *entry* must expose ``entry.main_url`` (ThreeUrlConfig or similar).

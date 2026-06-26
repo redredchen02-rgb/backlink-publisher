@@ -24,17 +24,17 @@ entire batch on a recoverable diagnostic-only file.
 
 from __future__ import annotations
 
-import json
-import re
-import threading
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
+import json
 from pathlib import Path
+import re
+import threading
 
-from backlink_publisher.config import _cache_dir
 from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.config import _cache_dir
 
 # Schema version — bump when ProfileEntry shape changes incompatibly.
 _PROFILE_SCHEMA_VERSION = 1
@@ -196,7 +196,7 @@ def load_profile(main_domain: str) -> ProfileState:
     )
 
 
-def iter_profiles() -> "Iterator[ProfileState]":
+def iter_profiles() -> Iterator[ProfileState]:
     """Yield every on-disk anchor profile (one per site).
 
     There is no per-target index — profiles are keyed by the seed's
@@ -273,7 +273,7 @@ def record_article(main_domain: str, new_entries: list[ProfileEntry]) -> None:
 
 def now_iso() -> str:
     """Helper to produce ``ts`` values in the canonical form used by ``ProfileEntry``."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _trim_by_target(

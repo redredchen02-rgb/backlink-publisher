@@ -12,11 +12,11 @@ import pytest
 from backlink_publisher._util.errors import RegistryError
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _REGISTRY,
     _REJECTED_PLATFORMS,
     dofollow_rationale,
     dofollow_status,
+    Publisher,
     referral_value,
     register,
 )
@@ -105,7 +105,7 @@ class TestDofollowFalseRequiresRationale:
     def test_dofollow_false_validation(self, rationale, ref_value, should_pass, description):
         """Parametrized test for dofollow=False validation requirements."""
         if should_pass:
-            register("test_platform", FakeAdapter, dofollow=False, 
+            register("test_platform", FakeAdapter, dofollow=False,
                     rationale=rationale, referral_value=ref_value)
             assert dofollow_status("test_platform") is False
             if rationale is not None:

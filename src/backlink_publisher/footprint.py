@@ -24,10 +24,11 @@ Pure functions, no I/O, no LLM. The CLI wrapper is in
 
 from __future__ import annotations
 
-import re
 from collections import Counter
+from collections.abc import Hashable
 from dataclasses import dataclass, field
-from typing import Hashable, TypeVar
+import re
+from typing import TypeVar
 
 # --- Gate contract constants ----------------------------------------------
 # Read by the regression gate (tests/test_footprint_regression.py) at import

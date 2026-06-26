@@ -14,14 +14,13 @@ import sys
 import pytest
 
 from backlink_publisher._util.recon import (
-    RECONLine,
-    ReconSchemaError,
     emit_recon,
     format_recon_line,
     iter_recon_lines,
     parse_recon_line,
+    RECONLine,
+    ReconSchemaError,
 )
-
 
 # ── format_recon_line: canonical shape ────────────────────────────────────────
 

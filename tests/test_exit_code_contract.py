@@ -24,15 +24,15 @@ from backlink_publisher._util.errors import (
     BannerUploadError,
     ContentRejectedError,
     DependencyError,
+    emit_error,
     ExternalServiceError,
+    handle_error,
+    handle_unexpected_error,
     InputValidationError,
     InternalError,
     PipelineError,
     RegistryError,
     UsageError,
-    emit_error,
-    handle_error,
-    handle_unexpected_error,
 )
 
 # (exception class, documented exit code) -- the authoritative 0-6 contract.

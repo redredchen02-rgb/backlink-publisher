@@ -10,10 +10,10 @@ import pytest
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.mataroa_api import (
-    MataroaAPIAdapter,
     _build_post_payload,
     _load_token,
     _required_headers,
+    MataroaAPIAdapter,
 )
 
 _PATCH_TARGET = "backlink_publisher.publishing.adapters.mataroa_api.http_post"

@@ -5,8 +5,8 @@ livejournal=nofollow(high), an unregistered platform → unknown.
 """
 __tier__ = "integration"
 
-import json
 from datetime import datetime, timedelta
+import json
 
 import pytest
 

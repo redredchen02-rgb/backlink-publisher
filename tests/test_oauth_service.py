@@ -6,6 +6,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
+
 import pytest
 
 from webui_app.services.oauth_service import (

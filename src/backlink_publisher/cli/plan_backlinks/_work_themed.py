@@ -6,21 +6,21 @@ import hashlib
 import re
 from typing import Any
 
-from backlink_publisher.anchor.profile import ProfileEntry
-from backlink_publisher.anchor import profile as anchor_profile
 from backlink_publisher._util import markdown as markdown_utils
-from backlink_publisher.content import scraper as work_scraper, themed_gen as work_themed_generator
-from backlink_publisher.config import ThreeUrlConfig
-from backlink_publisher._util.errors import ExternalServiceError, InputValidationError, emit_error
+from backlink_publisher._util.errors import emit_error, ExternalServiceError, InputValidationError
 from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.anchor import profile as anchor_profile
+from backlink_publisher.anchor.profile import ProfileEntry
+from backlink_publisher.config import ThreeUrlConfig
+from backlink_publisher.content import scraper as work_scraper
+from backlink_publisher.content import themed_gen as work_themed_generator
 
 from .core import (
     _domain_label_of,
+    _ROW_REQUIRED_KINDS,
     _SUPPORTING_POOL,
     _TARGET_PADDED_LINK_COUNT,
-    _ROW_REQUIRED_KINDS,
 )
-
 
 _KIND_REMAP_WORK_THEMED: dict[str, str] = {
     "main_domain": "main_domain",

@@ -16,7 +16,7 @@ import structlog
 
 # Reuse the sensitive-key set from PipelineLogger so both loggers redact
 # the same fields.
-from backlink_publisher._util.logger import _SENSITIVE_KEYS, _REDACTED
+from backlink_publisher._util.logger import _REDACTED, _SENSITIVE_KEYS
 
 
 def _redact_processor(

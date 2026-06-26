@@ -16,8 +16,8 @@ is inline-guarded like the medium / bind routes.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
+import re
 
 # Operator-facing messages per early-failure ``error_code`` (moved from the legacy
 # route). The default covers any code not enumerated here.

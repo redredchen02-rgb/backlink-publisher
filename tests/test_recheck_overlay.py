@@ -7,7 +7,7 @@ The end-to-end re-plan loop lives in ``test_recheck_overlay_replan_loop.py``.
 from __future__ import annotations
 
 __tier__ = "integration"
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
 import pytest
 
@@ -18,13 +18,13 @@ from backlink_publisher.events.kinds import LINK_RECHECKED
 from backlink_publisher.gap.engine import GapOptions, plan_gap
 from backlink_publisher.recheck import verdicts
 from backlink_publisher.recheck.overlay import (
-    DiscountResult,
-    TargetDiscount,
     apply_discounts,
     build_discount_map,
+    DiscountResult,
+    TargetDiscount,
 )
 
-NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 TARGET = "https://my.site/"
 CANON = canonicalize_url(TARGET)
 

@@ -17,23 +17,23 @@ from __future__ import annotations
 __tier__ = "integration"
 import hashlib
 import os
+from pathlib import Path
 import sqlite3
 import tempfile
-from pathlib import Path
 
-import pytest
-
+from conftest import (
+    _sandbox_config_dir as _SANDBOX_CONFIG_DIR,
+)
 
 # ---------------------------------------------------------------------------
 # Import helpers from conftest (tests/ is not a package — from conftest import)
 # ---------------------------------------------------------------------------
 from conftest import (
-    REAL_CONFIG_ROOT,
-    _sandbox_config_dir as _SANDBOX_CONFIG_DIR,
     check_protected_files,
+    REAL_CONFIG_ROOT,
     snapshot_protected_files,
 )
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # Helpers

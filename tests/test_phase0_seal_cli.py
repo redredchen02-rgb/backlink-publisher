@@ -4,9 +4,9 @@ Smoke: parser builds, all subcommands dispatch correctly. Unit 4 landed
 show/verify/reseal; verify-hook stub still returns EXIT_NOT_IMPLEMENTED.
 """
 from __future__ import annotations
+
 __tier__ = "unit"
 import pytest
-
 
 from backlink_publisher.cli import phase0_seal as CLI
 

@@ -26,7 +26,6 @@ import pytest
 
 from backlink_publisher.config import Config
 
-
 PAYLOAD = {
     "id": "tg-test-1",
     "title": "Telegraph 401 self-heal smoke",
@@ -258,8 +257,8 @@ def test_concurrent_bootstrap_creates_only_one_account(isolated_config_dir):
     os.replace overwrites the first's token, and the first account is
     orphaned forever on Telegraph's side with no audit trail.
     """
-    import threading
     from itertools import count
+    import threading
 
     from backlink_publisher.publishing.adapters.telegraph_api import TelegraphAPIAdapter
 

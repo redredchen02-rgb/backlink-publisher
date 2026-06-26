@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -192,8 +192,9 @@ def test_validate_candidate_extra_fields_preserved():
 
 def _run_main(argv, stdin_text="", capsys=None):
     """Helper: run main(argv) with captured output."""
-    from backlink_publisher.cli.generate_backlink_text import main
     import io as _io
+
+    from backlink_publisher.cli.generate_backlink_text import main
 
     old_stdin = sys.stdin
     try:
@@ -208,8 +209,9 @@ def _run_main(argv, stdin_text="", capsys=None):
 
 def test_cli_empty_stdin_exit_0(capsys):
     """Empty stdin → exit 0, empty stdout (R5b)."""
-    from backlink_publisher.cli.generate_backlink_text import main
     import io
+
+    from backlink_publisher.cli.generate_backlink_text import main
 
     old_stdin = sys.stdin
     sys.stdin = io.StringIO("")
@@ -227,6 +229,7 @@ def test_cli_empty_stdin_exit_0(capsys):
 def test_cli_output_format_xml_raises_usage_error(capsys):
     """--output-format=xml → UsageError exit 1 (not argparse exit 2)."""
     import io
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     old_stdin = sys.stdin
@@ -243,6 +246,7 @@ def test_cli_output_format_xml_raises_usage_error(capsys):
 def test_cli_max_records_exceeded_exit_2(capsys):
     """Record count+1 over --max-records → InputValidationError exit 2."""
     import io
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     record = '{"target_url": "https://x.com/", "anchor_text": "a", "mode": "comment"}'
@@ -262,6 +266,7 @@ def test_cli_max_records_exceeded_exit_2(capsys):
 def test_cli_max_input_bytes_exceeded_exit_2(capsys):
     """Raw input > --max-input-bytes → InputValidationError exit 2."""
     import io
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     big_text = "x" * 200
@@ -280,6 +285,7 @@ def test_cli_max_input_bytes_exceeded_exit_2(capsys):
 def test_cli_dry_run_single_record_jsonl(capsys, tmp_path):
     """--dry-run: single valid comment record → dry_run status row on stdout."""
     import io
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     record = json.dumps({
@@ -310,6 +316,7 @@ def test_cli_dry_run_single_record_jsonl(capsys, tmp_path):
 def test_cli_dry_run_rejected_record_in_batch(capsys):
     """--dry-run: batch with one rejected record continues, rejected shows in output."""
     import io
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     records = [
@@ -338,6 +345,7 @@ def test_cli_dry_run_rejected_record_in_batch(capsys):
 def test_cli_dry_run_json_output_format(capsys):
     """--dry-run --output-format=json: stdout is a JSON array."""
     import io
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     record = json.dumps({
@@ -364,6 +372,7 @@ def test_cli_dry_run_json_output_format(capsys):
 def test_cli_dry_run_unsupported_mode_produces_rejected(capsys):
     """--dry-run: unsupported mode → per-record rejected (R4b), batch continues."""
     import io
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     record = json.dumps({

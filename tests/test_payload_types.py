@@ -13,17 +13,17 @@ __tier__ = "unit"
 import json
 from typing import Any
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from backlink_publisher.schema import (
     LinkModel,
+    plan_from_dict,
     PlannedPayload,
+    seed_from_dict,
     SeedPayload,
     SeoModel,
     ValidationBlock,
-    plan_from_dict,
-    seed_from_dict,
 )
 
 # ---------------------------------------------------------------------------

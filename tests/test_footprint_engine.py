@@ -6,22 +6,23 @@ These tests pin down the post-R11 contract: lex-smallest tie-break across every
 from __future__ import annotations
 
 __tier__ = "unit"
+from collections import Counter
 import os
 import subprocess
 import sys
-from collections import Counter
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from backlink_publisher.footprint import (
+    _top_by_count_then_lex,
+    analyze_corpus,
     DEFAULT_THRESHOLD_ALARM_PCT,
     DEFAULT_THRESHOLD_DRIFT_PP,
     FootprintReport,
+    format_report_markdown,
     SCHEMA_VERSION,
     THRESHOLD_OVERRIDES,
-    _top_by_count_then_lex,
-    analyze_corpus,
-    format_report_markdown,
 )
 
 

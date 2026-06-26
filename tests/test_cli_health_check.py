@@ -4,20 +4,19 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import sqlite3
 import tempfile
-from pathlib import Path
 
 import pytest
 
 from backlink_publisher.cli.health_check import (
-    _db_stats,
+    _check_all,
     _config_file_count,
     _credential_audit,
+    _db_stats,
     _oldest_checkpoint,
-    _check_all,
 )
-
 
 # ── _db_stats ────────────────────────────────────────────────────────────────
 

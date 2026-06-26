@@ -17,18 +17,17 @@ Contract:
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, timedelta, UTC
+from backlink_publisher._compat import fcntl
 import json
-import sys
-import uuid
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import sys
 from typing import Any
+import uuid
 
 from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
-    emit_error,
     handle_error,
 )
 from backlink_publisher._util.logger import get_logger
@@ -119,7 +118,7 @@ def _probe_and_record(gsc_cfg: Any, keywords: list[str]) -> None:
     store = EventStore()
     run_id = str(uuid.uuid4())
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     end_date = today.isoformat()
     start_date = (today - timedelta(days=30)).isoformat()
 
@@ -200,7 +199,7 @@ def snapshot_baseline(gsc_cfg: Any, keywords: list[str] | None = None) -> None:
     store = EventStore()
     run_id = str(uuid.uuid4())
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     end_date = (today - timedelta(days=30)).isoformat()
     start_date = (today - timedelta(days=60)).isoformat()
 

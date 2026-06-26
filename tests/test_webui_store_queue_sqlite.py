@@ -9,19 +9,18 @@ Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 
 from __future__ import annotations
 
-
 __tier__ = "integration"
-import json
 from datetime import datetime, timedelta
+import json
 from pathlib import Path
 
+from webui_store.base import Store
 from webui_store.queue_store import (
-    QueueSqliteStore,
     _JSON_FILENAME,
     _SENTINEL_NAME,
+    QueueSqliteStore,
 )
 from webui_store.sqlite_base import WebUIDatabase
-from webui_store.base import Store
 
 
 def _store(tmp_path: Path) -> QueueSqliteStore:

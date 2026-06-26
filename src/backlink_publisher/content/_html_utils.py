@@ -6,7 +6,7 @@ monolith-budget headroom.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from bs4 import BeautifulSoup
 
@@ -35,7 +35,7 @@ def read_html_head_window(resp: Any, max_bytes: int) -> bytes:
     return bytes(buf)
 
 
-def extract_title(body: bytes) -> Optional[str]:
+def extract_title(body: bytes) -> str | None:
     """Parse ``body`` as HTML and return the first non-empty title element.
 
     Looks for ``<meta property="og:title">`` first, then falls back to

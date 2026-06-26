@@ -15,7 +15,6 @@ import pytest
 from backlink_publisher.cli.plan_backlinks._citability import apply_zero_cost_levers
 from backlink_publisher.cli.plan_backlinks._engine import _apply_zero_cost_and_emit
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -159,6 +158,7 @@ def test_work_themed_fires_for_any_language(language: str):
 def test_work_themed_levers_in_metadata_via_plan_rows():
     """plan_rows moves _citability_levers from payload into metadata.citability_levers."""
     from unittest.mock import MagicMock
+
     from backlink_publisher.cli.plan_backlinks._engine import plan_rows
     from backlink_publisher.config import Config
 

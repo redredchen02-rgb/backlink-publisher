@@ -6,9 +6,9 @@ __tier__ = "integration"
 
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -340,6 +340,7 @@ class TestSecretLeakRegression:
         import json as _json
         import os as _os
         import stat as _stat
+
         from webui_app.helpers.contexts import (
             _llm_settings_file,
             _load_llm_settings,

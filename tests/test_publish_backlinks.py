@@ -2,18 +2,18 @@
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import os
 import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
-from backlink_publisher.publishing.adapters.base import AdapterResult
-from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.linkcheck.verify import VerificationResult
+from backlink_publisher.publishing.adapters.base import AdapterResult
 
 
 @pytest.fixture(autouse=True)
@@ -620,8 +620,8 @@ def _drift_row() -> dict:
 
 def test_record_publish_path_link_alive_happy(monkeypatch, tmp_path):
     """Happy path: dofollow → link-alive recorded, no WARN, returns 0."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()
@@ -639,8 +639,8 @@ def test_record_publish_path_drift_nofollow_returns_1_and_warns(
     monkeypatch, tmp_path, capsys
 ):
     """Drift (nofollow): drift recorded, WARN on stderr, returns 1, exit code unchanged."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()
@@ -656,8 +656,8 @@ def test_record_publish_path_drift_nofollow_returns_1_and_warns(
 
 def test_record_publish_path_drift_stripped_detected(monkeypatch, tmp_path):
     """Drift (stripped / missing): readable page, required link absent → drift (R5)."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()
@@ -672,8 +672,8 @@ def test_record_publish_path_drift_stripped_detected(monkeypatch, tmp_path):
 
 def test_record_publish_path_skipped_verdict_records_nothing(monkeypatch, tmp_path):
     """skipped verification → nothing recorded (R5), returns 0."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()
@@ -690,8 +690,8 @@ def test_record_publish_path_skipped_verdict_records_nothing(monkeypatch, tmp_pa
 
 def test_record_publish_path_no_required_links_records_nothing(monkeypatch, tmp_path):
     """No target_* fields (no required links) → nothing recorded, returns 0."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()
@@ -707,8 +707,8 @@ def test_record_publish_path_no_required_links_records_nothing(monkeypatch, tmp_
 
 def test_record_publish_path_no_provider_meta_records_nothing(monkeypatch, tmp_path):
     """_provider_meta=None (dry-run / no-verifier adapter) → nothing recorded."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()
@@ -728,8 +728,8 @@ def test_record_publish_path_no_provider_meta_records_nothing(monkeypatch, tmp_p
 
 def test_record_publish_path_empty_provider_meta_records_nothing(monkeypatch, tmp_path):
     """_provider_meta={} (empty dict, distinct code path from None) → returns 0."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()
@@ -750,8 +750,8 @@ def test_record_publish_path_empty_provider_meta_records_nothing(monkeypatch, tm
 
 def test_record_publish_path_or_logic_any_drift_is_drift(monkeypatch, tmp_path):
     """Multi-link row: one dofollow, one rewritten → OR → platform verdict = drift."""
-    from backlink_publisher.cli._publish_helpers import _record_publish_path
     from backlink_publisher.canary import store as cstore
+    from backlink_publisher.cli._publish_helpers import _record_publish_path
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cstore.canary_health_store.reset()

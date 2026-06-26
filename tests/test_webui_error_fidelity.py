@@ -10,8 +10,8 @@ error fidelity. Covers the two pure helpers added to ``cli_runner``:
 from __future__ import annotations
 
 __tier__ = "unit"
-import sys
 from pathlib import Path
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -20,9 +20,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # cli_runner imports only stdlib + project utils; no Flask needed.
 from webui_app.helpers.cli_runner import (  # noqa: E402
-    surface_cli_error,
-    run_pipe_capture,
     _MAX_SURFACED_ERROR,
+    run_pipe_capture,
+    surface_cli_error,
 )
 
 _BANNER = (

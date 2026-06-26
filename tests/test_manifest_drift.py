@@ -32,14 +32,15 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
+from backlink_publisher.publishing._manifest_types import Policy
+
 # Importing the production adapters package fires every ``register()`` call,
 # populating ``_REGISTRY`` (same bootstrap as ``test_manifest_contract.py``).
 import backlink_publisher.publishing.adapters as _production  # noqa: F401
-from backlink_publisher.publishing._manifest_types import Policy
 from backlink_publisher.publishing.adapters import velog_graphql
 from backlink_publisher.publishing.adapters.velog_graphql import (
-    _velog_jitter_min_s,
     _velog_jitter_max_s,
+    _velog_jitter_min_s,
 )
 from backlink_publisher.publishing.registry import (
     _REGISTRY,

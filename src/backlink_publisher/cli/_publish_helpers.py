@@ -6,21 +6,25 @@ on ``main()`` and the publish loop.
 
 from __future__ import annotations
 
+from concurrent.futures import as_completed, ThreadPoolExecutor
+from dataclasses import dataclass
 import os
+from pathlib import Path
 import random
 import re
 import sys
 import time
-from dataclasses import dataclass
 from typing import Any
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
-
 from backlink_publisher._util.logger import publish_logger
+from backlink_publisher.linkcheck.http import _max_concurrent as _linkcheck_max_concurrent
+from backlink_publisher.linkcheck.http import check_url
 from backlink_publisher.linkcheck.verify import verify_published
-from backlink_publisher.linkcheck.http import _max_concurrent as _linkcheck_max_concurrent, check_url
-from backlink_publisher.cli._publish_cli import (
+
+# Re-export names moved to _publish_cli.py during the monolith split
+# (Plan 2026-06-01). These re-exports keep existing import paths working
+# for the ~30 test and production call sites that import from _publish_helpers.
+from ._publish_cli import (  # noqa: F401
     _build_parser,
     _handle_auth_expired,
     _handle_checkpoint_ops,
@@ -61,8 +65,9 @@ def _acquire_publish_leases(platforms: set[str], dry_run: bool) -> None:
         return
 
     import atexit
-    from backlink_publisher.events.store import EventStore
+
     from backlink_publisher._util.errors import emit_error
+    from backlink_publisher.events.store import EventStore
 
     store = EventStore()
     pid = os.getpid()
@@ -255,8 +260,8 @@ def _check_token_drift(
     while still honouring the safety property (do NOT publish with rotated
     credentials — the loop aborts the run, it does not continue).
     """
-    from backlink_publisher.config import snapshot_token_revs
     from backlink_publisher._util.errors import emit_error
+    from backlink_publisher.config import snapshot_token_revs
 
     # Re-scan only the platforms present at run-start: the comparison below
     # only inspects keys in initial_revs, so reading the other (unbound) token
@@ -437,9 +442,9 @@ def _record_publish_path(platform: str, result: Any, row: dict[str, Any]) -> int
 
     try:
         from backlink_publisher.canary.store import (
+            record_publish_path_verdict,
             STATUS_DRIFT_CONFIRMED,
             STATUS_LINK_ALIVE,
-            record_publish_path_verdict,
         )
         verdict = STATUS_DRIFT_CONFIRMED if is_drift else STATUS_LINK_ALIVE
         record_publish_path_verdict(platform, verdict)

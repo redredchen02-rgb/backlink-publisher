@@ -12,7 +12,7 @@ __tier__ = "e2e"
 import pytest
 
 from backlink_publisher._util import errors
-from backlink_publisher.validate.engine import ValidateOutcome, validate_rows
+from backlink_publisher.validate.engine import validate_rows, ValidateOutcome
 
 
 def _make_valid_payload(url_mode: str = "A", platform: str = "medium") -> dict:

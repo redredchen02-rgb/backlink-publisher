@@ -13,10 +13,9 @@ queries over _REGISTRY. This file verifies:
 from __future__ import annotations
 
 __tier__ = "unit"
-import backlink_publisher.publishing.adapters as _adapters_import  # noqa: F401
-
 import pytest
 
+from backlink_publisher.config import Config
 from backlink_publisher.publishing._manifest_types import BindDescriptor, Policy, UiMeta
 from backlink_publisher.publishing._registry_manifest import (
     active_platforms,
@@ -27,9 +26,8 @@ from backlink_publisher.publishing._registry_manifest import (
     ui_meta,
     visibility,
 )
+import backlink_publisher.publishing.adapters as _adapters_import  # noqa: F401
 from backlink_publisher.publishing.registry import registered_platforms
-from backlink_publisher.config import Config
-
 
 # ── Unknown-platform fallbacks ────────────────────────────────────────────────
 

@@ -12,13 +12,11 @@ Plan 2026-05-18-006 Unit 5 R9 + R10 (drift direction inverted by plan
 """
 from __future__ import annotations
 
-
-
 __tier__ = "unit"
 from backlink_publisher.publishing.content_negotiation import (
-    ROUTE_TIER_MATRIX,
     extract_publish_html,
     route_tier_for,
+    ROUTE_TIER_MATRIX,
 )
 
 

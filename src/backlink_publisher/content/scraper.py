@@ -31,18 +31,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
-from requests import Response
 from bs4 import BeautifulSoup
+from requests import Response
 
 from backlink_publisher._util.errors import ExternalServiceError, InputValidationError
 from backlink_publisher._util.logger import plan_logger
-from ._http import _ResponseTooLarge, _safe_get
 from backlink_publisher._util.url import (
     absolutize,
     is_same_host,
     safe_urlparse,
     strip_fragment_query,
 )
+
+from ._http import _ResponseTooLarge, _safe_get
 
 __all__ = [
     "WorkMetadata",

@@ -24,12 +24,13 @@ Schema (version 1)::
 """
 from __future__ import annotations
 
+from datetime import UTC
 import json
 import logging
 import os
+from pathlib import Path
 import tempfile
 import threading
-from pathlib import Path
 from typing import Any
 
 from backlink_publisher.config.loader import _config_dir
@@ -155,8 +156,8 @@ class KeepaliveRunState:
                 "platforms_tried": [],
                 "last_outcome": None,
             })
-            from datetime import datetime, timezone
-            entry["last_attempt_at"] = datetime.now(timezone.utc).isoformat(
+            from datetime import datetime
+            entry["last_attempt_at"] = datetime.now(UTC).isoformat(
                 timespec="seconds"
             )
             entry["last_outcome"] = outcome
@@ -178,9 +179,9 @@ class KeepaliveRunState:
     def update_cycle_summary(self, summary: dict[str, Any]) -> None:
         """Persist last_run_at and cycle summary."""
         with self._lock:
-            from datetime import datetime, timezone
+            from datetime import datetime
             data = self.load()
-            data["last_run_at"] = datetime.now(timezone.utc).isoformat(
+            data["last_run_at"] = datetime.now(UTC).isoformat(
                 timespec="seconds"
             )
             data["last_cycle_summary"] = summary

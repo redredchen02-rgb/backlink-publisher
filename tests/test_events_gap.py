@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
-from backlink_publisher.gap.events_gap import GapResult, PipelineGap, find_gaps
+from backlink_publisher.gap.events_gap import find_gaps, GapResult, PipelineGap
 
 
 def _make_store(tmp_path, rows: list[dict]) -> object:
@@ -29,7 +29,7 @@ def _make_store(tmp_path, rows: list[dict]) -> object:
     return store
 
 
-NOW = datetime(2026, 6, 11, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 11, 12, 0, 0, tzinfo=UTC)
 
 
 def _ts(delta_hours: float) -> str:

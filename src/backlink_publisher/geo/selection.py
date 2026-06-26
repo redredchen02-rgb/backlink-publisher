@@ -25,10 +25,10 @@ Design notes
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, UTC
 import json
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
 
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
@@ -49,7 +49,7 @@ DEFAULT_MAX_PAIRS: int = 10
 _RUNS_PER_DAY: int = 1
 
 # Sentinel timestamp for "never probed" — sorts before every real timestamp.
-_NEVER_PROBED_TS = datetime.min.replace(tzinfo=timezone.utc)
+_NEVER_PROBED_TS = datetime.min.replace(tzinfo=UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def _parse_ts_utc(ts_str: str | None) -> datetime | None:
         ts_str = ts_str.replace("Z", "+00:00")
         dt = datetime.fromisoformat(ts_str)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, TypeError):
         return None
@@ -185,7 +185,7 @@ def select_pairs(
         ``starvation_risk`` flag when ``len(all_pairs) > max_pairs * stale_days``.
     """
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     if store is None:
         store = EventStore()

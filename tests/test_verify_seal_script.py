@@ -9,15 +9,15 @@ subprocess invocation; the rest are in-process via direct `main()` calls.
 from __future__ import annotations
 
 __tier__ = "unit"
+from contextlib import redirect_stdout
 import hashlib
 import importlib.util
 import io
 import json
+from pathlib import Path
 import subprocess
 import sys
 import textwrap
-from contextlib import redirect_stdout
-from pathlib import Path
 
 import pytest
 

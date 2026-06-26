@@ -8,10 +8,10 @@ on first access.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import logging
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -89,6 +89,14 @@ class ChannelStatusSqliteStore(BaseSqliteStore):
             "extra_json TEXT)"
         )
 
+    def _indices_sql(self) -> list[str]:
+        return [
+            "CREATE INDEX IF NOT EXISTS channel_status_status "
+            "ON channel_status (status)",
+            "CREATE INDEX IF NOT EXISTS channel_status_verified "
+            "ON channel_status (last_verified_at)",
+        ]
+
     def load(self) -> dict[str, dict[str, Any]]:
         def _op() -> dict[str, dict[str, Any]]:
             with self._db.connect() as conn:
@@ -161,7 +169,7 @@ channel_status_store: _LazyStore = _LazyStore(_make_channel_status_store)
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _validate_channel(channel: str) -> None:
@@ -405,7 +413,7 @@ def credential_age_days(channel: str) -> float | None:
 
     Best-effort: returns None on any parse error.  Used for TTL badge (R8).
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     rec = get_status(channel)
     raw = rec.get("bound_at")
@@ -414,8 +422,8 @@ def credential_age_days(channel: str) -> float | None:
     try:
         ts = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - ts
+            ts = ts.replace(tzinfo=UTC)
+        delta = datetime.now(UTC) - ts
         return delta.total_seconds() / 86400
     except (ValueError, OverflowError):
         return None

@@ -32,8 +32,9 @@ Plan: docs/plans/2026-05-28-001-feat-publish-reliability-policy-plan.md
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import os
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, TYPE_CHECKING
 
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as _log
@@ -48,7 +49,7 @@ from .circuit import (
     record_success,
     trip,
 )
-from .events import Outcome, emit_attempt, now_ms
+from .events import emit_attempt, now_ms, Outcome
 
 if TYPE_CHECKING:
     from backlink_publisher.config import Config
@@ -237,6 +238,7 @@ def _record_decision(
     """
     try:
         from backlink_publisher.events.store import EventStore
+
         from .events_store import append_reliability_decision
 
         append_reliability_decision(
@@ -394,7 +396,7 @@ def publish_with_policy(
             )
         raise
 
-    except ExternalServiceError as exc:
+    except ExternalServiceError:
         # Upstream error → trip after N consecutive (U11).
         emit_attempt(platform, Outcome.EXTERNAL_ERROR, now_ms() - t0)
         _record_failure_and_maybe_trip(

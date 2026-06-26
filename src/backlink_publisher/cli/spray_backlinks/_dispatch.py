@@ -13,9 +13,9 @@ injectable so tests never publish, sleep, or hit the network.
 
 from __future__ import annotations
 
-import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
+import random
 from typing import Any
 
 # Spray-owned jitter bounds (seconds). Non-uniform spacing avoids a fixed-interval

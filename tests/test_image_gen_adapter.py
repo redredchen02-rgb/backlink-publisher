@@ -24,7 +24,6 @@ from backlink_publisher.publishing.adapters.image_gen.types import (
     BannerArtifact,
 )
 
-
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16  # 24-byte minimum PNG-ish
 _JPEG_MAGIC = b"\xff\xd8\xff\xe0" + b"\x00" * 20
 _WEBP_MAGIC = b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 16

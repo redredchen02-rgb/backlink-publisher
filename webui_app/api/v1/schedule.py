@@ -12,6 +12,8 @@ surfacing a transport error for a pure listing.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify
 
 from ..scheduled_api import list_scheduled
@@ -19,7 +21,7 @@ from . import bp
 
 
 @bp.get("/schedule")
-def schedule_list():
+def schedule_list() -> Any:
     """Drafts scheduled for future publish (newest-config order)."""
     result = list_scheduled()
     return jsonify({"items": result.get("items", [])})

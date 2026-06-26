@@ -12,6 +12,7 @@ import json
 import logging
 from pathlib import Path
 
+from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher.config import Config
 from backlink_publisher.config.tokens import (
     save_devto_token,
@@ -25,7 +26,6 @@ from backlink_publisher.config.tokens import (
     save_wordpresscom_token,
     save_zenn_token,
 )
-from backlink_publisher._util.io import atomic_write_json
 
 _log = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def save_token(channel: str, config: Config, token: str) -> Path:
     save_fn, basename, field_key = entry
     config.config_dir.mkdir(parents=True, exist_ok=True)
     save_fn({field_key: token})
-    return config.config_dir / basename
+    return config.config_dir / basename  # type: ignore[no-any-return]
 
 
 def save_token_fields(channel: str, config: Config, new_fields: dict) -> Path:
@@ -140,7 +140,7 @@ def save_token_fields(channel: str, config: Config, new_fields: dict) -> Path:
     merged = {**existing, **new_fields}
     config.config_dir.mkdir(parents=True, exist_ok=True)
     save_fn(merged)
-    return token_path
+    return token_path  # type: ignore[no-any-return]
 
 
 def save_paste_blob(channel: str, config: Config, blob: dict) -> Path:
@@ -161,7 +161,7 @@ def save_userpass(channel: str, config: Config, username: str, password: str) ->
     saver = _registry_saver(channel)
     if saver is None:
         raise ChannelNotConfigured(channel)
-    return saver(channel, config, {"username": username, "password": password}, "replace")
+    return saver(channel, config, {"username": username, "password": password}, "replace")  # type: ignore[no-any-return]
 
 
 # ── Clear ─────────────────────────────────────────────────────────────────────

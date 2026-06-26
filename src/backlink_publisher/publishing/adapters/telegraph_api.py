@@ -39,7 +39,7 @@ Design summary:
 
 from __future__ import annotations
 
-import fcntl
+from backlink_publisher._compat import fcntl
 import json
 import logging
 import mimetypes
@@ -48,26 +48,27 @@ import random
 import time
 
 mimetypes.add_type("image/webp", ".webp")
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
-from typing import Any, Iterator, cast
+from typing import Any, cast
 
 from requests.exceptions import RequestException
-from backlink_publisher.http import post as http_post
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import (
     BannerUploadError,
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.config import Config
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.adapters.telegraph_node import (
     markdown_to_telegraph_nodes,
 )
 from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
 
+from .base import AdapterResult
 
 log = logging.getLogger(__name__)
 
@@ -279,7 +280,7 @@ def _archive_orphan_token(token_path: Path) -> Path | None:
     # ``os.replace`` silently overwrite the first archive and lose the
     # orphaned access_token (review finding: adversarial + security +
     # reliability triple-flagged).
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
     archive = token_path.with_suffix(token_path.suffix + f".orphaned-{stamp}")
     os.replace(token_path, archive)
     os.chmod(archive, 0o600)

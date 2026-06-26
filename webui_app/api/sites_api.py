@@ -18,6 +18,7 @@ redirect / flash; ``/api/v1`` → JSON 200 or RFC 9457 problem+json.
 
 from __future__ import annotations
 
+from datetime import UTC
 import sys
 from typing import Any
 from urllib.parse import quote as _quote
@@ -27,9 +28,9 @@ from backlink_publisher._util.logger import plan_logger
 from backlink_publisher._util.url import validate_https_url, validate_main_domain_url
 from backlink_publisher.config import (
     DEFAULT_WORK_TEMPLATES,
-    ThreeUrlConfig,
     load_config,
     save_config,
+    ThreeUrlConfig,
 )
 from backlink_publisher.content.scraper import fetch_work_metadata
 
@@ -93,7 +94,7 @@ class SitesAPI:
         except Exception:
             return None
         if job is not None and job.next_run_time is not None:
-            return job.next_run_time.isoformat()
+            return job.next_run_time.isoformat()  # type: ignore[no-any-return]
         return None
 
     # ── read: form prefill for one domain ─────────────────────────────────
@@ -294,7 +295,7 @@ class SitesAPI:
         was_present = site_url in current
         snapshot = dict(current[site_url]) if was_present else None
 
-        def _update(settings):
+        def _update(settings: Any) -> Any:
             targets = dict(settings.get("autopilot_targets", {}))
             site_cfg = dict(targets.get(site_url, {}))
             site_cfg["enabled"] = enabled
@@ -317,7 +318,7 @@ class SitesAPI:
                 except Exception:
                     pass
         except Exception as exc:  # noqa: BLE001 — roll back only this site's cfg
-            def _rollback(s):
+            def _rollback(s: Any) -> Any:
                 targets = dict(s.get("autopilot_targets", {}))
                 if was_present:
                     targets[site_url] = snapshot
@@ -372,11 +373,11 @@ class SitesAPI:
         }
 
     @staticmethod
-    def plan_gap_summary(path=None) -> dict[str, Any]:
+    def plan_gap_summary(path: Any=None) -> dict[str, Any]:
         """Summarise the latest plan-gap seed JSONL for display. Fail-soft."""
+        from datetime import datetime
         import json
         import os
-        from datetime import datetime, timezone
         from pathlib import Path
 
         path = Path(path) if path is not None else (
@@ -401,7 +402,7 @@ class SitesAPI:
             for row in rows
             if isinstance(row, dict) and row.get("target_url")
         }
-        triggered_at = datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        triggered_at = datetime.fromtimestamp(mtime, tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
         return {
             "status": "ok",
             "candidate_count": len(rows),

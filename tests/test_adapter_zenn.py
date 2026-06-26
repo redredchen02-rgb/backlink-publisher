@@ -15,9 +15,9 @@ import pytest
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.adapters.zenn_github import (
-    ZennGitHubAdapter,
     _build_zenn_markdown,
     _slugify,
+    ZennGitHubAdapter,
 )
 
 _PUT = "backlink_publisher.publishing.adapters.zenn_github.http_put"

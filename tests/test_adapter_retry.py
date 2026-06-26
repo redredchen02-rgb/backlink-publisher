@@ -7,14 +7,13 @@ from unittest.mock import patch
 
 import pytest
 
+from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.retry import (
     BACKOFF_BASE,
     JITTER_FACTOR,
-    RETRYABLE_HTTP_STATUSES,
     retry_transient_call,
+    RETRYABLE_HTTP_STATUSES,
 )
-from backlink_publisher._util.errors import DependencyError, ExternalServiceError
-
 
 # ---------------------------------------------------------------------------
 # Helpers

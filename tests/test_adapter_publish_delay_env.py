@@ -16,7 +16,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Adapter registry: (module_path, getter_name, env_var, default_value)
 # ---------------------------------------------------------------------------

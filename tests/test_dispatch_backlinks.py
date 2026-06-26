@@ -16,8 +16,7 @@ from typing import Any
 import pytest
 
 from backlink_publisher.dispatch.routing import ENGINE_VERSION, route
-from backlink_publisher.dispatch.signals import PlatformSignal, collect_all
-
+from backlink_publisher.dispatch.signals import collect_all, PlatformSignal
 
 # ── Helpers ────────────────────────────────────────────────────────────
 

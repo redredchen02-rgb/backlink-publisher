@@ -15,11 +15,9 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import call, MagicMock, patch
 
 import pytest
-
-import backlink_publisher.idempotency.audit_log  # ensure submodule is in sys.modules before patching
 
 from backlink_publisher.cli._dedup_ops import (
     _adjudicate_one,
@@ -30,7 +28,7 @@ from backlink_publisher.cli._dedup_ops import (
     load_force_manifest,
 )
 from backlink_publisher.idempotency import DedupRecord
-
+import backlink_publisher.idempotency.audit_log  # ensure submodule is in sys.modules before patching
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

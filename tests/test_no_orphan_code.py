@@ -1,9 +1,9 @@
 """Gate test: no orphan .py files in src/backlink_publisher/."""
 __tier__ = "unit"
 
-import sys
 import os
 import subprocess
+import sys
 
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "scripts", "scan_orphan_code.py")
 

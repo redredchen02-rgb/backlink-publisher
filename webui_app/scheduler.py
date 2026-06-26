@@ -1,27 +1,24 @@
+from datetime import datetime, timedelta, UTC
 import json
-import uuid
-from datetime import datetime, timedelta, timezone
 
 from apscheduler.executors.pool import ThreadPoolExecutor as APSThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from backlink_publisher._util.logger import plan_logger
-
+from backlink_publisher.sdk.api import PipelineAPI
 from webui_store import batch_ops_store as _batch_ops_store
 from webui_store import drafts_store as _drafts_store
 from webui_store import history_store as _hist_store
 from webui_store import queue_store as _queue_store
 from webui_store import schedule_store as _sched_store
 
-from backlink_publisher.sdk.api import PipelineAPI
-from .services.keepalive_job import run_keepalive_for_site
 from .helpers.cli_runner import strip_cli_diagnostic_banner
 from .helpers.history import (
     _parse_publish_results,
     _push_history_per_row,
     _push_history_single_failure,
 )
-
+from .services.keepalive_job import run_keepalive_for_site
 
 _RATE_LIMIT_RETRY_DELAY_S: int = 300
 
@@ -34,11 +31,11 @@ def _process_queue_job() -> None:
     """轮询队列中的 pending 任务并执行发布，支持 429 自动退避。"""
     tasks = _queue_store.load()
     now = datetime.now()
-    
+
     # 查找任务：PENDING 且 不在退避时间内
-    pending = [t for t in tasks if t.get('status') in ('pending', 'failed') 
+    pending = [t for t in tasks if t.get('status') in ('pending', 'failed')
                and (not t.get('next_retry_at') or datetime.fromisoformat(t['next_retry_at']) <= now)]
-    
+
     if not pending:
         return
 
@@ -50,7 +47,7 @@ def _process_queue_job() -> None:
         config = task['config']
         urls = task['urls']
         target_url = urls[0] if urls else ''
-        
+
         seed = {
             'target_url': target_url,
             'platform': config.get('platform', 'medium'),
@@ -61,7 +58,7 @@ def _process_queue_job() -> None:
             'custom_tags': config.get('custom_tags', ''),
             'extra_urls': urls[1:] if urls else [],
         }
-        
+
         result = PipelineAPI().publish_seed(json.dumps([seed]))
         if result.success:
             _queue_store.update_task(task_id, {
@@ -200,7 +197,7 @@ def _drain_batch_ops() -> None:
     try:
         if operation == "keep_alive":
             # run_keepalive_for_site extracted in U7; raise ImportError until then
-            from .services.keepalive_job import run_keepalive_for_site  # type: ignore[attr-defined]
+            from .services.keepalive_job import run_keepalive_for_site
             run_keepalive_for_site(site_url)
         elif operation == "recheck":
             from .services.recheck import recheck_many
@@ -235,7 +232,7 @@ def _restore_scheduled_jobs() -> None:
         id='batch_ops_drain',
         replace_existing=True,
     )
-    
+
     now = datetime.now()
     for item in _drafts_store.load():
         if item.get('status') != 'scheduled':
@@ -299,7 +296,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
         result_error = result.error
         result_checked = result.checked
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
 
     # Persist history entry with source badge
     entry = {

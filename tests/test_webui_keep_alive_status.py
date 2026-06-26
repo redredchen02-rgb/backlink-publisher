@@ -6,8 +6,8 @@ test data excluded and a staleness signal when newer publishes are unverified.
 """
 __tier__ = "integration"
 
-import json
 from datetime import datetime, timedelta
+import json
 
 import pytest
 

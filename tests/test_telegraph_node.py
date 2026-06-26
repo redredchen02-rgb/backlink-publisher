@@ -16,7 +16,6 @@ from backlink_publisher.publishing.adapters.telegraph_node import (
     markdown_to_telegraph_nodes,
 )
 
-
 # ─── Happy paths ────────────────────────────────────────────────────────────
 
 

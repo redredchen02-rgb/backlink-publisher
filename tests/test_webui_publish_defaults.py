@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 @pytest.fixture(autouse=True)
 def _no_real_subprocess():
-    from unittest.mock import patch
     import subprocess as sp_mod
+    from unittest.mock import patch
 
     def _fake_run(cmd, *_args, **_kwargs):
         result = sp_mod.CompletedProcess(args=cmd, returncode=0)
@@ -70,14 +70,14 @@ def _isolated_webui_state(tmp_path, monkeypatch):
 
 class TestPublishDefaultsSqliteStore:
     def test_load_returns_empty_dict_when_no_row(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.publish_defaults import PublishDefaultsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = PublishDefaultsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         assert store.load() == {}
 
     def test_save_and_load_roundtrip(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.publish_defaults import PublishDefaultsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = PublishDefaultsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         data = {"last_platforms": ["medium", "blogger"], "last_target_ids": ["t1", "t2"]}
         store.save(data)
@@ -86,8 +86,8 @@ class TestPublishDefaultsSqliteStore:
         assert loaded["last_target_ids"] == ["t1", "t2"]
 
     def test_save_overwrites_previous(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.publish_defaults import PublishDefaultsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = PublishDefaultsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         store.save({"last_platforms": ["medium"], "last_target_ids": []})
         store.save({"last_platforms": ["velog"], "last_target_ids": ["x"]})
@@ -96,8 +96,8 @@ class TestPublishDefaultsSqliteStore:
         assert loaded["last_target_ids"] == ["x"]
 
     def test_load_returns_empty_dict_on_corrupt_json(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.publish_defaults import PublishDefaultsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = PublishDefaultsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         # Directly insert corrupt JSON
         with store._db.connect() as conn:
@@ -170,7 +170,7 @@ class TestPostPublishQuick:
 
 class TestPostSavePublishDefaults:
     def test_saves_platforms_and_target_ids(self, client):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
         mock_save = MagicMock()
         with patch("webui_store.publish_defaults_store.save", mock_save):
             resp = client.post(
@@ -191,7 +191,7 @@ class TestPostSavePublishDefaults:
         assert resp.status_code == 400
 
     def test_accepts_empty_platforms_list(self, client):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
         mock_save = MagicMock()
         with patch("webui_store.publish_defaults_store.save", mock_save):
             resp = client.post(

@@ -48,10 +48,11 @@ Contract guarantees
 """
 from __future__ import annotations
 
-import sys
-import urllib.parse
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable, Literal
+import sys
+from typing import Literal
+import urllib.parse
 
 ReconLevel = Literal["info", "warn", "error"]
 _VALID_LEVELS: frozenset[str] = frozenset({"info", "warn", "error"})

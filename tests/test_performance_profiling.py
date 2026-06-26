@@ -12,14 +12,13 @@ from __future__ import annotations
 __tier__ = "unit"
 import argparse
 import os
+from pathlib import Path
 import sys
 import tempfile
-from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Unit 8a: --profile flag in plan-backlinks argparse
@@ -29,7 +28,6 @@ import pytest
 class TestPlanBacklinksProfileFlag:
     def test_profile_flag_exists_and_defaults_false(self):
         """--profile is accepted by plan-backlinks and defaults to False."""
-        from backlink_publisher.cli.plan_backlinks.core import main
         import argparse
 
         # We can't easily extract the parser from main() since it's inside the function.
@@ -38,6 +36,8 @@ class TestPlanBacklinksProfileFlag:
         # The flag should exist and set profile=True.
         # Easiest: use the fact that --help shows --profile.
         import io
+
+        from backlink_publisher.cli.plan_backlinks.core import main
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             try:
                 main(["--help"])
@@ -72,8 +72,9 @@ class TestSprayBacklinksProfileFlag:
 
     def test_profile_flag_exists_and_defaults_false(self):
         """--profile is accepted by spray-backlinks and defaults to False."""
-        from backlink_publisher.cli.spray_backlinks.core import main
         import io
+
+        from backlink_publisher.cli.spray_backlinks.core import main
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             try:
                 main(["--help"])
@@ -102,6 +103,7 @@ class TestPublishBacklinksProfileFlag:
     def test_publish_backlinks_help_shows_profile(self):
         """--profile appears in publish-backlinks --help output."""
         import io
+
         from backlink_publisher.cli.publish_backlinks import main
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             try:

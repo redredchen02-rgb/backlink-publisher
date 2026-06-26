@@ -16,13 +16,13 @@ Plan 2026-05-27-006.
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from backlink_publisher._util.errors import (
     DependencyError,
+    handle_error,
     PipelineError,
     UsageError,
-    handle_error,
 )
 from backlink_publisher._util.logger import PipelineLogger
 from backlink_publisher.cli._candidates import (
@@ -36,6 +36,9 @@ from backlink_publisher.cli._candidates import (
     _validate_generated_text,
 )
 
+if TYPE_CHECKING:
+    from backlink_publisher.llm.client import LLMClientConfig
+
 generate_logger = PipelineLogger("generate-backlink-text")
 
 
@@ -47,7 +50,6 @@ _OUTPUT_FORMATS = {"jsonl", "json"}
 
 def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-level dispatcher; real logic lives in helpers
     import argparse
-    import os
 
     parser = argparse.ArgumentParser(
         prog="generate-backlink-text",
@@ -208,7 +210,7 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-
 # ── Endpoint resolution + guard ───────────────────────────────────────────────
 
 
-def _resolve_client(args: Any) -> "LLMClientConfig":  # type: ignore[name-defined]
+def _resolve_client(args: Any) -> LLMClientConfig:
     """Resolve LLM endpoint/key/model from CLI flags → env → config.
 
     Resolution order for each field:
@@ -336,10 +338,10 @@ def _run_dry_run(validated: list[dict], args: Any) -> list[dict]:
     per-record ``rejected`` (R4b).  No API key or HTTP required.
     """
     from backlink_publisher.llm.client import (
-        SUPPORTED_MODES,
         _build_article_prompt,
         _build_comment_prompt,
         _sanitize_input,
+        SUPPORTED_MODES,
     )
 
     _PROMPT_FNS = {
@@ -390,8 +392,7 @@ def _run_generate(validated: list[dict], args: Any) -> list[dict]:
     (R8).  Only if that also fails does the record become ``rejected``.
     """
     from backlink_publisher._util.errors import ExternalServiceError
-    from backlink_publisher.llm.client import SUPPORTED_MODES, generate_link_text
-    from backlink_publisher.llm.client import _redact_for_log
+    from backlink_publisher.llm.client import _redact_for_log, generate_link_text, SUPPORTED_MODES
 
     # Short-circuit: if every record is already rejected (e.g. all invalid_record),
     # skip client resolution entirely so no DependencyError fires for an unused LLM.

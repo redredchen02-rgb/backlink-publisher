@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-
 from typing import cast
 
 from requests import Response
-from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
-from backlink_publisher.http import get as http_get
+from requests.exceptions import ConnectionError as ReqConnError
+from requests.exceptions import Timeout as ReqTimeout
 
 from backlink_publisher._util.errors import ExternalServiceError, InputValidationError
 from backlink_publisher._util.url import safe_hostname, validate_https_url
+from backlink_publisher.http import get as http_get
 from backlink_publisher.publishing.adapters.retry import retry_transient_call
 
 _USER_AGENT = "backlink-publisher-scraper/0.2.0"

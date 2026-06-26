@@ -1,5 +1,5 @@
 markdown-it-py>=4.2
-google-api-python-client>=2.196
+google-api-python-client<3,>=2.196
 google-auth-oauthlib>=1.4
 google-auth-httplib2>=0.2
 playwright<2,>=1.55
@@ -9,10 +9,11 @@ beautifulsoup4<5,>=4.13
 flask<4,>=3.1
 flask-limiter<5,>=3.5
 apscheduler<4,>=3.11
-pydantic>=2.0
+apiflask<4,>=3.1
+pydantic>=2.5
 pyyaml>=6.0.3
-google-analytics-data>=0.18
-structlog>=24.1
+google-analytics-data<1,>=0.18
+structlog<26,>=24.1
 
 [dev]
 pytest>=8.4
@@ -25,8 +26,10 @@ pytest-xdist>=3.6
 pytest-cov>=6.0
 hypothesis>=6.151
 radon==6.0.1
+ruff>=0.15
 mypy>=1.8
 mutmut>=2.4
+vulture>=2.16
 
 [dev-webwright]
 webwright @ git+https://github.com/microsoft/Webwright.git@4a46f282ec37f27d6003cc498a977939d62d9015

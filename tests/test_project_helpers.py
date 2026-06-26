@@ -16,17 +16,16 @@ from pathlib import Path
 import pytest
 
 from backlink_publisher.events._project_helpers import (
-    ProjectionError,
     article_payload,
     checkpoint_event_timestamp,
     detect_source,
     extract_anchors,
     host_of,
+    ProjectionError,
     read_json,
     split_iso_with_offset,
     split_local_naive,
 )
-
 
 # ── detect_source ──────────────────────────────────────────────────────────────
 

@@ -6,10 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-import backlink_publisher.config.tokens as tokens_mod
 from backlink_publisher.cli._publish_helpers import _check_token_drift
 from backlink_publisher.cli.publish_backlinks import _run_resume
 from backlink_publisher.config import snapshot_token_revs
+import backlink_publisher.config.tokens as tokens_mod
 from backlink_publisher.config.tokens import save_blogger_token, save_medium_token
 
 
@@ -102,10 +102,10 @@ def test_token_drift_aborts_mid_run(tmp_path, monkeypatch):
     undocumented 45 this previously emitted.
     """
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    
+
     # Setup initial token with token_rev=1
     save_blogger_token({"client_id": "a", "client_secret": "b"})
-    
+
     # Mock payload
     ckpt = {
         "platform": "blogger",
@@ -145,7 +145,7 @@ def test_token_drift_aborts_mid_run(tmp_path, monkeypatch):
                             dry_run = False
                             skip_publish_time_check = True
                             no_verify = True
-                        
+
                         raised = None
                         try:
                             _run_resume(DummyArgs())

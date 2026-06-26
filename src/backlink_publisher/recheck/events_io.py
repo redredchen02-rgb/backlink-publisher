@@ -14,9 +14,9 @@ Plan 2026-05-29-004 D5.)
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from backlink_publisher.events._project_helpers import write_quarantines
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def write_verified_at(store: "EventStore", results: list[dict]) -> int:
+def write_verified_at(store: EventStore, results: list[dict]) -> int:
     """Update articles.verified_at for each alive-verdict result with an article_id.
 
     Returns the number of rows updated. Skips results with no article_id (stdin
@@ -55,7 +55,7 @@ def write_verified_at(store: "EventStore", results: list[dict]) -> int:
     return updated
 
 
-def emit_recheck(store: "EventStore", results: list[dict]) -> int:
+def emit_recheck(store: EventStore, results: list[dict]) -> int:
     """Append one ``link.rechecked`` event per probed result. Returns the number
     of events written (floor-misses are quarantined, not counted).
 
@@ -107,7 +107,7 @@ def emit_recheck(store: "EventStore", results: list[dict]) -> int:
     return written
 
 
-def derive_decay_counts(store: "EventStore") -> dict[str, int]:
+def derive_decay_counts(store: EventStore) -> dict[str, int]:
     """Count links by their latest ``link.rechecked`` verdict (current state).
 
     Returns a count for every verdict in :data:`verdicts.VERDICTS` (0 when
@@ -137,7 +137,7 @@ def derive_decay_counts(store: "EventStore") -> dict[str, int]:
     return counts
 
 
-def derive_per_target_status(store: "EventStore") -> dict[str, dict]:
+def derive_per_target_status(store: EventStore) -> dict[str, dict]:
     """Per-target latest-verdict breakdown (R3 keep-alive scorecard authority).
 
     Like :func:`derive_decay_counts` but grouped by ``target_url`` instead of
@@ -221,7 +221,7 @@ STRIP_VERDICTS: tuple[str, ...] = (
 
 
 def derive_strip_counts_by_platform(
-    store: "EventStore",
+    store: EventStore,
 ) -> dict[str | None, dict[str, int]]:
     """Per-platform counts of dead/degraded latest recheck verdicts (R2c.a).
 

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import json
-import sqlite3
 from pathlib import Path
+import sqlite3
 
 import pytest
 
@@ -18,7 +18,6 @@ from backlink_publisher.click_track.engine import (
     ClickQueryResult,
     ClickStats,
 )
-
 
 # ── fixture: mock handle_site ─────────────────────────────────────────────
 

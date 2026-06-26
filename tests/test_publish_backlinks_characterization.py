@@ -17,17 +17,17 @@ Mirrors the harness in tests/test_publish_backlinks_auth_expired_flip.py.
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import sys
-from io import StringIO
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher._util.errors import AuthExpiredError
-from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.linkcheck.verify import VerificationResult
+from backlink_publisher.publishing.adapters.base import AdapterResult
 
 
 @pytest.fixture(autouse=True)

@@ -40,13 +40,13 @@ import hashlib
 import json
 import logging
 import os
-import time
 from pathlib import Path
+import time
 from typing import Any, cast
 from xmlrpc.client import Fault, ProtocolError, SafeTransport, ServerProxy
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher.config import Config
 from backlink_publisher.persistence import safe_write
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
@@ -152,7 +152,7 @@ def _livejournal_credential_saver(
     config: Config,
     validated_fields: dict,
     write_mode: str,
-) -> "Path":
+) -> Path:
     """Registry credential_saver callback for livejournal (Plan 2026-06-01-001 U3a).
 
     Delegates to store_credentials — the single mutation site that handles

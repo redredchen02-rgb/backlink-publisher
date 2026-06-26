@@ -6,14 +6,14 @@ publish.failed (failure) event kinds; distinct from liveness.
 
 __tier__ = "integration"
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
 import pytest
 
 from backlink_publisher.events import EventStore, kinds
 from backlink_publisher.scorecard.success_rate import publish_success_rate
 
-NOW = datetime(2026, 6, 15, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 15, tzinfo=UTC)
 
 
 def _iso(days_ago: int) -> str:

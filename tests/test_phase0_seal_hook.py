@@ -24,12 +24,11 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALLER = REPO_ROOT / "scripts" / "install-pre-push-hook.sh"

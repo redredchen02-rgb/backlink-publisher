@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
+from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher.config import BloggerOAuthConfig, Config
 from backlink_publisher.publishing.adapters import publish, verify_adapter_setup
 from backlink_publisher.publishing.adapters.base import AdapterResult
-from backlink_publisher.config import Config, BloggerOAuthConfig
-from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 
 BLOGGER_PAYLOAD = {
     "id": "id1",

@@ -17,8 +17,8 @@ from xmlrpc.client import Fault, ProtocolError
 
 import pytest
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.adapters import livejournal_api as lj
 from backlink_publisher.publishing.adapters.livejournal_api import (
     LivejournalAPIAdapter,

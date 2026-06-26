@@ -20,12 +20,15 @@ Contract (mirrors equity-ledger / validate-backlinks conventions):
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import contextlib
-import sys
+from datetime import UTC
 from pathlib import Path
-from typing import Any, Iterator
+import sys
+from typing import Any
 
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
+
 from .. import config_echo
 from .._util.errors import emit_envelope_and_exit, emit_error
 from .._util.jsonl import write_jsonl
@@ -60,7 +63,7 @@ _INDEXABILITY_CAVEAT = (
 
 def main(argv: list[str] | None = None) -> None:
     import argparse
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     parser = argparse.ArgumentParser(
         prog="recheck-backlinks",
@@ -119,7 +122,7 @@ def main(argv: list[str] | None = None) -> None:
         from backlink_publisher.recheck.probe import recheck_link
 
         store = EventStore()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         candidates = selection.read_stdin_candidates(sys.stdin)
         if candidates is None:
@@ -185,7 +188,7 @@ def main(argv: list[str] | None = None) -> None:
 
 
 def _parse_since(value: str) -> Any:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -194,7 +197,7 @@ def _parse_since(value: str) -> Any:
             f"recheck-backlinks: --since must be an ISO timestamp, got {value!r}",
             exit_code=1,
         )
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def _probe_batch(candidates: list[dict]) -> list[dict]:

@@ -9,15 +9,15 @@ the read-only aggregations (U2), and renders them with honest empty / freshness
 from __future__ import annotations
 
 import dataclasses
+from datetime import datetime, UTC
 import json
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 
 from flask import Blueprint, jsonify, request
 
-from ..helpers.contexts import _render
 from ..helpers._request_cache import _g_cache
+from ..helpers.contexts import _render
 from ..helpers.security import _check_bind_origin_or_abort
 from ..services.alerting import alert_registry
 
@@ -30,7 +30,7 @@ _log = logging.getLogger(__name__)
 
 
 @bp.route("/ce:health/scorecard/<channel>/links", methods=["GET"])
-def ce_health_scorecard_links(channel: str):
+def ce_health_scorecard_links(channel: str) -> Any:
     """Per-link drawer data for one channel (Plan 2026-06-05-009 U2).
 
     GET-only, read-only. Returns the latest ``link.rechecked`` verdict of every
@@ -40,7 +40,7 @@ def ce_health_scorecard_links(channel: str):
     (``{ok:false, links:[]}``). ``derive_links_by_channel`` is called once
     (returns all channels) and indexed here, per the U1 perf advisory.
     """
-    def _links():
+    def _links() -> Any:
         from backlink_publisher.scorecard.links import derive_links_by_channel
         return derive_links_by_channel()
 
@@ -54,7 +54,7 @@ def ce_health_scorecard_links(channel: str):
 
 
 @bp.route("/ce:health/publish-metrics", methods=["GET"])
-def ce_health_publish_metrics():
+def ce_health_publish_metrics() -> Any:
     """Publish success-rate (B2) + recheck coverage (B1) as JSON.
 
     GET-only, read-only. Surfaces the per-channel publish success % (distinct
@@ -65,13 +65,13 @@ def ce_health_publish_metrics():
     from dataclasses import asdict
 
     try:
-        from backlink_publisher.scorecard.coverage import recheck_coverage
-        from backlink_publisher.scorecard.success_rate import publish_success_rate
-        from backlink_publisher.scorecard.reliability_readiness import channel_readiness
         from backlink_publisher.publishing.reliability.policy import (
             enforce_allowlist,
             policy_mode,
         )
+        from backlink_publisher.scorecard.coverage import recheck_coverage
+        from backlink_publisher.scorecard.reliability_readiness import channel_readiness
+        from backlink_publisher.scorecard.success_rate import publish_success_rate
 
         success = _g_cache("publish_success_rate", lambda: publish_success_rate())
         coverage = _g_cache("recheck_coverage", lambda: recheck_coverage())
@@ -103,7 +103,7 @@ def ce_health_publish_metrics():
         )
 
 
-def _published_candidate(store: "EventStore", live_url: str) -> dict[str, Any] | None:
+def _published_candidate(store: EventStore, live_url: str) -> dict[str, Any] | None:
     """``live_url`` → an already-published recheck candidate, or ``None`` (R8).
 
     Anti-SSRF membership gate: only links that already carry a
@@ -150,7 +150,7 @@ def _published_candidate(store: "EventStore", live_url: str) -> dict[str, Any] |
 
 
 @bp.route("/ce:health/scorecard/recheck-link", methods=["POST"])
-def ce_health_scorecard_recheck_link():
+def ce_health_scorecard_recheck_link() -> Any:
     """Re-probe ONE already-published link, writing a ``link.rechecked`` event
     (Plan 2026-06-05-009 U4).
 
@@ -189,7 +189,7 @@ def ce_health_scorecard_recheck_link():
         "ok": True,
         "verdict": result.get("verdict"),
         "live_url": record["live_url"],
-        "last_recheck_ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "last_recheck_ts": datetime.now(UTC).isoformat(timespec="seconds"),
     })
 
 # Last-resort body when even rendering the degraded dashboard fails (R5: a GET
@@ -205,7 +205,7 @@ _FALLBACK_HTML = (
 )
 
 
-def _reconciliation_gaps():
+def _reconciliation_gaps() -> Any:
     """Read-only count of reconciler gaps for the dashboard gap banner.
 
     Returns ``{"pending_checkpoints": int, "quarantine_gaps": int}`` on
@@ -249,7 +249,7 @@ def _geo_panel() -> dict:
         return {}
 
 
-def _decay_counts():
+def _decay_counts() -> Any:
     """Read-only backlink decay counts for the dashboard banner (Plan
     2026-05-29-004 U6). Returns ``{host_gone, link_stripped, dofollow_lost,
     alive, probe_error}`` or ``{}`` on any read error so the page never 500s.
@@ -304,13 +304,13 @@ def _decay_alerts() -> list[dict]:
     Fail-open: any read error → empty list so the page never 500s.
     """
     try:
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         from backlink_publisher.events import EventStore
         from backlink_publisher.events.kinds import DECAY_ALERT
 
         store = EventStore()
-        since = (datetime.now(timezone.utc) - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        since = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
         rows = store.query(
             """
             SELECT target_url, ts_utc,
@@ -330,7 +330,7 @@ def _decay_alerts() -> list[dict]:
         return []
 
 
-def _pipeline_summary():
+def _pipeline_summary() -> Any:
     """Publish counts for past 24h/7d/30d windows + last recheck timestamp.
 
     Returns a dict with keys ``w24h``, ``w7d``, ``w30d`` (each ``{ok, fail}``)
@@ -339,6 +339,7 @@ def _pipeline_summary():
     try:
         import sqlite3
         import time
+
         from backlink_publisher.config.loader import _config_dir
 
         db_path = _config_dir() / "events.db"
@@ -373,7 +374,7 @@ def _pipeline_summary():
         if last_ts:
             import datetime
             result["last_recheck"] = datetime.datetime.fromtimestamp(
-                last_ts, tz=datetime.timezone.utc
+                last_ts, tz=datetime.UTC
             ).isoformat()
         else:
             result["last_recheck"] = None
@@ -389,7 +390,7 @@ _EVENTS_DB_WARN_MB = 100.0    # warn when events.db exceeds this
 _EVENTS_WARN_ROWS = 100_000   # warn when events table row count exceeds this
 
 
-def _storage_health():
+def _storage_health() -> Any:
     """Disk usage of events.db, dedup.db, and the config directory.
 
     Also queries events.db for row counts (events table + articles table) and
@@ -402,17 +403,18 @@ def _storage_health():
     try:
         import os
         import sqlite3
+
         from backlink_publisher.config.loader import _config_dir
 
         cfg = _config_dir()
 
-        def _mb(path) -> float:
+        def _mb(path: Any) -> float:
             try:
                 return round(os.path.getsize(path) / 1_048_576, 2)
             except OSError:
                 return 0.0
 
-        def _dir_mb(dirpath) -> float:
+        def _dir_mb(dirpath: Any) -> float:
             try:
                 total = 0
                 for root, _, files in os.walk(dirpath):
@@ -458,16 +460,16 @@ def _storage_health():
 
 
 @bp.route("/ce:health", methods=["GET"])
-def ce_health():
-    def _build():
+def ce_health() -> Any:
+    def _build() -> Any:
         # U1 backstop first (single-flight, never raises) so the aggregates
         # below read freshened data; then U2 aggregations.
         from ..health_metrics import (
+            _window_start,
+            build_health,
             DEFAULT_WINDOW_DAYS,
             Health,
             SuccessRate,
-            _window_start,
-            build_health,
         )
         from ..services.health_projection import project_on_read
 
@@ -479,7 +481,7 @@ def ce_health():
             health = Health(
                 window_days=DEFAULT_WINDOW_DAYS,
                 since_utc=_window_start(
-                    datetime.now(timezone.utc), DEFAULT_WINDOW_DAYS
+                    datetime.now(UTC), DEFAULT_WINDOW_DAYS
                 ),
                 success=SuccessRate(),
             )
@@ -491,7 +493,7 @@ def ce_health():
             )
         return projection, health
 
-    def _canary_rows():
+    def _canary_rows() -> Any:
         """Read-side join of canary health (Plan 2026-05-27-001 Unit 4, R16).
 
         Reads ``canary_health_store.list_all()`` directly — NEVER writes canary
@@ -518,7 +520,7 @@ def ce_health():
             _log.warning("health: canary read failed: %s", exc)
             return []
 
-    def _forward_path_rows():
+    def _forward_path_rows() -> Any:
         """Forward-path drift rows for the publish-path canary card.
 
         Reads ``list_publish_path_all()`` (Plan 2026-05-27-006 Unit 4) —
@@ -545,7 +547,7 @@ def ce_health():
             _log.warning("health: forward-path read failed: %s", exc)
             return []
 
-    def _scorecard_rows():
+    def _scorecard_rows() -> Any:
         """Per-channel value scorecard card (Plan 2026-06-01-005, Unit 8 MVP).
 
         Reads the same stores the equity-ledger reads, re-keyed by channel —
@@ -562,7 +564,7 @@ def ce_health():
             _log.warning("health: channel scorecard read failed: %s", exc)
             return []
 
-    def _platform_health():
+    def _platform_health() -> Any:
         try:
             from backlink_publisher.config import load_config
             from backlink_publisher.health.aggregate import build_platform_health
@@ -572,7 +574,7 @@ def ce_health():
             _log.warning("health: platform_health build failed: %s", exc)
             return {}
 
-    def _autopilot_alerts():
+    def _autopilot_alerts() -> Any:
         """Sites with alert_pending=True from schedule_store (U8 R3). Fail-open."""
         try:
             import webui_store as _ws
@@ -585,7 +587,7 @@ def ce_health():
         except Exception:  # noqa: BLE001
             return []
 
-    def _weights_snapshot():
+    def _weights_snapshot() -> Any:
         from ..health_metrics import weights_snapshot
         return weights_snapshot()
 
@@ -631,7 +633,7 @@ def ce_health():
 
 
 @bp.route("/health", methods=["GET"])
-def health_json():
+def health_json() -> Any:
     """Machine-readable health endpoint (Plan 2026-06-09-001 U3 / R15–R17).
 
     Returns 200 when healthy, 503 when any channel is expired/unreachable,
@@ -647,7 +649,7 @@ def health_json():
 
 
 @bp.route("/health/alerts", methods=["GET"])
-def health_alerts():
+def health_alerts() -> Any:
     """Return active alerts (Plan U4.3). GET-only, no CSRF needed."""
     return jsonify({
         "active": alert_registry.to_dicts(only_active=True),

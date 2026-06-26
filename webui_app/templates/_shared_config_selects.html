@@ -12,8 +12,10 @@
                 aria-label="选择发布目标平台">
             {# Reverse-driven from publisher registry; Plan 2026-05-19-002 U2.
              # Filtered to bound channels only — unbound platforms are hidden
-             # from the publish form via `bound_platforms` in inject_platforms(). #}
-            {% for p in bound_platforms %}
+             # from the publish form via `bound_platforms` in inject_platforms().
+             # NOTE: Only "medium" is supported as a target platform; other
+             # bound platforms are hidden from this selector. #}
+            {% for p in bound_platforms if p.slug == 'medium' %}
             <option value="{{ p.slug }}"
                 {% if config is defined and config.platform == p.slug %}selected{% endif %}>
                 {{ p.display_name }}

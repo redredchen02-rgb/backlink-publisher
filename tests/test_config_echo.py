@@ -17,25 +17,23 @@ import io
 import logging
 import re
 
-
 from backlink_publisher.config import (
     Config,
     LLMProviderConfig,
-    MediumOAuthConfig,
-    ThreeUrlConfig,
     load_config,
+    MediumOAuthConfig,
     save_config,
+    ThreeUrlConfig,
 )
 from backlink_publisher.config_echo import (
-    KNOWN_ENV_OVERRIDES,
     _canonicalise_for_sha,
     active_platforms,
     banner_lines,
     compute_config_sha,
     detect_env_overrides,
     emit_banner,
+    KNOWN_ENV_OVERRIDES,
 )
-
 
 # ── compute_config_sha: stability + sensitivity ────────────────────────────
 

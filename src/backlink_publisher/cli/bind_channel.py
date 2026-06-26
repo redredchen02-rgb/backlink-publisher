@@ -36,14 +36,15 @@ status badge + Chinese error message.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 import sys
-from typing import Any, Sequence
+from typing import Any
 
 from backlink_publisher._util.errors import (
-    PipelineError,
-    UsageError,
     handle_error,
     handle_unexpected_error,
+    PipelineError,
+    UsageError,
 )
 from backlink_publisher.cli._bind import driver
 from backlink_publisher.cli._bind.channels import CHANNELS

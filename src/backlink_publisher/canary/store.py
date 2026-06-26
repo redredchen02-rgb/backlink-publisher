@@ -34,13 +34,13 @@ NOT ``channel_status_store`` — that store is bind-scoped to
 
 from __future__ import annotations
 
-import tomllib
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
+import tomllib
 from typing import Any, cast
 
 from backlink_publisher.config.loader import _config_dir
-from webui_store.base import JsonStore, _LazyStore
+from webui_store.base import _LazyStore, JsonStore
 
 # Health status values written by the canary verb (Unit 3).
 STATUS_LINK_ALIVE = "link-alive"
@@ -97,7 +97,7 @@ canary_health_store: _LazyStore = _LazyStore(
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def get_health(platform: str) -> dict[str, Any]:

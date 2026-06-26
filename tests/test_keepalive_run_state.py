@@ -9,8 +9,7 @@ import os
 
 import pytest
 
-from backlink_publisher.keepalive.run_state import KeepaliveRunState, _default_state
-
+from backlink_publisher.keepalive.run_state import _default_state, KeepaliveRunState
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
 

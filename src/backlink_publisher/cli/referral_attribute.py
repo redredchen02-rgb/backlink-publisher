@@ -14,8 +14,8 @@ Contract:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
 
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.logger import get_logger

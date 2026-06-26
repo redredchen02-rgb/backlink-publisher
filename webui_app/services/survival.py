@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from backlink_publisher.events.survival_query import compute_survival
 from backlink_publisher.events.store import EventStore
+from backlink_publisher.events.survival_query import compute_survival
 
 
 def _display_fields(data: dict) -> dict:

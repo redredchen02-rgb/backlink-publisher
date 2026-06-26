@@ -9,12 +9,12 @@ Plan: ``docs/plans/2026-05-26-004-opt-projector-budget-rescue-plan.md``
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import logging
+from pathlib import Path
 import re
 import sqlite3
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -96,15 +96,15 @@ def split_iso_with_offset(value: str) -> tuple[str, str]:
     """Checkpoint ``started_at`` / ``completed_at`` form (ISO with offset)."""
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return value, parsed.astimezone(timezone.utc).isoformat()
+        parsed = parsed.replace(tzinfo=UTC)
+    return value, parsed.astimezone(UTC).isoformat()
 
 
 def split_local_naive(value: str) -> tuple[str, str]:
     """History / drafts ``YYYY-MM-DD HH:MM`` form — assume operator local."""
     parsed = datetime.strptime(value, "%Y-%m-%d %H:%M")
     local = parsed.astimezone()
-    return value, local.astimezone(timezone.utc).isoformat()
+    return value, local.astimezone(UTC).isoformat()
 
 
 # ── JSON read ───────────────────────────────────────────────────────

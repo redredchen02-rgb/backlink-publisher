@@ -13,7 +13,6 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse, urlunparse
 
-
 #: Pure-letter category token: 3-15 chars, letters ONLY (no digits, no hyphens).
 #: Used at path depth >= 2 to decide whether the trailing segment looks like
 #: a category landing page (e.g. ``/about``, ``/comic``, ``/archive``) versus a

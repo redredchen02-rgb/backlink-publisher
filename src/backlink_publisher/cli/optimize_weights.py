@@ -11,11 +11,11 @@ import sys
 
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.optimization.rules import (
+    apply_results,
+    evaluate_rules,
     RULE_AGGREGATED_STATS,
     RULE_CANARY_DRIFT,
     RULE_RECHECK_SURVIVAL,
-    apply_results,
-    evaluate_rules,
 )
 
 

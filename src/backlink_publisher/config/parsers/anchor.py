@@ -6,12 +6,11 @@ from typing import Any
 
 from ..._util.errors import InputValidationError
 from ..types import (
-    ANCHOR_TYPES,
-    Config,
     _PROPORTIONS_SUM_TOLERANCE,
     _SAFE_SEO_PROPORTIONS,
+    ANCHOR_TYPES,
+    Config,
 )
-
 from .three_url import _normalize_domain_key
 
 _log = logging.getLogger(__name__)

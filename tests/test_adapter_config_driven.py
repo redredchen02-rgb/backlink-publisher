@@ -7,7 +7,6 @@ All network is mocked.
 
 from __future__ import annotations
 
-
 __tier__ = "integration"
 from unittest import mock
 
@@ -20,10 +19,10 @@ from backlink_publisher._util.errors import (
     ExternalServiceError,
 )
 from backlink_publisher.publishing.adapters.config_driven import (
-    ConfigDrivenAdapter,
     _get_api_key,
     _resolve_jsonpath,
     _resolve_permalink,
+    ConfigDrivenAdapter,
 )
 
 

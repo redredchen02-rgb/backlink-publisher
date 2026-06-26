@@ -17,16 +17,16 @@ from typing import Any
 import pytest
 
 from backlink_publisher.publishing import adapters as _production  # noqa: F401
+from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _BIND_BY_PLATFORM,
     _POLICY_BY_PLATFORM,
     _REGISTRY,
     _UI_META_BY_PLATFORM,
     _VISIBILITY_BY_PLATFORM,
+    Publisher,
     register,
 )
-from backlink_publisher.publishing.adapters.base import AdapterResult
 
 
 class _Fake(Publisher):

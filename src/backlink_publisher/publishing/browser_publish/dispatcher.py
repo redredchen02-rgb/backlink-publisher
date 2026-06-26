@@ -28,7 +28,6 @@ from backlink_publisher.publishing.registry import Publisher
 from .chrome_session import BrowserPublishRecipe, ChromeAttachSession
 from .recipes import RECIPES
 
-
 _SIGNIN_PATTERNS = (
     re.compile(r"/(?:signin|sign-in|log-?in|m/signin)(?:[/?#]|$)", re.IGNORECASE),
 )
@@ -56,7 +55,7 @@ class BrowserPublishDispatcher(Publisher):
         self.recipe = recipe
 
     @classmethod
-    def for_channel(cls, channel: str) -> "BrowserPublishDispatcher":
+    def for_channel(cls, channel: str) -> BrowserPublishDispatcher:
         """Build a dispatcher for ``channel`` using its registered recipe.
 
         Raises ``DependencyError`` if no recipe is registered — this is

@@ -10,18 +10,17 @@ Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 
 from __future__ import annotations
 
-
 __tier__ = "integration"
 import json
 from pathlib import Path
 
+from webui_store.base import Store
 from webui_store.drafts import (
-    DraftsSqliteStore,
     _JSON_FILENAME,
     _SENTINEL_NAME,
+    DraftsSqliteStore,
 )
 from webui_store.sqlite_base import WebUIDatabase
-from webui_store.base import Store
 
 
 def _store(tmp_path: Path) -> DraftsSqliteStore:
@@ -350,6 +349,7 @@ def test_no_duplicate_method_definitions():
     defined twice in the JsonStore version; confirm one definition each now."""
     import ast
     import inspect
+
     import webui_store.drafts as mod
 
     src = inspect.getsource(mod)

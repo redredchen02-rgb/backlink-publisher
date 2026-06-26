@@ -5,10 +5,8 @@ Source: ``origin/pr/1:src/backlink_publisher/verifier.py``
 """
 from __future__ import annotations
 
-
 __tier__ = "unit"
 from backlink_publisher.html_scope import ArticleScopedCollector, collect_article_text
-
 
 # ── convenience wrapper ───────────────────────────────────────────────────
 

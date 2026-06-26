@@ -15,11 +15,9 @@ import json
 import logging
 import subprocess
 import sys
-from pathlib import Path
 from typing import Any, cast
 
 from backlink_publisher.config.loader import _config_dir as _resolve_config_dir
-
 from backlink_publisher.optimization import OptimizationState
 
 logger = logging.getLogger(__name__)

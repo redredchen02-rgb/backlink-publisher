@@ -6,10 +6,11 @@ Phase A refactoring: uses ``PipelineAPI`` for all CLI invocations.
 from __future__ import annotations
 
 import json
+from typing import Any
 
-from flask import current_app, Blueprint, request, session
+from flask import Blueprint, current_app, request, session
 
-from backlink_publisher.config import load_config as _load_cfg, resolve_blog_id as _resolve
+from backlink_publisher.config import load_config as _load_cfg
 
 from ..api import PipelineAPI
 from ..helpers.contexts import _render
@@ -17,8 +18,8 @@ from ..helpers.history import (
     _push_history_per_row,
     _push_history_single_failure,
 )
-from ..helpers.url_meta import get_main_domain
 from ..helpers.security import _check_bind_origin_or_abort
+from ..helpers.url_meta import get_main_domain
 
 bp = Blueprint("batch", __name__)
 _api = PipelineAPI()
@@ -26,7 +27,6 @@ _api = PipelineAPI()
 
 @bp.before_request
 def _enforce_bind_origin() -> None:
-    from flask import current_app
     if not current_app.config.get('CSRF_ENABLED', True):
         return
     if not current_app.config.get('WTF_CSRF_ENABLED', True):
@@ -34,25 +34,32 @@ def _enforce_bind_origin() -> None:
     _check_bind_origin_or_abort()
 
 
-def _check_blogger_blog_id(domain: str) -> str | None:
-    """Return error HTML if blog_id missing, None if OK."""
+def _check_medium_setup() -> str | None:
+    """Return error HTML if Medium not ready, None if OK."""
+    from backlink_publisher.publishing._verify_setup import _check_medium_setup as _verify_medium
+
     try:
-        _resolve(_load_cfg(), domain)
-    except Exception as exc:
-        if 'blog_id' in str(exc).lower() or 'DependencyError' in type(exc).__name__:
+        err = _verify_medium(_load_cfg())
+        if err:
             return (
-                "❌ Blogger Blog ID 未配置。"
-                "请前往 <a href='/settings#blogger-blog-ids' style='color:var(--primary);font-weight:600;'>"
-                "设置 → Blogger Blog ID 映射</a> 添加对应条目。"
+                "❌ Medium 平台未配置完成。"
+                "请前往 <a href='/settings' style='color:var(--primary);font-weight:600;'>"
+                "设置 → Medium</a> 配置凭据。"
             )
+    except Exception:
+        return (
+            "❌ Medium 平台设置检查失败。"
+            "请前往 <a href='/settings' style='color:var(--primary);font-weight:600;'>"
+            "设置 → Medium</a> 确认配置。"
+        )
     return None
 
 
 @bp.route('/ce:batch', methods=['POST'])
-def ce_batch():
+def ce_batch() -> Any:
     """Batch publish: process multiple target URLs through the full pipeline."""
     urls_text = request.form.get('batch_urls', '').strip()
-    platform = request.form.get('platform', 'blogger')
+    platform = request.form.get('platform', 'medium')
     # Plan 013 U2: converge field name to `target_language`; keep `language` as
     # backwards-compat fallback for any caller still using the old field name.
     language = (
@@ -73,8 +80,8 @@ def ce_batch():
             u = 'https://' + u
         urls.append(u)
 
-    if platform == 'blogger':
-        err = _check_blogger_blog_id(get_main_domain(urls[0]))
+    if platform == 'medium':
+        err = _check_medium_setup()
         if err:
             return _render('index.html', error=err, batch_tab=True,
                            batch_urls=urls_text, config={})
@@ -141,19 +148,17 @@ def ce_batch():
 
 
 @bp.route('/ce:publish-real', methods=['POST'])
-def ce_publish_real():
+def ce_publish_real() -> Any:
     """Real publish (mode=publish, not dry-run)."""
     validated = request.form.get('validated', '')
-    platform = request.form.get('platform', 'blogger')
+    platform = request.form.get('platform', 'medium')
     config = session.get('config', {})
 
-    if platform == 'blogger':
-        main_domain = config.get('main_domain', '')
-        if main_domain:
-            err = _check_blogger_blog_id(main_domain)
-            if err:
-                return _render('index.html', error=err,
-                               config=config, history_active=True)
+    if platform == 'medium':
+        err = _check_medium_setup()
+        if err:
+            return _render('index.html', error=err,
+                           config=config, history_active=True)
 
     result = _api.publish(validated, platform, "publish")
     if not result.success:

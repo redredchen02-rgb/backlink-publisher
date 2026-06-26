@@ -17,20 +17,19 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
-
-import pytest
 
 # Import shared constants from conftest.py (tests/ is not a package).
 from conftest import (  # type: ignore[import]
-    REAL_CONFIG_ROOT,
-    REAL_CACHE_ROOT,
-    SANDBOX_SENTINEL,
-    _sandbox_home_dir,
     _real_pw_home,
+    _sandbox_home_dir,
+    REAL_CACHE_ROOT,
+    REAL_CONFIG_ROOT,
+    SANDBOX_SENTINEL,
 )
+import pytest
 
 
 def test_real_roots_captured_before_redirect() -> None:

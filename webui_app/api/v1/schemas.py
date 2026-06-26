@@ -8,7 +8,7 @@ models. Wire format is snake_case; timestamps are RFC 3339 UTC; ids are strings.
 
 from __future__ import annotations
 
-from marshmallow import INCLUDE, Schema, fields
+from marshmallow import fields, INCLUDE, Schema
 
 
 class HealthSchema(Schema):

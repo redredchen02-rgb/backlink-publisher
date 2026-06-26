@@ -9,7 +9,6 @@ import hashlib
 from typing import Any, cast
 from urllib.parse import urlparse
 
-from backlink_publisher.config import Config, get_anchor_keywords
 from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher._util.logger import plan_logger
 from backlink_publisher._util.markdown import (
@@ -17,11 +16,12 @@ from backlink_publisher._util.markdown import (
     select_anchor_keywords,
     slugify,
 )
+from backlink_publisher.config import Config, get_anchor_keywords
 from backlink_publisher.publishing import registry
 from backlink_publisher.publishing.adapters.llm_anchor_provider import OpenAICompatibleProvider
 
 from ._links import _build_link_density_paragraph, _build_links
-from ._templates import _TEMPLATES, _TDK_TITLE_TMPL, _domain_label_of
+from ._templates import _domain_label_of, _TDK_TITLE_TMPL, _TEMPLATES
 
 ARTICLE_LENGTH_WORDS = (100, 200)
 
@@ -184,7 +184,7 @@ def _append_extra_urls_section(body: str, extra_urls: list[str]) -> str:
     if not extra_urls:
         return body
 
-    extra_intro = f"\n\n除了主要的资源外，我们还整理了以下相关页面供您参考：\n"
+    extra_intro = "\n\n除了主要的资源外，我们还整理了以下相关页面供您参考：\n"
     body = body + extra_intro
 
     for i, ex_url in enumerate(extra_urls[:3]):

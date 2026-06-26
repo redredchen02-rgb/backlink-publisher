@@ -13,7 +13,6 @@ import pytest
 
 from backlink_publisher.content._html_utils import extract_title, read_html_head_window
 
-
 # ── extract_title ──────────────────────────────────────────────────────────────
 
 def test_og_title_preferred_over_title_tag() -> None:

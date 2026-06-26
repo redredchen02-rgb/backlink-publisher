@@ -11,8 +11,8 @@ from __future__ import annotations
 
 __tier__ = "integration"
 
-import sys
 import os
+import sys
 
 import pytest
 

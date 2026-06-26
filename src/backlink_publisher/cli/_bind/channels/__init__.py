@@ -14,7 +14,6 @@ at emit time so typos fail loud here rather than silently in production.
 
 from __future__ import annotations
 
-
 CHANNELS: frozenset[str] = frozenset({"velog", "medium", "blogger"})
 """The closed set of supported binding channels. Adding a new channel
 requires updating this frozenset plus shipping its recipe in

@@ -23,9 +23,9 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
+from pathlib import Path
 import subprocess
 import tomllib
-from pathlib import Path
 
 import pytest
 
@@ -237,8 +237,8 @@ def test_every_resolved_or_mitigated_item_has_a_freshness_claim() -> None:
     }
     missing_claims = closed - _CLAIM_TEST_SLUGS
     assert not missing_claims, (
-        f"These debt items are marked resolved/mitigated but have no freshness "
-        f"claim test in test_debt_registry_freshness.py:\n  "
+        "These debt items are marked resolved/mitigated but have no freshness "
+        "claim test in test_debt_registry_freshness.py:\n  "
         + "\n  ".join(sorted(missing_claims))
         + "\nAdd a test_claim_<slug>_*_is_true() function that asserts the "
         "falsifiable codebase invariant behind the 'done' claim. Closing a "

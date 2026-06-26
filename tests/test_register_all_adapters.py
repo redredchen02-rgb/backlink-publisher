@@ -5,7 +5,6 @@ import-side-effect path (relied on by the ~50 CLI entrypoints) keeps working.
 """
 from __future__ import annotations
 
-
 __tier__ = "unit"
 
 import backlink_publisher.publishing.adapters as adapters

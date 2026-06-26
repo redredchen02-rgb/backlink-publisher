@@ -11,10 +11,11 @@ the real store (with resolved path) is created lazily when first accessed.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
-import threading
 from pathlib import Path
-from typing import Any, Callable, Protocol, runtime_checkable
+import threading
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable

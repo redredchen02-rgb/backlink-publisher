@@ -4,12 +4,10 @@ from __future__ import annotations
 __tier__ = "unit"
 from unittest.mock import MagicMock, patch
 
-
 from backlink_publisher.publishing.adapters.link_attr_verifier import (
     required_link_urls,
     verify_link_attributes,
 )
-
 
 _FETCH = "backlink_publisher.publishing.adapters.link_attr_verifier._fetch_body_via_preflight"
 _SM_MEDIUM = "backlink_publisher.publishing.adapters.medium_api.SessionManager"
@@ -65,7 +63,7 @@ def test_half_anchors_have_blank_target():
 
 
 def test_no_anchors_in_html():
-    with patch(_FETCH, return_value=("<html><body>no links</body></html>".encode(), None)):
+    with patch(_FETCH, return_value=(b"<html><body>no links</body></html>", None)):
         result = verify_link_attributes("https://example.com")
 
     assert result["verification"] == "ok"
@@ -120,7 +118,7 @@ def test_timeout_returns_skipped():
 
 
 def test_non_html_response_does_not_crash():
-    with patch(_FETCH, return_value=('{"not": "html"}'.encode(), None)):
+    with patch(_FETCH, return_value=(b'{"not": "html"}', None)):
         result = verify_link_attributes("https://example.com")
     assert result["verification"] == "ok"
     assert result["total_anchors"] == 0
@@ -264,8 +262,8 @@ def _make_payload(mode: str = "publish", article_id: str = "test01") -> dict:
 
 def test_medium_api_publish_hook_wires_meta():
     """publish mode → verifier result stored in AdapterResult._provider_meta."""
-    from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
     from backlink_publisher.config import Config
+    from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
 
     html = _html(
         '<a href="https://x.com" target="_blank">link</a>',
@@ -300,8 +298,8 @@ def test_medium_api_publish_hook_wires_meta():
 
 def test_medium_api_draft_mode_skips_verifier():
     """draft mode → verify_link_attributes must NOT be called."""
-    from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
     from backlink_publisher.config import Config
+    from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
 
     api_resp = MagicMock()
     api_resp.ok = True
@@ -331,8 +329,8 @@ def test_medium_api_draft_mode_skips_verifier():
 
 def test_verifier_skipped_result_no_warn(caplog):
     """When verifier returns skipped, no WARN about stripping should fire."""
-    from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
     from backlink_publisher.config import Config
+    from backlink_publisher.publishing.adapters.medium_api import MediumAPIAdapter
 
     api_resp = MagicMock()
     api_resp.ok = True

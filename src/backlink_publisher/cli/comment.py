@@ -26,7 +26,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from backlink_publisher._util.errors import PipelineError, handle_error
+from backlink_publisher._util.errors import handle_error, PipelineError
 
 EXIT_OK = 0
 EXIT_NOT_IMPLEMENTED = 5  # scaffold marker; each unit replaces its stub

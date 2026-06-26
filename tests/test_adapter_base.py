@@ -3,9 +3,9 @@ __tier__ = "unit"
 
 from backlink_publisher.publishing.adapters.base import (
     AdapterResult,
-    TransientError,
-    PermanentError,
     classify_http_status,
+    PermanentError,
+    TransientError,
 )
 
 

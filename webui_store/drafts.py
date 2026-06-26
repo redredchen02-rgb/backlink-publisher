@@ -26,10 +26,11 @@ Unit 6.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
-import time
 from pathlib import Path
-from typing import Any, Callable
+import time
+from typing import Any
 
 from backlink_publisher.events._store_sqlite import _retry_sqlite
 

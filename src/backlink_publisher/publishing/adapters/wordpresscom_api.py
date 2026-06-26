@@ -5,16 +5,15 @@ import os
 import time
 from typing import Any
 
-from backlink_publisher.http import post as http_post
-
-from backlink_publisher.config import Config, load_wordpresscom_token
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, load_wordpresscom_token
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 WPCOM_API_BASE = "https://public-api.wordpress.com/rest/v1.1"
 _HTTP_TIMEOUT_S = 30

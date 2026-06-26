@@ -1,38 +1,75 @@
-# AGENTS.md — backlink-publisher
-
-See `README.md` for project overview and `docs/` for plans, brainstorms, ideation, and solutions.
-
-## Dev Commands
-
-```bash
-# Install
-pip install -e .          # full package
-pip install -e .[dev]     # + dev deps (pytest, radon==6.0.1, etc.)
-
-# Test (PYTHONHASHSEED=0 required — set by pytest-env in pyproject.toml)
-pytest tests/
-pytest tests/test_no_monolith_regrowth.py -k "R4"   # single budget test
-pytest tests/scripts/                               # worktree script tests
-pytest -m real_ssrf_check                           # live SSRF checks (off by default)
-pytest -m real_content_fetch                        # live content fetching (module-wide in test_content_fetch.py)
-
-# Lint (CI uses py_compile + ast.parse, not Black/flake8 — local-only)
-black --check src/
-flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
-
-# SLOC measurement (for monolith budget edits)
-python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan_backlinks is a package; core.py is the monitored file
-
-# WebUI
-python webui.py                                    # start dev server on :8888
-scripts/launcher.command                           # canonical operator launcher (FLASK_DEBUG=0 + pinned SECRET_KEY, crash-restart loop)
-```
-
-> **One launcher (R9):** `scripts/launcher.command` is the single git-tracked launcher. The workspace-root `启动WebUI.command` / `restart_webui.sh` and `make restart-webui` are thin entry points that should resolve to it — keep the security posture (Werkzeug debug off, pinned `SECRET_KEY`) in this one file only.
+	# AGENTS.md — backlink-publisher
+	
+	See `README.md` for project overview and `docs/` for plans, brainstorms, ideation, and solutions.
+	
+	## Dev Commands
+	
+	### macOS / Linux
+	```bash
+	# Install
+	pip install -e .          # full package
+	pip install -e .[dev]     # + dev deps (pytest, radon==6.0.1, etc.)
+	
+	# Test (PYTHONHASHSEED=0 required — set by pytest-env in pyproject.toml)
+	pytest tests/
+	pytest tests/test_no_monolith_regrowth.py -k "R4"   # single budget test
+	pytest tests/scripts/                               # worktree script tests
+	pytest -m real_ssrf_check                           # live SSRF checks (off by default)
+	pytest -m real_content_fetch                        # live content fetching (module-wide in test_content_fetch.py)
+	
+	# Lint (CI uses py_compile + ast.parse, not Black/flake8 — local-only)
+	black --check src/
+	flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+	
+	# SLOC measurement (for monolith budget edits)
+	python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan_backlinks is a package; core.py is the monitored file
+	
+	# WebUI
+	python webui.py                                    # start dev server on :8888
+	scripts/launcher.command                           # canonical operator launcher (FLASK_DEBUG=0 + pinned SECRET_KEY, crash-restart loop)
+	```
+	
+	### Windows (PowerShell 5.1+)
+	```batch
+	REM Install
+	.venv\Scripts\python -m pip install -e .[dev]
+	
+	REM Test (PYTHONHASHSEED=0 set by pytest-env in pyproject.toml)
+	.venv\Scripts\python -m pytest tests/
+	.venv\Scripts\python -m pytest tests/test_no_monolith_regrowth.py -k "R4"
+	
+	REM Lint
+	.venv\Scripts\python -m black --check src/
+	.venv\Scripts\python -m flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+	
+	REM SLOC measurement
+	.venv\Scripts\python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py
+	
+	REM WebUI
+	.venv\Scripts\python webui.py                                    # dev server on :8888
+	powershell -ExecutionPolicy Bypass -File scripts\launcher.ps1     # canonical operator launcher (Windows)
+	```
+	
+	> **One launcher (R9):** On macOS, `scripts/launcher.command` is the single git-tracked launcher. On Windows, its equivalent is `scripts/launcher.ps1`. The workspace-root `启动WebUI.bat` / `restart_webui.bat` are thin entry points that should resolve to it — keep the security posture (Werkzeug debug off, pinned `SECRET_KEY`) in these files only.
 
 ## Repo Layout
-
-Workspace root (not a git repo) holds `backlink-publisher/` (canonical) and `bp-<topic>/` (`git worktree` checkouts sharing `.git/`). Edit `backlink-publisher/`, never `bp-*/`, unless on that branch.
+	
+	Workspace root (not a git repo) holds `backlink-publisher/` (canonical) and `bp-<topic>/` (`git worktree` checkouts sharing `.git/`). Edit `backlink-publisher/`, never `bp-*/`, unless on that branch.
+	
+	### Windows path orientation
+	
+	| macOS path | Windows path |
+	|---|---|
+	| `.venv/bin/python` | `.venv\Scripts\python.exe` |
+	| `.venv/bin/activate` | `.venv\Scripts\activate` (或 `.venv\Scripts\activate.bat`) |
+	| `~/.config/backlink-publisher/` | `%USERPROFILE%\.config\backlink-publisher\` |
+	| `~/.cache/backlink-publisher/` | `%USERPROFILE%\.cache\backlink-publisher\` |
+	| `scripts/launcher.command` | `scripts\launcher.ps1` (PowerShell) |
+	| `restart_webui.sh` | `restart_webui.bat` |
+	| `启动WebUI.command` | `启动WebUI.bat` |
+	| `PYTHONPATH=src:${PYTHONPATH}` (冒號) | `PYTHONPATH=src;%PYTHONPATH%` (分號) |
+	
+	All `.bat` / `.ps1` Windows-specific files are written fresh per-platform (not git worktree symlinks). Edit the canonical file under `backlink-publisher/scripts/` — workspace-root wrappers (`.bat`, `.command`) are entry-only and should delegate to the canonical script.
 
 ### WebUI
 

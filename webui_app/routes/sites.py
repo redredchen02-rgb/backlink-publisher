@@ -6,22 +6,22 @@ the keep-alive flow — both redirect to /ce:keep-alive.
 
 from __future__ import annotations
 
+from datetime import UTC
+from typing import Any
 from urllib.parse import quote as _quote
 
 from flask import Blueprint, jsonify, redirect, render_template, request
 
+from backlink_publisher._util.errors import InputValidationError
+from backlink_publisher._util.logger import plan_logger
+from backlink_publisher._util.url import validate_https_url, validate_main_domain_url
 from backlink_publisher.config import (
     DEFAULT_WORK_TEMPLATES,
-    ThreeUrlConfig,
     load_config,
     save_config,
+    ThreeUrlConfig,
 )
-from backlink_publisher._util.errors import InputValidationError
-from backlink_publisher._util.url import validate_https_url, validate_main_domain_url
-from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.content.scraper import fetch_work_metadata
-
-from ..services.work_themed_service import parse_lines as _parse_lines
 
 from ..helpers._request_cache import _g_cache
 from ..helpers.security import _ensure_csrf_token
@@ -32,12 +32,13 @@ from ..helpers.url_meta import (
     _verify_urls_or_error,
     fetch_full_tdk,
 )
+from ..services.work_themed_service import parse_lines as _parse_lines
 
 bp = Blueprint("sites", __name__)
 
 
 @bp.route("/sites", methods=["GET"])
-def sites_form():
+def sites_form() -> Any:
     csrf_token = _ensure_csrf_token()
     cfg = _g_cache('config', load_config)
     domain_query = (request.args.get("domain") or "").rstrip("/")
@@ -64,6 +65,7 @@ def sites_form():
     # all_sites: list of {label, main_url, autopilot_enabled, autopilot_interval,
     #                      alert_pending, next_run_time_iso}
     import sys as _sys
+
     import webui_store as _ws
     sched_settings = _ws.schedule_store.load()
     autopilot_targets = sched_settings.get("autopilot_targets", {})
@@ -108,7 +110,7 @@ def sites_form():
 
 
 @bp.route("/sites/save-three-url", methods=["POST"])
-def sites_save_three_url():
+def sites_save_three_url() -> Any:
     raw = {
         "main_url": (request.form.get("main_url") or "").strip(),
         "list_url": (request.form.get("list_url") or "").strip(),
@@ -240,7 +242,7 @@ def sites_save_three_url():
 
 
 @bp.route("/sites/scrape-preview", methods=["GET"])
-def sites_scrape_preview():
+def sites_scrape_preview() -> Any:
     url = (request.args.get("url") or "").strip()
     if not url:
         return jsonify({"status": "error", "reason": "missing url param"}), 400
@@ -261,7 +263,7 @@ def sites_scrape_preview():
 
 
 @bp.route("/sites/autopilot", methods=["POST"])
-def sites_autopilot():
+def sites_autopilot() -> Any:
     """Enable or disable autopilot for a site (Plan 2026-06-09-001 U8).
 
     Body: {site_url: str, enabled: bool, interval_seconds: int}
@@ -290,7 +292,7 @@ def sites_autopilot():
     _site_was_present = site_url in _current_targets
     snapshot_site_cfg = dict(_current_targets[site_url]) if _site_was_present else None
 
-    def _update_fn(settings):
+    def _update_fn(settings: Any) -> Any:
         targets = dict(settings.get("autopilot_targets", {}))
         site_cfg = dict(targets.get(site_url, {}))
         site_cfg["enabled"] = enabled
@@ -323,7 +325,7 @@ def sites_autopilot():
                 pass
     except Exception as exc:
         # Roll back only this site's config; concurrent updates to other sites are preserved.
-        def _rollback_fn(s):
+        def _rollback_fn(s: Any) -> Any:
             targets = dict(s.get("autopilot_targets", {}))
             if _site_was_present:
                 targets[site_url] = snapshot_site_cfg
@@ -345,20 +347,20 @@ def sites_autopilot():
 
 
 @bp.route("/sites/run", methods=["POST"])
-def sites_run():
+def sites_run() -> Any:
     return redirect("/ce:keep-alive")
 
 
 @bp.route("/sites/run/<run_id>/result", methods=["GET"])
-def sites_run_result(run_id: str):
+def sites_run_result(run_id: str) -> Any:
     return redirect("/ce:keep-alive")
 
 
-def _plan_gap_summary(path=None) -> dict:
+def _plan_gap_summary(path: Any=None) -> dict:
     """Read the latest plan-gap seed JSONL and return a display summary."""
+    from datetime import datetime
     import json
     import os
-    from datetime import datetime, timezone
     from pathlib import Path
 
     path = Path(path) if path is not None else (
@@ -384,7 +386,7 @@ def _plan_gap_summary(path=None) -> dict:
         for row in rows
         if isinstance(row, dict) and row.get("target_url")
     }
-    triggered_at = datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    triggered_at = datetime.fromtimestamp(mtime, tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
     return {
         "status": "ok",
         "candidate_count": len(rows),

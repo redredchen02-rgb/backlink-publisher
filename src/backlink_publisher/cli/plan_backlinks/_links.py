@@ -8,9 +8,9 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
-from backlink_publisher.content import fetch as content_fetch
-from backlink_publisher.config import Config
 from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.config import Config
+from backlink_publisher.content import fetch as content_fetch
 
 
 class _ContentGateRowFailure(Exception):

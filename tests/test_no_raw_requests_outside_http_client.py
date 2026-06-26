@@ -27,10 +27,10 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

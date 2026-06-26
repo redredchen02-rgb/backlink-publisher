@@ -18,6 +18,8 @@ later.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, request
 
 from ...helpers.security import _check_bind_origin_or_abort, _refuse_when_allow_network
@@ -28,12 +30,12 @@ from .errors import ApiProblem
 from .settings_credentials import _transport_guards_active
 
 
-def _json_body():
+def _json_body() -> Any:
     data = request.get_json(silent=True)
     return data if isinstance(data, dict) else {}
 
 
-def _render(result):
+def _render(result: Any) -> Any:
     if result.error_class == "invalid_request":
         raise ApiProblem(422, "LLM settings rejected", detail=result.message,
                          error_class="invalid_request")
@@ -44,7 +46,7 @@ def _render(result):
 
 
 @bp.get("/settings/llm-config")
-def settings_get_llm_config():
+def settings_get_llm_config() -> Any:
     """Hydrate the LLM/image-gen settings form. Redaction-safe: the two secrets are
     returned only as ``has_*`` booleans, never the key itself (no inline guard
     needed — no secret crosses the wire; matches the other settings GETs)."""
@@ -52,7 +54,7 @@ def settings_get_llm_config():
 
 
 @bp.post("/settings/llm-config")
-def settings_save_llm_config():
+def settings_save_llm_config() -> Any:
     """Save (or clear, via ``{"action": "clear"}``) LLM / image-gen settings.
 
     Body mirrors the legacy form fields (endpoint / api_key / model / temperature
@@ -73,14 +75,14 @@ def settings_save_llm_config():
 
 
 @bp.post("/settings/llm/test-connection")
-def settings_test_llm_connection():
+def settings_test_llm_connection() -> Any:
     """SSRF-guarded connection probe + best-effort last-known-health persist."""
     r = LlmDiagnosticsAPI().test_connection(_json_body())
     return jsonify(r.payload), r.http_status
 
 
 @bp.post("/settings/llm/test-generation")
-def settings_test_llm_generation():
+def settings_test_llm_generation() -> Any:
     """Article/anchor generation preview from the stored LLM settings."""
     r = LlmDiagnosticsAPI().test_generation(_json_body())
     return jsonify(r.payload), r.http_status

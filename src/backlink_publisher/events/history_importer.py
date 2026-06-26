@@ -15,7 +15,6 @@ from backlink_publisher.events.publish_writer import (
     map_history_entry,
     write_event,
 )
-from backlink_publisher.events.store import EventStore
 
 log = logging.getLogger(__name__)
 

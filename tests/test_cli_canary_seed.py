@@ -21,10 +21,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from backlink_publisher._util.errors import DependencyError, UsageError
 import backlink_publisher.cli.canary_seed as cs
 from backlink_publisher.publishing.adapters.base import AdapterResult
-from backlink_publisher._util.errors import DependencyError, UsageError
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -353,7 +352,8 @@ class TestWaitAfterPublish:
              patch.object(cs, "inspect_target_anchor", return_value=_anchor()), \
              patch.object(cs, "_ssrf_check", return_value=None), \
              patch.object(cs, "_sleep", side_effect=lambda s: calls.append(s)):
-            import io, sys
+            import io
+            import sys
             old_stdout, old_stderr = sys.stdout, sys.stderr
             sys.stdout = io.StringIO()
             sys.stderr = io.StringIO()
@@ -374,7 +374,8 @@ class TestWaitAfterPublish:
              patch.object(cs, "inspect_target_anchor", return_value=_anchor()), \
              patch.object(cs, "_ssrf_check", return_value=None), \
              patch.object(cs, "_sleep", side_effect=lambda s: calls.append(s)):
-            import io, sys
+            import io
+            import sys
             old_stdout, old_stderr = sys.stdout, sys.stderr
             sys.stdout = io.StringIO()
             sys.stderr = io.StringIO()

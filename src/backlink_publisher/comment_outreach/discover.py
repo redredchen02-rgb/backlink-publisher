@@ -18,9 +18,9 @@ A per-run **seed cap** (:data:`MAX_SEEDS`) bounds a huge or hostile seed file fr
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import hashlib
-from datetime import datetime, timezone
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 from bs4 import BeautifulSoup
 
@@ -103,7 +103,7 @@ def _build_target(seed: dict[str, Any], now_iso: str) -> dict[str, Any]:
     return target
 
 
-def discover_targets(source: Optional[TextIO] = None, dest: Optional[TextIO] = None) -> dict[str, int]:
+def discover_targets(source: TextIO | None = None, dest: TextIO | None = None) -> dict[str, int]:
     """Read seed JSONL, fetch+detect each exact URL, emit ``CommentTarget`` JSONL.
 
     Returns counts ``{"discovered", "rejected", "fetched"}``. Always exit-0 semantics:
@@ -111,7 +111,7 @@ def discover_targets(source: Optional[TextIO] = None, dest: Optional[TextIO] = N
     valid target (e.g. missing/invalid required fields) are rejected with a RECON reason.
     """
     rows = read_jsonl(source, strict=False)
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     targets: list[dict[str, Any]] = []
     rejected = 0
     fetched = 0

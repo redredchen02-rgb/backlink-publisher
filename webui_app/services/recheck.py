@@ -16,12 +16,11 @@ the real network (which the autouse conftest fixtures block).
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Sequence
 
 from backlink_publisher.linkcheck.verify import VerificationResult
-
 
 # Type alias for the injection point: same signature as `verify_published`.
 VerifyFn = Callable[..., VerificationResult]

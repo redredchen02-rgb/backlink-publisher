@@ -12,7 +12,6 @@ from ..types import (
     DEFAULT_WORK_TEMPLATES,
     ThreeUrlConfig,
 )
-
 from .target import _clean_pool
 
 _log = logging.getLogger(__name__)

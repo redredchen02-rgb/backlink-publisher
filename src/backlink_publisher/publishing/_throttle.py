@@ -19,11 +19,10 @@ Usage::
 
 from __future__ import annotations
 
-import math
 import os
+from pathlib import Path
 import random
 import sqlite3
-from pathlib import Path
 from typing import Any
 
 from backlink_publisher.config import _cache_dir

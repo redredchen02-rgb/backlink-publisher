@@ -11,20 +11,21 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import time
+from typing import Any, cast
 import urllib.parse
 import urllib.request
-from pathlib import Path
-from typing import Any, cast
 
-from backlink_publisher.cli._bind import chrome_backend as chrome
-from backlink_publisher.config import Config, _config_dir as _bp_config_dir
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.cli._bind import chrome_backend as chrome
+from backlink_publisher.config import _config_dir as _bp_config_dir
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
 
+from .base import AdapterResult
 
 _HTTP_TIMEOUT_S = 3
 _PUBLISH_TIMEOUT_S = 45

@@ -8,9 +8,9 @@ inspect_target_anchor engine; the autouse conftest also blocks real sockets.
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timedelta, timezone, UTC
 import io
 import json
-from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +19,7 @@ from backlink_publisher.cli import recheck_backlinks as cli
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 @pytest.fixture

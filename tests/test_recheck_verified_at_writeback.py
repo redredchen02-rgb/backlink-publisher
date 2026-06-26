@@ -8,6 +8,7 @@ from __future__ import annotations
 __tier__ = "unit"
 
 import json
+
 import pytest
 
 from backlink_publisher.events import EventStore

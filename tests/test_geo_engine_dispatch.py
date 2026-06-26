@@ -14,7 +14,7 @@ import pytest
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.config.types import GeoProbeConfig
-from backlink_publisher.geo import ProbeResult, dispatch_probe
+from backlink_publisher.geo import dispatch_probe, ProbeResult
 from backlink_publisher.geo import engines as engines_mod
 
 # Fake key assembled at runtime (never a source literal).

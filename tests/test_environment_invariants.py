@@ -93,8 +93,9 @@ def test_storage_state_files_are_mode_600() -> None:
     fresh operator machine), it passes trivially. The test is authoritative
     only on a machine that has run bind-channel at least once.
     """
-    import stat
     from pathlib import Path
+    import stat
+
     from backlink_publisher.config.loader import _config_dir
 
     config_dir = _config_dir()

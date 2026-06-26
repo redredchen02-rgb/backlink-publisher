@@ -7,7 +7,7 @@ See ``test_content_fetch.py`` for module-level docstring context.
 from __future__ import annotations
 
 __tier__ = "e2e"
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed, ThreadPoolExecutor
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
@@ -15,8 +15,8 @@ from urllib.error import HTTPError
 import pytest
 
 from backlink_publisher.content.fetch import (
-    HEAD_SCAN_BYTES,
     _CACHE,
+    HEAD_SCAN_BYTES,
     reset_cache,
     reset_stats,
     set_default_max_age,
@@ -171,7 +171,6 @@ def test_cache_key_falls_back_on_malformed_url_without_raising():
 
 
 def test_concurrent_verify_writes_cache_without_corruption():
-    from backlink_publisher.content.fetch import _CACHE
 
     body = b"<html><head><title>X</title></head><body>x</body></html>"
     urls = [f"https://host{i}.example/p" for i in range(48)]
@@ -334,8 +333,8 @@ class TestStats:
         assert snap["reason_counts"]["ok"] == 1
 
     def test_stats_record_failure_reasons(self):
-        from urllib.error import HTTPError
         from io import BytesIO
+        from urllib.error import HTTPError
 
         def _raise_404(*args, **kwargs):
             raise HTTPError("https://example.com/", 404, "NF", {}, BytesIO(b""))

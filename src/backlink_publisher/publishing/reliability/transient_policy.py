@@ -31,14 +31,14 @@ Safety model (preserves R2 — never create a duplicate live link):
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from backlink_publisher._util.errors import (
     AntiBotChallengeError,
     ExternalServiceError,
 )
 
-from ..adapters.retry import ErrorClass, classify_exception
+from ..adapters.retry import classify_exception, ErrorClass
 
 # Marker attribute stamped on an exception by the raising adapter to assert that
 # its 429 was returned by the server BEFORE the post was created (the only state
@@ -70,7 +70,7 @@ CROSS_MECHANISM_FALLBACK: frozenset[tuple[str, str]] = frozenset(
 )
 
 
-class TransientDecision(str, Enum):
+class TransientDecision(StrEnum):
     """Outcome of :func:`classify_transient`."""
 
     FALLBACK_SAFE = "fallback_safe"

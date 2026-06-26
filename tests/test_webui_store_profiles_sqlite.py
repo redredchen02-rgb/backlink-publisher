@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from webui_store.base import Store
-from webui_store.profiles import ProfilesSqliteStore, _JSON_FILENAME, _SENTINEL_NAME
+from webui_store.profiles import _JSON_FILENAME, _SENTINEL_NAME, ProfilesSqliteStore
 from webui_store.sqlite_base import WebUIDatabase
 
 

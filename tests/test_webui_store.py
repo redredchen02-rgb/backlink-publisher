@@ -8,13 +8,12 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import json
-import threading
 from pathlib import Path
+import threading
 
 import pytest
 
 from webui_store import DraftsStore, JsonStore
-
 
 # ── JsonStore basic API ──────────────────────────────────────────────────────
 
@@ -205,7 +204,10 @@ class TestDraftsStore:
 class TestSingletons:
     def test_default_paths_under_config_dir(self):
         from webui_store import (
-            drafts_store, history_store, profiles_store, schedule_store,
+            drafts_store,
+            history_store,
+            profiles_store,
+            schedule_store,
         )
 
         # history_store stays JSON-backed (its events.db migration is a
@@ -218,13 +220,16 @@ class TestSingletons:
         assert "webui.db" in str(schedule_store.path)
 
     def test_default_factories_match_legacy_types(self):
-        from webui_store import (
-            drafts_store, history_store, profiles_store, schedule_store,
-        )
-
         # Quick smoke: load() on a non-existent path returns the right
         # container type. Uses path override so we don't touch real config.
         import tempfile
+
+        from webui_store import (
+            drafts_store,
+            history_store,
+            profiles_store,
+            schedule_store,
+        )
 
         with tempfile.TemporaryDirectory() as td:
             for store, expected in (
@@ -262,11 +267,11 @@ class TestStoreProtocol:
     def test_singletons_satisfy_protocol(self):
         """The four module-level singletons all conform to ``Store``."""
         from webui_store import (
-            Store,
+            drafts_store,
             history_store,
             profiles_store,
-            drafts_store,
             schedule_store,
+            Store,
         )
         for s in (history_store, profiles_store, drafts_store, schedule_store):
             assert isinstance(s, Store), f"{s!r} does not satisfy Store"

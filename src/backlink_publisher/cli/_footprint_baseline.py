@@ -8,22 +8,21 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from typing import Any
 
 from ..footprint import (
-    SCHEMA_VERSION,
     _top_by_count_then_lex,
     analyze_corpus,
+    SCHEMA_VERSION,
 )
 from ..footprint_corpus import (
-    CORPUS_NAMES,
     compute_fixture_set_id,
+    CORPUS_NAMES,
     make_corpus,
 )
-
 
 # ---------------------------------------------------------------------------
 # --reason denylist (Plan Key Decisions G2.3, success criterion #3)

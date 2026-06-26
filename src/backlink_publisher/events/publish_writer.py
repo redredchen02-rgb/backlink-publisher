@@ -26,8 +26,6 @@ def _get_store() -> EventStore:
         # EventStore was created, re-resolve (same defensive pattern as
         # _LazyStore._real()).  Without this, tests that monkeypatch
         # config dir per fixture cannot isolate events.db.
-        import os
-        current_env = os.environ.get("BACKLINK_PUBLISHER_CONFIG_DIR")
         fresh = EventStore()
         if fresh.path != _STORE.path:
             _STORE = None

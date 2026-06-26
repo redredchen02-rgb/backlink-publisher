@@ -16,6 +16,8 @@ siblings): these write global config (config.toml / schedule-settings.json), NOT
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, request
 
 from ..global_settings_api import GlobalSettingsAPI
@@ -23,12 +25,12 @@ from . import bp
 from .errors import ApiProblem
 
 
-def _json_body():
+def _json_body() -> Any:
     data = request.get_json(silent=True)
     return data if isinstance(data, dict) else {}
 
 
-def _render(result, *, title: str):
+def _render(result: Any, *, title: str) -> Any:
     if result.error_class == "invalid_request":
         raise ApiProblem(422, title, detail=result.message, error_class="invalid_request")
     if result.error_class == "persistence_failure":
@@ -37,19 +39,19 @@ def _render(result, *, title: str):
 
 
 @bp.get("/settings/keywords")
-def settings_get_keywords():
+def settings_get_keywords() -> Any:
     """Hydrate the keyword-pool editor: known target domains + current pools."""
     return jsonify(GlobalSettingsAPI().get_keywords())
 
 
 @bp.get("/settings/schedule")
-def settings_get_schedule():
+def settings_get_schedule() -> Any:
     """Hydrate the publish-cadence form."""
     return jsonify(GlobalSettingsAPI().get_schedule())
 
 
 @bp.post("/settings/keywords")
-def settings_save_keywords():
+def settings_save_keywords() -> Any:
     """Save the per-domain SEO anchor keyword pools."""
     pools = _json_body().get("pools")
     if not isinstance(pools, dict):
@@ -58,6 +60,6 @@ def settings_save_keywords():
 
 
 @bp.post("/settings/schedule")
-def settings_save_schedule():
+def settings_save_schedule() -> Any:
     """Save the publish-cadence (min interval / jitter) settings."""
     return _render(GlobalSettingsAPI().save_schedule(_json_body()), title="Schedule settings rejected")

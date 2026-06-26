@@ -313,7 +313,7 @@ TB
 
 ---
 
-- [ ] **U4: Decompose `_build_links()` and `save_config()` (CC ceilings: 36, 36)**
+- [x] **U4: Decompose `_build_links()` and `save_config()` (CC ceilings: 36, 36)**
 
 **Goal:** 分別拆分 link 建構函數和 config 寫入函數，雙雙降至 CC < 30。
 

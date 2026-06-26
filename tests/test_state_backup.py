@@ -2,23 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 import json
+from pathlib import Path
 import sqlite3
 import sys
-from pathlib import Path
-from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from backlink_publisher.cli.state_backup import (
-    _STATE_FILES,
     _backup_db,
-    _backup_file,
     _backup_dir,
+    _backup_file,
     _config_dir,
     _find_backups,
     _is_sqlite,
+    _STATE_FILES,
     _timestamp,
 )
 
@@ -179,7 +179,7 @@ class TestBackupMain:
         backups = _find_backups()
         assert len(backups) == 1
         backup_path = backups[0]
-        
+
         # Verify metadata
         meta_file = backup_path / "backup_meta.json"
         assert meta_file.exists()

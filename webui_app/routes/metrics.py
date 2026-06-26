@@ -13,9 +13,8 @@ aggregate counters.
 from __future__ import annotations
 
 import time
-from pathlib import Path
 
-from flask import Blueprint, Response, current_app
+from flask import Blueprint, Response
 
 bp = Blueprint("metrics", __name__)
 
@@ -92,6 +91,7 @@ def _scrape_publish_history() -> list[str]:
     lines: list[str] = []
     try:
         import json
+
         from backlink_publisher.config.loader import _config_dir
         hist = _config_dir() / "publish-history.json"
         if hist.exists():

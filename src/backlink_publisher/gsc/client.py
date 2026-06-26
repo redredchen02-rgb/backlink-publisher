@@ -82,10 +82,10 @@ class GscClient:
             On 4xx/5xx responses.
         """
         try:
-            import httplib2
             from google.oauth2 import service_account
             from googleapiclient.discovery import build
             from googleapiclient.errors import HttpError
+            import httplib2
         except ImportError as exc:
             raise ExternalServiceError(
                 f"google-api-python-client not installed: {exc}"

@@ -15,15 +15,15 @@ import logging
 
 import pytest
 
+from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher.config import Config, load_config
-from backlink_publisher.config.types import GeoProbeConfig
 from backlink_publisher.config.parsers.geo import (
     _GEO_API_KEY_ENV_VAR,
     _GEO_BASE_URL_ENV_VAR,
     _GEO_MODEL_ENV_VAR,
     _parse_geo_probe_provider,
 )
-from backlink_publisher._util.errors import InputValidationError
+from backlink_publisher.config.types import GeoProbeConfig
 
 _LLM_API_KEY_ENV_VAR = "BACKLINK_LLM_API_KEY"
 

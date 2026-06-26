@@ -1,7 +1,6 @@
 """Tests for keepalive-run core chain (plan 2026-06-05-004 Units 1/2/3)."""
 from __future__ import annotations
 
-
 __tier__ = "integration"
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -9,12 +8,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from backlink_publisher.keepalive.chain import (
-    run_cycle,
     _effective_sticky,
     _update_opt_stats,
+    run_cycle,
 )
 from backlink_publisher.keepalive.run_state import KeepaliveRunState
-
 
 # ── shared fixtures ────────────────────────────────────────────────────────────
 

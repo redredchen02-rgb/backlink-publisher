@@ -30,10 +30,10 @@ from __future__ import annotations
 
 from typing import Any
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before enumeration
-from backlink_publisher._util.errors import PipelineError, UsageError, handle_error
+from backlink_publisher._util.errors import handle_error, PipelineError, UsageError
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher._util.logger import PipelineLogger, set_log_level
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before enumeration
 from backlink_publisher.publishing.registry import (
     dofollow_rationale,
     dofollow_status,

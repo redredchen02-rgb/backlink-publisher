@@ -28,7 +28,7 @@ touches ``flask.request`` and never aborts.
 from __future__ import annotations
 
 import base64
-from typing import Mapping
+from collections.abc import Mapping
 
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.http_client import http_client
@@ -118,8 +118,8 @@ class ImageGenDiagnosticsAPI:
         Reads ``config.toml`` [image_gen] + the FRW token; never raises (envelope-only).
         """
         try:
-            from backlink_publisher.config import load_config
             from backlink_publisher._util.secrets import load_frw_token
+            from backlink_publisher.config import load_config
 
             try:
                 cfg = _g_cache("config", load_config)
@@ -153,8 +153,8 @@ class ImageGenDiagnosticsAPI:
         banner prompt. Never raises — failures surface as ``{"ok": False, ...}``.
         """
         try:
-            from backlink_publisher.config import load_config
             from backlink_publisher._util.secrets import load_frw_token
+            from backlink_publisher.config import load_config
 
             try:
                 cfg = _g_cache("config", load_config)

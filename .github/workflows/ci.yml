@@ -72,18 +72,9 @@ jobs:
           path: coverage-unit.json
           if-no-files-found: error
 
-      - name: Check code style (compile + AST parse)
+      - name: Check code style (ruff)
         run: |
-          python -m py_compile src/backlink_publisher/**/*.py
-          python -c "
-          import ast, sys, pathlib
-          for f in pathlib.Path('src').rglob('*.py'):
-              try:
-                  ast.parse(f.read_text())
-              except SyntaxError as e:
-                  print(f'SYNTAX ERROR in {f}: {e}')
-                  sys.exit(1)
-          "
+          ruff check src/ webui_app/ webui_store/
 
       - name: Verify fixtures exist
         run: |

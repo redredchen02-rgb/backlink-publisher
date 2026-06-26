@@ -9,11 +9,10 @@ __tier__ = "unit"
 import pytest
 
 from backlink_publisher.linkcheck.language import (
-    SUPPORTED_LANGUAGES,
     detect_language,
     language_matches,
+    SUPPORTED_LANGUAGES,
 )
-
 
 # --- SUPPORTED_LANGUAGES constant ---
 
@@ -177,9 +176,9 @@ def test_detect_pure_url_only_text_returns_unknown() -> None:
 
 
 from backlink_publisher.linkcheck.language import (  # noqa: E402
-    KO_HINTS,
     detect_language_from_html,
     detect_language_from_markdown,
+    KO_HINTS,
 )
 
 

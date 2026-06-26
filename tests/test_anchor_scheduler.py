@@ -6,19 +6,18 @@ from collections import Counter
 
 import pytest
 
+from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher.anchor.profile import (
+    now_iso,
     ProfileEntry,
     ProfileState,
-    now_iso,
 )
 from backlink_publisher.anchor.scheduler import (
-    ScheduleDecision,
-    SecondaryLink,
     _pick_anchor_type,
     schedule,
+    ScheduleDecision,
+    SecondaryLink,
 )
-from backlink_publisher._util.errors import InputValidationError
-
 
 SAFE_SEO = {"branded": 0.55, "partial": 0.25, "exact": 0.10, "lsi": 0.10}
 DEFAULT_CATS = ["home", "hot", "animate", "category", "topic"]

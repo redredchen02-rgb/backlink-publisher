@@ -22,11 +22,11 @@ Behavior:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 import getpass
 import sys
-from typing import Callable, Sequence
 
-from backlink_publisher._util.errors import UsageError, handle_error
+from backlink_publisher._util.errors import handle_error, UsageError
 from backlink_publisher._util.secrets import frw_token_path, write_frw_token
 
 _BANNER = "frw-login: write FRW image-gen API key to 0600 token file"

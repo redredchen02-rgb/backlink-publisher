@@ -11,19 +11,20 @@ from __future__ import annotations
 
 import sys
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
-from .. import config_echo
 from backlink_publisher._util.errors import emit_envelope_and_exit
 from backlink_publisher._util.jsonl import read_jsonl
 from backlink_publisher.config import load_config
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
+
+from .. import config_echo
 
 # Re-export format helpers so callers that import them from here still find them.
 from ._report_format import (  # noqa: F401
-    _EXIT_CODE_ALARM,
     _build_profile_report,
     _build_report,
     _build_tier_summary,
     _compute_alarm,
+    _EXIT_CODE_ALARM,
     _format_alarm_markdown,
     _format_profile_report_json,
     _format_profile_report_markdown,

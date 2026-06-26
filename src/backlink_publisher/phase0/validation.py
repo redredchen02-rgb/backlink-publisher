@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 import re
 import subprocess
-from pathlib import Path
 from typing import cast
 
 # Marker regex required in any verdict comment body for routine_comment kind.

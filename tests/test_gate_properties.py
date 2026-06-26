@@ -35,18 +35,17 @@ from hypothesis import strategies as st
 
 from backlink_publisher.anchor.metrics import normalize
 from backlink_publisher.linkcheck.language import (
+    detect_language,
     EN_HINTS,
+    language_matches,
     RU_HINTS,
     SUPPORTED_LANGUAGES,
     ZH_HINTS,
-    detect_language,
-    language_matches,
 )
 from backlink_publisher.linkcheck.verify import (
     _link_in_body,
     _title_in_body,
 )
-
 
 # ── verify_publish._title_in_body ────────────────────────────────────────────
 

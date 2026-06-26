@@ -13,9 +13,13 @@ from pathlib import Path
 import requests
 
 from backlink_publisher._util.errors import AuthExpiredError, DependencyError
-from backlink_publisher._util.logger import opencli_logger as log
 
-from .constants import _PROBE_QUERY, _VELOG_GRAPHQL_ENDPOINT, _VELOG_REQUIRED_HEADERS, _PROBE_TIMEOUT
+from .constants import (
+    _PROBE_QUERY,
+    _PROBE_TIMEOUT,
+    _VELOG_GRAPHQL_ENDPOINT,
+    _VELOG_REQUIRED_HEADERS,
+)
 
 
 def _extract_tokens_from_origins(origins: object, cookies: dict[str, str]) -> None:

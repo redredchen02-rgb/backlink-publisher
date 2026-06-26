@@ -8,6 +8,8 @@ is kept so legacy users can revoke their token via the UI.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, redirect, request, session
 
 from backlink_publisher.config import load_config, save_config
@@ -17,7 +19,7 @@ from backlink_publisher.config import load_config, save_config
 _BLOGGER_SCOPES = ["https://www.googleapis.com/auth/blogger"]
 
 
-def _json_from_creds(creds) -> dict:
+def _json_from_creds(creds: Any) -> dict:
     """Serialize google-auth Credentials to the blogger-token.json dict format."""
     return {
         "token": creds.token,
@@ -32,7 +34,11 @@ from ..api.oauth_api import OAuthAPI
 from ..helpers.security import _oauth_callback_uri, _safe_flash_redirect
 from ..services.oauth_service import (
     build_blogger_client_config as _build_blogger_client_config,
+)
+from ..services.oauth_service import (
     is_loopback_uri as _is_loopback_uri,
+)
+from ..services.oauth_service import (
     oauthlib_insecure_transport as _oauthlib_insecure_transport,
 )
 
@@ -46,7 +52,7 @@ bp = Blueprint("oauth", __name__)
 
 
 @bp.route('/settings/clear-medium-oauth', methods=['POST'])
-def settings_clear_medium_oauth():
+def settings_clear_medium_oauth() -> Any:
     """Clear Medium OAuth token file (delegates to the single-source facade)."""
     r = OAuthAPI().clear_medium()
     return _safe_flash_redirect('/app/settings', flash_type=r.level, msg=r.message,
@@ -57,7 +63,7 @@ def settings_clear_medium_oauth():
 
 
 @bp.route('/settings/save-blogger-oauth', methods=['POST'])
-def settings_save_blogger_oauth():
+def settings_save_blogger_oauth() -> Any:
     """Save Client ID / Secret only — no OAuth redirect (single-source facade)."""
     r = OAuthAPI().save_blogger(
         request.form.get('client_id', ''),
@@ -68,7 +74,7 @@ def settings_save_blogger_oauth():
 
 
 @bp.route('/settings/blogger/oauth-start', methods=['POST'])
-def settings_blogger_oauth_start():
+def settings_blogger_oauth_start() -> Any:
     """Save credentials, generate Google auth URL, redirect user's browser there."""
     client_id = request.form.get('client_id', '').strip()
     client_secret = request.form.get('client_secret', '').strip()
@@ -118,7 +124,7 @@ def settings_blogger_oauth_start():
 
 
 @bp.route('/settings/blogger/oauth-callback')
-def settings_blogger_oauth_callback():
+def settings_blogger_oauth_callback() -> Any:
     """Google redirects here after the user approves."""
     err = request.args.get('error')
     if err:
@@ -160,6 +166,7 @@ def settings_blogger_oauth_callback():
             fragment='channel-blogger')
     try:
         from google_auth_oauthlib.flow import Flow
+
         from backlink_publisher.config import save_blogger_token
 
         # Plan 2026-05-21-006 Unit 3.2 — same loopback-asserting context

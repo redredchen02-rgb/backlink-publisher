@@ -13,14 +13,15 @@ from __future__ import annotations
 import json
 import sys
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before lookups
-from .. import config_echo
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher.config import load_config
 from backlink_publisher.gap.engine import GapOptions, plan_gap
 from backlink_publisher.linkcheck.language import SUPPORTED_LANGUAGES
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before lookups
 from backlink_publisher.schema import PUBLISH_MODES, URL_MODES
+
+from .. import config_echo
 
 
 def _load_desired_map(path: str) -> dict[str, int]:

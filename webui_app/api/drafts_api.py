@@ -7,9 +7,9 @@ directly.  Every mutating method returns a dict with ``ok`` / ``error`` /
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timedelta
 from typing import Any
+import uuid
 
 from apscheduler.jobstores.base import JobLookupError
 
@@ -18,7 +18,6 @@ from webui_store import drafts_store as _drafts_store
 
 from ..helpers.contexts import _calc_next_available
 from ..scheduler import _publish_draft_job, _scheduler
-
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -159,8 +158,8 @@ class DraftAPI:
             # Rollback store
             try:
                 _drafts_store.update_item(item_id, status="pending", scheduled_at=None)
-            except Exception:
-                pass
+            except Exception as _rb_exc:
+                plan_logger.error("draft_rollback_failed", item_id=item_id, error=str(_rb_exc))
             return {
                 "ok": False,
                 "error_code": "SCHEDULER_SYNC_FAILED",
@@ -205,8 +204,8 @@ class DraftAPI:
             # Rollback store
             try:
                 _drafts_store.update_item(item_id, status="pending", scheduled_at=None)
-            except Exception:
-                pass
+            except Exception as _rb_exc:
+                plan_logger.error("draft_rollback_failed", item_id=item_id, error=str(_rb_exc))
             return {
                 "ok": False,
                 "error_code": "SCHEDULER_SYNC_FAILED",
@@ -361,14 +360,14 @@ class DraftAPI:
             for job_id in completed_jobs:
                 try:
                     _scheduler.remove_job(job_id)
-                except Exception:
-                    pass
+                except Exception as _jb_exc:
+                    plan_logger.error("bulk_rollback_job_failed", job_id=job_id, error=str(_jb_exc))
             # Rollback store states
             for item_id, status, sched_at in store_rollbacks:
                 try:
                     _drafts_store.update_item(item_id, status=status, scheduled_at=sched_at)
-                except Exception:
-                    pass
+                except Exception as _st_exc:
+                    plan_logger.error("bulk_rollback_store_failed", item_id=item_id, error=str(_st_exc))
 
             return {
                 "ok": False,

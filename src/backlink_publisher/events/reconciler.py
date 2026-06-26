@@ -19,15 +19,16 @@ Plan: docs/plans/2026-05-28-004-feat-readtime-reconciliation-hub-plan.md
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import json
 import logging
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .._util.url import canonicalize_url as _canonicalize_url_fn
-from ..checkpoint import list_failed_items, update_item as _update_checkpoint_item
+from ..checkpoint import list_failed_items
+from ..checkpoint import update_item as _update_checkpoint_item
 from ..config import _cache_dir, _config_dir
 from ..idempotency import DedupKey, DedupStore
 from ._project_helpers import _HISTORY_FILENAME
@@ -91,7 +92,7 @@ def _recon_log_path() -> Path:
 def _log_recon_event(event_type: str, **fields: Any) -> None:
     """Append one structured line to RECON.log. Best-effort (never raises)."""
     try:
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = datetime.now(UTC).isoformat()
         line = json.dumps({
             "ts": ts,
             "event": event_type,
@@ -226,7 +227,7 @@ def _quarantine_if_stale(
     if probe.created_at:
         try:
             age_seconds = (
-                datetime.now(timezone.utc) -
+                datetime.now(UTC) -
                 datetime.fromisoformat(probe.created_at)
             ).total_seconds()
         except (ValueError, TypeError):

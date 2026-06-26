@@ -14,20 +14,21 @@ from typing import Any
 import pytest
 
 from backlink_publisher.linkcheck.language import (
-    SUPPORTED_LANGUAGES,
     language_matches,
+    SUPPORTED_LANGUAGES,
 )
 from backlink_publisher.schema import (
-    MAX_CONTENT_HTML_BYTES,
-    OUTPUT_ONE_OF_GROUPS,
-    SUPPORTED_LANGUAGES as schema_supported_languages,
     _is_field_present,
     _normalize_main_domain,
+    MAX_CONTENT_HTML_BYTES,
+    OUTPUT_ONE_OF_GROUPS,
     validate_input_payload,
     validate_output_payload,
     validate_publish_payload,
 )
-
+from backlink_publisher.schema import (
+    SUPPORTED_LANGUAGES as schema_supported_languages,
+)
 
 # --------------------------------------------------------------------------- #
 # R6b: SUPPORTED_LANGUAGES is the canonical source from language_check.       #
@@ -358,7 +359,7 @@ class TestContentHtmlSizeCap:
     def test_html_at_cap_boundary_passes(self) -> None:
         # Exactly at cap — should pass (cap is exclusive upper bound semantics:
         # "exceeds" is strict > comparison)
-        body_size = MAX_CONTENT_HTML_BYTES - len("<p></p>".encode("utf-8"))
+        body_size = MAX_CONTENT_HTML_BYTES - len(b"<p></p>")
         row = _valid_output_row(content_html="<p>" + "a" * body_size + "</p>")
         size = len(row["content_html"].encode("utf-8"))
         assert size == MAX_CONTENT_HTML_BYTES

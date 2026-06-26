@@ -9,10 +9,10 @@ is patched to return None (safe) so guard is always "active" but non-blocking.
 from __future__ import annotations
 
 __tier__ = "unit"
+import io
 import json
 import os
 import sys
-import io
 from typing import Optional
 from unittest.mock import MagicMock, patch
 
@@ -22,7 +22,6 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import platform_discovery as pd
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,7 +62,7 @@ def _run(
     *,
     probe_return: dict | None = None,
     score_response_text: str = "",
-    ssrf_return: Optional[str] = None,
+    ssrf_return: str | None = None,
     is_registered_return: bool = False,
 ) -> tuple[str, str]:
     """Run pd.main(argv) with all IO mocked. Returns (stdout, stderr)."""

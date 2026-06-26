@@ -19,16 +19,16 @@ Coverage goals (plan spec):
 from __future__ import annotations
 
 __tier__ = "unit"
-from unittest.mock import MagicMock, patch
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from backlink_publisher.cli._report_engine import (
-    ReportOutcome,
-    report_from_rows,
     report_from_profile,
+    report_from_rows,
+    ReportOutcome,
 )
-
 
 # ── ReportOutcome defaults ────────────────────────────────────────────────────
 

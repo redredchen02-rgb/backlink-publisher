@@ -5,8 +5,8 @@ import logging
 from typing import Any
 
 from ..types import (
-    ANCHOR_TYPES,
     _UNSAFE_IN_ANCHOR,
+    ANCHOR_TYPES,
 )
 
 _log = logging.getLogger(__name__)

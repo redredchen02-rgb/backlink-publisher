@@ -10,8 +10,9 @@ failures are logged but never surface as publish failures.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import re
-from typing import Any, Optional, Sequence
+from typing import Any
 from urllib.parse import parse_qsl, unquote, urlparse
 from urllib.request import Request
 
@@ -41,7 +42,7 @@ def verify_link_attributes(
     url: str,
     *,
     timeout: float = 10.0,
-    target_urls: Optional[list[str]] = None,
+    target_urls: list[str] | None = None,
 ) -> dict:
     """Fetch ``url`` and audit ``<a>`` tags for surviving link attributes.
 
@@ -123,7 +124,7 @@ def verify_link_attributes(
     return result
 
 
-def _target_verdicts(tags: list[str], target_urls: list[str]) -> Optional[dict]:
+def _target_verdicts(tags: list[str], target_urls: list[str]) -> dict | None:
     """Classify the operator's OWN required backlink(s) against the page's
     already-parsed ``<a>`` ``tags`` (Unit 1 — no extra fetch).
 
@@ -148,7 +149,7 @@ def _target_verdicts(tags: list[str], target_urls: list[str]) -> Optional[dict]:
         return None
 
     # Pre-parse anchors once into (direct_canonical, effective_canonical, nofollow).
-    parsed: list[tuple[Optional[str], Optional[str], bool]] = []
+    parsed: list[tuple[str | None, str | None, bool]] = []
     for tag in tags:
         href = _tag_href(tag)
         if not href:
@@ -228,7 +229,7 @@ def _tag_has_nofollow(tag_html: str) -> bool:
     return "nofollow" in tokens
 
 
-def _tag_href(tag_html: str) -> Optional[str]:
+def _tag_href(tag_html: str) -> str | None:
     """Return the ``href`` value on a single ``<a>`` tag, or ``None``."""
     m = _HREF_VALUE_RE.search(tag_html)
     if not m:
@@ -236,13 +237,13 @@ def _tag_href(tag_html: str) -> Optional[str]:
     return m.group(1) or m.group(2) or m.group(3)
 
 
-def _tag_rel(tag_html: str) -> Optional[str]:
+def _tag_rel(tag_html: str) -> str | None:
     """Return the raw ``rel`` attribute value on ``tag_html``, or ``None``."""
     m = _REL_VALUE_RE.search(tag_html)
     return m.group(1) if m else None
 
 
-def _rel_is_nofollow(rel_value: Optional[str]) -> bool:
+def _rel_is_nofollow(rel_value: str | None) -> bool:
     """True iff ``rel_value`` carries a weight-stripping token (nofollow / ugc /
     sponsored), whitespace-tokenised (so ``nofollowed`` does NOT trigger)."""
     if not rel_value:
@@ -292,8 +293,8 @@ def inspect_target_anchor(
     url: str,
     target_url: str,
     *,
-    expected_marker: Optional[str] = None,
-    timeout: Optional[float] = None,
+    expected_marker: str | None = None,
+    timeout: float | None = None,
     capture_anchor_text: bool = False,
 ) -> dict:
     """Fetch ``url`` (SSRF-guarded) and inspect the anchor pointing at
@@ -405,7 +406,7 @@ def _normalize_anchor_text(inner_html: str) -> str:
     return " ".join(_INNER_TAG_RE.sub(" ", inner_html).split())
 
 
-def _canonicalize_for_match(href: str) -> Optional[str]:
+def _canonicalize_for_match(href: str) -> str | None:
     """Canonicalize ``href`` for target comparison, never raising."""
     from backlink_publisher._util.url import canonicalize_url
 
@@ -452,7 +453,7 @@ def body_has_required_link(body: str, required_urls: Sequence[str]) -> bool:
     return False
 
 
-def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tuple[bytes, Optional[str]]:
+def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tuple[bytes, str | None]:
     """Fetch ``url`` through the preflight SSRF-guarded opener.
 
     Reuses ``_preflight_fetch``'s scheme gate (``_is_http_url``), never-raising

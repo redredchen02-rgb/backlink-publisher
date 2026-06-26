@@ -20,8 +20,8 @@ chokepoint, not here.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
+import json
 
 # Distinctive, line-anchored marker. The payload is JSON (message is JSON-encoded,
 # so embedded newlines collapse to \n and the envelope stays a single line).

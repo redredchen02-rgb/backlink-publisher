@@ -6,13 +6,11 @@ import io
 import json
 import sys
 
-
 from backlink_publisher.footprint import (
     analyze_corpus,
     extract_link_signatures,
     format_report_markdown,
 )
-
 
 # ── extract_link_signatures ─────────────────────────────────────────────────
 

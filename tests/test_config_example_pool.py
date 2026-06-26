@@ -25,20 +25,19 @@ import random
 import pytest
 
 from backlink_publisher.anchor.profile import (
+    now_iso,
     ProfileEntry,
     ProfileState,
-    now_iso,
     recent_texts,
     recent_type_counts,
 )
 from backlink_publisher.anchor.resolver import (
-    FORBIDDEN_ANCHOR_TEXTS,
     _passes_filters,
+    FORBIDDEN_ANCHOR_TEXTS,
     resolve_anchor,
 )
 from backlink_publisher.anchor.scheduler import schedule
 from backlink_publisher.config import Config
-
 
 EXAMPLE_POOLS = {
     "home": {

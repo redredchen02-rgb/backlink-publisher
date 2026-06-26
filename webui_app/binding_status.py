@@ -29,7 +29,6 @@ from typing import Any
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config import Config
 
-
 # Channels registered in `publishing.registry` but intentionally hidden from
 # the WebUI binding dashboard. Used by `_settings_context` to filter
 # `dashboard_channels`, and by the drift-check test in
@@ -148,10 +147,10 @@ def _publish_backend_for(name: str) -> str:
     follow-up plan (per plan body §Unit 5 "Out of scope").
     """
     try:
-        from backlink_publisher.publishing.registry import _REGISTRY
         from backlink_publisher.publishing.browser_publish import (
             BrowserPublishDispatcher,
         )
+        from backlink_publisher.publishing.registry import _REGISTRY
     except Exception:
         return "unknown"
 

@@ -7,10 +7,10 @@ opt-in --fail-on-dead gate.
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timezone, UTC
 import io
 import json
 import sys
-from datetime import datetime, timezone
 
 import pytest
 
@@ -20,7 +20,7 @@ from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import LINK_RECHECKED
 from backlink_publisher.recheck import verdicts
 
-NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 TARGET = "https://t.com/p"
 
 

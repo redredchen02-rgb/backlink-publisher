@@ -18,25 +18,34 @@ single source of truth (Plan 2026-05-21-001 Unit 1). ``_chrome_port`` and
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 import os
+from pathlib import Path
 import subprocess
 import time
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import quote
 
 import requests
 
 from backlink_publisher.publishing.browser_publish.chrome_session import (
-    ChromeSessionError as _ChromeSessionError,
     _chrome_binary as _shared_chrome_binary,
+)
+from backlink_publisher.publishing.browser_publish.chrome_session import (
     _chrome_port as _shared_chrome_port,
+)
+from backlink_publisher.publishing.browser_publish.chrome_session import (
     _chrome_profile_dir as _shared_chrome_profile_dir,
+)
+from backlink_publisher.publishing.browser_publish.chrome_session import (
     _websocket_available as _shared_websocket_available,
 )
-from .driver import BIND_TIMEOUT_MS, ChromeLaunchError
+from backlink_publisher.publishing.browser_publish.chrome_session import (
+    ChromeSessionError as _ChromeSessionError,
+)
 
+from .driver import BIND_TIMEOUT_MS, ChromeLaunchError
 
 _CONNECT_TIMEOUT_S = 10.0
 _POLL_INTERVAL_S = 0.25
@@ -144,7 +153,7 @@ class RealChromeBrowserRunner:
 
         return _provider
 
-    def _launch_or_connect(self, login_url: str) -> "_CdpClient":
+    def _launch_or_connect(self, login_url: str) -> _CdpClient:
         port = self.port if self.port is not None else _chrome_port()
         base = f"http://localhost:{port}"
 

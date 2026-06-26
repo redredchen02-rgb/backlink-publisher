@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify, request
 
 from webui_store.batch_ops import VALID_OPERATIONS
@@ -12,7 +14,7 @@ bp = Blueprint("batch_sites", __name__)
 
 
 @bp.route("/sites/batch-queue", methods=["POST"])
-def post_batch_queue():
+def post_batch_queue() -> Any:
     """Queue a batch operation for a list of site URLs.
 
     Accepts JSON body ``{site_urls: [...], operation: str}``.
@@ -38,7 +40,7 @@ def post_batch_queue():
 
 
 @bp.route("/sites/batch-status", methods=["GET"])
-def get_batch_status():
+def get_batch_status() -> Any:
     """Return recent batch operation rows for frontend polling.
 
     Query param ``limit`` (default 100) caps row count.

@@ -14,7 +14,7 @@ Public surface
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any, Protocol
 
 
@@ -58,7 +58,7 @@ def append_observed(
         "pageviews": pageviews,
         "window_start": window_start,
         "window_end": window_end,
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
     })
 
 
@@ -72,7 +72,7 @@ def append_query_failed(
     store.append("click.query_failed", {
         "target_site": target_site,
         "error_reason": error_reason,
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
     })
 
 
@@ -86,5 +86,5 @@ def append_query_skipped(
     store.append("click.query_skipped", {
         "target_site": target_site,
         "error_reason": reason,
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
     })

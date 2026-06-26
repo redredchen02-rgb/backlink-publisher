@@ -84,7 +84,7 @@ class TestSetupChecks:
         config = MagicMock()
         config.medium_integration_token = None
         config.config_dir = MagicMock()
-        
+
         with patch("backlink_publisher.config.load_medium_token", return_value=None), \
              patch("backlink_publisher.config.tokens.load_medium_integration_token", return_value=None), \
              patch("backlink_publisher.publishing.adapters.medium_browser.sync_playwright", None):
@@ -96,7 +96,7 @@ class TestSetupChecks:
         from backlink_publisher.publishing._verify_adapters import _check_ghpages_setup
         config = MagicMock()
         config.ghpages = None
-        
+
         result = _check_ghpages_setup(config)
         assert result is not None
         assert "GitHub Pages config missing" in result
@@ -108,7 +108,7 @@ class TestSetupChecks:
         config.ghpages.repo = "owner/repo"
         config.ghpages_token_path = MagicMock()
         config.ghpages_token_path.exists.return_value = False
-        
+
         result = _check_ghpages_setup(config)
         assert result is not None
         assert "GitHub Pages PAT not stored" in result
@@ -119,7 +119,7 @@ class TestSetupChecks:
         config.velog = None
         config.config_dir = MagicMock()
         config.config_dir.__truediv__ = lambda self, x: MagicMock(exists=MagicMock(return_value=False))
-        
+
         with patch("pathlib.Path.exists", return_value=False):
             result = _check_velog_setup(config)
             assert result is not None
@@ -132,7 +132,7 @@ class TestVerifyAdapterSetup:
     def test_unknown_platform_offline(self) -> None:
         from backlink_publisher.publishing._verify_adapters import verify_adapter_setup
         config = MagicMock()
-        
+
         with patch("backlink_publisher.publishing._verify_setup.registered_platforms", return_value=["blogger", "medium"]):
             with pytest.raises(Exception) as exc_info:
                 verify_adapter_setup("unknown_platform", config, mode="offline")
@@ -141,7 +141,7 @@ class TestVerifyAdapterSetup:
     def test_dry_run_unknown_platform(self) -> None:
         from backlink_publisher.publishing._verify_adapters import verify_adapter_setup
         config = MagicMock()
-        
+
         with patch("backlink_publisher.publishing._verify_setup.registered_platforms", return_value=["blogger", "medium"]):
             result = verify_adapter_setup("unknown_platform", config, mode="dry-run")
             assert result.ok is False
@@ -150,7 +150,7 @@ class TestVerifyAdapterSetup:
     def test_dry_run_known_platform(self) -> None:
         from backlink_publisher.publishing._verify_adapters import verify_adapter_setup
         config = MagicMock()
-        
+
         with patch("backlink_publisher.publishing._verify_setup.registered_platforms", return_value=["blogger", "medium"]):
             result = verify_adapter_setup("blogger", config, mode="dry-run")
             assert result.ok is True

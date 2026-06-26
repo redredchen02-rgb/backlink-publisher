@@ -19,9 +19,10 @@ Playwright wait primitives. No driver changes required.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 
 class _PageLike(Protocol):
@@ -45,7 +46,7 @@ HostFilter = Callable[[str], bool]
 # ``medium-meta.json`` from the just-written storage_state, then unlink the
 # now-redundant storage_state.json and return the cookies.json path as the
 # new canonical bound credential. Other recipes leave this ``None``.
-PostPersistHook = Callable[[Path, Path], Optional[Path]]
+PostPersistHook = Callable[[Path, Path], Path | None]
 
 
 @dataclass(frozen=True)
@@ -67,10 +68,9 @@ class ChannelRecipe:
 
 
 # Import recipes at the bottom to avoid circular imports
-from .velog import RECIPE as _VELOG_RECIPE  # noqa: E402
-from .medium import RECIPE as _MEDIUM_RECIPE  # noqa: E402
 from .blogger import RECIPE as _BLOGGER_RECIPE  # noqa: E402
-
+from .medium import RECIPE as _MEDIUM_RECIPE  # noqa: E402
+from .velog import RECIPE as _VELOG_RECIPE  # noqa: E402
 
 RECIPES: dict[str, ChannelRecipe] = {
     "velog": _VELOG_RECIPE,

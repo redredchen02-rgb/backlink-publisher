@@ -17,9 +17,9 @@ logged (it can echo request material), only a redaction-safe RECON marker.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import re
-from datetime import datetime, timezone
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import PipelineLogger
@@ -123,7 +123,7 @@ def _template_comment(topic: str, page_title: str) -> str:
     )
 
 
-def build_brief(record: dict[str, Any], provider: Optional[Any] = None) -> dict[str, Any]:
+def build_brief(record: dict[str, Any], provider: Any | None = None) -> dict[str, Any]:
     """Build one ``CommentBrief`` from an accept-decision *record*.
 
     *record* is a ``QualificationResult`` that may additionally carry target context
@@ -139,7 +139,7 @@ def build_brief(record: dict[str, Any], provider: Optional[Any] = None) -> dict[
     link_policy = record.get("link_policy") or "no-link"
     anchor_policy = record.get("anchor_policy") or "branded-only"
 
-    raw: Optional[str] = None
+    raw: str | None = None
     source = "template"
     if provider is not None:
         try:
@@ -173,12 +173,12 @@ def build_brief(record: dict[str, Any], provider: Optional[Any] = None) -> dict[
         "suggested_link_policy": link_policy,
         "human_checklist": list(HUMAN_CHECKLIST),
         "prohibited_actions": list(PROHIBITED_ACTIONS),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "source": source,
     }
 
 
-def _load_provider() -> Optional[Any]:
+def _load_provider() -> Any | None:
     """Construct the LLM provider from ``[llm.anchor_provider]`` config, or ``None``.
 
     Imports are **function-local** so importing this module — and running the other four
@@ -213,7 +213,7 @@ def _load_provider() -> Optional[Any]:
         return None
 
 
-def brief_targets(source: Optional[TextIO] = None, dest: Optional[TextIO] = None) -> dict[str, int]:
+def brief_targets(source: TextIO | None = None, dest: TextIO | None = None) -> dict[str, int]:
     """Read QualificationResult JSONL, emit a CommentBrief for each ``accept`` row.
 
     Invalid rows are surfaced via RECON (not silently dropped); non-``accept`` rows are

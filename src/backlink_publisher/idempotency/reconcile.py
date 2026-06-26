@@ -23,9 +23,9 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U7).
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import json
 import os
-from dataclasses import dataclass, field
 
 from .backfill import _ADAPTER_STRING_TO_PLATFORM, _events_db_path, _read_publish_events
 from .store import DedupKey, DedupStore

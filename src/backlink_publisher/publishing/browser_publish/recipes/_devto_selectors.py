@@ -13,7 +13,6 @@ textarea — that's the surface we drive.
 
 from __future__ import annotations
 
-
 COMPOSE_URL = "https://dev.to/new"
 
 # Dev.to signin lives at /enter; dispatcher's _SIGNIN_PATTERNS already

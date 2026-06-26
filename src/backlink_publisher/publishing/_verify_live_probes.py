@@ -14,24 +14,26 @@ a circular module-level dependency.
 
 from __future__ import annotations
 
-from requests.exceptions import RequestException as _ReqException, Timeout as _ReqTimeout
+from datetime import UTC
 
-from backlink_publisher.config import Config
+from requests.exceptions import RequestException as _ReqException
+from requests.exceptions import Timeout as _ReqTimeout
+
 from backlink_publisher._util.errors import DependencyError
+from backlink_publisher.config import Config
 
 from ._verify import VerifyResult
-from .registry import registered_platforms
 from ._verify_setup import verify_adapter_setup
-
+from .registry import registered_platforms
 
 # ── UTC timestamp helper ────────────────────────────────────────────
 
 
 def _utc_now_iso() -> str:
     """UTC iso8601 timestamp for last_verified_at."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ── Shared verify result helpers ────────────────────────────────────
@@ -130,11 +132,12 @@ def _verify_live(platform: str, config: Config) -> VerifyResult:
 
 def _verify_telegraph_live(config: Config) -> VerifyResult:
     from backlink_publisher.http import post as http_post
+
     from .adapters.telegraph_api import (
-        TELEGRAPH_API,
         _HTTP_TIMEOUT_S,
         _INVALID_TOKEN_MARKERS,
         _load_token,
+        TELEGRAPH_API,
     )
 
     try:
@@ -184,7 +187,8 @@ _GHPAGES_VERIFY_TIMEOUT_S = 5
 
 def _verify_ghpages_live(config: Config) -> VerifyResult:
     from backlink_publisher.http import get as http_get
-    from .adapters.ghpages import GITHUB_API, _load_token, _required_headers
+
+    from .adapters.ghpages import _load_token, _required_headers, GITHUB_API
 
     try:
         token = _load_token(config)
@@ -233,8 +237,8 @@ _BLOGGER_VERIFY_TIMEOUT_S = 5
 
 
 def _verify_blogger_live(config: Config) -> VerifyResult:
-    from backlink_publisher.http import get as http_get
     from backlink_publisher.config import load_blogger_token
+    from backlink_publisher.http import get as http_get
 
     try:
         token_data = load_blogger_token(config.blogger_token_path)
@@ -287,11 +291,12 @@ _VELOG_CURRENT_USER_QUERY = (
 
 def _verify_velog_live(config: Config) -> VerifyResult:
     from backlink_publisher.http import post as http_post
+
+    from ._registry_manifest import session as get_descriptor
     from .adapters.velog_graphql import (
         _VELOG_GRAPHQL_ENDPOINT,
         _VELOG_REQUIRED_HEADERS,
     )
-    from ._registry_manifest import session as get_descriptor
     from .session import DefaultCredentialProvider
 
     descriptor = get_descriptor("velog")

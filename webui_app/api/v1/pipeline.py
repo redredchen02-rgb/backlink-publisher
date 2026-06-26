@@ -36,8 +36,8 @@ from typing import Any
 from flask import jsonify, request
 
 from backlink_publisher._util.markdown import render_to_html
-
 from backlink_publisher.sdk.api import PipelineAPI, publish_state_summary
+
 from ...helpers.cli_runner import surface_cli_error
 from ...helpers.contexts import _get_velog_status
 from ...helpers.history import _push_history_per_row, _push_history_single_failure
@@ -83,7 +83,7 @@ def _plans_to_jsonl(plans: Any) -> str:
 
 
 @bp.post("/pipeline/plan")
-def pipeline_plan():
+def pipeline_plan() -> Any:
     """Generate article plans for the given URLs (the legacy ``/ce:generate``)."""
     data = request.get_json(silent=True) or {}
     urls = _require_urls(data)
@@ -116,7 +116,7 @@ def pipeline_plan():
 
 
 @bp.post("/pipeline/preview")
-def pipeline_preview():
+def pipeline_preview() -> Any:
     """Single-article preview — plan one seed and return the first row.
 
     Mirrors the legacy ``/ce:preview`` seed shape, but returns the structured
@@ -150,7 +150,7 @@ def pipeline_preview():
 
 
 @bp.post("/pipeline/validate")
-def pipeline_validate():
+def pipeline_validate() -> Any:
     """Validate plan rows (URL checks skipped, mirroring ``/ce:validate``)."""
     data = request.get_json(silent=True) or {}
     if "plans" not in data:
@@ -168,7 +168,7 @@ def pipeline_validate():
 
 
 @bp.post("/pipeline/publish")
-def pipeline_publish():
+def pipeline_publish() -> Any:
     """Publish validated rows to a platform. Synchronous; partial success → 200.
 
     History side-effects (per-row / single-failure) match the legacy route so the
@@ -250,7 +250,7 @@ def pipeline_publish():
 
 
 @bp.post("/pipeline/regen-body")
-def pipeline_regen_body():
+def pipeline_regen_body() -> Any:
     """Re-generate one article body via the configured LLM (legacy ``/ce:regen-body``)."""
     data = request.get_json(silent=True) or {}
     main_domain = (data.get("main_domain") or "").strip()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify, request
 
 from webui_store import profiles_store as _profiles_store
@@ -12,20 +14,20 @@ bp = Blueprint("profiles", __name__)
 
 
 @bp.route('/profiles/save', methods=['POST'])
-def profiles_save():
+def profiles_save() -> Any:
     """Save a campaign profile (AJAX JSON)."""
     name = request.form.get('profile_name', '').strip()
     if not name:
         return jsonify({'ok': False, 'error': '名称不能为空'})
 
     profile_data = {
-        'platform': request.form.get('platform', 'blogger'),
+        'platform': request.form.get('platform', 'medium'),
         'language': request.form.get('language', 'zh-CN'),
         'url_mode': request.form.get('url_mode', 'C'),
         'publish_mode': request.form.get('publish_mode', 'publish'),
     }
 
-    def _upsert(profiles):
+    def _upsert(profiles: Any) -> Any:
         for p in profiles:
             if p.get('name') == name:
                 p.update(profile_data)
@@ -38,7 +40,7 @@ def profiles_save():
 
 
 @bp.route('/profiles/delete', methods=['POST'])
-def profiles_delete():
+def profiles_delete() -> Any:
     """Delete a campaign profile by name."""
     name = request.form.get('profile_name', '').strip()
     _profiles_store.update(

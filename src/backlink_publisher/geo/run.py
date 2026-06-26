@@ -22,9 +22,9 @@ Design notes
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 import time
-from dataclasses import dataclass, field
-from typing import Callable
 
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher.config.types import GeoProbeConfig
@@ -32,7 +32,7 @@ from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
 from backlink_publisher.geo.engines import ProbeResult
 from backlink_publisher.geo.selection import ProbeCandidate
-from backlink_publisher.geo.verdict import VerdictResult, carry_verdict, classify_verdict
+from backlink_publisher.geo.verdict import carry_verdict, classify_verdict, VerdictResult
 
 _log = get_logger("probe-citations")
 

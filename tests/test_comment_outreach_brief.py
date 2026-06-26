@@ -167,8 +167,8 @@ def test_brief_strips_at_least_what_provider_strips():
 # --- Security: long thread_summary bounded, not anchor-capped to 200 -------
 def test_long_summary_bounded_to_long_cap_not_200():
     from backlink_publisher.publishing.adapters.llm_anchor_provider import (
-        _LONG_INPUT_MAX_LEN,
         _build_comment_user_prompt,
+        _LONG_INPUT_MAX_LEN,
     )
 
     big = "word " * 1000  # ~5000 chars

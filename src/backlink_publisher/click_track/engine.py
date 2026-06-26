@@ -5,9 +5,9 @@ Shell layer: :mod:`backlink_publisher.cli.click_track`.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
+import logging
 
 from backlink_publisher.click_track.store import ClickRow
 from backlink_publisher.config import ClickTrackConfig
@@ -105,8 +105,8 @@ def query_site(
         from google.analytics.data_v1beta.types import (
             DateRange,
             Dimension,
-            FilterExpression,
             Filter,
+            FilterExpression,
             Metric,
             RunReportRequest,
         )
@@ -127,7 +127,7 @@ def query_site(
         else:
             client = BetaAnalyticsDataClient()
 
-        now = end_date or datetime.now(timezone.utc)
+        now = end_date or datetime.now(UTC)
         start = now - timedelta(days=window_days)
         window_start_iso = start.strftime("%Y-%m-%d")
         window_end_iso = now.strftime("%Y-%m-%d")

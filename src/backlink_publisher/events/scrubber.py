@@ -107,7 +107,7 @@ _HIGH_ENTROPY_ASCII_RATIO_MIN: Final[float] = 0.9
 #: Token shape for the high-entropy pass — runs of non-whitespace at least
 #: ``_HIGH_ENTROPY_MIN_LEN`` long. Punctuation inside the run is preserved
 #: (matches real secret formats: base64url, hex, dotted JWTs).
-_HIGH_ENTROPY_TOKEN: Final[re.Pattern[str]] = re.compile(r"\S{%d,}" % _HIGH_ENTROPY_MIN_LEN)
+_HIGH_ENTROPY_TOKEN: Final[re.Pattern[str]] = re.compile(rf"\S{{{_HIGH_ENTROPY_MIN_LEN},}}")
 
 #: Replacement marker. Kept human-readable so log readers can tell a value
 #: was scrubbed (not silently dropped). Caller's ``hit_counts`` carries the

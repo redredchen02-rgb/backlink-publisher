@@ -20,19 +20,20 @@ from typing import Any
 import pytest
 
 from backlink_publisher._util.errors import RegistryError
-from backlink_publisher.publishing import adapters  # noqa: F401 — import side effect: registers all 7 production platforms
+from backlink_publisher.publishing import (
+    adapters,  # noqa: F401 — import side effect: registers all 7 production platforms
+)
+from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _REGISTRY,
     _REJECTED_PLATFORMS,
     dofollow_rationale,
     dofollow_status,
+    Publisher,
     referral_value,
     register,
     registered_platforms,
 )
-from backlink_publisher.publishing.adapters.base import AdapterResult
-
 
 _RATIONALE_MIN_CHARS = 80
 

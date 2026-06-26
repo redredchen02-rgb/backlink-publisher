@@ -5,12 +5,12 @@ re-exported explicitly so import paths remain stable while the implementation
 lives in core.
 """
 from backlink_publisher.sdk.api import (  # noqa: F401
+    _parse_jsonl_rows,
+    _typed_error_result,
+    parse_publish_results,
     PipelineAPI,
     PipeResult,
-    parse_publish_results,
     publish_state_summary,
-    run_pipe_capture,  # re-exported as test-patch seam (tests/test_pipeline_api_seam.py)
     run_pipe,
-    _typed_error_result,
-    _parse_jsonl_rows,
+    run_pipe_capture,  # re-exported as test-patch seam (tests/test_pipeline_api_seam.py)
 )

@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -40,9 +39,9 @@ def _register_temp(slug: str, check_fn):
     The caller must ``_unregister_temp(slug)`` after the test.
     """
     from backlink_publisher.health.registry import (
+        _REGISTRY,
         HealthChecker,
         HealthResult,
-        _REGISTRY,
     )
 
     class _TempChecker(HealthChecker):
@@ -207,11 +206,10 @@ class TestCredentialPresenceChecker:
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
         monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(tmp_path / "cache"))
 
-        import backlink_publisher.publishing.adapters  # noqa: F401
-
         from backlink_publisher.health.checkers.credential_checker import (
             CredentialPresenceChecker,
         )
+        import backlink_publisher.publishing.adapters  # noqa: F401
 
         result = CredentialPresenceChecker.check()
         assert result.status in ("pass", "warn")
@@ -225,11 +223,10 @@ class TestCredentialPresenceChecker:
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(config_dir))
         monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(tmp_path / "cache"))
 
-        import backlink_publisher.publishing.adapters  # noqa: F401
-
         from backlink_publisher.health.checkers.credential_checker import (
             CredentialPresenceChecker,
         )
+        import backlink_publisher.publishing.adapters  # noqa: F401
 
         result = CredentialPresenceChecker.check()
         assert result.details is not None
@@ -326,9 +323,9 @@ class TestRegistry:
     ):
         from backlink_publisher.health.registry import (
             _REGISTRY,
-            register,
             HealthChecker,
             HealthResult,
+            register,
         )
 
         class A(HealthChecker):

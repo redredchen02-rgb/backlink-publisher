@@ -23,12 +23,11 @@ import pytest
 
 from backlink_publisher.geo.engines import ProbeResult
 from backlink_publisher.geo.verdict import (
-    VerdictResult,
-    VERDICT_TIERS,
     carry_verdict,
     classify_verdict,
+    VERDICT_TIERS,
+    VerdictResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

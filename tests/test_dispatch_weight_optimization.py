@@ -17,7 +17,6 @@ import pytest
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.publishing import registry
 
-
 # ---------------------------------------------------------------------------
 # dispatch_weight — static vs dynamic
 # ---------------------------------------------------------------------------

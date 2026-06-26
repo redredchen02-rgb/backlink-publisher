@@ -16,6 +16,8 @@ form schema carries field NAMES and labels, never values.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify
 
 from ..channel_forms_api import ChannelFormsAPI
@@ -24,12 +26,12 @@ from . import bp
 
 
 @bp.get("/settings/channels")
-def settings_list_channels():
+def settings_list_channels() -> Any:
     """List every WebUI-visible channel with its binding status."""
     return jsonify({"channels": ChannelOverviewAPI().list_channels()})
 
 
 @bp.get("/settings/channels/forms")
-def settings_list_channel_forms():
+def settings_list_channel_forms() -> Any:
     """List the binding-form schema for every fixed-credential channel."""
     return jsonify({"forms": ChannelFormsAPI().list_forms()})

@@ -133,7 +133,7 @@ class CampaignAPI:
     @staticmethod
     def _parse_seeds(seed_text: str, errors: dict[str, str]) -> list[dict]:
         """Parse the seeds textarea (≤10 JSON lines, each needs ``seed_text``)."""
-        lines = [l.strip() for l in str(seed_text or "").split("\n") if l.strip()]
+        lines = [line.strip() for line in str(seed_text or "").split("\n") if line.strip()]
         if not lines:
             errors["seeds"] = "至少输入一条 seed（每行一条 JSON）"
             return []

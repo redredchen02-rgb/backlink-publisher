@@ -11,7 +11,6 @@ import pytest
 
 from backlink_publisher.content._soft404 import is_soft_404_title
 
-
 # ── Positive cases (should return True) ───────────────────────────────────────
 
 @pytest.mark.parametrize("title", [

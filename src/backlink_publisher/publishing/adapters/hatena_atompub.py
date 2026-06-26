@@ -40,23 +40,24 @@ must not create accounts or enter credentials) and one live canary.
 from __future__ import annotations
 
 import base64
+from datetime import datetime, UTC
 import hashlib
 import json
 import os
 import secrets
 import time
-import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
 from typing import Any
+import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
+
 from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _HTTP_TIMEOUT_S = 30
 _DEFAULT_POST_PUBLISH_DELAY_S: int = 30
@@ -131,7 +132,7 @@ def _build_wsse_header(
     if nonce is None:
         nonce = secrets.token_bytes(16)
     if created is None:
-        created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        created = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     digest = base64.b64encode(
         hashlib.sha1(nonce + created.encode("utf-8") + api_key.encode("utf-8")).digest()
     ).decode("ascii")

@@ -10,7 +10,6 @@ import re
 
 from .types import DEFAULT_WORK_TEMPLATES, ThreeUrlConfig
 
-
 # Plan 2026-05-25-002 Unit 2b — derived dynamically from
 # ``registry.visibility(name)`` instead of a hand-maintained frozenset.
 # Non-retired registered platforms + two fixed non-platform sections

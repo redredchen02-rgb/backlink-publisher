@@ -14,18 +14,18 @@ inside ``verify_adapter_setup`` to avoid a circular module-level import
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional
+from collections.abc import Callable
+from typing import Any, Literal
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError
+from backlink_publisher.config import Config
 
 from ._verify import (
+    dry_run_intercept,
     DryRunInterceptError,
     VerifyResult,
-    dry_run_intercept,
 )
 from .registry import _REGISTRY, registered_platforms
-
 
 # ── Offline setup checks ─────────────────────────────────────────────
 
@@ -91,13 +91,12 @@ def _check_telegraph_setup(config: Config) -> str | None:
 
 
 # Lazy adapter imports inside lambdas avoid circular deps at import time.
-from .adapters.notion_api import NotionAPIAdapter
 from .adapters.devto_api import DevtoAPIAdapter
-from .adapters.hackmd_api import HackmdAPIAdapter
-from .adapters.mataroa_api import MataroaAPIAdapter
 from .adapters.gitlabpages import GitLabPagesAPIAdapter
+from .adapters.hackmd_api import HackmdAPIAdapter
 from .adapters.hatena_atompub import HatenaAtomPubAdapter
-
+from .adapters.mataroa_api import MataroaAPIAdapter
+from .adapters.notion_api import NotionAPIAdapter
 
 _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
     "blogger": lambda c: (
@@ -179,8 +178,8 @@ def verify_adapter_setup(
     config: Config,
     *,
     mode: Literal["offline", "live", "dry-run"] = "offline",
-    payload: Optional[dict[str, Any]] = None,
-) -> Optional[VerifyResult]:
+    payload: dict[str, Any] | None = None,
+) -> VerifyResult | None:
     """Three-tier adapter setup verification.
 
     ``mode='offline'`` (default): raise ``DependencyError`` on failure,

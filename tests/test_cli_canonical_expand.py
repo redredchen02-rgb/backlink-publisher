@@ -12,7 +12,6 @@ import pytest
 import backlink_publisher.cli.canonical_expand as ce
 from backlink_publisher.cli.canonical_expand import CANONICAL_PLATFORMS, expand_canonical_row
 
-
 # ---------------------------------------------------------------------------
 # Unit: expand_canonical_row
 # ---------------------------------------------------------------------------
@@ -93,7 +92,6 @@ def test_no_canonical_url_when_none_provided():
 
 def _run_cli(jsonl_input: str, extra_argv: list[str] | None = None) -> tuple[str, str]:
     """Run main() with stdin=jsonl_input; return (stdout, stderr)."""
-    import io
     argv = list(extra_argv or [])
     with (
         patch.object(sys, "stdin", io.StringIO(jsonl_input)),

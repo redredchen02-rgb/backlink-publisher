@@ -29,16 +29,16 @@ shared abstraction only after a third token file appears (see plan's
 
 from __future__ import annotations
 
-import fcntl
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, UTC
+from backlink_publisher._compat import fcntl
 import json
 import logging
 import os
+from pathlib import Path
 import random
 import time
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Iterator
 
 log = logging.getLogger(__name__)
 
@@ -240,7 +240,7 @@ def _archive_orphan_token(token_path: Path) -> Path | None:
     """
     if not token_path.exists():
         return None
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
     archive = token_path.with_suffix(token_path.suffix + f".orphaned-{stamp}")
     os.replace(token_path, archive)
     os.chmod(archive, 0o600)

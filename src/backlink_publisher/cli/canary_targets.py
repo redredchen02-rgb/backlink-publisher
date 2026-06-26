@@ -23,23 +23,23 @@ necessary-not-sufficient).
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import random
-import sys
-from datetime import datetime, timezone
 from typing import Any, cast
 
-from backlink_publisher._util.errors import PipelineError, UsageError, handle_error
+from backlink_publisher._util.errors import handle_error, PipelineError, UsageError
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher._util.logger import PipelineLogger, set_log_level
 from backlink_publisher.canary.store import (
+    get_health,
+    read_canary_config,
+    record_verdict,
     STATUS_ADVISORY,
     STATUS_DRIFT_CONFIRMED,
     STATUS_LINK_ALIVE,
     STATUS_NOT_CONFIGURED,
-    get_health,
-    read_canary_config,
-    record_verdict,
 )
+
 # Patched at this reference in tests (mock.patch path follows the function).
 from backlink_publisher.content._preflight_fetch import fetch_target
 from backlink_publisher.publishing.adapters.link_attr_verifier import inspect_target_anchor
@@ -176,7 +176,7 @@ def _build_receipt(
         "verdict": verdict,
         "mode": MODE,  # evergreen — existing-link survival, NOT publish-path health
         "failed_checks": failed_checks,
-        "checked_at": datetime.now(timezone.utc).isoformat(),  # point-in-time only
+        "checked_at": datetime.now(UTC).isoformat(),  # point-in-time only
     }
     if stale:
         receipt["note"] = "canary-stale/needs-reseed"
@@ -191,8 +191,8 @@ def _build_cohort() -> list[str]:
     Deliberately uses ``dofollow_status is True`` — NOT ``referral_value`` (an
     orthogonal axis that is None for the dofollow tier → empty set, R5).
     """
-    import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
     from backlink_publisher.publishing import registry
+    import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 
     return [p for p in registry.registered_platforms() if registry.dofollow_status(p) is True]
 

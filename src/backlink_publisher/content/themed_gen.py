@@ -24,14 +24,14 @@ Failure semantics:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import html
 import logging
-from dataclasses import dataclass
 
-from backlink_publisher.anchor.resolver import _passes_work_anchor_filter
-from backlink_publisher.config import ThreeUrlConfig
 from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher._util.markdown import _format_anchor_html
+from backlink_publisher.anchor.resolver import _passes_work_anchor_filter
+from backlink_publisher.config import ThreeUrlConfig
 from backlink_publisher.content.scraper import WorkMetadata
 
 __all__ = ["Anchors", "select_anchors", "render_work_themed_article"]

@@ -7,17 +7,17 @@ Status:     pending | processing | done | failed
 
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
+import uuid
 
-from .sqlite_base import SqliteStore, WebUIDatabase, _retry_sqlite
+from .sqlite_base import _retry_sqlite, SqliteStore, WebUIDatabase
 
 VALID_OPERATIONS = frozenset({"keep_alive", "recheck", "channel_health"})
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class BatchOpsSqliteStore(SqliteStore):
@@ -49,6 +49,10 @@ class BatchOpsSqliteStore(SqliteStore):
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS batch_ops_status_idx "
                 "ON batch_ops (status, created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS batch_ops_created_idx "
+                "ON batch_ops (created_at DESC)"
             )
 
     def enqueue_many(self, site_urls: list[str], operation: str) -> list[str]:

@@ -9,10 +9,10 @@ import pytest
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.notion_api import (
-    NotionAPIAdapter,
     _build_page_payload,
     _load_credentials,
     _required_headers,
+    NotionAPIAdapter,
 )
 
 

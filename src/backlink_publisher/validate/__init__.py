@@ -9,6 +9,6 @@ engine/shell/in-process precedent this follows.
 
 from __future__ import annotations
 
-from .engine import ValidateOutcome, load_config_tolerant, validate_rows
+from .engine import load_config_tolerant, validate_rows, ValidateOutcome
 
 __all__ = ["ValidateOutcome", "validate_rows", "load_config_tolerant"]

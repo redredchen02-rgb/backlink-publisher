@@ -22,7 +22,7 @@ import datetime
 import logging
 from typing import Any
 
-from .models import RuleResult, now_iso
+from .models import RuleResult
 
 logger = logging.getLogger(__name__)
 

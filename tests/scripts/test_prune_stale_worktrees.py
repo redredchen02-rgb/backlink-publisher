@@ -15,9 +15,9 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import os
+from pathlib import Path
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
 

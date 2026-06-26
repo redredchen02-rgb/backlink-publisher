@@ -17,16 +17,16 @@ Coverage goals (plan spec):
 from __future__ import annotations
 
 __tier__ = "unit"
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from backlink_publisher.cli.plan_backlinks._engine import (
-    PlanOutcome,
     _cell_gate_drop,
     plan_rows,
+    PlanOutcome,
 )
 from backlink_publisher.config import Config
-
 
 # ── fixtures ───────────────────────────────────────────────────────────────────
 

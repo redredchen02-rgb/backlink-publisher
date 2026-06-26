@@ -22,7 +22,6 @@ from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher._util.url import safe_urlparse, validate_https_url
 
-
 _REQUIRED_FIELDS = ("target_url", "anchor_text", "mode")
 _DEFAULT_MAX_INPUT_BYTES = 2_000_000
 _DEFAULT_MAX_RECORDS = 200

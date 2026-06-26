@@ -7,11 +7,11 @@ from __future__ import annotations
 
 # Re-export adapter symbols unchanged.
 from backlink_publisher.publishing.adapters.medium_liveness import (
-    LivenessResult,
-    MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED,
     _active_probe,
     _load_storage_state_for_probe,
     _storage_state_path,
+    LivenessResult,
+    MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED,
 )
 
 # Re-export service symbols (keeps existing call sites and tests working).

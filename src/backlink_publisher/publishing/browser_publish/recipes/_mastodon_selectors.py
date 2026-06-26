@@ -12,7 +12,6 @@ followed by the body markdown.
 
 from __future__ import annotations
 
-
 COMPOSE_PATH = "/publish"
 SIGNIN_PATHS = ("/auth/sign_in", "/auth/sign_up")
 

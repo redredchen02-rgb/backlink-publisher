@@ -6,8 +6,8 @@ result type used by the rules engine.
 
 from __future__ import annotations
 
-import datetime
 from dataclasses import dataclass, field
+import datetime
 from typing import Any
 
 
@@ -146,4 +146,4 @@ def _upgrade_v1_to_v2(data: dict) -> dict:
 
 def now_iso() -> str:
     """Return current UTC time as ISO-8601 string."""
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()

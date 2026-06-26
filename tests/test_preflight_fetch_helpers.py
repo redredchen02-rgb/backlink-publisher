@@ -14,12 +14,11 @@ from urllib.error import URLError
 
 import pytest
 
+from backlink_publisher.content import _preflight_fetch as pf
 from backlink_publisher.content._preflight_fetch import (
     _build_facts_from_response,
     _classify_url_error,
 )
-from backlink_publisher.content import _preflight_fetch as pf
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,7 +71,7 @@ class TestClassifyUrlError:
         assert facts.tls_unverified is True
 
     def test_socket_timeout_reason(self):
-        facts = _classify_url_error(_url_error(socket.timeout("timed out")))
+        facts = _classify_url_error(_url_error(TimeoutError("timed out")))
         assert facts.reason == "timeout"
 
     def test_other_reason_is_network_error(self):

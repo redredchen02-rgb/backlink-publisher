@@ -12,15 +12,14 @@ entry pass through unchanged.
 from __future__ import annotations
 
 __tier__ = "unit"
-import json
-import sys
 from io import StringIO
+import json
 from pathlib import Path
+import sys
 
 import pytest
 
 from backlink_publisher.cli.plan_backlinks import main
-
 
 # ---------------------------------------------------------------------------
 # Test helpers (mirror test_plan_backlinks.py conventions)

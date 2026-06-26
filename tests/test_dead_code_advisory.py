@@ -29,8 +29,8 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-import warnings
 from pathlib import Path
+import warnings
 
 import pytest
 

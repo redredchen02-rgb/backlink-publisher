@@ -17,7 +17,6 @@ import pytest
 from backlink_publisher._util.errors import BannerUploadError
 from backlink_publisher.publishing.banner_dispatcher import apply
 
-
 # ── helpers ────────────────────────────────────────────────────────────
 
 

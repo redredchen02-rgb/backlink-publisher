@@ -151,7 +151,7 @@ def test_upstream_overloaded_rolls_back_session_window():
 
 def test_three_concurrent_same_host_first_wins_others_host_busy():
     barrier = threading.Barrier(3)
-    results: List[Optional[str]] = [None, None, None]
+    results: list[str | None] = [None, None, None]
     sessions = ["s0", "s1", "s2"]
 
     def worker(idx: int) -> None:
@@ -221,7 +221,7 @@ def test_three_in_flight_then_fourth_upstream_overloaded_then_recover():
 def test_fifty_concurrent_acquires_no_deadlock_clean_fanin():
     n = 50
     barrier = threading.Barrier(n)
-    results: List[Optional[str]] = [None] * n
+    results: list[str | None] = [None] * n
 
     def worker(idx: int) -> None:
         sess = f"sess-{idx}"

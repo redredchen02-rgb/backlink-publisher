@@ -17,6 +17,8 @@ source must never drag down the whole monitor view. Non-sensitive (status counts
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify
 
 from ...routes.command_center import _build_anomaly_cards, _collect_subsystem_status
@@ -24,7 +26,7 @@ from . import bp
 
 
 @bp.get("/monitor/summary")
-def monitor_summary():
+def monitor_summary() -> Any:
     """Anomaly-first monitor cards across credentials/keepalive/equity/history."""
     try:
         cards = _build_anomaly_cards(_collect_subsystem_status())
