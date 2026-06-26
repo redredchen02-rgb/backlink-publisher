@@ -1,5 +1,7 @@
 """Tests for cli.state_backup module."""
 
+
+__tier__ = "unit"
 from __future__ import annotations
 
 from collections.abc import Generator

@@ -1,5 +1,7 @@
 # Backlink Publisher 优化执行完整报告
 
+> **SUPERSEDED** — see `docs/optimization-history.md` for consolidated summary.
+
 ## 执行时间
 2026年6月11日
 

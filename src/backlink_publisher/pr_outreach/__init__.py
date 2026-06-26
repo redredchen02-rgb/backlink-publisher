@@ -6,3 +6,6 @@ surfaces a human-review queue for draft preparation.
 
 Drafts must be reviewed and sent by a human — no automated submission.
 """
+
+
+__all__: list[str] = []

@@ -8,3 +8,6 @@ See docs/plans/2026-05-18-009-feat-telegraph-phase0-ship-seal-plan.md (Unit 2).
 """
 
 from __future__ import annotations
+
+
+__all__: list[str] = []

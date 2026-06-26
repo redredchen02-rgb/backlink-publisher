@@ -7,7 +7,10 @@ write ``import fcntl`` without conditional imports.
 
 from __future__ import annotations
 
+
 import sys
+
+__all__: list[str] = []
 
 # ---- Patch fcntl on Windows ----
 if sys.platform == "win32":

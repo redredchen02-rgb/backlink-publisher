@@ -2,6 +2,8 @@
 
 Extracted from ``test_cli_generate_backlink_text.py`` (Plan 2026-06-23-005 U4).
 """
+
+__tier__ = "unit"
 from __future__ import annotations
 
 import json

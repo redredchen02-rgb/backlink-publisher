@@ -6,6 +6,8 @@ compliance: WAL pragma, 0o600 perms, sidecar tighten, lock safety.
 Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 """
 
+
+__tier__ = "integration"
 from __future__ import annotations
 
 import json

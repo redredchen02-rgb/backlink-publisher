@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+
+__all__ = [
+    "main",
+    "PublishOptions",
+    "publish_rows",
+]
 import sys
 from typing import Any
 

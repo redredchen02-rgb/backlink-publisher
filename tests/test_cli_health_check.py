@@ -1,5 +1,7 @@
 """Tests for backlink_publisher.cli.health_check (Plan U4.4)."""
 
+
+__tier__ = "unit"
 from __future__ import annotations
 
 import json

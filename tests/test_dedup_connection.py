@@ -1,5 +1,7 @@
 """Tests for idempotency._dedup_connection module."""
 
+
+__tier__ = "unit"
 from __future__ import annotations
 
 from pathlib import Path

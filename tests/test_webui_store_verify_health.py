@@ -4,6 +4,8 @@ Per-platform credential-expiry verdict cache: only token_expired/ok mutate
 state; transient verdicts are no-ops.
 """
 
+
+__tier__ = "integration"
 from __future__ import annotations
 
 from pathlib import Path

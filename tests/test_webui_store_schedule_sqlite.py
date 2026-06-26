@@ -6,6 +6,8 @@ idempotency, crash-recovery, and Store protocol compliance.
 Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 """
 
+
+__tier__ = "integration"
 from __future__ import annotations
 
 import json

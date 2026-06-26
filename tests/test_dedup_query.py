@@ -1,5 +1,7 @@
 """Tests for idempotency._dedup_query module."""
 
+
+__tier__ = "unit"
 from __future__ import annotations
 
 from collections.abc import Generator

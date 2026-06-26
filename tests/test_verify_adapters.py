@@ -1,5 +1,7 @@
 """Tests for publishing._verify_adapters module - helper functions and basic functionality."""
 
+
+__tier__ = "integration"
 from __future__ import annotations
 
 from datetime import datetime, timezone
