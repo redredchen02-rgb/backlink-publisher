@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from backlink_publisher.events.survival_query import compute_survival
-from backlink_publisher.events.store import EventStore
+from backlink_publisher.events import EventStore
 
 
 def _display_fields(data: dict) -> dict:
@@ -17,7 +17,7 @@ def _display_fields(data: dict) -> dict:
     state = data.get("state", "empty")
     rate = data.get("survival_rate")
     has_rate = state == "ok" and rate is not None
-    display = f"{rate * 100:.1f}%" if has_rate else "—"
+    display = f"{rate * 100:.1f}%" if has_rate else "—"  # type: ignore[operator]
     if state == "ok":
         headline = f"{display} 链接仍存活"
         sub = f"样本量 {data.get('sample_size', 0)} 条（≥30天成熟外链）"

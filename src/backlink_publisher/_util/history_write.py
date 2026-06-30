@@ -106,7 +106,8 @@ def append_published_rows(
 
 def _atomic_write_history(path: Path, data: list[dict[str, Any]]) -> None:
     """Write history atomically (tmp + rename) — safe for single-writer use."""
-    tmp = path.with_suffix(".json.tmp")
+    import os
+    tmp = path.with_suffix(f".json.{os.getpid()}.tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(

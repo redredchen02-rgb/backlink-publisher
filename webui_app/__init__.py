@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -121,6 +122,11 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     from .routes import register_blueprints
     register_blueprints(app)
 
+    # Import adapters once at startup (not on first request).
+    # This populates the publisher registry so inject_platforms() doesn't
+    # pay the import cost on every template render.
+    import backlink_publisher.publishing.adapters  # noqa: F401
+
     # Inject the live registered platforms into every template render.
     # Plan 2026-05-19-002 U2 / R6: WebUI is reverse-driven by the publisher
     # registry — register("X", XAdapter) is now sufficient to make X
@@ -128,46 +134,33 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # the JS counter dict, and norm_platform routing without any HTML edit.
     # ``s.title()`` is the v1 display-name source (no _display_name_map dict
     # per scope-guardian F5); i18n migration is a Deferred follow-up.
+    #
+    # TTL cache: platform list and channel bindings change infrequently;
+    # re-resolve every 30s max to avoid repeated config loads per request.
+    _PLATFORMS_TTL = 30
+
     @app.context_processor
     def inject_platforms():
-        # Importing adapters at first request populates the registry
-        # side-effect — same idiom as plan_backlinks.py / publish_backlinks.py.
-        import backlink_publisher.publishing.adapters  # noqa: F401
+        now = time.monotonic()
+        cached = app.config.get('_platforms_cache')
+        if cached and now - cached['ts'] < _PLATFORMS_TTL:
+            return cached['data']
+
         from backlink_publisher.publishing.registry import (
             bound_platforms as registry_bound_platforms,
             registered_platforms,
             ui_meta,
         )
 
-        # Plan 2026-05-25-002 Unit 4a — display name reverse-lookup.
-        # When the channel's manifest declares a UiMeta, use its
-        # display_name (e.g. ghpages -> "GitHub Pages", devto -> "Dev.to").
-        # Otherwise fall back to the legacy ``s.title()`` derivation.
-        # Legacy behaviour preserved for the 7 non-velog channels until
-        # Phase 2 migrations populate their UiMeta.
         def _display(slug: str) -> str:
             meta = ui_meta(slug)
             return meta.display_name if meta is not None else slug.title()
 
         all_slugs = list(registered_platforms())
-        # History filter chips still need the FULL list (per
-        # ``feedback_platforms_vs_bound_platforms_split``) — already-
-        # published unbound channels stay filterable.
         platforms = [
             {"slug": s, "display_name": _display(s)} for s in all_slugs
         ]
 
-        # `bound_platforms` is the publish-form filter: only channels
-        # whose offline binding check passes (and that aren't hidden /
-        # retired per manifest visibility) appear in the platform select.
-        # Falls back to the full list on any load failure so the form
-        # never breaks mid-render.
-        #
-        # Plan U4a: ``registry.bound_platforms(cfg, is_bound)`` composes
-        # ``active_platforms()`` (drops hidden + retired + experimental)
-        # with the injected ``is_bound`` predicate. The predicate stays
-        # at this call site to avoid the publishing -> webui_app layer
-        # inversion (see registry.py:bound_platforms docstring).
         try:
             from backlink_publisher.config import load_config
             from .binding_status import get_channel_status
@@ -184,7 +177,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
         except Exception:
             bound_platforms = platforms
 
-        return {"platforms": platforms, "bound_platforms": bound_platforms}
+        result = {"platforms": platforms, "bound_platforms": bound_platforms}
+        app.config['_platforms_cache'] = {'ts': now, 'data': result}
+        return result
 
     # Plan 2026-05-20-002 Unit 5 — register csrf_token() Jinja global so
     # the homepage <meta name="csrf-token"> tag can read the per-session
@@ -223,22 +218,30 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # endpoint is caught at POST time with a 400. ``llm_configured`` is kept as a
     # derived alias so the shipped copilot panel (`_copilot_panel.html`) needs
     # no change (back-compat).
+    #
+    # TTL cache: llm-settings.json rarely changes; re-read every 30s max.
+    _PRO_STATUS_TTL = 30
+
     @app.context_processor
     def inject_pro_status():
+        now = time.monotonic()
+        cached = app.config.get('_pro_status_cache')
+        if cached and now - cached['ts'] < _PRO_STATUS_TTL:
+            return cached['data']
         from .services import settings_service
         try:
             summary = settings_service.pro_status_summary(
                 settings_service.load_llm_settings()
             )
         except Exception as e:
-            # Fail-safe: a malformed llm-settings.json must never 500 every page.
-            # Log at debug so the degraded-to-inactive state is diagnosable.
             app.logger.debug("inject_pro_status fell back to inactive: %s", e)
             summary = {
                 "configured": False, "endpoint_host": "", "model": "",
                 "article_gen": False, "image_gen": False, "last_test": None,
             }
-        return {"pro_status": summary, "llm_configured": summary["configured"]}
+        result = {"pro_status": summary, "llm_configured": summary["configured"]}
+        app.config['_pro_status_cache'] = {'ts': now, 'data': result}
+        return result
 
     # Plan 2026-06-04-001 Unit 10 / R7+R8 — the LITE edition shows the operator
     # only the keep-alive core. ``lite_edition`` drives the nav trim in
@@ -260,6 +263,20 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # legacy ``WTF_CSRF_ENABLED = False`` (many existing tests already set
     # that flag defensively — both are honored).
     app.config.setdefault('CSRF_ENABLED', True)
+
+    # Cache-Control headers for API endpoints.
+    # Sensitive endpoints get no-store; read-only dashboards get short TTL.
+    @app.after_request
+    def _set_cache_headers(response):
+        from flask import request as _req
+        path = _req.path
+        if path.startswith("/api/") or path.startswith("/ce:"):
+            # API and health endpoints: no caching
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        elif path.startswith("/settings") or path.startswith("/sites"):
+            # Settings pages: no caching (contain credential state)
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.before_request
     def _global_csrf_guard():
@@ -427,5 +444,41 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_forbidden(exc):
         from flask import jsonify as _jsonify
         return _jsonify({"status": "error", "error": "forbidden"}), 403
+
+    @app.errorhandler(500)
+    def _json_internal_error(exc):
+        _log.error(
+            "RECON api_5xx path=%s method=%s remote=%s error=%s",
+            request.path,
+            request.method,
+            request.remote_addr,
+            exc,
+        )
+        from flask import jsonify as _jsonify
+        return _jsonify({"status": "error", "error": "internal"}), 500
+
+    @app.errorhandler(502)
+    def _json_bad_gateway(exc):
+        _log.error(
+            "RECON api_502 path=%s method=%s remote=%s error=%s",
+            request.path,
+            request.method,
+            request.remote_addr,
+            exc,
+        )
+        from flask import jsonify as _jsonify
+        return _jsonify({"status": "error", "error": "bad_gateway"}), 502
+
+    @app.errorhandler(503)
+    def _json_service_unavailable(exc):
+        _log.error(
+            "RECON api_503 path=%s method=%s remote=%s error=%s",
+            request.path,
+            request.method,
+            request.remote_addr,
+            exc,
+        )
+        from flask import jsonify as _jsonify
+        return _jsonify({"status": "error", "error": "unavailable"}), 503
 
     return app

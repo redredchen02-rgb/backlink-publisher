@@ -297,7 +297,7 @@ def test_throttle_zero_never_blocks():
     the property that lets an embedded caller run publish_rows without blocking
     its (e.g. Flask) thread. Even on the consecutive-medium path that does call
     _do_sleep, the duration is 0."""
-    with patch("backlink_publisher.cli._publish_helpers._do_sleep") as mock_sleep:
+    with patch("backlink_publisher.cli.publish._publish_helpers._do_sleep") as mock_sleep:
         outcome = _run_rows(
             [_ok("medium"), _ok("medium")],
             [_payload("a", platform="medium"), _payload("b", platform="medium")],
@@ -347,7 +347,7 @@ def test_force_manifest_conflict_aborts_typed_exit1_no_systemexit():
     # gate_with_force is late-imported by the loop from _dedup_gate; patch it there
     # to return the 'conflict' verdict (it no longer SystemExits — that is the fix).
     with patch(
-        "backlink_publisher.cli._dedup_gate.gate_with_force",
+        "backlink_publisher.cli.publish._dedup_gate.gate_with_force",
         return_value=("conflict", None),
     ):
         with patch("backlink_publisher.cli.publish_backlinks.adapter_publish") as mock_pub:

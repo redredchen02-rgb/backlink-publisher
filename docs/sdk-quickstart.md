@@ -101,3 +101,45 @@ bp.registered_platforms()   # -> ['blogger', 'medium', 'telegraph', …]
 
 Importing an adapter module also registers it (import side effect preserved), but
 `register_all_adapters()` is the explicit bootstrap.
+
+## Parallel Safety and Execution Lanes
+
+The SDK is designed to support parallel execution lanes without merging conflicts or runtime race conditions under standard read/probe operations:
+- **`plan` and `validate`** are read-only and stateless, making them safe for concurrent invocation (e.g. partition links by target domain/category and run them across threads).
+- **`publish` writes to the event store**. Under default `observe` mode, you should enable deduplication enforcement (`BACKLINK_PUBLISHER_DEDUP_ENFORCE=1`) and wrap concurrent publish tasks with a locking guard on the specific target platform/account to prevent double-publishing.
+
+## GSC & Referral Attribution Configuration
+
+To programmatically integrate Search Console (GSC) index/ranking verification or GA4 referral tracking:
+
+### 1. GSC configuration via `Config`
+```python
+from backlink_publisher.config import Config, GscConfig
+
+cfg = Config()
+# Set up Search Console properties
+gsc_cfg = GscConfig(
+    credential_path="/path/to/gsc-sa.json",
+    property_url="sc-domain:example.com",
+    ranking_keywords=["backlink optimization", "seo tools"]
+)
+object.__setattr__(cfg, "gsc", gsc_cfg)
+```
+
+### 2. Check Platform Health
+You can query the unified health state of all registered publisher platforms directly:
+```python
+import backlink_publisher as bp
+from backlink_publisher.config import load_config
+from backlink_publisher.health.aggregate import build_platform_health
+
+config = load_config()
+health_snapshot = build_platform_health(config)
+
+for platform, record in health_snapshot.items():
+    print(f"Platform: {platform}")
+    print(f"  Circuit Tripped: {record.circuit_tripped}")
+    print(f"  Consecutive Failures: {record.consecutive_failures}")
+    print(f"  Last Success: {record.last_success_at}")
+```
+

@@ -65,12 +65,15 @@ def _safe_get_json(url: str, headers: dict, timeout: int = 10):
     if "json" not in ctype.lower():
         raise ValueError(f"bad_content_type: {ctype!r}")
     body = b""
-    for chunk in resp.iter_content(chunk_size=8192):
-        body += chunk
-        if len(body) > _LLM_TEST_MAX_BYTES:
-            raise ValueError(
-                f"response_too_large: exceeded {_LLM_TEST_MAX_BYTES} bytes")
-    return resp.status_code, json.loads(body)
+    try:
+        for chunk in resp.iter_content(chunk_size=8192):
+            body += chunk
+            if len(body) > _LLM_TEST_MAX_BYTES:
+                raise ValueError(
+                    f"response_too_large: exceeded {_LLM_TEST_MAX_BYTES} bytes")
+        return resp.status_code, json.loads(body)
+    finally:
+        resp.close()
 
 
 def _s(fields: Mapping, name: str) -> str:

@@ -18,8 +18,8 @@ ceiling = 250
 rationale = "thin-WebUI Phase 2 Unit 7 (2026-05-28): pure generation kernel (_cell_gate_drop, _dispatch_row, _emit_link_count_recon, _scheduler_enabled_for, PlanOutcome, plan_rows) extracted to plan_backlinks/_engine.py so the in-process PipelineAPI.plan path shares it. core.py dropped from 392 to 208 SLOC — now argparse + set_log_level + row parsing + load_config + config_echo banner + reset_stats (H2) + plan_rows call + error-print + write_jsonl + preflight/canary nudge shell only. Ceiling 250 = round_up_to_10(208+30) per policy."
 
 [files."src/backlink_publisher/cli/publish_backlinks/__init__.py"]
-ceiling = 240
-rationale = "2026-06-05 feat/continuous-optimization: optimization integration added weight dispatch, queue telemetry, optimization-state hook. Measured SLOC=230. Ceiling 240 = round_up_to_10(230+10) per ratchet policy."
+ceiling = 260
+rationale = "2026-06-24 U6 __all__ declaration added 19 names (test-seam re-exports + public entry points). SLOC 230→249. Ceiling 260 = round_up_to_10(249+10) per ratchet policy."
 
 [files."src/backlink_publisher/content/fetch.py"]
 ceiling = 250
@@ -42,32 +42,32 @@ ceiling = 500
 rationale = "Holds the 3 reducers (_project_checkpoint, _project_history, _project_drafts). Emit helpers (_emit_confirmed_history_row, _emit_drafts_confirmed, _parse_row_timestamps) extracted to _project_emit.py (2026-06-11). Ceiling tightened 620→500 = round_up_to_10(467+30) per policy."
 
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
-ceiling = 340
-rationale = "U3 auto-scan catalog registration (Plan 2026-06-05): register_catalog_entries() function (import-time YAML scan + _CATALOG_AUTO_REGISTERED cache) + tests added ~46 SLOC to reach 302. Ceiling=round_up_to_10(302+30)=340 per ratchet policy."
+ceiling = 400
+rationale = "U6 __all__ declaration added 60 names (all registered adapter classes + manifest constants + core functions). SLOC 302→364. Ceiling 400 = round_up_to_10(364+30) per ratchet policy."
 
 [files."src/backlink_publisher/cli/phase0_seal.py"]
-ceiling = 465
-rationale = "_handle_init (173 lines) + its exclusive helpers (_build_routine_verdict_ref, _build_manual_verdict_ref, _get_main_sha, _post_push_verify, _InitError, _NotesPushDidNotLand) extracted to _seal_init.py (2026-05-22). phase0_seal.py dropped from 720 to 449 SLOC — 7 subcommand dispatch layer + _handle_{show,verify,reseal,verify_hook} + shared helpers remain. Ceiling 465 = round_up_to_10(435+30)."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
 
 [files."src/backlink_publisher/cli/plan_check.py"]
-ceiling = 260
-rationale = "Three-tier decomposition (2026-05-26): schema (frontmatter/claims/filename-date-lock) moved to _plan_check_schema.py (166 SLOC), git resolution (fetch freshness, path/sha checks, stderr classification) to _plan_check_git.py (148 SLOC), output formatting (JSON/human/RECON lines) to _plan_check_format.py (76 SLOC). plan_check.py now holds main() + re-exports only at 217 SLOC. Ceiling 260 = round_up_to_10(217+30) per policy."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
 
 [files."src/backlink_publisher/cli/validate_backlinks.py"]
-ceiling = 150
-rationale = "thin-WebUI Phase 2 Unit 6 (2026-05-27): the pure validation kernel (URL-collection + check_urls_strict + the per-row loop) extracted to validate/engine.py so the in-process PipelineAPI.validate path shares it. validate_backlinks.py dropped from 168 to 116 SLOC — now argparse + set_log_level + load_config_tolerant + config_echo banner + read_jsonl + a single validate_rows call + recon/emit_envelope_and_exit shell only. Ceiling 150 = round_up_to_10(116+30)."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
 
 [files."src/backlink_publisher/cli/report_anchors.py"]
-ceiling = 120
-rationale = "thin-WebUI Phase 2 Unit 7 (2026-05-28): main() split into two engine calls (report_from_profile + report_from_rows) extracted to _report_engine.py so the in-process PipelineAPI.report_anchors path shares it. report_anchors.py stayed at 89 SLOC — holds argparse + load_config + config_echo banner + engine call + stdout print + stderr breach lines + emit_envelope_and_exit shell only. Ceiling 120 = round_up_to_10(89+30) per policy."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
 
 [files."src/backlink_publisher/cli/_publish_helpers.py"]
-ceiling = 530
-rationale = "refactor 2026-06-01: extracted the CLI layer (_build_parser argparse + _handle_checkpoint_ops + _handle_auth_expired) to cli/_publish_cli.py. The _do_sleep/_sleep_with_throttle and verify_published/_do_verify mock seams stay here (tests patch them at this module). _publish_helpers re-exports the 3 moved names. Plan 2026-06-22-001 U4-3 (2026-06-22): split _publish_epilogue into a pure verdict (PublishExitDecision + _decide_publish_exit, the single source of truth shared with PublishOutcome.terminal_exit_code) plus the impure stdout/SystemExit dispatch, and added the _check_token_drift(raises=False) in-process variant. SLOC 442->493 (+51 for the pure decision + dataclass + docstrings, net of the inline epilogue branches removed). Ceiling 530 = round_up_to_10(493+30)."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
 
 [files."src/backlink_publisher/cli/generate_backlink_text.py"]
-ceiling = 390
-rationale = "refactor 2026-06-01: extracted the input-parsing + deterministic-validation cluster (9 funcs + their constants) to cli/_candidates.py; this module now holds CLI/argparse + LLM orchestration (main/_resolve_client/_run_dry_run/_run_generate) and re-exports the moved names for the tests that import them. SLOC 541->357. Ceiling 390 = round_up_to_10(357+30)."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
 
 # Plan 2026-06-02-003: canary-seed + platform-discovery (dofollow hardening).
 # Three new files co-landed in the same PR; budget entries required by C2.
@@ -76,16 +76,16 @@ ceiling = 210
 rationale = "HTTP probe core extracted from scripts/channel_probe.py (Plan 2026-06-02-003 Unit 1). Contains Hit/UrlResult dataclasses, USER_AGENTS constants, _validate_url_ssrf/_probe/_triage private functions, and public probe_url(). SLOC 174 reflects the full three-UA probe + triage decision matrix. Ceiling 210 = round_up_to_10(174+30) per policy."
 
 [files."src/backlink_publisher/cli/canary_seed.py"]
-ceiling = 230
-rationale = "canary-seed CLI (Plan 2026-06-02-003 Unit 2): publishes a minimal test post to a dofollow=uncertain platform, inspects the target anchor rel, and emits advisory verdict JSONL. SLOC 196 includes argparse, cohort gate, credential check, stub payload builder, publish dispatch, SSRF guard, inspect_target_anchor call, and JSONL+RECON emit. Ceiling 230 = round_up_to_10(196+30) per policy."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
 
 [files."scripts/platform_discovery.py"]
 ceiling = 340
 rationale = "platform-discovery script (Plan 2026-06-02-003 Unit 3): SERP → HTTP probe → browser-UA rel scan → scored JSONL candidate report. SLOC 306 includes DuckDuckGo HTML fetch, regex anchor extraction, dofollow_rate scoring, SSRF guard (fail-closed Track B), --candidate-urls fallback path, and progress RECON. Ceiling 340 = round_up_to_10(306+30) per policy."
 
 [files."src/backlink_publisher/cli/pipeline_orchestrator.py"]
-ceiling = 410
-rationale = "Pipeline orchestrator (Plan 2026-06-10-002 U2.1): CLI entry point dispatching equity-ledger → plan-gap → plan-backlinks → validate → publish pipeline steps via subprocess. Current SLOC 379 after full-automation-upgrade merged and tightened scope. Ceiling 410 = round_up_to_10(379+30) per policy."
+ceiling = 40
+rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/ops/pipeline_orchestrator.py. Shim is 6 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(6+30) per policy."
 # ─────────────────────────────────────────────────────────────────────────────
 # Plan 2026-06-15-002 P1-3: hotspot audit of every 500+ raw-LOC source file.
 # The pre-existing budget covered only 17 files. This block extends coverage to
@@ -141,8 +141,8 @@ ceiling = 540
 rationale = "Wave 3 Unit 1 intended to trim core.py to 171 SLOC, but rebase onto main (which added new features to core.py) resolved the conflict by keeping main's version at 512 SLOC. _engine.py and _gates.py were added as new modules but core.py itself was not trimmed. Ceiling 540 = round_up_to_10(512+30) to match current reality; split deferred to follow-up PR."
 
 [files."src/backlink_publisher/cli/spray_backlinks/_engine.py"]
-ceiling = 370
-rationale = "Wave 3 Unit 1 (2026-06-11): _engine.py expanded from 79 SLOC to 333 by absorbing _run_spray (CC 48, the multi-seed orchestration loop), _emit_preview, _main_anchor_of, _main_domain_of from core.py. Also retains original pure kernel: SprayCandidate, expand_seed, validate_platform_selection, _default_degraded, _seed_main_domain, gate_candidates. Ceiling 370 = round_up_to_10(333+30) per policy."
+ceiling = 110
+rationale = "Plan 2026-06-24-002 U2: deleted dead _run_spray (never called by main()) and its duplicate private helpers (_emit_preview, _main_anchor_of etc); _engine.py reverts to pure kernel only (SprayCandidate, expand_seed, validate_platform_selection, gate_candidates). 333 SLOC → 79 SLOC. Ceiling 110 = round_up_to_10(79+30)."
 
 [files."src/backlink_publisher/cli/spray_backlinks/_gates.py"]
 ceiling = 110

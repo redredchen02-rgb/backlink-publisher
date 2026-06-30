@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+/* Font loaded via preload link in index.html head_extra */
 
         body {
             font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -157,7 +157,8 @@
         }
 
         .btn-success:hover {
-            background: #059669;
+            background: var(--success);
+            filter: brightness(0.85);
         }
         
         .url-input-group {
@@ -193,23 +194,23 @@
         }
 
         .url-badge.cat {
-            background: #14b8a6;
+            background: var(--success);
             color: white;
         }
 
         .url-badge.work {
-            background: #f59e0b;
+            background: var(--warning);
             color: white;
         }
 
         .url-badge.extra {
-            background: #e5e7eb;
+            background: var(--border-strong);
             color: var(--secondary);
         }
 
         .url-field-help {
             font-size: 11px;
-            color: #6b7280;
+            color: var(--muted);
             margin-top: 4px;
             margin-left: 56px;
         }

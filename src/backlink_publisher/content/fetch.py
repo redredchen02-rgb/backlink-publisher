@@ -29,6 +29,8 @@ plan-backlinks invocation. Operators must either restart the process or call
 
 from __future__ import annotations
 
+from collections import OrderedDict
+from functools import lru_cache
 import os
 import socket  # noqa: F401 — kept for test patch backward compat
 import ssl
@@ -91,7 +93,7 @@ CheckResult = tuple[bool, Optional[str], Optional[str]]
 #: callers opt into TTL-based expiry without changing the result tuple shape
 #: existing callers rely on.
 _CacheEntry = tuple[CheckResult, float]
-_CACHE: dict[str, _CacheEntry] = {}
+_CACHE: OrderedDict[str, _CacheEntry] = OrderedDict()
 
 #: Canonical "unreachable / unexpected failure" verdict used as a fail-closed
 #: fallback in the batch path.
@@ -110,14 +112,15 @@ _CACHE_LOCK = threading.Lock()
 _MAX_CACHE_ENTRIES: int = 256
 
 
+def _touch_cache(key: str) -> None:
+    """Move key to end (most-recently-used) for true LRU eviction."""
+    _CACHE.move_to_end(key)
+
+
 def _evict_lru() -> None:
-    """Evict oldest cache entries when size limit is exceeded."""
-    if len(_CACHE) <= _MAX_CACHE_ENTRIES:
-        return
-    # Remove oldest 25% of entries (simple FIFO, not true LRU)
-    to_remove = len(_CACHE) - (_MAX_CACHE_ENTRIES - _MAX_CACHE_ENTRIES // 4)
-    for _ in range(to_remove):
-        _CACHE.pop(next(iter(_CACHE)), None)
+    """Evict least-recently-used cache entries when size limit is exceeded."""
+    while len(_CACHE) > _MAX_CACHE_ENTRIES:
+        _CACHE.popitem(last=False)
 
 
 # Initialize max cache entries from environment (allows tuning without code change)
@@ -157,6 +160,7 @@ def set_default_max_age(seconds: Optional[float]) -> None:
 
 
 
+@lru_cache(maxsize=128)
 def _classify_http_code(code: int) -> str:
     """Map a non-200 HTTP status code to its canonical reason string.
 
@@ -224,7 +228,13 @@ def _check_once(
         if isinstance(reason_obj, socket.timeout):
             return False, "timeout", None
         return False, "network_error", None
-    except Exception:  # noqa: BLE001
+    except (OSError, ValueError) as exc:
+        # Network-level errors (connection refused, DNS failure, etc.)
+        return False, "network_error", None
+    except Exception as exc:  # noqa: BLE001 — log programming errors
+        opencli_logger.warning(
+            "content_fetch: unexpected error for %s: %s %s", url, type(exc).__name__, exc
+        )
         return False, "network_error", None
 
     code = resp.getcode()
@@ -296,6 +306,7 @@ def verify_url_has_content(
             result, written_at = cached
             if effective_ttl is None or (time.monotonic() - written_at) < effective_ttl:
                 _STATS["cache_hits"] += 1
+                _touch_cache(canonical_url)
                 return result
             # Expired — fall through to refetch (will overwrite under lock later).
 
@@ -317,6 +328,7 @@ def verify_url_has_content(
             _STATS["cache_hits"] += 1
             with _CACHE_LOCK:
                 _CACHE[canonical_url] = (_disk_hit, time.monotonic())
+                _touch_cache(canonical_url)
                 _evict_lru()
             return _disk_hit
 

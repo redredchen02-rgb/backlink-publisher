@@ -90,15 +90,26 @@ def _formal_denominator(text: str) -> int:
     return sum(1 for c in text if unicodedata.category(c)[0] in ("L", "M"))
 
 
+_RANGE_RE_CACHE: dict[tuple[int, int], re.Pattern] = {}
+
+
 def _count_in_range(text: str, lo: int, hi: int) -> int:
     """Count codepoints in ``text`` whose ord falls in ``[lo, hi]`` (inclusive)."""
-    return sum(1 for c in text if lo <= ord(c) <= hi)
+    key = (lo, hi)
+    pattern = _RANGE_RE_CACHE.get(key)
+    if pattern is None:
+        pattern = re.compile(f"[{chr(lo)}-{chr(hi)}]")
+        _RANGE_RE_CACHE[key] = pattern
+    return len(pattern.findall(text))
+
+
+_LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
 
 
 def _count_latin_letters(text: str) -> int:
     """Count Basic Latin letters (A-Z, a-z). Latin-1 Supplement excluded —
     conservative default; widening can come later if false-negatives surface."""
-    return sum(1 for c in text if ("A" <= c <= "Z") or ("a" <= c <= "z"))
+    return len(_LATIN_LETTER_RE.findall(text))
 
 
 def _codepoint_short_circuit(text: str) -> str | None:

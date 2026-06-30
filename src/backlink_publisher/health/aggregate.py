@@ -92,19 +92,26 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
         _log.debug(f"build_platform_health: terminal-event query failed: {exc}")
         rows = []
 
+    remaining_success = set(platforms)
+    remaining_failure = set(platforms)
+
     for row in rows:
+        if not remaining_success and not remaining_failure:
+            break
         platform = row["platform"]
         if platform not in platform_set:
             continue
         kind = row["kind"]
         if kind == "publish.confirmed":
             # First (most-recent) confirmed row per platform wins.
-            if platform not in last_success:
+            if platform in remaining_success:
                 last_success[platform] = row["ts_utc"]
+                remaining_success.remove(platform)
         else:  # publish.failed / publish.unverified
-            if platform not in last_failure:
+            if platform in remaining_failure:
                 last_failure[platform] = row["ts_utc"]
                 last_error[platform] = _redact(row["error"] or "") or None  # type: ignore[assignment]
+                remaining_failure.remove(platform)
 
     # circuit.py persists per-platform timestamps under "tripped_at_iso" in
     # this file. Read + parse it ONCE here, then do dict lookups in the loop

@@ -20,6 +20,7 @@ candidate list after filters should trigger degrade).
 
 from __future__ import annotations
 
+from functools import lru_cache
 import logging
 import random
 import re
@@ -124,6 +125,7 @@ def _formal_denominator(text: str) -> int:
     return sum(1 for c in text if unicodedata.category(c)[0] in ("L", "M"))
 
 
+@lru_cache(maxsize=1024)
 def _passes_zh_cn_ratio(text: str) -> bool:
     """Existing zh-CN CJK-ratio check — bit-exact preserved (R13).
 
@@ -135,6 +137,7 @@ def _passes_zh_cn_ratio(text: str) -> bool:
     return cjk_count / len(text) >= _MIN_CJK_RATIO
 
 
+@lru_cache(maxsize=1024)
 def _passes_ko_ratio(text: str) -> bool:
     """ko Hangul-ratio check (plan 2026-05-18-006 Unit 4 R13).
 

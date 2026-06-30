@@ -141,7 +141,7 @@ def _full_payload(item_id="p0", platform="blogger"):
     }
 
 
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_publish_cli_populates_events_db_end_to_end(mock_pub, mock_verify, mock_vp):
@@ -174,7 +174,7 @@ def test_publish_cli_populates_events_db_end_to_end(mock_pub, mock_verify, mock_
     assert "publish.confirmed" in _kinds()
 
 
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_publish_cli_verification_failure_projects_unverified(mock_pub, mock_verify, mock_vp):
@@ -211,7 +211,7 @@ def test_publish_cli_verification_failure_projects_unverified(mock_pub, mock_ver
     assert code == 5                            # CLI signals unverified
 
 
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
 def test_resume_noop_reemits_unverified_suffix_and_projects(mock_setup):
     """A no-op resume (all items already done) re-emits a prior-resume
     unverified item WITH the _unverified suffix (from the persisted `verified`

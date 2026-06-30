@@ -43,7 +43,7 @@ def _fresh_dir(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _verify_pass(mocker):
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     )
 

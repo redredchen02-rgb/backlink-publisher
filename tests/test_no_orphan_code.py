@@ -16,7 +16,6 @@ ALLOWLIST: set[str] = {
     "cli/publish_backlinks/__main__.py",
     "cli/spray_backlinks/__main__.py",
     # True orphans — not imported by any code path
-    "_util/http_session.py",
     "cli/verify_backlinks.py",
     "config/parsers/click_track.py",
     "events/history_importer.py",
@@ -35,6 +34,14 @@ ALLOWLIST: set[str] = {
     "_util/structlog_config.py",
     # Opt-in throttle module (2026-06-10)
     "publishing/_throttle.py",
+    # U5 backward-compat shim — payload validation moved to validate/_payload.py
+    "cli/_validate_payload.py",
+    # U8 backward-compat shims — old flat paths kept for external callers
+    "cli/keepalive_run.py",
+    "cli/resume.py",
+    "cli/runs.py",
+    # Extracted module not yet wired into imports (pre-existing orphan)
+    "cli/spray_backlinks/_gates.py",
 }
 
 

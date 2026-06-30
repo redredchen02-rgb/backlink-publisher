@@ -32,12 +32,9 @@ _scheduler = BackgroundScheduler(
 
 def _process_queue_job() -> None:
     """轮询队列中的 pending 任务并执行发布，支持 429 自动退避。"""
-    tasks = _queue_store.load()
-    now = datetime.now()
-    
-    # 查找任务：PENDING 且 不在退避时间内
-    pending = [t for t in tasks if t.get('status') in ('pending', 'failed') 
-               and (not t.get('next_retry_at') or datetime.fromisoformat(t['next_retry_at']) <= now)]
+    # Use get_runnable() for SQL-filtered retrieval instead of loading all tasks.
+    pending = _queue_store.get_runnable()
+    now = datetime.now(timezone.utc)
     
     if not pending:
         return
@@ -236,7 +233,7 @@ def _restore_scheduled_jobs() -> None:
         replace_existing=True,
     )
     
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     for item in _drafts_store.load():
         if item.get('status') != 'scheduled':
             continue

@@ -3,8 +3,10 @@
 Extracted from helpers/contexts.py — these are pure status-read helpers
 called by _settings_context() and _render().
 """
-
 from __future__ import annotations
+from typing import Any
+import json
+import os
 
 from datetime import datetime, timezone
 
@@ -14,7 +16,7 @@ from backlink_publisher.config import load_blogger_token, load_config
 from ._request_cache import _g_cache
 
 
-def _image_gen_status(cfg) -> dict:
+def _image_gen_status(cfg: Any) -> dict:
     """Snapshot of image-gen state for the Settings template.
 
     Reads ``Config.image_gen`` (config.toml ``[image_gen]`` section) plus
@@ -200,7 +202,7 @@ def _get_velog_status() -> dict:
             'cap': 5,
         }
 
-def _get_medium_browser_status(cfg, *, session=None) -> dict:
+def _get_medium_browser_status(cfg: Any, *, session: Any=None) -> dict:
     """Return a dict describing the Medium browser fallback readiness.
 
     Reads only the filesystem and Python import state — no Playwright launch,

@@ -38,7 +38,7 @@ from backlink_publisher.cli._resume import (
 )
 
 _ENGINE_NS = "backlink_publisher.cli.publish_backlinks"
-_RESUME_NS = "backlink_publisher.cli._resume"
+_RESUME_NS = "backlink_publisher.cli.admin._resume"
 _POLICY_ENV = "BACKLINK_PUBLISHER_RELIABILITY_POLICY_ENABLED"
 
 _TS = "2026-06-03T00:00:00+00:00"

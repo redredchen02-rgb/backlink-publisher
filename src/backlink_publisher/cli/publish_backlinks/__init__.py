@@ -286,3 +286,35 @@ def main(argv: list[str] | None = None) -> None:
             )
         except Exception as exc:
             publish_logger.warning(f"post-publish optimisation failed: {exc}")
+
+__all__ = [
+    "enforce_enabled",
+    "enforce_precondition_or_exit",
+    "gate_with_force",
+    "record_done",
+    "record_failure",
+    "load_force_manifest",
+    "load_config",
+    "AuthExpiredError",
+    "BannerUploadError",
+    "ContentRejectedError",
+    "DependencyError",
+    "ExternalServiceError",
+    "emit_envelope_and_exit",
+    "emit_error",
+    "read_jsonl",
+    "publish_logger",
+    "emit_recon",
+    "adapter_publish",
+    "verify_adapter_setup",
+    "policy_enabled",
+    "publish_with_policy",
+    "checkpoint",
+    "config_echo",
+    "reject_unsupported_platform",
+    "supported_platforms",
+    "validate_publish_payload",
+    "PublishOptions",
+    "publish_rows",
+    "main",
+]

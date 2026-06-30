@@ -5,6 +5,7 @@
    urlDerive consumer. Two bootstrap-in seams: __indexBootstrap + __batchTabHint. #}
 {% block title %}Backlink Publisher{% endblock %}
 {% block head_extra %}
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css', v=asset_version) }}">
 {% endblock %}
 {% block content %}

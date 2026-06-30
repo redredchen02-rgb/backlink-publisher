@@ -167,12 +167,17 @@ def save_schedule_settings(data: dict) -> None:
 # ── Schedule time calculation ─────────────────────────────────────────────────
 
 def calc_next_available(requested_dt: datetime) -> datetime:
-    """Return the earliest publish time respecting min-interval + jitter."""
+    """Return the earliest publish time respecting min-interval + jitter.
+
+    Uses SQL MAX() for the history lookup instead of loading all rows.
+    """
     settings = load_schedule_settings()
     min_hours = settings.get("min_interval_hours", 4)
     jitter_mins = settings.get("jitter_minutes", 30)
 
     last_published = None
+
+    # Check drafts store for latest published/scheduled time
     for item in _drafts_store.load():
         if item.get("status") in ("published", "scheduled"):
             ts = item.get("published_at") or item.get("scheduled_at")
@@ -185,15 +190,17 @@ def calc_next_available(requested_dt: datetime) -> datetime:
                 except ValueError:
                     plan_logger.warn("calc_next_available: bad date in drafts_store", ts=ts)
 
-    for item in _list_history():
-        ts = item.get("created_at")
-        if ts and item.get("status") in ("drafted", "published"):
-            try:
-                dt = datetime.strptime(ts, "%Y-%m-%d %H:%M")
-                if last_published is None or dt > last_published:
-                    last_published = dt
-            except ValueError:
-                plan_logger.warn("calc_next_available: bad date in history_store", ts=ts)
+    # Use SQL MAX() for history — O(1) instead of loading all rows
+    from backlink_publisher.events.history_query import latest_publish_timestamp
+    ts = latest_publish_timestamp()
+    if ts:
+        try:
+            dt = datetime.fromisoformat(ts) if "T" in ts else \
+                datetime.strptime(ts, "%Y-%m-%d %H:%M")
+            if last_published is None or dt > last_published:
+                last_published = dt
+        except ValueError:
+            plan_logger.warn("calc_next_available: bad date in history", ts=ts)
 
     if last_published is None:
         return requested_dt
@@ -266,10 +273,9 @@ def token_paste_status(cfg, channel: str, load_fn, *, token_field: str = "token"
         data = None
     token = (data or {}).get(token_field, "") if isinstance(data, dict) else ""
     bound = bool(token)
-    if bound and len(token) > 6:
-        masked = token[:3] + "*" * (len(token) - 6) + token[-3:]
-    elif bound:
-        masked = "*" * len(token)
+    if bound:
+        from .helpers.security import _mask_token
+        masked = _mask_token(token)
     else:
         masked = ""
     return {
@@ -290,10 +296,9 @@ def token_paste_status_notion(cfg, load_fn) -> dict:
     integration_token = (data or {}).get("integration_token", "") if isinstance(data, dict) else ""
     database_id = (data or {}).get("database_id", "") if isinstance(data, dict) else ""
     bound = bool(integration_token and database_id)
-    if bound and len(integration_token) > 6:
-        masked = integration_token[:3] + "*" * (len(integration_token) - 6) + integration_token[-3:]
-    elif bound:
-        masked = "*" * len(integration_token)
+    if bound:
+        from .helpers.security import _mask_token
+        masked = _mask_token(integration_token)
     else:
         masked = ""
     return {

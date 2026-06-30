@@ -3,3 +3,5 @@
 A YAML-catalog adapter framework so a new HTTP-form-POST or API-key platform
 is one ``.yaml`` file, zero Python.
 """
+
+__all__: list[str] = []

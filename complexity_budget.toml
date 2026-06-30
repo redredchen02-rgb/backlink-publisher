@@ -32,24 +32,20 @@
 # into a thin shell (CC 9) plus phase helpers, the heaviest being _publish_one_resume_item at
 # CC 23 — all under the CC-30 backstop, so no entry is needed for any of them. Entry removed.
 
-[functions."src/backlink_publisher/cli/_validate_payload.py::_enhance_payload"]
-ceiling = 32
-rationale = "_enhance_payload orchestrates field validation, domain/language normalisation, anchor canonicalisation, and banner-path resolution (added in 705bf2c for path-traversal safety). The banner guard added 2 branches (is_relative_to + exists check), pushing CC from 29 to 31. Ceiling 32 gives 1 headroom; extraction of the banner-resolution block deferred to a focused refactor PR."
-
-[functions."src/backlink_publisher/cli/plan_backlinks/_payload.py::_generate_payload"]
-ceiling = 50
-rationale = "Deterministic-planning payload assembly: branches across language/anchor/link-density/zh-short variants and validation gating to build one plan row. Grandfathered at current CC; decomposed lazily when a feature next touches it (Plan 2026-05-29-005 R7), not in this initiative's active scope."
+# cli/_validate_payload.py::_enhance_payload moved to validate/_payload.py (Plan 2026-06-24-002 U5):
+# implementation extracted _check_body_language_gate (CC ~11) reducing _enhance_payload CC 31→~16 — under
+# backstop; cli/_validate_payload.py is now a re-export shim (no def). Entry removed.
 
 # _project_checkpoint was extracted into 4 named handlers (_handle_checkpoint_{intent,confirmed,failed,unmapped})
 # on 2026-06-03, dropping CC from 39 to 24 — now under the CC-30 backstop. Entry removed.
 
-[functions."src/backlink_publisher/cli/plan_backlinks/_links.py::_build_links"]
-ceiling = 36
-rationale = "Anchor/link construction for a plan row: branches over anchor source, language, dofollow tiering, and link-density paragraph placement to emit the link set. Grandfathered at current CC; lazy decomposition only when next touched, per the named-set + backstop policy."
+# _links.py::_build_links decomposed (Plan 2026-06-24-002 U4): extracted
+# _build_extra_url_candidates (CC 13), _build_category_candidates (CC 7),
+# _verify_and_filter_candidates (CC 9); _build_links CC 36→9 — under backstop. Entry removed.
 
-[functions."src/backlink_publisher/config/writer.py::save_config"]
-ceiling = 36
-rationale = "Config TOML writer: emits [blogger]/[medium]/[targets.*] sections. Section emitters (ghpages/mastodon/image_gen) extracted to private helpers when Pro Mode image_gen was added; residual CC from blogger/targets loops and preserve-unknown-sections logic."
+# config/writer.py::save_config decomposed (Plan 2026-06-24-002 U4): extracted
+# _resolve_blogger_merge (CC 11), _resolve_domain_maps (CC 9);
+# save_config CC 33→15 — under backstop. Entry removed.
 
 # config/parsers/llm.py::_parse_llm_anchor_provider was seeded at CC 31, but SEC-6 (PR #308,
 # merged to main) centralized the loose-permission warning out of the parser, dropping it to
@@ -58,27 +54,22 @@ rationale = "Config TOML writer: emits [blogger]/[medium]/[targets.*] sections. 
 
 
 [functions."webui_app/routes/sites.py::sites_save_three_url"]
-ceiling = 38
-rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. CC 38 grandfathered at current value; decomposition deferred to the next PR that touches this route (reduce per-branch logic into URL-validator service layer at that point)."
+ceiling = 44
+rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. Ceiling bumped 38→44 after restoring mismerged assert guards (main_url/sched_mod not-None guards were partially folded into adjacent expressions, causing syntax errors; fix plan 2026-06-24-002 U5). Decomposition of the route deferred to a focused PR."
 
-[functions."src/backlink_publisher/cli/publish_backlinks/_engine.py::_publish_one_row"]
-ceiling = 35
-rationale = "Per-row publish dispatcher gating canary, reachability, bad platform, dedup, dry-run, and the adapter publish try/except block. Last CC bump from +2 when U6-of-system-optimization added RECON progress events. Grandfathered as a coordinator with many sequential pre-condition gates that don't decompose cleanly; # noqa: C901 acknowledges the shape."
+# publish_backlinks/_engine.py::_publish_one_row decomposed (Plan 2026-06-24-002 U5): extracted
+# _dispatch_publish (CC ~8) and _handle_publish_outcome (CC ~9); _publish_one_row CC 35→~12 — under backstop.
+# Entry removed.
 
-[functions."src/backlink_publisher/cli/spray_backlinks/core.py::main"]
-ceiling = 35
-rationale = "spray-backlinks CLI entry point: validation, resume setup, per-seed dispatch loop, and post-loop output consolidated. CC 65→34 (2026-06-11): extracted _validate_args (CC 13), _setup_resume (CC 6), and _process_seed (CC 19) to reduce the monolithic main() to a thin coordinator. Ceiling 35 = round_up_to_10(34+1) per policy."
-# spray_backlinks/core.py::main was decomposed (Wave 3 Unit 1, 2026-06-11):
-# _run_spray (CC 48) moved to _engine.py; main() CC dropped from 65 to 5 — under backstop.
-# Entry removed. New entry for the engine function below.
 
-[functions."src/backlink_publisher/cli/spray_backlinks/_engine.py::_run_spray"]
-ceiling = 48
-rationale = "spray-backlinks run orchestrator (Wave 3 Unit 1, 2026-06-11): extracted from core.py to decouple the CLI argparse shell from execution logic. Orchestrates seed JSONL validation, checkpoint resume, per-seed expand/gate/draft/audit/dispatch loop, cross-seed governance bookkeeping, and post-loop JSONL emit + error envelope. All sub-stage functions (expand_seed, gate_candidates, audit_batch, dispatch_burst) are already extracted helpers; the remaining CC is sequential coordinator gating intrinsic to a multi-seed pipeline runner. CC 48 = exact seed, zero headroom per policy."
+# spray_backlinks/core.py::main decomposed (Plan 2026-06-24-002 U2): extracted
+# _handle_list_checkpoints (CC 4); main() CC 35→29 — under backstop. Entry removed.
+# spray_backlinks/_engine.py::_run_spray was dead code (never called by main()); deleted.
+# Entry removed.
 
-[functions."src/backlink_publisher/keepalive/chain.py::run_cycle"]
-ceiling = 45
-rationale = "keepalive-run chain coordinator (plan 2026-06-05-004 U1): sequences five stages — cycle lock, recheck probe, per-target-status derivation, keepalive-gap planning, publish+reverify loop — each with early-exit branches for dry-run, lock contention, empty gaps, and exhausted targets. All sub-stage logic is already extracted to private helpers (_effective_sticky, _update_opt_stats, KeepaliveRunState); the remaining CC is sequential gating intrinsic to a multi-step coordinator. Extracting further would create helper functions with no reuse value. CC 41 measured at introduction; ceiling set to 45 for minimal headroom."
+# keepalive/chain.py::run_cycle decomposed (Plan 2026-06-24-002 U3): extracted
+# _run_recheck_stage (CC 6), _filter_exhausted_seeds (CC 4), _run_publish_step (CC 9),
+# _run_reverify_step (CC 12); run_cycle CC 45→18 — under backstop. Entry removed.
 
 
 # Test-file SLOC budgets (enforced by test_no_complexity_regrowth.py).

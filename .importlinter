@@ -1,0 +1,40 @@
+[importlinter]
+root_packages =
+    backlink_publisher
+
+# Contract: domain packages must not import from cli/.
+#
+# Known remaining violations (ignored via ignore_imports, tracked for future fix):
+#   1. publishing.adapters.instant_web → cli._bind.chrome_backend
+#      Fix: move chrome_backend to publishing/browser_publish/ (deep architectural change)
+#   2. sdk.api → cli._report_engine
+#      Fix: SDK is intentionally an in-process CLI caller; extract report_engine to domain layer
+#
+# Fixed in plan 2026-06-24-002 U7:
+#   - _util.errors → cli._bind.channels: fixed by moving CHANNELS to _util.channels
+#   - publishing.browser_publish.dispatcher → cli._bind.channels: same fix
+[importlinter:contract:no-domain-to-cli]
+name = Domain packages must not import from cli/
+type = forbidden
+source_modules =
+    backlink_publisher.publishing
+    backlink_publisher.keepalive
+    backlink_publisher.events
+    backlink_publisher.anchor
+    backlink_publisher.validate
+    backlink_publisher._util
+    backlink_publisher.config
+    backlink_publisher.linkcheck
+    backlink_publisher.content
+    backlink_publisher.gap
+    backlink_publisher.ledger
+    backlink_publisher.canary
+    backlink_publisher.recheck
+    backlink_publisher.idempotency
+    backlink_publisher.schedule
+    backlink_publisher.checkpoint
+forbidden_modules =
+    backlink_publisher.cli
+ignore_imports =
+    backlink_publisher.publishing.adapters.instant_web -> backlink_publisher.cli._bind.chrome_backend
+    backlink_publisher.sdk.** -> backlink_publisher.cli.**

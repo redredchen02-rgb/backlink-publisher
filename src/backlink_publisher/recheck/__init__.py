@@ -14,3 +14,5 @@ Modules:
 * ``selection``   — age-based candidate selection from ``publish.confirmed``.
 * ``events_io``   — emit ``link.rechecked`` events + derive decay counts.
 """
+
+__all__: list[str] = []

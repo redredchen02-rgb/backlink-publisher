@@ -156,7 +156,7 @@ def _stub_tier_platforms():
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_tier1_filters_uncertain_and_false(mock_vp, mock_pub, mock_verify):
     """--tier-1 dispatches only dofollow=True rows, skips uncertain+false."""
     mock_pub.return_value = AdapterResult(
@@ -181,7 +181,7 @@ def test_tier1_filters_uncertain_and_false(mock_vp, mock_pub, mock_verify):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_tier1_passes_dofollow_true(mock_vp, mock_pub, mock_verify):
     """--tier-1 passes through dofollow=True rows unchanged."""
     mock_pub.return_value = AdapterResult(
@@ -199,7 +199,7 @@ def test_tier1_passes_dofollow_true(mock_vp, mock_pub, mock_verify):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_tier1_all_filtered_exit_0(mock_vp, mock_pub, mock_verify):
     """When all rows filtered, --tier-1 exits 0 with info message."""
     rows = [_make_payload(_T1_FALSE)]
@@ -216,7 +216,7 @@ def test_tier1_all_filtered_exit_0(mock_vp, mock_pub, mock_verify):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_dofollow_only_alias_parity(mock_vp, mock_pub, mock_verify):
     """--dofollow-only behaves identically to --tier-1."""
     mock_pub.return_value = AdapterResult(
@@ -241,7 +241,7 @@ def test_dofollow_only_alias_parity(mock_vp, mock_pub, mock_verify):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_no_flag_passes_all_tiers(mock_vp, mock_pub, mock_verify):
     """Without --tier-1, all rows pass through unchanged."""
     mock_pub.return_value = AdapterResult(

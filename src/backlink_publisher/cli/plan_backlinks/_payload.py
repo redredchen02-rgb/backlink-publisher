@@ -70,47 +70,36 @@ def _resolve_article_anchors(
     return selected
 
 
-def _generate_payload(
+def _apply_fetch_verify(target_url: str, fetch_verify_enabled: bool) -> None:
+    """Raise InputValidationError if target_url is unreachable and verification is enabled."""
+    if not fetch_verify_enabled:
+        return
+    from backlink_publisher.content.fetch import verify_url_has_content
+    ok, reason, _ = verify_url_has_content(target_url)
+    if not ok:
+        raise InputValidationError(f"Target URL {target_url} is unreachable ({reason}).")
+
+
+def _resolve_title_excerpt_tags(
     row: dict[str, Any],
-    config: Config | None = None,
-    *,
-    fetch_verify_enabled: bool = True,
-) -> dict[str, Any]:
-    main_domain = row["main_domain"].rstrip("/")
-    target_url = row["target_url"].rstrip("/")
+    tmpl: dict[str, Any],
+    title_tmpl: str,
+    topic_val: str,
+    anchors: list[str],
+    domain_label: str,
+    target_language: str,
+    main_domain: str,
+) -> tuple[str, str, str, list[str]]:
+    """Resolve title, slug, excerpt, and tags from row fields and template variants."""
     url_mode = row.get("url_mode", "A")
-    platform = row["platform"]
-    language = row["language"]
-    target_language = row.get("target_language", language)
-    publish_mode = row.get("publish_mode", "draft")
-    topic = row.get("topic", "")
-
-    # Plan-time URL Validation: verify target_url health
-    if fetch_verify_enabled:
-        from backlink_publisher.content.fetch import verify_url_has_content
-        ok, reason, _ = verify_url_has_content(target_url)
-        if not ok:
-            # Plan-time URL Validation: ensure we fail early on unreachable target URLs
-            raise InputValidationError(f"Target URL {target_url} is unreachable ({reason}).")
-    
-    extra_urls = row.get("extra_urls", [])
+    tdk_title = row.get("tdk_title", "")
+    tdk_description = row.get("tdk_description", "")
+    tdk_keywords = row.get("tdk_keywords", "")
     custom_tags = row.get("custom_tags", "")
-    # system_prompt handled via config.llm_anchor_provider.system_prompt
-    tdk_title = row.get('tdk_title', '')
-    tdk_description = row.get('tdk_description', '')
-    tdk_keywords = row.get('tdk_keywords', '')
-
-    domain_label = _domain_label_of(main_domain)
-
-    anchors = _resolve_article_anchors(config, main_domain, url_mode, domain_label)
-
-    tmpl: dict[str, Any] = cast(dict[str, Any], _TEMPLATES.get(target_language, _TEMPLATES.get(language, _TEMPLATES["en"])))
-    title_tmpl = tmpl["title"].get(url_mode, tmpl["title"]["A"])
-    topic_val = topic or tmpl.get("topic_fallback", "Resources")
 
     title = row.get("custom_title", "")
     if not title:
-        if tdk_title and url_mode == 'C':
+        if tdk_title and url_mode == "C":
             lang_key = target_language if target_language in _TDK_TITLE_TMPL else "en"
             title = _TDK_TITLE_TMPL[lang_key].format(tdk=tdk_title, domain=domain_label)
         else:
@@ -118,29 +107,39 @@ def _generate_payload(
 
     slug = slugify(title)
 
-    if tdk_description and url_mode in ('B', 'C'):
+    if tdk_description and url_mode in ("B", "C"):
         excerpt = tdk_description[:200]
     else:
         excerpt = tmpl["excerpt"].get(url_mode, tmpl["excerpt"]["A"]).format(
-            main_domain=main_domain, domain=domain_label, topic=topic_val,
+            main_domain=main_domain,
+            domain=domain_label,
+            topic=topic_val,
             anchor=anchors[0],
         )
 
     tags_raw = tmpl.get("tags", ["backlink"])
     tags = [t.format(domain_label=domain_label) for t in tags_raw]
-
     if custom_tags:
-        custom_tags_list = [t.strip() for t in custom_tags.split(",") if t.strip()]
-        tags.extend(custom_tags_list)
-
+        tags.extend(t.strip() for t in custom_tags.split(",") if t.strip())
     if tdk_keywords:
         kw_list = [k.strip() for k in tdk_keywords.split(",") if k.strip()]
         for kw in kw_list[:3]:
             if kw not in tags:
                 tags.append(kw)
 
-    body_tmpl = tmpl["body_paragraphs"].get(url_mode, tmpl["body_paragraphs"]["A"])
+    return title, slug, excerpt, tags
 
+
+def _generate_body_text(
+    config: Config | None,
+    domain_label: str,
+    main_domain: str,
+    anchors: list[str],
+    topic_val: str,
+    target_language: str,
+    body_tmpl: Any,
+) -> tuple[str, str]:
+    """Generate article body via LLM or template fallback. Returns (body, content_source)."""
     if config and config.llm_anchor_provider and config.llm_anchor_provider.use_article_gen:
         try:
             llm_p = OpenAICompatibleProvider(
@@ -158,70 +157,118 @@ def _generate_payload(
                 topic=topic_val,
                 language=target_language,
             )
-            content_source = "llm"
             plan_logger.info(f"LLM article body generated for {main_domain}")
+            return body, "llm"
         except Exception as e:
             plan_logger.warn(f"LLM article generation failed, falling back to template: {e}")
-            body = body_tmpl(domain=domain_label, main_domain=main_domain, anchors=anchors)
-            content_source = "template"
-    else:
-        body = body_tmpl(domain=domain_label, main_domain=main_domain, anchors=anchors)
-        content_source = "template"
+    body = body_tmpl(domain=domain_label, main_domain=main_domain, anchors=anchors)
+    return body, "template"
 
-    if tdk_title or tdk_description:
-        tdk_section = f"\n\n---\n**关于 {domain_label}**\n"
-        if tdk_title:
-            tdk_section += f"- 标题: {tdk_title}\n"
-        if tdk_description:
-            tdk_section += f"- 描述: {tdk_description[:150]}...\n"
-        body = body + tdk_section
 
-    cover_image_url = None
-    cover_image_warning = None
+def _append_tdk_section(
+    body: str, domain_label: str, tdk_title: str, tdk_description: str
+) -> str:
+    """Append a TDK metadata section to the body when TDK data is present."""
+    if not (tdk_title or tdk_description):
+        return body
+    tdk_section = f"\n\n---\n**关于 {domain_label}**\n"
+    if tdk_title:
+        tdk_section += f"- 标题: {tdk_title}\n"
+    if tdk_description:
+        tdk_section += f"- 描述: {tdk_description[:150]}...\n"
+    return body + tdk_section
 
-    if extra_urls:
-        extra_intro = f"\n\n除了主要的{domain_label}资源外，我们还整理了以下相关页面供您参考：\n"
-        body = body + extra_intro
 
-        for i, ex_url in enumerate(extra_urls[:3]):
-            parsed = urlparse(ex_url)
-            path = parsed.path
+def _append_extra_urls_section(body: str, extra_urls: list[str]) -> str:
+    """Append inline extra-URL links and a grouped reference section to the body."""
+    if not extra_urls:
+        return body
 
-            if "/page/" in path or "?page=" in ex_url:
-                anchor = f"第{path.split('/page/')[-1] if '/page/' in path else '其他'}页"
-                context = f"更多内容请查看{anchor}。"
-            elif "/category/" in path or "/tag/" in path:
-                cat_name = path.split("/")[-2] if len(path.split("/")) > 2 else path.split("/")[-1]
-                anchor = cat_name
-                context = f"探索{anchor}分类了解更多相关内容。"
-            elif "/archive/" in path:
-                anchor = "历史归档"
-                context = "查看历史文章归档。"
-            else:
-                anchor = f"相关页面 {i+1}"
-                context = "这些相关页面也值得一读。"
+    extra_intro = f"\n\n除了主要的资源外，我们还整理了以下相关页面供您参考：\n"
+    body = body + extra_intro
 
-            body = body + f"- [{anchor}]({ex_url}) - {context}\n"
+    for i, ex_url in enumerate(extra_urls[:3]):
+        parsed = urlparse(ex_url)
+        path = parsed.path
 
-        extra_section = "\n## 更多相关资源\n\n"
-        for ex_url in extra_urls[:5]:
-            parsed = urlparse(ex_url)
-            path = parsed.path.split("/")[-1] or parsed.path.split("/")[-2] or "页面"
+        if "/page/" in path or "?page=" in ex_url:
+            anchor = f"第{path.split('/page/')[-1] if '/page/' in path else '其他'}页"
+            context = f"更多内容请查看{anchor}。"
+        elif "/category/" in path or "/tag/" in path:
+            cat_name = path.split("/")[-2] if len(path.split("/")) > 2 else path.split("/")[-1]
+            anchor = cat_name
+            context = f"探索{anchor}分类了解更多相关内容。"
+        elif "/archive/" in path:
+            anchor = "历史归档"
+            context = "查看历史文章归档。"
+        else:
+            anchor = f"相关页面 {i+1}"
+            context = "这些相关页面也值得一读。"
 
-            if "/category/" in path:
-                anchor = f"分类: {path.split('/')[-1]}"
-            elif "/tag/" in path:
-                anchor = f"标签: {path.split('/')[-1]}"
-            elif "/page/" in path:
-                anchor = f"分页 {path.split('/page/')[-1]}"
-            elif "/archive/" in path:
-                anchor = "归档页面"
-            else:
-                anchor = path if path else "相关链接"
+        body = body + f"- [{anchor}]({ex_url}) - {context}\n"
 
-            extra_section += f"- [{anchor}]({ex_url})\n"
+    extra_section = "\n## 更多相关资源\n\n"
+    for ex_url in extra_urls[:5]:
+        parsed = urlparse(ex_url)
+        path = parsed.path.split("/")[-1] or parsed.path.split("/")[-2] or "页面"
 
-        body = body + extra_section
+        if "/category/" in path:
+            anchor = f"分类: {path.split('/')[-1]}"
+        elif "/tag/" in path:
+            anchor = f"标签: {path.split('/')[-1]}"
+        elif "/page/" in path:
+            anchor = f"分页 {path.split('/page/')[-1]}"
+        elif "/archive/" in path:
+            anchor = "归档页面"
+        else:
+            anchor = path if path else "相关链接"
+
+        extra_section += f"- [{anchor}]({ex_url})\n"
+
+    return body + extra_section
+
+
+def _generate_payload(
+    row: dict[str, Any],
+    config: Config | None = None,
+    *,
+    fetch_verify_enabled: bool = True,
+) -> dict[str, Any]:
+    main_domain = row["main_domain"].rstrip("/")
+    target_url = row["target_url"].rstrip("/")
+    url_mode = row.get("url_mode", "A")
+    platform = row["platform"]
+    language = row["language"]
+    target_language = row.get("target_language", language)
+    publish_mode = row.get("publish_mode", "draft")
+    topic = row.get("topic", "")
+    extra_urls = row.get("extra_urls", [])
+    tdk_title = row.get("tdk_title", "")
+    tdk_description = row.get("tdk_description", "")
+
+    _apply_fetch_verify(target_url, fetch_verify_enabled)
+
+    domain_label = _domain_label_of(main_domain)
+    anchors = _resolve_article_anchors(config, main_domain, url_mode, domain_label)
+
+    tmpl: dict[str, Any] = cast(
+        dict[str, Any],
+        _TEMPLATES.get(target_language, _TEMPLATES.get(language, _TEMPLATES["en"])),
+    )
+    title_tmpl = tmpl["title"].get(url_mode, tmpl["title"]["A"])
+    topic_val = topic or tmpl.get("topic_fallback", "Resources")
+    body_tmpl = tmpl["body_paragraphs"].get(url_mode, tmpl["body_paragraphs"]["A"])
+
+    title, slug, excerpt, tags = _resolve_title_excerpt_tags(
+        row, tmpl, title_tmpl, topic_val, anchors, domain_label, target_language, main_domain
+    )
+
+    body, content_source = _generate_body_text(
+        config, domain_label, main_domain, anchors, topic_val, target_language, body_tmpl
+    )
+
+    body = _append_tdk_section(body, domain_label, tdk_title, tdk_description)
+    body = _append_extra_urls_section(body, extra_urls)
 
     links, dropped_kinds = _build_links(
         main_domain,
@@ -248,12 +295,13 @@ def _generate_payload(
     if density_para:
         body = body + density_para
 
-    content_parts: list[str] = []
-    content_parts.append(f"# {title}\n")
-    content_parts.append(f"\n{excerpt}\n")
-    content_parts.append(f"\n{body}\n")
-    content_parts.append("\n## References\n")
-    content_parts.append(links_to_markdown(links))
+    content_parts: list[str] = [
+        f"# {title}\n",
+        f"\n{excerpt}\n",
+        f"\n{body}\n",
+        "\n## References\n",
+        links_to_markdown(links),
+    ]
     content_markdown = "\n".join(content_parts)
 
     from ._citability import apply_long_form_levers
@@ -284,8 +332,8 @@ def _generate_payload(
         "content_source": content_source,
         "_citability_levers": _citability_levers,
         "links": links,
-        "cover_image_url": cover_image_url,
-        "cover_image_warning": cover_image_warning,
+        "cover_image_url": None,
+        "cover_image_warning": None,
         "seo": {
             "title": seo_title,
             "description": seo_desc,

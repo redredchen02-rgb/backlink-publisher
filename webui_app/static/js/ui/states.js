@@ -7,22 +7,7 @@
  * never an inline on* handler. Styles live in components.css.
  */
 
-// el() — local createElement builder mirroring the one in notifications.js.
-// props.text -> textContent; props.class -> className; other keys -> attributes.
-function el(tag, props = {}, children = []) {
-    const node = document.createElement(tag);
-    for (const [key, value] of Object.entries(props)) {
-        if (value == null || value === false) continue;
-        if (key === 'text') node.textContent = value;
-        else if (key === 'class') node.className = value;
-        else node.setAttribute(key, value);
-    }
-    for (const child of children) {
-        if (child == null) continue;
-        node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
-    }
-    return node;
-}
+import { el } from '../lib/dom.js';
 
 /**
  * Loading skeleton. Replaces container content with shimmer bars.
