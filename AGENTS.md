@@ -252,7 +252,7 @@ Additional workflows: `frontend.yml` (SPA typecheck + test + build on `frontend/
 **Monolith budgets:** `test_no_monolith_regrowth.py` (SLOC ceilings for 41 files), `test_no_complexity_regrowth.py` (CC 30 backstop).
 **Coverage:** Branch coverage, 80% fail-under floor, per-unit + full-suite JSON artifacts uploaded.
 
-NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (references `core/`, `|| true`). Ignore it — canonical CI is inside the git repo.
+(The workspace root has no CI — it's not a git repo. All CI lives inside `backlink-publisher/.github/workflows/ci.yml`.)
 
 ## Environment Variables
 
@@ -308,7 +308,8 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 - Exit code table (0-6) is a documented contract, not enforced by `sys.exit()` in CLI code
 - `bp-*/AGENTS.md` are stale copies — update this file, not those
 - `docs/plans/`, `docs/brainstorms/` contain real operator domain names — don't propagate to `docs/solutions/`
-- `develop` branch doesn't exist (locally or remote); CI triggers only on `branches: [main]` (P12 cleanup, the stale `develop` trigger was removed when the CI config was consolidated)
+	- `develop` branch doesn't exist (locally or remote); CI triggers only on `branches: [main]`
+	- Local branches after Phase 3 cleanup (2026-06-30): `main` (active), `chore/v050-doc-archive` (stale — 2 unmerged commits), `feat/v050-ui-consistency` (stale — 2 unmerged), `fix/drafts-store-test-isolation` (stale — 1 unmerged), `fix/recheck-ledger-liveness-seam` (stale — 1 unmerged). 4 merged branches (`opt/bulk-modernize`, `refactor/u1-generate-payload`, `refactor/u5-publish-one-row-enhance-payload`, `tmp-modernize`) deleted.
 - `~/.config/backlink-publisher/llm-settings.json` holds the LLM `api_key`; PR #140 routed writes through `safe_write.atomic_write` so the file lands `0o600`. Files written by pre-#140 code may still be `0644` until the next save.
 - `docs/architecture/deterministic-planning-principle.md` defines the architecture boundary between deterministic planning (pure, testable) and non-deterministic publishing (platform-dependent). Advisory — not CI-enforced.
 
