@@ -17,9 +17,8 @@
 	pytest -m real_ssrf_check                           # live SSRF checks (off by default)
 	pytest -m real_content_fetch                        # live content fetching (module-wide in test_content_fetch.py)
 	
-	# Lint (CI uses py_compile + ast.parse, not Black/flake8 — local-only)
-	black --check src/
-	flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+# Lint (CI uses ruff, not Black/flake8 — P12 migration completed)
+ruff check src/ webui_app/ webui_store/
 	
 	# SLOC measurement (for monolith budget edits)
 	python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan_backlinks is a package; core.py is the monitored file
@@ -38,9 +37,8 @@
 	.venv\Scripts\python -m pytest tests/
 	.venv\Scripts\python -m pytest tests/test_no_monolith_regrowth.py -k "R4"
 	
-	REM Lint
-	.venv\Scripts\python -m black --check src/
-	.venv\Scripts\python -m flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+REM Lint (ruff, not Black/flake8)
+.venv\Scripts\python -m ruff check src/ webui_app/ webui_store/
 	
 	REM SLOC measurement
 	.venv\Scripts\python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py
@@ -77,26 +75,45 @@ Flask app at `webui_app/` (37 route modules, `create_app()` factory). State pers
 
 App-level CSRF guard `_global_csrf_guard` (PR #143, `webui_app/__init__.py`) enforces a token on every POST/PUT/PATCH/DELETE. Tests opt out via `app.config['CSRF_ENABLED'] = False` (or the legacy `WTF_CSRF_ENABLED` flag — both honored). The `_check_csrf_or_abort` helper has a single production call site inside the global guard; PR #148 removed all inline per-route calls.
 
-### Frontend conventions — zero-build native ES modules (Plan 2026-06-01-007)
+### Frontend — Vue 3 SPA (primary) with legacy Jinja fallback (P12 Phase 3 migration)
 
-No Node / bundler / framework. Browser-native ES modules + Jinja `base.html` + CSS custom-property tokens. Deployment stays "double-click → run".
+The primary UI is a **Vue 3 SPA** at `/app/*`, built with Vite and served by Flask (single-origin, no CORS). The SPA uses Vue Router 5 (`createWebHistory('/app/')`), Pinia stores, and `@tanstack/vue-query` for server-state caching.
 
-**Layer map**
-- `templates/base.html` owns the single `<head>`: Bootstrap/Icons CDN, `<meta name="csrf-token">`, the **classic non-`defer` Bootstrap bundle script**, `tokens.css`, and the blocks `title` / `head_extra` / `content` / `page_data` / `page_module`. Every page `{% extends 'base.html' %}` — never re-declare `<head>`.
-- `static/js/lib/` is the shared ESM layer: `api.js` (`fetchJson`, `readCsrf`, `postJson`/`postForm`), `dom.js` (`on`/`delegate`/`qs` + `esc` + `renderBadge`), `profiles.js` (config-form editor/profile fns). `static/js/package.json` `{type:module}` marks the dir as ESM (browsers ignore it; enables `node`-level unit checks).
-- `static/css/tokens.css` is the single `:root` token source; `index.css`/`settings.css` consume `var(--…)`, no local `:root`.
+**Dual-stack architecture** (strangler-fig migration):
+- SPA routes: `/app/publish`, `/app/monitor`, `/app/history`, `/app/drafts`, `/app/sites`, `/app/schedule`, `/app/batch-campaign`, `/app/settings`, `/app/pr-queue` (P12), `/app/*` catch-all → 404
+- Legacy Jinja pages remain at their original URLs as fallback. When a page is migrated, the Jinja route redirects to `/app/<page>` (e.g., `/settings` → `/app/settings`, `/pr-queue` → `/app/pr-queue`).
+- Remaining Jinja-only pages (being migrated in P12): `health`, `equity_ledger`, `survival_dashboard`, `keep_alive`, `command_center`, `optimization_status`, `pipeline_dashboard`, `campaign_progress` (11 total at P12 start → 10 remaining after pr_queue migration)
 
-**Add a page**: create `templates/<page>.html` → `{% extends 'base.html' %}`; put markup in `{% block content %}`; one `{% block page_module %}<script type="module" src="{{ url_for('static', filename='js/<page>.js', v=asset_version) }}"></script>`; server→client data via a read-once `{% block page_data %}<script>window.__<page>Bootstrap = {{ … | tojson }}</script>` (read once at module top, never for cross-module calls). The `<page>.js` module `import`s from `./lib/*.js`.
+**Build pipeline:**
+```bash
+cd frontend/
+npm ci                              # clean install from lockfile
+npm run typecheck                   # vue-tsc --noEmit (TypeScript check)
+npm run test                        # vitest unit tests (jsdom)
+npm run build                       # Vite production build → webui_app/spa_dist/
+```
+- CI runs all 4 steps via `.github/workflows/frontend.yml` on `frontend/**` changes.
+- Docker multi-stage build: `frontend-builder` stage → runtime imports `spa_dist/`.
+- SPA is gated by `BACKLINK_PUBLISHER_SPA` env var (default `"1"`; `"0"` disables).
+- Dev server: `npm run dev` on `:5173`, proxies `/api` → Flask `:8888`.
 
-**Add a channel card / binding form**: reuse the existing `{% include %}`-with-`{% with channel=… %}` partials (they inherit `csrf_token` via the context processor). **If you ever convert a binding partial to a Jinja `macro`, pass `csrf_token` as an explicit parameter** — macros do NOT inherit context-processor vars, and an empty `csrf_token` → 403 on every bind/save (render tests run `CSRF_ENABLED=False` and won't catch it).
+**SPA architecture:**
+- `frontend/src/router/index.ts` — route definitions (lazy-loaded via `import()`)
+- `frontend/src/pages/` — per-page `.vue` components
+- `frontend/src/api/` — typed API modules (Axios-based `client.ts` + domain modules)
+- `frontend/src/stores/` — Pinia stores (publish, notifications, theme)
+- `frontend/src/layout/` — AppShell, SideNav, TopBar, navItems
+- `frontend/src/components/` — shared components (StateBlock, Toast, etc.)
 
-**Anti-rot rules (do not regress):**
-1. **No inline `on*` handlers, no inline `<script>` logic.** Use `data-action="…"` (+ `data-*` for args) and a delegated `addEventListener` in the page module. `return confirm(...)` guards become `data-confirm="…"` handled by `(e)=>{ if(!confirm(msg)) e.preventDefault(); }`.
-2. **No cross-script `window.*` globals as an API.** Modules `import` from `lib/`; cross-component signals use DOM `CustomEvent` (e.g. `channel-binding.js` → `velog:login` → `settings.js`), never a `typeof window.fn` probe (silently no-ops under module scope).
-3. **No untrusted `${…}` into `innerHTML`.** Build nodes with `createElement` + `textContent`/`el.dataset`, or `esc()` (the 5-char superset incl. single-quote). Untrusted = anything from a server/provider response (LLM model ids, error messages).
-4. **`readCsrf()` reads the `<meta>` per call** (never cache in a module const — a rotated token would 403 the fetch transport). Preserve the dual transport: form field `csrf_token` OR `X-CSRFToken` header.
-5. **Bootstrap stays a classic non-`defer`/non-`module` head script** — that ordering guarantees `window.bootstrap` before any deferred page module.
-6. **Bump `asset_version`** (auto, mtime-derived in `webui_app/__init__.py`) is stamped on every `url_for('static', …, v=asset_version)` ref so a long-lived operator session can't serve stale classic JS against new module HTML. Run any UI walkthrough after a hard refresh.
+**Legacy Jinja pages (not yet migrated):** follow the old patterns below. When adding a new Jinja page, prefer creating an SPA route instead.
+
+**Legacy Jinja conventions (being phased out):**
+- `templates/base.html` owns the single `<head>`: Bootstrap/Icons CDN, `<meta name="csrf-token">`, `tokens.css`
+- `static/js/lib/` is the shared ESM layer: `api.js`, `dom.js`, `profiles.js`
+- `static/css/tokens.css` is the single `:root` token source
+- Server→client data via read-once `{% block page_data %}<script>window.__<page>Bootstrap</script>`
+- No inline `on*` handlers, no cross-script `window.*` globals, no untrusted `${…}` into `innerHTML`
+- `readCsrf()` reads the `<meta>` per call — never cache in a module const
 
 JS interaction is covered by `node --test` for the pure helpers in `static/js/lib/` (`tests/js/test_lib_api.mjs`, `tests/js/test_lib_dom.mjs`, `tests/js/lib_dom_check.mjs`); page-level interaction has no framework and is verified by an adversarial manual walkthrough (silent-fail paths: velog bind, paste-to-derive, synthetic-click bind delegation). pytest covers server-rendered structure + CSRF.
 
@@ -219,15 +236,21 @@ Test fixtures: `fixtures/seed.jsonl` (E2E, at repo root), `tests/fixtures/sloc_c
 
 ## CI (GitHub Actions)
 
-`backlink-publisher/.github/workflows/ci.yml` triggers on push to `main`/`develop`, PRs to `main`. Python 3.11+3.12, all steps blocking (no `|| true`). `PYTHONHASHSEED=0` at job level for footprint regression gate.
+`backlink-publisher/.github/workflows/ci.yml` triggers on push/PR to `main`. Python 3.11+3.12 matrix. `PYTHONHASHSEED=0` at job level for footprint regression gate. Three-tier test strategy:
 
-```bash
-pip install -e ".[dev]"
-python -m pytest tests/ -v --tb=short --timeout=30
-python -m py_compile src/backlink_publisher/**/*.py
-# style check (not Black): ast.parse each .py via pathlib.Path("src").rglob("*.py")
-cat fixtures/seed.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --dry-run
-```
+| Tier | When | Py | Timeout | Notes |
+|------|------|-----|---------|-------|
+| `unit` | Every push/PR | 3.11+3.12 | 15 min | `-m unit`, ruff check, import-linter, mypy (blocking P12), fixture verify, pip-audit |
+| `integration` | PR only | 3.12 | 25 min | `-m integration`, full-suite coverage gate (--cov-fail-under=80) |
+| `e2e` | PR only | 3.12 | 30 min | Single-core, 120s per-test timeout |
+
+Additional workflows: `frontend.yml` (SPA typecheck + test + build on `frontend/**`), `plan-claims-gate.yml`, `plan-claims-radar.yml`, `phase0-seal-check.yml`, `plan-redrift-gate.yml`.
+
+**Linting:** `ruff check` (replaces former `py_compile` + `ast.parse` — P11 modernization).
+**Type checking:** `mypy src/backlink_publisher` — **blocking** as of P12 (previously advisory with `continue-on-error`).
+**Import boundaries:** `lint-imports` enforces 2 forbidden contracts: `domain → cli` and `_util → domain` (known exceptions explicitly listed).
+**Monolith budgets:** `test_no_monolith_regrowth.py` (SLOC ceilings for 41 files), `test_no_complexity_regrowth.py` (CC 30 backstop).
+**Coverage:** Branch coverage, 80% fail-under floor, per-unit + full-suite JSON artifacts uploaded.
 
 NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (references `core/`, `|| true`). Ignore it — canonical CI is inside the git repo.
 
@@ -285,7 +308,7 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 - Exit code table (0-6) is a documented contract, not enforced by `sys.exit()` in CLI code
 - `bp-*/AGENTS.md` are stale copies — update this file, not those
 - `docs/plans/`, `docs/brainstorms/` contain real operator domain names — don't propagate to `docs/solutions/`
-- `develop` branch doesn't exist (locally or remote) despite CI triggering on `branches: [main, develop]`
+- `develop` branch doesn't exist (locally or remote); CI triggers only on `branches: [main]` (P12 cleanup, the stale `develop` trigger was removed when the CI config was consolidated)
 - `~/.config/backlink-publisher/llm-settings.json` holds the LLM `api_key`; PR #140 routed writes through `safe_write.atomic_write` so the file lands `0o600`. Files written by pre-#140 code may still be `0644` until the next save.
 - `docs/architecture/deterministic-planning-principle.md` defines the architecture boundary between deterministic planning (pure, testable) and non-deterministic publishing (platform-dependent). Advisory — not CI-enforced.
 

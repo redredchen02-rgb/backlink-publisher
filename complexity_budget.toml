@@ -91,12 +91,16 @@ ceiling = 1190
 rationale = "WebUI three-URL form tests: validates the sites-save-three-url route behaviour across every field combination, gate logic, redirect chain, and error path. Ceiling raised 940→1190 to match current 1152 SLOC (2026-06-11); split deferred to focused refactor."
 
 [test_files."tests/test_plan_backlinks.py"]
-ceiling = 1210
-rationale = "plan-backlinks E2E integration tests: exercises the full deterministic planning pipeline with seed variation across language (en/zh-CN/ru), url_mode (A/B/C), platform (medium/blogger/velog), and banner configuration. Ceiling raised 900→1210 to match current 1179 SLOC (2026-06-11); split deferred to focused refactor."
+ceiling = 320
+rationale = "plan-backlinks core pipeline tests after split refactor (2026-06-26): content-gate tests extracted to test_plan_backlinks_content_gate.py, CSV/sitemap to input_sources.py, prefetch/stats+config-echo to prefetch_and_config.py, helpers to _plan_test_helpers.py. Current 269 SLOC → ceiling 320 provides headroom."
 
 [test_files."tests/test_content_fetch.py"]
-ceiling = 1320
-rationale = "Content fetch tests: full coverage of the content-fetch engine across success paths, HTTP error codes, redirect handling, SSRF defense, cache behavior, timeout handling, and content-type negotiation. Ceiling raised 870→1320 to match current 1284 SLOC (2026-06-11); split deferred to focused refactor."
+ceiling = 800
+rationale = "Content fetch tests (P13 A2 split): SSRF defense extracted to test_content_fetch_ssrf.py (73 SLOC). Core file now 739 SLOC covering success paths, HTTP error codes, redirect handling, cache behavior, soft-404 detection, timeout handling, and body-too-small. Ceiling lowered 1320→800 = round_up_to_10(739+30) per policy."
+
+[test_files."tests/test_content_fetch_ssrf.py"]
+ceiling = 110
+rationale = "SSRF defense tests (P13 A2 split from test_content_fetch.py): exercises _check_url_for_ssrf + _SSRFSafeRedirectHandler with real IP-routing logic. 73 SLOC. Ceiling 110 = round_up_to_10(73+30) per policy."
 
 [test_files."tests/test_cli_plan_check.py"]
 ceiling = 1160

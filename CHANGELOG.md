@@ -17,14 +17,11 @@ All notable changes to this project will be documented in this file.
 - **Monolith budgets tightened for 5 U8 shim files:** `phase0_seal.py`, `plan_check.py`, `report_anchors.py`, `generate_backlink_text.py`, `canary_seed.py` all became 2-SLOC backward-compat shims; ceilings lowered from 465/260/120/390/230 → 40 each.
 - **Orphan code ALLOWLIST expanded:** Added 7 files to the pre-existing allowlist (U8 shims, cli helpers, formatting utility). Normalized Windows path separator in the scan-to-allowlist comparison.
 
-### Newly Surfaced (pre-existing, unblocked by collection fix)
+### Fixed (R12 follow-up)
 
-Fixing the 19 collection errors unblocked **366 previously-masked tests**. Among them:
-
-- **`test_cli_generate_backlink_text_split2`** — 89 failures: some subprocess `--help` assertions broke after U8 CLI reorganization (entry-point paths changed); remaining failures are pre-existing test bugs in LLM orchestration mocks. Was 0% collected before the fix.
-- **`test_config.py`** — 7 failures: test-state isolation issues where earlier tests leak config mutations into later tests. All pre-existing and unrelated to code changes.
-
-These are tracked as pre-existing debt — not caused by this round's changes. The `test_no_monolith_regrowth.py` warning canaries for `spray_backlinks/core.py` (517 SLOC) and `webui_app/api/v1/spec.py` (1259 SLOC) also remain as pre-existing soft warnings.
+- **`test_cli_generate_backlink_text_split1` + `split2` (126 → 0 failures):** Updated all private-function import paths (`_run_generate`, `_make_correction_hint`, `_validate_generated_text`, `_read_candidates`, `_validate_candidate`, `_resolve_client`) from the U8 shim (`cli.generate_backlink_text`) to their actual locations (`cli.plan.generate_backlink_text` and `cli._candidates`). Also fixed the subprocess `--help` test to use the real module path.
+- **`test_config.py` state isolation (7 → 0 failures):** Fixed `load_config()` TTL cache key collision — the cache key was the static string `"load_config"` regardless of which file path was passed, causing tests loading different tmp_path files to collide within the 15-second TTL window. Key now includes the resolved path (`f"load_config:{config_path}"`). Also updated `save_config()`'s cache invalidation to use the same path-keyed format.
+- **Monolith warning canaries (2 → 0 warnings):** Fixed Windows backslash path mismatch in `_scan_for_undeclared_monoliths` — `path.relative_to(repo_root)` produced `\` on Windows, but `monolith_budget.toml` uses `/`. Added `.replace("\\", "/")` normalization to the scanner comparison. `spray_backlinks/core.py` was already budgeted with ceiling 540 (≥ current 517 SLOC, headroom 23 < 50). `webui_app/api/v1/spec.py` was also already budgeted — both warnings were false positives from the separator mismatch.
 
 ## [0.5.0] - 2026-06-26
 

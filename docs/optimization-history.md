@@ -55,14 +55,31 @@
 - Vue 3 SPA migration roadmap: `docs/spa-migration-roadmap.md`
 - This consolidated history: `docs/optimization-history.md`
 
+## Phase 11 — Infrastructure & Maintainability (2026-06-26)
+- **H4 — Test tier markers**: 3 test files lacking `__tier__` markers now have them (`tests/e2e/publish_journey.py` → e2e, `tests/gsc/test_client.py` → unit, `tests/scripts/test_optimize_static.py` → unit)
+- **H2 — Docker production build**: multi-stage build now separates dev/prod dependencies; runtime stage no longer installs `.[dev]` (pytest, radon, mypy, ruff, vulture). Added `.dockerignore` excluding tests/docs/CI/scripts from build context
+- **H3 — Supply chain security**: `.github/dependabot.yml` added (weekly pip + monthly GHA scans); `pip-audit` step added to CI unit job (non-blocking)
+- **M2 — Complexity hygiene**: last `# noqa: C901` eliminated — `_build_parser()`/`_read_input()`/`_emit_summary()` extracted from `generate_backlink_text.py::main()`
+- **M1 — Vulture allowlist cleanup**: removed stale `BaseHandler` entry (import no longer exists); updated `_max_body_bytes` line number; allowlist reduced from 7→6 entries
+- **H1 — Test splitting (batch 1)**: `test_plan_backlinks.py` reduced from 1,179→269 SLOC (-77%). Content-gate tests → `test_plan_backlinks_content_gate.py`; CSV/sitemap → `input_sources.py` (pre-existing); prefetch/config-echo → `prefetch_and_config.py` (pre-existing); shared helpers → `_plan_test_helpers.py`
+- **M3 — Release automation**: `changelog.d/` directory created; `scripts/prep-release.sh` helper script for version bump + towncrier + tag workflow
+- **M4 — Performance baselines**: `tests/test_benchmarks.py` with 3 benchmarks (100-row batch, single-row latency, JSONL serialization); `pytest-benchmark>=5.1` added to dev deps
+
 ## Key Metrics After All Phases
 
 | Metric | Before | After |
 |---|---|---|
-| Source files | 393 | 395 (+2) |
+| Source files | 393 | **398** (+5: helpers + benchmark + content_gate split) |
 | Mypy errors | 86 | **0** |
-| `# noqa: C901` | 2 | 1 (accepted: argparse dispatcher) |
+| `# noqa: C901` | 2 | **0** |
 | Bare `import fcntl` | 15 | **0** |
 | `except Exception: pass` | 6 rollback blocks | **0** (all logged) |
 | CLI `_LOG_LEVELS` definitions | 5 | **0** (centralized) |
 | Test files without `__tier__` | 17 | **0** |
+| Vulture allowlist entries | 7 | **6** (removed stale) |
+| Docker dev-deps in runtime | ❌ yes | ✅ **no** |
+| Dependabot config | ❌ missing | ✅ **added** |
+| `# noqa: C901` count | 1 | **0** |
+| Largest test file (plan) | 1,179 SLOC | **269 SLOC** |
+| Performance benchmarks | ❌ none | ✅ **3 benchmarks** |
+| Release automation | ❌ manual | ✅ **scripted (towncrier)** |
