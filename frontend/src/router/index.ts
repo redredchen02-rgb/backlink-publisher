@@ -58,6 +58,42 @@ export const router = createRouter({
       component: () => import('../pages/Settings/SettingsPage.vue'),
     },
     {
+      // PR opportunity queue (P12 A1 — migrated from Jinja).
+      path: '/pr-queue',
+      name: 'pr-queue',
+      component: () => import('../pages/PrQueue/PrQueuePage.vue'),
+    },
+    {
+      // Survival dashboard (P13 B1 — migrated from Jinja).
+      path: '/survival',
+      name: 'survival',
+      component: () => import('../pages/SurvivalDashboard/SurvivalDashboardPage.vue'),
+    },
+    {
+      // Optimization status (P13 B2 — migrated from Jinja).
+      path: '/optimization-status',
+      name: 'optimization-status',
+      component: () => import('../pages/OptimizationStatus/OptimizationStatusPage.vue'),
+    },
+    {
+      // Equity ledger (P14 B1 — migrated from Jinja).
+      path: '/equity-ledger',
+      name: 'equity-ledger',
+      component: () => import('../pages/EquityLedger/EquityLedgerPage.vue'),
+    },
+    {
+      // Keep-alive dashboard (P15 A1 — migrated from Jinja).
+      path: '/keep-alive',
+      name: 'keep-alive',
+      component: () => import('../pages/KeepAlive/KeepAlivePage.vue'),
+    },
+    {
+      // Campaign progress (P13 B3 — migrated from Jinja).
+      path: '/campaign/:campaignId',
+      name: 'campaign-progress',
+      component: () => import('../pages/CampaignProgress/CampaignProgressPage.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../pages/NotFound.vue'),

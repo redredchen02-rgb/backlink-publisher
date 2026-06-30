@@ -35,6 +35,11 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '排程', group: 'operations', to: '/schedule' }, // migrated in U7
   { label: '批量', group: 'operations', to: '/batch-campaign' }, // migrated in U7
   { label: '设置', group: 'config', to: '/settings' }, // migrated in U7 §5 — SPA settings page now complete (was legacy href)
+  { label: 'PR 机会', group: 'operations', to: '/pr-queue' }, // migrated in P12 A1
+  { label: '存活率', group: 'monitoring', to: '/survival' }, // migrated in P13 B1
+  { label: '优化权重', group: 'monitoring', to: '/optimization-status' }, // migrated in P13 B2
+  { label: '权益总账', group: 'monitoring', to: '/equity-ledger' }, // migrated in P14 B1
+  { label: '保活看板', group: 'monitoring', to: '/keep-alive' }, // migrated in P15 A1
 
 
 ]
