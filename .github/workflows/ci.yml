@@ -52,6 +52,16 @@ jobs:
         run: |
           pip install -e ".[dev]"
 
+      - name: Security audit (pip-audit)
+        # Scans installed packages for known CVEs. Non-blocking (continue-on-error)
+        # so a newly published CVE doesn't block CI — the unit/integration gate
+        # still runs. Review the audit log and pin vulnerable deps in pyproject.toml
+        # when actionable.
+        run: |
+          pip install pip-audit
+          pip-audit --desc on --strict
+        continue-on-error: true
+
       - name: Print radon version
         run: python -m radon --version
 
@@ -86,10 +96,9 @@ jobs:
           python generate_fixtures.py
           test -f fixtures/seed.jsonl
 
-      - name: Type check (non-blocking)
+      - name: Type check (mypy)
         run: |
-          python -m mypy src/backlink_publisher --config-file mypy.ini || true
-        continue-on-error: true
+          python -m mypy src/backlink_publisher --config-file mypy.ini
 
   # ═══════════════════════════════════════════════════════════════════════════
   # U2: Integration tests — touch disk, database, or external fakes
