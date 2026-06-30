@@ -22,7 +22,6 @@ Behaviour preserved verbatim:
 
 from __future__ import annotations
 
-
 __all__ = ['AdapterResult', 'Any', 'BLOGGER_MANIFEST', 'BloggerAPIAdapter', 'BrowserPublishDispatcher', 'DEVTO_MANIFEST', 'DevtoAPIAdapter', 'GHPAGES_MANIFEST', 'GITLABPAGES_MANIFEST', 'GitHubPagesAPIAdapter', 'GitLabPagesAPIAdapter', 'HACKMD_MANIFEST', 'HASHNODE_MANIFEST', 'HATENA_MANIFEST', 'HackmdAPIAdapter', 'HashnodeGraphQLAdapter', 'HatenaAtomPubAdapter', 'LINKEDIN_MANIFEST', 'LIVEJOURNAL_MANIFEST', 'LinkedInAPIAdapter', 'Literal', 'LivejournalAPIAdapter', 'MASTODON_MANIFEST', 'MATAROA_MANIFEST', 'MEDIUM_MANIFEST', 'MataroaAPIAdapter', 'MediumAPIAdapter', 'MediumBraveAdapter', 'MediumBrowserAdapter', 'NOTESIO_MANIFEST', 'NOTION_MANIFEST', 'NotesioFormPostAdapter', 'NotionAPIAdapter', 'Optional', 'QIITA_MANIFEST', 'QiitaAPIAdapter', 'RENTRY_MANIFEST', 'RentryAPIAdapter', 'SUBSTACK_MANIFEST', 'SubstackAPIAdapter', 'TELEGRAPH_MANIFEST', 'TUMBLR_MANIFEST', 'TXTFYI_MANIFEST', 'TYPE_CHECKING', 'TelegraphAPIAdapter', 'TelegraphCdpAdapter', 'TumblrAPIAdapter', 'TxtfyiFormPostAdapter', 'VELOG_MANIFEST', 'VelogGraphQLAdapter', 'VerifyResult', 'WORDPRESSCOM_MANIFEST', 'WRITEAS_MANIFEST', 'WordpresscomAPIAdapter', 'WriteasAPIAdapter', 'ZENN_MANIFEST', 'ZennGitHubAdapter', 'dispatch', 'publish', 'register', 'register_all_adapters', 'register_catalog_entries', 'registered_platforms', 'verify_adapter_setup']
 from typing import Any, Literal, Optional, TYPE_CHECKING
 

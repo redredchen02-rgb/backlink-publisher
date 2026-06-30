@@ -23,8 +23,9 @@ _SSRF_GUARD_ACTIVE = True
 
 # Real verifier UA imported live so probes match what the pipeline's
 # link_attr_verifier preflight fetch actually sends.
+# P14 A5: imported from _util.constants instead of content._preflight_fetch.
 try:
-    from backlink_publisher.content._preflight_fetch import USER_AGENT as _PREFLIGHT_UA
+    from backlink_publisher._util.constants import PREFLIGHT_UA as _PREFLIGHT_UA
 except Exception:  # noqa: BLE001
     _PREFLIGHT_UA = "backlink-publisher/0.1 preflight-targets"
 

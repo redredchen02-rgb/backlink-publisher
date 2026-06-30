@@ -175,7 +175,7 @@ def _select_resume_items(ckpt: dict[str, Any]) -> list[dict[str, Any]]:
         from ..idempotency import DedupStore
         dedup_store: Any = DedupStore()
     except Exception:  # noqa: BLE001
-        log.warning("resume_dedup_store_init_failed", exc_info=True)
+        publish_logger.warning("resume_dedup_store_init_failed", exc_info=True)
         dedup_store = None
 
     ckpt_platform = ckpt.get("platform")

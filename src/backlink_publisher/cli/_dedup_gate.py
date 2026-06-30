@@ -39,7 +39,7 @@ _ACCOUNT_DEFAULT = "default"
 #: should not flip on an accidental truthy-ish value.
 ENFORCE_ENV = "BACKLINK_PUBLISHER_DEDUP_ENFORCE"
 
-_log = get_logger("dedup")
+log = get_logger("dedup")
 
 
 def enforce_enabled() -> bool:
@@ -59,7 +59,7 @@ def enforce_precondition_or_exit() -> None:
 
     r = check_enforce_readiness()
     if r.ok:
-        _log.info(
+        log.info(
             f"enforce precondition OK: {r.covered_count}/{r.event_key_count} "
             f"published key(s) covered; quarantine={r.quarantine_count}"
         )
@@ -117,7 +117,7 @@ def is_crashed_in_flight(
         rec = store.get(key)
         return rec is not None and store.is_stale_attempting(rec)
     except Exception as exc:  # advisory-only: never break the run
-        _log.debug(f"dedup crashed-in-flight check skipped: {exc}")
+        log.debug(f"dedup crashed-in-flight check skipped: {exc}")
         return False
 
 
@@ -138,7 +138,7 @@ def record_intent(row: dict[str, Any], platform: str, *, run_id: str | None) -> 
             key, run_id=run_id, owner_pid=os.getpid(), owner_run_id=run_id
         )
     except Exception as exc:  # observe-only: never break the run
-        _log.debug(f"dedup intent_write skipped: {exc}")
+        log.debug(f"dedup intent_write skipped: {exc}")
 
 
 def gate(
@@ -179,7 +179,7 @@ def gate(
         )
         return decision.verdict, decision.record
     except Exception as exc:  # enforce: fail-closed (hold), never silent double-post
-        _log.error(f"dedup enforce gate error — holding row (fail-closed): {exc}")
+        log.error(f"dedup enforce gate error — holding row (fail-closed): {exc}")
         return "hold", None
 
 
@@ -282,4 +282,4 @@ def _record_terminal(
             allow_from_terminal=allow_failed_to_done,
         )
     except Exception as exc:  # observe-only: never break the run
-        _log.debug(f"dedup terminal write skipped ({state}): {exc}")
+        log.debug(f"dedup terminal write skipped ({state}): {exc}")

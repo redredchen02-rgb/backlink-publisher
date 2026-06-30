@@ -44,7 +44,7 @@ from urllib.parse import parse_qs, urlsplit
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.geo.engines import ProbeResult
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Refusal-phrasing markers (mirrors perplexity adapter for cross-engine reuse)

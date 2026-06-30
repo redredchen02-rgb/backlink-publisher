@@ -18,13 +18,13 @@ Contract:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, UTC
-from backlink_publisher._compat import fcntl
 import json
 from pathlib import Path
 import sys
 from typing import Any
 import uuid
 
+from backlink_publisher._compat import fcntl
 from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
@@ -37,7 +37,7 @@ from backlink_publisher.events.kinds import RANKING_SNAPSHOT
 
 from ... import config_echo
 
-_log = get_logger("probe-ranking")
+log = get_logger("probe-ranking")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> None:
     gsc_cfg = cfg.gsc
 
     if gsc_cfg is None or not gsc_cfg.ranking_keywords:
-        _log.recon("probe_ranking_no_keywords")
+        log.recon("probe_ranking_no_keywords")
         print("probe-ranking: no keywords configured ([gsc].ranking_keywords)", file=sys.stderr)
         return
 
@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> None:
             f"probe-ranking: dry-run — {len(keywords)} keyword(s); add --probe to run",
             file=sys.stderr,
         )
-        _log.recon("probe_ranking_dry_run", count=len(keywords))
+        log.recon("probe_ranking_dry_run", count=len(keywords))
         return
 
     if not gsc_cfg.property_url or not gsc_cfg.credential_path:
@@ -132,7 +132,7 @@ def _probe_and_record(gsc_cfg: Any, keywords: list[str]) -> None:
             }
         )
     except ExternalServiceError as exc:
-        _log.recon("probe_ranking_gsc_error", error=str(exc))
+        log.recon("probe_ranking_gsc_error", error=str(exc))
         print(f"probe-ranking: GSC query failed: {exc}", file=sys.stderr)
         sys.exit(6)
 
@@ -174,7 +174,7 @@ def _probe_and_record(gsc_cfg: Any, keywords: list[str]) -> None:
         }
         print(json.dumps(row_out, ensure_ascii=False), flush=True)
 
-    _log.recon("probe_ranking_complete", keywords=len(keywords), run_id=run_id)
+    log.recon("probe_ranking_complete", keywords=len(keywords), run_id=run_id)
 
 
 def snapshot_baseline(gsc_cfg: Any, keywords: list[str] | None = None) -> None:
@@ -235,4 +235,4 @@ def snapshot_baseline(gsc_cfg: Any, keywords: list[str] | None = None) -> None:
             run_id=run_id,
         )
 
-    _log.recon("probe_ranking_baseline_complete", keywords=len(keywords))
+    log.recon("probe_ranking_baseline_complete", keywords=len(keywords))

@@ -24,8 +24,6 @@ import re
 import subprocess
 import sys
 
-from backlink_publisher.phase0 import validation as V
-from backlink_publisher.phase0.worktree import discover_worktree_heads, WorktreeEntry
 from backlink_publisher.cli._seal_init import (
     _get_main_sha,
     _handle_init,
@@ -38,6 +36,8 @@ from backlink_publisher.cli._seal_init import (
     EXIT_VERDICT,
     EXIT_WORKTREE,
 )
+from backlink_publisher.phase0 import validation as V
+from backlink_publisher.phase0.worktree import discover_worktree_heads, WorktreeEntry
 
 __all__ = ["EXIT_VERDICT", "EXIT_WORKTREE"]  # exported for test access
 

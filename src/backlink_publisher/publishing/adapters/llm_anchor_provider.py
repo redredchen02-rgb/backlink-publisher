@@ -43,7 +43,7 @@ from backlink_publisher.llm.client import _redact_for_log, _sanitize_input
 
 from .retry import retry_transient_call
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # Control characters and bidi overrides — same set the anchor_resolver
 # filters on output. Stripping at the prompt boundary means a malicious seed
@@ -143,7 +143,7 @@ class OpenAICompatibleProvider:
             )
             return str(data["choices"][0]["message"]["content"])
         except Exception as exc:
-            _log.warning(f"LLM article generation failed, falling back to template: {exc}")
+            log.warning(f"LLM article generation failed, falling back to template: {exc}")
             raise
 
     def generate_image_prompt(self, title: str, content: str) -> str:
@@ -174,7 +174,7 @@ class OpenAICompatibleProvider:
             )
             return str(data["choices"][0]["message"]["content"]).strip()
         except Exception as exc:
-            _log.warning(f"Image prompt generation failed: {exc}")
+            log.warning(f"Image prompt generation failed: {exc}")
             return f"Professional article cover for: {title}"
 
     def generate_candidates(self, request: LLMAnchorRequest) -> list[str]:

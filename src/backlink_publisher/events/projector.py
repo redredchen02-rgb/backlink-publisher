@@ -32,7 +32,7 @@ from ._project_reducers import (
 )
 from .store import EventStore
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def flush_for(
@@ -101,7 +101,7 @@ def record_projection_health(
                 state["degraded"] = quarantine_ratio >= _QUARANTINE_DEGRADED_RATIO
             cursor_save(conn, _HEALTH_SOURCE, state, mtime=None)
     except Exception as exc:  # noqa: BLE001 — health recording is best-effort
-        _log.warning("projector: could not record projection health: %s", exc)
+        log.warning("projector: could not record projection health: %s", exc)
 
 
 def project_run_safe(
@@ -128,7 +128,7 @@ def project_run_safe(
         record_projection_health(store, ok=True, quarantine_ratio=ratio)
         return result
     except Exception as exc:  # noqa: BLE001 — projection must never fail publish
-        _log.warning(
+        log.warning(
             "projector: projection after run %s failed (non-fatal): %s",
             run_id, exc,
         )

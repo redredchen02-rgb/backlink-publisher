@@ -12,5 +12,4 @@ The shared verdict contract lives in :mod:`backlink_publisher.gates.verdict`.
 
 from __future__ import annotations
 
-
 __all__: list[str] = []

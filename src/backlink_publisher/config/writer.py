@@ -263,4 +263,5 @@ def save_config(
     _snapshot_config(config_path)
     _atomic_write_text(config_path, payload)
     # Invalidate the TTL cache so the next load_config() reads the fresh data.
-    _cache_delete("load_config")
+    # Key by resolved path to match the cache key used in load_config().
+    _cache_delete(f"load_config:{config_path}")

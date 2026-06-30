@@ -27,7 +27,7 @@ from backlink_publisher.referral.store import append_referral_observed
 
 from .. import config_echo
 
-_log = get_logger("referral-attribute")
+log = get_logger("referral-attribute")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -164,7 +164,7 @@ def main(argv: list[str] | None = None) -> None:
             ]
         print(json.dumps(row, ensure_ascii=False), flush=True)
 
-    _log.recon(
+    log.recon(
         "referral_attribute_run",
         targets=len(args.targets),
         property_id=property_id,

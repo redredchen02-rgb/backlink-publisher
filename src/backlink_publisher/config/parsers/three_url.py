@@ -14,7 +14,7 @@ from ..types import (
 )
 from .target import _clean_pool
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def _parse_work_urls(entry: dict, raw_domain: str) -> list[str]:
@@ -35,7 +35,7 @@ def _parse_work_urls(entry: dict, raw_domain: str) -> list[str]:
             continue
         urls.append(normalized)
     if dropped:
-        _log.warning(
+        log.warning(
             "[targets.%r].work_urls: dropped %d non-https or invalid URL(s)",
             raw_domain, dropped,
         )
@@ -50,7 +50,7 @@ def _parse_work_templates(entry: dict, raw_domain: str) -> list[str]:
     if isinstance(raw, list) and all(isinstance(t, str) for t in raw):
         stripped = [t.strip() for t in raw if t.strip()]
         return stripped or list(DEFAULT_WORK_TEMPLATES)
-    _log.warning(
+    log.warning(
         "[targets.%r].work_anchor_templates must be a list of strings, "
         "using defaults",
         raw_domain,
@@ -65,7 +65,7 @@ def _parse_blocklist(entry: dict, raw_domain: str) -> list[str] | None:
         return None
     if isinstance(raw, list) and all(isinstance(p, str) for p in raw):
         return [p for p in raw if p]
-    _log.warning(
+    log.warning(
         "[targets.%r].list_path_blocklist must be a list of strings, "
         "ignoring (default blocklist applies)",
         raw_domain,
@@ -100,7 +100,7 @@ def _parse_target_three_url(targets_section: Any) -> dict[str, ThreeUrlConfig]:
 
         main_url = validate_main_domain_url(entry.get("main_url"))
         if not main_url:
-            _log.warning(
+            log.warning(
                 "[targets.%r].main_url must be https://<host>/ (host-root + "
                 "trailing slash), skipping",
                 raw_domain,
@@ -109,7 +109,7 @@ def _parse_target_three_url(targets_section: Any) -> dict[str, ThreeUrlConfig]:
 
         list_url = validate_https_url(entry.get("list_url"))
         if not list_url:
-            _log.warning(
+            log.warning(
                 "[targets.%r].list_url missing or not https://, skipping",
                 raw_domain,
             )
@@ -119,20 +119,20 @@ def _parse_target_three_url(targets_section: Any) -> dict[str, ThreeUrlConfig]:
         partial_pool = _clean_pool(entry.get("partial_pool"))
         exact_pool = _clean_pool(entry.get("exact_pool"))
         if not branded_pool:
-            _log.warning(
+            log.warning(
                 "[targets.%r].branded_pool is empty or invalid; target is "
                 "unusable without a branded pool, skipping",
                 raw_domain,
             )
             continue
         if not partial_pool:
-            _log.warning(
+            log.warning(
                 "[targets.%r].partial_pool is empty or invalid, skipping",
                 raw_domain,
             )
             continue
         if not exact_pool:
-            _log.warning(
+            log.warning(
                 "[targets.%r].exact_pool is empty or invalid, skipping",
                 raw_domain,
             )
@@ -175,7 +175,7 @@ def _parse_site_url_categories(sites_section: Any) -> dict[str, dict[str, str]]:
         if categories is None:
             continue
         if not isinstance(categories, dict):
-            _log.warning(
+            log.warning(
                 "[sites.%r].url_categories must be a table, skipping", raw_domain,
             )
             continue
@@ -184,7 +184,7 @@ def _parse_site_url_categories(sites_section: Any) -> dict[str, dict[str, str]]:
             if not isinstance(cat_name, str) or not isinstance(cat_url, str):
                 continue
             if not re.match(r"^https?://", cat_url):
-                _log.warning(
+                log.warning(
                     "[sites.%r].url_categories.%r is not a valid URL, skipping",
                     raw_domain, cat_name,
                 )

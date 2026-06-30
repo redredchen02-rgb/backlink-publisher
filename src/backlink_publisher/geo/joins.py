@@ -22,7 +22,7 @@ from typing import Any
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.ledger.sources import build_target_buckets
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ def build_published_article_set(
     except Exception as exc:  # noqa: BLE001
         # Surface as a warning — a missing events.db is not a fatal error for
         # the verdict classifier; it just means no article URLs are known.
-        _log.warning("geo.joins: could not load published article set: %s", exc)
+        log.warning("geo.joins: could not load published article set: %s", exc)
         return frozenset()
 
     urls: set[str] = set()

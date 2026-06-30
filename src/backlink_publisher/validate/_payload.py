@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 
 from backlink_publisher._util.logger import validate_logger
 from backlink_publisher.anchor.lang import check_anchor_language
-from backlink_publisher.config import Config, _config_dir, get_anchor_pool_v2
+from backlink_publisher.config import _config_dir, Config, get_anchor_pool_v2
 from backlink_publisher.linkcheck.language import (
     detect_language_from_html,
     detect_language_from_markdown,

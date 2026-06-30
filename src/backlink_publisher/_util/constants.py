@@ -13,3 +13,11 @@ CHANNELS: frozenset[str] = frozenset({"velog", "medium", "blogger"})
 EVENTS: dict[str, str] = {
     "attempt_login": "cli_bind_attempt_login",
 }
+
+#: User-Agent string for preflight content fetches — identifies this fetcher
+#: distinctly so targets can rate-limit it separately.
+#: P14 A5: moved from content._preflight_fetch to resolve _util → domain violation.
+PREFLIGHT_UA: str = "backlink-publisher/0.1 preflight-targets"
+
+#: Legacy alias kept for backward compat.
+USER_AGENT: str = PREFLIGHT_UA

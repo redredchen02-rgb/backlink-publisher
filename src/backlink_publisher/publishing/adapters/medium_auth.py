@@ -15,7 +15,6 @@ contention and removes the need for 60s cooldown.
 
 from __future__ import annotations
 
-from backlink_publisher._compat import fcntl
 import json
 import os
 from pathlib import Path
@@ -24,6 +23,7 @@ import threading
 import time
 from typing import Any, cast
 
+from backlink_publisher._compat import fcntl
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config import Config
 

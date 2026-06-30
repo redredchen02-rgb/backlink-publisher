@@ -80,7 +80,7 @@ def _compute_baseline_record(corpus_name: str, reason: str) -> dict[str, Any]:
     """Generate a corpus, run ``analyze_corpus``, format the baseline JSON."""
     # Lazy import to break circular dependency:
     # reporting.footprint ← _footprint_baseline → reporting.footprint
-    from backlink_publisher.cli.footprint import (
+    from backlink_publisher.footprint import (
         _top_by_count_then_lex,
         analyze_corpus,
         SCHEMA_VERSION,

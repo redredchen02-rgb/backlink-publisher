@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 from .._util.url import canonicalize_url
 from .store import EventStore
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class ProjectionError(RuntimeError):
@@ -115,7 +115,7 @@ def read_json(path: Path) -> Any | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        _log.warning("projector: failed to parse %s: %s", path, exc)
+        log.warning("projector: failed to parse %s: %s", path, exc)
         return None
 
 
@@ -156,13 +156,13 @@ def write_quarantines(store: EventStore, pending: list[dict[str, Any]]) -> None:
     for q in pending:
         try:
             store.quarantine(**q)
-            _log.warning(
+            log.warning(
                 "RECON projector: quarantined [%s] %s (run=%s id=%s)",
                 q.get("failure_type"), q.get("reason"),
                 q.get("run_id"), q.get("record_identity"),
             )
         except Exception as exc:  # noqa: BLE001
-            _log.error(
+            log.error(
                 "RECON projector: FAILED to quarantine [%s] %s (run=%s id=%s): "
                 "%s — continuing",
                 q.get("failure_type"), q.get("reason"),

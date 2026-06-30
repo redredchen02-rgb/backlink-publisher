@@ -23,7 +23,8 @@ _HISTORY_FILENAME = "publish-history.json"
 
 
 def _config_dir() -> Path:
-    from backlink_publisher.config.loader import _config_dir as _cd
+    """P14 A1: imported from _util.paths instead of config.loader."""
+    from backlink_publisher._util.paths import _config_dir as _cd
 
     return _cd()
 

@@ -13,12 +13,12 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 import cProfile
-from datetime import UTC, datetime
+from datetime import datetime, UTC
 from pathlib import Path
 import pstats
 from typing import Any
 
-from backlink_publisher.config.loader import _cache_dir
+from backlink_publisher._util.paths import _cache_dir
 
 
 def _get_profile_dir() -> Path:

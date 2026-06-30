@@ -75,8 +75,8 @@ def dry_run_intercept() -> Iterator[None]:
             f"dry-run intercept: refusing to {request.method} {request.url}"
         )
 
-    requests.Session.send = _intercepted
+    requests.Session.send = _intercepted  # type: ignore[method-assign, assignment]
     try:
         yield
     finally:
-        requests.Session.send = original_send
+        requests.Session.send = original_send  # type: ignore[method-assign]

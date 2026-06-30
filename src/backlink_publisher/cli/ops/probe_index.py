@@ -21,13 +21,13 @@ Contract:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, UTC
-from backlink_publisher._compat import fcntl
 import json
 from pathlib import Path
 import sys
 from typing import Any
 import uuid
 
+from backlink_publisher._compat import fcntl
 from backlink_publisher._util.errors import (
     DependencyError,
     emit_error,
@@ -41,7 +41,7 @@ from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED
 
 from ... import config_echo
 
-_log = get_logger("probe-index")
+log = get_logger("probe-index")
 
 #: Default URL batch cap per run (GSC quota guard).
 DEFAULT_MAX_URLS = 200
@@ -105,7 +105,7 @@ def _run(args: Any, cfg: Any) -> None:
     candidates = _select_candidates(store, args.max_urls)
 
     if not candidates:
-        _log.recon("probe_index_nothing_to_probe", count=0)
+        log.recon("probe_index_nothing_to_probe", count=0)
         print("probe-index: no unprobed URLs — nothing to do", file=sys.stderr)
         return
 
@@ -118,7 +118,7 @@ def _run(args: Any, cfg: Any) -> None:
     if not args.probe:
         for url in candidates:
             print(json.dumps({"type": "dry_run", "page_url": url}), flush=True)
-        _log.recon("probe_index_dry_run", count=len(candidates))
+        log.recon("probe_index_dry_run", count=len(candidates))
         return
 
     # -- Probe path: require [gsc] config --------------------------------------
@@ -186,7 +186,7 @@ def _probe_and_record(
             }
         )
     except ExternalServiceError as exc:
-        _log.recon("probe_index_gsc_error", error=str(exc))
+        log.recon("probe_index_gsc_error", error=str(exc))
         print(f"probe-index: GSC query failed: {exc}", file=sys.stderr)
         sys.exit(6)
 
@@ -218,7 +218,7 @@ def _probe_and_record(
         print(json.dumps(row_out, ensure_ascii=False), flush=True)
 
     appeared = sum(1 for u in urls if u in gsc_pages)
-    _log.recon(
+    log.recon(
         "probe_index_complete",
         total=len(urls),
         appeared_in_gsc=appeared,

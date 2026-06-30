@@ -57,7 +57,7 @@ from backlink_publisher.llm.http_guard import guard_llm_endpoint, safe_post_json
 
 from .engines import ProbeResult
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Locale-dependent refusal phrasing (probe-then-pivot: tune against real
 #: en/ru/ko responses — see the U4 refusal-spike). Matched case-insensitively
@@ -168,7 +168,7 @@ def probe_perplexity(query: str, cfg: GeoProbeConfig) -> ProbeResult:
         # a usable answer". Map to a structured parse_error, keep the redacted
         # reason in raw_response for debugging (in-memory only, D8), NEVER raise.
         reason = _redact_for_log(str(exc))
-        _log.warning("geo-probe (perplexity): unreadable response: %s", reason)
+        log.warning("geo-probe (perplexity): unreadable response: %s", reason)
         return ProbeResult(
             answer_text="",
             source_urls=[],

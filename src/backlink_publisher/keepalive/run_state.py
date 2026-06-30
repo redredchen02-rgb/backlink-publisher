@@ -35,7 +35,7 @@ from typing import Any
 
 from backlink_publisher.config.loader import _config_dir
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Default max republish+reverify attempts per target URL before marking exhausted.
 _DEFAULT_MAX_RETRY = 3
@@ -95,13 +95,13 @@ class KeepaliveRunState:
             raw = self._path.read_text(encoding="utf-8")
             data: dict[str, Any] = json.loads(raw)
             if "version" not in data:
-                logger.warning(
+                log.warning(
                     "keepalive_run_state.json missing 'version' — returning defaults"
                 )
                 return _default_state()
             return data
         except (json.JSONDecodeError, OSError) as exc:
-            logger.warning(
+            log.warning(
                 "Failed to load keepalive_run_state.json (%s) — returning defaults",
                 exc,
             )

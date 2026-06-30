@@ -20,7 +20,7 @@ from pathlib import Path
 import time
 from typing import Any
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Per-probe timeout (mirrors recheck_backlinks._PER_TARGET_TIMEOUT).
 _PER_TARGET_TIMEOUT = 10.0
@@ -177,7 +177,7 @@ def _effective_sticky(runtime_sticky: tuple[str, ...], opt_state: Any = None) ->
         filtered = [p for p in runtime_sticky if opt_state.get_weight(p, default=1.0) > 0.0]
         return filtered
     except Exception as exc:  # noqa: BLE001
-        logger.warning("OptimizationState unavailable, using full sticky list: %s", exc)
+        log.warning("OptimizationState unavailable, using full sticky list: %s", exc)
         return list(runtime_sticky)
 
 
@@ -212,7 +212,7 @@ def _update_opt_stats(platform: str, verdict: str, opt_state: Any = None, langua
                 entry["dofollow_count"] = entry.get("dofollow_count", 0) + 1
             opt_state.save(data)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Failed to update optimization stats for %s: %s", platform, exc)
+        log.warning("Failed to update optimization stats for %s: %s", platform, exc)
 
 
 # ── stage helpers ─────────────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ def _run_recheck_stage(
     deadline = time.monotonic() + _BATCH_BUDGET_S
     for candidate in candidates:
         if time.monotonic() > deadline:
-            logger.warning("keepalive: recheck batch budget exhausted, deferring remaining")
+            log.warning("keepalive: recheck batch budget exhausted, deferring remaining")
             break
         try:
             r = _probe(candidate)
@@ -241,11 +241,11 @@ def _run_recheck_stage(
         try:
             _emit(store, [r])
         except Exception:  # noqa: BLE001
-            logger.debug("emit_recheck failed", exc_info=True)
+            log.debug("emit_recheck failed", exc_info=True)
         try:
             _vat(store, [r])
         except Exception:  # noqa: BLE001
-            logger.debug("write_verified_at failed", exc_info=True)
+            log.debug("write_verified_at failed", exc_info=True)
     _log.recon("keepalive_recheck_done", probed=len(results))
     return results
 
@@ -419,7 +419,7 @@ def run_cycle(
     with _cycle_lock(config_dir) as acquired:
         if not acquired:
             _log.recon("keepalive_cycle_skipped_locked")
-            logger.info("keepalive: cycle already in progress, skipping")
+            log.info("keepalive: cycle already in progress, skipping")
             return {"skipped": True}
 
         # ── Step 1: Recheck ────────────────────────────────────────────────
@@ -436,7 +436,7 @@ def run_cycle(
         effective = _eff_sticky(RUNTIME_STICKY_PLATFORMS)
         if not effective:
             _log.recon("keepalive_all_platforms_circuit_broken")
-            logger.info("keepalive: all sticky platforms circuit-broken; no gaps to fill")
+            log.info("keepalive: all sticky platforms circuit-broken; no gaps to fill")
             summary_dict = summary.to_dict()
             run_state.update_cycle_summary(summary_dict)
             return summary_dict

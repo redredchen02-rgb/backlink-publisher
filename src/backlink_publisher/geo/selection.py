@@ -33,7 +33,7 @@ import logging
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants (D10)
@@ -123,7 +123,7 @@ def _build_last_probed_map(
             continue
         ts = _parse_ts_utc(row["ts_utc"])
         if ts is None:
-            _log.warning(
+            log.warning(
                 "geo.selection: unparseable ts_utc %r for target %r; skipping",
                 row["ts_utc"],
                 target_url,
@@ -132,7 +132,7 @@ def _build_last_probed_map(
         try:
             payload = json.loads(row["payload_json"])
         except (json.JSONDecodeError, TypeError):
-            _log.warning(
+            log.warning(
                 "geo.selection: unparseable payload_json for target %r; skipping",
                 target_url,
             )
@@ -241,7 +241,7 @@ def select_pairs(
     starvation_risk = total > capacity
 
     if starvation_risk:
-        _log.warning(
+        log.warning(
             "geo.selection: starvation risk — corpus has %d pairs but capacity "
             "is %.0f (M=%d N=%d P=%d). Some pairs may not be re-probed within %d days.",
             total,

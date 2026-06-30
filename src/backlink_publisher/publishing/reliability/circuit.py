@@ -36,16 +36,16 @@ from __future__ import annotations
 
 from datetime import datetime, UTC
 from enum import StrEnum
-from backlink_publisher._compat import fcntl
 import json
 import os
 from pathlib import Path
 import time
 from typing import Any, cast, TYPE_CHECKING
 
+from backlink_publisher._compat import fcntl
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
 from backlink_publisher._util.io import atomic_write_json
-from backlink_publisher._util.logger import opencli_logger as _log
+from backlink_publisher._util.logger import opencli_logger as log
 
 if TYPE_CHECKING:
     from backlink_publisher.config import Config
@@ -258,7 +258,7 @@ def is_tripped(platform: str, config: Config) -> bool:
 
         return False
     except (OSError, ValueError) as exc:
-        _log.warning(f"circuit state read error for {platform!r} (fail-CLOSED): {exc}")
+        log.warning(f"circuit state read error for {platform!r} (fail-CLOSED): {exc}")
         return True
 
 
@@ -338,7 +338,7 @@ def trip(platform: str, config: Config) -> None:
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
-        _log.info(
+        log.info(
             "circuit_tripped",
             event="circuit_tripped",
             platform=platform,
@@ -380,7 +380,7 @@ def trip_on_error(
                 "tripped_at_iso": _now_iso(),
                 "consecutive_errors": 0,
             }
-            _log.info(
+            log.info(
                 "circuit_tripped",
                 event="circuit_tripped",
                 platform=platform,
@@ -396,7 +396,7 @@ def trip_on_error(
             entry["state"] = CircuitState.CLOSED.value
             entry["tripped"] = False
             state[platform] = entry
-            _log.info(
+            log.info(
                 "circuit_error_counted",
                 event="circuit_error_counted",
                 platform=platform,
@@ -440,7 +440,7 @@ def _transition_to_half_open(platform: str, config: Config) -> None:
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
-        _log.info("circuit_half_open", event="circuit_half_open", platform=platform)
+        log.info("circuit_half_open", event="circuit_half_open", platform=platform)
     finally:
         _release_lock(fd)
 
@@ -460,7 +460,7 @@ def reset_circuit(platform: str, config: Config) -> None:
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
-        _log.info("circuit_reset", event="circuit_reset", platform=platform)
+        log.info("circuit_reset", event="circuit_reset", platform=platform)
     finally:
         _release_lock(fd)
 
@@ -486,7 +486,7 @@ def _auto_reset(platform: str, config: Config) -> None:
             if time.time() - tripped_at >= _cooldown_s():
                 state[platform] = {"tripped": False, "tripped_at_iso": None}
                 _write_state_unsafe(_state_path(config), state)
-                _log.info("circuit_auto_reset", event="circuit_auto_reset", platform=platform)
+                log.info("circuit_auto_reset", event="circuit_auto_reset", platform=platform)
         finally:
             _release_lock(fd)
     except Exception:  # noqa: BLE001

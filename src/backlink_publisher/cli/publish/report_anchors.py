@@ -13,10 +13,6 @@ import sys
 
 from backlink_publisher._util.errors import emit_envelope_and_exit
 from backlink_publisher._util.jsonl import read_jsonl
-from backlink_publisher.config import load_config
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
-
-from ... import config_echo
 
 # Re-export format helpers so callers that import them from here still find them.
 from backlink_publisher.cli._report_format import (  # noqa: F401
@@ -31,6 +27,10 @@ from backlink_publisher.cli._report_format import (  # noqa: F401
     _json_output,
     _markdown_table,
 )
+from backlink_publisher.config import load_config
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
+
+from ... import config_echo
 
 
 def main(argv: list[str] | None = None) -> None:

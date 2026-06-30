@@ -34,7 +34,7 @@ from backlink_publisher.geo.engines import ProbeResult
 from backlink_publisher.geo.selection import ProbeCandidate
 from backlink_publisher.geo.verdict import carry_verdict, classify_verdict, VerdictResult
 
-_log = get_logger("probe-citations")
+log = get_logger("probe-citations")
 
 ProbeCallable = Callable[[str, GeoProbeConfig], ProbeResult]
 
@@ -185,7 +185,7 @@ def probe_many(
             remaining = len(candidates) - index
             summary.deferred += remaining
             summary.cost_cap_hit = True
-            _log.warning(
+            log.warning(
                 "probe_many: cost cap reached",
                 probed=summary.probed,
                 cap=cost_cap,
@@ -198,7 +198,7 @@ def probe_many(
             remaining = len(candidates) - index
             summary.deferred += remaining
             summary.budget_exhausted = True
-            _log.warning(
+            log.warning(
                 "probe_many: wall-clock budget exhausted",
                 budget_s=wall_clock_budget_s,
                 probed=summary.probed,
@@ -219,7 +219,7 @@ def probe_many(
                 engine=engine,
             )
         except Exception as exc:  # noqa: BLE001 — never-raises contract
-            _log.warning(
+            log.warning(
                 "probe_many: probe error for target",
                 target_url=candidate.target_url,
                 query=candidate.query,

@@ -56,7 +56,8 @@ _MAX_REDIRECTS: int = 5
 PREFLIGHT_BODY_BYTES: int = 768_000
 
 #: Identifies this fetcher distinctly so targets can rate-limit it separately.
-USER_AGENT: str = "backlink-publisher/0.1 preflight-targets"
+#: P14 A5: imported from _util.constants (moved to resolve _util → domain violation).
+from backlink_publisher._util.constants import USER_AGENT
 
 #: Truncate the stored ``X-Robots-Tag`` value — it is untrusted, display-only.
 _X_ROBOTS_MAX_LEN: int = 256

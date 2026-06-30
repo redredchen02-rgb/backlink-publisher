@@ -32,13 +32,14 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, UTC
-from backlink_publisher._compat import fcntl
 import json
 import logging
 import os
 from pathlib import Path
 import random
 import time
+
+from backlink_publisher._compat import fcntl
 
 log = logging.getLogger(__name__)
 
@@ -63,8 +64,9 @@ def frw_token_path() -> Path:
     """
     # Lazy import: avoid an import cycle between ``_util`` (low-level)
     # and ``config`` (high-level) at module load time.
-    from backlink_publisher import config as _cfg
-    return _cfg._config_dir() / "frw-token.json"
+    # P14 A1: imported from _util.paths instead of config.
+    from backlink_publisher._util.paths import _config_dir as _cd
+    return _cd() / "frw-token.json"
 
 
 def _lock_path(token_path: Path) -> Path:

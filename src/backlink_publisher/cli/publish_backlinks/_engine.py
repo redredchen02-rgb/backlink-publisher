@@ -283,6 +283,7 @@ def _check_publish_preconditions(
     Extracted from ``_publish_one_row`` (Plan 2026-06-24-002 U5).
     """
     from backlink_publisher._util.logger import publish_logger
+    from backlink_publisher.cli._dedup_gate import gate_with_force
     from backlink_publisher.cli._publish_helpers import (
         _build_failure_row,
         _build_skip_row,
@@ -291,7 +292,6 @@ def _check_publish_preconditions(
         _check_token_drift,
         _medium_throttle_sleep,
     )
-    from backlink_publisher.cli._dedup_gate import gate_with_force
     from backlink_publisher.cli.publish_backlinks import adapter_publish
     from backlink_publisher.schema import supported_platforms
 
@@ -532,6 +532,7 @@ def _process_publish_result(
         _record_publish_path,
         _try_update_ckpt_failed,
     )
+
     from ... import checkpoint
 
     state.outputs.append(result.to_publish_output(row, ts))

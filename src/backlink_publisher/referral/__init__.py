@@ -8,5 +8,4 @@ Nothing in the publish pipeline changes, so the dofollow backlink is preserved.
 
 from __future__ import annotations
 
-
 __all__: list[str] = []

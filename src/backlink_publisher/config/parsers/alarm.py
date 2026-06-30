@@ -11,7 +11,7 @@ from ..types import (
     AnchorAlarmOverride,
 )
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 _ANCHOR_ALARM_THRESHOLD_FIELDS: tuple[str, ...] = (
     "entropy_floor",

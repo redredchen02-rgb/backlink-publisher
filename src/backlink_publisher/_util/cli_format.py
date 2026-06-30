@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import IO, Any
+from typing import Any, IO
 
 
 def emit_jsonl(rows: list[dict[str, Any]], file: IO[str] = sys.stdout) -> None:

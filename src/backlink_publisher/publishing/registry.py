@@ -49,7 +49,7 @@ from collections.abc import Callable
 import logging
 from typing import Any, cast, Literal, TYPE_CHECKING
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 from backlink_publisher._util.errors import RegistryError
 from backlink_publisher.config import Config
@@ -456,6 +456,16 @@ def registered_platforms() -> list[str]:
     return sorted(_REGISTRY.keys())
 
 
+def is_registered(name: str) -> bool:
+    """Fast membership check: whether *name* has at least one adapter.
+
+    Unlike ``registered_platforms()`` this avoids allocating and sorting a
+    list (P12 optimization). Use this instead of ``name in registered_platforms()``
+    when only membership is needed.
+    """
+    return name in _REGISTRY
+
+
 def dofollow_status(name: str) -> _DofollowStatus | None:
     """Return the declared dofollow status for ``name``, or ``None`` if
     the platform is not registered with explicit dofollow declaration.
@@ -596,7 +606,7 @@ def dispatch_weight(name: str, language: str = "default") -> float:
                 value = max(value, floor)
             return value
     except Exception:
-        logger.debug("weight_lookup_failed", exc_info=True)
+        log.debug("weight_lookup_failed", exc_info=True)
 
     return static
 

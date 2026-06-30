@@ -25,7 +25,7 @@ from backlink_publisher.events.store import EventStore
 
 from .. import config_echo
 
-_log = get_logger("click-track")
+log = get_logger("click-track")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -168,7 +168,7 @@ def main(argv: list[str] | None = None) -> None:
             ]
         print(json.dumps(row, ensure_ascii=False), flush=True)
 
-    _log.recon(
+    log.recon(
         "click_track_run",
         targets=len(args.targets),
         property_id=property_id,

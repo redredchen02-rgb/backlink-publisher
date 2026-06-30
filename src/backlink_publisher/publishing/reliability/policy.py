@@ -37,7 +37,7 @@ import os
 from typing import Any, TYPE_CHECKING
 
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
-from backlink_publisher._util.logger import opencli_logger as _log
+from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.adapters import publish as adapter_publish
 from backlink_publisher.publishing.adapters.base import AdapterResult
 
@@ -108,7 +108,7 @@ def _warn_legacy_consecutive_env_once() -> None:
         return
     if os.environ.get(_LEGACY_CONSECUTIVE_ENV) is not None:
         _legacy_consecutive_warned = True
-        _log.warning(
+        log.warning(
             f"{_LEGACY_CONSECUTIVE_ENV} is set but has NO effect on the live "
             "publish trip path (it is read only by circuit.trip_on_error, which "
             "nothing on the publish path calls). The active trip thresholds are "

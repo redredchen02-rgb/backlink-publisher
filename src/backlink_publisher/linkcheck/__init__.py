@@ -6,7 +6,7 @@ New code should import from ``backlink_publisher.linkcheck.http`` etc.
 """
 
 
-__all__ = ['*']
+__all__ = ['*']  # noqa: F405  — star re-export preserves legacy public import path
 from .http import *  # noqa: F401,F403  — preserves legacy public import path
 
 # Re-export private names that tests monkeypatch via the legacy module

@@ -291,6 +291,9 @@ def _trim_by_target(
     entries belong to it until the next main. Secondaries before the first
     main are trimmed-article remnants and are dropped (matches the existing
     ``_group_into_articles`` contract).
+
+    Optimized (P12): uses O(n) dict construction instead of O(A × T) nested
+    loops, computing ``target_url → [article_indices]`` in a single pass.
     """
     if not entries:
         return entries
@@ -299,18 +302,20 @@ def _trim_by_target(
     if not articles:
         return []
 
-    # For each distinct target_url, mark the indices of its most-recent
-    # ``max_articles_per_target`` articles.
+    # Build target → indices mapping in O(n) instead of O(A × T).
+    target_map: dict[str, list[int]] = {}
+    for i, art in enumerate(articles):
+        seen_targets: set[str] = set()
+        for e in art:
+            if e.target_url not in seen_targets:
+                target_map.setdefault(e.target_url, []).append(i)
+                seen_targets.add(e.target_url)
+
+    # For each target, keep the last max_articles_per_target indices.
     keep_indices: set[int] = set()
-    targets = {e.target_url for art in articles for e in art}
-    for target in targets:
-        seen = 0
-        for i in range(len(articles) - 1, -1, -1):
-            if any(e.target_url == target for e in articles[i]):
-                keep_indices.add(i)
-                seen += 1
-                if seen >= max_articles_per_target:
-                    break
+    for indices in target_map.values():
+        for i in indices[-max_articles_per_target:]:
+            keep_indices.add(i)
 
     return [entry for i, art in enumerate(articles) if i in keep_indices for entry in art]
 

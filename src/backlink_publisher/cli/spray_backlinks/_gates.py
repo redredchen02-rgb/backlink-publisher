@@ -19,7 +19,7 @@ from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher.config import _cache_dir
 
-_log = get_logger("spray-backlinks-gates")
+log = get_logger("spray-backlinks-gates")
 
 _SPRAY_CHECKPOINT_DIR_NAME = "spray-checkpoints"
 
@@ -66,7 +66,7 @@ def _list_checkpoints() -> list[tuple[str, int, str]]:
                 done = sum(1 for s in data.get("seeds", []) if s.get("status") == "completed")
                 results.append((data.get("run_id", f.stem), done, f"{done}/{total}"))
             except Exception:
-                _log.debug("checkpoint_json_corrupt", file=f.name)
+                log.debug("checkpoint_json_corrupt", file=f.name)
     return results
 
 

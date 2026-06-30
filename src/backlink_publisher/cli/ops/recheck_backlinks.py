@@ -27,15 +27,15 @@ from pathlib import Path
 import sys
 from typing import Any
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
-
-from ... import config_echo
 from backlink_publisher._util.errors import emit_envelope_and_exit, emit_error
 from backlink_publisher._util.jsonl import write_jsonl
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher.config import load_config
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
 
-_log = get_logger("recheck")
+from ... import config_echo
+
+log = get_logger("recheck")
 
 #: --fail-on-dead exit code. 6 is the project's "advisory domain alarm fired"
 #: code (the anchor-distribution alarm uses it too); it sits outside the 1–5
@@ -135,7 +135,7 @@ def main(argv: list[str] | None = None) -> None:
         if not args.probe:
             rows = [recheck_link(c, probe=False) for c in candidates]
             write_jsonl(iter(rows), sys.stdout)
-            _log.recon("recheck_dry_preview", candidates=len(rows))
+            log.recon("recheck_dry_preview", candidates=len(rows))
             print(
                 f"recheck-backlinks: dry preview — {len(rows)} candidate(s) would be "
                 f"probed (add --probe to run)",
@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> None:
         # ── probe (network): concurrency guard + batch budget ────────────────────
         with _single_run_lock(store.path.parent) as acquired:
             if not acquired:
-                _log.recon("recheck_skipped_locked")
+                log.recon("recheck_skipped_locked")
                 print(
                     "recheck-backlinks: another run holds the lock; skipping",
                     file=sys.stderr,
@@ -156,7 +156,7 @@ def main(argv: list[str] | None = None) -> None:
             written = emit_recheck(store, results)
 
         tally = _tally(results)
-        _log.recon("recheck_reconciliation", checked=len(results), written=written, **tally)
+        log.recon("recheck_reconciliation", checked=len(results), written=written, **tally)
         write_jsonl(iter(results), sys.stdout)
         print(_summary_line(len(results), written, tally), file=sys.stderr)
         for line in _indexability_summary(results):
@@ -212,7 +212,7 @@ def _probe_batch(candidates: list[dict]) -> list[dict]:
     for index, candidate in enumerate(candidates):
         if time.monotonic() > deadline:
             deferred = len(candidates) - index
-            _log.recon("recheck_budget_exhausted", probed=index, deferred=deferred)
+            log.recon("recheck_budget_exhausted", probed=index, deferred=deferred)
             print(
                 f"recheck-backlinks: batch budget ({_BATCH_BUDGET_S:.0f}s) "
                 f"exhausted; {deferred} candidate(s) deferred to next run",

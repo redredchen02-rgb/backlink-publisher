@@ -40,7 +40,7 @@ from backlink_publisher.publishing.adapters.retry import retry_transient_call
 
 from .types import BannerArtifact
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Hard cap on the downloaded banner size.  Provider could theoretically
 #: return a multi-GB image which would OOM the process; reject above
@@ -295,7 +295,7 @@ def _download_with_cap(src_url: str) -> bytes:
             f"image-gen banner exceeds 5MB cap on CDN download "
             f"({len(content)} > {_MAX_RESPONSE_BYTES} bytes)"
         )
-    return cast("bytes", content)
+    return content  # resp.content is already bytes
 
 
 _MIME_MAGIC: tuple[tuple[bytes, str], ...] = (

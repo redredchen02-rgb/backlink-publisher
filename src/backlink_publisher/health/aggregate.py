@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import re
 from typing import TYPE_CHECKING
 
-from backlink_publisher._util.logger import opencli_logger as _log
+from backlink_publisher._util.logger import opencli_logger as log
 
 if TYPE_CHECKING:
     from backlink_publisher.config import Config
@@ -53,7 +53,7 @@ def build_platform_health(config: Config) -> dict[str, PlatformHealthRecord]:
     try:
         return _build(config)
     except Exception as exc:
-        _log.warning(f"build_platform_health: unexpected error: {exc}")
+        log.warning(f"build_platform_health: unexpected error: {exc}")
         return {}
 
 
@@ -89,7 +89,7 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
             """,
         )
     except Exception as exc:
-        _log.debug(f"build_platform_health: terminal-event query failed: {exc}")
+        log.debug(f"build_platform_health: terminal-event query failed: {exc}")
         rows = []
 
     remaining_success = set(platforms)
@@ -127,7 +127,7 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
             if isinstance(raw, dict):
                 circuit_state = raw
     except Exception as exc:
-        _log.debug(f"build_platform_health: circuit state load failed: {exc}")
+        log.debug(f"build_platform_health: circuit state load failed: {exc}")
 
     result: dict[str, PlatformHealthRecord] = {}
     for platform in platforms:
@@ -143,7 +143,7 @@ def _build(config: Config) -> dict[str, PlatformHealthRecord]:
                 if isinstance(entry, dict):
                     tripped_at = entry.get("tripped_at_iso")
         except Exception as exc:
-            _log.debug(f"build_platform_health: circuit check for {platform}: {exc}")
+            log.debug(f"build_platform_health: circuit check for {platform}: {exc}")
 
         # Mutable state from locked store.
         mutable = locked_store.get(platform, config)

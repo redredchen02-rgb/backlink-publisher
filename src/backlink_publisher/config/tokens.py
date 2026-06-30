@@ -42,7 +42,7 @@ def _resolve_config_dir() -> Path:
     return _cfg._config_dir()
 
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def snapshot_token_revs(platforms: Iterable[str] | None = None) -> dict[str, int]:

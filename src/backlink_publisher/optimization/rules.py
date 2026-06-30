@@ -24,7 +24,7 @@ from typing import Any
 
 from .models import RuleResult
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # Rule names
 RULE_CANARY_DRIFT = "canary_drift"
@@ -73,19 +73,19 @@ def evaluate_rules(
             continue
         config = rules_config.get(rule_name, {})
         if not config.get("enabled", True):
-            logger.debug("Rule %s is disabled — skipping", rule_name)
+            log.debug("Rule %s is disabled — skipping", rule_name)
             continue
 
         fn = _RULE_REGISTRY.get(rule_name)
         if fn is None:
-            logger.warning("Unknown rule %s — skipping", rule_name)
+            log.warning("Unknown rule %s — skipping", rule_name)
             continue
 
         try:
             rule_results = fn(resolved_state_data, config)
             results.extend(rule_results)
         except Exception:
-            logger.exception("Rule %s raised unexpectedly — skipping", rule_name)
+            log.exception("Rule %s raised unexpectedly — skipping", rule_name)
 
     return results
 

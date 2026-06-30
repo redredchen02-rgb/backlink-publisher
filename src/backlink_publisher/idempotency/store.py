@@ -349,14 +349,22 @@ class DedupStore:
         def _op() -> dict[tuple[str, str, str], DedupRecord]:
             out: dict[tuple[str, str, str], DedupRecord] = {}
             with self.connect() as conn:
-                for tup in wanted:
-                    row = conn.execute(
-                        f"SELECT {_COLS} FROM dedup_keys "
-                        "WHERE platform = ? AND account = ? AND target_url = ?",
-                        tup,
-                    ).fetchone()
-                    if row is not None:
-                        out[tup] = _row_to_record(row)
+                # Single batch query using VALUES constructor (SQLite 3.15+)
+                # instead of N separate SELECT statements (P12 optimization).
+                placeholders = ",".join(
+                    "(?,?,?)" for _ in wanted
+                )
+                params: list[str] = []
+                for p, a, t in wanted:
+                    params.extend([p, a, t])
+                sql = (
+                    f"SELECT {_COLS} FROM dedup_keys "
+                    f"WHERE (platform, account, target_url) "
+                    f"IN (VALUES {placeholders})"
+                )
+                for row in conn.execute(sql, params).fetchall():
+                    key: tuple[str, str, str] = (row[0], row[1], row[2])
+                    out[key] = _row_to_record(row)
             return out
 
         return cast("dict[tuple[str, str, str], DedupRecord]", _retry_sqlite(_op))

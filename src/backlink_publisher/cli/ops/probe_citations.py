@@ -42,7 +42,7 @@ from backlink_publisher.events import EventStore
 
 from ... import config_echo
 
-_log = get_logger("probe-citations")
+log = get_logger("probe-citations")
 
 #: Advisory exit code when --fail-on-low-share fires (mirrors anchor-alarm
 #: and recheck-backlinks exit 6 convention).
@@ -175,7 +175,7 @@ def main(argv: list[str] | None = None) -> None:
                 "add [targets.\"<domain>\"].probe_queries to config.toml",
                 file=sys.stderr,
             )
-            _log.recon("probe_citations_no_pairs")
+            log.recon("probe_citations_no_pairs")
             return
 
         # -- Selection (D5 cursor from events.db) ---------------------------------
@@ -276,7 +276,7 @@ def _run_dry(args: Any, cfg: Any, selection: Any, store: Any) -> None:
                 f"  stale={row['staleness_days']}d{warn_str}"
             )
 
-    _log.recon(
+    log.recon(
         "probe_citations_dry_run",
         pairs=len(rows),
         cost_ceiling=cost_ceiling,
@@ -295,7 +295,7 @@ def _run_probe(args: Any, cfg: Any, selection: Any, store: Any, *, all_pairs: An
 
     with _single_run_lock(store.path.parent) as acquired:
         if not acquired:
-            _log.recon("probe_citations_skipped_locked")
+            log.recon("probe_citations_skipped_locked")
             print(
                 "probe-citations: another run holds the lock; skipping",
                 file=sys.stderr,
@@ -347,7 +347,7 @@ def _probe_and_emit(args: Any, cfg: Any, geo_cfg: Any, selection: Any, store: An
     summary_row["run_id"] = run_id
     print(json.dumps(summary_row, ensure_ascii=False), flush=True)
 
-    _log.recon(
+    log.recon(
         "probe_citations_run",
         run_id=run_id,
         engine=engine_name,

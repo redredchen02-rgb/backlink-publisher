@@ -13,7 +13,7 @@ from ..types import (
 )
 from .three_url import _normalize_domain_key
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def _parse_anchor_proportions(anchor_section: Any) -> dict[str, float]:

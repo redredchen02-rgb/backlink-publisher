@@ -30,7 +30,7 @@ def _has_migrated() -> bool:
 
 
 def _mark_migrated() -> None:
-    from datetime import UTC, datetime
+    from datetime import datetime, UTC
     _sentinel_path().write_text(datetime.now(UTC).isoformat())
 
 

@@ -36,7 +36,7 @@ from backlink_publisher.content.scraper import WorkMetadata
 
 __all__ = ["Anchors", "select_anchors", "render_work_themed_article"]
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # Position permutations — each tuple maps paragraph index (0,1,2) to the
 # anchor slot index (0=main, 1=list, 2=work) that gets rendered there.
@@ -170,7 +170,7 @@ def _pick_work_anchor(
             if candidate in recent_set:
                 continue
             return candidate
-    _log.warning(
+    log.warning(
         "work-themed: no template anchor passed filters/dedup, fallback to "
         "branded_pool[0] (title=%r, templates=%d, recent=%d)",
         title, len(cfg.work_anchor_templates), len(recent_texts),

@@ -39,7 +39,6 @@ P0-1 correction (R10):
 from __future__ import annotations
 
 from datetime import datetime, UTC
-from backlink_publisher._compat import fcntl
 import json
 import os
 from pathlib import Path
@@ -50,6 +49,7 @@ from typing import Any, cast
 
 import requests
 
+from backlink_publisher._compat import fcntl
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     ContentRejectedError,

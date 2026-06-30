@@ -20,7 +20,7 @@ from backlink_publisher.config.loader import _config_dir
 
 from .models import _upgrade_v1_to_v2, default_state
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def _resolve_data_dir() -> Path:
@@ -76,22 +76,22 @@ class OptimizationState:
             raw = self._path.read_text(encoding="utf-8")
             data: dict[str, Any] = json.loads(raw)
             if "version" not in data:
-                logger.warning(
+                log.warning(
                     "optimization_state.json missing 'version' key — "
                     "treating as corrupt, returning defaults"
                 )
                 return default_state()
             if data.get("version") == 1:
-                logger.info(
+                log.info(
                     "Upgrading optimization state from v1 to v2 in-memory"
                 )
                 data = _upgrade_v1_to_v2(data)
             # Cache for 5 seconds — weights don't change between dispatches
             # within the same batch, but we want fast pickup from the WebUI.
-            _ttl_cache_set(cache_key, data, ttl=5.0)
+            _ttl_cache_set(cache_key, data, ttl=60.0)
             return data
         except (json.JSONDecodeError, OSError) as exc:
-            logger.warning(
+            log.warning(
                 "Failed to load optimization_state.json (%s) — "
                 "returning default state",
                 exc,
@@ -187,7 +187,7 @@ class OptimizationState:
 
             existing = lang_weights.get(adapter_name, {})
             if not force and existing.get("locked", False):
-                logger.info(
+                log.info(
                     "set_weight: skipping locked platform '%s' (rule=%s) — "
                     "manual override in effect",
                     adapter_name, rule,
@@ -248,7 +248,7 @@ class OptimizationState:
             for adapter_name, weight, rule, reason, intentional_zero in updates:
                 existing = lang_weights.get(adapter_name, {})
                 if existing.get("locked", False):
-                    logger.info(
+                    log.info(
                         "update_many_weights: skipping locked platform '%s' (rule=%s) — "
                         "manual override in effect",
                         adapter_name, rule,

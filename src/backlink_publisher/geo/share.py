@@ -40,7 +40,7 @@ import logging
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants (D10 — set at planning time, not deferred)
@@ -219,7 +219,7 @@ def compute_share(
         try:
             payload = json.loads(row["payload_json"])
         except (json.JSONDecodeError, TypeError):
-            _log.warning(
+            log.warning(
                 "geo.share: unparseable payload_json for target %r; skipping",
                 target_url,
             )

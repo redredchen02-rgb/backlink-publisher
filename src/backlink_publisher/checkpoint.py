@@ -111,6 +111,7 @@ def create_checkpoint(
         "mode": mode,
         "status": None,
         "items": items,
+        "_id_to_index": {item["id"]: i for i, item in enumerate(items)},
         "flags": dict(flags or {}),
     }
 
@@ -147,13 +148,22 @@ def update_item(run_id: str, item_id: str, status: str, **fields: Any) -> None:
     _validate_run_id(run_id)
     with _lock:
         data = load_checkpoint(run_id)
-        for item in data["items"]:
-            if item["id"] == item_id:
-                item["status"] = status
-                for f in _OPTIONAL_ITEM_FIELDS:
-                    item[f] = None
-                item.update(fields)
-                break
+        # O(1) index lookup (P12 optimization) — falls back to linear scan
+        # for legacy checkpoints without the index.
+        idx = data.get("_id_to_index", {}).get(item_id)
+        if idx is not None and 0 <= idx < len(data["items"]):
+            item = data["items"][idx]
+        else:
+            item = None
+            for candidate in data["items"]:
+                if candidate["id"] == item_id:
+                    item = candidate
+                    break
+        if item is not None:
+            item["status"] = status
+            for f in _OPTIONAL_ITEM_FIELDS:
+                item[f] = None
+            item.update(fields)
         _atomic_write(_checkpoint_path(run_id), data)
 
 
