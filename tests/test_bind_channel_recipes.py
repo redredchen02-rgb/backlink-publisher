@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import dataclasses
+import sys
 
 import pytest
 
@@ -261,6 +262,7 @@ class TestMediumLastAccountFile:
         )
         assert self._read() == "alice"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_write_creates_tentative_with_mode_0600(self):
         from backlink_publisher.config.loader import _config_dir
         cfg = _config_dir()
@@ -411,6 +413,7 @@ class TestMediumPostPersistConversion:
             "cookies": [{"name": "sid", "value": "abc", "domain": "medium.com"}]
         }
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_cookies_json_is_0600(self, tmp_path, monkeypatch):
         from backlink_publisher.cli._bind.recipes.medium import _medium_post_persist
 
@@ -512,6 +515,7 @@ class TestMediumMetaTentativeFromPage:
         _write_meta_tentative(_FakePage())
         assert not (tmp_path / "medium-meta.json.tentative").exists()
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_meta_tentative_is_0600(self, tmp_path, monkeypatch):
         from backlink_publisher.cli._bind.recipes.medium import _write_meta_tentative
 

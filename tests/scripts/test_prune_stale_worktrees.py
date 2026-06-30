@@ -18,12 +18,21 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="MSYS2/Git Bash path resolution is incompatible with Python subprocess on Windows; "
+    "the test runs bash scripts end-to-end and requires a POSIX-compatible shell environment.",
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PRUNE = REPO_ROOT / "scripts" / "prune-stale-worktrees.sh"
 SAFETY = REPO_ROOT / "scripts" / "_worktree_safety.sh"
+
+
 
 
 def _run(cmd: list[str], cwd: Path, env: dict | None = None) -> subprocess.CompletedProcess:
@@ -52,6 +61,8 @@ def fixture_repo(tmp_path: Path) -> Path:
     _git(main, "commit", "-q", "-m", "init")
 
     # Simulate an `origin` remote so the helper's `origin/main` reference resolves.
+    # Use a forward-slash relative path so git fetch works from both Windows cmd
+    # and Git Bash (MSYS2) — absolute Windows paths cause MSYS2 path-conversion issues.
     bare = tmp_path / "origin.git"
     _git(main, "clone", "--bare", "-q", str(main), str(bare))
     _git(main, "remote", "add", "origin", str(bare))

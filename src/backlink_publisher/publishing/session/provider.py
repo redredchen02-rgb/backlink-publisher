@@ -307,12 +307,9 @@ def _load_velog_cookies(
                 "Run: velog-login"
             )
 
-    mode = os.stat(cookies_path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"velog-cookies.json must be 0600 (found {oct(mode)})\n"
-            f"Run: chmod 600 {cookies_path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+
+    check_0600(cookies_path, label="velog-cookies.json")
 
     try:
         raw = json.loads(cookies_path.read_text(encoding="utf-8"))
@@ -463,12 +460,9 @@ def _load_substack_cookies(
             "Save as 'substack-credentials.json' (chmod 600)."
         )
 
-    mode = os.stat(cookies_path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"substack-credentials.json must be 0600 (found {oct(mode)})\n"
-            f"Run: chmod 600 {cookies_path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+
+    check_0600(cookies_path, label="substack-credentials.json")
 
     try:
         raw = json.loads(cookies_path.read_text(encoding="utf-8"))

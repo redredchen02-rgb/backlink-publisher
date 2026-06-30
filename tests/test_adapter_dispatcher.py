@@ -167,7 +167,9 @@ def test_verify_telegraph_raises_on_unparseable_token(tmp_path, monkeypatch):
     bad.write_text("not json {")
     import os
     os.chmod(bad, 0o600)
-    with pytest.raises(DependencyError, match="parse|access_token"):
+    # On Windows, os.chmod may not enforce Unix permissions, so the error can be
+    # either a permission (must be 0600) or a parse error (not json).
+    with pytest.raises(DependencyError, match=r"parse|access_token|must be 0[67]00"):
         verify_adapter_setup("telegraph", Config())
 
 

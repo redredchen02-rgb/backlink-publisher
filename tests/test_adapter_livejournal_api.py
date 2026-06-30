@@ -16,6 +16,7 @@ from unittest import mock
 from xmlrpc.client import Fault, ProtocolError
 
 import pytest
+import sys
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config import Config
@@ -195,6 +196,7 @@ def test_missing_credentials_raises_dependency_error(isolated_config_dir):
 # ── credential at-rest security ──────────────────────────────────────────────
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_store_credentials_writes_0600_and_hashes_password(isolated_config_dir):
     path = store_credentials(Config(), "tester", "plaintextpw")
     mode = os.stat(path).st_mode & 0o777
@@ -208,6 +210,7 @@ def test_store_credentials_writes_0600_and_hashes_password(isolated_config_dir):
     assert data["hpassword"] == hashlib.md5(b"plaintextpw").hexdigest()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_load_credentials_rejects_world_readable_file(isolated_config_dir):
     path = store_credentials(Config(), "tester", "pw")
     os.chmod(path, 0o644)
@@ -222,6 +225,7 @@ def test_store_credentials_empty_inputs_raise(isolated_config_dir):
         store_credentials(Config(), "tester", "")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_store_credentials_resets_perms_on_preexisting_loose_file(isolated_config_dir):
     # A pre-existing loose-mode file must be tightened to 0600 after rotation.
     path = lj._credentials_path(Config())
@@ -231,6 +235,7 @@ def test_store_credentials_resets_perms_on_preexisting_loose_file(isolated_confi
     assert (os.stat(path).st_mode & 0o777) == 0o600
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_concurrent_bootstrap_and_rotation_no_torn_write(isolated_config_dir):
     # bootstrap and rotation are the two credential mutation sites; run them
     # concurrently and assert the file is never torn and ends 0600 with one

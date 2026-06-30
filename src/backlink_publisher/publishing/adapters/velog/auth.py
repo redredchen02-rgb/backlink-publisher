@@ -76,12 +76,8 @@ def _load_cookies(cookies_path: Path) -> dict[str, str]:
                 "Run: velog-login"
             )
 
-    mode = os.stat(source_path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"velog-cookies.json must be 0600 (found {oct(mode)})\n"
-            f"Run: chmod 600 {source_path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(source_path, label="velog-cookies.json")
 
     try:
         raw = json.loads(source_path.read_text(encoding="utf-8"))

@@ -140,9 +140,8 @@ def store_credentials(config: Config, username: str, password: str) -> Path:
     # Post-write stat re-check (telegraph_api precedent): atomic_write sets the
     # tmp file to 0o600 before replace, but a pre-existing destination written
     # by older code could have left an inode whose mode we must confirm.
-    mode = os.stat(path).st_mode & 0o777
-    if mode != 0o600:
-        os.chmod(path, 0o600)
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(path, label=_CRED_FILENAME)
     log.info("livejournal_credentials_stored username_set=%s", bool(username))
     return path
 
@@ -179,11 +178,8 @@ def _load_credentials(config: Config) -> dict[str, str]:
             "Store them with livejournal_api.store_credentials(config, username, "
             "password) — use a throwaway account (the secret is not revocable)."
         )
-    mode = os.stat(path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"{_CRED_FILENAME} must be 0600 (found {oct(mode)})\nRun: chmod 600 {path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(path, label=_CRED_FILENAME)
     try:
         data = cast("dict[str, str]", json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):

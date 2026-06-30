@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import sys
 import time
 from unittest.mock import MagicMock, patch
 
@@ -166,6 +167,7 @@ class TestCountFile:
         count, last = _read_count(p)
         assert count == 0
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_write_then_read_roundtrip(self, tmp_path):
         p = tmp_path / "count.json"
         _write_count(p, 7, 1234567890.0)
@@ -549,6 +551,7 @@ class TestVelogGraphQLAdapterPublish:
 # ── _save_null_artifact ────────────────────────────────────────────────────────
 
 class TestSaveNullArtifact:
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_writes_artifact_0600(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         config = _make_config(tmp_path)

@@ -128,18 +128,8 @@ def _load_medium_cookies() -> list[dict[str, Any]]:
             f"(or `bind-channel --channel medium`) to bind your Medium "
             f"session. Pre-Plan-005 storage_state.json is no longer read."
         )
-    try:
-        mode = path.stat().st_mode & 0o777
-    except OSError as exc:
-        raise DependencyError(
-            f"medium-cookies.json at {path} is unreadable: {exc}"
-        ) from exc
-    if mode != 0o600:
-        raise DependencyError(
-            f"medium-cookies.json at {path} has mode {oct(mode)}, expected "
-            f"0o600. Run `chmod 600 {path}` (or re-run `medium-login` "
-            f"which will write 0600)."
-        )
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(path, label="medium-cookies.json")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:

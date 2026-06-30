@@ -18,6 +18,7 @@ __tier__ = "unit"
 import base64
 import json
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -95,6 +96,10 @@ class TestGhpagesTokenIO:
         save_ghpages_token({"token": "ghp_xyz"}, path)
         assert load_ghpages_token(path) == {"token": "ghp_xyz", "token_rev": 1}
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows does not enforce Unix 0600 permission semantics",
+    )
     def test_save_sets_0600_permissions(self, tmp_path):
         path = tmp_path / "ghpages-token.json"
         save_ghpages_token({"token": "abc"}, path)

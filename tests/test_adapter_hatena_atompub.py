@@ -13,6 +13,7 @@ import base64
 import hashlib
 import json
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -107,6 +108,7 @@ def test_missing_credentials_raises_dependency_error(tmp_path):
         HatenaAtomPubAdapter().publish(_payload(), "publish", cfg)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_loose_permissions_raise(tmp_path):
     cfg = MagicMock()
     cfg.config_dir = tmp_path

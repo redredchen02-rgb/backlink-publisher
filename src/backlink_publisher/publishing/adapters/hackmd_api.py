@@ -75,12 +75,9 @@ def _required_headers(token: str) -> dict[str, str]:
 def _require_secure_mode(path: Any) -> None:
     """R10: refuse a group/world-readable token file (mirrors telegraph/livejournal)."""
     if path.exists():
-        mode = os.stat(path).st_mode & 0o777
-        if mode != 0o600:
-            raise DependencyError(
-                f"HackMD token file {path} has mode {oct(mode)}; must be 0o600. "
-                f"Run: chmod 600 {path}"
-            )
+        from backlink_publisher._util.permissions import check_0600
+
+        check_0600(path, label="HackMD token file")
 
 
 def _load_token(config: Config) -> str:

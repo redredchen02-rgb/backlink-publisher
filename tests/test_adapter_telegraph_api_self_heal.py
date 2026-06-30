@@ -20,6 +20,7 @@ __tier__ = "unit"
 import json
 import logging
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -197,6 +198,7 @@ def test_second_401_after_rotation_raises_external_service_error(seeded_token):
         assert mock_post.call_count == 3
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_atomic_write_preserves_0600_perms(seeded_token):
     """After self-heal, new token file must be 0o600 (not umask default)."""
     from backlink_publisher.publishing.adapters.telegraph_api import TelegraphAPIAdapter
@@ -248,6 +250,7 @@ def test_orphan_archive_filename_includes_iso_timestamp(seeded_token):
     assert "2026" in suffix or "20" in suffix
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_concurrent_bootstrap_creates_only_one_account(isolated_config_dir):
     """Bootstrap TOCTOU race regression (ce-review P1 / correctness reviewer).
 

@@ -24,13 +24,14 @@ honored — never a frozen ``Path.home()``.
 from __future__ import annotations
 
 from datetime import datetime, UTC
-from backlink_publisher._compat import fcntl
 import json
 import os
 from pathlib import Path
 from typing import Any
 
-from backlink_publisher._util.errors import InputValidationError, PipelineError
+from backlink_publisher._compat import fcntl
+from backlink_publisher._util.errors import DependencyError, InputValidationError, PipelineError
+from backlink_publisher._util.permissions import check_0600
 from backlink_publisher._util.jsonl import atomic_write_jsonl
 from backlink_publisher._util.logger import PipelineLogger
 from backlink_publisher.comment_outreach import schema
@@ -58,9 +59,9 @@ def _store_path() -> Path:
 def _repair_perms(path: Path) -> None:
     """Tighten *path* to ``0o600`` if it exists and is looser (assert-and-repair)."""
     try:
-        if path.exists() and (path.stat().st_mode & 0o777) != 0o600:
-            os.chmod(path, 0o600)
-    except OSError:  # best-effort hardening; never crash the verb on a chmod failure
+        if path.exists():
+            check_0600(path, label="comment-outreach status store")
+    except (DependencyError, OSError):  # best-effort hardening; never crash the verb on a failure
         pass
 
 

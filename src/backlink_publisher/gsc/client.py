@@ -16,8 +16,9 @@ from typing import Any
 
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.logger import get_logger
+from backlink_publisher._util.permissions import check_0600
 
-_log = get_logger("gsc.client")
+log = get_logger("gsc.client")
 
 _GSC_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly"
 
@@ -48,16 +49,12 @@ class GscClient:
 
         cred_path = Path(credential_path)
         if not cred_path.exists():
-            _log.debug(f"gsc: credential_path={credential_path!r} not found")
+            log.debug(f"gsc: credential_path={credential_path!r} not found")
             raise ExternalServiceError(
                 "GSC credential file not found — check [gsc].credential_path in config.toml"
             )
 
-        mode = cred_path.stat().st_mode & 0o777
-        if mode != 0o600:
-            _log.warning(
-                f"gsc: credential file mode is {mode:o}, expected 0o600 — {credential_path}"
-            )
+        check_0600(cred_path, label="GSC credentials")
 
         self._credential_path = str(cred_path)
         self._property_url = property_url

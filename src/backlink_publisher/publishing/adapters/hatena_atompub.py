@@ -95,9 +95,8 @@ def _load_credentials(config: Config) -> tuple[str, str, str]:
             'Write {"hatena_id": "...", "blog_id": "...", "api_key": "..."} '
             "(chmod 600). API key: Hatena Blog → Settings → Advanced → AtomPub."
         )
-    mode = os.stat(cred_file).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(f"{_CRED_FILENAME} must be 0600 (found {oct(mode)})")
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(cred_file, label=_CRED_FILENAME)
     try:
         raw = json.loads(cred_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
