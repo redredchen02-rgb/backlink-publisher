@@ -45,6 +45,10 @@ def _isolated_config_dir(tmp_path):
         "backlink_publisher.config._config_dir", return_value=fake_config_dir,
     ), patch(
         "backlink_publisher.config._cache_dir", return_value=tmp_path / "cache",
+    ), patch(
+        "backlink_publisher._util.paths._config_dir", return_value=fake_config_dir,
+    ), patch(
+        "backlink_publisher._util.paths._cache_dir", return_value=tmp_path / "cache",
     ):
         yield fake_config_dir
 
@@ -383,167 +387,8 @@ class TestBindAssertion:
             webui._resolve_bind_host()
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# Content-fetch gate (plan 2026-05-14-007 Unit 4)
-# ═════════════════════════════════════════════════════════════════════════════
-
-
-class TestContentFetchGate:
-    """The content-fetch gate runs at form-save time so the operator gets
-    field-level errors instantly rather than discovering the bad URL at
-    publish time. ``BACKLINK_NO_FETCH_VERIFY=1`` bypasses for dev.
-    """
-
-    def test_save_three_url_main_url_gate_failure_returns_422(
-        self, client, monkeypatch
-    ):
-        def _fail_main(urls, max_workers=5):
-            return {
-                u: (
-                    (False, "http_404", None)
-                    if "stale" in u
-                    else (True, None, "ok")
-                )
-                for u in urls
-            }
-
-        monkeypatch.setattr(
-            "webui.content_fetch.verify_urls_batch", _fail_main,
-        )
-        token = _fetch_csrf(client)
-        resp = client.post(
-            "/sites/save-three-url",
-            data={
-                "csrf_token": token,
-                "main_url": "https://stale.example.com/",
-                "list_url": "https://other.example/list",
-                "work_urls": "",
-                "branded_pool": "B",
-                "partial_pool": "P",
-                "exact_pool": "E",
-            },
-            follow_redirects=False,
-        )
-        assert resp.status_code == 422
-        body = resp.data.decode()
-        assert "main_url" in body
-        # Failure reason surfaces to the operator
-        assert "http_404" in body
-
-    def test_save_three_url_work_urls_partial_gate_failure(
-        self, client, monkeypatch
-    ):
-        def _fail_one(urls, max_workers=5):
-            return {
-                u: (
-                    (False, "http_200_no_title", None)
-                    if u.endswith("/bad")
-                    else (True, None, "ok")
-                )
-                for u in urls
-            }
-
-        monkeypatch.setattr(
-            "webui.content_fetch.verify_urls_batch", _fail_one,
-        )
-        token = _fetch_csrf(client)
-        resp = client.post(
-            "/sites/save-three-url",
-            data={
-                "csrf_token": token,
-                "main_url": "https://x.com/",
-                "list_url": "https://x.com/list",
-                "work_urls": "https://x.com/good\nhttps://x.com/bad",
-                "branded_pool": "B",
-                "partial_pool": "P",
-                "exact_pool": "E",
-            },
-            follow_redirects=False,
-        )
-        assert resp.status_code == 422
-        body = resp.data.decode()
-        assert "work_urls" in body
-        assert "/bad" in body
-        # The good URL should not be flagged
-        assert "http_200_no_title" in body
-
-    def test_save_three_url_all_urls_pass_gate_succeeds(
-        self, client
-    ):
-        """The autouse mock in conftest defaults everything to pass."""
-        token = _fetch_csrf(client)
-        resp = client.post(
-            "/sites/save-three-url",
-            data={
-                "csrf_token": token,
-                "main_url": "https://x.com/",
-                "list_url": "https://x.com/list",
-                "work_urls": "",
-                "branded_pool": "B",
-                "partial_pool": "P",
-                "exact_pool": "E",
-            },
-            follow_redirects=False,
-        )
-        assert resp.status_code == 302
-
-    def test_save_three_url_env_bypass_skips_gate(
-        self, client, monkeypatch
-    ):
-        """BACKLINK_NO_FETCH_VERIFY=1 → gate is not called even when it
-        would fail. Use case: dev / staging environments with deliberately
-        unreachable URLs."""
-        call_count = {"n": 0}
-
-        def _tracking(urls, max_workers=5):
-            call_count["n"] += 1
-            return {u: (False, "http_404", None) for u in urls}
-
-        monkeypatch.setattr(
-            "webui.content_fetch.verify_urls_batch", _tracking,
-        )
-        monkeypatch.setenv("BACKLINK_NO_FETCH_VERIFY", "1")
-        token = _fetch_csrf(client)
-        resp = client.post(
-            "/sites/save-three-url",
-            data={
-                "csrf_token": token,
-                "main_url": "https://x.com/",
-                "list_url": "https://x.com/list",
-                "work_urls": "",
-                "branded_pool": "B",
-                "partial_pool": "P",
-                "exact_pool": "E",
-            },
-            follow_redirects=False,
-        )
-        assert resp.status_code == 302, "bypass should let the save proceed"
-        assert call_count["n"] == 0, "gate must not be invoked under bypass"
-
-    def test_ce_plan_url_gate_failure_renders_error(
-        self, client, monkeypatch
-    ):
-        def _fail(urls, max_workers=5):
-            return {u: (False, "http_404", None) for u in urls}
-
-        monkeypatch.setattr(
-            "webui.content_fetch.verify_urls_batch", _fail,
-        )
-        resp = client.post(
-            "/ce:plan",
-            data={"target_url": "https://stale.example/"},
-            follow_redirects=False,
-        )
-        # /ce:plan re-renders the index page with an inline error rather
-        # than 422; assert the error is surfaced
-        assert resp.status_code == 200
-        body = resp.data.decode()
-        assert "无可访问内容" in body or "http_404" in body
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# Homepage three-tier URL form (plan 2026-05-14-009 Units 1+2+4)
-# ═════════════════════════════════════════════════════════════════════════════
+# Content-fetch gate + TTL wiring tests moved to
+# test_webui_content_fetch_gate.py (P14 C1 split).
 
 
 class TestHomepageThreeTier:
@@ -700,74 +545,6 @@ class TestHomepageThreeTier:
 # Plan 008 Unit 3: webui TTL env wiring
 # ═════════════════════════════════════════════════════════════════════════════
 
-
-class TestContentFetchTTLWiring:
-    """`BACKLINK_GATE_CACHE_TTL_SECONDS` → content_fetch.set_default_max_age
-    happens at webui startup via `_wire_content_fetch_ttl_from_env`."""
-
-    def test_default_900_seconds_when_env_unset(self, monkeypatch):
-        from backlink_publisher.content import fetch as content_fetch
-        import webui
-
-        monkeypatch.delenv("BACKLINK_GATE_CACHE_TTL_SECONDS", raising=False)
-        monkeypatch.delenv("BACKLINK_NO_FETCH_VERIFY", raising=False)
-        content_fetch.set_default_max_age(None)
-        webui._wire_content_fetch_ttl_from_env()
-        assert content_fetch._DEFAULT_MAX_AGE_S == 900.0
-        content_fetch.set_default_max_age(None)
-        webui._wire_content_fetch_ttl_from_env()
-        # 900s default per plan 008 Unit 3
-        assert content_fetch._DEFAULT_MAX_AGE_S == 900.0
-        # Reset for the next test.
-        content_fetch.set_default_max_age(None)
-
-    def test_explicit_env_overrides_default(self, monkeypatch):
-        from backlink_publisher.content import fetch as content_fetch
-        import webui
-
-        monkeypatch.setenv("BACKLINK_GATE_CACHE_TTL_SECONDS", "60")
-        monkeypatch.delenv("BACKLINK_NO_FETCH_VERIFY", raising=False)
-        content_fetch.set_default_max_age(None)
-        webui._wire_content_fetch_ttl_from_env()
-        assert content_fetch._DEFAULT_MAX_AGE_S == 60.0
-
-    def test_bypass_env_skips_ttl_wiring(self, monkeypatch):
-        from backlink_publisher.content import fetch as content_fetch
-        import webui
-
-        monkeypatch.setenv("BACKLINK_NO_FETCH_VERIFY", "1")
-        monkeypatch.setenv("BACKLINK_GATE_CACHE_TTL_SECONDS", "60")
-        content_fetch.set_default_max_age(None)
-        webui._wire_content_fetch_ttl_from_env()
-        assert content_fetch._DEFAULT_MAX_AGE_S is None
-
-    def test_invalid_env_falls_back_to_900(self, monkeypatch):
-        from backlink_publisher.content import fetch as content_fetch
-        import webui
-
-        monkeypatch.setenv("BACKLINK_GATE_CACHE_TTL_SECONDS", "not-a-number")
-        monkeypatch.delenv("BACKLINK_NO_FETCH_VERIFY", raising=False)
-        content_fetch.set_default_max_age(None)
-        webui._wire_content_fetch_ttl_from_env()
-        assert content_fetch._DEFAULT_MAX_AGE_S == 900.0
-
-    def test_zero_or_negative_seconds_skips_wiring(self, monkeypatch):
-        from backlink_publisher.content import fetch as content_fetch
-        import webui
-
-        for value in ("0", "-5"):
-            monkeypatch.setenv("BACKLINK_GATE_CACHE_TTL_SECONDS", value)
-            monkeypatch.delenv("BACKLINK_NO_FETCH_VERIFY", raising=False)
-            content_fetch.set_default_max_age(None)
-            webui._wire_content_fetch_ttl_from_env()
-            assert content_fetch._DEFAULT_MAX_AGE_S is None, (
-                f"TTL={value} should leave TTL disabled"
-            )
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# Plan 006: /sites form minimal-input — derivation helpers + autofilled flow
-# ═════════════════════════════════════════════════════════════════════════════
 
 
 class TestDeriveHelpers:

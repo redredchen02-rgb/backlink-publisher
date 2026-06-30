@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, redirect, url_for
 
 from ..api.scheduled_api import list_scheduled
 from ..helpers.contexts import _render

@@ -5,7 +5,7 @@ Goal: keep the *core user journey* (index, settings, monitor hub) on the
 hex / raw rgba(), so the dark console theme stays internally consistent.
 
 Scope is deliberately an explicit ALLOWLIST. The ~30 fast-follow pages
-(health, sites, equity_ledger, keep_alive, pipeline_dashboard, the
+	(health, sites, equity_ledger, keep_alive, the
 _settings_* binding partials, copilot.*) still carry raw classes today and
 MUST NOT redden this gate — they get tokenized in a later unit. tokens.css is
 the token SOURCE (legitimately holds raw rgba/hex for orbs, *-soft status
@@ -109,7 +109,6 @@ def test_allowlist_excludes_fast_follow_pages():
         "sites.html",
         "equity_ledger.html",
         "keep_alive.html",
-        "pipeline_dashboard.html",
     }
     assert fast_follow_templates.isdisjoint(CORE_FLOW_TEMPLATES)
     # CSS source-of-truth + already-clean shared layers stay out of scope.

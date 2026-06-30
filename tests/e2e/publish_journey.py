@@ -26,6 +26,8 @@ disabled), so it is safe to collect anywhere.
 
 from __future__ import annotations
 
+__tier__ = "e2e"
+
 import os
 from pathlib import Path
 import socket

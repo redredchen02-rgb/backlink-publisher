@@ -22,7 +22,7 @@ from backlink_publisher.events._store_sqlite import _retry_sqlite
 from webui_store.base import _LazyStore
 from webui_store.sqlite_base import BaseSqliteStore, WebUIDatabase
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 _UNBOUND_DEFAULT: dict[str, Any] = {
@@ -386,7 +386,7 @@ def purge_removed_channel_credentials() -> None:
     for slug in _REMOVED_CREDENTIAL_SLUGS:
         path = config_dir / f"{slug}-credentials.json"
         if path.is_symlink():
-            _log.warning(
+            log.warning(
                 "purge_removed_channel_credentials: refusing to follow symlink "
                 "%s (not unlinked)", path,
             )
@@ -397,7 +397,7 @@ def purge_removed_channel_credentials() -> None:
             _validate_storage_state_path(path)  # containment guard
             path.unlink()
         except (OSError, UsageError) as exc:
-            _log.warning(
+            log.warning(
                 "purge_removed_channel_credentials: could not remove %s (%s) — "
                 "stranded 0600 secret; remove manually", path, exc,
             )
@@ -405,7 +405,7 @@ def purge_removed_channel_credentials() -> None:
     try:
         sentinel.write_text(_now_iso())
     except OSError as exc:  # pragma: no cover — startup must not crash
-        _log.warning("purge_removed_channel_credentials: sentinel write failed: %s", exc)
+        log.warning("purge_removed_channel_credentials: sentinel write failed: %s", exc)
 
 
 def credential_age_days(channel: str) -> float | None:

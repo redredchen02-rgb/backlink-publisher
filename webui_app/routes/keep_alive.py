@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import abort, Blueprint, jsonify, request
+from flask import abort, Blueprint, jsonify, redirect, request, url_for
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher._util.url import canonicalize_url
@@ -30,6 +30,13 @@ _history = HistoryAPI()
 
 @bp.route("/ce:keep-alive", methods=["GET"])
 def keep_alive() -> Any:
+    """Redirect legacy /ce:keep-alive → SPA /app/keep-alive (P15 A1)."""
+    return redirect(url_for("spa.spa", subpath="keep-alive"), 302)
+
+
+@bp.route("/ce:keep-alive/jinja", methods=["GET"])
+def keep_alive_jinja() -> Any:
+    """Legacy Jinja fallback — kept for LITE mode or SPA-disabled setups."""
     flash_type = request.args.get("flash_type", "")
     flash_msg = request.args.get("flash_msg", "")
     flash = {"type": flash_type, "msg": flash_msg} if flash_type else None
@@ -38,6 +45,14 @@ def keep_alive() -> Any:
     return _render(
         "keep_alive.html", view=view, flash=flash, active_page="keep_alive", running_job=running
     )
+
+
+@bp.route("/api/keep-alive/summary", methods=["GET"])
+def api_keep_alive_summary() -> Any:
+    """JSON summary for the SPA keep-alive page (P15 A1)."""
+    from ..services.keep_alive import build_keepalive_view
+    view = build_keepalive_view()
+    return jsonify(view)
 
 
 @bp.route("/ce:keep-alive/recheck", methods=["POST"])

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, current_app, jsonify, render_template
+from flask import Blueprint, current_app, jsonify, redirect, render_template, url_for
 
 from ..helpers.security import _ensure_csrf_token
 
@@ -16,7 +16,13 @@ bp = Blueprint("campaign_progress", __name__)
 
 @bp.route("/campaign/<campaign_id>")
 def campaign_progress_page(campaign_id: str) -> Any:
-    """Render the campaign progress / results page."""
+    """Redirect legacy /campaign/<id> → SPA /app/campaign/<id> (P13 B3)."""
+    return redirect(url_for("spa.spa", subpath=f"campaign/{campaign_id}"), 302)
+
+
+@bp.route("/campaign/<campaign_id>/jinja")
+def campaign_progress_jinja(campaign_id: str) -> Any:
+    """Legacy Jinja fallback — kept for LITE mode or SPA-disabled setups."""
     from webui_store import campaign_store
 
     csrf_token = _ensure_csrf_token()

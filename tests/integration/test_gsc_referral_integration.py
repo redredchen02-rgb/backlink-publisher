@@ -48,8 +48,8 @@ def test_gsc_probe_index_and_deduplication(tmp_path: Path) -> None:
     mock_client.search_analytics_query.return_value = mock_gsc_response
 
     with (
-        patch("backlink_publisher.cli.probe_index.load_config", return_value=cfg),
-        patch("backlink_publisher.cli.probe_index.EventStore", return_value=store),
+        patch("backlink_publisher.cli.ops.probe_index.load_config", return_value=cfg),
+        patch("backlink_publisher.cli.ops.probe_index.EventStore", return_value=store),
         patch.object(type(cfg), "config_dir", property(lambda self: tmp_path)),
         patch("backlink_publisher.gsc.client.GscClient", return_value=mock_client),
     ):
@@ -69,8 +69,8 @@ def test_gsc_probe_index_and_deduplication(tmp_path: Path) -> None:
     # Second run: since they were recently probed, candidates list should be empty
     mock_client.search_analytics_query.reset_mock()
     with (
-        patch("backlink_publisher.cli.probe_index.load_config", return_value=cfg),
-        patch("backlink_publisher.cli.probe_index.EventStore", return_value=store),
+        patch("backlink_publisher.cli.ops.probe_index.load_config", return_value=cfg),
+        patch("backlink_publisher.cli.ops.probe_index.EventStore", return_value=store),
         patch.object(type(cfg), "config_dir", property(lambda self: tmp_path)),
         patch("backlink_publisher.gsc.client.GscClient", return_value=mock_client),
     ):

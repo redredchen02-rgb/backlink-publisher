@@ -95,7 +95,7 @@ def _scan_for_undeclared_monoliths(
     """
     for path in scan_root.rglob("*.py"):
         try:
-            relative = str(path.relative_to(repo_root))
+            relative = str(path.relative_to(repo_root)).replace("\\", "/")
         except ValueError:
             continue
         if relative in declared_paths:

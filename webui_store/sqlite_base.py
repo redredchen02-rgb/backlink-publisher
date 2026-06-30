@@ -34,7 +34,7 @@ from backlink_publisher.events._store_sqlite import (
     _tighten_wal_sidecars,
 )
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Filename for the webui operational state database. Kept here rather than
 #: importing ``_DB_FILENAME`` from ``_store_sqlite`` (which is "events.db").
@@ -335,7 +335,7 @@ class BaseSqliteStore(SqliteStore):
             text = json_path.read_text(encoding="utf-8")
             data = json.loads(text)
         except (json.JSONDecodeError, UnicodeDecodeError, OSError):
-            _log.warning(
+            log.warning(
                 "%s migration: skipping corrupt/unreadable %s",
                 type(self).__name__, json_path,
             )
@@ -347,13 +347,13 @@ class BaseSqliteStore(SqliteStore):
             # Consistency with the read/rename error paths: log + return WITHOUT
             # writing the sentinel, so the next boot retries. save() is
             # idempotent (DELETE + INSERT), so a retry cannot duplicate data.
-            _log.warning("%s migration: save failed: %s", type(self).__name__, exc)
+            log.warning("%s migration: save failed: %s", type(self).__name__, exc)
             return
 
         try:
             json_path.rename(migrated_path)
         except OSError as exc:
-            _log.warning("%s migration: rename failed: %s", type(self).__name__, exc)
+            log.warning("%s migration: rename failed: %s", type(self).__name__, exc)
             return
 
         try:

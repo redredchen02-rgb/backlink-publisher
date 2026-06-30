@@ -4,7 +4,7 @@ from datetime import UTC
 import re
 from typing import Any
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, redirect, url_for
 
 from backlink_publisher._util.errors import UsageError
 
@@ -207,7 +207,13 @@ def command_center() -> Any:
 
 @bp.route("/monitor-hub", methods=["GET"])
 def monitor_hub() -> Any:
-    """Console monitor hub — 'today's anomalies first' aggregated card view."""
+    """Redirect legacy /monitor-hub → SPA /app/monitor (P15 B4)."""
+    return redirect(url_for("spa.spa", subpath="monitor"), 302)
+
+
+@bp.route("/monitor-hub/jinja", methods=["GET"])
+def monitor_hub_jinja() -> Any:
+    """Legacy Jinja fallback — kept for LITE mode."""
     return _render("monitor_hub.html", active_page="monitor_hub")
 
 

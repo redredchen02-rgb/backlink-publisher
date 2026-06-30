@@ -23,7 +23,7 @@ _SRC_DIR = _REPO_ROOT / "src"
 
 def test_read_candidates_jsonl_three_records():
     """3-record JSONL stream parses to 3 dicts."""
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     jsonl = "\n".join([
         '{"target_url": "https://a.com/", "anchor_text": "A", "mode": "comment"}',
@@ -38,7 +38,7 @@ def test_read_candidates_jsonl_three_records():
 
 def test_read_candidates_json_object_wraps_to_list():
     """Single JSON object parses identically to a 1-record JSONL."""
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     obj = {"target_url": "https://x.com/", "anchor_text": "x", "mode": "comment"}
     result_obj = _read_candidates(json.dumps(obj))
@@ -49,7 +49,7 @@ def test_read_candidates_json_object_wraps_to_list():
 
 def test_read_candidates_json_array():
     """JSON array parses to same record list as equivalent JSONL."""
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     records = [
         {"target_url": "https://a.com/", "anchor_text": "A", "mode": "comment"},
@@ -65,7 +65,7 @@ def test_read_candidates_json_array():
 
 def test_read_candidates_empty_input_returns_empty_list():
     """Empty input → empty list (R5b)."""
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     assert _read_candidates("") == []
     assert _read_candidates("   \n  ") == []
@@ -74,7 +74,7 @@ def test_read_candidates_empty_input_returns_empty_list():
 def test_read_candidates_max_input_bytes_exceeded_raises():
     """Raw input > max_input_bytes → InputValidationError (exit 2)."""
     from backlink_publisher._util.errors import InputValidationError
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     big_text = "x" * 100
     with pytest.raises(InputValidationError, match="max-input-bytes"):
@@ -83,7 +83,7 @@ def test_read_candidates_max_input_bytes_exceeded_raises():
 
 def test_read_candidates_exactly_max_records_passes():
     """Record count == max_records: no error."""
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     lines = [
         '{"target_url": "https://x.com/", "anchor_text": "a", "mode": "comment"}'
@@ -95,7 +95,7 @@ def test_read_candidates_exactly_max_records_passes():
 def test_read_candidates_max_records_exceeded_raises():
     """Record count > max_records → InputValidationError (exit 2)."""
     from backlink_publisher._util.errors import InputValidationError
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     lines = [
         '{"target_url": "https://x.com/", "anchor_text": "a", "mode": "comment"}'
@@ -106,7 +106,7 @@ def test_read_candidates_max_records_exceeded_raises():
 
 def test_read_candidates_skips_malformed_jsonl_lines():
     """Malformed JSONL lines are silently skipped (strict=False semantics)."""
-    from backlink_publisher.cli.generate_backlink_text import _read_candidates
+    from backlink_publisher.cli._candidates import _read_candidates
 
     text = (
         '{"target_url": "https://a.com/", "anchor_text": "A", "mode": "comment"}\n'
@@ -122,7 +122,7 @@ def test_read_candidates_skips_malformed_jsonl_lines():
 
 def test_validate_candidate_valid_record_normalises():
     """Valid record with all required fields is normalised (no status key = not rejected)."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_candidate
+    from backlink_publisher.cli._candidates import _validate_candidate
 
     rec = {"target_url": "https://example.com/page", "anchor_text": "click me", "mode": "comment"}
     result = _validate_candidate(rec)
@@ -135,7 +135,7 @@ def test_validate_candidate_valid_record_normalises():
 
 def test_validate_candidate_missing_target_url_rejected():
     """Missing target_url → rejected with invalid_record."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_candidate
+    from backlink_publisher.cli._candidates import _validate_candidate
 
     rec = {"anchor_text": "anchor", "mode": "comment"}
     result = _validate_candidate(rec)
@@ -145,7 +145,7 @@ def test_validate_candidate_missing_target_url_rejected():
 
 def test_validate_candidate_missing_anchor_text_rejected():
     """Missing anchor_text → rejected with invalid_record."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_candidate
+    from backlink_publisher.cli._candidates import _validate_candidate
 
     rec = {"target_url": "https://example.com/", "mode": "comment"}
     result = _validate_candidate(rec)
@@ -155,7 +155,7 @@ def test_validate_candidate_missing_anchor_text_rejected():
 
 def test_validate_candidate_http_url_rejected():
     """Non-https target_url → rejected with bad_target_url_scheme."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_candidate
+    from backlink_publisher.cli._candidates import _validate_candidate
 
     rec = {"target_url": "http://example.com/", "anchor_text": "a", "mode": "comment"}
     result = _validate_candidate(rec)
@@ -165,7 +165,7 @@ def test_validate_candidate_http_url_rejected():
 
 def test_validate_candidate_malformed_ipv6_url_rejected():
     """Malformed IPv6 target_url → rejected (urlparse ValueError guarded)."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_candidate
+    from backlink_publisher.cli._candidates import _validate_candidate
 
     rec = {"target_url": "https://[invalid", "anchor_text": "a", "mode": "comment"}
     result = _validate_candidate(rec)
@@ -175,7 +175,7 @@ def test_validate_candidate_malformed_ipv6_url_rejected():
 
 def test_validate_candidate_extra_fields_preserved():
     """Extra fields in the record are preserved in the normalised output."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_candidate
+    from backlink_publisher.cli._candidates import _validate_candidate
 
     rec = {
         "target_url": "https://example.com/",
@@ -428,7 +428,7 @@ def _make_article_text(link_url: str, link_text: str) -> str:
 
 def test_validate_generated_text_happy_path_comment():
     """Comment with anchor in link → ok, text carried, no advisory flags."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = _make_comment_text("https://example.com/", "example anchor")
     result = _validate_generated_text(
@@ -445,7 +445,7 @@ def test_validate_generated_text_happy_path_comment():
 
 def test_validate_generated_text_happy_path_article():
     """Article-length text with anchor in link → ok."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = _make_article_text("https://example.com/page", "example anchor")
     result = _validate_generated_text(
@@ -459,7 +459,7 @@ def test_validate_generated_text_happy_path_article():
 
 def test_validate_generated_text_missing_link():
     """No Markdown link in text → rejected missing_link."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = "This article has no links at all. Just plain text content here."
     result = _validate_generated_text(
@@ -470,7 +470,7 @@ def test_validate_generated_text_missing_link():
 
 def test_validate_generated_text_missing_anchor():
     """Link to correct URL but anchor text absent from link text → missing_anchor."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = _make_comment_text("https://example.com/", "completely wrong text")
     result = _validate_generated_text(
@@ -481,7 +481,7 @@ def test_validate_generated_text_missing_anchor():
 
 def test_validate_generated_text_case_whitespace_normalized():
     """Anchor in link text with different case/whitespace → ok (normalized match)."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = _make_comment_text("https://example.com/", "EXAMPLE  ANCHOR")
     result = _validate_generated_text(
@@ -492,7 +492,7 @@ def test_validate_generated_text_case_whitespace_normalized():
 
 def test_validate_generated_text_extra_link_stripped():
     """Extra link to a different domain → stripped; stripped_extra_links=1; ok if target survives."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     base_text = _make_comment_text("https://example.com/", "example anchor")
     text = base_text.replace("is an excellent", "[extra](https://evil.com/page) is an excellent")
@@ -506,7 +506,7 @@ def test_validate_generated_text_extra_link_stripped():
 
 def test_validate_generated_text_userinfo_confusion_link_stripped():
     """target.com@evil.com link → urlparse gives evil.com as host → stripped."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = _make_comment_text("https://target.com@evil.com/page", "example anchor")
     result = _validate_generated_text(
@@ -517,7 +517,7 @@ def test_validate_generated_text_userinfo_confusion_link_stripped():
 
 def test_validate_generated_text_length_out_of_bounds_article_too_short():
     """Article with fewer than 200 words → length_out_of_bounds."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = "Short article. [anchor](https://example.com/) is great."
     result = _validate_generated_text(
@@ -528,7 +528,7 @@ def test_validate_generated_text_length_out_of_bounds_article_too_short():
 
 def test_validate_generated_text_length_out_of_bounds_comment_too_short():
     """Comment with fewer than 30 words → length_out_of_bounds."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = "Great post! [anchor](https://example.com/) — very helpful."
     result = _validate_generated_text(
@@ -539,7 +539,7 @@ def test_validate_generated_text_length_out_of_bounds_comment_too_short():
 
 def test_validate_generated_text_unsafe_chars():
     """Bidi override char (U+202E) in output → unsafe_chars."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     evil_text = _make_comment_text("https://example.com/", "anchor") + "‮"
     result = _validate_generated_text(
@@ -550,7 +550,7 @@ def test_validate_generated_text_unsafe_chars():
 
 def test_validate_generated_text_llm_refusal():
     """LLM refusal phrase in output → llm_refusal."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = "I cannot assist with this request as it involves SEO link building."
     result = _validate_generated_text(
@@ -561,7 +561,7 @@ def test_validate_generated_text_llm_refusal():
 
 def test_validate_generated_text_language_flag_mismatch():
     """zh-CN output for en request → ok + language_flag set (never rejected)."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     zh_text = (
         "这篇文章提供了关于数字营销和搜索引擎优化的深刻见解，帮助读者更好地理解现代SEO策略和技术。"
@@ -582,7 +582,7 @@ def test_validate_generated_text_language_flag_mismatch():
 
 def test_validate_generated_text_language_match_no_flag():
     """en output for en request → ok, language_flag is None."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     text = _make_comment_text("https://example.com/", "example anchor")
     result = _validate_generated_text(
@@ -598,7 +598,7 @@ def test_validate_generated_text_language_match_no_flag():
 
 def test_validate_generated_text_long_target_url():
     """Long (>200 char) target_url: host matching still works on full URL."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     long_path = "a" * 180
     target_url = f"https://example.com/{long_path}"
@@ -635,7 +635,7 @@ def test_resolve_client_happy_path(monkeypatch):
     """Allowlisted https endpoint + key → LLMClientConfig with resolved values."""
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 
@@ -658,7 +658,7 @@ def test_resolve_client_endpoint_not_allowlisted(monkeypatch):
     import unittest.mock as mock
 
     from backlink_publisher._util.errors import DependencyError
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 
@@ -676,7 +676,7 @@ def test_resolve_client_private_ip_rejected(monkeypatch):
     import unittest.mock as mock
 
     from backlink_publisher._util.errors import DependencyError
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
     monkeypatch.delenv("BACKLINK_PUBLISHER_LLM_ALLOW_LOOPBACK", raising=False)
@@ -693,7 +693,7 @@ def test_resolve_client_private_ip_rejected(monkeypatch):
 def test_resolve_client_userinfo_rejected(monkeypatch):
     """Endpoint with user:secret@host → DependencyError; secret never in error text."""
     from backlink_publisher._util.errors import DependencyError
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 
@@ -715,7 +715,7 @@ def test_resolve_client_strips_chat_completions_suffix(monkeypatch):
     """Endpoint ending in /chat/completions → normalized base; guard sees same string."""
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 
@@ -747,7 +747,7 @@ def test_resolve_client_no_key_raises_dependency_error(monkeypatch):
     import unittest.mock as mock
 
     from backlink_publisher._util.errors import DependencyError
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.delenv("MY_MISSING_LLM_KEY", raising=False)
 
@@ -767,7 +767,7 @@ def test_resolve_client_custom_api_key_env(monkeypatch):
     """--api-key-env=CUSTOM_KEY reads from the CUSTOM_KEY env var."""
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("CUSTOM_LLM_KEY", "my-custom-api-key")
     monkeypatch.delenv("BACKLINK_LLM_API_KEY", raising=False)
@@ -789,7 +789,7 @@ def test_resolve_client_custom_api_key_env(monkeypatch):
 def test_resolve_client_malformed_endpoint_raises_dependency_error(monkeypatch):
     """Malformed endpoint (http://[invalid) → DependencyError; no uncaught ValueError."""
     from backlink_publisher._util.errors import DependencyError
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 
@@ -802,7 +802,7 @@ def test_resolve_client_uses_cli_defaults_not_provider_defaults(monkeypatch):
     """temperature/timeout come from CLI args (0.4/60), not provider defaults (0.7/30)."""
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _resolve_client
+    from backlink_publisher.cli.plan.generate_backlink_text import _resolve_client
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 

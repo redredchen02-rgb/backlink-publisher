@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, redirect, request, url_for
 
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.config import load_config
@@ -68,6 +68,13 @@ def _build_rows(stale_days: int) -> tuple[list[dict], int]:
 
 @bp.route("/ce:equity-ledger", methods=["GET"])
 def equity_ledger() -> Any:
+    """Redirect legacy /ce:equity-ledger → SPA /app/equity-ledger (P14 B1)."""
+    return redirect(url_for("spa.spa", subpath="equity-ledger"), 302)
+
+
+@bp.route("/ce:equity-ledger/jinja", methods=["GET"])
+def equity_ledger_jinja() -> Any:
+    """Legacy Jinja fallback — kept for LITE mode or SPA-disabled setups."""
     stale_days = _resolve_stale_days()
     cfg = _g_cache('config', load_config)
     rows, stale_count = _build_rows(stale_days)

@@ -50,12 +50,6 @@ ALLOWLIST: dict[str, str] = {
     "src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py:444:unused variable 'tb'": (
         "__exit__ protocol param (traceback); same ABC-signature rationale as exc_type."
     ),
-    # http_session.py is an opt-in module (allowlisted in test_no_orphan_code too);
-    # its imports are part of a not-yet-wired surface, tracked not deleted.
-    "src/backlink_publisher/_util/http_session.py:24:unused import 'BaseHandler'": (
-        "http_session.py is an opt-in module allowlisted at the file level in "
-        "test_no_orphan_code.py; its imports are a not-yet-wired surface, tracked."
-    ),
     # structlog_config.py — opt-in module (allowlisted in test_no_orphan_code);
     # method_name is part of a structlog processor signature.
     "src/backlink_publisher/_util/structlog_config.py:24:unused variable 'method_name'": (
@@ -64,7 +58,7 @@ ALLOWLIST: dict[str, str] = {
     ),
     # content/fetch.py: _max_body_bytes is imported for the env-var constant
     # surface (re-exported as part of the module's network-config API).
-    "src/backlink_publisher/content/fetch.py:51:unused import '_max_body_bytes'": (
+    "src/backlink_publisher/content/fetch.py:56:unused import '_max_body_bytes'": (
         "Network-config constant imported as part of the fetch module's "
         "documented env-var surface; re-exported, not dead."
     ),
