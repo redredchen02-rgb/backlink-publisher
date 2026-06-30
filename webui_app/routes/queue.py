@@ -13,12 +13,17 @@ bp = Blueprint("queue", __name__)
 @bp.route('/ce:queue-task', methods=['POST'])
 def ce_queue_task():
     # 提取表单数据，逻辑与 ce_generate/ce_preview 保持一致
+    try:
+        urls = json.loads(request.form.get('urls_json', '[]'))
+    except (json.JSONDecodeError, TypeError):
+        urls = []
+
     task_data = {
         'id': str(uuid.uuid4()),
         'status': 'pending',
         'created_at': datetime.now(timezone.utc).isoformat(),
         'config': request.form.to_dict(),
-        'urls': json.loads(request.form.get('urls_json', '[]'))
+        'urls': urls,
     }
     
     queue_store.update(lambda tasks: tasks + [task_data])

@@ -48,3 +48,21 @@ export function renderBadge(text, className = '') {
   span.textContent = String(text == null ? '' : text);
   return span;
 }
+
+// el() — tiny createElement builder so we never route untrusted text through
+// innerHTML. props.text sets textContent (escaped by the DOM); props.* set
+// attributes; children append.
+export function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (value == null || value === false) continue;
+    if (key === 'text') node.textContent = value;
+    else if (key === 'class') node.className = value;
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) {
+    if (child == null) continue;
+    node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+}

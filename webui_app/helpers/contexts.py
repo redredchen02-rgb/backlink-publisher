@@ -114,10 +114,9 @@ def _token_paste_channels_from_registry(cfg) -> dict:
                     data = None
             token = (data or {}).get(token_field, "") if isinstance(data, dict) else ""
             bound = bool(token)
-            if bound and len(token) > 6:
-                masked = token[:3] + "*" * (len(token) - 6) + token[-3:]
-            elif bound:
-                masked = "*" * len(token)
+            if bound:
+                from .security import _mask_token
+                masked = _mask_token(token)
             else:
                 masked = ""
             result[name] = {"bound": bound, "masked": masked, "dofollow": dofollow_status(name)}

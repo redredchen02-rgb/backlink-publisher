@@ -2,7 +2,7 @@
  * Notifications module — global notification center
  * Replaces Flash messages with persistent toast notifications
  */
-import { on, qs, qsa } from './lib/dom.js';
+import { on, qs, qsa, el } from './lib/dom.js';
 
 const NOTIFICATION_KEY = 'backlink-publisher-notifications';
 const MAX_NOTIFICATIONS = 50;
@@ -13,21 +13,7 @@ const MAX_NOTIFICATIONS = 50;
 // CustomEvent (no window.* global API), per the frontend anti-rot rules.
 export const NOTIFY_EVENT = 'app:notify';
 
-// el() — tiny createElement builder so we never route untrusted text through innerHTML.
-// props.text sets textContent (escaped by the DOM); props.* set attributes; children append.
-function el(tag, props = {}, children = []) {
-    const node = document.createElement(tag);
-    for (const [key, value] of Object.entries(props)) {
-        if (value == null || value === false) continue;
-        if (key === 'text') node.textContent = value;
-        else if (key === 'class') node.className = value;
-        else node.setAttribute(key, value);
-    }
-    for (const child of children) {
-        if (child == null) continue;
-        node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
-    }
-    return node;
+// el() is imported from ./lib/dom.js — shared across all page modules.
 }
 
 /**
@@ -154,175 +140,7 @@ class NotificationCenter {
             actions.insertBefore(this.badge, actions.firstChild);
         }
         
-        // Add styles
-        this.addBadgeStyles();
-    }
-    
-    addBadgeStyles() {
-        if (qs('#notification-badge-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'notification-badge-styles';
-        style.textContent = `
-            .notification-badge {
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 36px;
-                height: 36px;
-                padding: 0;
-                background: rgba(255, 255, 255, 0.12);
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                border-radius: 8px;
-                color: rgba(255, 255, 255, 0.8);
-                font-size: 1rem;
-                cursor: pointer;
-                transition: background 0.15s ease;
-            }
-            
-            .notification-badge:hover {
-                background: rgba(255, 255, 255, 0.2);
-                color: #fff;
-            }
-            
-            .notification-badge__count {
-                position: absolute;
-                top: -4px;
-                right: -4px;
-                min-width: 18px;
-                height: 18px;
-                padding: 0 5px;
-                background: var(--danger);
-                color: white;
-                font-size: 0.7rem;
-                font-weight: 600;
-                line-height: 18px;
-                text-align: center;
-                border-radius: 9px;
-                display: none;
-            }
-            
-            .notification-badge__count.visible {
-                display: block;
-            }
-            
-            .notification-panel {
-                position: fixed;
-                top: 56px;
-                right: 16px;
-                width: 360px;
-                max-width: calc(100vw - 32px);
-                max-height: calc(100vh - 80px);
-                background: var(--light);
-                border: 1px solid var(--border);
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-                z-index: 1150;
-                display: none;
-                flex-direction: column;
-                overflow: hidden;
-            }
-            
-            .notification-panel.open {
-                display: flex;
-            }
-            
-            .notification-panel__header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 16px;
-                border-bottom: 1px solid var(--border);
-            }
-            
-            .notification-panel__title {
-                font-weight: 600;
-                font-size: 1rem;
-            }
-            
-            .notification-panel__actions {
-                display: flex;
-                gap: 8px;
-            }
-            
-            .notification-panel__btn {
-                padding: 4px 8px;
-                background: none;
-                border: none;
-                border-radius: 6px;
-                font-size: 0.8rem;
-                color: var(--primary);
-                cursor: pointer;
-            }
-            
-            .notification-panel__btn:hover {
-                background: rgba(79, 70, 229, 0.1);
-            }
-            
-            .notification-panel__list {
-                flex: 1;
-                overflow-y: auto;
-                padding: 8px;
-            }
-            
-            .notification-panel__empty {
-                padding: 32px 16px;
-                text-align: center;
-                color: #9ca3af;
-            }
-            
-            .notification-item {
-                display: flex;
-                gap: 12px;
-                padding: 12px;
-                border-radius: 10px;
-                cursor: pointer;
-                transition: background 0.15s ease;
-            }
-            
-            .notification-item:hover {
-                background: rgba(79, 70, 229, 0.05);
-            }
-            
-            .notification-item.unread {
-                background: rgba(79, 70, 229, 0.08);
-            }
-            
-            .notification-item__icon {
-                width: 32px;
-                height: 32px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 8px;
-                flex-shrink: 0;
-            }
-            
-            .notification-item__content {
-                flex: 1;
-                min-width: 0;
-            }
-            
-            .notification-item__title {
-                font-weight: 500;
-                font-size: 0.9rem;
-                margin-bottom: 2px;
-            }
-            
-            .notification-item__message {
-                font-size: 0.8rem;
-                color: #6b7280;
-                line-height: 1.4;
-            }
-            
-            .notification-item__time {
-                font-size: 0.75rem;
-                color: #9ca3af;
-                margin-top: 4px;
-            }
-        `;
-        document.head.appendChild(style);
+        // Styles are in static/css/notifications.css — no inline injection.
     }
     
     createPanel() {

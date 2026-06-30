@@ -124,7 +124,7 @@ def equity_ledger_recheck():
         map_history_entry,
         write_event,
     )
-    from backlink_publisher.events.store import EventStore as _EventStore
+    from backlink_publisher.events import EventStore as _EventStore
 
     data = request.get_json(silent=True) or {}
     target = data.get("target_url")

@@ -206,7 +206,7 @@ def _token_lock(token_path: Path) -> Iterator[None]:
     """
     lock_path = _lock_path(token_path)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         deadline = time.monotonic() + _LOCK_TIMEOUT_S
         while True:

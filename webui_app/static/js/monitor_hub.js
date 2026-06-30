@@ -8,6 +8,7 @@
  * keep_alive/equity/schedule setInterval pollers). createElement only.
  */
 import { fetchJson } from './lib/api.js';
+import { el } from './lib/dom.js';
 import { renderSkeleton, renderEmpty, renderError } from './ui/states.js';
 import { classifyError } from './ui/errors.js';
 
@@ -20,21 +21,6 @@ const SEV_ICON = {
     ok: 'bi-check-circle-fill',
     info: 'bi-info-circle-fill',
 };
-
-function el(tag, props = {}, children = []) {
-    const node = document.createElement(tag);
-    for (const [k, v] of Object.entries(props)) {
-        if (v == null || v === false) continue;
-        if (k === 'text') node.textContent = v;
-        else if (k === 'class') node.className = v;
-        else node.setAttribute(k, v);
-    }
-    for (const c of children) {
-        if (c == null) continue;
-        node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
-    }
-    return node;
-}
 
 function cardEl(card) {
     const sev = SEV_ICON[card.severity] ? card.severity : 'info';
