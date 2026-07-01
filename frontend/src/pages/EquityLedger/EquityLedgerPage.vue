@@ -120,9 +120,9 @@ onMounted(load)
       empty-text="暂无权益数据。"
       @retry="load"
     >
-      <div class="table-wrap">
-        <table class="table table-sm table-hover align-middle mb-0">
-          <thead class="table-light">
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
             <tr>
               <th>目标 URL</th>
               <th>主域</th>
@@ -136,22 +136,22 @@ onMounted(load)
           </thead>
           <tbody>
             <tr v-for="row in filteredRows" :key="row.target_url + row.platform">
-              <td><code class="text-truncate d-inline-block" style="max-width: 200px">{{ row.target_url }}</code></td>
+              <td class="col-url"><code class="text-truncate d-inline-block" style="max-width: 200px">{{ row.target_url }}</code></td>
               <td>{{ row.main_domain }}</td>
               <td>{{ row.platform }}</td>
-              <td>
+              <td class="col-status">
                 <span :class="['badge', row.dofollow ? 'bg-success' : 'bg-secondary']">
                   {{ row.dofollow ? '是' : '否' }}
                 </span>
               </td>
-              <td>
+              <td class="col-status">
                 <span :class="['badge', row.live ? 'bg-success' : 'bg-danger']">
                   {{ row.live ? '存活' : '失效' }}
                 </span>
               </td>
-              <td>{{ (row.relevance_score ?? 0).toFixed(2) }}</td>
-              <td class="text-muted" style="font-size: 0.8rem">{{ row.first_seen ?? '—' }}</td>
-              <td class="text-muted" style="font-size: 0.8rem">{{ row.last_checked ?? '—' }}</td>
+              <td class="col-num">{{ (row.relevance_score ?? 0).toFixed(2) }}</td>
+              <td class="col-date text-muted" style="font-size: 0.8rem">{{ row.first_seen ?? '—' }}</td>
+              <td class="col-date text-muted" style="font-size: 0.8rem">{{ row.last_checked ?? '—' }}</td>
             </tr>
           </tbody>
         </table>

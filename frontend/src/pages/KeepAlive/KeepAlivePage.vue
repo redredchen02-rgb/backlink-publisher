@@ -283,9 +283,9 @@ onUnmounted(() => {
           <span class="badge bg-secondary">未知 {{ unknownCount }}</span>
         </div>
 
-        <div class="table-wrap">
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light">
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
               <tr>
                 <th>目标 URL</th>
                 <th>平台</th>
@@ -300,15 +300,15 @@ onUnmounted(() => {
             </thead>
             <tbody>
               <tr v-for="t in scorecardTargets" :key="t.target_url" :class="t.needs_attention ? 'table-warning' : ''">
-                <td><code class="text-truncate d-inline-block" style="max-width:180px">{{ t.target_url }}</code></td>
+                <td class="col-url"><code class="text-truncate d-inline-block" style="max-width:180px">{{ t.target_url }}</code></td>
                 <td>{{ t.platforms }}</td>
-                <td class="text-center">{{ t.live_dofollow }}</td>
-                <td class="text-center text-danger">{{ t.stripped }}</td>
-                <td class="text-center">{{ t.decayed }}</td>
-                <td class="text-center">{{ t.check_failed }}</td>
-                <td :class="['text-center', stripRateClass(t.strip_rate)]">{{ (t.strip_rate * 100).toFixed(0) }}%</td>
+                <td class="col-num text-center">{{ t.live_dofollow }}</td>
+                <td class="col-num text-center text-danger">{{ t.stripped }}</td>
+                <td class="col-num text-center">{{ t.decayed }}</td>
+                <td class="col-num text-center">{{ t.check_failed }}</td>
+                <td :class="['col-num text-center', stripRateClass(t.strip_rate)]">{{ (t.strip_rate * 100).toFixed(0) }}%</td>
                 <td><span :class="t.trend === 'up' ? 'text-success' : t.trend === 'down' ? 'text-danger' : ''">{{ t.trend }}</span></td>
-                <td class="text-muted small">{{ t.last_verified ?? '—' }}</td>
+                <td class="col-date text-muted small">{{ t.last_verified ?? '—' }}</td>
               </tr>
             </tbody>
           </table>

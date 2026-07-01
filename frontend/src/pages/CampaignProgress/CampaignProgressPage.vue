@@ -107,7 +107,8 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <table v-if="status.seeds?.length" class="table table-sm mt-3">
+        <div v-if="status.seeds?.length" class="data-table-wrap mt-3">
+        <table class="data-table">
           <thead>
             <tr>
               <th>#</th>
@@ -120,23 +121,24 @@ onUnmounted(() => {
           </thead>
           <tbody>
             <tr v-for="seed in status.seeds" :key="seed.idx">
-              <td>{{ seed.idx }}</td>
-              <td>
+              <td class="col-num">{{ seed.idx }}</td>
+              <td class="col-text">
                 <code class="text-truncate d-inline-block" style="max-width: 200px">
                   {{ seed.text_preview ?? '—' }}
                 </code>
               </td>
-              <td>
+              <td class="col-status">
                 <span class="badge" :class="seed.status === 'success' ? 'bg-success' : 'bg-secondary'">
                   {{ seed.status }}
                 </span>
               </td>
-              <td>{{ seed.draft_count ?? 0 }}</td>
-              <td>{{ seed.published_count ?? 0 }}</td>
-              <td class="text-danger">{{ seed.error ?? '—' }}</td>
+              <td class="col-num">{{ seed.draft_count ?? 0 }}</td>
+              <td class="col-num">{{ seed.published_count ?? 0 }}</td>
+              <td class="col-text text-danger">{{ seed.error ?? '—' }}</td>
             </tr>
           </tbody>
         </table>
+        </div>
 
         <p v-if="status.running" class="text-muted mt-2">
           <span class="spinner-border spinner-border-sm me-1" role="status" />

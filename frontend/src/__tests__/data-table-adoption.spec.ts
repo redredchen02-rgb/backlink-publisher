@@ -1,0 +1,62 @@
+/**
+ * .data-table adoption guard — Unit 3 of
+ * docs/plans/2026-07-01-001-fix-webui-theme-nav-layout-cleanup-plan.md.
+ *
+ * Five pages (CampaignProgress/EquityLedger/KeepAlive/OptimizationStatus/PrQueue)
+ * used to render their tables with Bootstrap's `table table-sm table-hover
+ * align-middle mb-0` + `thead.table-light` classes instead of the shared
+ * `.data-table-wrap` / `.data-table` convention already used by
+ * History/Schedule/Sites. Same "read source text with regex" technique as
+ * token-resolution.spec.ts (no browser/DOM rendering needed).
+ */
+
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dir = dirname(fileURLToPath(import.meta.url))
+// __dir = .../backlink-publisher/frontend/src/__tests__
+const PAGES_DIR = resolve(__dir, '../pages')
+
+const TARGET_PAGES = [
+  'CampaignProgress/CampaignProgressPage.vue',
+  'EquityLedger/EquityLedgerPage.vue',
+  'KeepAlive/KeepAlivePage.vue',
+  'OptimizationStatus/OptimizationStatusPage.vue',
+  'PrQueue/PrQueuePage.vue',
+]
+
+const sources = TARGET_PAGES.map((rel) => ({
+  rel,
+  text: readFileSync(resolve(PAGES_DIR, rel), 'utf8'),
+}))
+
+describe('.data-table adoption guard', () => {
+  it('each of the 5 migrated pages references both .data-table and .data-table-wrap', () => {
+    const missing: string[] = []
+
+    for (const { rel, text } of sources) {
+      if (!text.includes('data-table-wrap')) missing.push(`${rel} — missing "data-table-wrap"`)
+      if (!/\bdata-table\b/.test(text)) missing.push(`${rel} — missing "data-table"`)
+    }
+
+    expect(missing, `\n${missing.join('\n')}`).toEqual([])
+  })
+
+  it('none of the 5 migrated pages still use the Bootstrap table class combo', () => {
+    const violations: string[] = []
+    const BOOTSTRAP_TABLE_COMBO = 'table table-sm table-hover align-middle mb-0'
+
+    for (const { rel, text } of sources) {
+      if (text.includes(BOOTSTRAP_TABLE_COMBO)) {
+        violations.push(`${rel} — still contains Bootstrap combo "${BOOTSTRAP_TABLE_COMBO}"`)
+      }
+      if (text.includes('table-light')) {
+        violations.push(`${rel} — still contains "table-light"`)
+      }
+    }
+
+    expect(violations, `\n${violations.join('\n')}`).toEqual([])
+  })
+})

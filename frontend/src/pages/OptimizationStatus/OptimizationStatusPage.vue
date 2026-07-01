@@ -124,9 +124,9 @@ onMounted(load)
       empty-text="暂无优化数据。"
       @retry="load"
     >
-      <div class="opt-status__table-wrap">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light">
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
             <tr>
               <th>平台</th>
               <th>权重</th>
@@ -145,7 +145,7 @@ onMounted(load)
                 <span class="fw-semibold">{{ p.platform }}</span>
                 <span v-if="p.locked" class="badge bg-warning ms-1" title="已锁定">🔒</span>
               </td>
-              <td>
+              <td class="col-num">
                 <template v-if="editingWeight === p.platform">
                   <input
                     v-model="weightInput"
@@ -171,14 +171,14 @@ onMounted(load)
                   {{ p.weight.toFixed(2) }}
                 </template>
               </td>
-              <td>{{ (p.base ?? 0).toFixed(2) }}</td>
-              <td :class="(p.delta_pct ?? 0) >= 0 ? 'text-success' : 'text-danger'">
+              <td class="col-num">{{ (p.base ?? 0).toFixed(2) }}</td>
+              <td class="col-num" :class="(p.delta_pct ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                 {{ (p.delta_pct ?? 0).toFixed(1) }}%
               </td>
-              <td>{{ p.adjustments ?? 0 }}</td>
-              <td>{{ p.alive ?? '—' }}</td>
-              <td>{{ p.total ?? '—' }}</td>
-              <td>{{ (p.drift ?? 0).toFixed(2) }}</td>
+              <td class="col-num">{{ p.adjustments ?? 0 }}</td>
+              <td class="col-num">{{ p.alive ?? '—' }}</td>
+              <td class="col-num">{{ p.total ?? '—' }}</td>
+              <td class="col-num">{{ (p.drift ?? 0).toFixed(2) }}</td>
               <td>
                 <div class="btn-group btn-group-sm">
                   <button
@@ -230,8 +230,5 @@ onMounted(load)
 }
 .opt-status__head h1 {
   margin: 0;
-}
-.opt-status__table-wrap {
-  overflow-x: auto;
 }
 </style>
