@@ -408,7 +408,7 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: center; z-index: 1050;
 }
 .ka__confirm-modal {
-  background: var(--bg-primary, #1a1a2e);
+  background: var(--surface-raised);
   border-radius: 12px; padding: 1.5rem; max-width: 500px; width: 90%;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
 }
