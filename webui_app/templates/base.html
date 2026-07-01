@@ -129,6 +129,12 @@
     {% block page_data %}{% endblock %}
     {# The single per-page ES module entry: <script type="module" src="..."></script> #}
     {% block page_module %}{% endblock %}
+    {# Error capture MUST load first in the script tail (before theme.js and
+       everything after it) so its capture-phase window 'error' listener and
+       'unhandledrejection' listener are attached before any later script has
+       a chance to throw — otherwise an early failure in theme.js/nav.js would
+       go unobserved. See Plan 2026-07-01-002 Unit 4. #}
+    <script type="module" src="{{ url_for('static', filename='js/ui/error-capture.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/theme.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/nav.js', v=asset_version) }}"></script>
     {# ui/toast.js subscribes to app:notify BEFORE notifications.js inits (and
