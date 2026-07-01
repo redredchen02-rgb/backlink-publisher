@@ -329,7 +329,7 @@ graph TB
 **Verification:**
 - `tests/test_webui_csrf_ordering.py` 既有的不變量（CSRF guard 仍是第一個 `before_request` hook）在新增此 blueprint 後維持通過。
 
-- [ ] **Unit 4: Legacy 前端擷取引擎**
+- [x] **Unit 4: Legacy 前端擷取引擎**
 
 **Goal:** 在 legacy Jinja／原生 JS 頁面上，自動、低雜訊地擷取未捕捉錯誤與 rejection。
 
