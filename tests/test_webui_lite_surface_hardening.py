@@ -73,6 +73,20 @@ def test_csrf_guard_runs_before_lite_gate():
     )
 
 
+# ── Copilot panel absent (not just unlinked) ─────────────────────────────────
+
+@pytest.mark.parametrize("url", ["/", "/sites", "/ce:health"])
+def test_copilot_panel_absent_in_lite(url, disable_csrf):
+    """The Copilot FAB/panel must not render in LITE mode: its /copilot/advice
+    route 404s under the LITE gate, so a rendered launcher button would just
+    trigger the client-side 'non-JSON response' error the gate exists to avoid."""
+    resp = webui.app.test_client().get(url)
+    assert resp.status_code == 200, f"{url} -> {resp.status_code}"
+    body = resp.data.decode()
+    assert 'id="copilotToggle"' not in body, f"copilot FAB rendered on {url} in LITE mode"
+    assert 'id="copilotPanel"' not in body, f"copilot panel rendered on {url} in LITE mode"
+
+
 # ── Nav consistency ───────────────────────────────────────────────────────────
 
 def test_nav_has_no_pro_blueprint_links_in_lite(disable_csrf):
