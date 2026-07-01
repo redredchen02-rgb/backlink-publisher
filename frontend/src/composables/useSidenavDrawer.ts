@@ -17,7 +17,7 @@
 //     scroll lock / focus trap, so state can't get stuck inconsistent with a
 //     now-wide permanent-sidebar layout
 
-import { type InjectionKey, type Ref, ref } from 'vue'
+import { type InjectionKey, type Ref, getCurrentScope, onScopeDispose, ref } from 'vue'
 
 /** Matches legacy `global_nav.css`'s `@media (max-width: 1024px)` breakpoint. */
 export const DRAWER_BREAKPOINT_PX = 1024
@@ -132,6 +132,18 @@ export function useSidenavDrawer() {
     } else {
       open()
     }
+  }
+
+  // Safety net (code review): there's no other teardown path if the owning
+  // component tree unmounts while the drawer is still open (Vite HMR today;
+  // a real risk if AppShell is ever made conditionally-mounted later).
+  // Guarded with getCurrentScope() since useSidenavDrawer() is also called
+  // directly outside of a component's setup() scope (see
+  // useSidenavDrawer.spec.ts), where onScopeDispose would otherwise warn.
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      if (isOpen.value) close()
+    })
   }
 
   return { isOpen, drawerEl, triggerEl, open, close, toggle }

@@ -32,13 +32,36 @@ const sources = TARGET_PAGES.map((rel) => ({
   text: readFileSync(resolve(PAGES_DIR, rel), 'utf8'),
 }))
 
+/**
+ * True only when some `<table ...>` opening tag's `class="..."` attribute
+ * carries `data-table` as its own whitespace-separated token — NOT merely as
+ * a substring (which would also match the wrapper div's `data-table-wrap`
+ * class, e.g. via a naive `/\bdata-table\b/` test: the hyphen in "-wrap" is a
+ * regex word boundary, so that pattern false-positives on
+ * `class="data-table-wrap"` alone with no `.data-table` on the <table> itself).
+ */
+function hasDataTableClassOnTableTag(text: string): boolean {
+  const tableTagPattern = /<table\b[^>]*>/g
+  let match: RegExpExecArray | null
+  while ((match = tableTagPattern.exec(text)) !== null) {
+    const tag = match[0]
+    const classMatch = /\bclass="([^"]*)"/.exec(tag)
+    if (!classMatch) continue
+    const classes = classMatch[1].split(/\s+/)
+    if (classes.includes('data-table')) return true
+  }
+  return false
+}
+
 describe('.data-table adoption guard', () => {
   it('each of the 5 migrated pages references both .data-table and .data-table-wrap', () => {
     const missing: string[] = []
 
     for (const { rel, text } of sources) {
       if (!text.includes('data-table-wrap')) missing.push(`${rel} — missing "data-table-wrap"`)
-      if (!/\bdata-table\b/.test(text)) missing.push(`${rel} — missing "data-table"`)
+      if (!hasDataTableClassOnTableTag(text)) {
+        missing.push(`${rel} — no <table> tag carries class="data-table"`)
+      }
     }
 
     expect(missing, `\n${missing.join('\n')}`).toEqual([])

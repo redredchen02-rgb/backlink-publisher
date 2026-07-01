@@ -77,6 +77,10 @@ onMounted(() => {
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface-raised);
+  /* Stay above AppShell's drawer overlay (z-index: 1040) so the hamburger
+     toggle that opens the drawer remains clickable to close it too. */
+  position: relative;
+  z-index: 1041;
 }
 .topbar__search {
   flex: 1;

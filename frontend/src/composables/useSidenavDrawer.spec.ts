@@ -86,6 +86,11 @@ describe('useSidenavDrawer', () => {
     expect(drawer.isOpen.value).toBe(true)
     drawer.close()
     expect(drawer.isOpen.value).toBe(false)
+
+    // Prove the listener was actually removed: a stray Escape dispatch after
+    // close() has no effect (no throw, and isOpen stays false).
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(drawer.isOpen.value).toBe(false)
   })
 
   it('overlay click closes the drawer (overlay is wired to call close() directly)', () => {
@@ -124,6 +129,7 @@ describe('useSidenavDrawer', () => {
     drawer.open()
 
     expect(document.activeElement).toBe(fixture.link1)
+    drawer.close()
   })
 
   it('traps Tab/Shift+Tab focus cycling within the drawer while open', () => {
@@ -145,6 +151,7 @@ describe('useSidenavDrawer', () => {
       new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true }),
     )
     expect(document.activeElement).toBe(fixture.link3)
+    drawer.close()
   })
 
   it('returns focus to the trigger (hamburger) button when the drawer closes', () => {

@@ -27,6 +27,15 @@ const navEl = ref<HTMLElement | null>(null)
 onMounted(() => {
   drawer.drawerEl.value = navEl.value
 })
+
+// Fix (code review, Plan 2026-07-01-001 U4 follow-up): clicking a nav link
+// while the drawer is open (narrow viewport) must close it — otherwise the
+// overlay/scroll-lock/focus-trap stay engaged over the newly-routed page.
+// close() is a safe no-op when already closed, so this doesn't need to
+// distinguish link clicks from other clicks inside the nav.
+function onNavClick() {
+  if (drawer.isOpen.value) drawer.close()
+}
 </script>
 
 <template>
@@ -39,6 +48,7 @@ onMounted(() => {
     tabindex="-1"
     :role="drawer.isOpen.value ? 'dialog' : undefined"
     :aria-modal="drawer.isOpen.value ? 'true' : undefined"
+    @click="onNavClick"
   >
     <RouterLink to="/" class="sidenav__brand" aria-label="返回操作首页">控台</RouterLink>
     <template v-for="group in GROUP_ORDER" :key="group">
@@ -81,6 +91,8 @@ onMounted(() => {
 .sidenav__brand {
   font-weight: 700;
   padding: 0.25rem 0.5rem 0.75rem;
+  color: var(--text-primary);
+  text-decoration: none;
 }
 .sidenav__group-label {
   font-size: var(--text-xs);

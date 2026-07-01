@@ -299,7 +299,7 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t in scorecardTargets" :key="t.target_url" :class="t.needs_attention ? 'table-warning' : ''">
+              <tr v-for="t in scorecardTargets" :key="t.target_url" :class="t.needs_attention ? 'needs-attention' : ''">
                 <td class="col-url"><code class="text-truncate d-inline-block" style="max-width:180px">{{ t.target_url }}</code></td>
                 <td>{{ t.platforms }}</td>
                 <td class="col-num text-center">{{ t.live_dofollow }}</td>
@@ -411,5 +411,12 @@ onUnmounted(() => {
   background: var(--surface-raised);
   border-radius: 12px; padding: 1.5rem; max-width: 500px; width: 90%;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+/* "Needs attention" row highlight — Bootstrap's table-warning only paints via
+   a selector requiring an ancestor .table class, which the .data-table
+   migration removed from this page's <table>. Use the console's own token
+   instead of depending on Bootstrap's table-variant mechanism. */
+.data-table tr.needs-attention td {
+  background: var(--warning-soft);
 }
 </style>
