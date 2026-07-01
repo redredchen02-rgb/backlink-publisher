@@ -3,16 +3,43 @@
 // Groups outlive the migration (Pipeline/Monitoring/Operations/Config). Migrated
 // items are RouterLinks (in-SPA, active-state); legacy items are <a> that fully
 // navigate out of the SPA and are marked with '↪' so the operator knows.
+//
+// Plan 2026-07-01-001 U4: below the 1024px breakpoint this <nav> becomes an
+// off-canvas drawer (transform, not v-if — it must stay mounted so
+// useSidenavDrawer's drawerEl ref, focus trap, and Escape/overlay-close all
+// keep working). Above the breakpoint nothing here changes from today.
+// `role="dialog"`/`aria-modal` are applied only while the drawer is actually
+// open (which auto-closes on resize past the breakpoint), so wide-screen
+// a11y semantics are unchanged. Falls back to a standalone drawer instance
+// when mounted without an AppShell ancestor (e.g. SideNav.spec.ts), so
+// existing tests are unaffected.
+import { inject, onMounted, ref } from 'vue'
 import {
   GROUP_LABELS,
   GROUP_ORDER,
   isMigrated,
   itemsByGroup,
 } from './navItems'
+import { SIDENAV_DRAWER_KEY, useSidenavDrawer } from '../composables/useSidenavDrawer'
+
+const drawer = inject(SIDENAV_DRAWER_KEY, () => useSidenavDrawer(), true)
+const navEl = ref<HTMLElement | null>(null)
+onMounted(() => {
+  drawer.drawerEl.value = navEl.value
+})
 </script>
 
 <template>
-  <nav class="sidenav" aria-label="主导航">
+  <nav
+    id="sidenav-drawer"
+    ref="navEl"
+    class="sidenav"
+    :class="{ 'sidenav--open': drawer.isOpen.value }"
+    aria-label="主导航"
+    tabindex="-1"
+    :role="drawer.isOpen.value ? 'dialog' : undefined"
+    :aria-modal="drawer.isOpen.value ? 'true' : undefined"
+  >
     <RouterLink to="/" class="sidenav__brand" aria-label="返回操作首页">控台</RouterLink>
     <template v-for="group in GROUP_ORDER" :key="group">
       <div class="sidenav__group-label">{{ GROUP_LABELS[group] }}</div>
@@ -90,5 +117,25 @@ import {
 }
 .sidenav__legacy-mark {
   opacity: 0.7;
+}
+
+/* Off-canvas drawer below 1024px — mirrors legacy global_nav.css's
+   @media (max-width: 1024px) .app-sidebar transform/box-shadow treatment.
+   Above this breakpoint the sidebar is entirely unaffected (existing
+   always-visible column behaviour, zero regression). */
+@media (max-width: 1024px) {
+  .sidenav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1050;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+  .sidenav.sidenav--open {
+    transform: translateX(0);
+  }
 }
 </style>
