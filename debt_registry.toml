@@ -106,6 +106,46 @@ owner = "unassigned"
 status = "open"
 
 [[items]]
+slug = "reconciler-history-dedupkey-parse-failure"
+severity = "low"
+rationale = "events/reconciler.py::_reconcile_history narrows a bare except around DedupKey(platform, target_url) construction to (ValueError, TypeError) and silently skips the entry. This is report-only reverse-check code (R4) — one malformed platform/target_url pair in publish-history.json should not abort the batch scan of all other history entries, and the entry is already excluded from the checked/gaps counts by never being appended to the probes list."
+discovered = "2026-07-01"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "gap-derive-host-urlparse-failure"
+severity = "low"
+rationale = "gap/events_gap.py::_derive_host narrows a bare except around urllib.parse.urlparse(target_url).hostname to (ValueError, TypeError) and falls back to returning the raw target_url string. host is used only as a display/grouping field on PipelineGap, never for routing or auth decisions, so an unparseable URL degrading to its raw string is a safe, intentional fallback."
+discovered = "2026-07-01"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "webui-token-paste-file-read-failure"
+severity = "low"
+rationale = "webui_app/helpers/contexts.py::_token_paste_channels_from_registry narrows a bare except around reading and JSON-parsing a token-paste credential file to (OSError, ValueError) and falls back to data=None, which renders the platform as unbound in Settings. A missing or corrupt token file is an expected steady state (channel never bound, or file manually edited) and should render as 'not connected' rather than crash the whole settings page."
+discovered = "2026-07-01"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "webui-render-queue-load-failure"
+severity = "low"
+rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around _queue_store.load() to (OSError, ValueError) and falls back to an empty task list. tasks is auto-injected context for every page render; a transient queue-store read failure should degrade to an empty task list rather than 500 every page in the app."
+discovered = "2026-07-01"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "webui-render-image-gen-status-failure"
+severity = "low"
+rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around _image_gen_status(cfg) to (OSError, ValueError, KeyError) and falls back to a default 'not configured' status dict. Like the queue-load fallback above, image_gen_status is auto-injected on every render, so a config-read or key-lookup failure here should degrade to an honest 'not configured' state rather than crash unrelated pages that don't even use image generation."
+discovered = "2026-07-01"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
 slug = "recheck-ledger-liveness-seam"
 severity = "medium"
 rationale = "Phase 0 U4 (plan 2026-06-17-002) verified recheck WRITES a non-ALIVE link.rechecked event for a dead link, but the DOWNSTREAM surfacing was unverified: ledger/aggregate.py::_link_liveness derived per-link liveness from verified_at/verify_error and structurally ignored the link.rechecked verdict, so a HOST_GONE/LINK_STRIPPED recheck did not lower the equity-ledger live/live_dofollow count (the inverse of the 2026-06-05-001 live-dofollow-undercounting gap). RESOLVED 2026-06-17 (PR #31): _link_liveness now takes the latest recheck verdict (via the shared latest_link_verdicts reader) and a deterministic-dead verdict overrides a stale verified_at; dofollow_lost keeps the link live but strips it from live_dofollow. Positive integration tests in test_ledger_aggregate.py assert the live counts actually drop."
