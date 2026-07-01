@@ -13,7 +13,7 @@ import {
 
 <template>
   <nav class="sidenav" aria-label="主导航">
-    <div class="sidenav__brand">控台</div>
+    <RouterLink to="/" class="sidenav__brand" aria-label="返回操作首页">控台</RouterLink>
     <template v-for="group in GROUP_ORDER" :key="group">
       <div class="sidenav__group-label">{{ GROUP_LABELS[group] }}</div>
       <ul class="sidenav__list">
