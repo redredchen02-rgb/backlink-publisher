@@ -276,7 +276,7 @@ graph TB
 **Verification:**
 - `isinstance(store, Store)` protocol 檢查通過，比照 `tests/test_webui_store_queue_sqlite.py` 的既有慣例。
 
-- [ ] **Unit 3: `/api/v1/error-reports` endpoint**
+- [x] **Unit 3: `/api/v1/error-reports` endpoint**
 
 **Goal:** 提供兩個前端共同送出報告、儀表板讀取報告用的 JSON API 表面。
 

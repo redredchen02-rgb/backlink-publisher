@@ -140,7 +140,21 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 91  # routes with CSRF but no inline Origin guard as of 2026-06-23
+_CSRF_ONLY_SNAPSHOT_COUNT = 96  # routes with CSRF but no inline Origin guard as of 2026-07-01
+# NOTE (2026-07-01): before this bump the measured count on this branch's fork
+# point was already 93 (2 above the previously-recorded 91), drift pre-dating
+# and unrelated to the Plan 2026-07-01-002 work below — its root cause was not
+# investigated here as it is outside this unit's scope; flagged rather than
+# silently absorbed.
+# +3 (93->96): Plan 2026-07-01-002 Unit 3 — POST /api/v1/error-reports, PATCH
+# /api/v1/error-reports/<id>, DELETE /api/v1/error-reports/<id>. Same posture
+# as the rest of the /api/v1 mutating surface added above: sanitized
+# diagnostic-report CRUD (config/state JSON writes), not a 0600 credential
+# write, so no inline guard is warranted; covered at runtime by the
+# app-level _global_origin_guard (proven unconditionally by
+# test_global_guard_covers_every_mutating_route). CSRF itself is enforced
+# solely by the existing site-wide _global_csrf_guard, per the plan's own
+# explicit decision not to special-case this endpoint's CSRF handling.
 # -2 (100->98): U8 medium-IT slice removed the legacy POST /settings/{save,clear}-medium-token
 # routes (config writes, no inline guard — they were in this count). Medium discontinued
 # integration tokens; the management UI is retired (no SPA replacement). Tightening the

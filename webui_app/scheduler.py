@@ -213,6 +213,23 @@ def _drain_batch_ops() -> None:
         plan_logger.warn("batch_ops_drain_failed", row_id=row_id, operation=operation, error=str(exc))
 
 
+def _purge_expired_error_reports_job() -> None:
+    """APScheduler job: delete error reports past their retention window.
+
+    Lazy import (mirrors _drain_batch_ops's dispatch imports below) so this
+    module never has a hard top-level dependency on the api.v1 blueprint
+    package. Never lets a purge failure escape to the scheduler thread.
+    """
+    from .api.v1.error_reports import purge_expired_error_reports
+
+    try:
+        removed = purge_expired_error_reports()
+        if removed:
+            plan_logger.info("error_reports_purge_done", removed=removed)
+    except Exception as exc:
+        plan_logger.warn("error_reports_purge_job_failed", error_class=type(exc).__name__)
+
+
 def _restore_scheduled_jobs() -> None:
     """On startup, re-register any 'scheduled' draft items into APScheduler."""
     _restore_processing_tasks()
@@ -230,6 +247,14 @@ def _restore_scheduled_jobs() -> None:
         trigger='interval',
         seconds=60,
         id='batch_ops_drain',
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        _purge_expired_error_reports_job,
+        trigger='interval',
+        hours=24,
+        id='error_reports_purge',
         replace_existing=True,
     )
 
