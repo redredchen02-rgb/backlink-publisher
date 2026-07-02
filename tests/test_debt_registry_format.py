@@ -450,11 +450,23 @@ def test_no_exact_duplicate_rationale() -> None:
 
 
 def test_cross_reference_debt_comments_have_registry_entries() -> None:
-    """Every `# debt: <slug>` comment in the six seam dirs must resolve to a
-    debt_registry.toml entry whose `location` includes that comment's own
-    file:line (plan D2b action 3, scope matches C1b's AST scanner exactly).
+    """Every `# debt: <slug>` comment anywhere in src/ or webui_app/ must
+    resolve to a debt_registry.toml entry whose `location` includes that
+    comment's own file:line.
+
+    Code-review finding, 2026-07-02: this originally scanned only C1b's six
+    seam directories (SEAM_DEBT_REFS), the same narrower scope
+    `test_location_required_when_referenced_by_debt_comment` deliberately
+    scans BEYOND (ALL_CODE_DEBT_REFS) — e.g. cli/_dedup_gate.py and
+    webui_app/helpers/contexts.py carry `# debt:` comments but sit outside
+    the six seam dirs. That gap meant a pasted debt-slug on a new call site
+    in cli/*, config/*, or webui_app/helpers/* could satisfy "has a
+    location field" (the other test) while pointing at a wrong/stale
+    file:line, since nothing cross-checked the actual comment position
+    against it. Now uses the same ALL_CODE_DEBT_REFS scope as the
+    location-required test, closing that gap.
     """
-    missing = _find_cross_reference_mismatches(ITEMS, SEAM_DEBT_REFS)
+    missing = _find_cross_reference_mismatches(ITEMS, ALL_CODE_DEBT_REFS)
     assert not missing, (
         "`# debt: <slug>` comment(s) found with no matching debt_registry.toml "
         f"(slug, location) entry: {missing}. Either add/extend the registry "

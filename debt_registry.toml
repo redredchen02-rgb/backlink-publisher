@@ -165,25 +165,25 @@ rationale = "webui_app/helpers/contexts.py::_token_paste_channels_from_registry 
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/helpers/contexts.py:118"]
+location = ["webui_app/helpers/contexts.py:120"]
 
 [[items]]
 slug = "webui-render-queue-load-failure"
 severity = "low"
-rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around _queue_store.load() to (OSError, ValueError) and falls back to an empty task list. tasks is auto-injected context for every page render; a transient queue-store read failure should degrade to an empty task list rather than 500 every page in the app."
+rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around _queue_store.load() to (OSError, ValueError, sqlite3.Error) and falls back to an empty task list. tasks is auto-injected context for every page render; a transient queue-store read failure should degrade to an empty task list rather than 500 every page in the app. sqlite3.Error added 2026-07-02 (code review): the queue store is SQLite-backed, and the original narrowing missed the exact exception type a locked/corrupt DB actually raises."
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/helpers/contexts.py:357"]
+location = ["webui_app/helpers/contexts.py:359"]
 
 [[items]]
 slug = "webui-render-image-gen-status-failure"
 severity = "low"
-rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around _image_gen_status(cfg) to (OSError, ValueError, KeyError) and falls back to a default 'not configured' status dict. Like the queue-load fallback above, image_gen_status is auto-injected on every render, so a config-read or key-lookup failure here should degrade to an honest 'not configured' state rather than crash unrelated pages that don't even use image generation."
+rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around _image_gen_status(cfg) to (OSError, ValueError, KeyError, DependencyError) and falls back to a default 'not configured' status dict. Like the queue-load fallback above, image_gen_status is auto-injected on every render, so a config-read or key-lookup failure here should degrade to an honest 'not configured' state rather than crash unrelated pages that don't even use image generation. DependencyError added 2026-07-02 (code review): load_config() raises this for a malformed config.toml, which the original narrowing named as its own rationale but didn't actually catch."
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/helpers/contexts.py:375"]
+location = ["webui_app/helpers/contexts.py:380"]
 
 [[items]]
 slug = "recheck-ledger-liveness-seam"
