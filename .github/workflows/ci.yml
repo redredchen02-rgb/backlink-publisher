@@ -324,3 +324,63 @@ else:
         if: github.event_name == 'pull_request'
         run: |
           python scripts/compare_benchmarks.py --baseline baseline/benchmark-result.json --current benchmark-result.json --threshold-pct 20
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # C3 (Plan 2026-06-30-001): SPA build/lint gate. frontend/ is a Vue 3 + Vite
+  # SPA with no prior CI coverage at all — this job typechecks it (tsc
+  # --noEmit) and builds the production bundle (vite build) on every push/PR,
+  # additive to the Python jobs above (unit/integration/e2e/benchmark are
+  # untouched).
+  # ═══════════════════════════════════════════════════════════════════════════
+  frontend-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node 24: frontend/package.json has no "engines" field and there is
+          # no .nvmrc in this repo to pin from, so this is a deliberate choice
+          # rather than an inferred one. Verified locally (2026-07-02) against
+          # frontend/node_modules/vite/package.json, which declares
+          # "engines": { "node": "^20.19.0 || >=22.12.0" } — Node 24 satisfies
+          # that comfortably and is Active LTS on this date (Node 22 went
+          # Active LTS Oct 2024, Node 24 took over Active LTS Oct 2025), so it
+          # has the longest support runway of the two options.
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        # npm ci (not npm install): reproducible installs from the committed
+        # frontend/package-lock.json, matching the convention already used by
+        # `pip install -e ".[dev]"` (exact deps, no resolver drift) in the
+        # Python jobs above. Requires the lockfile to exist and be in sync
+        # with package.json — both true here.
+        run: |
+          cd frontend && npm ci
+
+      - name: Type check + build SPA
+        # Exact commands verified locally in Sprint C3 (2026-07-02) before
+        # being mirrored here, per this repo's convention of hand-verifying
+        # CI commands rather than trusting them unrun (see C2's
+        # scripts/compare_benchmarks.py local-test note above).
+        #
+        # Known current failure mode (NOT introduced by this job, not fixed
+        # here — out of scope per Sprint C3): `npx tsc --noEmit` currently
+        # exits 2 because of pre-existing @types/node gaps (bare `node:fs` /
+        # `node:path` / `node:url` / `process` references in
+        # src/__tests__/*.spec.ts and src/api/client.ts, plus two implicit-
+        # `any` parameters in theme-light-tokens.spec.ts) that predate this
+        # job. `npx vite build` on its own succeeds cleanly (exit 0) and
+        # correctly emits the production bundle to ../webui_app/spa_dist —
+        # i.e. webui_app/spa_dist/ at the repo root, per vite.config.ts's
+        # build.outDir — which is the path Flask's /app/* route serves from.
+        # This job will show red until the @types/node gap is closed in a
+        # follow-up unit; that is a real, separate fix, not a reason to
+        # relax or drop the type-check step here.
+        run: |
+          cd frontend && npx tsc --noEmit && npx vite build
