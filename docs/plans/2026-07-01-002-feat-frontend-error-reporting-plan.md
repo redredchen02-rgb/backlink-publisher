@@ -405,7 +405,7 @@ graph TB
 **Verification:**
 - 手動對抗式走查（比照 AGENTS.md 記載的、目前沒有框架級測試工具涵蓋的頁面級 JS 互動驗證方式）確認面板開關正確，且「補充說明」動作只出現在帶 `reportId` 的錯誤類 toast 上。
 
-- [ ] **Unit 6: Vue SPA 擷取掛點**
+- [x] **Unit 6: Vue SPA 擷取掛點**
 
 **Goal:** 涵蓋高階技術設計對照表列出的五個 Vue 堆疊失敗面。
 
