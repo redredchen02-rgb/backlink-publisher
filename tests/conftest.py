@@ -14,6 +14,7 @@ import atexit
 import functools
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -173,6 +174,22 @@ def _module_imports_seam(module) -> bool:
     if not file_attr:
         return True
     return _path_has_seam_import(file_attr)
+
+
+# ── Seam-layer debt-comment format (Plan 2026-06-30-001 D2 / C1b / D2b) ──────
+#
+# D2 established (and manually applied across seam modules) the literal
+# inline reason-comment format for a classified bare `except Exception:`:
+# a `# debt: <slug>` comment as the FIRST line inside the handler's own body
+# (directly below the `except ...:` line), with a matching `[[items]]` entry
+# in `debt_registry.toml` keyed by the same `slug`. C1b's AST scanner
+# (test_seam_except_classification.py) reads this literal to decide whether
+# a bare except is "classified"; D2b's future debt_registry location-binding
+# work must write the same literal. Both units import this constant from
+# here rather than each assuming their own regex, per the plan's explicit
+# instruction not to let the two units' code silently drift.
+DEBT_COMMENT_PREFIX = "# debt: "
+DEBT_COMMENT_RE = re.compile(r"#\s*debt:\s*(?P<slug>[\w.\-]+)")
 
 
 # ── Config-sandbox-escape guardrails (Plan 2026-05-27-005) ──────────────────
