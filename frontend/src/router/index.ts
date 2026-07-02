@@ -95,6 +95,21 @@ export const router = createRouter({
       component: () => import('../pages/CampaignProgress/CampaignProgressPage.vue'),
     },
     {
+      // Error-reports dashboard (Plan 2026-07-01-002 Unit 8); navItems maps
+      // 错误报告 → '/error-reports'. SPA-only — no legacy Jinja equivalent.
+      path: '/error-reports',
+      name: 'error-reports',
+      component: () => import('../pages/ErrorReports/ErrorReportsPage.vue'),
+    },
+    {
+      // Error-report detail drill-down (Unit 8) — deliberately its own
+      // sub-route rather than a modal/drawer, see ErrorReportDetailPage.vue's
+      // header comment for why.
+      path: '/error-reports/:id',
+      name: 'error-report-detail',
+      component: () => import('../pages/ErrorReports/ErrorReportDetailPage.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../pages/NotFound.vue'),
