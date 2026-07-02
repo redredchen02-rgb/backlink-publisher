@@ -493,7 +493,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 - **本機驗證**（`frontend/` 內，先執行 `npm install` 因為本 worktree 的 `node_modules/` 是真實安裝而非 junction，初始為空）：
   - `npx tsc --noEmit` → **exit 2**（非本次改動造成）：既存的 `@types/node` 缺口——`src/__tests__/data-table-adoption.spec.ts`、`src/__tests__/theme-light-tokens.spec.ts`、`src/__tests__/token-resolution.spec.ts` 對裸露的 `node:fs`/`node:path`/`node:url` 报 `TS2591`，`src/api/client.ts:162` 對 `process` 报 `TS2591`，另外 `theme-light-tokens.spec.ts:65` 有兩個隱式 `any` 參數（`TS7006`）。這些都與本次 C3 改動無關（未新增/修改任何 `.ts`/`.vue` 原始碼），依計畫指示不在本次範圍內修復，只如實記錄。
   - `npx vite build` → **exit 0**，乾淨成功，204 個模組轉譯，輸出如上述正確落在 `webui_app/spa_dist/`。
-  - 因此新 job 目前會是紅的（卡在 `tsc --noEmit` 那一步），這是如實反映現狀，不是本次改動的缺陷——後續應開一個獨立 unit 補上 `@types/node`（`npm i -D @types/node` 並在 `tsconfig.json` 的 `types` 欄位加上 `"node"`）讓 job 轉綠，不屬於 C3 範圍。
+  - 因此新 job 原本會是紅的（卡在 `tsc --noEmit` 那一步）。**〔2026-07-02 執行者複核後追加修復〕** 新增一個尚未有 CI 驗證、當下就會紅燈的 job 不是好的收尾方式，即使根因是「既存缺口、非本次改動造成」——已直接補上：`npm i -D @types/node` + `tsconfig.json` 的 `types` 欄位加上 `"node"`（commit `bd6f25af`）。修復後 `npx tsc --noEmit` → exit 0，且原本看似獨立的 `theme-light-tokens.spec.ts:65` 兩個隱式 `any` 錯誤也一併消失——證實那兩個其實是 `node:fs` 型別缺席導致的下游型別推斷失敗，不是獨立問題。`npm test`（34 檔／190 測試全綠）與 `npx vite build`（exit 0，輸出路徑不變）複驗均通過。`frontend-lint` job 現在會是綠燈，不需要留給後續 unit。
 - **YAML 驗證**：`python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml', encoding='utf-8'))"` 在既存（C2 已記錄、本次未觸碰）的 `Validate syntax` step 的 literal block scalar dedent-to-column-0 問題上失敗，與 C3 改動無關；沿用 C2 的驗證法，把新增的 `frontend-lint` job 區塊單獨抽出、前綴 `jobs:\n` 後 parse，成功解析，且結構符合預期（`runs-on`/`timeout-minutes`/4 個 steps）。
 
 ---
