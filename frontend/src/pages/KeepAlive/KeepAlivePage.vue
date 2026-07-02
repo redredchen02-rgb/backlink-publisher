@@ -19,6 +19,10 @@ const actionState = ref<ActionState>('idle')
 const error = ref<Error | null>(null)
 const summary = ref<KeepAliveSummary | null>(null)
 const flashMessage = ref('')
+// Cycle status is a secondary/non-critical panel fetched alongside the
+// scorecard. Its failure is tracked independently (see `load()`) so a
+// transient error there cannot blank the already-loaded scorecard.
+const cycleStatusError = ref(false)
 
 // Recheck state
 const recheckJobId = ref('')
@@ -59,17 +63,27 @@ const load = async () => {
   error.value = null
   try {
     summary.value = await fetchSummary()
-    cycleStatus.value = await fetchCycleStatus()
-    if (summary.value.is_empty) {
-      pageState.value = 'empty'
-    } else if (summary.value.stale) {
-      pageState.value = 'stale'
-    } else {
-      pageState.value = 'ready'
-    }
   } catch (e) {
     error.value = e instanceof Error ? e : new Error(String(e))
     pageState.value = 'error'
+    return
+  }
+  if (summary.value.is_empty) {
+    pageState.value = 'empty'
+  } else if (summary.value.stale) {
+    pageState.value = 'stale'
+  } else {
+    pageState.value = 'ready'
+  }
+  // Isolated on purpose (own try/catch, not folded into the summary fetch
+  // above): a cycle-status failure must not blank the scorecard that already
+  // loaded fine (R3 action 6/7 — partial failure must not blank sibling data).
+  try {
+    cycleStatus.value = await fetchCycleStatus()
+    cycleStatusError.value = false
+  } catch {
+    cycleStatus.value = null
+    cycleStatusError.value = true
   }
 }
 
@@ -222,7 +236,10 @@ const doResetExhausted = async () => {
 const refreshCycleStatus = async () => {
   try {
     cycleStatus.value = await fetchCycleStatus()
-  } catch { /* silent */ }
+    cycleStatusError.value = false
+  } catch {
+    cycleStatusError.value = true
+  }
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -270,7 +287,7 @@ onUnmounted(() => {
     </div>
 
     <StateBlock
-      :state="pageState === 'loading' ? 'loading' : pageState === 'error' ? 'error' : 'ready'"
+      :state="pageState === 'loading' ? 'loading' : pageState === 'error' ? 'error' : pageState === 'empty' ? 'empty' : 'ready'"
       :error="error"
       empty-text="暂无数据。先发布一些文章，然后运行巡检。"
       @retry="load"
@@ -315,8 +332,14 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- S0: Cycle status -->
-      <div v-if="cycleStatus" class="ka__cycle mt-3">
+      <!-- S0: Cycle status — a failed fetch here must not blank the scorecard
+           above (which already loaded fine); show its own persistent error
+           indicator instead (R3 action 6/7). -->
+      <div v-if="cycleStatusError" class="ka__cycle-error alert alert-warning mt-3" role="alert">
+        ⚠ 自动保活周期状态加载失败，不影响上方数据。
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" @click="refreshCycleStatus">重试</button>
+      </div>
+      <div v-else-if="cycleStatus" class="ka__cycle mt-3">
         <details>
           <summary class="text-muted" style="cursor:pointer">
             自动保活周期
