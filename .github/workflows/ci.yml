@@ -65,15 +65,45 @@ jobs:
       - name: Print radon version
         run: python -m radon --version
 
-      - name: Run unit tests
-        # -n auto (pytest-xdist) parallelises across the runner's cores. The unit
-        # tier is the biggest subset (8287 tests) but each test is fast and
-        # isolated — determinism-verified under workers (see PYTHONHASHSEED=0).
-        # --timeout=15 per-test (pytest-timeout) is shorter than integration/e2e.
-        # --strict-markers catches any module-level __tier__ drift.
-        # --cov includes branch coverage in report/json, excluding test files.
+      - name: Run unit tests (seam — no reruns)
+        # C1a (Plan 2026-06-30-001, R9): a single global --reruns flag across
+        # the whole unit tier silently masks real intermittent failures in
+        # tests that touch persistence/IO-heavy "seam" modules (events/gap/
+        # idempotency/ledger/webui_app.api). tests/conftest.py statically
+        # AST-scans each test module's own import statements for those
+        # module families and auto-applies pytest.mark.seam (see
+        # _SEAM_IMPORT_PREFIXES there) — no per-file marker list to maintain.
+        # This step runs the seam-classified subset (790 of 9887 unit tests
+        # as of 2026-07-02) WITHOUT --reruns: a red run here must stay red
+        # rather than get silently retried away, because these are exactly
+        # the modules where a flake is most likely to be a real bug.
+        # --cov-report= (no report emitted yet) — the combined report across
+        # both steps is written after unit-rest below via --cov-append, so
+        # coverage from this step is tracked, not dropped.
         run: |
-          python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit" --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:coverage-unit.json --reruns 2 --reruns-delay 1
+          python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit and seam" --strict-markers --strict-config --cov --cov-branch --cov-report=
+
+      - name: Run unit tests (rest — reruns enabled)
+        # -n auto (pytest-xdist) parallelises across the runner's cores. This
+        # is the non-seam subset (9097 of 9887 unit tests as of 2026-07-02):
+        # fast, isolated tests with no seam-module import, where a rerun is
+        # safe because ordinary CI-environment flakiness (timing, xdist
+        # worker scheduling) is a far more likely cause than the persistence/
+        # state-heavy failure modes --reruns would mask in the seam subset
+        # above. Classification is import-based/automatic; the only manual
+        # bookkeeping is tests/conftest.py's
+        # _SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS — a one-time, shrink-only list
+        # of files whose seam-module import is coincidental (e.g. reads a
+        # static constant with zero interaction with seam runtime behavior),
+        # each entry requiring a rationale comment.
+        # --timeout=15 per-test (pytest-timeout) is shorter than integration/e2e.
+        # --strict-markers catches any module-level __tier__ drift (and would
+        # hard-fail collection if `seam` were applied without being
+        # registered in pyproject.toml's markers list).
+        # --cov-append merges onto the unit-seam step's coverage data so the
+        # json report below reflects BOTH steps combined.
+        run: |
+          python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit and not seam" --strict-markers --strict-config --cov --cov-branch --cov-append --cov-report=term --cov-report=json:coverage-unit.json --reruns 2 --reruns-delay 1
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
