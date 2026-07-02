@@ -2,6 +2,7 @@
 // Base '/app/' matches the Flask catch-all that serves the SPA; deep-link
 // refreshes on /app/<route> are served index.html by Flask, then resolved here.
 import { createRouter, createWebHistory } from 'vue-router'
+import { reportRouterError } from '../lib/errorCapture'
 
 export const router = createRouter({
   history: createWebHistory('/app/'),
@@ -108,5 +109,13 @@ router.afterEach(() => {
     const main = document.getElementById('main')
     if (main) main.focus()
   })
+})
+
+// Plan 2026-07-01-002 Unit 6, hook 3 — navigation-guard / async-component
+// resolution failures are cancelled by the Router before they ever reach a
+// render/lifecycle call site, so app.config.errorHandler never sees them;
+// this is the only interception point that catches this failure surface.
+router.onError((error) => {
+  reportRouterError(error)
 })
 

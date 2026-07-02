@@ -66,16 +66,26 @@ export async function getJson<T = unknown>(path: string): Promise<T> {
   return (await resp.json()) as T
 }
 
+export interface SendJsonOptions {
+  /** Passed straight through to `fetch`'s `keepalive` option — lets a
+   *  request started right before page unload (e.g. Unit 6's error-capture
+   *  submission) still complete. Not used by any existing caller, so the
+   *  default (`false`/omitted) preserves today's behavior exactly. */
+  keepalive?: boolean
+}
+
 /** Send a mutating JSON request with a fresh CSRF token; retry once on 403. */
 export async function sendJson<T = unknown>(
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
+  options?: SendJsonOptions,
 ): Promise<T> {
   const doSend = async (token: string): Promise<Response> =>
     fetch(`${API_BASE}${path}`, {
       method,
       credentials: 'same-origin',
+      keepalive: options?.keepalive ?? false,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',

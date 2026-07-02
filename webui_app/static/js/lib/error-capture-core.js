@@ -150,13 +150,27 @@ export function isNoiseError(errorInfo) {
 // ── self-report-loop guard ───────────────────────────────────────────────────
 
 // Any stack frame mentioning one of these filenames means the error
-// originated in the capture pipeline itself (this module, the legacy
+// originated in the capture pipeline itself (this module, either frontend's
 // DOM-layer consumer, or its submission logic) rather than in application
 // code. Kept as literal filenames (not full paths) so it matches regardless
 // of how the browser reports the module's URL (dev vs. built/hashed path,
 // legacy `static/js/...` vs. a future bundled asset name); update this list
-// if either file is ever renamed.
-const CAPTURE_MODULE_FILENAMES = ['error-capture-core.js', 'error-capture.js'];
+// if any of these files is ever renamed.
+//
+// `errorCapture.ts`/`errorCapturePlugin.ts` are Unit 6's Vue-side bootstrap
+// (frontend/src/lib/errorCapture.ts, frontend/src/stores/errorCapturePlugin.ts)
+// — added so a bug in the Vue-side capture/submission logic is guarded
+// against the same self-report loop as the legacy side, per this file's own
+// `isSelfOriginatedError` doc comment. Note Vite bundles to hashed chunk
+// names in production, so this filename substring match is imperfect there
+// (a pre-existing, accepted limitation shared with the legacy dev-vs-built
+// case above, not something Unit 6 needs to solve).
+const CAPTURE_MODULE_FILENAMES = [
+    'error-capture-core.js',
+    'error-capture.js',
+    'errorCapture.ts',
+    'errorCapturePlugin.ts',
+];
 
 /**
  * Decide whether a stack trace (and/or resource filename) originates from
