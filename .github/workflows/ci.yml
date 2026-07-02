@@ -231,3 +231,96 @@ else:
         # Per-test timeout 120s for network-bound assertions.
         run: |
           python -m pytest tests/ -v --tb=short --timeout=120 -m "e2e" --strict-markers --strict-config
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # C2 (Plan 2026-06-30-001): Performance benchmark diff gate — advisory only.
+  # Records pytest-benchmark results for tests/test_benchmarks.py on every run,
+  # publishes main's result as the baseline artifact future PRs compare
+  # against, and on PRs diffs the PR's numbers against that baseline. This is
+  # the first CI benchmark gate for this repo, so it is warn-only end to end
+  # (mirrors the "advisory (warn-only)" contract already documented in
+  # tests/test_benchmarks.py's own module docstring) — nothing here fails the
+  # build.
+  # ═══════════════════════════════════════════════════════════════════════════
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read  # required to look up + download main's baseline artifact from a prior run
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run benchmarks
+        # continue-on-error: tests/test_benchmarks.py is already covered by the
+        # unit job above (it carries __tier__ = "unit"); a correctness failure
+        # there is that job's problem to flag red, not this advisory perf
+        # job's. --benchmark-json still gets written with whatever benchmarks
+        # completed before any such failure, so partial data still feeds the
+        # comparison step below rather than the whole job going dark.
+        continue-on-error: true
+        run: |
+          python -m pytest tests/test_benchmarks.py --benchmark-only --benchmark-json=benchmark-result.json -v --tb=short
+
+      - name: Upload benchmark result
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-result-${{ github.sha }}
+          path: benchmark-result.json
+          if-no-files-found: error
+
+      - name: Publish baseline artifact (main only)
+        # Fixed artifact name (not keyed by sha) so the "find latest main
+        # baseline run" step below only ever needs the most recent successful
+        # run of this workflow on main — no manual pruning of old baselines.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: benchmark-result.json
+          if-no-files-found: error
+
+      - name: Find latest main baseline run
+        if: github.event_name == 'pull_request'
+        id: baseline_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=$(gh run list --repo "${{ github.repository }}" --branch main --workflow "${{ github.workflow }}" --status success --json databaseId --jq '.[0].databaseId' || true)
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download main baseline
+        if: github.event_name == 'pull_request' && steps.baseline_run.outputs.run_id != ''
+        continue-on-error: true  # missing/expired baseline artifact must not fail the job — see compare step
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: baseline
+          run-id: ${{ steps.baseline_run.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare against main baseline (warn-only, 20% threshold)
+        # 20%: deliberately lenient starting point (Plan 2026-06-30-001 risk
+        # register: "CI benchmark diff gate too strict -> mitigation: initial
+        # threshold 20%, tighten later"). This is the first benchmark gate
+        # this repo has had, and pytest-benchmark wall-clock timings on
+        # shared GitHub-hosted runners are noisy on their own (CPU steal from
+        # co-scheduled jobs can swing double digits with zero code change) —
+        # a tight threshold on an uncalibrated gate would flag runner noise
+        # as regressions. Tighten once real-world variance is measured.
+        # scripts/compare_benchmarks.py always exits 0 (warn-only — see its
+        # module docstring); this step never fails the build.
+        if: github.event_name == 'pull_request'
+        run: |
+          python scripts/compare_benchmarks.py --baseline baseline/benchmark-result.json --current benchmark-result.json --threshold-pct 20
