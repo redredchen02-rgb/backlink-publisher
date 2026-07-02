@@ -101,6 +101,16 @@
                     <a href="/settings" class="topbar-btn{% if (active_page | default('')) == 'settings' %} active{% endif %}" aria-label="系统设置" title="系统设置">
                         <i class="bi bi-gear"></i>
                     </a>
+                    {# Persistent "report a problem" entry (Plan 2026-07-01-002 Unit 5).
+                       Static markup here (not JS-inserted) — webui_app/static/js/ui/error-report-entry.js
+                       looks this up SCOPED THROUGH .app-topbar__actions (the real topbar
+                       actions container) and wires its click handler; it deliberately does
+                       NOT use the known-dead .global-nav__actions selector that
+                       notifications.js's own createBadge() mistakenly reaches for. #}
+                    <button type="button" class="topbar-btn" id="reportProblemBtn"
+                            aria-label="回报问题" title="回报问题">
+                        <i class="bi bi-flag"></i>
+                    </button>
                     {% if not lite_edition %}
                     {% set ps = pro_status | default({}, true) %}
                     {% if not ps.configured %}
@@ -143,5 +153,8 @@
     <script type="module" src="{{ url_for('static', filename='js/notifications.js', v=asset_version) }}"></script>
     {# Sidebar anomaly badge — single fail-open fetch to /api/monitor-hub. #}
     <script type="module" src="{{ url_for('static', filename='js/ui/nav-badge.js', v=asset_version) }}"></script>
+    {# Nav-bar "report a problem" entry + panel, and the bridge target for a
+       reportId-bearing toast's "补充说明" action (Plan 2026-07-01-002 Unit 5). #}
+    <script type="module" src="{{ url_for('static', filename='js/ui/error-report-entry.js', v=asset_version) }}"></script>
 </body>
 </html>
