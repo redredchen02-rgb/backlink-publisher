@@ -201,7 +201,10 @@ def _run_regenerate(args: Any) -> None:
             tmp = final.with_suffix(final.suffix + ".tmp")
             tmp.write_text(_serialize_baseline(record), encoding="utf-8")
             tmp_paths.append((tmp, final))
-    except Exception:
+    except (OSError, ValueError, TypeError):
+        # Not silenced — cleans up partially-written .tmp files then re-raises
+        # (OSError from write_text, ValueError/TypeError from serialization)
+        # so the caller still sees the original failure.
         for tmp, _final in tmp_paths:
             tmp.unlink(missing_ok=True)
         raise

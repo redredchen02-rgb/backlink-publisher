@@ -68,7 +68,7 @@ def derive_path_tiers(raw_url: str) -> dict:
         return none_result
     try:
         parsed = urlparse(raw_url)
-    except Exception:  # noqa: BLE001 — urlparse is permissive but defend.
+    except ValueError:  # urlparse raises ValueError on malformed input (e.g. bad IPv6/port).
         return none_result
     if parsed.scheme not in {"http", "https"}:
         return none_result

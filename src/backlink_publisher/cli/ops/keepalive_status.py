@@ -27,7 +27,8 @@ def _relative_ts(iso: str | None) -> str:
         if secs < 86400:
             return f"{secs // 3600}h ago"
         return f"{secs // 86400}d ago"
-    except Exception:
+    except (ValueError, TypeError):
+        # debt: keepalive-status-relative-ts-parse-failure
         return iso or "never"
 
 
