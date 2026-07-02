@@ -370,7 +370,7 @@ graph TB
 **Verification:**
 - 手動檢查 `base.html` 載入順序，確認新 script 標籤在 `theme.js` 之前執行。
 
-- [ ] **Unit 5: Legacy「回報問題」使用者介面**
+- [x] **Unit 5: Legacy「回報問題」使用者介面**
 
 **Goal:** 使用者可見的兩個回報入口——錯誤 toast 上的情境動作，以及導覽列固定入口——接上 Unit 3／Unit 4。
 
