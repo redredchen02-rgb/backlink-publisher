@@ -150,6 +150,13 @@ class TestCampaignRoutes:
         resp = client.get("/campaign/nonexistent-campaign-id")
         assert resp.status_code == 404
 
+    def test_campaign_progress_redirects_to_spa(self, client):
+        # /campaign/<id> now redirects to the SPA; the /jinja fallback
+        # (test_campaign_progress_unknown_id_returns_404 above) covers the render path.
+        resp = client.get("/campaign/some-id")
+        assert resp.status_code == 302
+        assert "/app/campaign/some-id" in resp.location
+
     def test_campaign_status_api_unknown_id_returns_404(self, client):
         resp = client.get("/api/campaign/nonexistent-campaign-id/status")
         assert resp.status_code == 404
@@ -200,6 +207,13 @@ class TestPrQueueRoutes:
         resp = client.get("/pr-queue")
         assert resp.status_code == 200
         assert b"html" in resp.data.lower()
+
+    def test_get_pr_queue_redirects_to_spa(self, client):
+        # /pr-queue now redirects to the SPA; the /jinja fallback
+        # (test_get_pr_queue_page above) covers the render path.
+        resp = client.get("/pr-queue")
+        assert resp.status_code == 302
+        assert "/app/pr-queue" in resp.location
 
     def test_get_api_pr_queue(self, client, monkeypatch):
         """GET /api/pr-queue returns JSON with ok + items keys."""

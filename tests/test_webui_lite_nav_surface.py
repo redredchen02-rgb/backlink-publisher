@@ -15,7 +15,7 @@ from webui_app import create_app
 # Baseline (flag off) statuses: copilot/advice 200, metrics 200, seo 400,
 # pr-queue 200 — all non-404, so the gate's 404 is observable.
 _HIDDEN_ROUTES = ["/copilot/advice", "/metrics", "/api/seo/anchors", "/pr-queue"]
-_CORE_ROUTES = ["/", "/ce:keep-alive", "/ce:health"]
+_CORE_ROUTES = ["/", "/ce:keep-alive/jinja", "/ce:health"]
 _TRIMMED_NAV_LABELS = ["排程", "权益", "PR队列"]
 
 
@@ -39,13 +39,13 @@ def lite_off(monkeypatch):
 
 
 def test_full_nav_when_lite_off(client, lite_off):
-    html = client.get("/ce:keep-alive").get_data(as_text=True)
+    html = client.get("/ce:keep-alive/jinja").get_data(as_text=True)
     for label in _TRIMMED_NAV_LABELS:
         assert label in html
 
 
 def test_nav_trimmed_to_core_when_lite_on(client, lite_on):
-    html = client.get("/ce:keep-alive").get_data(as_text=True)
+    html = client.get("/ce:keep-alive/jinja").get_data(as_text=True)
     # Assert the core nav *link* survives — not the bare '保活' label, which also
     # renders in the page title + navbar-brand and would pass even if the nav
     # anchor were deleted. '设置' is nav-unique, so its bare label is sound.

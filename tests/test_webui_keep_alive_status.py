@@ -121,7 +121,7 @@ def test_route_renders():
 
     app = create_app()
     client = app.test_client()
-    resp = client.get("/ce:keep-alive")
+    resp = client.get("/ce:keep-alive/jinja")
     assert resp.status_code == 200
     assert "保活".encode() in resp.data
 

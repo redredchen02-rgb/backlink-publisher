@@ -40,7 +40,7 @@ def test_pro_blueprint_post_returns_404_not_403(disable_csrf):
 
 def test_core_route_accessible_in_lite(disable_csrf):
     """GET core route is not blocked by LITE gate."""
-    resp = webui.app.test_client().get("/ce:keep-alive")
+    resp = webui.app.test_client().get("/ce:keep-alive/jinja")
     assert resp.status_code == 200
 
 
