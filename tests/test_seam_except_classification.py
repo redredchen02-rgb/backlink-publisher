@@ -214,6 +214,30 @@ def test_no_new_unclassified_bare_except_in_seam_modules():
     assert discovered <= GRANDFATHERED_BARE_EXCEPT_SITES
 
 
+# Code-review finding, 2026-07-02: the subset check above only catches a new
+# violation that ISN'T also added to the allowlist. It does nothing to stop
+# someone from adding a new violation AND a matching new frozenset entry in
+# the same change — that shape still satisfies `discovered <=
+# GRANDFATHERED_BARE_EXCEPT_SITES` trivially. Pinning the exact size closes
+# that gap: growing this number past 4 requires deliberately editing this
+# constant (and explaining why in the PR), not just adding a tuple that
+# happens to make the subset check pass. Shrinking (as D2 classifies more of
+# these) requires lowering the pinned number too — a true ratchet in both
+# directions, not just "never grows silently."
+_EXPECTED_GRANDFATHERED_COUNT = 4
+
+
+def test_grandfathered_bare_except_sites_size_is_pinned():
+    assert len(GRANDFATHERED_BARE_EXCEPT_SITES) == _EXPECTED_GRANDFATHERED_COUNT, (
+        f"GRANDFATHERED_BARE_EXCEPT_SITES has {len(GRANDFATHERED_BARE_EXCEPT_SITES)} "
+        f"entries, expected {_EXPECTED_GRANDFATHERED_COUNT}. If you just classified "
+        "one of these sites (added a `# debt:` comment + registry entry and removed "
+        "it from the set), lower _EXPECTED_GRANDFATHERED_COUNT to match. If you're "
+        "adding a NEW entry, stop — that's exactly the silent-growth path this test "
+        "exists to block; classify the site instead of grandfathering it."
+    )
+
+
 def test_red_path_bare_except_is_detected():
     """Proves the scanner has teeth on the three shapes doc-review named.
 

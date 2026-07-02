@@ -100,6 +100,26 @@ def test_coincidental_import_exclusion_overrides_genuine_import() -> None:
     assert _module_imports_seam(_FakeModule(real_file)) is False
 
 
+# Code-review finding, 2026-07-02: the exclusion list's own docstring says
+# "shrink-only", but nothing enforced that — a new entry could be added with
+# a weak/self-attested justification and no test would ever flag it. Pinning
+# the exact size means any addition requires deliberately lowering (never
+# just matching) this constant, forcing the PR to justify growth explicitly
+# rather than let the frozenset grow silently.
+_EXPECTED_COINCIDENTAL_EXCLUSION_COUNT = 1
+
+
+def test_coincidental_import_exclusions_size_is_pinned() -> None:
+    assert len(_SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS) == _EXPECTED_COINCIDENTAL_EXCLUSION_COUNT, (
+        f"_SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS has "
+        f"{len(_SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS)} entries, expected "
+        f"{_EXPECTED_COINCIDENTAL_EXCLUSION_COUNT}. Adding an entry requires "
+        "raising this constant in the same change and explaining, in the new "
+        "entry's own comment, why the import genuinely never touches seam "
+        "runtime behavior (per the frozenset's own docstring contract)."
+    )
+
+
 def test_seam_import_prefixes_cover_the_five_documented_families() -> None:
     """Ratchet: the five module families named in the C1a plan text stay covered."""
     expected_families = {"events", "gap", "idempotency", "ledger", "webui_app.api"}
