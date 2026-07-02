@@ -87,6 +87,22 @@ describe('publish store — stage machine', () => {
     expect(s.availablePlatforms).toHaveLength(1)
   })
 
+  it('loadPlatforms surfaces (but does not throw) the failure via platformsError, cleared on next success', async () => {
+    const s = usePublishStore()
+    expect(s.platformsError).toBeNull()
+
+    const boom = new Error('boom')
+    vi.mocked(api.boundPlatforms).mockRejectedValue(boom)
+    await s.loadPlatforms()
+    expect(s.platformsError).toBe(boom)
+
+    vi.mocked(api.boundPlatforms).mockResolvedValue({
+      platforms: [{ slug: 'blogger', display_name: 'Blogger' }],
+    })
+    await s.loadPlatforms()
+    expect(s.platformsError).toBeNull()
+  })
+
   it('reset returns to a clean input stage', () => {
     const s = usePublishStore()
     s.plans = [{ id: 'a' }]
