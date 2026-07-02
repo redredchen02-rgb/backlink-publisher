@@ -1,0 +1,26 @@
+{
+  "reviewer": "api-contract",
+  "findings": [
+    {
+      "title": "Vue error-capture/toast/report-panel chain types the server-generated report id as `number`, but the backend always returns a UUID string",
+      "severity": "P2",
+      "file": "frontend/src/lib/errorCapture.ts",
+      "line": 156,
+      "confidence": 0.78,
+      "autofix_class": "safe_auto",
+      "owner": "frontend",
+      "requires_verification": true,
+      "pre_existing": false,
+      "why_it_matters": "webui_store/error_reports.py's _new_report_id() returns str(uuid.uuid4()) -- the POST /api/v1/error-reports response's `id` field (and every downstream `reportId` derived from it) is ALWAYS a UUID string on the wire, exactly as frontend/src/api/errorReports.ts correctly types it (`id: string`). But the independent Vue error-capture path declares the opposite type for the same backend field: errorCapture.ts's `submitReport` returns `Promise<{ id: number } | null>` and `notifySuccess(message, reportId: number)`, notifications.ts's `Toast.reportId?: number`, and stores/reportPanel.ts's `reportId = ref<number | undefined>` all assume a numeric id. At runtime this doesn't crash (JS coerces via `String(...)` before building the PATCH URL), but it is a genuine, diff-visible type-contract violation between two independent typed consumers of the exact same backend response -- and it defeats TypeScript's ability to catch a future regression that does arithmetic/equality on the value as a number. The corresponding test suites reinforce the wrong assumption: errorCapture.spec.ts mocks `{ id: nextId++ }` (numbers) and ReportProblemPanel.spec.ts calls `panel.open(42)` / mocks `{ id: 123 }`, so no test exercises the real UUID-string shape.",
+      "suggested_fix": "Change `id`/`reportId` annotations from `number` to `string` throughout frontend/src/lib/errorCapture.ts (submitReport return type, notifySuccess param), frontend/src/stores/notifications.ts (Toast.reportId), frontend/src/stores/reportPanel.ts (reportId ref + open() param), and any typed call sites in Toast.vue/ReportProblemPanel.vue that pass it through, then update errorCapture.spec.ts and ReportProblemPanel.spec.ts fixtures to use string UUIDs instead of numeric ids so the tests actually exercise the real contract."
+    }
+  ],
+  "residual_risks": [
+    "webui_app/api/v1/error_reports.py's create_error_report() only strips the `status` key from the sanitized payload before persisting (`to_persist = {k: v for k, v in sanitized.items() if k != \"status\"}`); it does NOT strip the client-minted `reportId` correlation key. For every auto-captured report, the persisted row's data_json (and therefore every GET /error-reports and GET /error-reports/<id> response) carries both a server-assigned `id` and a leftover client `reportId` field with a different value under a very similar name. No frontend consumer currently reads that leftover `reportId` from a GET response (both TS ErrorReportItem and the legacy JS treat it as an opaque extra field), so this is not an active break today, but it is undocumented in the module's own docstring (which frames `reportId` purely as a POST-time correlation marker, not as persisted state) and is a plausible source of future confusion for anyone extending the dashboard.",
+    "The fingerprint-merge 200 response path (`updated = error_report_store.get(existing_id) or existing`) falls back to the pre-increment `existing` snapshot if the row vanishes between `find_by_fingerprint` and `increment_occurrence` (a documented rare race) -- in that edge case the client-visible `occurrences` count in the 200 response would be one lower than what was actually persisted moments later. Cosmetic and rare, not flagged as a finding, but worth knowing if occurrence counts are ever used for anything beyond display."
+  ],
+  "testing_gaps": [
+    "frontend/src/lib/errorCapture.spec.ts's fetch stub returns `{ id: nextId++ }` (a JS number) for every POST /error-reports call, and frontend/src/components/ReportProblemPanel.spec.ts mocks `{ id: 123 }` / calls `panel.open(42)` -- neither test suite ever exercises the real backend contract (a UUID string id), so a regression that assumes/produces a numeric id would pass CI while breaking against the actual Flask backend.",
+    "No test in this diff appears to assert the shape of the `data_json` actually persisted for an auto-captured (reportId-bearing) submission -- specifically, whether the client-side `reportId` correlation key is retained in the stored/returned report alongside the server `id` (see residual risk above). A contract test asserting the exact key set returned by GET /error-reports/<id> for both manual and auto-captured reports would catch this and any future accidental field leakage in the same code path."
+  ]
+}

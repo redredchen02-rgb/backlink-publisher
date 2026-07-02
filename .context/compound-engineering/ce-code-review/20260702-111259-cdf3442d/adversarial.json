@@ -1,0 +1,72 @@
+{
+  "reviewer": "adversarial",
+  "findings": [
+    {
+      "title": "Composition: client-supplied fingerprint is trusted verbatim for merge/increment decisions, letting any same-origin script forge occurrence counts on an arbitrary existing report",
+      "severity": "P2",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 184,
+      "confidence": 0.78,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": null,
+      "why_it_matters": "computeFingerprint() runs entirely client-side (webui_app/static/js/lib/error-capture-core.js) and the resulting string is sent as a plain fingerprint field in the POST body; create_error_report() takes sanitized.get(\"fingerprint\") as-is and calls error_report_store.find_by_fingerprint(fingerprint) -> increment_occurrence(existing_id) with no server-side recomputation from message/stack/source to verify the fingerprint actually describes the submitted error. tests/test_webui_api_v1_error_reports.py demonstrates this directly (_auto_report(fingerprint=\"fp-dup\", reportId=\"corr-2\") freely picks an arbitrary literal string). Any same-origin script capable of a CSRF-token-bearing POST (a compromised npm dependency in the SPA bundle, a malicious browser extension content script, or a future XSS) can first GET /api/v1/error-reports to read existing rows' fingerprint values, then repeatedly POST a body with an observed fingerprint to inflate occurrences/last_seen_at on any open report it chooses, or conversely mask a real recurring bug's fingerprint so its own genuine future recurrences get silently folded away. This corrupts the operator dashboard's triage signal without the underlying bug ever needing to actually reoccur.",
+      "evidence": [
+        "1. Attacker script runs same-origin (compromised dependency / extension / future XSS) with a valid CSRF token already available in the page.",
+        "2. GET /api/v1/error-reports returns items including each row's fingerprint field (webui_app/api/v1/error_reports.py list_error_reports).",
+        "3. Attacker POSTs a body like reportId: x, fingerprint: observed-fingerprint, message: noise to /api/v1/error-reports.",
+        "4. create_error_report() computes fingerprint = sanitized.get(\"fingerprint\") (the attacker's raw string, unchanged by sanitize_error_report which only scrubs for secrets/length, never recomputes it) and calls find_by_fingerprint(fingerprint) -> increment_occurrence(existing_id), bumping the target row's occurrence count and last_seen_at with content that has no relationship to the row's actual error."
+      ]
+    },
+    {
+      "title": "Cascade: an uncaught Pinia action rejection double-submits as two distinct error-report rows because the context-prefixed message changes the fingerprint",
+      "severity": "P2",
+      "file": "frontend/src/lib/errorCapture.ts",
+      "line": 327,
+      "confidence": 0.68,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": null,
+      "why_it_matters": "The module's own comment cites vuejs/pinia#576: a store action rejection sometimes does NOT bubble to window.unhandledrejection, which implies it sometimes DOES. When a component calls a Pinia action without catching its rejection, the same Error instance can be delivered to both hook 5 ($onAction onError -> reportPiniaActionError) and hook 1 (window unhandledrejection -> onUnhandledRejection). reportPiniaActionError/reportMutationError/reportQueryError all call withContextPrefix(), which prepends a storeId.actionName-style prefix to errorInfo.message before computeFingerprint() runs; the raw window listener does not add this prefix. Since computeFingerprint() hashes name+message+first stack frames (not source), the two captures of the identical failure produce different fingerprints and are therefore each treated as a first occurrence by the per-tab DedupTracker and each POSTed as a genuinely new row server-side (no fingerprint match, so no merge). One real failure becomes two dashboard rows and consumes two units of the daily new-report cap.",
+      "evidence": [
+        "1. A Pinia store action throws/rejects and the calling component code does not catch it.",
+        "2. Pinia's $onAction onError fires (errorCapturePlugin.ts) -> reportPiniaActionError(storeId, actionName, error) -> withContextPrefix() prepends the store/action context to the message -> computeFingerprint(prefixed info) -> submitted as row A.",
+        "3. The same rejection, uncaught by the caller, also reaches window unhandledrejection -> onUnhandledRejection captures the same Error object with its raw (unprefixed) message -> computeFingerprint(raw info) produces a different fingerprint (message text differs even though name/stack match) -> submitted as row B.",
+        "4. Server-side find_by_fingerprint() sees two different fingerprint values, so both POSTs insert fresh rows via add() rather than merging via increment_occurrence -- one real error now appears as two independent, unlinked reports in the operator dashboard, and both count against _enforce_daily_cap's per-day new-row quota."
+      ]
+    },
+    {
+      "title": "Assumption violation: Layer-3 exact-secret masking has no minimum-length floor, so an operator-configured short credential over-redacts ordinary substrings in every report field",
+      "severity": "P3",
+      "file": "webui_app/services/error_report_sanitizer.py",
+      "line": 187,
+      "confidence": 0.65,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": null,
+      "why_it_matters": "_mask_known_secret_values() does a plain substring replace (if secret and secret in s) with no minimum-length check, and _known_secret_values() gathers every configured credential value with only a truthiness check. None of save_devto_token/save_hackmd_token/... (src/backlink_publisher/config/tokens.py) enforce a minimum credential length, so an operator who pastes a short placeholder/dev-test token (e.g. a 3-4 char sandbox key) while testing a platform integration causes every future error report's message/stack/user_description/structured context to have every occurrence of that short substring silently replaced with the mask marker, anywhere it appears, including inside ordinary words/tokens/hex fragments that have nothing to do with the credential. Because Layer 3 runs after scrub_text and before the length cap, this can silently garble diagnostic text with no marker distinguishing a real secret found from a short credential value that happened to appear as a substring, undermining the sanitizer's own goal of preserving surrounding non-secret text -- the paired-positive tests in tests/test_error_report_sanitizer.py only cover a 13-15 char credential, never the pathological short-length boundary.",
+      "evidence": [
+        "1. Operator configures e.g. devto/hackmd/mataroa/qiita credential (or the FRW/LLM api_key) with a short string (no length validation exists in tokens.py's save_* functions or credential_service).",
+        "2. That short string becomes a member of the known_secrets frozenset returned by _known_secret_values() on every sanitize_error_report() call (no caching, re-read every time).",
+        "3. A later, unrelated frontend error's message/stack/user_description happens to contain that exact short substring (plausible for 3-6 char strings against natural-language or code-identifier text).",
+        "4. _mask_known_secret_values() replaces every occurrence with the mask marker regardless of context, silently mutating diagnostic text an operator relies on to triage the real bug, with no signal that this occurred versus a genuine secret redaction."
+      ]
+    }
+  ],
+  "residual_risks": [
+    "isSelfOriginatedError (webui_app/static/js/lib/error-capture-core.js) matches literal filenames like errorCapture.ts / errorCapturePlugin.ts in a stack/filename string; the module's own comment acknowledges this match is imperfect against Vite's hashed production chunk names. In production the Vue-side self-report-loop guard is therefore largely inert -- a genuine bug in the capture/submission pipeline that manages to throw outside its own try/catch (captureAndSubmit currently wraps its whole body, so this requires a future code change to actually trigger) would not be recognized as self-originated and could feed an unbounded self-report loop. No current code path was found that escapes captureAndSubmit's try/catch, so this is speculative rather than actively exploitable today.",
+    "_enforce_daily_cap()'s check-then-act (count rows, then later add()) is a non-atomic race under concurrent submissions; the code explicitly documents and accepts this as consistent with this store family's single-process concurrency posture (docs/solutions/architecture-patterns/2026-06-05-lite-accepted-deferrals.md), so it is called out here only as a residual risk, not a new finding.",
+    "DedupTracker (webui_app/static/js/lib/error-capture-core.js) is per-tab, in-memory, module-level state; opening many tabs or reloading the page trivially resets the 50-submission session cap and the 60s per-fingerprint window. The server-side fingerprint merge bounds row creation for a given fingerprint, but since increment_occurrence() has no rate limit of its own, a page that reloads or is opened in many tabs during a real recurring failure can drive an effectively unbounded rate of increment_occurrence writes to webui.db, amplified further if the fingerprint-trust gap (finding 1) is combined with automated reloading."
+  ],
+  "testing_gaps": [
+    "No test exercises a POST whose client-supplied fingerprint deliberately does NOT correspond to its own message/stack/source (i.e. a forged fingerprint targeting a different, pre-existing report) -- every test in tests/test_webui_api_v1_error_reports.py picks fingerprint values that are self-consistent with the test's own scenario, never adversarially mismatched.",
+    "No test exercises the same underlying error reaching two of the five Vue capture hooks simultaneously (e.g. an uncaught Pinia action rejection also reaching window unhandledrejection), so the double-submission-via-differing-context-prefix scenario has no regression coverage in frontend/src/lib/errorCapture.spec.ts.",
+    "tests/test_error_report_sanitizer.py's known-short-credential test uses a 13-15 character value; there is no test for a credential at the pathological low end (1-4 chars) verifying either that over-redaction of ordinary text is acceptable/expected or that a minimum-length floor is enforced."
+  ]
+}

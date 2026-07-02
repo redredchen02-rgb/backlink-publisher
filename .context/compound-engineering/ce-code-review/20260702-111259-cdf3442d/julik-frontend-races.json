@@ -1,0 +1,61 @@
+{
+  "reviewer": "julik-frontend-races",
+  "findings": [
+    {
+      "id": "julik-1",
+      "title": "retryBufferedReports() has no in-flight guard - overlapping visibilitychange/pagehide flushes double-submit and can silently drop concurrently-buffered reports",
+      "severity": "high",
+      "file": "webui_app/static/js/ui/error-capture.js",
+      "line": 219,
+      "confidence": 0.85,
+      "diff_scope": "primary",
+      "pre_existing": false,
+      "autofix_class": "manual",
+      "owner": "frontend",
+      "requires_verification": true,
+      "why_it_matters": "retryBufferedReports() reads the whole localStorage buffer, awaits a sequential fetch per entry, and only calls writeBuffer(remaining) after the entire loop finishes. visibilitychange (tab hidden) and pagehide (navigate-away/close) both fire on essentially every tab-close/navigate sequence, and initErrorCapture() also fires an initial flush on load - each independently calls onFlushTrigger -> retryBufferedReports with no mutex. Two overlapping calls read the identical un-cleared buffer and both submit the same buffered payloads (duplicate POSTs), and if a brand-new error is captured (buffered synchronously via bufferReport) while an earlier flush's fetches are still in flight, that new entry is silently erased when the earlier flush's stale writeBuffer(remaining) call finally executes, because it was computed from a buffer snapshot taken before the new entry was added.",
+      "suggested_fix": "Guard with a module-level in-flight flag/promise (e.g. a flushInFlight variable that memoizes the in-progress retryBufferedReports() promise and is cleared in a finally), and have retryBufferedReports() remove only the specific entries it successfully submitted from the CURRENT buffer read at write-time rather than blindly overwriting with a stale remaining array. No new library needed - a dozen lines of dedicated state."
+    },
+    {
+      "id": "julik-2",
+      "title": "Legacy ReportPanel._submit() has no busy/disabled guard - a double-click fires two concurrent submissions, and the manual-report path never merges them server-side",
+      "severity": "high",
+      "file": "webui_app/static/js/ui/error-report-entry.js",
+      "line": 237,
+      "confidence": 0.8,
+      "diff_scope": "primary",
+      "pre_existing": false,
+      "autofix_class": "manual",
+      "owner": "frontend",
+      "requires_verification": true,
+      "why_it_matters": "_submit() awaits postManualReport()/patchReportDescription() with no busy flag and never disables submitBtn, unlike its Vue counterpart (ReportProblemPanel.vue) which has a submitting guard plus a disabled binding on the submit button. A user double-clicking submit (or clicking again after a slow network response) fires _submit() twice before the first request resolves. For the no-reportId manual-report path, this module's own docstring states the endpoint always inserts a fresh row and never merges - so a double-click reliably produces two duplicate report rows, not a harmless retry.",
+      "suggested_fix": "Add a busy flag set at the top of _submit() (return early if already true) and toggle submitBtn.disabled for the duration of the request, mirroring the Vue component's submitting ref - same handful of lines, no dependency needed."
+    },
+    {
+      "id": "julik-3",
+      "title": "Shared reportPanel store lets the sibling trigger retarget an open panel mid-submit, silently losing the second session's typed text when the first (unrelated) submit resolves",
+      "severity": "medium",
+      "file": "frontend/src/stores/reportPanel.ts",
+      "line": 24,
+      "confidence": 0.72,
+      "diff_scope": "primary",
+      "pre_existing": false,
+      "autofix_class": "manual",
+      "owner": "frontend",
+      "requires_verification": true,
+      "why_it_matters": "Sequence: open the panel from a toast's add-detail action (reportPanel.open(42)) -> click submit, PATCH goes in flight (ReportProblemPanel.vue's onSubmit awaiting sendJson) -> before it resolves, the user clicks TopBar's still-reachable report-a-problem button, which calls reportPanel.open() with no id, setting reportId to undefined while isOpen stays true. ReportProblemPanel.vue's watch on panel.isOpen only resets text/errorMsg on a false-to-true transition, so it does NOT fire here (isOpen never toggled) - the user now types a fresh manual report into the still-populated form under the new (no-reportId) context. When the FIRST (stale) PATCH finally resolves, onSubmit unconditionally calls panel.close(), forcibly closing the panel and discarding whatever the user just typed for the second, unrelated report, with no confirmation. The same store shape (open/close with no session token) is used identically by the legacy ReportPanel class in error-report-entry.js.",
+      "suggested_fix": "Give each open() call a monotonically increasing session token (a counter or Symbol()) stored in the panel store; onSubmit should capture that token before its await and only call panel.close()/mutate errorMsg if the store's current session token still matches after the await resolves, otherwise treat the result as stale and leave the now-unrelated in-progress session alone."
+    }
+  ],
+  "residual_risks": [
+    "webui_app/static/js/lib/error-capture-core.js's DedupTracker.record() is only safe against concurrent-call interleaving because it is fully synchronous with no internal await; this invariant is implicit and unguarded by a comment/test, so a future refactor that makes record() async (e.g. to persist state) would silently reintroduce a real race between the module-level tracker instance shared across all 5 Vue hook call sites (frontend/src/lib/errorCapture.ts) or the legacy window-error/unhandledrejection listeners.",
+    "frontend/src/lib/errorCapture.ts has no localStorage buffer/retry fallback for a failed error-report submission (unlike webui_app/static/js/ui/error-capture.js's legacy buffering) - a transient network failure while the SPA is running silently drops that auto-captured report with no retry path, other than the next distinct occurrence of the same fingerprint outside the dedup window.",
+    "Different Vue hooks (reportQueryError/reportMutationError prefix the message with the query/mutation key via withContextPrefix before computeFingerprint) could produce different fingerprints for what is semantically the same underlying failure if it were ever observed by two hooks, bypassing the shared DedupTracker's per-fingerprint window; current Vue internals are believed to route each failure to exactly one hook (per errorCapture.spec.ts's boundary tests), so this is speculative rather than confirmed reachable today."
+  ],
+  "testing_gaps": [
+    "No test exercises two overlapping calls to retryBufferedReports() (e.g. visibilitychange immediately followed by pagehide, or a rapid double visibilitychange) in webui_app/static/js/ui/error-capture.js, so the duplicate-submission / lost-buffered-entry race is unverified.",
+    "No test drives a double-click (two synchronous clicks before the awaited fetch resolves) on the legacy ReportPanel submit button in error-report-entry.js to confirm only one request is sent.",
+    "No test opens the shared reportPanel store from the OTHER trigger point while a submit from the first trigger's session is still in flight (mocked sendJson that resolves after a manual open() call), for either ReportProblemPanel.vue or the legacy ReportPanel class.",
+    "No test simulates two tabs (two independent module instances) both reading/writing the same localStorage error-report buffer key around the same visibilitychange/pagehide event, despite the module docstring explicitly calling out multi-tab retry as a scenario this design must tolerate."
+  ]
+}

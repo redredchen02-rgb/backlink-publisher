@@ -1,0 +1,54 @@
+{
+  "reviewer": "kieran-typescript",
+  "findings": [
+    {
+      "id": "kieran-ts-1",
+      "title": "Double `as unknown as {...}` cast bypasses the narrowed target type in the resource-error branch",
+      "severity": "low",
+      "file": "frontend/src/lib/errorCapture.ts",
+      "line": 204,
+      "confidence": 0.75,
+      "autofix_class": "manual",
+      "owner": "frontend",
+      "requires_verification": false,
+      "pre_existing": false,
+      "why_it_matters": "onWindowError casts event.target to `HTMLImageElement | HTMLScriptElement` (line 204), then immediately casts it again through `unknown` to `{ src?: string; href?: string }` (line 205) to read `.href` — a property neither of those two DOM types actually has. The `unknown` round-trip exists specifically because the annotated union type is wrong for the runtime cases this branch is meant to handle (e.g. a failed `<link>` stylesheet load, which has `.href` not `.src`); rather than widening the type honestly (e.g. `Element & { src?: string; href?: string }`), the code silences the checker. If a future edit changes what `.src`/`.href` should resolve to, or introduces a genuinely wrong property name, the compiler will not catch it because the type has been laundered through `unknown`.",
+      "suggested_fix": "Type `target` once as something honestly representing 'any Element that failed to load a resource', e.g. `event.target as (Element & { src?: string; href?: string; tagName?: string }) | null`, and drop the second `as unknown as` cast — read `.src`/`.href` directly off that single narrowed type."
+    },
+    {
+      "id": "kieran-ts-2",
+      "title": "`push()`'s new 4th positional `reportId` param is positional-param creep, not an options object",
+      "severity": "low",
+      "file": "frontend/src/stores/notifications.ts",
+      "line": 52,
+      "confidence": 0.7,
+      "autofix_class": "manual",
+      "owner": "frontend",
+      "requires_verification": false,
+      "pre_existing": false,
+      "why_it_matters": "push(message, severity, timeout, reportId) now has 4 positional params, and the new call in errorCapture.ts's notifySuccess (`notify.push(message, 'error', 0, reportId)`) already has to spell out the default timeout explicitly just to reach position 4. The added test for this in notifications.spec.ts has to pass `s.push('...', 'error', undefined, 42)`, i.e. a caller who only cares about severity+reportId is forced to know and restate the timeout default as a placeholder. That's the classic positional-param-creep symptom: every future addition to this signature makes every existing call site (and every new one) harder to read at a glance, and the meaning of a bare `42` in the 4th slot is invisible without checking the signature.",
+      "suggested_fix": "Convert push() to accept an options object for the optional trailing fields (`push(message, severity, { timeout, reportId })` or a single `push(message, options)` bag), so call sites are self-describing and future fields don't require another positional slot."
+    },
+    {
+      "id": "kieran-ts-3",
+      "title": "`reportId` means two unrelated things (client correlation string vs. server row-id number) across adjacent modules",
+      "severity": "low",
+      "file": "frontend/src/lib/errorCapture.ts",
+      "line": 59,
+      "confidence": 0.6,
+      "autofix_class": "advisory",
+      "owner": "frontend",
+      "requires_verification": false,
+      "pre_existing": false,
+      "why_it_matters": "ReportPayload.reportId (errorCapture.ts) is a client-minted, always-truthy correlation marker sent in the POST body and is never surfaced anywhere; Toast.reportId (notifications.ts) and ReportPanel's reportId (reportPanel.ts) are the server's persisted row id, a completely different value with a completely different lifecycle, reused under the identical field name one file over. The code comments do call this out explicitly in three places, which mitigates the risk, but a reader skimming call sites (e.g. `result.id` being renamed to `reportId` at the `notifySuccess` boundary) has to hold both meanings in mind simultaneously to trust the flow, which fails the five-second read test for anyone joining this feature without the surrounding comments.",
+      "suggested_fix": "Rename one of the two fields (e.g. ReportPayload.correlationMarker or Toast.errorReportRowId) so the two concepts aren't lexically identical across files that hand values between each other."
+    }
+  ],
+  "residual_risks": [
+    "frontend/tsconfig.json's new `allowJs: true` lets errorCapture.ts import webui_app/static/js/lib/error-capture-core.js and get types inferred purely from that file's JSDoc, with `checkJs` left off — so the JS file itself is never type-checked. If its JSDoc annotations drift from the actual implementation (e.g. a param widened without updating the comment), TypeScript will silently trust the wrong types in errorCapture.ts with no compiler signal. This is a deliberate, well-documented tradeoff (avoiding a fork into TS) rather than an oversight, so it's flagged as a residual risk rather than a blocking finding.",
+    "`allowJs: true` is a project-wide compiler option, not scoped to the one cross-boundary import; today only error-capture-core.js is pulled in via a relative .js import, but nothing in the config prevents a future relative import of an untyped/loosely-JSDoc'd .js file anywhere under frontend/src from being silently absorbed into the TS program without type-checking. Worth a comment-only guard or lint rule if more .js cross-imports are anticipated."
+  ],
+  "testing_gaps": [
+    "errorCapture.ts's window 'error' (capture-phase) listener — both the plain script-error path and the resource-error branch (isResourceErrorEvent / onWindowError lines 196-224, which contains the double-unsafe-cast flagged above) — has no test coverage in errorCapture.spec.ts. The spec only exercises 'unhandledrejection' under the 'hook 1 vs hook 2 boundary' describe block; installGlobalErrorListeners() is called there but no test ever dispatches a native window 'error' event or an <img>/<script>/<link> resource-load failure, so the riskiest-cast code path in the diff is unverified."
+  ]
+}

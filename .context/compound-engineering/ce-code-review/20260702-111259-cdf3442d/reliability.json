@@ -1,0 +1,41 @@
+{
+  "reviewer": "reliability",
+  "findings": [
+    {
+      "title": "increment_occurrence() retains the SELECT-then-UPDATE lost-update race the module docstring only disclaims for add()",
+      "severity": "medium",
+      "file": "webui_store/error_reports.py",
+      "line": 407,
+      "confidence": 0.65,
+      "autofix_class": "manual",
+      "owner": "backend",
+      "requires_verification": true,
+      "pre_existing": false,
+      "why_it_matters": "When the same error fires near-simultaneously across many open tabs (exactly the burst scenario the fingerprint-merge feature exists to summarize), two concurrent calls to increment_occurrence() on the same report_id each SELECT the current `occurrences` value, compute current+1 in Python, and UPDATE -- there is no atomic `occurrences = occurrences + 1` SQL, and no serializable/BEGIN IMMEDIATE transaction spanning the read+write. The per-instance threading.RLock only serializes calls sharing one Python object; two Flask worker threads/processes each holding their own store instance (or a multi-worker WSGI deployment) can interleave and silently drop an increment, undercounting exactly the signal (how often a recurring bug fires) that this feature is meant to make visible -- worst case, during a real incident when accurate counts matter most. The module's own R5-acceptance paragraph (lines 54-65) explicitly scopes its 'does not reproduce the R5 lost-update rate' claim to add()'s bare INSERT and never makes the same claim for increment_occurrence/update_status/attach_description, which keep the identical read-modify-write shape R5 already measured a ~44/100 loss rate for.",
+      "suggested_fix": "Either (a) rewrite increment_occurrence to a single atomic `UPDATE error_reports SET occurrences = occurrences + 1, last_seen_at = ? WHERE id = ?` (no read needed for the counter itself; only re-SELECT data_json if the JSON blob's occurrences field must mirror the column), or (b) explicitly document/accept the residual multi-process race the same way R5 was accepted, rather than leaving the docstring's safety claim implicitly scoped to add() only."
+    },
+    {
+      "title": "_enforce_daily_cap() full-decodes every report created today on every POST when daily_cap is configured",
+      "severity": "low",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 111,
+      "confidence": 0.6,
+      "autofix_class": "manual",
+      "owner": "backend",
+      "requires_verification": true,
+      "pre_existing": false,
+      "why_it_matters": "`_enforce_daily_cap()` calls `error_report_store.list(filters={'since': ...})` and takes `len()` of the result purely to get a count -- `list()`/`_load_rows()` fetches every matching row's `data_json` column and JSON-decodes it. This runs on every single POST once an operator sets `[error_reports].daily_cap` in config.toml. Under the exact 'a bug fires on every page load across many open tabs' scenario the store's own docstring anticipates, this check gets progressively more expensive as the day's row count grows, adding per-request latency that compounds during the highest-volume moment -- the opposite of graceful degradation under load.",
+      "suggested_fix": "Use a `SELECT COUNT(*) FROM error_reports WHERE created_at >= ?` (or an equivalent store method) instead of materializing and JSON-decoding every row just to count them."
+    }
+  ],
+  "residual_risks": [
+    "webui_app/scheduler.py's _purge_expired_error_reports_job and webui_app/api/v1/error_reports.py's purge_expired_error_reports both catch broadly and log-only, which is correct for keeping the scheduler alive, but also means a persistently failing purge (e.g. a corrupted webui.db) degrades silently forever with only a warn-level log line -- there is no alerting/escalation path if retention purging silently stops working for weeks.",
+    "Client-side submission (webui_app/static/js/ui/error-capture.js, frontend/src/lib/errorCapture.ts) has no explicit fetch timeout/AbortController; a hung request just sits as an unresolved promise. Low risk in practice (fire-and-forget, try/catch-wrapped, browser/OS TCP timeouts eventually apply) and consistent with the pre-existing frontend/src/api/client.ts pattern, so not flagged as a standalone finding.",
+    "GET /error-reports has no server-side default limit -- an unfiltered dashboard request returns and JSON-decodes every row in the table. Bounded today by the 30-day retention purge, but could still return a large payload before the first purge cycle runs if error volume is high at feature launch."
+  ],
+  "testing_gaps": [
+    "tests/test_webui_store_error_reports_sqlite.py has TestConcurrentAdd with both a shared-instance and a separate-instances concurrency test proving add() loses no rows, but no equivalent concurrent test exists for increment_occurrence() (e.g. N threads/instances all incrementing the same report_id concurrently and asserting the final count equals N) -- the exact test that would have caught or disproved the lost-update race flagged above.",
+    "No test exercises _enforce_daily_cap()'s behavior under a large existing row count (i.e. confirming the endpoint still responds within an acceptable time as the day's row count grows), nor a test asserting purge_expired_error_reports() continues to make progress when one row's delete() raises mid-sweep (the per-row try/except is present in the code but not covered by a test that injects a failure on an arbitrary row).",
+    "No test simulates the client-side buffer (MAX_BUFFERED_REPORTS=20) actually reaching capacity while the backend stays down across multiple retry cycles, to confirm the FIFO eviction (buf.shift()) and periodic flushPendingUpdates() cadence behave as documented under sustained outage rather than just the single-failure/single-retry path."
+  ]
+}
