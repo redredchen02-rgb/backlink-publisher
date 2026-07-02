@@ -9,7 +9,9 @@ not mass-migrate them.
 
 from __future__ import annotations
 
+import ast
 import atexit
+import functools
 import os
 from pathlib import Path
 import shutil
@@ -31,12 +33,146 @@ def pytest_collection_modifyitems(config, items):
     ``pytest.mark`` so tests can be selected via ``-m unit``, ``-m integration``,
     ``-m e2e``. Modules without ``__tier__`` default to ``unit`` (Plan
     2026-06-11: closes test-tier-coverage-incomplete debt).
+
+    Also applies the orthogonal ``pytest.mark.seam`` marker (Plan
+    2026-06-30-001 Unit C1a) to any test module that directly imports one of
+    the seam module families — see ``_module_imports_seam`` below.
     """
     for item in items:
         tier = getattr(item.module, "__tier__", None)
         if tier not in ("unit", "integration", "e2e"):
             tier = "unit"
         item.add_marker(getattr(pytest.mark, tier))
+        if _module_imports_seam(item.module):
+            item.add_marker(pytest.mark.seam)
+
+
+# ── Seam-module import auto-classification (Plan 2026-06-30-001 Unit C1a) ───
+#
+# R9: a single global `--reruns` flag on the whole `unit` CI job silently
+# masks real flakiness in tests that touch persistence/IO-heavy "seam"
+# modules (events/gap/idempotency/ledger/webui_app.api). The original plan
+# called for a hand-maintained list of seam-touching test files; doc-review
+# ran this file's own detection grep
+# (``grep -rl "events\.\|gap\.\|idempotency\.\|ledger\.\|webui_app\.api"
+# tests/ --include='test_*.py'``) and found ~151 matching files, not the ~6
+# originally assumed — a >25x undercount that would have silently regressed
+# the moment a new seam test landed without being remembered onto the list.
+#
+# Classification is therefore automatic, mirroring the ``__tier__`` pattern
+# above: any test module whose OWN ``import`` / ``from ... import``
+# statements directly reference one of ``_SEAM_IMPORT_PREFIXES`` gets
+# ``pytest.mark.seam``, which ci.yml's unit-seam step runs WITHOUT
+# ``--reruns``. No per-file marker maintenance is needed going forward.
+#
+# KNOWN LIMITATION (intentionally not solved by this unit — see plan C1a):
+# this only parses the test file's own import statements. It does NOT
+# follow transitive/indirect imports — e.g. a test that only does
+# ``import backlink_publisher.geo.joins``, where ``geo/joins.py`` internally
+# calls ``ledger.sources.build_target_buckets``, would be misclassified as
+# plain unit even though it exercises ledger behavior. The same blind spot
+# applies to seam access via a shared fixture (e.g. ``create_app()``
+# indirectly loading ``webui_app.api``). Transitive-import analysis is
+# higher design complexity and deferred to a future iteration. Whenever this
+# classifier is uncertain (parse error, unreadable file, missing module
+# path) it defaults to the SAFE side and marks the test seam anyway, per the
+# plan's explicit "uncertain → seam" bias.
+_SEAM_IMPORT_PREFIXES: tuple[str, ...] = (
+    "backlink_publisher.events",
+    "backlink_publisher.gap",
+    "backlink_publisher.idempotency",
+    "backlink_publisher.ledger",
+    "webui_app.api",
+)
+
+# One-time manual classification pass (C1a action 2), performed 2026-07-02:
+# of the 151 files matched by the detection grep above, 113 have a genuine
+# direct import of a ``_SEAM_IMPORT_PREFIXES`` module (verified via the same
+# AST walk as ``_module_imports_seam`` below); the other 38 are grep
+# substring false positives (e.g. "plan_gap.py" containing the literal text
+# "gap.", or a ``mock.patch("webui_app.api...")`` string with no real import
+# statement) that the AST-based check below never flags in the first place —
+# they need no entry here because they were never going to be misclassified.
+#
+# Of the 113 files with a genuine import, exactly one was found to be
+# coincidental — imported for a static constant only, with zero interaction
+# with any seam module's runtime behavior. Shrink-only: add a new entry only
+# after confirming (like the one below) that the import is never exercised
+# beyond reading a constant/helper unrelated to seam I/O or state.
+_SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS: frozenset[str] = frozenset(
+    {
+        # Imports webui_app.api.channel_bind_api._SKIP_CHANNELS purely to
+        # read a static frozenset constant for a registry drift-guard
+        # (asserts the names are still active/registered platforms). Never
+        # calls into channel_bind_api's route handlers or any other
+        # webui_app.api runtime behavior, so it carries none of the seam
+        # layer's I/O/state flakiness risk this marker exists to scope
+        # --reruns around.
+        "tests/test_credential_save_dispatch_drift.py",
+    }
+)
+
+# tests/conftest.py -> repo root (mirrors test_no_raw_home_path_primitives.py
+# _REPO_ROOT, which is `Path(__file__).resolve().parents[1]` from a file one
+# level deeper in tests/).
+_SEAM_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _seam_prefix_matches(dotted: str) -> bool:
+    """True if ``dotted`` is (or is a submodule of) a seam import prefix."""
+    return any(dotted == p or dotted.startswith(p + ".") for p in _SEAM_IMPORT_PREFIXES)
+
+
+@functools.lru_cache(maxsize=None)
+def _path_has_seam_import(path_str: str) -> bool:
+    """AST-parse ``path_str`` and return True if it directly imports a seam module.
+
+    Static parse of the file's own ``import`` / ``from ... import``
+    statements only — no runtime introspection, no transitive-import
+    following (see the documented known limitation above). Cached per path
+    since ``pytest_collection_modifyitems`` calls this once per test *item*,
+    but many items share the same module file.
+    """
+    path = Path(path_str)
+    try:
+        relpath = path.resolve().relative_to(_SEAM_REPO_ROOT).as_posix()
+    except ValueError:
+        relpath = path.name
+    if relpath in _SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS:
+        return False
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        # Uncertain — default to the safe side (seam).
+        return True
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(_seam_prefix_matches(alias.name) for alias in node.names):
+                return True
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if _seam_prefix_matches(base):
+                return True
+            if any(
+                _seam_prefix_matches(f"{base}.{alias.name}" if base else alias.name)
+                for alias in node.names
+            ):
+                return True
+    return False
+
+
+def _module_imports_seam(module) -> bool:
+    """Return True if ``module``'s source file directly imports a seam module.
+
+    Defaults to True (seam) when the module has no discoverable ``__file__``
+    (e.g. a doctest or dynamically-built module) — uncertain cases stay on
+    the safe side rather than silently losing the no-reruns guarantee.
+    """
+    file_attr = getattr(module, "__file__", None)
+    if not file_attr:
+        return True
+    return _path_has_seam_import(file_attr)
 
 
 # ── Config-sandbox-escape guardrails (Plan 2026-05-27-005) ──────────────────

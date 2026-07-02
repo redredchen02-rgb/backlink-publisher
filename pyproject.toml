@@ -200,6 +200,7 @@ markers = [
     "unit: fast, isolated tests with no external dependencies; run on every push (default tier)",
     "integration: tests that touch disk, database, or external services; run on CI per-PR",
     "e2e: full end-to-end tests requiring real network or browser; opt-in, run pre-merge or nightly",
+    "seam: test module directly imports a seam module (backlink_publisher.events/gap/idempotency/ledger or webui_app.api) — auto-applied by conftest.py's import-based AST scan (Plan 2026-06-30-001 C1a); excluded from --reruns in ci.yml so a real intermittent failure in these I/O/state-heavy modules can't be silently retried away",
 ]
 
 [tool.towncrier]
