@@ -367,24 +367,34 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 ## Sprint C: CI/CD Hardening
 
-- [ ] **C1 — CI 合規矩陣驗證**
+- [x] **C1 — CI 合規矩陣驗證** ✅ 已完成（2026-07-02，即時查證 8/8 全數已存在，無需補全）
 
-**現狀**：CI 中有多個 job（unit, integration, lint, plan-check），但缺乏統一的合規矩陣。
+**現狀（原始）**：CI 中有多個 job（unit, integration, lint, plan-check），但缺乏統一的合規矩陣。
 
-**動作**：
-1. 驗證 CI 是否執行以下所有檢查：
-   - `pytest tests/`（unit + integration）
-   - `mypy src/backlink_publisher/ --strict`（已啟用的子包）
-   - `ruff check src/`（lint）
-   - `py_compile` + `ast.parse`（語法驗證）
-   - `test_no_monolith_regrowth.py`（SLOC budget）
-   - `test_no_complexity_regrowth.py`（CC budget）
-   - `test_plan_check.py`（plan-doc validation）
-   - import-linter CI check
-2. 確保 `PYTHONHASHSEED=0` 在所有 job 中設置（footprint regression gate）
-3. 如缺少任何檢查，添加到 ci.yml
+**〔2026-07-02 即時查證結果〕** 逐項核對 `.github/workflows/ci.yml` 現況（含 A1 新增的 `--reruns`／syntax-gate step）：
 
-**交付**：CI check matrix 文檔 + ci.yml 補全
+| 檢查項目 | 現況 | 位置 |
+|---|---|---|
+| `pytest tests/`（unit） | ✅ `unit` job：`pytest tests/ -m "unit" ...`（`python-version` matrix: 3.11/3.12） | ci.yml `unit` job |
+| `pytest tests/`（integration） | ✅ `integration` job：`pytest tests/ -m "integration" ...`，另有獨立 `e2e` job（`-m "e2e"`） | ci.yml `integration`／`e2e` job |
+| `mypy src/backlink_publisher/ --strict`（已啟用的子包） | ✅ 存在，但不是字面 `--strict` flag，而是 `mypy.ini` 用個別設定達到等效效果（`disallow_untyped_defs`／`warn_unused_ignores`／`warn_unreachable` 等），並對 `webui_store.*` 明確排除在嚴格範圍外（`[mypy-webui_store.*]` override）——這是刻意的子包範圍界定，符合原始項目字面「已啟用的子包」的精神 | `mypy.ini` + ci.yml `unit` job 最後一步 |
+| `ruff check src/`（lint） | ✅ 存在，範圍比原始項目更廣：`ruff check src/ webui_app/ webui_store/` | ci.yml `unit` job |
+| `py_compile` + `ast.parse`（語法驗證） | ✅ 存在（A1 新增） | ci.yml `unit` job "Validate syntax" step |
+| `test_no_monolith_regrowth.py`（SLOC budget） | ✅ 檔案本身 `__tier__ = "unit"`，透過 `conftest.py` 的 tier 自動 marker 機制被 `-m "unit"` 收錄，不需要獨立 CI step | `tests/test_no_monolith_regrowth.py:16` |
+| `test_no_complexity_regrowth.py`（CC budget） | ✅ 同上，`__tier__ = "unit"` | `tests/test_no_complexity_regrowth.py:23` |
+| plan-doc validation | ✅ 原始項目寫的檔名 `test_plan_check.py` 不存在（命名已過時，實際檔名是 `test_cli_plan_check.py` + `test_plan_check_helpers.py` + `test_plan_check_schema.py`），三者皆為 `__tier__ = "unit"`，同樣透過 tier marker 自動收錄 | `tests/test_cli_plan_check.py` 等 |
+| import-linter CI check | ✅ 存在（`lint-imports`），設定於 `pyproject.toml` `[tool.importlinter]` | ci.yml `unit` job + `pyproject.toml:233` |
+
+**`PYTHONHASHSEED=0`**：宣告在 workflow 根層級的 `env:` block（ci.yml 第 27-28 行），對 `unit`／`integration`／`e2e` 三個 job 全數生效，不需要逐 job 重複宣告。
+
+**結論**：8 個檢查項目在即時查證當下全數已存在於 CI 中，沒有發現缺口，`ci.yml` 不需要任何補全動作。原始「CI check matrix 文檔 + ci.yml 補全」的交付物，因為查證結果是「已合規」而非「有缺口」，改為本節這份合規矩陣本身作為交付物。
+
+**動作（原始，已由上方查證取代）**：
+1. ~~驗證 CI 是否執行以下所有檢查~~（見上表）
+2. ~~確保 `PYTHONHASHSEED=0` 在所有 job 中設置~~（已確認，見上）
+3. ~~如缺少任何檢查，添加到 ci.yml~~（無缺口，不需要）
+
+**交付**：CI 合規矩陣（見上表，8/8 已合規）
 
 - [ ] **C1a — pytest `--reruns` 範圍限定（import-based 自動判定）〔R9，新增，doc-review 後重新設計〕**
 
