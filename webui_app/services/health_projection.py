@@ -23,10 +23,14 @@ def project_on_read() -> ReadProjectionResult:
 
 
 def compute_health_json() -> dict[str, Any]:
-    """Return the /health payload (Plan 2026-06-09-001 U3).
+    """Return the /health payload (Plan 2026-06-09-001 U3; Sprint E3 added
+    ``last_successful_pipeline_run``).
 
     503-triggering conditions: any channel expired/unreachable, scheduler not
     running, or last_pipeline_run is None.  All fields always present.
+    ``last_successful_pipeline_run`` is informational only (does not affect
+    ``healthy``/``degraded_reasons``) — it is ``None`` whenever there is no
+    history yet, or every recorded run so far ended failed/unverified.
     """
     from webui_app.scheduler import _scheduler
     from webui_store import history_store
@@ -50,6 +54,14 @@ def compute_health_json() -> dict[str, Any]:
 
     # ── last pipeline run (most recent created_at from history) ───────
     last_pipeline_run: str | None = None
+    # ── last *successful* pipeline run (most recent "published" item) ──
+    # Sprint E3: a lightweight timestamp-only signal, deliberately scoped
+    # below full runtime-duration monitoring (which would need a new
+    # start/end write-path threaded through the whole pipeline — out of
+    # scope here; see plan doc E3 notes). "Successful" mirrors
+    # health_metrics.py's honesty rule: only an unambiguous "published"
+    # status counts, not "failed" or a "*_unverified" post-publish state.
+    last_successful_pipeline_run: str | None = None
     try:
         items = history_store.load()
         if items:
@@ -58,6 +70,13 @@ def compute_health_json() -> dict[str, Any]:
                 default="",
             )
             last_pipeline_run = ts or None
+            successful_ts = [
+                it.get("created_at") or ""
+                for it in items
+                if isinstance(it, dict) and it.get("status") == "published"
+            ]
+            if successful_ts:
+                last_successful_pipeline_run = max(successful_ts) or None
     except Exception:  # noqa: BLE001
         pass
 
@@ -77,6 +96,7 @@ def compute_health_json() -> dict[str, Any]:
         "healthy": healthy,
         "webui": "ok",
         "last_pipeline_run": last_pipeline_run,
+        "last_successful_pipeline_run": last_successful_pipeline_run,
         "scheduler_running": scheduler_running,
         "scheduler_job_count": scheduler_job_count,
         "channels": channels,
