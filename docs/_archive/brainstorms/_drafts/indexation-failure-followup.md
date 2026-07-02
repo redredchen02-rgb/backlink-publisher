@@ -7,6 +7,10 @@ origin_plan: docs/plans/2026-05-15-004-feat-telegraph-adapter-plan.md
 predraft_source: docs/plans/2026-05-18-002-refactor-phase0-unblock-actions-plan.md (Unit 5)
 ---
 
+> **Archived (E1, 2026-07-02).** Never activated (trigger date placeholder
+> left unfilled). `origin_plan` (`2026-05-15-004`) is already archived in
+> `docs/_archive/plans/`; the gate condition was never hit.
+
 # Telegraph 索引失败根因排查与后续走向
 
 ## Problem Statement (条件式)

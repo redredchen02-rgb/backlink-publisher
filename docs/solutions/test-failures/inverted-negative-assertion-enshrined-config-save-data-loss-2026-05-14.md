@@ -142,7 +142,7 @@ If yes, the test is a candidate for inversion the day that behavior gets fixed �
 - **Memory note** `feedback_cereview-finds-latent-bugs.md` (auto memory [claude]) — confirms multi-persona review surfaces these inversions; the second-pass `document-review` on PR #12's plan flagged the test contract collision before code was written.
 - **Plan** `docs/plans/2026-05-14-003-feat-config-safety-net-plan.md` — the executed fix that triggered the inversion. Lines 13-19, 56, 85 reference both feedback notes by name.
 - **Plan** `docs/plans/2026-05-14-002-feat-anchor-entropy-alarm-plan.md` — sibling application of the same testing discipline in the anchor-distribution domain; cites `feedback_test-locks-in-bug.md` four times (lines 69, 74, 155, 239, 440).
-- **Ideation** `docs/ideation/2026-05-14-round3-fresh-pass-ideation.md` (idea #5) — Property-test Gate Primitives, the forward-looking structural defense against the broader bug class. Shipped as PR #14.
+- **Ideation** `docs/_archive/ideation/2026-05-14-round3-fresh-pass-ideation.md` (idea #5) — Property-test Gate Primitives, the forward-looking structural defense against the broader bug class. Shipped as PR #14.
 - **PR #12** (`feat/config-safety-net`) — the behavioral fix to `save_config`.
 - **PR #14** (`feat/property-test-gates`) — the property-based testing pattern that prevents the broader "tautological gate" failure mode.
 - **Commit `a4534f9`** (`feat(config): preserve unknown sections + atomic write + snapshot history`) — fix + assertion inversion landed together.

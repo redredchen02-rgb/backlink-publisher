@@ -6,7 +6,8 @@ focus: business bottleneck — throughput of actually-working (live, un-stripped
 
 # Ideation: Dofollow-Throughput (focused generative pass)
 
-> **Focus.** Not the converged idea-backlog (see `2026-06-05-backlog-convergence-ideation.md`),
+> **Focus.** Not the converged idea-backlog (see
+> `docs/_archive/ideation/2026-06-05-backlog-convergence-ideation.md`),
 > but a fresh generative pass aimed squarely at the *one* business bottleneck:
 > **how many published links actually survive as live dofollow** (deep pages strip
 > 56-67%, telegraph ≈86% of all strips, only ~73 verified live-dofollow on 1 owned

@@ -7,6 +7,10 @@ updated: 2026-05-19
 decision: pending-ops-signoff
 ---
 
+> **Archived (E1, 2026-07-02).** Velog shipped as `VelogGraphQLAdapter`
+> (registered live in `publishing/adapters/__init__.py`); this Phase-0 spike is
+> historical.
+
 ## ⚡ 技术实验结论速查（2026-05-19 更新）
 
 | 分项 | 结论 | 关键数据 |

@@ -1,5 +1,9 @@
 # 分發渠道擴充計畫
 
+> **Archived (E1, 2026-07-02).** Draft goal (10→23+ channels) already exceeded
+> — 28 platforms are registered today. Superseded by the shipped
+> `docs/_archive/plans/2026-05-25-001-feat-dofollow-tiering-platform-expansion-plan.md`.
+
 **Date**: 2026-05-25
 **Status**: Draft
 **Context**: Phase 3 output of ce-brainstorm session. Precedes implementation spikes and adapter development.

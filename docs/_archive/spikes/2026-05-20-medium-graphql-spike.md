@@ -7,6 +7,11 @@ phase: B
 verdict: PENDING
 ---
 
+> **Archived (E1, 2026-07-02).** Abandoned mid-flight (verdict never filled
+> in). Medium shipped instead via `medium_api` / `medium_brave` /
+> `medium_browser` adapters, not a GraphQL adapter. Archived alongside its
+> companion `medium-graphql-spike-notes.template.md`.
+
 # Spike: Medium GraphQL adapter — GO/NO-GO
 
 **This is a placeholder skeleton. It will be filled in by B.2 after B.1 reconnaissance completes.** The B.1 working-notes scratch file (`2026-05-20-medium-graphql-spike-notes.md`) is `git rm`'d in the same commit that lands this deliverable, regardless of verdict.

@@ -12,8 +12,12 @@ from pathlib import Path
 import requests
 
 SPIKE = Path(__file__).resolve().parents[2] / "docs" / "spikes"
+# Velog shipped (VelogGraphQLAdapter); the recon fixtures below were archived
+# under E1 (docs/plans/2026-06-30-001-...) alongside the rest of the closed
+# Velog Phase-0 spike write-ups.
+SPIKE_ARCHIVE = Path(__file__).resolve().parents[2] / "docs" / "_archive" / "spikes"
 COOKIES = (SPIKE / "velog_cookies_flat.txt").read_text().strip()
-HEADERS_BASE = json.loads((SPIKE / "velog_required_headers.json").read_text())
+HEADERS_BASE = json.loads((SPIKE_ARCHIVE / "velog_required_headers.json").read_text())
 OUT = SPIKE / "velog_p0_1b_responses.jsonl"
 
 ENDPOINT = "https://v2.velog.io/graphql"

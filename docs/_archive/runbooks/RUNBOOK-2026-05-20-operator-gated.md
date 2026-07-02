@@ -1,5 +1,8 @@
 # Operator Runbook — 2026-05-20
 
+> **Archived (E1, 2026-07-02).** One-off dated operator task list (PR #107,
+> etc.) — only referenced from already-archived plans, closed out long ago.
+
 4 個 operator-gated 工作。每段給：**為何 / 命令 / 觀察點 / Pass-Fail / 下一步**。
 
 照打。完成一項就 ping 我「#107 PASS」「Phase 3 結果：ghpages PASS / hashnode FAIL / writeas PASS」等。

@@ -9,6 +9,10 @@ script: scripts/spike_chrome_lifecycle.py
 raw_logs: /tmp/spike-out/probe{1,2,3,4}.{jsonl,log}
 ---
 
+> **Archived (E1, 2026-07-02).** Plan `2026-05-21-001` (already in
+> `docs/_archive/plans/`) shipped; Chrome CDP support (`chrome_session.py`,
+> `chrome_backend.py`) exists live in `src/`. Closed, historical.
+
 # Chrome lifecycle spike — Unit 0 实证报告
 
 ## 目的

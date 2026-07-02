@@ -1,5 +1,10 @@
 # Registration-Drift Residual Sweep — execution progress / handoff
 
+> **Archived (E1, 2026-07-02).** Handoff note for a since-shipped sweep — the 4
+> named test files (`test_platform_lookup.py`, `test_channels_recipe_drift.py`,
+> `test_credential_save_dispatch_drift.py`, `test_registration_drift_extension_proof.py`)
+> exist in `tests/` today. No current doc or code references this file.
+
 **Branch:** `feat/registration-drift-residual-sweep` (worktree `bp-registration-drift`)
 **Base:** clean `origin/main` `85d34df8` (post-#280)
 **Plan:** `docs/plans/2026-05-27-008-feat-registration-drift-residual-sweep-plan.md` —

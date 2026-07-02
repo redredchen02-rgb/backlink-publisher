@@ -1,5 +1,10 @@
 # Medium GraphQL Spike — Working Notes (LOCAL SCRATCH)
 
+> **Archived (E1, 2026-07-02).** Template for the abandoned
+> `2026-05-20-medium-graphql-spike.md` investigation — Medium shipped via
+> `medium_api`/`medium_brave`/`medium_browser` adapters instead. Dead weight
+> tied to a closed spike; kept only for historical reference.
+
 **DO NOT PUSH OR COMMIT THIS FILE.** B.2 will `git rm` it before deliverable lands.
 
 This is the operator's reconnaissance scratchpad for Plan 2026-05-20-003 Phase B.1.
