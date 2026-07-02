@@ -56,7 +56,7 @@ describe('Toast', () => {
 describe('Toast — "补充说明" action (Plan U7)', () => {
   it('a toast carrying reportId shows the "补充说明" action and opens the shared panel with that id', async () => {
     const w = mount(Toast, { global: { plugins: [pinia] } })
-    useNotificationsStore().push('抓到一个错误', 'error', 0, 99)
+    useNotificationsStore().push('抓到一个错误', 'error', 0, 'b2c3d4e5-0000-4000-8000-000000000099')
     await w.vm.$nextTick()
 
     const btn = w.find('.toast__detail')
@@ -65,7 +65,7 @@ describe('Toast — "补充说明" action (Plan U7)', () => {
 
     const panel = useReportPanelStore()
     expect(panel.isOpen).toBe(true)
-    expect(panel.reportId).toBe(99)
+    expect(panel.reportId).toBe('b2c3d4e5-0000-4000-8000-000000000099')
   })
 
   it('paired: a toast with no reportId does NOT show the "补充说明" action', async () => {
@@ -96,7 +96,7 @@ describe('Toast — reportId toasts stay sticky (Plan U7 regression guard)', () 
     vi.useFakeTimers()
     const w = mount(Toast, { global: { plugins: [pinia] } })
     const store = useNotificationsStore()
-    store.push('抓到一个错误', 'error', 0, 7)
+    store.push('抓到一个错误', 'error', 0, 'c3d4e5f6-0000-4000-8000-000000000007')
     await w.vm.$nextTick()
 
     vi.advanceTimersByTime(60_000)

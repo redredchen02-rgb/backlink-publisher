@@ -17,11 +17,11 @@ export const useReportPanelStore = defineStore('reportPanel', () => {
   /** The server-persisted error-report row id (see notifications.ts's Toast
    *  `reportId` doc). Present -> PATCH path (add detail to that report);
    *  absent -> POST path (fresh manual report). */
-  const reportId = ref<number | undefined>(undefined)
+  const reportId = ref<string | undefined>(undefined)
 
   /** Open the panel. Pass the toast's `reportId` to switch to the PATCH
    *  "补充说明" path; call with no argument for the manual nav-bar POST path. */
-  function open(id?: number): void {
+  function open(id?: string): void {
     reportId.value = id
     isOpen.value = true
   }

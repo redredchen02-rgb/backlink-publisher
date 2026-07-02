@@ -443,3 +443,41 @@ def test_get_list_filters_by_status_paired(client):
     resolved_ids = {item["id"] for item in resolved_resp.get_json()["items"]}
     assert id2 in resolved_ids       # positive
     assert id1 not in resolved_ids  # negative, paired with the positive
+
+
+def test_get_list_pagination_limit_and_offset(client):
+    ids = []
+    for i in range(3):
+        r = _post(client, _auto_report(fingerprint=f"fp-page-{i}"))
+        ids.append(r.get_json()["id"])
+
+    full = client.get("/api/v1/error-reports")
+    assert full.get_json()["total"] == 3
+
+    first_page = client.get("/api/v1/error-reports?limit=1")
+    assert len(first_page.get_json()["items"]) == 1
+    assert first_page.get_json()["total"] == 3  # total reflects the unfiltered count
+
+    offset_page = client.get("/api/v1/error-reports?limit=1&offset=1")
+    assert len(offset_page.get_json()["items"]) == 1
+    assert offset_page.get_json()["items"][0]["id"] != first_page.get_json()["items"][0]["id"]
+
+
+def test_fingerprint_merge_falls_back_to_fresh_row_when_increment_races(client, monkeypatch):
+    """If the matched report vanishes between find_by_fingerprint() and
+    increment_occurrence() (rare cross-process race), the endpoint must add a
+    fresh row instead of losing the report or 500ing."""
+    first = _post(client, _auto_report(fingerprint="fp-race-1"))
+    assert first.status_code == 201
+    first_id = first.get_json()["id"]
+
+    from webui_store.error_reports import error_report_store
+    monkeypatch.setattr(error_report_store, "increment_occurrence", lambda report_id: False)
+
+    second = _post(client, _auto_report(fingerprint="fp-race-1"))
+    assert second.status_code == 201  # fresh insert, not a merge
+    second_id = second.get_json()["id"]
+    assert second_id != first_id  # paired: a genuinely new row, not the original
+
+    all_ids = {item["id"] for item in client.get("/api/v1/error-reports").get_json()["items"]}
+    assert {first_id, second_id} <= all_ids

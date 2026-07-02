@@ -23,7 +23,7 @@ export interface Toast {
    *  request-side `reportId` correlation marker). Set only on toasts raised
    *  by an auto-captured, successfully-submitted error report (U6); Unit 7's
    *  "补充说明" action uses this to PATCH the right row. */
-  reportId?: number
+  reportId?: string
 }
 
 /** Map the legacy server flash_type vocabulary onto Toast severities, so flash
@@ -53,7 +53,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     message: string,
     severity: Severity = 'info',
     timeout = severity === 'error' ? 0 : 4000,
-    reportId?: number,
+    reportId?: string,
   ): number {
     const id = ++_seq
     toasts.value.push({ id, severity, message, timeout, reportId })

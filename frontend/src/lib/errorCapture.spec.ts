@@ -26,6 +26,7 @@ import { _resetCsrfForTest } from '../api/client'
 interface FetchCall {
   url: string
   body: Record<string, unknown>
+  keepalive: boolean | undefined
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -45,8 +46,9 @@ function installFetchStub(): FetchCall[] {
       calls.push({
         url: String(url),
         body: init?.body ? JSON.parse(String(init.body)) : {},
+        keepalive: init?.keepalive,
       })
-      return jsonResponse({ id: nextId++ }, 201)
+      return jsonResponse({ id: `f6a7b8c9-0000-4000-8000-${String(nextId++).padStart(12, '0')}` }, 201)
     }),
   )
   return calls
@@ -105,6 +107,10 @@ describe('hook 2: app.config.errorHandler', () => {
     expect(calls[0].url).toContain('/error-reports')
     expect(calls[0].body.message).toBe('boom-in-setup')
     expect(calls[0].body.source).toBe('vue-error-handler')
+    // keepalive:true so this submission survives a page unload racing the
+    // report — the whole reason this transport was chosen over a plain
+    // fetch (see the module docstring / client.ts's keepalive option).
+    expect(calls[0].keepalive).toBe(true)
   })
 })
 

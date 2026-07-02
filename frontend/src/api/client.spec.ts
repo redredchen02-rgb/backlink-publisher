@@ -65,3 +65,33 @@ describe('sendJson CSRF retry', () => {
     expect(seen).toEqual(['t1', 't2']) // refreshed token on retry
   })
 })
+
+describe('sendJson keepalive option', () => {
+  it('passes keepalive:true through to fetch when requested (Plan 2026-07-01-002 U6)', async () => {
+    document.head.innerHTML = '<meta name="csrf-token" content="tok">'
+    let seenKeepalive: boolean | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        seenKeepalive = init?.keepalive
+        return jsonResponse({ ok: true })
+      }),
+    )
+    await sendJson('POST', '/error-reports', { message: 'x' }, { keepalive: true })
+    expect(seenKeepalive).toBe(true)
+  })
+
+  it('paired: an ordinary sendJson call with no options passes keepalive:false, unchanged from before this option existed', async () => {
+    document.head.innerHTML = '<meta name="csrf-token" content="tok">'
+    let seenKeepalive: boolean | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        seenKeepalive = init?.keepalive
+        return jsonResponse({ ok: true })
+      }),
+    )
+    await sendJson('POST', '/pipeline/plan', { url: 'x' })
+    expect(seenKeepalive).toBe(false)
+  })
+})

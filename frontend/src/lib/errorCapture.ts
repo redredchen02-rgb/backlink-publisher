@@ -153,9 +153,9 @@ function buildPayload(errorInfo: ErrorInfo, fingerprint: string): ReportPayload 
   }
 }
 
-async function submitReport(payload: ReportPayload): Promise<{ id: number } | null> {
+async function submitReport(payload: ReportPayload): Promise<{ id: string } | null> {
   try {
-    const result = await sendJson<{ id: number }>('POST', '/error-reports', payload, {
+    const result = await sendJson<{ id: string }>('POST', '/error-reports', payload, {
       keepalive: true,
     })
     return result && result.id ? result : null
@@ -164,7 +164,7 @@ async function submitReport(payload: ReportPayload): Promise<{ id: number } | nu
   }
 }
 
-function notifySuccess(message: string, reportId: number): void {
+function notifySuccess(message: string, reportId: string): void {
   try {
     const notify = useNotificationsStore()
     // Sticky (timeout 0), matching notifications.ts's existing
@@ -201,8 +201,8 @@ function isResourceErrorEvent(event: Event): boolean {
 function onWindowError(event: Event): void {
   const errorEvent = event as ErrorEvent
   if (isResourceErrorEvent(event)) {
-    const target = event.target as HTMLImageElement | HTMLScriptElement
-    const src = (target as unknown as { src?: string; href?: string }).src || (target as unknown as { href?: string }).href || ''
+    const target = event.target as Element & { src?: string; href?: string; tagName?: string }
+    const src = target.src || target.href || ''
     const tag = (target.tagName || '').toLowerCase()
     void captureAndSubmit({
       name: 'ResourceError',

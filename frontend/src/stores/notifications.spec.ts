@@ -27,9 +27,9 @@ describe('notifications store', () => {
 
   it('push carries an optional reportId through, sticky by default when paired with severity error (Plan U7)', () => {
     const s = useNotificationsStore()
-    const id = s.push('抓到一个错误', 'error', undefined, 42)
+    const id = s.push('抓到一个错误', 'error', undefined, 'a1b2c3d4-0000-4000-8000-000000000042')
     const t = s.toasts.find((x) => x.id === id)!
-    expect(t.reportId).toBe(42)
+    expect(t.reportId).toBe('a1b2c3d4-0000-4000-8000-000000000042')
     expect(t.timeout).toBe(0)
   })
 

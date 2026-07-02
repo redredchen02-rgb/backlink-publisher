@@ -45,7 +45,7 @@ describe('ReportProblemPanel — nav-bar entry (no reportId, POST path)', () => 
   })
 
   it('happy path: non-blank submit POSTs {message, source, severity} with NO reportId key, then closes + confirmation toast', async () => {
-    vi.mocked(sendJson).mockResolvedValue({ id: 123 })
+    vi.mocked(sendJson).mockResolvedValue({ id: 'e5f6a7b8-0000-4000-8000-000000000123' })
     const panel = useReportPanelStore()
     panel.open()
     const w = mountPanel()
@@ -89,9 +89,9 @@ describe('ReportProblemPanel — nav-bar entry (no reportId, POST path)', () => 
 
 describe('ReportProblemPanel — toast "补充说明" entry (reportId present, PATCH path)', () => {
   it('happy path: opening with a reportId PATCHes that id with {description}, then closes + confirmation toast', async () => {
-    vi.mocked(sendJson).mockResolvedValue({ id: 42 })
+    vi.mocked(sendJson).mockResolvedValue({ id: 'd4e5f6a7-0000-4000-8000-000000000042' })
     const panel = useReportPanelStore()
-    panel.open(42)
+    panel.open('d4e5f6a7-0000-4000-8000-000000000042')
     const w = mountPanel()
     await w.vm.$nextTick()
 
@@ -105,7 +105,7 @@ describe('ReportProblemPanel — toast "补充说明" entry (reportId present, P
     expect(sendJson).toHaveBeenCalledTimes(1)
     const [method, path, body] = vi.mocked(sendJson).mock.calls[0]
     expect(method).toBe('PATCH')
-    expect(path).toBe('/error-reports/42')
+    expect(path).toBe('/error-reports/d4e5f6a7-0000-4000-8000-000000000042')
     expect(body).toMatchObject({ description: '补充：只有在 Safari 上会发生' })
 
     expect(panel.isOpen).toBe(false)
