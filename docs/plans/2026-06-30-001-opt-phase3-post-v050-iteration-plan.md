@@ -450,7 +450,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 **驗證**：CI 上這個新測試綠色通過（含情境 (a)(b)(c) 三種紅色路徑自我測試都通過）；刻意在接縫層新增一個未分類的裸 except 後重跑測試，確認會紅燈；確認 grandfathered 清單裡的既存項目上線當下不會讓 CI 紅燈，且清單被 CI 強制為 shrink-only（新增項目會被拒絕）
 
-- [ ] **C2 — 性能基準趨勢**
+- [x] **C2 — 性能基準趨勢**
 
 **現狀**：`tests/test_benchmarks.py` 已建立 3 個基準，但無 CI diff gate。
 
@@ -460,6 +460,19 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 3. 設定性能退化閾值（如 >10% 退化則標記）
 
 **驗證**：CI benchmark job 成功輸出比較結果
+
+**執行結果（2026-07-02）**：
+
+- 在 `.github/workflows/ci.yml` 新增獨立的 `benchmark` job（不修改既有 `unit`/`integration`/`e2e` job 的核心測試邏輯）：
+  - `Run benchmarks`：`pytest tests/test_benchmarks.py --benchmark-only --benchmark-json=benchmark-result.json`（`continue-on-error: true` — `test_benchmarks.py` 本身已由上方 `unit` job 的正確性把關，這個 advisory perf job 不因既有失敗測試而整個變紅；已在本機證實即使該檔案裡有一個既存失敗測試，`--benchmark-json` 仍會把已完成的基準寫出）
+  - 每次執行都用 `actions/upload-artifact@v4` 上傳 `benchmark-result-${{ github.sha }}`；push 到 `main` 時額外用固定名稱 `benchmark-baseline` 上傳一份（給後續 PR 當比較基準，沿用既有 `coverage-unit`/`coverage-full` artifact 慣例）
+  - PR 事件時：用 `gh run list --branch main --workflow ... --status success` 找出 main 最近一次成功執行的 run id，再用 `actions/download-artifact@v4` 的 `run-id` + `github-token` 參數跨 run 抓取 `benchmark-baseline`（新增 job-level `permissions: actions: read`）
+  - 比較邏輯抽成獨立腳本 `scripts/compare_benchmarks.py`（沒有直接寫在 YAML 的 inline heredoc 裡——本機用 `python -c "import yaml; yaml.safe_load(...)"` 驗證時發現 literal block scalar 內容一旦縮排到 column 0 就會讓 PyYAML 解析失敗，這其實是既有 `Validate syntax (py_compile + ast.parse)` step 就已經有的既存模式/問題，不在本次改動範圍內，但新增的比較邏輯選擇用獨立腳本檔避免重蹈覆轍，同時也更容易本機單獨測試）
+- **閾值**：20%（warn-only，不會讓 build 變紅）。理由已寫在 ci.yml 的行內註解與 `scripts/compare_benchmarks.py` 的 module docstring：這是本專案第一個 benchmark gate，GitHub-hosted runner 的 wall-clock 計時本身雜訊就可能有兩位數百分比的擺動（其他 co-schedule 的 job 搶 CPU），閾值訂太緊只會把 runner 雜訊當成迴歸標記；`tests/test_benchmarks.py` 模組本身的 docstring 也已經明文「Thresholds are advisory (warn-only)」，這次的 CI gate 延續同一個 warn-only 契約。之後應在累積幾週真實資料、量測出雜訊基線後再收緊。
+- 本機驗證（`backlink-publisher/.venv` 的 python，cwd 在本 worktree）：
+  - `pytest tests/test_benchmarks.py --benchmark-only --benchmark-json=benchmark-result.json` 確認會產生 JSON（3 個基準成功，`test_benchmark_publish_50_rows_dry_run` 既存失敗——與本次改動無關，屬於計畫其他地方提到的既存失敗清單）
+  - `scripts/compare_benchmarks.py` 針對三種情境本機測試通過：baseline 與當前數值相同（無警告）、模擬 30% 迴歸（正確印出 `::warning::` 並標記 regression）、baseline 檔不存在（優雅跳過並印出 warning，exit 0）
+  - `python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"`：新增的 `benchmark` job 區塊單獨解析成功；整檔解析在既存（本次未改動）的 `Validate syntax` step 上失敗（PyYAML 對 dedent-to-column-0 的 literal block scalar 的既知限制），與本次 C2 改動無關
 
 - [ ] **C3 — SPA Build / Lint CI 集成**
 
