@@ -223,16 +223,81 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 **明確排除於 B1 範圍**：SPA route 的 loading/error/empty 三態處理，由 B3 涵蓋，本文件不重複。
 
-- [ ] **B2 — API v1 ↔ Flask Route 雙覆蓋測試**
+- [x] **B2 — API v1 ↔ Flask Route 雙覆蓋測試** ✅ 已完成（2026-07-02，原始前提經即時查證後修正）
 
-**現狀**：部分 route 已有 `test_webui_*` 測試（覆蓋 Flask 端），但 SPA 調用的 `/api/v1/` endpoint 缺乏獨立測試。
+**現狀（原始，2026-07-01 撰寫，未經查證）**：部分 route 已有 `test_webui_*` 測試（覆蓋 Flask 端），但 SPA 調用的 `/api/v1/` endpoint 缺乏獨立測試；並具體點名 campaign、equityLedger、keepAlive、optimizationStatus、prQueue、survival 這 6 個新 SPA page 的 API 需要補強。
 
-**動作**：
-1. 識別所有 `/api/v1/` endpoint（從 `webui_app/api/v1/spec.py`）
-2. 為每個 endpoint 確認有測試：如果 Flask route 測試已覆蓋，為 API v1 建立 alias 測試
-3. 特別注意：campaign、equityLedger、keepAlive、optimizationStatus、prQueue、survival 這些新 SPA page 的 API
+**〔2026-07-02 執行時查證，原始前提不成立，已修正〕** 執行前的即時查證（由派工者先行 spot-check，執行時獨立覆核並擴大範圍）發現兩件事，性質完全不同於原始描述：
 
-**交付**：API v1 endpoint → test mapping table，覆蓋率 100%
+1. **`/api/v1/*` 60 個 endpoint（`grep -c 'path="/api/v1' webui_app/api/v1/spec.py`）本身其實已經 100% 有獨立測試**——逐一核對 22 個既有 `tests/test_webui_api_v1_*.py` 檔案 + `tests/test_webui_api_v1.py`（單數檔名，涵蓋 6 個 bootstrap endpoint：health/app-config/csrf-token/platforms/bound-platforms/pro-status，最初的 grep 因為檔名 glob 只抓 `test_webui_api_v1_*.py` 而漏看了這個檔案），每一個 endpoint 都能找到至少一個直接呼叫該路徑並斷言狀態碼/回應內容的測試（含 GET+POST 都有的 endpoint，如 `/settings/llm-config`、`/settings/keywords`、`/settings/schedule`、`/settings/blogger/blog-ids`，兩個 method 都各自被測到）。額外發現：`spec.py` 裡 `/settings/medium/{launch,probe,clear}-browser-login` 三個 route 是同一個 `for` 迴圈用 f-string 產生（第 978–1003 行），字面 `grep -c 'path="/api/v1'` 抓不到這個迴圈述句（不是字面字串），所以實際註冊的 endpoint 數是 63，不是 60；這 3 個也都在 `test_webui_api_v1_medium_login.py` 裡有測試。**結論：B2 原本設想的「/api/v1 測試缺口」不存在，本次審計沒有發現任何需要新增測試的 /api/v1 endpoint**。
+2. **原始前提點名的 6 個 SPA page（campaign、equityLedger、keepAlive、optimizationStatus、prQueue、survival）的核心資料呼叫，其實完全沒有走 `/api/v1/*`**——逐一 grep `frontend/src/api/{campaign,equityLedger,keepAlive,optimizationStatus,prQueue,survival}.ts` 的實際 fetch 目標，全部呼叫的是舊版非 `/api/v1` 前綴的 Flask JSON route，只有 CSRF token 這一個共用的 bootstrap 呼叫（`/api/v1/csrf-token`）例外。這代表原始「這 6 個新頁面需要 /api/v1 測試」的框架，從一開始問錯了問題——它們的資料層根本不在 `/api/v1` 的覆蓋範圍內，B2 真正該問的是「這些 legacy route 有沒有測試」，而不是「/api/v1 版本有沒有測試」。`frontend/src/api/prQueue.ts` 檔案開頭第 2 行的既有註解（`// Uses legacy /api/pr-queue endpoints (no /api/v1 equivalent yet).`）證實這個落差是 SPA API 層早就知道、寫進程式碼註解的既有事實，不是 B2 的新發現——B2 的貢獻是把這個早已存在但沒被寫進計畫文件的落差，正式和「6 個新頁面需要 /api/v1 測試」這個錯誤前提對照清楚。
+
+**動作（已完成，取代原始 3 步）**：
+1. ✅ 已完成——列出 `webui_app/api/v1/spec.py` 的全部 63 個實際 endpoint（60 個字面 `path=` + 1 個 for 迴圈產生 3 個），逐一核對測試覆蓋，見下方「/api/v1 Endpoint 覆蓋矩陣」——**63 / 63 已有測試，0 個新增**
+2. ✅ 已完成——獨立覆核派工者的 spot-check（6 個檔案全部重新 grep + 逐行讀取原始碼），確認前提修正成立，見下方「6 個 SPA page 實際呼叫的資料層」
+3. ✅ 已完成——對 6 個頁面實際依賴的 legacy route，逐一 grep `tests/test_webui_*` 確認是否有測試；發現 4 個真正的測試缺口（見下方「Legacy Route 缺口」），已就地補上聚焦測試（成本低、無需新增 fixture 基礎設施），其餘 legacy route 已有既有測試覆蓋，記錄為「已覆蓋」不重複補測試
+
+**交付（修正後）**：
+- `/api/v1` endpoint → test 對照表，63/63 已覆蓋（見下表），**0 個新增測試**——因為審計發現覆蓋早已完整，不是因為跳過工作
+- 6 個 SPA page 的資料層 route 對照表，修正原始「需要 /api/v1 測試」的錯誤框架
+- 4 個 legacy route 測試缺口，已補上聚焦測試（`tests/test_webui_monitor_json_endpoints.py` + `tests/test_webui_service_routes.py`，共新增 8 個測試案例）
+
+### /api/v1 Endpoint 覆蓋矩陣（2026-07-02，63 個 endpoint 全數已覆蓋）
+
+| 模組（`webui_app/api/v1/`） | Endpoint 數 | 對應測試檔 | 狀態 |
+|---|---|---|---|
+| `__init__.py` + `app_config.py`（bootstrap：health/app-config/csrf-token/platforms/bound-platforms/pro-status）| 6 | `tests/test_webui_api_v1.py` | 已覆蓋（含 origin-guard 403 情境） |
+| `pipeline.py`（plan/preview/validate/publish/regen-body）| 5 | `tests/test_webui_api_v1_pipeline.py` | 已覆蓋 |
+| `history.py`（list/delete/bulk-delete/purge-failed/recheck）| 5 | `tests/test_webui_api_v1_history.py` | 已覆蓋 |
+| `drafts.py`（list/schedule/publish-now/cancel/delete/bulk-delete）| 6 | `tests/test_webui_api_v1_drafts.py` | 已覆蓋 |
+| `sites.py`（list/widgets/form/save/autopilot/scrape-preview）| 6 | `tests/test_webui_api_v1_sites.py` | 已覆蓋 |
+| `settings_credentials.py`（channel token/notion-token/notion status）| 3 | `tests/test_webui_api_v1_settings_credentials.py` + `tests/test_webui_api_v1_notion.py` | 已覆蓋（含 THREAT-3 transport guard 情境） |
+| `channel_bind.py`（通用 credential dispatch）| 1 | `tests/test_webui_api_v1_channel_bind.py` | 已覆蓋（含 5 種 auth_type） |
+| `bind.py`（bind/poll/identity-mismatch keep+replace）| 4 | `tests/test_webui_api_v1_bind.py` | 已覆蓋（含 409/404/403 情境） |
+| `oauth.py`（blogger-oauth/status/revoke/blog-ids GET+POST/medium-oauth clear）| 6 | `tests/test_webui_api_v1_oauth.py` + `tests/test_webui_api_v1_blog_ids.py` | 已覆蓋 |
+| `llm.py`（llm-config GET+POST/test-connection/test-generation）| 3 | `tests/test_webui_api_v1_llm.py` + `tests/test_webui_api_v1_llm_diagnostics.py` | 已覆蓋 |
+| `image_gen.py`（test-connection/generate-sample）| 2 | `tests/test_webui_api_v1_image_gen.py` | 已覆蓋 |
+| `medium_login.py`（launch/probe/clear-browser-login ×3 + status）| 4 | `tests/test_webui_api_v1_medium_login.py` | 已覆蓋 |
+| `velog.py`（status/login）| 2 | `tests/test_webui_api_v1_velog.py` | 已覆蓋 |
+| `channels.py`（channels overview/forms）| 2 | `tests/test_webui_api_v1_channels.py` + `tests/test_webui_api_v1_channel_forms.py` | 已覆蓋 |
+| `global_settings.py`（keywords GET+POST/schedule GET+POST）| 4 | `tests/test_webui_api_v1_global_settings.py` | 已覆蓋 |
+| `profiles.py`（list/save/delete）| 3 | `tests/test_webui_api_v1_profiles.py` | 已覆蓋 |
+| `campaigns.py`（form/create）| 2 | `tests/test_webui_api_v1_campaigns.py` | 已覆蓋 |
+| `schedule.py`（scheduled list）| 1 | `tests/test_webui_api_v1_schedule.py` | 已覆蓋 |
+| `monitor.py`（monitor summary）| 1 | `tests/test_webui_api_v1_monitor.py` | 已覆蓋 |
+| **合計** | **63** | — | **63/63（100%）** |
+
+（跑過 `pytest tests/test_webui_api_v1.py tests/test_webui_api_v1_*.py -q` 確認全數 198 個既有測試綠燈，本次審計未修改任何一個檔案。）
+
+### 6 個 SPA page 實際呼叫的資料層（修正原始前提）
+
+| SPA page | `frontend/src/api/*.ts` | 實際呼叫的 route（非 `/api/v1`）| 唯一共用的 `/api/v1` 呼叫 |
+|---|---|---|---|
+| keepAlive | `keepAlive.ts` | `GET /api/keep-alive/summary`，`POST/GET /ce:keep-alive/{recheck,recheck-status,recheck-cancel,republish-token,republish,republish-status,cycle-status,reset-exhausted}` | `/api/v1/csrf-token`（僅 CSRF bootstrap） |
+| optimizationStatus | `optimizationStatus.ts` | `GET /api/optimization-status`，`POST /api/optimization-status/{set-weight,unlock-weight}` | `/api/v1/csrf-token` |
+| equityLedger | `equityLedger.ts` | `GET /api/equity-ledger`，`POST /ce:equity-ledger/recheck` | 無（CSRF 直接讀 `<meta>`，未呼叫 `/api/v1/csrf-token`） |
+| survival | `survival.ts` | `GET /api/survival` | 無（唯讀頁面，無寫操作） |
+| prQueue | `prQueue.ts` | `GET /api/pr-queue`，`POST /api/pr-queue/status` | `/api/v1/csrf-token`；檔案第 2 行既有註解明載 `// Uses legacy /api/pr-queue endpoints (no /api/v1 equivalent yet).` |
+| campaign | `campaign.ts` | `GET /api/campaign/{id}/status` | 無（唯讀頁面） |
+
+**結論**：6 個頁面裡沒有任何一個的核心資料流走 `/api/v1`，這與原始「這 6 個新 SPA page 需要補 /api/v1 測試」的前提直接矛盾——正確的行動是稽核它們實際依賴的 legacy route，而非建立不存在的 `/api/v1` 對應。
+
+### Legacy Route 缺口（4 個，已修復）
+
+逐一 grep `tests/test_webui_*` 確認上表每個 legacy route 字面路徑是否有測試：
+
+| Route | 使用者 | 修復前狀態 | 動作 |
+|---|---|---|---|
+| `GET /api/keep-alive/summary` | keepAlive.ts | **零測試**（`/ce:keep-alive/*` 其餘子路由都已有測試，唯獨這個 read summary route 沒有） | 已補 2 個測試於 `tests/test_webui_monitor_json_endpoints.py`（empty-state 欄位、與 `build_keepalive_view()` 來源一致性） |
+| `GET /api/survival` | survival.ts | **零測試**（`test_webui_survival_dashboard.py` 只測了 `/survival-dashboard` HTML route，JSON twin 完全沒被測到） | 已補 2 個測試於 `tests/test_webui_monitor_json_endpoints.py`（empty-state 不 500、與 `build_survival_view()` 來源一致性） |
+| `POST /api/optimization-status/set-weight`（JSON body） | optimizationStatus.ts | **零測試**（`test_webui_service_routes.py` 只測了同名但走 form-data、無 `/api` 前綴的 legacy 版本 `POST /optimization-status/set-weight`，SPA 實際呼叫的 JSON 版本沒被測到）| 已補 2 個測試於 `tests/test_webui_service_routes.py`（成功路徑 + 缺欄位 400） |
+| `POST /api/optimization-status/unlock-weight`（JSON body） | optimizationStatus.ts | **零測試**（同上，只有 form-data legacy 版本被測）| 已補 2 個測試於 `tests/test_webui_service_routes.py`（成功路徑 + 缺欄位 400） |
+
+其餘 legacy route（`/ce:keep-alive/*` 子路由、`/api/optimization-status` GET、`/api/equity-ledger` + `/ce:equity-ledger/recheck`、`/api/pr-queue` + `/api/pr-queue/status`、`/api/campaign/<id>/status`）均已有既有測試覆蓋，逐一核對後未發現額外缺口，不重複補測試。
+
+新增的 8 個測試已個別執行確認通過（`pytest tests/test_webui_monitor_json_endpoints.py tests/test_webui_service_routes.py -q` → 39 passed, 3 pre-existing unrelated failures — 見下方「已知限制」）。
+
+**已知限制**：`test_webui_service_routes.py` 裡另外 3 個既有測試（`test_get_keep_alive_renders`、`test_get_optimization_status_page`、`test_get_survival_dashboard_page`）在本次執行前就已經因為 legacy HTML route 現在改為 302 redirect 到 SPA 而失敗——這是 B1 已記錄的既有行為變更（見上方「SPA Route Audit Matrix」），與本次 B2 新增的測試無關，本次未修改也未修復，維持原狀留給後續 unit 處理。
 
 - [ ] **B3 — SPA Error Boundary / Loading State 補全〔R3〕**
 
