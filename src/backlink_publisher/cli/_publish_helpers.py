@@ -148,7 +148,7 @@ def _check_row_reachability(row: dict[str, Any]) -> tuple[bool, str | None]:
             url = futures[fut]
             try:
                 ok, _err = fut.result()
-            except Exception:
+            except (ConnectionError, TimeoutError, ValueError):
                 publish_logger.debug("link_check_future_failed", url=url, exc_info=True)
                 ok = False
             if not ok and first_failure is None:

@@ -72,7 +72,7 @@ def _load_token(path: Path | None, default_filename: str) -> dict[str, Any] | No
     try:
         with open(token_path, encoding="utf-8") as f:
             return cast("dict[str, Any] | None", json.load(f))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return None
 
 

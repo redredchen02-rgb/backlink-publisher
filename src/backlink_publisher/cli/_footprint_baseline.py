@@ -201,7 +201,7 @@ def _run_regenerate(args: Any) -> None:
             tmp = final.with_suffix(final.suffix + ".tmp")
             tmp.write_text(_serialize_baseline(record), encoding="utf-8")
             tmp_paths.append((tmp, final))
-    except Exception:
+    except (OSError, ValueError, TypeError):
         for tmp, _final in tmp_paths:
             tmp.unlink(missing_ok=True)
         raise

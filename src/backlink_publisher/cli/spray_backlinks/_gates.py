@@ -65,7 +65,7 @@ def _list_checkpoints() -> list[tuple[str, int, str]]:
                 total = len(data.get("seeds", []))
                 done = sum(1 for s in data.get("seeds", []) if s.get("status") == "completed")
                 results.append((data.get("run_id", f.stem), done, f"{done}/{total}"))
-            except Exception:
+            except (json.JSONDecodeError, OSError, ValueError):
                 log.debug("checkpoint_json_corrupt", file=f.name)
     return results
 

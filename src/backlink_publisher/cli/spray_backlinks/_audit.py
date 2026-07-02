@@ -76,7 +76,7 @@ def _link_concentration(rows: list[dict[str, Any]]) -> float | None:
             default=0,
         )
         return top / report.total_links if report.total_links else None
-    except Exception:
+    except (ImportError, TypeError, ValueError, ZeroDivisionError):
         return None  # informational; never break the run
 
 

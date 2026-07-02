@@ -87,7 +87,7 @@ def _key_for_row(row: dict[str, Any], platform: str) -> DedupKey | None:
         return None
     try:
         return DedupKey(platform=platform, target_url=str(target), account=_ACCOUNT_DEFAULT)
-    except Exception:  # canonicalization on a malformed URL must not break publish
+    except (ValueError, TypeError):  # canonicalization on a malformed URL must not break publish
         return None
 
 

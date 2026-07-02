@@ -84,7 +84,7 @@ def evaluate_rules(
         try:
             rule_results = fn(resolved_state_data, config)
             results.extend(rule_results)
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             log.exception("Rule %s raised unexpectedly — skipping", rule_name)
 
     return results
