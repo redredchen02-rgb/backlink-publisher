@@ -32,6 +32,7 @@ def monitor_summary() -> Any:
         cards = _build_anomaly_cards(_collect_subsystem_status())
         degraded = False
     except Exception:  # noqa: BLE001 — belt-and-suspenders; aggregator is fail-open
+        # debt: monitor-summary-aggregator-fail-open
         cards, degraded = [], True
     anomaly_count = sum(1 for c in cards if c["severity"] in ("danger", "warning"))
     return jsonify({"cards": cards, "anomaly_count": anomaly_count, "degraded": degraded})

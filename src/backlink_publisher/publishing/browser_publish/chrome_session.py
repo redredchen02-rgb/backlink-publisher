@@ -4,7 +4,7 @@ Plan 2026-05-21-001 Unit 1. Bridges bind (cli/_bind/chrome_backend.py)
 and publish phases on a single Chrome lifecycle abstraction.
 
 Design notes calibrated against Unit 0 spike
-(`docs/spikes/2026-05-21-chrome-lifecycle-spike.md`):
+(`docs/_archive/spikes/2026-05-21-chrome-lifecycle-spike.md`):
 
 - Probe 1: teardown uses ``proc.terminate()`` + ``proc.wait(timeout=5)``;
   ``os.killpg`` raises EPERM from outside the new session leader's lineage

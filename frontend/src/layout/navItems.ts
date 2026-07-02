@@ -1,13 +1,11 @@
 // Nav model for the console shell — Plan 2026-06-18-002 U4.
 //
-// Dual-stack wayfinding (design-lens): during the strangler-fig migration the
-// sidebar lists BOTH migrated SPA pages and not-yet-migrated legacy Jinja pages.
-// - `to`   → an in-SPA route (RouterLink, no reload).
-// - `href` → a legacy Jinja URL (full navigation OUT of the SPA; SPA-resident
-//            state like toasts/polling is lost by design, theme persists via the
-//            data-theme attribute the legacy pages also honour).
-// Legacy items are visually marked so the operator knows a click leaves the new
-// console. IA groups outlive the migration: Pipeline / Monitoring / Operations / Config.
+// Migration complete as of Sprint B1 (2026-07-02): all 13 navItems carry
+// `to` (isMigrated: true) — every entry routes in-SPA via RouterLink, no
+// full-page reload. The `href` field is kept on the NavItem type as an
+// escape hatch for any future not-yet-migrated page, but nothing in
+// NAV_ITEMS currently uses it. IA groups outlive the migration:
+// Pipeline / Monitoring / Operations / Config.
 
 export type NavGroup = 'pipeline' | 'monitoring' | 'operations' | 'config'
 

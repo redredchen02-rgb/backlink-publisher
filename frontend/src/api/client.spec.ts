@@ -45,6 +45,67 @@ describe('getJson', () => {
   })
 })
 
+describe('withRetry pinning (network errors only — R3 action 9)', () => {
+  // client.ts's withRetry only retries TypeError/AbortError (real network/
+  // infra failures); ApiError (a real 4xx/5xx server response) must NOT be
+  // retried, or a genuine failure could be masked as "still loading" for an
+  // extra round-trip. These pin the existing isNetworkErr behavior.
+
+  it('retries once on a TypeError (network failure) and succeeds on the second attempt', async () => {
+    let calls = 0
+    const fetchMock = vi.fn(async () => {
+      calls += 1
+      if (calls === 1) throw new TypeError('Failed to fetch')
+      return jsonResponse({ ok: true })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getJson('/health', { noDedup: true })
+
+    expect(result).toEqual({ ok: true })
+    expect(calls).toBe(2)
+  })
+
+  it('retries once on an AbortError (timeout) and succeeds on the second attempt', async () => {
+    let calls = 0
+    const fetchMock = vi.fn(async () => {
+      calls += 1
+      if (calls === 1) throw new DOMException('The operation was aborted', 'AbortError')
+      return jsonResponse({ ok: true })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getJson('/health', { noDedup: true })
+
+    expect(result).toEqual({ ok: true })
+    expect(calls).toBe(2)
+  })
+
+  it('does NOT retry a 4xx/5xx ApiError — a real server response fails immediately', async () => {
+    let calls = 0
+    const fetchMock = vi.fn(async () => {
+      calls += 1
+      return jsonResponse({ detail: 'server exploded' }, 500)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getJson('/health', { noDedup: true })).rejects.toBeInstanceOf(ApiError)
+    expect(calls).toBe(1) // no retry attempted
+  })
+
+  it('does NOT retry a 4xx client error either', async () => {
+    let calls = 0
+    const fetchMock = vi.fn(async () => {
+      calls += 1
+      return jsonResponse({ detail: 'not found' }, 404)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getJson('/missing', { noDedup: true })).rejects.toBeInstanceOf(ApiError)
+    expect(calls).toBe(1)
+  })
+})
+
 describe('sendJson CSRF retry', () => {
   it('attaches X-CSRFToken and retries once with a fresh token on 403', async () => {
     const seen: string[] = []

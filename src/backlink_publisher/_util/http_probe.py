@@ -26,7 +26,7 @@ _SSRF_GUARD_ACTIVE = True
 # P14 A5: imported from _util.constants instead of content._preflight_fetch.
 try:
     from backlink_publisher._util.constants import PREFLIGHT_UA as _PREFLIGHT_UA
-except Exception:  # noqa: BLE001
+except ImportError:
     _PREFLIGHT_UA = "backlink-publisher/0.1 preflight-targets"
 
 GOOGLEBOT_UA = (

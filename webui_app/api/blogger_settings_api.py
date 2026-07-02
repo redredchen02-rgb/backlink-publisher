@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.config import load_config, save_config
 
 
@@ -59,4 +60,7 @@ class BloggerSettingsAPI:
             save_config(cfg, extra_blogger_ids={}, target_three_url=None)
             return BlogIdsResult("success", "Blog ID 映射已保存")
         except Exception as e:
-            return BlogIdsResult("danger", f"保存失败: {e}", error_class="persistence_failure")
+            plan_logger.error("save_blog_ids_failed", error=str(e))
+            return BlogIdsResult(
+                "danger", f"保存失败: {type(e).__name__}", error_class="persistence_failure"
+            )

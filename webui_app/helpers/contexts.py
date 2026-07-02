@@ -114,7 +114,8 @@ def _token_paste_channels_from_registry(cfg: Any) -> dict:
                     from pathlib import Path as _Path
                     raw = _Path(token_path_str).read_text(encoding="utf-8")
                     data = _json.loads(raw)
-                except Exception:
+                except (OSError, ValueError):
+                    # debt: webui-token-paste-file-read-failure
                     data = None
             token = (data or {}).get(token_field, "") if isinstance(data, dict) else ""
             bound = bool(token)
@@ -352,7 +353,8 @@ def _render(template_name: str, **kwargs: Any) -> Any:
     if 'tasks' not in kwargs:
         try:
             kwargs['tasks'] = _g_cache('tasks', _queue_store.load)
-        except Exception:
+        except (OSError, ValueError):
+            # debt: webui-render-queue-load-failure
             kwargs['tasks'] = []
     if 'now_iso' not in kwargs:
         now = datetime.now()
@@ -369,7 +371,8 @@ def _render(template_name: str, **kwargs: Any) -> Any:
         try:
             cfg = _g_cache('config', load_config)
             kwargs['image_gen_status'] = _image_gen_status(cfg)
-        except Exception:
+        except (OSError, ValueError, KeyError):
+            # debt: webui-render-image-gen-status-failure
             kwargs['image_gen_status'] = {
                 'configured': False, 'token_present': False,
                 'config': None, 'token_path': '', 'token_mtime': None,

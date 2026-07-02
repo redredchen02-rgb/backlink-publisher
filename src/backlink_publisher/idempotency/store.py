@@ -215,6 +215,9 @@ class DedupStore:
             yield conn
             conn.commit()
         except BaseException:
+            # Deliberately BaseException (not Exception) and always re-raised:
+            # a KeyboardInterrupt/SystemExit mid-transaction must still roll
+            # back before propagating, same as any other failure.
             conn.rollback()
             raise
         finally:
@@ -233,9 +236,11 @@ class DedupStore:
             yield conn
             conn.execute("COMMIT")
         except BaseException:
+            # Deliberately BaseException, always re-raised (see connect() above).
             try:
                 conn.execute("ROLLBACK")
             except sqlite3.Error:
+                # debt: idempotency-store-rollback-failure
                 pass
             raise
         finally:

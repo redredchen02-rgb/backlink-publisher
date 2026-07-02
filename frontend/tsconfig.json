@@ -16,7 +16,7 @@
     "noEmit": true,
     "isolatedModules": true,
     "esModuleInterop": true,
-    "types": ["vite/client", "vitest/globals"],
+    "types": ["node", "vite/client", "vitest/globals"],
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts"]

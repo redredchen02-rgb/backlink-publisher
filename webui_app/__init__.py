@@ -376,6 +376,32 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     )
     _limiter.init_app(app)
 
+    # ── Response compression (Flask-Compress) ──────────────────────────────
+    # Compress text/*, application/json, application/javascript responses with
+    # gzip/brotli when the client supports it. Disabled under pytest to keep
+    # test assertions on raw response bodies simple.
+    from flask_compress import Compress as _Compress
+    _Compress().init_app(app)
+
+    # ── Cache-control headers ──────────────────────────────────────────────
+    # SPA assets (content-hashed filenames) → immutable long cache.
+    # Jinja templates + API responses → never cache (dynamic content).
+    @app.after_request
+    def _set_cache_headers(resp: flask.Response) -> flask.Response:
+        path = _flask_req.path
+
+        # SPA built assets live under /app/ (catch-all route in spa.py) or
+        # under spa_dist/ served as static files. Assets with hash fingerprints
+        # in the URL get immutable caching.
+        if path.startswith(('/app/assets/', '/static/spa_dist/')):
+            resp.headers.setdefault('Cache-Control', 'public, max-age=31536000, immutable')
+        # Jinja server-rendered pages and API responses are dynamic.
+        elif path.startswith(('/api/',)):
+            resp.headers.setdefault('Cache-Control', 'no-cache, no-store, must-revalidate')
+        else:
+            resp.headers.setdefault('Cache-Control', 'no-cache, no-store, must-revalidate')
+        return resp
+
     # Start scheduler unless under pytest (tests don't need background jobs)
     if start_scheduler is None:
         start_scheduler = 'PYTEST_CURRENT_TEST' not in os.environ

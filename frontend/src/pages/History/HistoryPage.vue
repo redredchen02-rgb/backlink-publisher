@@ -218,7 +218,7 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 .article-link {
   display: inline-flex;
   align-items: center;
-  color: var(--primary, #0d6efd);
+  color: var(--primary);
   text-decoration: none;
   font-size: 0.8rem;
   font-family: ui-monospace, monospace;
@@ -232,7 +232,7 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 }
 .verified-at {
   font-size: 0.72rem;
-  color: var(--text-secondary, #6c757d);
+  color: var(--text-secondary);
   margin-top: 0.15rem;
 }
 </style>

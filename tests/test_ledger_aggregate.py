@@ -295,3 +295,42 @@ def test_latest_recheck_wins_alive_after_host_gone(store):
     row = build_ledger(store=store, history=_hist(stat_live=fresh))[0]
     assert row.live_links == 1
     assert row.live_dofollow == 1
+
+
+# ── uncertain-platform confirmed_dofollow round-trip (D2a, distinct from the ─
+# recheck-ledger-liveness-seam scenario above) ──────────────────────────────
+# docs/solutions/logic-errors/2026-06-05-001-live-dofollow-undercounting-triple-gap.md
+# Gap 3: an "uncertain" platform's probe-confirmed no-rel=nofollow signal must
+# actually promote the link into live_dofollow, not merely be read without
+# raising. "wordpresscom" is registered dofollow="uncertain" in the live
+# registry (publishing/adapters/__init__.py) — assert that directly so this
+# test breaks loudly if the registry classification ever drifts.
+def test_uncertain_platform_confirmed_dofollow_recheck_promotes_live_dofollow(tmp_path):
+    assert _classify("wordpresscom") == ("uncertain", None)
+
+    s = EventStore(path=tmp_path / "e.db")
+    _article(s, "https://wordpresscom.example/l1")
+    fresh = (datetime.now() - timedelta(days=3)).isoformat(timespec="seconds")
+    hist = [{"id": "h1", "platform": "wordpresscom", "target_url": T,
+             "article_urls": ["https://wordpresscom.example/l1"], "status": "published",
+             "verified_at": fresh}]
+
+    baseline = build_ledger(store=s, history=hist)[0]
+    assert baseline.live_links == 1
+    assert baseline.dofollow.uncertain == 1
+    assert baseline.live_dofollow == 0
+    assert baseline.live_dofollow_platforms == []
+
+    # A recheck probe confirms no rel=nofollow attribute on this uncertain
+    # platform -> confirmed_dofollow=True must actually surface as a promotion
+    # to live_dofollow, not merely avoid raising an exception.
+    emit_recheck(s, [{
+        "live_url": "https://wordpresscom.example/l1", "target_url": T, "host": "h",
+        "article_id": None, "platform": "wordpresscom", "verdict": verdicts.ALIVE,
+        "reason": None, "source": "events", "confirmed_dofollow": True,
+    }])
+    row = build_ledger(store=s, history=hist)[0]
+    assert row.live_dofollow == 1
+    assert row.live_dofollow_platforms == ["wordpresscom"]
+    assert row.dofollow.dofollow == 1
+    assert row.dofollow.uncertain == 0

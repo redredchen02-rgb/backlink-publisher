@@ -66,3 +66,43 @@ def test_webui_campaigns_create_invalid_returns_422_with_field_errors(client, mo
     assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
     fields = {e["field"] for e in resp.get_json()["errors"]}
     assert fields == {"seeds", "platforms"}
+
+
+# --------------------------------------------------------------------------- #
+# D2a signal round-trip: every test above patches the module-level ``_api``
+# instance (per the module docstring), so none of them drive the real
+# ``CampaignAPI().create()`` -> ``campaign_store.create()`` write path. This
+# test does, against an isolated tmp_path-backed store (mirroring the
+# isolation pattern in tests/test_webui_batch_campaign.py), and asserts the
+# PERSISTED campaign_store row — not just the HTTP response body — carries the
+# exact submitted platforms/mode/seed_text. A silent write-path regression
+# (e.g. the wrong fields reaching campaign_store.create, or the write being
+# skipped while still returning ``{"ok": True}``) would pass every other test
+# in this file, since they never touch the real store.
+# --------------------------------------------------------------------------- #
+def test_webui_campaigns_create_persists_to_real_campaign_store(tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    from webui_store import _refresh_paths
+    _refresh_paths()
+
+    from webui_app import create_app
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["CSRF_ENABLED"] = False
+    real_client = app.test_client()
+
+    resp = real_client.post("/api/v1/campaigns", json={
+        "seeds": '{"seed_text": "round-trip seed"}\n',
+        "platforms": ["blogger"],
+        "mode": "draft",
+    })
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    campaign_id = resp.get_json()["campaign_id"]
+
+    from webui_store import campaign_store
+    stored = campaign_store.get(campaign_id)
+    assert stored is not None
+    assert stored["platforms"] == ["blogger"]
+    assert stored["mode"] == "draft"
+    assert stored["status"] == "pending"
+    assert stored["seeds"][0]["seed_text"] == "round-trip seed"

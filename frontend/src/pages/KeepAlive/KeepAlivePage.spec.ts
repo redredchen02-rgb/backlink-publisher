@@ -1,0 +1,143 @@
+// KeepAlivePage — Sprint B3 (R3) regression coverage.
+//
+// Two bugs fixed here:
+//  1. False-ready: the internal `pageState` state machine included 'empty',
+//     but the value passed to StateBlock collapsed everything non-loading/
+//     non-error to 'ready', so a truly-empty result rendered the (empty)
+//     scorecard table instead of the empty-text message.
+//  2. Blanket-error-on-partial-failure: the initial load fetched summary AND
+//     cycle-status inside one try/catch, so a cycle-status failure blanked
+//     the scorecard that had already loaded successfully.
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+
+vi.mock('../../api/keepAlive', () => ({
+  fetchSummary: vi.fn(),
+  fetchCycleStatus: vi.fn(),
+  startRecheck: vi.fn(),
+  pollRecheck: vi.fn(),
+  cancelRecheck: vi.fn(),
+  getRepublishToken: vi.fn(),
+  executeRepublish: vi.fn(),
+  pollRepublish: vi.fn(),
+  resetExhausted: vi.fn(),
+}))
+
+import * as api from '../../api/keepAlive'
+import KeepAlivePage from './KeepAlivePage.vue'
+
+const EMPTY_SUMMARY = {
+  targets: [],
+  gaps: [],
+  stale: false,
+  stale_days: 0,
+  last_recheck: null,
+  is_empty: true,
+  alive_count: 0,
+  stripped_count: 0,
+  unknown_count: 0,
+  live_excluded: 0,
+  gap_channel_exhausted: 0,
+}
+
+const READY_SUMMARY = {
+  targets: [
+    {
+      target_url: 'https://example.com/a',
+      live_dofollow: 3,
+      stripped: 1,
+      decayed: 0,
+      check_failed: 0,
+      strip_rate: 0.25,
+      trend: 'flat',
+      platforms: 'blogger',
+      last_verified: '2026-07-01',
+      needs_attention: false,
+    },
+  ],
+  gaps: [],
+  stale: false,
+  stale_days: 0,
+  last_recheck: '2026-07-01T00:00:00Z',
+  is_empty: false,
+  alive_count: 3,
+  stripped_count: 1,
+  unknown_count: 0,
+  live_excluded: 0,
+  gap_channel_exhausted: 0,
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(api.fetchCycleStatus).mockResolvedValue({ running: false, status: 'idle' })
+})
+
+describe('KeepAlivePage — empty-state fix (false-ready regression)', () => {
+  it('renders the empty-text message, not the (empty) scorecard, when summary.is_empty is true', async () => {
+    vi.mocked(api.fetchSummary).mockResolvedValue(EMPTY_SUMMARY)
+    const w = mount(KeepAlivePage)
+    await flushPromises()
+
+    expect(w.text()).toContain('暂无数据')
+    // The scorecard is inside StateBlock's default slot, which only renders
+    // in the 'ready' branch — it must NOT render while state is 'empty'.
+    expect(w.find('.ka__scorecard').exists()).toBe(false)
+  })
+
+  it('renders the scorecard (not the empty text) when data is present', async () => {
+    vi.mocked(api.fetchSummary).mockResolvedValue(READY_SUMMARY)
+    const w = mount(KeepAlivePage)
+    await flushPromises()
+
+    expect(w.find('.ka__scorecard').exists()).toBe(true)
+    expect(w.text()).not.toContain('暂无数据。先发布一些文章')
+    expect(w.text()).toContain('https://example.com/a')
+  })
+})
+
+describe('KeepAlivePage — partial-failure isolation (R3 action 6/7/8)', () => {
+  it('shows the scorecard from a succeeded summary fetch AND a persistent cycle-status error, without blanking the page', async () => {
+    vi.mocked(api.fetchSummary).mockResolvedValue(READY_SUMMARY)
+    vi.mocked(api.fetchCycleStatus).mockRejectedValue(new Error('cycle-status 500'))
+
+    const w = mount(KeepAlivePage)
+    await flushPromises()
+
+    // Sibling data (scorecard) that loaded fine must stay visible...
+    expect(w.find('.ka__scorecard').exists()).toBe(true)
+    expect(w.text()).toContain('https://example.com/a')
+    // ...while the failed section gets its own persistent, non-generic indicator.
+    expect(w.find('.ka__cycle-error').exists()).toBe(true)
+    expect(w.text()).toContain('自动保活周期状态加载失败')
+    // The page must NOT collapse into the generic full-page StateBlock error view.
+    expect(w.find('.state--error').exists()).toBe(false)
+  })
+
+  it('retrying the cycle-status panel clears the error indicator on success', async () => {
+    vi.mocked(api.fetchSummary).mockResolvedValue(READY_SUMMARY)
+    vi.mocked(api.fetchCycleStatus).mockRejectedValueOnce(new Error('cycle-status 500'))
+
+    const w = mount(KeepAlivePage)
+    await flushPromises()
+    expect(w.find('.ka__cycle-error').exists()).toBe(true)
+
+    vi.mocked(api.fetchCycleStatus).mockResolvedValue({ running: true, status: 'running' })
+    await w.find('.ka__cycle-error button').trigger('click')
+    await flushPromises()
+
+    expect(w.find('.ka__cycle-error').exists()).toBe(false)
+    expect(w.find('.ka__cycle').exists()).toBe(true)
+  })
+})
+
+describe('KeepAlivePage — no false-ready on a failed summary fetch (no-fake-ok:true guard)', () => {
+  it('a rejected summary fetch renders the error state, never the scorecard/ready UI', async () => {
+    vi.mocked(api.fetchSummary).mockRejectedValue({ status: 500 })
+
+    const w = mount(KeepAlivePage)
+    await flushPromises()
+
+    expect(w.find('.state--error').exists()).toBe(true)
+    expect(w.find('.ka__scorecard').exists()).toBe(false)
+  })
+})

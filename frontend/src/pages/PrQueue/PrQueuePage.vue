@@ -71,9 +71,9 @@ onMounted(load)
       empty-text="暂无 PR 机会。通过 pr-opportunities ingest 导入 HARO/SOS/HaB2BW 摘要。"
       @retry="load"
     >
-      <div class="table-wrap">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light">
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
             <tr>
               <th>状态</th>
               <th>相关度</th>
@@ -86,13 +86,13 @@ onMounted(load)
           </thead>
           <tbody>
             <tr v-for="item in items" :key="item.id" :data-id="item.id">
-              <td>
+              <td class="col-status">
                 <span
                   class="badge"
                   :class="`bg-${STATUS_COLORS[item.status] ?? 'secondary'}`"
                 >{{ item.status }}</span>
               </td>
-              <td class="text-center">
+              <td class="col-num text-center">
                 <span class="fw-semibold">{{ Math.round(item.relevance_score ?? 0) }}</span>
               </td>
               <td class="pr-queue__headline-cell">
@@ -102,7 +102,7 @@ onMounted(load)
                 {{ (item.summary ?? '').slice(0, 120) }}{{ (item.summary ?? '').length > 120 ? '…' : '' }}
               </td>
               <td><span class="badge bg-secondary">{{ item.source ?? '—' }}</span></td>
-              <td class="text-muted pr-queue__deadline-cell">{{ item.deadline ?? '—' }}</td>
+              <td class="col-date text-muted pr-queue__deadline-cell">{{ item.deadline ?? '—' }}</td>
               <td>
                 <div class="btn-group btn-group-sm" role="group">
                   <button

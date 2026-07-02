@@ -40,7 +40,8 @@ def _load_config_targets() -> dict[str, Any]:
 
         cfg = load_config()
         return getattr(cfg, "targets", None) or {}
-    except Exception:
+    except (FileNotFoundError, ValueError, TypeError):
+        # debt: pr-opportunities-config-targets-load-failure
         return {}
 
 

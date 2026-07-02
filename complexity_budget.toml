@@ -86,9 +86,11 @@
 ceiling = 10
 rationale = "Shim file (4 SLOC): all tests moved to test_cli_generate_backlink_text_split1.py (557 SLOC) and _split2.py (531 SLOC). Window 10 = dust ceiling for the import+pytest.skip placeholder. R12 confirmed split is complete."
 
-[test_files."tests/test_webui_three_url.py"]
-ceiling = 1190
-rationale = "WebUI three-URL form tests: validates the sites-save-three-url route behaviour across every field combination, gate logic, redirect chain, and error path. Ceiling raised 940→1190 to match current 1152 SLOC (2026-06-11); split deferred to focused refactor."
+# test_webui_three_url.py entry removed (D1, 2026-07-02): split into
+# test_webui_three_url.py (route contract, 275 SLOC) + new
+# test_webui_three_url_pool_derivation.py (446 SLOC). Both comfortably below
+# the level that warranted a ceiling entry (cf. test_cli_generate_backlink_text
+# split-offs at 557/531 SLOC, also unlisted) -- neither is monitored.
 
 [test_files."tests/test_plan_backlinks.py"]
 ceiling = 320
@@ -102,21 +104,28 @@ rationale = "Content fetch tests (P13 A2 split): SSRF defense extracted to test_
 ceiling = 110
 rationale = "SSRF defense tests (P13 A2 split from test_content_fetch.py): exercises _check_url_for_ssrf + _SSRFSafeRedirectHandler with real IP-routing logic. 73 SLOC. Ceiling 110 = round_up_to_10(73+30) per policy."
 
-[test_files."tests/test_cli_plan_check.py"]
-ceiling = 1160
-rationale = "plan-check CLI tests: integrates the full plan-check engine including frontmatter parsing, claim drift detection, schema validation, git-fetch orchestration, and RECON output formatting. Ceiling raised 820→1160 to match current 1126 SLOC (2026-06-11); split deferred to focused refactor."
+# test_cli_plan_check.py entry removed (D1, 2026-07-02): split by
+# sub-function into test_cli_plan_check.py (schema/frontmatter/claims, 195
+# SLOC), test_cli_plan_check_git.py (git subprocess helpers, 238 SLOC), and
+# test_cli_plan_check_cli.py (CLI wiring, 350 SLOC). None warrant a ceiling
+# entry at this size.
 
 [test_files."tests/test_adapter_velog_graphql.py"]
 ceiling = 670
 rationale = "Velog GraphQL adapter tests: covers the writePost mutation lifecycle including cookie auth, retry-on-null, currentUser liveness probe, daily-cap enforcement, and all GraphQL error shapes. Large due to the null-after-retry diagnostics flow which adds 5 probe-variant tests."
 
-[test_files."tests/test_config_three_url.py"]
-ceiling = 890
-rationale = "Three-URL config tests: validates the upgrade-Target-to-three-url migration path, merge_site_url_categories writer, round-trip preservation of legacy sections, and all save_config taxonomy branches for [sites.*] and [targets.*] tables. Ceiling raised 650→890 to match current 851 SLOC (2026-06-11); split deferred to focused refactor."
+# test_config_three_url.py entry removed (D1, 2026-07-02): split by
+# sub-function into test_config_three_url.py (schema parsing + maintenance
+# log, 164 SLOC), test_config_three_url_save.py (save_config round-trip +
+# critical-section preservation, 181 SLOC), and
+# test_config_three_url_upgrade.py (upgrade_target_to_threeurl +
+# merge_site_url_categories, 268 SLOC). None warrant a ceiling entry.
 
-[test_files."tests/test_publish_backlinks.py"]
-ceiling = 860
-rationale = "publish-backlinks integration tests: covers the fresh-publish loop including adapter dispatch, dedup gating, checkpoint creation/update, AuthExpiredError handling, banner upload edge cases, and dry-run mode. Ceiling raised 610→860 to match current 821 SLOC (2026-06-11); split deferred to focused refactor."
+# test_publish_backlinks.py entry removed (D1, 2026-07-02): split by Unit
+# 1/2/3 into test_publish_backlinks.py (adapter dispatch, 197 SLOC),
+# test_publish_backlinks_checkpoint.py (checkpoint integration, 185 SLOC),
+# and test_publish_backlinks_forward_path.py (advisory drift recording, 187
+# SLOC). None warrant a ceiling entry.
 
 [test_files."tests/test_work_scraper.py"]
 ceiling = 730

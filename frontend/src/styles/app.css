@@ -1,49 +1,12 @@
 /* Minimal app shell styles — consume tokens.css custom properties only.
    No hardcoded colours (anti-rot: tokens are the single source). */
 
-/* Light theme overrides — SPA only (tokens.css is shared with Jinja pages).
-   These run after tokens.css in main.ts, so same-specificity :root wins. */
-:root {
-  color-scheme: light;
-  --surface-base:    #ffffff;
-  --surface-raised:  #f8fafc;
-  --surface-overlay: #f1f5f9;
-  --text-primary:    rgba(0, 0, 0, 0.87);
-  --text-secondary:  rgba(0, 0, 0, 0.55);
-  --border:          rgba(0, 0, 0, 0.10);
-  --border-strong:   rgba(0, 0, 0, 0.22);
-  --gradient-hero:   #ffffff;
-  --glass-bg:          rgba(0, 0, 0, 0.02);
-  --glass-bg-fallback: #f8fafc;
-  --glass-border:      rgba(0, 0, 0, 0.10);
-}
-
-/* Reset dark !important overrides from tokens.css for light theme */
-.alert-warning {
-  background: #fff3cd !important;
-  border-color: #ffecb5 !important;
-  color: #664d03 !important;
-}
-.alert-warning strong { color: inherit !important; }
-
-.alert-danger {
-  background: #f8d7da !important;
-  border-color: #f5c2c7 !important;
-  color: #842029 !important;
-}
-.alert-danger strong { color: inherit !important; }
-
-.btn-outline-secondary {
-  border-color: #6c757d !important;
-  color: #6c757d !important;
-  background: transparent !important;
-}
-.btn-outline-secondary:hover,
-.btn-outline-secondary:focus {
-  background: #6c757d !important;
-  border-color: #6c757d !important;
-  color: #fff !important;
-}
+/* Light theme values live solely in tokens.css's [data-theme="light"] block
+   (single source of truth, shared with Jinja pages) — see 2026-07-01 fix
+   plan Unit 1. This file used to carry a parallel unconditional :root
+   override here that always won over tokens.css's theme-scoped block
+   regardless of data-theme, which is why the SPA theme toggle previously
+   had no visible effect. Do not reintroduce a parallel override. */
 
 body {
   margin: 0;

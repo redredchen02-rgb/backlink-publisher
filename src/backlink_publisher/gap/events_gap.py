@@ -239,5 +239,6 @@ def _derive_host(target_url: str) -> str:
         from urllib.parse import urlparse
         parsed = urlparse(target_url)
         return parsed.hostname or target_url
-    except Exception:
+    except (ValueError, TypeError):
+        # debt: gap-derive-host-urlparse-failure
         return target_url

@@ -377,7 +377,8 @@ def _reconcile_history(
 
             try:
                 key = DedupKey(platform=platform, target_url=canon)
-            except Exception:
+            except (ValueError, TypeError):
+                # debt: reconciler-history-dedupkey-parse-failure
                 continue
 
             probes.append((entry, platform, canon, key))

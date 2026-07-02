@@ -224,6 +224,51 @@ class TestComputeHealthJson:
         result = hp.compute_health_json()
         assert result["healthy"] is False
         assert "pipeline:never_run" in result["degraded_reasons"]
+        assert result["last_successful_pipeline_run"] is None
+
+    def test_last_successful_pipeline_run_picks_latest_published(self, monkeypatch):
+        """Sprint E3: informational timestamp of the last *successful* run,
+        distinct from last_pipeline_run (which counts any attempt)."""
+        import webui_app.services.health_projection as hp
+
+        monkeypatch.setattr("webui_store.channel_status.list_all", lambda: {})
+        _sched = type("S", (), {"running": True, "get_jobs": lambda self: []})()
+        monkeypatch.setattr("webui_app.scheduler._scheduler", _sched)
+        import webui_store as _ws
+        monkeypatch.setattr(
+            _ws.history_store,
+            "load",
+            lambda: [
+                {"created_at": "2026-06-01T00:00:00Z", "status": "published"},
+                {"created_at": "2026-06-15T00:00:00Z", "status": "failed"},
+            ],
+        )
+        result = hp.compute_health_json()
+        # last_pipeline_run counts the failed attempt too (most recent overall).
+        assert result["last_pipeline_run"] == "2026-06-15T00:00:00Z"
+        # last_successful_pipeline_run only considers the "published" item.
+        assert result["last_successful_pipeline_run"] == "2026-06-01T00:00:00Z"
+
+    def test_last_successful_pipeline_run_none_when_all_failed(self, monkeypatch):
+        """No GSC/pipeline-success data yet (every run failed or unverified):
+        degrade gracefully to None, never raise."""
+        import webui_app.services.health_projection as hp
+
+        monkeypatch.setattr("webui_store.channel_status.list_all", lambda: {})
+        _sched = type("S", (), {"running": True, "get_jobs": lambda self: []})()
+        monkeypatch.setattr("webui_app.scheduler._scheduler", _sched)
+        import webui_store as _ws
+        monkeypatch.setattr(
+            _ws.history_store,
+            "load",
+            lambda: [
+                {"created_at": "2026-06-01T00:00:00Z", "status": "failed"},
+                {"created_at": "2026-06-02T00:00:00Z", "status": "blogger_unverified"},
+            ],
+        )
+        result = hp.compute_health_json()
+        assert result["last_pipeline_run"] == "2026-06-02T00:00:00Z"
+        assert result["last_successful_pipeline_run"] is None
 
 
 class TestWeightsSnapshotPanel:

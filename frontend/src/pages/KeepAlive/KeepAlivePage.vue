@@ -19,6 +19,10 @@ const actionState = ref<ActionState>('idle')
 const error = ref<Error | null>(null)
 const summary = ref<KeepAliveSummary | null>(null)
 const flashMessage = ref('')
+// Cycle status is a secondary/non-critical panel fetched alongside the
+// scorecard. Its failure is tracked independently (see `load()`) so a
+// transient error there cannot blank the already-loaded scorecard.
+const cycleStatusError = ref(false)
 
 // Recheck state
 const recheckJobId = ref('')
@@ -59,17 +63,27 @@ const load = async () => {
   error.value = null
   try {
     summary.value = await fetchSummary()
-    cycleStatus.value = await fetchCycleStatus()
-    if (summary.value.is_empty) {
-      pageState.value = 'empty'
-    } else if (summary.value.stale) {
-      pageState.value = 'stale'
-    } else {
-      pageState.value = 'ready'
-    }
   } catch (e) {
     error.value = e instanceof Error ? e : new Error(String(e))
     pageState.value = 'error'
+    return
+  }
+  if (summary.value.is_empty) {
+    pageState.value = 'empty'
+  } else if (summary.value.stale) {
+    pageState.value = 'stale'
+  } else {
+    pageState.value = 'ready'
+  }
+  // Isolated on purpose (own try/catch, not folded into the summary fetch
+  // above): a cycle-status failure must not blank the scorecard that already
+  // loaded fine (R3 action 6/7 — partial failure must not blank sibling data).
+  try {
+    cycleStatus.value = await fetchCycleStatus()
+    cycleStatusError.value = false
+  } catch {
+    cycleStatus.value = null
+    cycleStatusError.value = true
   }
 }
 
@@ -222,7 +236,10 @@ const doResetExhausted = async () => {
 const refreshCycleStatus = async () => {
   try {
     cycleStatus.value = await fetchCycleStatus()
-  } catch { /* silent */ }
+    cycleStatusError.value = false
+  } catch {
+    cycleStatusError.value = true
+  }
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -270,7 +287,7 @@ onUnmounted(() => {
     </div>
 
     <StateBlock
-      :state="pageState === 'loading' ? 'loading' : pageState === 'error' ? 'error' : 'ready'"
+      :state="pageState === 'loading' ? 'loading' : pageState === 'error' ? 'error' : pageState === 'empty' ? 'empty' : 'ready'"
       :error="error"
       empty-text="暂无数据。先发布一些文章，然后运行巡检。"
       @retry="load"
@@ -283,9 +300,9 @@ onUnmounted(() => {
           <span class="badge bg-secondary">未知 {{ unknownCount }}</span>
         </div>
 
-        <div class="table-wrap">
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light">
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
               <tr>
                 <th>目标 URL</th>
                 <th>平台</th>
@@ -299,24 +316,30 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t in scorecardTargets" :key="t.target_url" :class="t.needs_attention ? 'table-warning' : ''">
-                <td><code class="text-truncate d-inline-block" style="max-width:180px">{{ t.target_url }}</code></td>
+              <tr v-for="t in scorecardTargets" :key="t.target_url" :class="t.needs_attention ? 'needs-attention' : ''">
+                <td class="col-url"><code class="text-truncate d-inline-block" style="max-width:180px">{{ t.target_url }}</code></td>
                 <td>{{ t.platforms }}</td>
-                <td class="text-center">{{ t.live_dofollow }}</td>
-                <td class="text-center text-danger">{{ t.stripped }}</td>
-                <td class="text-center">{{ t.decayed }}</td>
-                <td class="text-center">{{ t.check_failed }}</td>
-                <td :class="['text-center', stripRateClass(t.strip_rate)]">{{ (t.strip_rate * 100).toFixed(0) }}%</td>
+                <td class="col-num text-center">{{ t.live_dofollow }}</td>
+                <td class="col-num text-center text-danger">{{ t.stripped }}</td>
+                <td class="col-num text-center">{{ t.decayed }}</td>
+                <td class="col-num text-center">{{ t.check_failed }}</td>
+                <td :class="['col-num text-center', stripRateClass(t.strip_rate)]">{{ (t.strip_rate * 100).toFixed(0) }}%</td>
                 <td><span :class="t.trend === 'up' ? 'text-success' : t.trend === 'down' ? 'text-danger' : ''">{{ t.trend }}</span></td>
-                <td class="text-muted small">{{ t.last_verified ?? '—' }}</td>
+                <td class="col-date text-muted small">{{ t.last_verified ?? '—' }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- S0: Cycle status -->
-      <div v-if="cycleStatus" class="ka__cycle mt-3">
+      <!-- S0: Cycle status — a failed fetch here must not blank the scorecard
+           above (which already loaded fine); show its own persistent error
+           indicator instead (R3 action 6/7). -->
+      <div v-if="cycleStatusError" class="ka__cycle-error alert alert-warning mt-3" role="alert">
+        ⚠ 自动保活周期状态加载失败，不影响上方数据。
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" @click="refreshCycleStatus">重试</button>
+      </div>
+      <div v-else-if="cycleStatus" class="ka__cycle mt-3">
         <details>
           <summary class="text-muted" style="cursor:pointer">
             自动保活周期
@@ -408,8 +431,15 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: center; z-index: 1050;
 }
 .ka__confirm-modal {
-  background: var(--bg-primary, #1a1a2e);
+  background: var(--surface-raised);
   border-radius: 12px; padding: 1.5rem; max-width: 500px; width: 90%;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+/* "Needs attention" row highlight — Bootstrap's table-warning only paints via
+   a selector requiring an ancestor .table class, which the .data-table
+   migration removed from this page's <table>. Use the console's own token
+   instead of depending on Bootstrap's table-variant mechanism. */
+.data-table tr.needs-attention td {
+  background: var(--warning-soft);
 }
 </style>

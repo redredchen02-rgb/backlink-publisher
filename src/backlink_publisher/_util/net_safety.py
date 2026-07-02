@@ -77,7 +77,8 @@ def _resolve_host_ips(host: str) -> tuple[list[str], str | None]:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror:
         return [], "dns_failure"
-    except Exception:
+    except OSError:
+        # debt: net-safety-dns-resolve-oserror
         return [], "dns_failure"
     ips: list[str] = []
     for fam, _typ, _proto, _canon, sockaddr in infos:

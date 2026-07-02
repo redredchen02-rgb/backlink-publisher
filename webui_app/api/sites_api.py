@@ -92,6 +92,7 @@ class SitesAPI:
         try:
             job = sched_mod._scheduler.get_job(sched_mod._autopilot_job_id(site_url))
         except Exception:
+            # debt: sites-next-run-scheduler-lookup-fail-open
             return None
         if job is not None and job.next_run_time is not None:
             return job.next_run_time.isoformat()  # type: ignore[no-any-return]
@@ -316,8 +317,12 @@ class SitesAPI:
                 try:
                     sched_mod._scheduler.remove_job(sched_mod._autopilot_job_id(site_url))
                 except Exception:
+                    # debt: sites-scheduler-job-removal-best-effort
                     pass
         except Exception as exc:  # noqa: BLE001 — roll back only this site's cfg
+            # debt: sites-autopilot-scheduler-sync-rollback
+            plan_logger.warn("autopilot_scheduler_sync_failed", site_url=site_url, reason=type(exc).__name__)
+
             def _rollback(s: Any) -> Any:
                 targets = dict(s.get("autopilot_targets", {}))
                 if was_present:
@@ -326,7 +331,11 @@ class SitesAPI:
                     targets.pop(site_url, None)
                 return {**s, "autopilot_targets": targets}
             _ws.schedule_store.update(_rollback)
-            return {"ok": False, "error_code": "SCHEDULER_SYNC_FAILED", "detail": str(exc)}
+            return {
+                "ok": False,
+                "error_code": "SCHEDULER_SYNC_FAILED",
+                "detail": type(exc).__name__,
+            }
 
         updated = _ws.schedule_store.load().get("autopilot_targets", {}).get(site_url, {})
         return {
@@ -353,6 +362,7 @@ class SitesAPI:
         except InputValidationError as exc:
             return {"status": "error", "reason": str(exc)}
         except Exception as exc:  # noqa: BLE001 — surface as error, never 500
+            # debt: sites-scrape-preview-fail-safe
             return {"status": "error", "reason": type(exc).__name__}
         if meta is None:
             return {"status": "error", "reason": "no metadata extracted"}
@@ -423,4 +433,5 @@ class SitesAPI:
             data = json.loads(path.read_text(encoding="utf-8"))
             return {"ts": data.get("ts", "")}
         except Exception:  # noqa: BLE001 — fail-open
+            # debt: sites-citation-alert-fail-open
             return None

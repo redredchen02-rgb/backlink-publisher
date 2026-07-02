@@ -82,6 +82,41 @@ def test_auto_fixes_done_quarantines_stale_keeps_recent(stores, monkeypatch):
     assert update_calls == [("run-A", "A", "done")]
 
 
+def test_auto_fix_persists_to_real_checkpoint_file_on_disk(stores, monkeypatch, tmp_path):
+    """D2a signal round-trip: every other auto-fix test spies on
+    ``_update_checkpoint_item`` (``_spy_update``) and only proves the reconciler
+    CALLED it — a silent no-op writer would still pass those tests. This drives
+    the REAL ``checkpoint.py`` write path (no monkeypatch on the writer or on
+    ``list_failed_items``) and reads the persisted JSON file back off disk to
+    confirm the item's status genuinely changed there, not merely in a spy list.
+    """
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", str(tmp_path / "cache"))
+    event_store, dedup_store = stores
+
+    from backlink_publisher import checkpoint
+
+    run_id, _path = checkpoint.create_checkpoint(
+        [{"id": "A", "target_url": "https://money.example/a"}],
+        platform="blogger",
+        mode="draft",
+    )
+    dedup_store.seed(
+        DedupKey(platform="blogger", target_url="https://money.example/a"),
+        "done",
+        live_url="https://blogger.com/p/a",
+    )
+
+    summary = _reconcile_checkpoints(event_store, dedup_store)
+    assert summary.auto_fixed == 1
+
+    # The concrete terminal state: the on-disk checkpoint file, read back fresh
+    # (not the in-memory objects the reconciler just touched).
+    persisted = checkpoint.load_checkpoint(run_id)
+    item = persisted["items"][0]
+    assert item["id"] == "A"
+    assert item["status"] == "done"
+
+
 def test_skips_already_quarantined_url(stores, monkeypatch):
     event_store, dedup_store = stores
     canon = recon._canonicalize_url("https://money.example/d")

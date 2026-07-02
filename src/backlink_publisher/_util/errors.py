@@ -202,6 +202,7 @@ def _emit_error_envelope(error_class: str, exit_code: int, message: str) -> None
             flush=True,
         )
     except Exception:  # pragma: no cover - envelope emission is best-effort
+        # debt: errors-emit-envelope-broad-catch
         pass
 
 

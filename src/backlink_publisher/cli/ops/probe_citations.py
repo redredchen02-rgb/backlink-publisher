@@ -461,7 +461,8 @@ def _strip_scheme_host(url: str) -> str:
 
         parts = urlsplit(url)
         return parts.netloc or url
-    except Exception:
+    except (ValueError, TypeError):
+        # debt: probe-citations-strip-scheme-host-parse-failure
         return url
 
 

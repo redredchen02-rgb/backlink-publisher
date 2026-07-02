@@ -19,6 +19,7 @@ Requires-Dist: pydantic>=2.5
 Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: google-analytics-data<1,>=0.18
 Requires-Dist: structlog<26,>=24.1
+Requires-Dist: flask-compress<2,>=1.14
 Provides-Extra: dev
 Requires-Dist: pytest>=8.4; extra == "dev"
 Requires-Dist: pytest-mock>=3.15; extra == "dev"
@@ -28,6 +29,8 @@ Requires-Dist: pytest-env>=1.6; extra == "dev"
 Requires-Dist: pytest-asyncio<2,>=1.1; extra == "dev"
 Requires-Dist: pytest-xdist>=3.6; extra == "dev"
 Requires-Dist: pytest-cov>=6.0; extra == "dev"
+Requires-Dist: pytest-benchmark>=5.1; extra == "dev"
+Requires-Dist: pytest-rerunfailures>=14.0; extra == "dev"
 Requires-Dist: hypothesis>=6.151; extra == "dev"
 Requires-Dist: radon==6.0.1; extra == "dev"
 Requires-Dist: ruff>=0.15; extra == "dev"
