@@ -52,14 +52,24 @@ from backlink_publisher.image_gen import ImageGenAdapter
 
 ## WebUI Layout
 
-- `webui_app/` — Flask app (30+ route modules, `create_app()` factory)
-- `webui_store/` — state persistence (5 singletons: `history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`)
-- `webui_app/services/` — backend logic (10 modules incl. 4 `copilot_*` modules)
-- `templates/base.html` — owns the single `<head>`; every page `{% extends 'base.html' %}`
-- `static/js/lib/` — shared ESM layer (`api.js`, `dom.js`, `profiles.js`)
-- `static/css/tokens.css` — single `:root` token source
+- `webui_app/` — Flask app (37 route modules, `create_app()` factory), including `webui_app/api/` (the `/api/v1/*` seam layer — see ARCHITECTURE.md and D2/C1b for its bare-except cleanup work)
+- `webui_store/` — state persistence. **10** `_LazyStore`-backed singleton stores total (live-recomputed 2026-07-02, method: `grep -rn "_LazyStore(" webui_store/*.py`; supersedes a stale "9" figure that missed one): the 8 declared in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`), plus `channel_status_store` (`webui_store/channel_status.py`), plus `verify_health_store` (`webui_store/verify_health.py`) — a pre-existing `_LazyStore` singleton that was never re-exported through `__init__.py.__all__` and so was previously left out of the count. (A separate, not-yet-landed plan, `docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md`, would add an 11th store, `webui_store/error_reports.py` — it has not landed in this worktree/repo as of this count, so it is not included here.)
+- `webui_app/services/` — backend logic (19 modules: bind jobs, browser login, recheck/keep-alive, 4 `copilot_*` advisory modules, credential/oauth services, health projection, settings, survival, SEO viz, medium liveness, pipeline, themed-content, url-verify throttle)
+- `templates/base.html` — owns the single `<head>`; every legacy Jinja page `{% extends 'base.html' %}`
+- `static/js/lib/` — shared ESM layer for legacy Jinja pages (`api.js`, `dom.js`, `profiles.js`)
+- `static/css/tokens.css` — single `:root` token source, shared by both frontends
 
 CSRF guard (`_global_csrf_guard`) enforces tokens on every POST/PUT/PATCH/DELETE. Tests opt out via `app.config['CSRF_ENABLED'] = False`.
+
+### Dual-frontend: Vue 3 SPA (primary) + legacy Jinja (fallback)
+
+Since v0.5.0 the primary UI is a **Vue 3 SPA** at `/app/*`, built by Vite from `frontend/` and served by Flask at a single origin (no CORS). It coexists with the legacy Jinja templates in a strangler-fig migration (see `ARCHITECTURE.md` for the full architectural writeup):
+
+- **Flag-gated**: `BACKLINK_PUBLISHER_SPA` env var (default `"1"`; `"0"` falls back to Jinja-only, used by LITE mode).
+- **Migrated routes** (13 `navItems`, all `isMigrated: true` as of the B1 SPA Route Audit, 2026-07-02): `/`, `/monitor`, `/history`, `/drafts`, `/sites`, `/schedule`, `/batch-campaign`, `/settings`, `/pr-queue`, `/survival`, `/optimization-status`, `/equity-ledger`, `/keep-alive`. Of these, `/schedule` and 7 others already 302-redirect their legacy Flask route to `/app/<page>`; **`/`, `/ce:history`, `/sites`, `/batch-campaign` have an SPA page but the Flask route does not yet redirect to it** — a known, deliberately deferred gap (flash-message query-string contracts aren't wired into the SPA yet for the first three; see the plan doc's B1 section for the full risk breakdown).
+- **Jinja-only, not migrated**: `/ce:health` and its 6 sub-panels (scorecard/publish-metrics/canary/forward-path/storage/GSC) — a deliberate decision, not an oversight; `/monitor`'s SPA page consumes different (`command_center`) aggregate data, not `health.py`'s data surface.
+- `frontend/` layout: `src/router/` (routes), `src/pages/` (per-page `.vue`), `src/api/` (typed Axios modules), `src/stores/` (Pinia), `src/layout/` (AppShell/SideNav/TopBar).
+- Build: `cd frontend && npm ci && npm run typecheck && npm run test && npm run build` → `webui_app/spa_dist/`. CI: `.github/workflows/frontend.yml` (path-filtered) plus `ci.yml`'s `frontend-lint` job (unfiltered, typecheck+build only) — see `AGENTS.md → CI (GitHub Actions)`.
 
 **Frontend anti-rot (enforced — do not regress):**
 - No inline `on*` handlers — use `data-action="…"` + delegated `addEventListener`

@@ -61,15 +61,24 @@ _CYRILLIC_RANGE = (0x0400, 0x04FF)
 #: CJK Unified Ideographs BMP block (zh-CN; Extension A deferred).
 _CJK_BMP_RANGE = (0x4E00, 0x9FFF)
 
-#: Ratio threshold at which the script-first short-circuit fires. **0.30 is
-#: uncalibrated v1 default** — corpus calibration spike against ~50 real ko
-#: articles is deferred to post-merge per plan 2026-05-18-006
-#: Deferred-to-Implementation. Pass-2 review acknowledged a Hanja-heavy
-#: ko article (e.g. 80 Hangul + 200 Hanja over 330 L/M denom) can fall through
-#: to keyword scoring; the word-boundary EN_HINTS fix in this same refactor
-#: prevents the previously-silent en-misdetection path even when fallthrough
-#: happens.
-# Calibration: tracked as debt_registry.toml ko-corpus-calibration.
+#: Ratio threshold at which the script-first short-circuit fires.
+#:
+#: Calibrated (plan 2026-06-30-001 Sprint D3, ``debt_registry.toml``
+#: ``ko-corpus-calibration``, resolved 2026-07-02): validated against a
+#: corpus of 31 real Korean samples (Wikipedia, news, blogs — see
+#: ``tests/fixtures/ko_corpus/MANIFEST.md``), including several deliberately
+#: Hanja-dense ones (military-rank glosses, Sino-Korean philosophy/legal
+#: vocabulary). 0.30 achieves 100% detection with zero false positives on a
+#: 7-sample non-Korean (en/ja/zh/ru) negative-control set — the most
+#: Hanja-dense real sample collected still had a Hangul ratio of ~0.92, far
+#: above this threshold, so it was left unchanged. See
+#: ``tests/linkcheck/test_ko_corpus_calibration.py`` for the regression
+#: guard and full calibration writeup. The originally-feared failure mode
+#: (a Hanja-heavy ko article, e.g. 80 Hangul + 200 Hanja over 330 L/M denom,
+#: falling through to keyword scoring) did not materialize in any real
+#: sample collected; it may still be theoretically possible for a more
+#: extreme register (e.g. classical hanmun translations) not represented in
+#: the corpus.
 _RATIO_THRESHOLD = 0.30
 
 

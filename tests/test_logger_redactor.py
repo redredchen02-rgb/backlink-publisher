@@ -11,7 +11,7 @@ etc.) with ``"***"``. This file verifies:
 - Depth cap prevents pathological-cycle pin
 - Default-value preserved when extra is empty / None
 
-Plan ref: docs/ideation/2026-05-14-round3-fresh-pass-ideation.md (#6)
+Plan ref: docs/_archive/ideation/2026-05-14-round3-fresh-pass-ideation.md (#6)
 """
 from __future__ import annotations
 

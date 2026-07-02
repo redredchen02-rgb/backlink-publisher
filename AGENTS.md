@@ -71,7 +71,7 @@ REM Lint (ruff, not Black/flake8)
 
 ### WebUI
 
-Flask app at `webui_app/` (37 route modules, `create_app()` factory). State persistence at `webui_store/` — eight lazily-resolved `_LazyStore` wrappers in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`) plus the eagerly-imported `channel_status_store` from the `channel_status` submodule. Launcher: `python webui.py`.
+Flask app at `webui_app/` (37 route modules, `create_app()` factory). State persistence at `webui_store/` — **10** `_LazyStore`-backed singletons total (live-recounted 2026-07-02 via `grep -rn "_LazyStore(" webui_store/*.py`, superseding the earlier "9" figure — see also `CLAUDE.md`'s WebUI Layout section for the same count and method): eight declared and exported in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`), plus `channel_status_store` (`webui_store/channel_status.py`, imported eagerly into `__init__.py`'s namespace but itself `_LazyStore`-wrapped like the rest), plus `verify_health_store` (`webui_store/verify_health.py`) — a real, pre-existing `_LazyStore` singleton used by that module's own `record()`/`expired_channels()`/`list_all()` functions, but never re-exported through `webui_store/__init__.py.__all__`, which is why earlier counts missed it. Launcher: `python webui.py`.
 
 App-level CSRF guard `_global_csrf_guard` (PR #143, `webui_app/__init__.py`) enforces a token on every POST/PUT/PATCH/DELETE. Tests opt out via `app.config['CSRF_ENABLED'] = False` (or the legacy `WTF_CSRF_ENABLED` flag — both honored). The `_check_csrf_or_abort` helper has a single production call site inside the global guard; PR #148 removed all inline per-route calls.
 
@@ -236,23 +236,29 @@ Test fixtures: `fixtures/seed.jsonl` (E2E, at repo root), `tests/fixtures/sloc_c
 
 ## CI (GitHub Actions)
 
-`backlink-publisher/.github/workflows/ci.yml` triggers on push/PR to `main`. Python 3.11+3.12 matrix. `PYTHONHASHSEED=0` at job level for footprint regression gate. Three-tier test strategy:
+`backlink-publisher/.github/workflows/ci.yml` triggers on push/PR to `main`. `PYTHONHASHSEED=0` set once at workflow-root `env:` level, covering every job. Five jobs as of Phase 3 Sprint C (2026-07-02):
 
-| Tier | When | Py | Timeout | Notes |
-|------|------|-----|---------|-------|
-| `unit` | Every push/PR | 3.11+3.12 | 15 min | `-m unit`, ruff check, import-linter, mypy (blocking P12), fixture verify, pip-audit |
-| `integration` | PR only | 3.12 | 25 min | `-m integration`, full-suite coverage gate (--cov-fail-under=80) |
-| `e2e` | PR only | 3.12 | 30 min | Single-core, 120s per-test timeout |
+| Job | When | Py / Node | Timeout | Notes |
+|---|---|---|---|---|
+| `unit` | Every push/PR | 3.11+3.12 matrix | 15 min | pip-audit (advisory, `continue-on-error`); **two-step split (C1a)**: "seam" step runs `-m "unit and seam"` with **no** `--reruns` (790/9887 tests as of 2026-07-02 — persistence/IO-heavy modules where a flake is likely a real bug must stay red), then "rest" step runs `-m "unit and not seam"` with `--reruns 2 --reruns-delay 1` (9097/9887 tests, ordinary CI flakiness is the more likely cause there); syntax validation (`py_compile` + `ast.parse` sweep, **A1** re-add); `ruff check src/ webui_app/ webui_store/`; `lint-imports`; fixture verify (`generate_fixtures.py`); `mypy src/backlink_publisher --config-file mypy.ini` (blocking, P12) |
+| `integration` | PR only | 3.12 | 25 min | `-m integration`, full-suite coverage gate (`--cov-fail-under=80`) |
+| `e2e` (job inside `ci.yml`) | PR only | 3.12 | 30 min | `-m e2e`, single-core (no xdist), 120s per-test timeout |
+| `benchmark` (**C2**, new) | Every push/PR | 3.12 | 15 min | Runs `tests/test_benchmarks.py --benchmark-only` (`continue-on-error: true`); publishes a fixed-name `benchmark-baseline` artifact on `main` pushes; on PRs, downloads the latest main baseline and diffs via `scripts/compare_benchmarks.py --threshold-pct 20` — **advisory/warn-only end to end**, the compare script always exits 0 |
+| `frontend-lint` (**C3**, new) | Every push/PR (no path filter) | Node 24 | 10 min | `cd frontend && npm ci && npx tsc --noEmit && npx vite build`. `tsc --noEmit` currently exits red on pre-existing `@types/node` gaps predating this job (tracked separately, not fixed here); `vite build` succeeds and emits `webui_app/spa_dist/`, the path Flask's `/app/*` route serves |
 
-Additional workflows: `frontend.yml` (SPA typecheck + test + build on `frontend/**`), `plan-claims-gate.yml`, `plan-claims-radar.yml`, `phase0-seal-check.yml`, `plan-redrift-gate.yml`.
+**Seam auto-classification (C1a):** `tests/conftest.py` AST-scans each test module's own `import` statements for the `events.`/`gap.`/`idempotency.`/`ledger.`/`webui_app.api` prefixes (`_SEAM_IMPORT_PREFIXES`) and applies `pytest.mark.seam` automatically — no manual per-file list to maintain. A small, shrink-only `_SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS` list (each entry requires a rationale comment) opts out files whose seam-module import is coincidental (e.g. reads a static constant, no runtime interaction).
 
-**Linting:** `ruff check` (replaces former `py_compile` + `ast.parse` — P11 modernization).
+Additional workflows (all path-filtered, PR-only unless noted): `frontend.yml` (SPA typecheck + vitest + build on `frontend/**` changes — narrower trigger than `ci.yml`'s `frontend-lint`, which has no path filter and skips the vitest step), `e2e.yml` (Playwright `publish-journey` E2E against a live single-origin Flask instance, triggered by `frontend/**`, `webui_app/api/v1/pipeline.py`, `webui_app/routes/spa.py`, `tests/e2e/**`), `api-contract.yml` (OpenAPI 3.1 spec drift gate + Spectral lint + oasdiff breaking-change check + Schemathesis GET-only conformance fuzz against an ephemeral credential-free instance, triggered by `openapi/**`, `webui_app/api/**`), `plan-claims-gate.yml`, `plan-claims-radar.yml`, `phase0-seal-check.yml`, `plan-redrift-gate.yml`.
+
+**Syntax validation:** `py_compile` + `ast.parse` sweep over every tracked `.py` file, re-added as its own `unit` job step by **A1** (2026-06-30-001) — this is additive to, not a replacement for, `ruff check` (an earlier P11 note here said `ruff` "replaces" the `py_compile`/`ast.parse` check; that is no longer accurate — both run on every push/PR now).
+**Linting:** `ruff check src/ webui_app/ webui_store/`.
 **Type checking:** `mypy src/backlink_publisher` — **blocking** as of P12 (previously advisory with `continue-on-error`).
 **Import boundaries:** `lint-imports` enforces 2 forbidden contracts: `domain → cli` and `_util → domain` (known exceptions explicitly listed).
-**Monolith budgets:** `test_no_monolith_regrowth.py` (SLOC ceilings for 41 files), `test_no_complexity_regrowth.py` (CC 30 backstop).
+**Monolith budgets:** `test_no_monolith_regrowth.py` (SLOC ceilings for 41 files), `test_no_complexity_regrowth.py` (CC 30 backstop). Both carry `__tier__ = "unit"` and ride the seam auto-marker mechanism above — no dedicated CI step.
+**Benchmarks:** `test_no_monolith_regrowth.py`/`test_no_complexity_regrowth.py`-adjacent but distinct — see the `benchmark` job above; warn-only, never gates the build.
 **Coverage:** Branch coverage, 80% fail-under floor, per-unit + full-suite JSON artifacts uploaded.
 
-(The workspace root has no CI — it's not a git repo. All CI lives inside `backlink-publisher/.github/workflows/ci.yml`.)
+(The workspace root has no CI — it's not a git repo. All CI lives inside `backlink-publisher/.github/workflows/ci.yml` plus the sibling workflow files listed above.)
 
 ## Environment Variables
 
@@ -309,7 +315,16 @@ Additional workflows: `frontend.yml` (SPA typecheck + test + build on `frontend/
 - `bp-*/AGENTS.md` are stale copies — update this file, not those
 - `docs/plans/`, `docs/brainstorms/` contain real operator domain names — don't propagate to `docs/solutions/`
 	- `develop` branch doesn't exist (locally or remote); CI triggers only on `branches: [main]`
-	- Local branches after Phase 3 cleanup (2026-06-30): `main` (active), `chore/v050-doc-archive` (stale — 2 unmerged commits), `feat/v050-ui-consistency` (stale — 2 unmerged), `fix/drafts-store-test-isolation` (stale — 1 unmerged), `fix/recheck-ledger-liveness-seam` (stale — 1 unmerged). 4 merged branches (`opt/bulk-modernize`, `refactor/u1-generate-payload`, `refactor/u5-publish-one-row-enhance-payload`, `tmp-modernize`) deleted.
+	- **Branches and launchers (re-verified by A3, 2026-07-02 — supersedes the pre-Phase-3 branch list below where it disagrees):**
+		- `main` — active, canonical.
+		- `fix/drafts-store-test-isolation`, `fix/recheck-ledger-liveness-seam` — **content already squash-merged into `main`** (PR #42 → `129d1490`; PR #31 → `1ec41c76`). `git merge-base --is-ancestor` reports `false` for both (expected for squash-merges — different commit hash, same content, not evidence of non-merge). Confirmed safe to delete (local + remote), but **deletion itself is deferred pending explicit user authorization** (remote-branch deletion is visible to shared state; A3 asked via AskUserQuestion, got no response within the wait window, and per git safety protocol did not delete unilaterally).
+		- `refactor/u1-generate-payload` — remote-only stale leftover (local copy already cleaned); also deferred pending user authorization, same reasoning as above.
+		- `opt/bulk-modernize`, `refactor/u5-publish-one-row-enhance-payload`, `tmp-modernize` — already merged and deleted (local + remote) prior to A3's 2026-07-02 re-check.
+		- `chore/v050-doc-archive`, `feat/v050-ui-consistency` — still present (local + remote with upstream tracking); A3's 2026-07-02 pass did not re-verify these two against `main`'s squash-merge history (out of A3's stated scope), so treat their earlier "stale, unmerged" characterization as unconfirmed rather than re-affirmed.
+		- `fix/webui-theme-nav-layout-cleanup` — current local-only work branch (no upstream configured, no PR). Implements `docs/plans/2026-07-01-001-fix-webui-theme-nav-layout-cleanup-plan.md`, completed and committed (`9357c7f6`/`c34d6728`/`ebfd81a1`/`5f154308`/`bdd06db7`) but never pushed. Not a stale/cleanup candidate — it's live local work.
+		- `feat/phase3-sprint-b-frontend-stabilization` — local-only, unpublished. Sprint B (B1/B2/B3) work from this same iteration plan.
+		- `feat/phase3-sprint-e1-docs-archive` — this worktree's (`bp-phase3-sprint-e1`) own branch, local-only, unpublished. Sprint E1 (docs archive) + E2 (this AGENTS.md/CLAUDE.md sync) + C2/C3/D3 landed here.
+		- `feat/frontend-error-reporting` — separate, concurrent, unrelated plan (`docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md`); local-only, unpublished; not part of Phase 3.
 - `~/.config/backlink-publisher/llm-settings.json` holds the LLM `api_key`; PR #140 routed writes through `safe_write.atomic_write` so the file lands `0o600`. Files written by pre-#140 code may still be `0644` until the next save.
 - `docs/architecture/deterministic-planning-principle.md` defines the architecture boundary between deterministic planning (pure, testable) and non-deterministic publishing (platform-dependent). Advisory — not CI-enforced.
 
