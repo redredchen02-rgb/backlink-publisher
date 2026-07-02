@@ -396,7 +396,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 **交付**：CI 合規矩陣（見上表，8/8 已合規）
 
-- [ ] **C1a — pytest `--reruns` 範圍限定（import-based 自動判定）〔R9，新增，doc-review 後重新設計〕**
+- [x] **C1a — pytest `--reruns` 範圍限定（import-based 自動判定）〔R9，新增，doc-review 後重新設計〕**
 
 **現狀**：未提交的 `.github/workflows/ci.yml` 變更為整個 `-m "unit"` job 加上了 `--reruns 2 --reruns-delay 1`（失敗自動重跑兩次），這是單一全域 flag，已違反 R9。
 
@@ -416,7 +416,20 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 **驗證**：新增一個測試檔，故意 import `events` 模組但不做任何額外宣告，確認它自動被分類進 `unit-seam`（不套用 reruns）；刻意讓 `unit-seam` 範圍內一個測試間歇性失敗，確認 CI 真的紅燈而不是被重跑吃掉；`unit-rest` 範圍內同樣操作，確認會重跑
 
-**已知限制（明確記錄，比照 C1b 的已知限制慣例，不在本次解決）**：動作 1 描述的「檢查測試模組是否 import 了接縫模組」若只看該測試檔自己的 import 陳述式，會漏掉**透過被測模組間接、遞移 import 到接縫模組**的情況——例如某測試只 `import backlink_publisher.geo.joins`，而 `geo/joins.py` 內部才呼叫 `ledger.sources.build_target_buckets`，測試檔本身完全沒出現 `ledger` 字樣，會被誤判為純 unit 而套用 `--reruns`，重演 R9 想解決的同一種問題（只是換了個更隱蔽的觸發路徑）。同樣地，透過共用 fixture（如呼叫 `create_app()` 間接載入 `webui_app.api`）觸及接縫模組的測試也可能落在這個盲區。本次只做直接 import 的自動判定，遞移 import 分析設計複雜度高，留待下一輪迭代；分類標準不確定時仍應偏安全側（歸類為 seam）
+**已知限制（明確記錄，比照 C1b 的已知限制慣例，不在本次解決）**：動作 1 描述的「檢查測試模組是否 import 了接縫模組」若只看該測試檔自己的 import 陳述式，會漏掉**透過被測模組間接、遞移 import 到接縫模組**的情況——例如某測試只 `import backlink_publisher.geo.joins`，而 `geo/joins.py` 內部才呼叫 `ledger.sources.build_target_buckets`，測試檔本身完全沒出現 `ledger` 字樣，會被誤判為純 unit 而套用 `--reruns`，重演 R9 想解決的同一種問題（只是換了個更隱蔽的觸發路徑）。同樣地，透過共用 fixture（如呼叫 `create_app()` 間接載入 `webui_app.api`）觸及接縫模組的測試也可能落在這個盲區。本次只做直接 import 的自動判定，遞移 import 分析設計複雜度高，留待下一輪迭代；分類標準不確定時仍應偏安全側（歸類為 seam）。此外，`unittest.mock.patch("webui_app.api.oauth_api...")` 這類只用字串路徑 patch 接縫模組、檔案本身沒有任何 `import webui_app.api...` 陳述式的測試（即時查證發現的例子：`tests/test_webui_api_v1_oauth.py`、`test_webui_routes_oauth.py`、`test_webui_scheduler_restore_queue.py` 等）也落在同一類盲區——屬於本次明確不解決的範圍，同樣留待遞移 import 分析的下一輪迭代。
+
+**執行結果（2026-07-02 即時查證）**：
+
+- 動作 2 的偵測 grep 即時重跑結果：**151 個檔案**（與本文件先前記載的數字一致，未過時）。用與 `conftest.py` 相同的 AST import 掃描邏輯逐一分析這 151 個檔案：**113 個**有真正符合 `_SEAM_IMPORT_PREFIXES`（`backlink_publisher.events`／`gap`／`idempotency`／`ledger`／`webui_app.api`）的直接 import 陳述式；其餘 **38 個**只是 grep 的字面子字串誤中（例如 `plan_gap.py` 內文字包含 `"gap."`、或只在 `mock.patch("webui_app.api...")` 字串裡出現、完全沒有對應的 import 陳述式）——這 38 個從一開始就不會被 AST-based 自動判定誤判為 seam，所以不需要建立排除清單條目。
+- 113 個有真正 import 的檔案中，人工逐一審閱後只找到 **1 個巧合 import** 需要排除：`tests/test_credential_save_dispatch_drift.py`（只 import `webui_app.api.channel_bind_api._SKIP_CHANNELS` 這個靜態常數做登錄表 drift-guard，從未呼叫任何 API 路由或接縫層執行期行為）。已加入 `tests/conftest.py` 的 `_SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS`（shrink-only frozenset，附理由註解）。
+- 動作 5 的集合數驗證（`--collect-only -q`，同一份程式碼庫、同一時間點）：
+  - `-m "unit"` → **9887** 個測試被收集
+  - `-m "unit and seam"` → **790** 個測試被收集
+  - `-m "unit and not seam"` → **9097** 個測試被收集
+  - 790 + 9097 = 9887，與原本單一 `-m "unit"` 收集數完全一致，沒有測試被遺漏或重複計算。
+- 驗證用自我測試新增於 `tests/test_seam_marker_classification.py`：本檔案自身直接 `import backlink_publisher.events.kinds`，並用 `request.node.get_closest_marker("seam")` 在真實 collection 執行期斷言自己確實被自動套用 `pytest.mark.seam`（"活體金絲雀"案例）；另外用 `tmp_path` 合成檔案分別驗證五個接縫家族各自觸發 seam、無接縫 import 的檔案不觸發、以及排除清單條目確實覆蓋掉原本會判定為 seam 的真實 import。
+- `ci.yml` 的 `unit` job 內 `-m "unit"` 單一 pytest 呼叫已拆成同一 job 內的兩個循序 step：`Run unit tests (seam — no reruns)`（`-m "unit and seam"`，無 `--reruns`）與 `Run unit tests (rest — reruns enabled)`（`-m "unit and not seam"`，`--reruns 2 --reruns-delay 1`）。覆蓋率透過第二個 step 的 `--cov-append` 疊加到第一個 step 的 `.coverage` 資料上，最終 `coverage-unit.json` 反映兩個 step 加總的覆蓋率，不會遺失任一半的追蹤。
+- `pyproject.toml` 的 pytest `markers` 清單已新增 `seam` 宣告，避免 `--strict-markers` 讓 collection 直接失敗。
 
 - [ ] **C1b — 接縫層裸 except AST 掃描器〔R5，新增，doc-review 後收斂為純掃描器〕**
 
