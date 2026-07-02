@@ -484,7 +484,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 ## Sprint D: Code Debt Cleanup
 
-- [ ] **D1 — 大測試檔拆分〔R4〕**
+- [x] **D1 — 大測試檔拆分〔R4〕**（2026-07-02 完成，即時複核數字見下方「執行紀錄」）
 
 **現狀**：`complexity_budget.toml` 中仍有幾個大測試檔。**⚠️ 數字已過時**：下表左欄是 `complexity_budget.toml` 2026-06-11 的快照，中欄是 doc-review 於 2026-07-01 稍早用 `radon raw -s` 量測的結果，右欄是本次深化（同樣是 2026-07-01）獨立重新量測的結果——**〔深化修正，doc-review-review 發現〕** 兩次量測的 SLOC 完全一致（差異為 0），沒有成長；先前版本此處誤把 `radon raw -s` 輸出裡的 `LOC:` 欄位（1125/932/850/821/695）當成 CI 實際判定用的 `SLOC:` 欄位而寫進表格，是量測欄位讀錯，不是檔案真的在成長。`radon raw -s` 對同一份原始輸出會印出 `LOC`/`LLOC`/`SLOC`/`Comments` 等多個欄位，只有 `SLOC:` 這一行對應 `complexity_budget.toml` 的 ceiling（`tests/test_no_complexity_regrowth.py` 的 `_sloc_of()` 讀的正是這個欄位），任何人重新量測時務必只取 `SLOC:` 那一行：
 
@@ -506,6 +506,42 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 4. **〔R4 新增〕** 拆分過程中，對被搬移、且涉及接縫層（events/、gap/、idempotency/store.py、ledger/、webui_app/api/、`_util/`）的斷言，檢查是否只驗證型別/結構（如 `isinstance(x, list)`）而未驗證內容或數值；發現此類斷言須強化為驗證實際數值。範圍限於本次被搬動的測試，不做全測試套件的窮舉稽核
 
 **驗證**：拆分後 max test file SLOC < 600（用即時 `radon` 驗證，不是本文件的表格），所有測試通過；被搬移涉及接縫層的斷言已逐一檢查並視需要強化
+
+**執行紀錄（2026-07-02，即時複核）**：
+
+- 動作 0 即時複測（`python -m radon raw -s`，只取 `SLOC:` 欄位）與上表「深化再量測」欄完全一致（差異為 0）：`test_cli_plan_check.py` 818、`test_webui_three_url.py` 684、`test_config_three_url.py` 643、`test_publish_backlinks.py` 601、`test_work_scraper.py` 544。排序（`test_cli_plan_check.py` 最大）確認不變。`test_work_scraper.py`（544）已在 600 門檻之下，本次**不需拆分**，維持原檔不動。
+
+| 檔案 | 拆分前 SLOC | 拆分後（新檔案 / SLOC） |
+|---|---|---|
+| test_cli_plan_check.py | 818 | `test_cli_plan_check.py`（schema/frontmatter/claims）195 + `test_cli_plan_check_git.py`（git 子行程輔助）238 + `test_cli_plan_check_cli.py`（CLI 派送/exit code）350 |
+| test_webui_three_url.py | 684 | `test_webui_three_url.py`（路由契約：render/save/scrape-preview/run/bind）275 + `test_webui_three_url_pool_derivation.py`（homepage 三層表單 + `_derive_*_pool` + url_categories 寫入）446 |
+| test_config_three_url.py | 643 | `test_config_three_url.py`（schema 解析 + maintenance-mode log）164 + `test_config_three_url_save.py`（save_config 往返 + 關鍵區塊保留）181 + `test_config_three_url_upgrade.py`（upgrade_target_to_threeurl + merge_site_url_categories）268 |
+| test_publish_backlinks.py | 601 | `test_publish_backlinks.py`（Unit 1：adapter 派送/exit code）197 + `test_publish_backlinks_checkpoint.py`（Unit 2：checkpoint 整合 + 隔離 hard-skip）185 + `test_publish_backlinks_forward_path.py`（Unit 3：`_record_publish_path` advisory drift）187 |
+| test_work_scraper.py | 544 | 未拆分（已在 600 門檻之下） |
+
+拆分後全部 5 檔 + 新增分割檔中，**最大 SLOC 為 446**（`test_webui_three_url_pool_derivation.py`），遠低於 600 門檻。共享 builder 抽到專屬 `_<feature>_test_helpers.py`（`_config_three_url_test_helpers.py`、`_publish_backlinks_test_helpers.py`），比照 `test_plan_backlinks.py` 拆分時的 `_plan_test_helpers.py` 慣例；`test_cli_plan_check_git.py`／`test_cli_plan_check_cli.py` 共用的 `repo_with_origin`／`_origin_repo_template` fixture 與 `_git`／`_head_sha` helper 改放進 `tests/conftest.py`（比照該檔既有的「WebUI shared fixtures」段落慣例，因為兩個新檔都需要）。
+
+**測試數量核對**（拆分前後 `--collect-only -q` 比對 + 全量執行）：
+
+| 原檔 | 拆分前測試數 | 拆分後測試數 | 拆分前失敗數 | 拆分後失敗數 |
+|---|---|---|---|---|
+| test_cli_plan_check.py | 92 | 92 | 72（既有失敗，逐一比對訊息與拆分後完全一致） | 72（一致） |
+| test_webui_three_url.py | 47 | 47 | 0 | 0 |
+| test_config_three_url.py | 37 | 37 | 0 | 0 |
+| test_publish_backlinks.py | 32 | 32 | 0 | 0 |
+
+`test_cli_plan_check.py` 的 72 個既有失敗（`_validate_claims_schema` 等 `plan_check` 模組 API 已改名，屬本 worktree既有、與本次拆分無關的 pre-existing 失敗，計畫文件已知的 366 個既有失敗之一部分）在拆分前後用 `sed` 正規化檔名後 `diff` 逐行比對，**完全一致（0 差異）**，證明拆分過程本身沒有引入任何新失敗，也沒有遺漏或重複任何測試。
+
+**動作 4（接縫層 shape-only 斷言檢查）**：對這 4 個被拆分檔案的每一段被搬移程式碼逐一檢視，搜尋 `isinstance(`、`.keys()`、`hasattr(`、`type(...)==` 等型別/結構斷言模式，並比對是否命中接縫層路徑（`events/`、`gap/`、`idempotency/store.py`、`ledger/`、`webui_app/api/`、`_util/`）。結果：**未發現需要強化的個案**——
+
+- `test_cli_plan_check_git.py`／`test_cli_plan_check_cli.py`：唯一的 `isinstance()` 斷言命中 `pc.FetchOutcome`（`backlink_publisher.cli._plan_check_git`／`plan_check`），不屬於接縫層清單。
+- `test_webui_three_url.py`／`test_webui_three_url_pool_derivation.py`：涉及 `_util/paths` 的用法只是 `patch(...)` 隔離設定（不是斷言），`_util/errors` 未被觸及；HTML body 子字串斷言（如 `"list_url" in body`）驗證的是實際回傳內容而非空殼型別檢查。
+- `test_config_three_url*.py`：`pytest.raises(InputValidationError)`（來自 `_util/errors`）驗證的是拒絕惡意輸入這個行為本身的正確例外型別，是該測試唯一有意義的斷言，不是可退化為「只驗證型別」的佔位斷言；`backlink_publisher.config` 模組本身不在接縫層清單內。
+- `test_publish_backlinks*.py`：`backlink_publisher.checkpoint`、`backlink_publisher.canary.store` 均不在接縫層清單內（清單明確指名 `idempotency/store.py`，`checkpoint.py` 是不同模組）；範圍內斷言均已直接驗證具體數值（如 `by_id["r0"]["status"] == "failed"`、`health["status"] == cstore.STATUS_DRIFT_CONFIRMED`）。
+
+因此本次 D1 沒有觸發任何 R4 斷言強化——這是搬移範圍本身的性質使然（這 4 個檔案主要測試 CLI/webui-route/config 層,而非直接測接縫模組),不是稽核不足。
+
+**complexity_budget.toml 協調**：`test_webui_three_url.py`、`test_cli_plan_check.py`、`test_config_three_url.py`、`test_publish_backlinks.py` 的 4 筆既有 ceiling 條目全部移除（改為註解說明拆分去向）——拆分後所有檔案（含新分割檔）均遠低於先前觸發 ceiling 條目的規模，比照既有的 `test_cli_generate_backlink_text_split1.py`／`_split2.py`（557／531 SLOC，未列入 `[test_files]`）先例，不需要新增條目。`test_work_scraper.py` 未拆分，維持原有 730 ceiling 不動。`tests/test_no_complexity_regrowth.py`／`tests/test_no_monolith_regrowth.py` 複測全過（150 passed, 4 skipped）。未觸發任何 ceiling 提高。
 
 ### Deferred to Separate Tasks
 
