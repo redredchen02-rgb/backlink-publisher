@@ -1,7 +1,7 @@
 ---
 title: "Frontend Error Reporting & Diagnostics Dashboard — 前端錯誤回報與診斷儀表板"
 type: feat
-status: active
+status: completed
 date: 2026-07-01
 deepened: 2026-07-01
 claims:
