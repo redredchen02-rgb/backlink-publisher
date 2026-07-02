@@ -160,12 +160,18 @@ class TestCampaignRoutes:
 class TestScheduleRoutes:
     """Contract tests for /schedule and /api/scheduled (Plan 2026-05-29-001 Unit 2)."""
 
-    def test_get_schedule_page(self, client, monkeypatch):
-        """GET /schedule renders HTML."""
+    def test_get_schedule_redirects_to_spa(self, client):
+        """GET /schedule redirects to SPA /app/schedule (Sprint B1)."""
+        resp = client.get("/schedule")
+        assert resp.status_code == 302
+        assert resp.headers["Location"] == "/app/schedule"
+
+    def test_get_schedule_jinja_page(self, client, monkeypatch):
+        """GET /schedule/jinja renders HTML (legacy fallback)."""
         import webui_app.api.scheduled_api as sched_api
 
         monkeypatch.setattr(sched_api, "list_scheduled", lambda: {"ok": True, "items": []})
-        resp = client.get("/schedule")
+        resp = client.get("/schedule/jinja")
         assert resp.status_code == 200
         assert b"html" in resp.data.lower()
 
