@@ -161,26 +161,67 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 ## Sprint B: Frontend Stabilization
 
-- [ ] **B1 — SPA Route 完整性審計**
+- [x] **B1 — SPA Route 完整性審計** ✅ 已完成（2026-07-02）
 
 **現狀**：frontend/ 正在從 Flask Jinja templates 遷移到 Vue 3 SPA。**〔2026-07-01 深化查證，完整審計已完成，取代原本待辦的審計工作〕**：
 
-- **既有基礎（來自已完成的 `docs/plans/2026-07-01-001-...`）**：所有 SPA 路由都渲染在同一個持久化 `AppShell` 內，不存在真正的「死角頁面」；13 個 navItems 全數 `isMigrated: true`（該檔案內「雙軌並存」的舊註解已過時，應在本任務順手更新）；`/campaign/:campaignId` 的側欄高亮缺口已由使用者決定明確延後，不是新發現，B1 應記錄為「已知、已接受的缺口」而非重新提報。
+- **既有基礎（來自已完成的 `docs/plans/2026-07-01-001-...`）**：所有 SPA 路由都渲染在同一個持久化 `AppShell` 內，不存在真正的「死角頁面」；13 個 navItems 全數 `isMigrated: true`（該檔案內「雙軌並存」的舊註解已過時，已於本任務更新——見動作 6）；`/campaign/:campaignId` 的側欄高亮缺口已由使用者決定明確延後，不是新發現，記錄為「已知、已接受的缺口」而非重新提報。
 - **API 孤兒檢查（原動作 3）結果：零孤兒**——逐一核對 `frontend/src/api/*.ts` 每個呼叫點，全部能對應到 `webui_app/api/v1/*.py` 或 classic route 裡真實存在的 endpoint。
-- **真正的缺口，B1 應聚焦在這裡**：
-  - **5 個 route 有完整 SPA 頁面 + 完整 API，但 Flask 端沒有導回 `/app/*` 的 redirect**：`/`（首頁精靈）、`/ce:history`、`/sites`、`/schedule`、`/batch-campaign`。對照組是另外 8 個已經正確 redirect 的 route（`/settings`、`/pr-queue`、`/survival-dashboard`、`/optimization-status`、`/ce:equity-ledger`、`/ce:keep-alive`、`/campaign/<id>`、`/monitor-hub`）——看起來是某一波遷移 sprint 補了 redirect，較早那波沒補，這 5 個應是 B1 的優先修復項。
-  - **`/ce:health` 及其子路由（scorecard／publish-metrics／canary／forward-path／storage／GSC 面板）完全沒有 SPA 對應**——不是遺漏 redirect，是這個資料表面本身還沒被 SPA 消費，`/monitor` 頁面用的是 `command_center` 的聚合資料，不是 `health.py` 的資料，應記錄為「未遷移」而非誤判為「已涵蓋」。
-  - **〔深化修正，feasibility review 發現：不是死碼〕** `webui_app/routes/llm.py`、`webui_app/routes/image_gen.py` 兩個 blueprint 已被 deregister（見 `webui_app/routes/__init__.py` 註解），但程式碼註解明確記載這兩個檔案是刻意保留的**測試 patch 對象**（`llm.py` 供 `test_webui_unit3_security` patch；`image_gen.py` 保留 `http_client` import 供 image-gen lift-parity 測試 patch），不是無主死碼——直接刪除會讓這些測試壞掉。應維持原狀，或先把相關測試的 patch 目標遷移到新模組位置後才能刪除，這是比 E1 歸檔更大的獨立工作。
-  - `webui_app/routes/publish_defaults.py`（`/publish/defaults`、`/publish/quick`、`/publish/save-defaults`）在 `frontend/src/api/*.ts` 找不到任何呼叫者——需要進一步確認是否仍被舊版原生 JS 頁面使用，若確認無人呼叫則視為孤兒路由。
+- **真正的缺口，B1 聚焦在這裡**：
+  - **5 個 route 有完整 SPA 頁面 + 完整 API，但 Flask 端沒有導回 `/app/*` 的 redirect**：`/`（首頁精靈）、`/ce:history`、`/sites`、`/schedule`、`/batch-campaign`。對照組是另外 8 個已經正確 redirect 的 route（`/settings`、`/pr-queue`、`/survival-dashboard`、`/optimization-status`、`/ce:equity-ledger`、`/ce:keep-alive`、`/campaign/<id>`、`/monitor-hub`）——看起來是某一波遷移 sprint 補了 redirect，較早那波沒補。**〔2026-07-02 執行時深化查證，risk profile 比原始描述嚴重得多，詳見下方「B1 執行發現：5 個 redirect 並非等量風險」〕**：只有 `/schedule` 真正符合「低風險、機械式」的描述，已直接實作；其餘 4 個有具體、實測證據顯示會造成功能性退化或大規模既有測試斷裂，已改列為需要獨立後續 unit 的高風險項，**不**在 B1 內機械式補上。
+  - **`/ce:health` 及其子路由（scorecard／publish-metrics／canary／forward-path／storage／GSC 面板）完全沒有 SPA 對應**——不是遺漏 redirect，是這個資料表面本身還沒被 SPA 消費，`/monitor` 頁面用的是 `command_center` 的聚合資料，不是 `health.py` 的資料，記錄為「未遷移」而非誤判為「已涵蓋」。**決策（見下方矩陣）**：維持 legacy-only，全量遷移延後到未來 sprint——這是一個豐富的維運面板（6 個子面板），完整遷移的工作量遠超一個穩定化 sprint 的合理範圍。
+  - **〔深化修正，feasibility review 發現：不是死碼〕** `webui_app/routes/llm.py`、`webui_app/routes/image_gen.py` 兩個 blueprint 已被 deregister（見 `webui_app/routes/__init__.py` 註解），但程式碼註解明確記載這兩個檔案是刻意保留的**測試 patch 對象**（`llm.py` 供 `test_webui_unit3_security` patch；`image_gen.py` 保留 `http_client` import 供 image-gen lift-parity 測試 patch），不是無主死碼——直接刪除會讓這些測試壞掉。維持原狀，未觸碰。
+  - `webui_app/routes/publish_defaults.py`（`/publish/defaults`、`/publish/quick`、`/publish/save-defaults`）在 `frontend/src/api/*.ts` 找不到任何呼叫者。**2026-07-02 查證結果（見下方矩陣）**：`/publish/defaults` 與 `/publish/quick` 並非孤兒——`webui_app/templates/sites.html` 的「快速發布」按鈕（`data-defaults-url`／`data-quick-url`）由 `webui_app/static/js/sites.js`（第 16–44 行，`data-action="quick-publish"` 委派監聽器）實際呼叫，是舊版原生 JS 頁面在用的真實路徑。但 `/publish/save-defaults` 在整個程式碼庫（`webui_app/`、`frontend/src/`、templates、static js）找不到任何呼叫者——docstring 聲稱「由 publish pipeline routes 呼叫」但實際不存在這個呼叫點，僅測試檔 `tests/test_webui_publish_defaults.py` 直接呼叫過。記錄為孤兒路由候選，不刪除，留待後續確認。
+
+**B1 執行發現：5 個 redirect 並非等量風險**（2026-07-02，執行時的新發現，取代原本「5 個一起機械補上」的假設）：
+
+逐一重新查證後，`/schedule` 與另外 4 個（`/`、`/ce:history`、`/sites`、`/batch-campaign`）的風險輪廓有本質差異：
+
+| 檢查項 | `/schedule` | `/`（首頁） | `/ce:history` | `/sites` | `/batch-campaign`（GET） |
+|---|---|---|---|---|---|
+| 既有 GET 測試呼叫點數（`client.get(...)`）| 1 | 37 | 18 | 18 | 7 |
+| 是否有 POST handler 用 flash query string 重導回本路徑 | 否 | 是——`checkpoint.py`（2 處）+ `drafts.py`（7 處）共 9 處 `redirect(f'/?flash_type=...&flash_msg=...')` / `?tab=draft&...` | 是——`history.py` 4 處 `redirect(f'/ce:history?flash_type=...&flash_msg=...')` | 是——`sites_save_three_url` 重導到 `/sites?saved=...&autofilled=...`（另一種、非 flash_type/flash_msg 的查詢參數契約）| 否（POST 成功重導到 `/campaign/<id>`，不是自身）|
+| SPA 端是否已接住這個查詢參數契約 | N/A | **否**——`frontend/src/stores/notifications.ts` 已有 `pushFlash()` bridge 函式（明確為此設計），但整個 `frontend/src/` 沒有任何 `.vue`／router 呼叫點讀取 URL 的 `flash_msg`/`flash_type`，只有它自己的 spec 測試呼叫過——是個沒接線的死接口 | 同左（同一個 `pushFlash`，同樣沒接線）| **否**——`saved=`/`autofilled=` 這組參數在 `frontend/src/` 全域零匹配，連死接口都沒有 | N/A |
+| 若直接補上無條件 redirect 的後果 | 無副作用 | 常見操作（刪除草稿、清空 checkpoint 等）成功後的成功／失敗提示會被靜默吞掉——**使用者可感知的功能退化**，不只是測試斷裂 | 同左（刪除歷史、批次刪除、清空失敗記錄等操作的提示）| 儲存三網址設定後的「已儲存」／「自動填入欄位」提示會被靜默吞掉 | 無 flash 退化，但 7 個既有測試斷言的是 legacy 頁面才有的內容（擴展區平台分區、過期管道渲染），SPA 端是否有對應的等效測試覆蓋未經確認 |
+| 本次處理方式 | **直接實作**：沿用 7/8 現有 route 採用的「主路徑 redirect + `/<route>/jinja` 保留舊渲染」樣式，`/api/scheduled` 不受影響。更新 1 個既有測試呼叫點，新增 1 個 redirect 斷言測試 | **延後**，記錄為高風險缺口 | **延後**，記錄為高風險缺口 | **延後**，記錄為高風險缺口 | **延後**，記錄為中風險缺口（風險性質與前三者不同——測試覆蓋度問題，非功能退化）|
+
+**這個發現本身也回答了原動作 2「評估風險」的要求**——原本動作清單第 2 項就已經要求「評估優先級與風險」而非無條件實作；本次執行證實這個風險評估動作是必要的，5 個路由裡有 4 個若機械式套用會造成真實的使用者可見退化（flash 提示消失）或大規模測試覆蓋流失，不是單純的「測試需要更新」而已。
 
 **動作**：
-1. 把上述缺口整理成正式的 SPA Route Audit Matrix（已遷移/未遷移/缺失/孤兒四類），5 個缺 redirect 的路由與 `/ce:health` 未遷移列為高優先
-2. 為 5 個缺 redirect 的路由評估直接補上 `redirect(url_for('spa.spa', subpath=...))`（比照另外 8 個已有的寫法）的優先級與風險
-3. `/ce:health` 的豐富維運面板是否要遷移到 SPA，或維持 legacy-only，需要一個明確決策而非預設遺漏
-4. **〔深化修正〕** `webui_app/routes/{llm,image_gen}.py` 已確認不是死碼（見上方現狀修正），維持現狀即可，不需要決策去留；確認 `publish_defaults.py` 的去留（在 `frontend/src/api/*.ts` 找不到呼叫者，需先排除舊版原生 JS 頁面仍在使用的可能性），並記錄決策
-5. 檢查 SPA route 的 loading / error / empty 三態處理——見 B3（已發現的具體反例：`PublishWorkbench.vue` 完全沒有 `StateBlock`；`KeepAlivePage.vue` 的 empty 狀態實際上到不了 `StateBlock`）
+1. 把上述缺口整理成正式的 SPA Route Audit Matrix（已遷移/未遷移/缺失/孤兒四類）——見下方「SPA Route Audit Matrix」
+2. ✅ 已完成——5 個缺 redirect 的路由已逐一評估優先級與風險：`/schedule` 判定低風險並直接實作；`/`、`/ce:history`、`/sites`、`/batch-campaign` 判定為高／中風險，理由與證據見上表，延後至獨立後續 unit
+3. ✅ 已決策——`/ce:health` 維持 legacy-only，不在本 sprint 遷移到 SPA（豐富維運面板，完整遷移工作量過大，明確延後而非預設遺漏）
+4. ✅ 已確認——`webui_app/routes/{llm,image_gen}.py` 不是死碼，維持現狀未觸碰；`publish_defaults.py` 三個子路由中 `/publish/defaults`、`/publish/quick` 由舊版原生 JS（`sites.js`）實際呼叫，非孤兒；`/publish/save-defaults` 在全程式碼庫找不到任何呼叫者，記錄為孤兒路由候選（不刪除）
+5. 檢查 SPA route 的 loading / error / empty 三態處理——**明確不在 B1 範圍**，已涵蓋於 B3，不在此重複
+6. ✅ 已完成——`frontend/src/layout/navItems.ts` 的「雙軌並存」舊註解已更新為反映遷移完成的現況
 
-**交付**：SPA Route Audit Matrix（已遷移/未遷移/缺失/孤兒），含上述具體發現與優先級
+**交付**：SPA Route Audit Matrix（已遷移/未遷移/缺失/孤兒），含上述具體發現、優先級與延後決策——見下方矩陣
+
+### SPA Route Audit Matrix（2026-07-02）
+
+**已遷移（13 個 navItems，全數 `isMigrated: true`，各自有對應 redirect 或原生 SPA 路由）**：`/`（SPA 頁面已存在於 router，僅缺 Flask redirect——見下方「缺失」）、`/monitor`、`/history`、`/drafts`、`/sites`（同左）、`/schedule`（✅ redirect 已補上）、`/batch-campaign`（同上）、`/settings`、`/pr-queue`、`/survival`、`/optimization-status`、`/equity-ledger`、`/keep-alive`。
+
+**未遷移（明確決策，非遺漏）**：
+- `/ce:health` 及其 6 個子面板（scorecard／publish-metrics／canary／forward-path／storage／GSC）——**決策：legacy-only，延後到未來 sprint**。理由：`/monitor` SPA 頁面消費的是 `command_center` 聚合資料，非 `health.py` 的資料表面；完整遷移是一個獨立規模的工作（6 個子面板），超出本次穩定化 sprint 的合理範圍。
+
+**缺失（Flask 端沒有導回 `/app/*` 的 redirect，SPA 頁面本身已存在）**：
+
+| 路由 | SPA 對應 | 狀態 | 處理方式 |
+|---|---|---|---|
+| `/schedule` | `/app/schedule` | ✅ 已修復（本次） | 加上 `redirect(url_for('spa.spa', subpath='schedule'))`；原渲染邏輯保留在新增的 `/schedule/jinja` |
+| `/` | `/app/`（`PublishWorkbench.vue`）| ⏸ 延後，高風險 | 9 處既有 POST handler（`checkpoint.py`／`drafts.py`）以 `flash_type`/`flash_msg` query string 重導回本路徑；SPA 的 `pushFlash()` bridge 存在但未接線；37 個既有測試呼叫點斷言完整頁面渲染。需要獨立 unit：先接線 flash bridge（或改用其他機制傳遞操作結果），再處理 redirect + 測試遷移 |
+| `/ce:history` | `/app/history`（`HistoryPage.vue`）| ⏸ 延後，高風險 | 同上機制，4 處 `history.py` POST handler 重導回本路徑帶 flash query string；18 個既有測試呼叫點 |
+| `/sites` | `/app/sites`（`SitesPage.vue`）| ⏸ 延後，高風險 | `sites_save_three_url` 重導回 `/sites?saved=...&autofilled=...`，SPA 端零匹配、無接線；18 個既有測試呼叫點含大量狀態相關內容斷言（autopilot 列狀態、錯誤態） |
+| `/batch-campaign`（GET）| `/app/batch-campaign`（`BatchCampaignPage.vue`）| ⏸ 延後，中風險 | 無 flash 重導耦合，但 7 個既有測試斷言 legacy-only 內容（擴展區平台分區、過期管道渲染），需先確認 SPA 端有等效覆蓋才能安全改寫 |
+
+**孤兒（候選，未刪除）**：
+- `webui_app/routes/publish_defaults.py` 的 `/publish/save-defaults`——`frontend/src/api/*.ts`、`webui_app/templates/`、`webui_app/static/js/` 全域找不到呼叫者；docstring 聲稱「由 publish pipeline routes 呼叫」但該呼叫點不存在。同檔案的 `/publish/defaults`、`/publish/quick` **不是**孤兒，由 `webui_app/static/js/sites.js` 的 quick-publish 委派監聽器實際呼叫。建議後續確認 `/publish/save-defaults` 是否為某次重構後遺留的死路由，若確認無用可安全移除。
+
+**其他（非孤兒，維持原狀）**：`webui_app/routes/llm.py`、`webui_app/routes/image_gen.py`——已 deregister 但刻意保留作為測試 patch 對象，不是無主死碼。
+
+**已知、已接受的缺口（非新發現，不重複提報）**：`/campaign/:campaignId` 的側欄高亮缺口——使用者已明確決定延後。
+
+**明確排除於 B1 範圍**：SPA route 的 loading/error/empty 三態處理，由 B3 涵蓋，本文件不重複。
 
 - [ ] **B2 — API v1 ↔ Flask Route 雙覆蓋測試**
 
