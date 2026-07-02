@@ -664,7 +664,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 **測試**：`tests/test_agents_md_has_binding_section.py` 通過（未觸碰「Binding a channel」章節）。逐一 grep 專案內找不到任何測試會斷言 `CLAUDE.md`／`AGENTS.md` 的 store 數量字面值——這是一個文件與程式碼可能再次漂移而無自動化保護的已知缺口，記錄於此供未來考慮補一個輕量的「grep 出的即時計數 == 文件宣稱的數字」回歸測試（不在本次 E2 範圍內新增）。
 
-- [ ] **E3 — 運行時健康檢查增強**
+- [x] **E3 — 運行時健康檢查增強** ✅ 已完成（2026-07-02，worktree `bp-phase3-sprint-e1`）
 
 **現狀**：已有 `/health` endpoint（200/503），健康指標存於 `webui_app/health_metrics.py`。
 
@@ -674,6 +674,14 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 3. 考慮加入 pipeline 運行時長監控（上次成功 pipeline 時間戳）
 
 **驗證**：`curl localhost:8888/health` 返回 200 + 合理 body
+
+**執行摘要（2026-07-02）**：
+
+1. **動作 1 即時查證**：`/api/v1/health`（`webui_app/api/v1/__init__.py:34-39`）**已經是完整可用的實作**，不是佔位/半成品——GET-only（POST 回 405 problem+json，`webui_app/api/v1/__init__.py` 的 blueprint 405 handler）、回傳 `{status, api_version, version}`（`HealthSchema`，`webui_app/api/v1/schemas.py:14`）、已登記於 OpenAPI 3.1 spec（`webui_app/api/v1/spec.py:203-216`）、已有三個既有測試覆蓋（`tests/test_webui_api_v1.py::test_health_returns_ok`／`test_api_405_returns_problem_json`／`test_openapi_spec_is_31_and_documents_health`，B2 單元早已確認在 63/63 endpoint 清單內）。動作 1 判定為**已完成，無需新程式碼**。
+2. **動作 2 即時追蹤程式碼路徑**：`health_metrics.ranking_trend()`（第 384-442 行）與 `indexation_status()`（第 342-382 行）**兩者都已經在無 GSC 數據時優雅降級**——各自內含 `try/except Exception: return []`（並附 `# noqa: BLE001 — fail-open, never 500` 註解），且呼叫端 `webui_app/routes/health.py` 的 `_gsc_ranking_panel()`/`_gsc_indexation_panel()` 又各自再包一層 try/except 防護（雙層防禦）。以全新/空的 `EventStore()`（無任何 GSC 事件）直接呼叫兩函式，確認回傳 `[]`、不拋例外。`tests/test_gsc_health_metrics.py::test_indexation_status_empty_returns_empty_list` 與 `test_ranking_trend_empty_returns_empty_list` 這兩個既有測試已經覆蓋此情境並通過。**判定：已經正確，本次不需修正，也未新增測試**（原計畫要求「若沒有這類測試才補」——本次確認測試已存在）。
+3. **動作 3（「考慮加入」，非強制）**：判斷為**輕量、well-scoped 的加法**，予以實作——在 `webui_app/services/health_projection.py::compute_health_json()` 新增 `last_successful_pipeline_run` 欄位，複用既有 `history_store` 資料（過濾 `status == "published"` 的最新 `created_at`，語意對齊 `health_metrics.py` 既有的「success = 明確已發佈」誠實原則，不算入 `failed`/`*_unverified`），純附加、不影響既有 `healthy`/`degraded_reasons` 判斷邏輯。**刻意排除**真正的「運行時長」監控（pipeline 執行耗時，即需要 start/end 兩個時間點）——這需要在整條 pipeline 執行路徑（CLI subprocess 呼叫鏈）新增寫入點才能量測，屬於「新的持久化寫入路徑貫穿全 pipeline」等級的基礎設施改動，超出本次「可用既有資料輕鬆補上」的範圍，予以記錄延後，不強行拼湊半成品。新增測試：`tests/test_webui_health_routes.py::TestComputeHealthJson::test_last_successful_pipeline_run_picks_latest_published`、`test_last_successful_pipeline_run_none_when_all_failed`（含更新既有 `test_degraded_when_no_history` 斷言新欄位為 `None`）。
+
+**測試**：`tests/test_webui_health_routes.py`（新增 2 個測試）、`tests/test_gsc_health_metrics.py`、`tests/test_webui_api_v1.py`、`tests/test_health_metrics.py` 全數通過（54 passed）。以 `app.test_client()` 直接驗證：`GET /health` → 200/503（依現狀而定，body 含新增的 `last_successful_pipeline_run` 鍵）；`GET /api/v1/health` → 200，body `{"status": "ok", "api_version": "v1", "version": "0.5.0"}`。
 
 ---
 
@@ -779,7 +787,7 @@ E3 (獨立)                              │
 | docs/ 活躍度 | 含過時文件（含 4 份根報告 + 2 支殘留腳本） | **只保留活躍文檔** |
 | AGENTS.md / CLAUDE.md 一致性 | CLAUDE.md 未提及 SPA | **三份文件與 ARCHITECTURE.md 一致** |
 | Korean calibration | uncalibrated | **校準 + 測試覆蓋，debt_registry 條目更新為 resolved** |
-| 運行時健康檢查 | Flask only | **SPA 也有 /health** |
+| 運行時健康檢查 | ✅ 已達成（E3，2026-07-02）：`/api/v1/health` 早已存在且完整（GET-only、OpenAPI 已登記、3 個既有測試通過）；`ranking_trend()`/`indexation_status()` 確認已在無 GSC 數據時優雅降級（雙層 try/except，既有測試覆蓋）；`/health` body 新增 `last_successful_pipeline_run` 欄位（informational，不影響 `healthy` 判斷）；完整 pipeline 運行時長（start/end 耗時）監控刻意延後——需要新的持久化寫入路徑貫穿整條 pipeline，非本次「考慮加入」的輕量範圍 | **SPA 也有 /health** |
 | `pytest tests/ -x` | 應全過 | **全過** |
 
 ---
