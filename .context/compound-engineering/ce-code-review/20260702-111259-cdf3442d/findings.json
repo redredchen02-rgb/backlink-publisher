@@ -1,0 +1,158 @@
+{
+  "run_id": "20260702-111259-cdf3442d",
+  "scope": "Standalone branch review: feat/frontend-error-reporting vs merge-base a5dc969be49ab972d309d7de61916da4bf95cca6 (local main). 46 files.",
+  "reviewers": [
+    "correctness", "testing", "maintainability", "project-standards",
+    "ce-agent-native-reviewer", "ce-learnings-researcher",
+    "security", "api-contract", "reliability", "adversarial",
+    "kieran-python", "kieran-typescript", "julik-frontend-races"
+  ],
+  "applied_fixes": [
+    {
+      "title": "Literal NUL/0x1F control bytes embedded in a comment in frontend/src/lib/errors.ts corrupted the file to git-binary",
+      "file": "frontend/src/lib/errors.ts",
+      "reviewer": "maintainability",
+      "action": "Replaced raw control bytes with the escaped text \\x00-\\x1f; file now diffs as text."
+    },
+    {
+      "title": "Server-generated report id typed as number on the Vue side but the backend always returns a UUID string",
+      "files": [
+        "frontend/src/lib/errorCapture.ts", "frontend/src/stores/notifications.ts",
+        "frontend/src/stores/reportPanel.ts", "frontend/src/lib/errorCapture.spec.ts",
+        "frontend/src/stores/notifications.spec.ts", "frontend/src/components/Toast.spec.ts",
+        "frontend/src/components/ReportProblemPanel.spec.ts"
+      ],
+      "reviewer": "api-contract, correctness (cross-reviewer agreement)",
+      "action": "Changed all reportId/id type annotations from number to string across the Vue capture/notification/panel chain; updated test fixtures from numeric literals to string UUIDs."
+    },
+    {
+      "title": "tests/test_webui_api_v1_error_reports.py mutates SESSION_COOKIE_SECURE without registering in the security-toggle-mutation-gate allowlist (confirmed CI-breaking)",
+      "file": "tests/test_security_toggle_mutation_gate.py",
+      "reviewer": "project-standards",
+      "action": "Added (\"test_webui_api_v1_error_reports.py\", \"SESSION_COOKIE_SECURE\") to GRANDFATHERED, matching the established pattern for sibling /api/v1 test files. Verified test_security_toggle_mutation_gate.py now only shows pre-existing, unrelated drift from test_webui_content_fetch_gate.py (confirmed via git-stash bisection to predate this branch)."
+    },
+    {
+      "title": "GET /api/v1/error-reports limit/offset pagination had zero test coverage",
+      "file": "tests/test_webui_api_v1_error_reports.py",
+      "reviewer": "testing",
+      "action": "Added test_get_list_pagination_limit_and_offset."
+    },
+    {
+      "title": "Fingerprint-merge 'row vanished' race fallback (increment_occurrence returns False) had zero test coverage",
+      "file": "tests/test_webui_api_v1_error_reports.py",
+      "reviewer": "testing",
+      "action": "Added test_fingerprint_merge_falls_back_to_fresh_row_when_increment_races."
+    },
+    {
+      "title": "sendJson's new keepalive option was never asserted on by any test",
+      "files": ["frontend/src/api/client.spec.ts", "frontend/src/lib/errorCapture.spec.ts"],
+      "reviewer": "testing",
+      "action": "Added a paired true/false assertion in client.spec.ts and a direct assertion in errorCapture.spec.ts's existing happy-path test."
+    }
+  ],
+  "residual_actionable_work": [
+    {
+      "severity": "P1_equivalent_high",
+      "title": "retryBufferedReports() (legacy JS) has no in-flight guard -- overlapping visibilitychange/pagehide flushes can double-submit and drop buffered reports",
+      "file": "webui_app/static/js/ui/error-capture.js",
+      "reviewer": "julik-frontend-races",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P1_equivalent_high",
+      "title": "Legacy ReportPanel._submit() has no busy/disabled guard -- a double-click fires two concurrent submissions",
+      "file": "webui_app/static/js/ui/error-report-entry.js",
+      "reviewer": "julik-frontend-races",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P2",
+      "title": "PATCH /api/v1/error-reports/<id> ignores attach_description()/update_status() boolean return values, producing a false-success 200 on a concurrent-delete race",
+      "file": "webui_app/api/v1/error_reports.py",
+      "reviewer": "correctness, kieran-python (related)",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P2",
+      "title": "increment_occurrence()/update_status()/attach_description() keep the SELECT-then-UPDATE lost-update race the module docstring only disclaims for add()",
+      "file": "webui_store/error_reports.py",
+      "reviewer": "reliability",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P2",
+      "title": "Request-size guard trusts Content-Length only -- absent/spoofed header (e.g. chunked transfer-encoding) bypasses the 100KB cap",
+      "file": "webui_app/api/v1/error_reports.py",
+      "reviewer": "correctness, security (cross-reviewer agreement)",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P2",
+      "title": "Client-supplied fingerprint is trusted verbatim for merge/increment decisions -- any script can forge occurrence-count inflation on an arbitrary existing report (non-secret data, integrity-only impact)",
+      "file": "webui_app/api/v1/error_reports.py",
+      "reviewer": "adversarial",
+      "owner": "human",
+      "note": "Design-level tradeoff, not a mechanical fix -- needs an explicit accept-or-fix decision."
+    },
+    {
+      "severity": "P2",
+      "title": "New /api/v1/error-reports surface (all 5 operations) was never added to the OpenAPI 3.1 contract (spec.py/schemas.py/openapi/backlink-api.yaml) unlike every sibling resource",
+      "file": "webui_app/api/v1/spec.py",
+      "reviewer": "ce-agent-native-reviewer",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P2",
+      "title": "Vue SPA capture engine (errorCapture.ts) never flushes DedupTracker.collectPendingUpdates(), silently losing in-window duplicate-occurrence counts the legacy JS engine reports via its periodic flush",
+      "file": "frontend/src/lib/errorCapture.ts",
+      "reviewer": "correctness",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P2",
+      "title": "Shared reportPanel Pinia store lets the sibling trigger retarget an open panel mid-submit, silently losing the other session's typed text",
+      "file": "frontend/src/stores/reportPanel.ts",
+      "reviewer": "julik-frontend-races",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P3",
+      "title": "_enforce_daily_cap() fully JSON-decodes every report created today on every POST instead of SELECT COUNT(*)",
+      "file": "webui_app/api/v1/error_reports.py",
+      "reviewer": "reliability",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P3",
+      "title": "Double as unknown as {...} cast in the resource-error branch bypasses the narrowed target type",
+      "file": "frontend/src/lib/errorCapture.ts",
+      "reviewer": "kieran-typescript",
+      "owner": "downstream-resolver"
+    },
+    {
+      "severity": "P3",
+      "title": "notifications.ts push()'s 4th positional reportId param is positional-param creep, not an options object",
+      "file": "frontend/src/stores/notifications.ts",
+      "reviewer": "kieran-typescript",
+      "owner": "downstream-resolver"
+    }
+  ],
+  "advisory": [
+    "reportId means two unrelated things (client correlation string vs. server row-id string) across adjacent modules -- naming ambiguity, no functional bug (kieran-typescript).",
+    "Layer-3 exact-secret masking has no minimum-length floor -- a very short operator-configured credential could over-redact ordinary substrings (adversarial, P3).",
+    "An uncaught Pinia action rejection can double-submit as two distinct rows because a context-prefixed message changes the fingerprint (adversarial, P2, needs verification).",
+    "allowJs:true in frontend/tsconfig.json is project-wide, not scoped to the one cross-boundary import; nothing prevents a future relative .js import elsewhere from silently skipping type-checking (kieran-typescript)."
+  ],
+  "pre_existing_unrelated": [
+    "test_webui_content_fetch_gate.py has its own unlisted security-toggle-mutation-gate drift (WTF_CSRF_ENABLED/SESSION_COOKIE_SECURE/CSRF_ENABLED) -- confirmed via git log to predate this branch entirely.",
+    "Origin-guard coverage snapshot has a previously-flagged, still-unresolved +2 pre-existing drift unrelated to Unit 3 (noted at Unit 3 commit time).",
+    "token-resolution.spec.ts and SideNav.spec.ts frontend test failures (color-token literals in HistoryPage.vue/KeepAlivePage.vue; a nav-items legacy-href assumption no longer true) -- confirmed present on an unmodified checkout before any of this plan's units touched anything.",
+    "462 unrelated pytest failures across the full backend suite (chmod/0600 Windows-incompatible assertions, unrelated route/redirect tests) -- confirmed zero overlap with any of the 10 Python files this plan touched; environment/platform-specific, not introduced by this branch."
+  ],
+  "learnings": "All institutional learnings cited by the plan's own research phase (self-doc-sanitization-leak-recurrence, app-level-csrf-guard-makes-blueprint-csrf-dead-code, lite-accepted-deferrals R5, typed-error-envelope-over-stderr-truncation, negative-assertion-locks-in-bug) were verified as correctly applied, not violated.",
+  "coverage": {
+    "suppressed_below_threshold": "not separately tracked per-reviewer; each reviewer's own confidence gate applied",
+    "untracked_files_excluded": [],
+    "failed_or_timed_out_reviewers": []
+  }
+}

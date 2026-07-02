@@ -486,3 +486,19 @@ client_secret = "your-client-secret"
 #
 # [throttle.mataroa]
 # delay_s = 20.0
+
+# ─── Error reporting & diagnostics dashboard (Plan 2026-07-01-002) ─────────
+#
+# Frontend error-capture + persistence: any unexpected error on either
+# WebUI frontend (legacy Jinja/JS pages, or the Vue SPA) is sanitized and
+# stored in webui.db so it survives a restart, then browsed/triaged via the
+# in-app dashboard. Both settings below are optional -- omit the whole
+# section (or either key) to accept the built-in defaults.
+#
+# [error_reports]
+# daily_cap = 200        # max NEW reports/day (a fingerprint match that only
+#                        # increments an existing report's occurrence count
+#                        # does NOT count against this); omit, or <0, for
+#                        # unlimited
+# retention_days = 30    # the periodic purge job (webui_app/scheduler.py)
+#                        # deletes reports older than this many days

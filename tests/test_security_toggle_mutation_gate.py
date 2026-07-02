@@ -95,6 +95,8 @@ GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
         ("test_r6_dofollow_badge.py", "WTF_CSRF_ENABLED"),
         # API v1 settings test files (added 2026-06-22) — each defines its own app
         # fixture with SESSION_COOKIE_SECURE=False for HTTP test client operation.
+        # error-reports API test file (Plan 2026-07-01-002 Unit 3)
+        ("test_webui_api_v1_error_reports.py", "SESSION_COOKIE_SECURE"),
         ("test_webui_api_v1_bind.py", "SESSION_COOKIE_SECURE"),
         ("test_webui_api_v1_blog_ids.py", "SESSION_COOKIE_SECURE"),
         ("test_webui_api_v1_channel_bind.py", "SESSION_COOKIE_SECURE"),

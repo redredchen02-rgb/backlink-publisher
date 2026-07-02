@@ -1,0 +1,55 @@
+{
+  "reviewer": "testing",
+  "findings": [
+    {
+      "title": "GET /api/v1/error-reports limit/offset pagination slicing has zero test coverage",
+      "why_it_matters": "webui_app/api/v1/error_reports.py's list_error_reports() reads `limit`/`offset` query params and slices the already-materialized `items` list (offset then limit) before returning `{items, total}`. No test in tests/test_webui_api_v1_error_reports.py ever passes a `limit` or `offset` query parameter, so this slicing logic -- including the interaction between `total` (computed before slicing) and the sliced `items`, and the `offset` truthiness check (`if offset:`, which silently treats `offset=0` the same as absent) -- is entirely unexercised. A regression here (e.g. an off-by-one in the slice bounds, or `total` drifting out of sync with `items.length` after a filter+paginate combination) would ship silently. The plan's own Approach text for Unit 3 explicitly calls this endpoint 'paginated', but the plan's enumerated Test scenarios list omits a pagination case, and the implementer did not add one either.",
+      "severity": "P3",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 244,
+      "confidence": 0.7,
+      "autofix_class": "safe_auto",
+      "owner": "testing",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "Add a test to tests/test_webui_api_v1_error_reports.py that POSTs 3+ reports, then GETs with `?limit=1&offset=1`, asserting `total` reflects the full unfiltered count while `items` contains exactly the expected single sliced row (and a paired case for `offset=0` behaving identically to omitted offset)."
+    },
+    {
+      "title": "Fingerprint-merge race fallback (row vanishes between find_by_fingerprint and increment_occurrence) is untested",
+      "why_it_matters": "create_error_report()'s own comment documents a deliberate fallback: if `error_report_store.increment_occurrence(existing_id)` returns False (the matched row was deleted between the find and the increment -- e.g. by a concurrent DELETE or the purge job), the code intentionally falls through to `_enforce_daily_cap()` + `add()` instead of erroring. This is new behavior-changing branch logic specific to this diff's fingerprint-dedup feature, but no test in tests/test_webui_api_v1_error_reports.py drives `increment_occurrence` to return False for an existing-then-vanished fingerprint match, so the fallthrough path (and whether it correctly persists a fresh row rather than silently swallowing the report) has never actually been exercised.",
+      "severity": "P2",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 191,
+      "confidence": 0.68,
+      "autofix_class": "safe_auto",
+      "owner": "testing",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "Add a test that monkeypatches `ErrorReportSqliteStore.increment_occurrence` to return False for one call (simulating the row vanishing after `find_by_fingerprint` matched it), POSTs a report with that fingerprint, and asserts the response is a fresh 201 (not an error, not a silently-dropped report) and that the store now contains a new row for that fingerprint."
+    },
+    {
+      "title": "sendJson's new `keepalive` option is never asserted on in any test",
+      "why_it_matters": "frontend/src/api/client.ts's sendJson() gained a `keepalive` option specifically so Unit 6's error-capture submissions can survive page unload (the whole rationale documented in the plan's Key Technical Decisions table for choosing fetch+keepalive over sendBeacon). No spec (client.spec.ts, errorCapture.spec.ts) asserts that the `fetch()` call actually receives `keepalive: true` when errorCapture.ts calls `sendJson(..., { keepalive: true })` -- errorCapture.spec.ts's fetch stub records `url`/`body` but never inspects `init.keepalive`. A regression that silently drops the keepalive flag (e.g. during a client.ts refactor) would defeat the documented page-unload-survival guarantee with no test failure.",
+      "severity": "P3",
+      "file": "frontend/src/lib/errorCapture.spec.ts",
+      "line": 44,
+      "confidence": 0.6,
+      "autofix_class": "safe_auto",
+      "owner": "testing",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "In installFetchStub() (errorCapture.spec.ts) or a dedicated client.spec.ts case, record `init?.keepalive` alongside url/body and assert it is `true` for the error-report POST path, paired with the default (`false`/omitted) for an ordinary sendJson call that doesn't pass the option."
+    }
+  ],
+  "residual_risks": [
+    "webui_app/scheduler.py's new `error_reports_purge` APScheduler job registration (interval, 24h) has no test asserting it is actually registered under that id in `_restore_scheduled_jobs()` -- only the underlying `purge_expired_error_reports()` function is tested directly. A wiring mistake in the `add_job(...)` call itself (wrong trigger kwargs, wrong id colliding with an existing job) would not be caught, though this mirrors the pre-existing (also untested) wiring style of `queue_processor`/`batch_ops_drain` in the same function.",
+    "frontend/src/main.ts and frontend/src/router/index.ts's one-line wiring of the 5 Vue error-capture hooks (installVueErrorHandler/installGlobalErrorListeners/QueryCache+MutationCache construction/router.onError) has no dedicated spec file (neither did these files before this diff) -- the underlying hook *functions* are thoroughly tested in errorCapture.spec.ts, but the literal call sites in main.ts/router/index.ts that wire them into the real app are unverified by automated tests, relying on manual/visual verification per this codebase's existing convention for entry-point files.",
+    "webui_store/error_reports.py's update_status()/attach_description()/increment_occurrence() all have a defensive `except (json.JSONDecodeError, TypeError): report = {}` fallback for a corrupted `data_json` column; this defensive path is not exercised by any test (would require hand-corrupting a row's JSON blob), consistent with similar untested defensive paths elsewhere in this store family."
+  ],
+  "testing_gaps": [
+    "No test drives the GET /api/v1/error-reports `limit`/`offset` pagination parameters (see finding above) -- the dashboard SPA (ErrorReportsPage.vue) also does not currently use these parameters, so the feature is both untested and presently unused end-to-end.",
+    "The fingerprint-merge 'row vanished between find and increment' fallback branch in POST /api/v1/error-reports is untested (see finding above) -- this is the one piece of the dedup-merge contract not covered despite otherwise very thorough fingerprint test coverage (same-fingerprint-increments, different-fingerprint-adds, resolved-recurrence-adds-fresh, manual-report-exempt-from-merge all have dedicated tests).",
+    "The `keepalive: true` option threaded through frontend/src/api/client.ts's sendJson() and consumed by errorCapture.ts is never asserted on by any spec, despite being the documented mechanism for surviving page-unload error reporting.",
+    "Overall test coverage for this diff is otherwise unusually strong: all 8 Implementation Units' plan-enumerated 'Test scenarios' lists were cross-checked against the actual test files and are satisfied, every positive/negative-assertion pairing convention (recurring-trap-eradication) is followed, and the full relevant Python/JS/Vitest suites (98 pytest cases, 67 node --test cases, 62 vitest cases touching this feature) were run and pass."
+  ]
+}

@@ -40,7 +40,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '优化权重', group: 'monitoring', to: '/optimization-status' }, // migrated in P13 B2
   { label: '权益总账', group: 'monitoring', to: '/equity-ledger' }, // migrated in P14 B1
   { label: '保活看板', group: 'monitoring', to: '/keep-alive' }, // migrated in P15 A1
-
+  // Plan 2026-07-01-002 Unit 8 — deliberately 'operations', NOT 'monitoring':
+  // that group is exclusively ops-health dashboards (survival rate,
+  // optimization weight, equity ledger, keep-alive); mixing in error-reporting
+  // there would recreate the naming/routing confusion this unit's own design
+  // decision was meant to avoid (see the plan's Unit 8 Files note).
+  { label: '错误报告', group: 'operations', to: '/error-reports' },
 
 ]
 

@@ -1,0 +1,28 @@
+{
+  "reviewer": "project-standards",
+  "run_id": "20260702-111259-cdf3442d",
+  "findings": [
+    {
+      "title": "New test file raw-mutates SESSION_COOKIE_SECURE without adding itself to the security-toggle-mutation-gate allowlist",
+      "severity": "P1",
+      "file": "tests/test_webui_api_v1_error_reports.py",
+      "line": 45,
+      "confidence": 0.92,
+      "autofix_class": "gated_auto",
+      "owner": "backend",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Add (\"test_webui_api_v1_error_reports.py\", \"SESSION_COOKIE_SECURE\") to the GRANDFATHERED frozenset in tests/test_security_toggle_mutation_gate.py in the same PR (mirroring the existing entries for test_webui_api_v1_bind.py, test_webui_api_v1_channels.py, etc., which document the identical 'fixture with SESSION_COOKIE_SECURE=False for HTTP test client operation' rationale).",
+      "why_it_matters": "The fixture at tests/test_webui_api_v1_error_reports.py:45 sets `a.config[\"SESSION_COOKIE_SECURE\"] = False` directly, which tests/AGENTS.md's Known Quirks section documents as forbidden outside the sanctioned `disable_csrf` fixture: 'Do NOT raw-mutate app.config[\"CSRF_ENABLED\"] = False / WTF_CSRF_ENABLED / SESSION_COOKIE_SECURE / SECRET_KEY; test_security_toggle_mutation_gate.py fails CI on new occurrences.' I ran `pytest tests/test_security_toggle_mutation_gate.py` locally against this branch and both `test_no_new_security_config_mutations` and `test_grandfather_allowlist_only_shrinks` fail, explicitly naming `('test_webui_api_v1_error_reports.py', 'SESSION_COOKIE_SECURE')` as an unlisted new occurrence. This is a same-PR ratchet-gate requirement analogous to the monolith_budget.toml rationale bump: the pattern itself is legitimate and already used by ~13 other `/api/v1` test files for the same documented reason (Flask test client HTTP-only cookie handling), but the new file must be added to the GRANDFATHERED allowlist for CI to pass."
+    }
+  ],
+  "residual_risks": [
+    "The SPA's frontend/src/lib/errorCapture.ts imports directly from ../../../webui_app/static/js/lib/error-capture-core.js (a relative import crossing out of frontend/src into the Flask static tree). This works today because vite.config.ts's existing `server.fs.allow: ['..']` already covers it (same precedent as the tokens.css import), so no config change was needed and none was made — not a violation, but it does mean the shared fingerprint/dedup/severity logic is physically duplicated into the Vue bundle at build time rather than served as a single runtime module; any future refactor of error-capture-core.js's export shape must keep both the legacy <script type=module> consumer and the Vite bundler consumer in sync.",
+    "webui_store/error_reports.py and webui_app/api/v1/error_reports.py are new webui_app/webui_store files under 500 SLOC (200/183/229/259 measured via radon), so they fall below the R7 monolith-budget warning-canary threshold and require no monolith_budget.toml entry today; if the store or endpoint module grows past 500 SLOC in a future change, an explicit `[files.\"webui_store/error_reports.py\"]` (or api/v1 equivalent) entry with a >=80-char rationale will be required in the same PR, per the documented 'webui_app/ is NOT auto-scanned' convention.",
+    "docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md's claims block lists broad directory paths (webui_app/, webui_store/, frontend/, tests/) with an empty shas list — this passes plan-check's schema (no glob chars, valid claims) but gives the drift-detection gate very coarse granularity; not a standards violation, just a shallow claims block worth noting for reviewers relying on plan-claims-gate to catch regressions in this feature specifically."
+  ],
+  "testing_gaps": [
+    "No test appears to exercise the interaction between the daily_cap config gate and the fingerprint-merge/increment path across a store restart (i.e., verifying `increment_occurrence` truly never touches `created_at` after a process restart reloads settings) beyond the existing test_daily_cap_excludes_increments_but_counts_new_fingerprints unit test — acceptable given the store is SQLite-backed and restart-safety is inherited from BaseSqliteStore, but worth flagging as a residual gap given R4's explicit 'must survive a WebUI process restart' requirement.",
+    "The Vue SPA's five error-capture hooks (window listeners, app.config.errorHandler, router.onError, QueryCache/MutationCache onError, Pinia $onAction onError) are unit-tested per-hook in errorCapturePlugin.spec.ts / errorCapture.spec.ts, but I did not find an integration-level test asserting all five are actually wired together correctly from main.ts (e.g., a test that mounts the real app and confirms a thrown component error reaches the backend exactly once, not zero or multiple times via double-hooking) — the plan's own 'each hook covers a distinct failure surface' design increases the risk of an untested double-submission if two hooks ever both fire for the same underlying failure."
+  ]
+}

@@ -49,6 +49,7 @@ from . import (
     channel_bind,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: general credential write)
     channels,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: channel overview read)
     drafts,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
+    error_reports,  # noqa: E402,F401  (Plan 2026-07-01-002 Unit 3)
     global_settings,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: global keywords/schedule saves)
     history,  # noqa: E402,F401  (Plan 2026-06-18-002 U7)
     image_gen,  # noqa: E402,F401  (Plan 2026-06-18-002 U7, Settings: image-gen diagnostics)

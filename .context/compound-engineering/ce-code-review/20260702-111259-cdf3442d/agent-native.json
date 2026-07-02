@@ -1,0 +1,50 @@
+{
+  "reviewer": "agent-native",
+  "run_id": "20260702-111259-cdf3442d",
+  "gaps": [
+    {
+      "id": "openapi-spec-omission",
+      "severity": "warning",
+      "confidence": 0.85,
+      "classification": "Primary",
+      "title": "New /api/v1/error-reports surface (POST/GET-list/GET-one/PATCH/DELETE) is entirely undocumented in the OpenAPI 3.1 contract",
+      "locations": [
+        "webui_app/api/v1/spec.py",
+        "webui_app/api/v1/schemas.py",
+        "openapi/backlink-api.yaml",
+        "webui_app/api/v1/error_reports.py"
+      ],
+      "description": "Every other resource module registered in webui_app/api/v1/__init__.py (history, drafts, campaigns, channels, oauth, llm, image_gen, monitor, pipeline, ...) has corresponding marshmallow schemas in schemas.py and explicit path declarations in spec.py, which together generate the committed openapi/backlink-api.yaml (per spec.py's own docstring: 'the single source of truth ... feeds the CI lint, the breaking-change gate, backend conformance (Schemathesis), and the eventual frontend mocks'). error_reports.py was added and wired into the blueprint (webui_app/api/v1/__init__.py) but Unit 3 never touched spec.py, schemas.py, or openapi/backlink-api.yaml. Confirmed via `git diff --stat <base> -- webui_app/api/v1/spec.py openapi/backlink-api.yaml webui_app/api/v1/schemas.py` (no changes) and `grep -n error-reports openapi/backlink-api.yaml` (no matches). tests/test_webui_api_v1.py's test_committed_openapi_spec_is_not_stale only checks the committed YAML against spec.py's *own* generator output -- since spec.py was never updated, both sides silently agree to omit the new surface, so CI does not catch this. Net effect: any tool, script, external agent, or future in-app copilot that discovers this app's capabilities via the OpenAPI contract (which is explicitly built to be that discovery surface, and is also the basis for Schemathesis conformance testing) has zero visibility into a fully-functional, feature-complete CRUD API that a human operator can already exercise end-to-end through two UIs. This is Capability Hiding / Context Starvation relative to the API's own stated purpose as 'the contract linchpin' -- not a broken endpoint, but an invisible one to anything relying on the spec rather than reading error_reports.py source directly.",
+      "recommendation": "Add ErrorReport* marshmallow schemas to schemas.py and explicit path declarations to spec.py for POST/GET(list)/GET(one)/PATCH/DELETE /api/v1/error-reports[/{id}], then regenerate openapi/backlink-api.yaml via scripts/gen_openapi.py so the staleness test has something real to catch on future drift."
+    },
+    {
+      "id": "no-ui-only-orphans-found",
+      "severity": "observation",
+      "confidence": 0.8,
+      "classification": "Primary",
+      "title": "Units 5-8 (both UI surfaces) do not add any UI-only capability beyond the Unit 3 API",
+      "locations": [
+        "frontend/src/components/ReportProblemPanel.vue",
+        "frontend/src/pages/ErrorReports/ErrorReportsPage.vue",
+        "frontend/src/pages/ErrorReports/ErrorReportDetailPage.vue",
+        "frontend/src/api/errorReports.ts",
+        "webui_app/static/js/ui/error-report-entry.js",
+        "webui_app/api/v1/error_reports.py"
+      ],
+      "description": "Cross-checked every UI action against the raw HTTP contract: manual report submit -> POST (no reportId, source:'manual'); toast 'add detail'/dashboard 'add detail' -> PATCH {description}; status buttons (acknowledged/resolved) -> PATCH {status}; list+filter (status/severity/source) -> GET with querystring; detail drill-down -> GET /{id}. All of these are reachable by a plain HTTP client (curl/script/agent) with no browser required, subject to the same session-cookie + CSRF header requirement every other POST/PATCH/DELETE in this app already imposes (pre-existing, symmetric for humans and scripts -- not a new gap). The API is in fact a strict superset of the UI: GET supports fingerprint/since/until/limit/offset filters and DELETE exists server-side, none of which either frontend surfaces in its UI (no delete button anywhere in either frontend). That is the safe direction of asymmetry (agent has more reach than the UI, not less) and is not flagged as a defect.",
+      "recommendation": "No action required for this finding; recorded as a positive/negative confirmation."
+    },
+    {
+      "id": "fingerprint-merge-workflow-tool",
+      "severity": "observation",
+      "confidence": 0.55,
+      "classification": "Primary",
+      "title": "POST /api/v1/error-reports embeds a merge-vs-insert decision (fingerprint dedup) rather than being a pure primitive",
+      "locations": [
+        "webui_app/api/v1/error_reports.py:169-221"
+      ],
+      "description": "create_error_report() decides, based on payload shape (presence of reportId) and a server-side fingerprint lookup, whether to call store.add() or store.increment_occurrence() -- business logic inside the endpoint rather than the caller supplying that decision as data. This falls under the plan's own justified exception (Step 4): the merge must be authoritative and race-safe server-side across all connections, which a client-supplied 'increment vs insert' flag could not guarantee, and the endpoint's docstring explicitly documents the merge contract. Not flagged as a defect but noted for completeness since it is the one endpoint in this diff with any non-trivial embedded decision logic; an agent driving this endpoint should be aware that submitting a duplicate fingerprint does not always create a new row (a would-be surprising side effect if only inferred from the POST signature)."
+    }
+  ],
+  "notes": "Focus: does the /api/v1/error-reports surface give an agent/script full parity with the two human UIs (nav-bar manual-report panel, toast 'add detail', SPA dashboard list/detail/status buttons)? Yes -- POST/GET-list/GET-one/PATCH/DELETE all exist and are exercised identically by both frontends via plain fetch() with the same CSRF convention every other mutating endpoint in this app uses, so no browser-only capability was found. The one real gap is discoverability, not reachability: the new endpoints were never added to webui_app/api/v1/spec.py or webui_app/api/v1/schemas.py, so they are absent from the generated/committed openapi/backlink-api.yaml that this project treats as its API contract-of-record (feeds Schemathesis conformance + is the natural place any external agent or tool would look to enumerate this app's callable surface). This was not caught by the existing 'is the committed spec stale' test because that test only diffs the committed YAML against spec.py's own output -- both were left in sync by omission."
+}
