@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import Toast from './Toast.vue'
 import { useNotificationsStore } from '../stores/notifications'
+import { useReportPanelStore } from '../stores/reportPanel'
 
 let pinia: ReturnType<typeof createPinia>
 
@@ -49,5 +50,73 @@ describe('Toast', () => {
     await w.vm.$nextTick()
     expect(w.find('[aria-live="assertive"]').text()).toContain('failed!')
     expect(w.find('[aria-live="polite"]').text()).not.toContain('failed!')
+  })
+})
+
+describe('Toast — "补充说明" action (Plan U7)', () => {
+  it('a toast carrying reportId shows the "补充说明" action and opens the shared panel with that id', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    useNotificationsStore().push('抓到一个错误', 'error', 0, 99)
+    await w.vm.$nextTick()
+
+    const btn = w.find('.toast__detail')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+
+    const panel = useReportPanelStore()
+    expect(panel.isOpen).toBe(true)
+    expect(panel.reportId).toBe(99)
+  })
+
+  it('paired: a toast with no reportId does NOT show the "补充说明" action', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    useNotificationsStore().push('boom', 'error')
+    await w.vm.$nextTick()
+
+    expect(w.find('.toast__detail').exists()).toBe(false)
+  })
+
+  it('regression: with reportId absent, existing toast rendering (message + close button) is unchanged', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    useNotificationsStore().push('hello again', 'success')
+    await w.vm.$nextTick()
+
+    expect(w.text()).toContain('hello again')
+    expect(w.find('.toast__close').exists()).toBe(true)
+    expect(w.find('.toast__detail').exists()).toBe(false)
+  })
+})
+
+describe('Toast — reportId toasts stay sticky (Plan U7 regression guard)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('a reportId-bearing (severity error) toast does not auto-dismiss', async () => {
+    vi.useFakeTimers()
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    const store = useNotificationsStore()
+    store.push('抓到一个错误', 'error', 0, 7)
+    await w.vm.$nextTick()
+
+    vi.advanceTimersByTime(60_000)
+    await w.vm.$nextTick()
+
+    expect(store.toasts.length).toBe(1)
+    expect(w.text()).toContain('抓到一个错误')
+  })
+
+  it('paired: an ordinary (no reportId) toast keeps its existing auto-dismiss timeout', async () => {
+    vi.useFakeTimers()
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    const store = useNotificationsStore()
+    store.push('will auto-dismiss', 'success')
+    await w.vm.$nextTick()
+
+    vi.advanceTimersByTime(4_000)
+    await w.vm.$nextTick()
+
+    expect(store.toasts.length).toBe(0)
+    expect(w.text()).not.toContain('will auto-dismiss')
   })
 })

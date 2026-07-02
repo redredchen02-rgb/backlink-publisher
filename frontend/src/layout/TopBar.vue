@@ -3,9 +3,14 @@
 // Theme toggle (Pinia store, the explicit owner — no window.* global) + a Pro
 // status pill sourced from /api/v1/app-config (the context-processor data, now
 // JSON). Search (Ctrl+K) is a stub placeholder for a later unit.
+// Unit 7 adds the "report a problem" entry — opens the shared
+// ReportProblemPanel (stores/reportPanel.ts) with no reportId, i.e. the
+// manual POST path (see ReportProblemPanel.vue's module docstring).
 import { useQuery } from '@tanstack/vue-query'
 import { getJson } from '../api/client'
 import { useThemeStore } from '../stores/theme'
+import { useReportPanelStore } from '../stores/reportPanel'
+import ReportProblemPanel from '../components/ReportProblemPanel.vue'
 
 interface AppConfig {
   lite_edition: boolean
@@ -14,6 +19,7 @@ interface AppConfig {
 }
 
 const theme = useThemeStore()
+const reportPanel = useReportPanelStore()
 const config = useQuery({
   queryKey: ['app-config'],
   queryFn: () => getJson<AppConfig>('/app-config'),
@@ -37,11 +43,15 @@ const config = useQuery({
       >
         Pro {{ config.data.value.llm_configured ? '已启用' : '未配置' }}
       </span>
+      <button type="button" class="topbar__report" @click="reportPanel.open()">
+        报告问题
+      </button>
       <button type="button" class="topbar__theme" @click="theme.toggle()">
         {{ theme.theme === 'dark' ? '🌙' : '☀️' }}
       </button>
     </div>
   </header>
+  <ReportProblemPanel />
 </template>
 
 <style scoped>
@@ -86,5 +96,14 @@ const config = useQuery({
   border: none;
   cursor: pointer;
   font-size: var(--text-xl);
+}
+.topbar__report {
+  font-size: var(--text-sm);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 </style>

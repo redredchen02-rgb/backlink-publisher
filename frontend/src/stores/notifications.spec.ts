@@ -25,6 +25,22 @@ describe('notifications store', () => {
     expect(s.toasts.find((t) => t.id === eid)!.timeout).toBe(0)
   })
 
+  it('push carries an optional reportId through, sticky by default when paired with severity error (Plan U7)', () => {
+    const s = useNotificationsStore()
+    const id = s.push('抓到一个错误', 'error', undefined, 42)
+    const t = s.toasts.find((x) => x.id === id)!
+    expect(t.reportId).toBe(42)
+    expect(t.timeout).toBe(0)
+  })
+
+  it('regression: a toast pushed without a reportId leaves the field undefined and keeps its ordinary timeout', () => {
+    const s = useNotificationsStore()
+    const id = s.push('ordinary toast', 'success')
+    const t = s.toasts.find((x) => x.id === id)!
+    expect(t.reportId).toBeUndefined()
+    expect(t.timeout).toBe(4000)
+  })
+
   it('dismiss removes one; clear removes all', () => {
     const s = useNotificationsStore()
     const id = s.push('a')
