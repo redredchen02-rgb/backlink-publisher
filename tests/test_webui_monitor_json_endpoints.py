@@ -86,3 +86,45 @@ def test_optimization_json_shares_summary_source(client):
     expected = OptimizationState().to_summary().get("platforms", [])
     data = client.get("/api/optimization-status").get_json()
     assert data["platforms"] == expected
+
+
+# ── keep-alive JSON (Sprint B2 gap: SPA calls this legacy route directly,
+# not /api/v1 — see docs/plans/2026-06-30-001 B2 audit) ─────────────────────
+
+def test_keep_alive_summary_json_empty_returns_fields(client):
+    resp = client.get("/api/keep-alive/summary")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["targets"] == []          # empty list, not null
+    assert data["gaps"] == []
+    assert data["is_empty"] is True
+
+
+def test_keep_alive_summary_json_matches_service_source(client):
+    # Parity: endpoint returns the same shape build_keepalive_view() gives
+    # (the source the Jinja fallback page also reads).
+    _seed_equity()
+    from webui_app.services.keep_alive import build_keepalive_view
+    expected = build_keepalive_view()
+    data = client.get("/api/keep-alive/summary").get_json()
+    assert data["targets"] == expected["targets"]
+    assert data["is_empty"] == expected["is_empty"]
+
+
+# ── survival JSON (Sprint B2 gap: SPA calls this legacy route directly,
+# not /api/v1 — see docs/plans/2026-06-30-001 B2 audit) ─────────────────────
+
+def test_survival_json_empty_state_never_500s(client):
+    resp = client.get("/api/survival")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["state"] in ("empty", "insufficient", "ok")
+    assert data["sample_size"] == 0
+
+
+def test_survival_json_shares_view_source(client):
+    from webui_app.services.survival import build_survival_view
+    expected = build_survival_view()
+    data = client.get("/api/survival").get_json()
+    assert data["state"] == expected["state"]
+    assert data["display"] == expected["display"]

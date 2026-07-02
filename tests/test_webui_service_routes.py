@@ -317,6 +317,32 @@ class TestOptimizationStatusRoutes:
         resp = client.post("/optimization-status/unlock-weight", data={"platform": "blogger"})
         assert resp.status_code in (200, 302, 400)
 
+    def test_post_api_set_weight_json_returns_200(self, client):
+        """POST /api/optimization-status/set-weight (JSON twin the SPA calls,
+        Sprint B2 audit gap — see docs/plans/2026-06-30-001 B2) returns 200."""
+        resp = client.post("/api/optimization-status/set-weight", json={
+            "platform": "blogger", "weight": 0.5,
+        })
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_post_api_set_weight_json_missing_fields_is_400(self, client):
+        resp = client.post("/api/optimization-status/set-weight", json={"platform": "blogger"})
+        assert resp.status_code == 400
+        assert resp.get_json()["ok"] is False
+
+    def test_post_api_unlock_weight_json_returns_200(self, client):
+        """POST /api/optimization-status/unlock-weight (JSON twin the SPA calls,
+        Sprint B2 audit gap) returns 200."""
+        resp = client.post("/api/optimization-status/unlock-weight", json={"platform": "blogger"})
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_post_api_unlock_weight_json_missing_platform_is_400(self, client):
+        resp = client.post("/api/optimization-status/unlock-weight", json={})
+        assert resp.status_code == 400
+        assert resp.get_json()["ok"] is False
+
 
 
 class TestSurvivalDashboardRoutes:
