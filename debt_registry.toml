@@ -153,3 +153,205 @@ discovered = "2026-06-17"
 owner = "unassigned"
 status = "resolved"
 resolved_date = "2026-06-17"
+
+# ── D2: except Exception narrowing + seam-layer classification (2026-07-02) ──
+
+[[items]]
+slug = "net-safety-dns-resolve-oserror"
+severity = "low"
+rationale = "_util/net_safety.py::_resolve_host_ips narrows a bare except around socket.getaddrinfo (beyond the already-caught socket.gaierror) to OSError and returns a dns_failure marker. This SSRF guard is fail-closed: _check_url_for_ssrf treats any non-None error string as blocked, so a transient/unexpected socket-layer failure degrades to refusing the URL rather than silently allowing an unresolved host through."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "dedup-gate-key-canonicalization-failure"
+severity = "low"
+rationale = "cli/_dedup_gate.py::_key_for_row narrows a bare except around DedupKey(platform, target_url) construction to (ValueError, TypeError) and returns None, causing the row to be treated as non-deduplicable rather than aborting the whole dedup gate. A malformed target_url on one row must not block dedup evaluation of every other row in the batch."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "keepalive-status-relative-ts-parse-failure"
+severity = "low"
+rationale = "cli/ops/keepalive_status.py::_relative_ts narrows a bare except around datetime.fromisoformat parsing to (ValueError, TypeError) and falls back to returning the raw ISO string (or 'never'). This is a display-only helper for the keepalive-status CLI summary; a malformed timestamp degrading to showing the raw string is safe and preferable to crashing the whole status report."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "probe-citations-strip-scheme-host-parse-failure"
+severity = "low"
+rationale = "cli/ops/probe_citations.py::_strip_scheme_host narrows a bare except around urlsplit(url) to (ValueError, TypeError) and returns the original url unchanged. The result is used only as a config-key lookup for brand aliases, never for routing or auth, so an unparseable URL falling back to itself as the lookup key is a safe, low-consequence degrade."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "pr-opportunities-config-targets-load-failure"
+severity = "low"
+rationale = "cli/pr_opportunities.py::_load_config_targets narrows a bare except around load_config() to (FileNotFoundError, ValueError, TypeError) and returns {}. The function's own docstring documents this contract ('or {} on any error'); the [targets.*] section is an optional scoring enrichment for PR-opportunity ingestion, not required input, so a missing/malformed config degrading to no enrichment is the documented, intended behaviour."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "spray-audit-link-concentration-informational-failure"
+severity = "low"
+rationale = "cli/spray_backlinks/_audit.py::_link_concentration narrows a bare except around corpus analysis (import, dict/attribute access, and the top/total ratio division) to (ImportError, TypeError, ValueError, ZeroDivisionError) and returns None. The metric is informational-only (surfaced as an optional audit stat), so any failure computing it must never abort the spray-backlinks audit run itself."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "config-tokens-load-token-parse-failure"
+severity = "low"
+rationale = "config/tokens.py::_load_token narrows a bare except around opening and JSON-parsing a token file to (json.JSONDecodeError, OSError) and returns None. This mirrors the already-accepted webui-token-paste-file-read-failure pattern: a missing or corrupt token file is expected steady state (channel never bound, or file manually edited) and should read as 'no token' rather than crash the caller."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "errors-emit-envelope-broad-catch"
+severity = "low"
+rationale = "_util/errors.py::_emit_error_envelope keeps a genuinely broad except Exception (not narrowed) around emitting the machine-readable typed-error envelope to stderr. This runs at process-exit time, right before/after the human-readable error text and SystemExit — any failure here (import, serialization, or stderr I/O) must never mask or replace the original error the caller is already reporting, so a broad catch-and-pass is the correct, deliberate choice here, unlike the narrower call sites elsewhere in this file."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "idempotency-store-rollback-failure"
+severity = "low"
+rationale = "idempotency/store.py::connect_immediate narrows the ROLLBACK statement's own failure to sqlite3.Error and swallows it inside a BaseException handler that always re-raises the original error afterwards. A failed ROLLBACK (e.g. connection already broken) must not shadow or replace the real exception that triggered the rollback attempt in the first place."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "campaign-bootstrap-status-fail-soft"
+severity = "low"
+rationale = "webui_app/api/campaign_api.py::_build_publish_partition narrows/keeps three cascading except Exception sites (channel_status.list_all(), verify_health.expired_channels() merge, and the outer partition build) that degrade progressively to an empty status dict, an unmerged status dict, and finally None. This is the campaign-creation form's bootstrap: a status-store error must fall back to the flat platforms list rather than block campaign creation entirely."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "campaign-worker-dispatch-best-effort"
+severity = "low"
+rationale = "webui_app/api/campaign_api.py::create narrows/keeps a bare except Exception around handing the newly created campaign to the in-process CAMPAIGN_WORKER. Campaign creation (the store write) has already succeeded by this point; worker dispatch is best-effort acceleration, and the legacy route has the same fire-and-forget contract, so a dispatch failure must not turn an already-successful creation into an error response."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "image-gen-probe-payload-parse-fallback"
+severity = "low"
+rationale = "webui_app/api/image_gen_diagnostics_api.py::_probe_openai and _probe_frw each keep a bare except Exception around parsing the optional extra fields (model_count / creditsRemaining) out of an already-200 JSON response body. The probe already knows the endpoint is reachable and authorized at this point; an unexpected response shape should degrade to reporting success with the extra field omitted, not turn a working connectivity probe into a false failure."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "image-gen-test-connection-envelope-catchall"
+severity = "low"
+rationale = "webui_app/api/image_gen_diagnostics_api.py::test_connection keeps two except Exception sites (the inner load_config() guard and the outer method-level catch-all) that convert any failure into a {'ok': False, 'error': ...} envelope instead of raising. This is a user-triggered 'test connection' diagnostic button; the method's own docstring guarantees it never raises, and the outer catch now logs type(exc).__name__ server-side (2026-07-02 D2 fix) while returning only the exception class name to the caller, never the raw message."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "image-gen-generate-sample-envelope-catchall"
+severity = "low"
+rationale = "webui_app/api/image_gen_diagnostics_api.py::generate_sample keeps two except Exception sites (the inner load_config() guard and the outer method-level catch-all) that convert any failure into a {'ok': False, 'error': ...} envelope instead of raising, matching test_connection's contract. The outer catch now logs type(exc).__name__ server-side (2026-07-02 D2 fix) while returning only the exception class name to the caller, never the raw message that could echo request/response internals."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "llm-diagnostics-run-connection-error-envelope"
+severity = "low"
+rationale = "webui_app/api/llm_diagnostics_api.py::_run_connection keeps two except Exception sites (around the /models + /chat/completions fallback calls, and around the whole probe) that convert any failure into a {'status': 'error', ...} envelope for the SPA's LLM connection-test button. Both now log type(exc).__name__ server-side (2026-07-02 D2 fix) and return only the exception class name, never the raw exception string, since the request carries a Bearer api_key that must not leak via an echoed error message."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "llm-diagnostics-test-generation-error-envelope"
+severity = "low"
+rationale = "webui_app/api/llm_diagnostics_api.py::test_generation keeps an except Exception around the LLM provider call used by the SPA's generation-preview button, converting any failure into a {'status': 'error', ...} envelope. Now logs type(exc).__name__ server-side (2026-07-02 D2 fix) and returns only the exception class name, never the raw exception string, since the provider call carries the configured api_key."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "scheduled-list-read-fail-open"
+severity = "low"
+rationale = "webui_app/api/scheduled_api.py::list_scheduled keeps a bare except Exception around reading drafts_store for the schedule page listing, degrading to an empty items list plus an error field. Now logs type(exc).__name__ server-side (2026-07-02 D2 fix) instead of returning the raw exception string to the SPA; a transient store-read failure should render an empty schedule page rather than 500 the whole route."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "sites-next-run-scheduler-lookup-fail-open"
+severity = "low"
+rationale = "webui_app/api/sites_api.py::_next_run_iso keeps a bare except Exception around the APScheduler get_job lookup and returns None. The next-run timestamp is a display-only convenience on the sites list; a missing/unstarted scheduler or lookup failure should leave the field null rather than break the whole per-site list render."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "sites-scheduler-job-removal-best-effort"
+severity = "low"
+rationale = "webui_app/api/sites_api.py::set_autopilot keeps a bare except Exception around removing the APScheduler job when disabling autopilot for a site. The schedule_store mutation (autopilot_enabled=False) has already been applied before this point; a job-removal failure is logged/absorbed here so the operator-visible outcome (disabled) still reflects intent, and a stray job firing once more is a low-consequence residual risk, not a correctness bug."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "sites-autopilot-scheduler-sync-rollback"
+severity = "low"
+rationale = "webui_app/api/sites_api.py::set_autopilot keeps an except Exception around APScheduler job (un)registration that explicitly rolls back the just-applied schedule_store mutation to its pre-call snapshot before returning SCHEDULER_SYNC_FAILED. Now logs type(exc).__name__ server-side and returns only the exception class name (2026-07-02 D2 fix, matching scrape_preview's existing type(exc).__name__ convention in this same file), never the raw exception string."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "sites-scrape-preview-fail-safe"
+severity = "low"
+rationale = "webui_app/api/sites_api.py::scrape_preview keeps an except Exception around fetch_work_metadata() (network fetch + HTML parse of an operator-supplied work URL) and returns {'status': 'error', 'reason': type(exc).__name__}. This is the pre-existing reference convention this D2 pass extended to the file's other except sites: never leak the raw exception string, only its class name."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "sites-citation-alert-fail-open"
+severity = "low"
+rationale = "webui_app/api/sites_api.py::citation_share_alert keeps a bare except Exception around reading+parsing the optional logs/citation-share-alert.json side-panel widget file, returning None. This is a best-effort informational widget; a missing or corrupt file should render as 'no alert' rather than break the sites page."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "monitor-summary-aggregator-fail-open"
+severity = "low"
+rationale = "webui_app/api/v1/monitor.py::monitor_summary keeps a bare except Exception around _build_anomaly_cards(_collect_subsystem_status()) and degrades to an empty degraded=True payload. Each subsystem already degrades individually to an 'unavailable' card; this outer catch is documented belt-and-suspenders for a catastrophic aggregator failure, matching the module's own fail-open design note, and the endpoint carries no credentials so there is nothing sensitive to leak."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "pipeline-regen-body-config-load-error"
+severity = "low"
+rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except Exception around load_config() and raises ApiProblem(422, ...). Now passes detail=type(exc).__name__ instead of the raw exception string (2026-07-02 D2 fix) so a config-parse error's underlying file path or content is never echoed back to the SPA caller."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
+
+[[items]]
+slug = "pipeline-regen-body-llm-call-error-redacted"
+severity = "low"
+rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except Exception around the OpenAICompatibleProvider.generate_article_body() call (which carries the configured LLM api_key) and raises ApiProblem(502, ...) with detail=_redact_for_log(str(exc)) — already using the project's shared LLM-client redaction helper rather than a raw string, so this entry documents the existing safe pattern rather than changing it."
+discovered = "2026-07-02"
+owner = "unassigned"
+status = "accepted"
