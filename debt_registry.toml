@@ -12,6 +12,40 @@
 #                      "resolved" or "mitigated"; must not be present for
 #                      "open" or "accepted". Leaves a reviewable timestamp
 #                      so 'closing' a debt is never silent.
+#     location   -- array of strings, each "relative/path.py:<line_number>"
+#                   pointing at the line of a `# debt: <slug>` comment (the
+#                   comment's own line, not the except handler's line). D2b
+#                   〔plan 2026-06-30-001〕: REQUIRED iff this entry's slug is
+#                   referenced by at least one `# debt: <slug>` comment
+#                   anywhere in the codebase; entries with no such comment
+#                   (pre-D2 registry-only debt, e.g. ko-corpus-calibration)
+#                   omit it entirely. Line-number format was chosen over
+#                   `path.py:function_name` because it is the value the
+#                   cross-reference scanner can compute directly from the
+#                   comment's own AST/regex match with no extra resolution
+#                   step, and it stays exact even inside nested/anonymous
+#                   scopes where "function_name" would be ambiguous. An
+#                   entry MAY list more than one location when a single
+#                   reviewed rationale deliberately covers multiple call
+#                   sites documented together (e.g. several cascading
+#                   except-Exception sites in the same function or sibling
+#                   functions fixed as one unit) — this is not a loophole:
+#                   test_cross_reference_debt_comments_have_registry_entries
+#                   in tests/test_debt_registry_format.py still requires
+#                   EVERY individual `# debt: <slug>` comment's own file:line
+#                   to appear in that slug's location array, so a genuinely
+#                   NEW call site pasting an existing slug without adding
+#                   its own location entry fails the cross-reference check.
+#
+# Anti-gaming rules added by D2b (structural, not text-similarity — see
+# tests/test_seam_except_classification.py module docstring for why a
+# difflib.SequenceMatcher reason-similarity check was tried and rejected):
+#   - every (slug, location) pair across the whole registry must be unique
+#     (test_slug_location_pairs_unique) — no two entries may claim the same
+#     call site
+#   - no two entries may share a byte-for-byte identical `rationale` string
+#     (test_no_exact_duplicate_rationale) — catches copy-paste-without-
+#     editing, not reworded duplicates (deliberately out of scope)
 #
 # Adding an item requires editing this file in the PR that surfaces the debt.
 # There is no override label. The defense is `git blame` -- every intentional
@@ -112,6 +146,7 @@ rationale = "events/reconciler.py::_reconcile_history narrows a bare except arou
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/events/reconciler.py:381"]
 
 [[items]]
 slug = "gap-derive-host-urlparse-failure"
@@ -120,6 +155,7 @@ rationale = "gap/events_gap.py::_derive_host narrows a bare except around urllib
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/gap/events_gap.py:243"]
 
 [[items]]
 slug = "webui-token-paste-file-read-failure"
@@ -128,6 +164,7 @@ rationale = "webui_app/helpers/contexts.py::_token_paste_channels_from_registry 
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/helpers/contexts.py:118"]
 
 [[items]]
 slug = "webui-render-queue-load-failure"
@@ -136,6 +173,7 @@ rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/helpers/contexts.py:357"]
 
 [[items]]
 slug = "webui-render-image-gen-status-failure"
@@ -144,6 +182,7 @@ rationale = "webui_app/helpers/contexts.py::_render narrows a bare except around
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/helpers/contexts.py:375"]
 
 [[items]]
 slug = "recheck-ledger-liveness-seam"
@@ -163,6 +202,7 @@ rationale = "_util/net_safety.py::_resolve_host_ips narrows a bare except around
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/_util/net_safety.py:81"]
 
 [[items]]
 slug = "dedup-gate-key-canonicalization-failure"
@@ -171,6 +211,7 @@ rationale = "cli/_dedup_gate.py::_key_for_row narrows a bare except around Dedup
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/cli/_dedup_gate.py:91"]
 
 [[items]]
 slug = "keepalive-status-relative-ts-parse-failure"
@@ -179,6 +220,7 @@ rationale = "cli/ops/keepalive_status.py::_relative_ts narrows a bare except aro
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/cli/ops/keepalive_status.py:31"]
 
 [[items]]
 slug = "probe-citations-strip-scheme-host-parse-failure"
@@ -187,6 +229,7 @@ rationale = "cli/ops/probe_citations.py::_strip_scheme_host narrows a bare excep
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/cli/ops/probe_citations.py:465"]
 
 [[items]]
 slug = "pr-opportunities-config-targets-load-failure"
@@ -195,6 +238,7 @@ rationale = "cli/pr_opportunities.py::_load_config_targets narrows a bare except
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/cli/pr_opportunities.py:44"]
 
 [[items]]
 slug = "spray-audit-link-concentration-informational-failure"
@@ -203,6 +247,7 @@ rationale = "cli/spray_backlinks/_audit.py::_link_concentration narrows a bare e
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/cli/spray_backlinks/_audit.py:80"]
 
 [[items]]
 slug = "config-tokens-load-token-parse-failure"
@@ -211,6 +256,7 @@ rationale = "config/tokens.py::_load_token narrows a bare except around opening 
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/config/tokens.py:76"]
 
 [[items]]
 slug = "errors-emit-envelope-broad-catch"
@@ -219,6 +265,7 @@ rationale = "_util/errors.py::_emit_error_envelope keeps a genuinely broad excep
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/_util/errors.py:205"]
 
 [[items]]
 slug = "idempotency-store-rollback-failure"
@@ -227,6 +274,7 @@ rationale = "idempotency/store.py::connect_immediate narrows the ROLLBACK statem
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["src/backlink_publisher/idempotency/store.py:243"]
 
 [[items]]
 slug = "campaign-bootstrap-status-fail-soft"
@@ -235,6 +283,11 @@ rationale = "webui_app/api/campaign_api.py::_build_publish_partition narrows/kee
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = [
+    "webui_app/api/campaign_api.py:62",
+    "webui_app/api/campaign_api.py:68",
+    "webui_app/api/campaign_api.py:72",
+]
 
 [[items]]
 slug = "campaign-worker-dispatch-best-effort"
@@ -243,6 +296,7 @@ rationale = "webui_app/api/campaign_api.py::create narrows/keeps a bare except E
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/campaign_api.py:109"]
 
 [[items]]
 slug = "image-gen-probe-payload-parse-fallback"
@@ -251,6 +305,10 @@ rationale = "webui_app/api/image_gen_diagnostics_api.py::_probe_openai and _prob
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = [
+    "webui_app/api/image_gen_diagnostics_api.py:63",
+    "webui_app/api/image_gen_diagnostics_api.py:103",
+]
 
 [[items]]
 slug = "image-gen-test-connection-envelope-catchall"
@@ -259,6 +317,10 @@ rationale = "webui_app/api/image_gen_diagnostics_api.py::test_connection keeps t
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = [
+    "webui_app/api/image_gen_diagnostics_api.py:130",
+    "webui_app/api/image_gen_diagnostics_api.py:153",
+]
 
 [[items]]
 slug = "image-gen-generate-sample-envelope-catchall"
@@ -267,6 +329,10 @@ rationale = "webui_app/api/image_gen_diagnostics_api.py::generate_sample keeps t
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = [
+    "webui_app/api/image_gen_diagnostics_api.py:170",
+    "webui_app/api/image_gen_diagnostics_api.py:213",
+]
 
 [[items]]
 slug = "llm-diagnostics-run-connection-error-envelope"
@@ -275,6 +341,10 @@ rationale = "webui_app/api/llm_diagnostics_api.py::_run_connection keeps two exc
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = [
+    "webui_app/api/llm_diagnostics_api.py:170",
+    "webui_app/api/llm_diagnostics_api.py:174",
+]
 
 [[items]]
 slug = "llm-diagnostics-test-generation-error-envelope"
@@ -283,6 +353,7 @@ rationale = "webui_app/api/llm_diagnostics_api.py::test_generation keeps an exce
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/llm_diagnostics_api.py:213"]
 
 [[items]]
 slug = "scheduled-list-read-fail-open"
@@ -291,6 +362,7 @@ rationale = "webui_app/api/scheduled_api.py::list_scheduled keeps a bare except 
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/scheduled_api.py:22"]
 
 [[items]]
 slug = "sites-next-run-scheduler-lookup-fail-open"
@@ -299,6 +371,7 @@ rationale = "webui_app/api/sites_api.py::_next_run_iso keeps a bare except Excep
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/sites_api.py:95"]
 
 [[items]]
 slug = "sites-scheduler-job-removal-best-effort"
@@ -307,6 +380,7 @@ rationale = "webui_app/api/sites_api.py::set_autopilot keeps a bare except Excep
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/sites_api.py:320"]
 
 [[items]]
 slug = "sites-autopilot-scheduler-sync-rollback"
@@ -315,6 +389,7 @@ rationale = "webui_app/api/sites_api.py::set_autopilot keeps an except Exception
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/sites_api.py:323"]
 
 [[items]]
 slug = "sites-scrape-preview-fail-safe"
@@ -323,6 +398,7 @@ rationale = "webui_app/api/sites_api.py::scrape_preview keeps an except Exceptio
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/sites_api.py:365"]
 
 [[items]]
 slug = "sites-citation-alert-fail-open"
@@ -331,6 +407,7 @@ rationale = "webui_app/api/sites_api.py::citation_share_alert keeps a bare excep
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/sites_api.py:436"]
 
 [[items]]
 slug = "monitor-summary-aggregator-fail-open"
@@ -339,6 +416,7 @@ rationale = "webui_app/api/v1/monitor.py::monitor_summary keeps a bare except Ex
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/v1/monitor.py:35"]
 
 [[items]]
 slug = "pipeline-regen-body-config-load-error"
@@ -347,6 +425,7 @@ rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except E
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/v1/pipeline.py:275"]
 
 [[items]]
 slug = "pipeline-regen-body-llm-call-error-redacted"
@@ -355,3 +434,4 @@ rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except E
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
+location = ["webui_app/api/v1/pipeline.py:312"]
