@@ -16,6 +16,8 @@ SPA binding forms consuming them land in later section-3 slices.
 
 from __future__ import annotations
 
+from backlink_publisher._util.logger import plan_logger
+
 
 class ChannelOverviewAPI:
     """Stateless facade; instantiate per call (mirrors the other api/*_api facades)."""
@@ -40,7 +42,11 @@ class ChannelOverviewAPI:
             try:
                 st = get_channel_status(slug, cfg)
             except Exception as e:
-                st = {"blockers": [f"status unavailable: {e}"]}
+                # Logged (not silenced) so a recurring per-channel status
+                # failure is diagnosable; the row still renders as degraded
+                # rather than blanking the whole channel list.
+                plan_logger.warn("channel_status_failed", slug=slug, reason=type(e).__name__)
+                st = {"blockers": [f"status unavailable: {type(e).__name__}"]}
             rows.append({
                 "slug": slug,
                 "display_name": app_meta.display_name(slug),

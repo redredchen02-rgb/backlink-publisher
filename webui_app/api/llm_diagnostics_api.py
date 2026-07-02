@@ -167,9 +167,13 @@ class LlmDiagnosticsAPI:
                     "message": f"响应不合规: {ve}",
                 }, 400
             except Exception as e:
-                return {"status": "error", "message": f"请求异常: {str(e)}"}, 200
+                # debt: llm-diagnostics-run-connection-error-envelope
+                plan_logger.warn("llm_test_connection_request_error", error=type(e).__name__)
+                return {"status": "error", "message": f"请求异常: {type(e).__name__}"}, 200
         except Exception as e:
-            return {"status": "error", "message": f"发生错误: {str(e)}"}, 200
+            # debt: llm-diagnostics-run-connection-error-envelope
+            plan_logger.warn("llm_test_connection_unexpected_error", error=type(e).__name__)
+            return {"status": "error", "message": f"发生错误: {type(e).__name__}"}, 200
 
     def test_generation(self, fields: Mapping) -> DiagnosticResult:
         try:
@@ -206,4 +210,8 @@ class LlmDiagnosticsAPI:
             return DiagnosticResult(
                 {"status": "ok", "result": f"生成的锚点候选: {', '.join(result)}"}, 200)
         except Exception as e:
-            return DiagnosticResult({"status": "error", "message": f"生成预览失败: {str(e)}"}, 200)
+            # debt: llm-diagnostics-test-generation-error-envelope
+            plan_logger.warn("llm_test_generation_failed", reason=type(e).__name__)
+            return DiagnosticResult(
+                {"status": "error", "message": f"生成预览失败: {type(e).__name__}"}, 200
+            )

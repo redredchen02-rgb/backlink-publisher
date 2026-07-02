@@ -35,6 +35,7 @@ from typing import Any
 
 from flask import jsonify, request
 
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher._util.markdown import render_to_html
 from backlink_publisher.sdk.api import PipelineAPI, publish_state_summary
 
@@ -271,8 +272,9 @@ def pipeline_regen_body() -> Any:
     try:
         cfg = load_config()
     except Exception as exc:  # noqa: BLE001
+        # debt: pipeline-regen-body-config-load-error
         raise ApiProblem(
-            422, "Config load failed", detail=str(exc), error_class="invalid_request"
+            422, "Config load failed", detail=type(exc).__name__, error_class="invalid_request"
         ) from exc
 
     if not cfg.llm_anchor_provider or not cfg.llm_anchor_provider.use_article_gen:
@@ -307,6 +309,7 @@ def pipeline_regen_body() -> Any:
             language=language,
         )
     except Exception as exc:  # noqa: BLE001
+        # debt: pipeline-regen-body-llm-call-error-redacted
         from backlink_publisher.llm.client import _redact_for_log
 
         raise ApiProblem(

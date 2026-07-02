@@ -32,6 +32,7 @@ from collections.abc import Mapping
 
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.http_client import http_client
+from backlink_publisher._util.logger import plan_logger
 
 from ..helpers._request_cache import _g_cache
 from .llm_diagnostics_api import DiagnosticResult
@@ -59,6 +60,7 @@ def _probe_openai(base_url: str, api_key: str, model: str) -> dict:
             if isinstance(payload, dict) and "data" in payload:
                 return {"ok": True, "model_count": len(payload["data"]), "configured_model": model}
         except Exception:
+            # debt: image-gen-probe-payload-parse-fallback
             pass
         return {"ok": True, "model_count": 0, "configured_model": model}
     if resp.status_code == 404:
@@ -98,6 +100,7 @@ def _probe_frw(base_url: str, api_key: str, model: str) -> dict:
                 "frw_credits_remaining": credits,
             }
         except Exception:
+            # debt: image-gen-probe-payload-parse-fallback
             pass
         return {"ok": True, "configured_model": model}
     return {"ok": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
@@ -124,7 +127,10 @@ class ImageGenDiagnosticsAPI:
             try:
                 cfg = _g_cache("config", load_config)
             except Exception as exc:
-                return DiagnosticResult({"ok": False, "error": f"load_config failed: {exc}"})
+                # debt: image-gen-test-connection-envelope-catchall
+                return DiagnosticResult(
+                    {"ok": False, "error": f"load_config failed: {type(exc).__name__}"}
+                )
 
             if cfg.image_gen is None:
                 return DiagnosticResult({
@@ -134,7 +140,7 @@ class ImageGenDiagnosticsAPI:
             try:
                 api_key = load_frw_token()
             except RuntimeError as exc:
-                return DiagnosticResult({"ok": False, "error": f"no_token: {exc}"})
+                return DiagnosticResult({"ok": False, "error": f"no_token: {type(exc).__name__}"})
 
             base_url = cfg.image_gen.base_url.rstrip("/")
             model = cfg.image_gen.model
@@ -144,7 +150,9 @@ class ImageGenDiagnosticsAPI:
                 return DiagnosticResult(_probe_frw(base_url, api_key, model))
             return DiagnosticResult(_probe_openai(base_url, api_key, model))
         except Exception as exc:
-            return DiagnosticResult({"ok": False, "error": f"unexpected: {exc}"})
+            # debt: image-gen-test-connection-envelope-catchall
+            plan_logger.warn("image_gen_test_connection_unexpected", reason=type(exc).__name__)
+            return DiagnosticResult({"ok": False, "error": f"unexpected: {type(exc).__name__}"})
 
     def generate_sample(self, fields: Mapping) -> DiagnosticResult:
         """Generate one real test banner and return it as a base64 data-URL.
@@ -159,7 +167,10 @@ class ImageGenDiagnosticsAPI:
             try:
                 cfg = _g_cache("config", load_config)
             except Exception as exc:
-                return DiagnosticResult({"ok": False, "error": f"load_config failed: {exc}"})
+                # debt: image-gen-generate-sample-envelope-catchall
+                return DiagnosticResult(
+                    {"ok": False, "error": f"load_config failed: {type(exc).__name__}"}
+                )
 
             if cfg.image_gen is None:
                 return DiagnosticResult({
@@ -169,7 +180,7 @@ class ImageGenDiagnosticsAPI:
             try:
                 api_key = load_frw_token()
             except RuntimeError as exc:
-                return DiagnosticResult({"ok": False, "error": f"no_token: {exc}"})
+                return DiagnosticResult({"ok": False, "error": f"no_token: {type(exc).__name__}"})
 
             prompt = str(fields.get("prompt") or "").strip() or _SAMPLE_PROMPT
 
@@ -199,4 +210,6 @@ class ImageGenDiagnosticsAPI:
                 "source_url": artifact.source_url,
             })
         except Exception as exc:
-            return DiagnosticResult({"ok": False, "error": f"generate failed: {exc}"})
+            # debt: image-gen-generate-sample-envelope-catchall
+            plan_logger.warn("image_gen_generate_sample_failed", reason=type(exc).__name__)
+            return DiagnosticResult({"ok": False, "error": f"generate failed: {type(exc).__name__}"})

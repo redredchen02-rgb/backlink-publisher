@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.config import load_config
 
 from ..helpers._request_cache import _g_cache
@@ -98,7 +99,8 @@ class MediumLoginAPI:
                 session_op="clear",
             )
         except Exception as e:
-            return MediumLoginResult("danger", f"清除失败: {e}")
+            plan_logger.error("medium_clear_browser_profile_failed", error=str(e))
+            return MediumLoginResult("danger", f"清除失败: {type(e).__name__}")
 
     def status(self, *, probe_logged_in: bool) -> dict:
         """Read-only Medium card state: browser-fallback readiness + whether an

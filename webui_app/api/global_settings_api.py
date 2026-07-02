@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.config import load_config, save_config
 
 from ..helpers.contexts import _load_schedule_settings, _save_schedule_settings
@@ -103,7 +104,10 @@ class GlobalSettingsAPI:
         try:
             save_config(load_config(), target_anchor_keywords=cleaned, target_three_url=None)
         except Exception as e:
-            return GlobalSettingsResult("danger", f"保存失败: {e}", error_class="persistence_failure")
+            plan_logger.error("save_keywords_failed", error=str(e))
+            return GlobalSettingsResult(
+                "danger", f"保存失败: {type(e).__name__}", error_class="persistence_failure"
+            )
 
         msg = "关键词已保存"
         if dup_domains:
@@ -116,12 +120,17 @@ class GlobalSettingsAPI:
             min_hours = float(fields.get("min_interval_hours", 4))
             jitter_mins = int(fields.get("jitter_minutes", 30))
         except (TypeError, ValueError) as e:
-            return GlobalSettingsResult("danger", f"保存失败: {e}", error_class="invalid_request")
+            return GlobalSettingsResult(
+                "danger", f"保存失败: {type(e).__name__}", error_class="invalid_request"
+            )
         try:
             _save_schedule_settings({
                 "min_interval_hours": max(0.5, min_hours),
                 "jitter_minutes": max(0, jitter_mins),
             })
         except Exception as e:
-            return GlobalSettingsResult("danger", f"保存失败: {e}", error_class="persistence_failure")
+            plan_logger.error("save_schedule_failed", error=str(e))
+            return GlobalSettingsResult(
+                "danger", f"保存失败: {type(e).__name__}", error_class="persistence_failure"
+            )
         return GlobalSettingsResult("success", "排程设定已保存")

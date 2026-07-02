@@ -31,6 +31,7 @@ from typing import Any
 
 from flask import current_app, jsonify, request
 
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.config import load_config, save_notion_token
 from backlink_publisher.config.tokens import load_notion_token
 from backlink_publisher.publishing.registry import auth_type as _registry_auth_type
@@ -109,8 +110,9 @@ def settings_save_channel_token(channel: str) -> Any:
             credential_service.save_token(channel, cfg, token)
     except credential_service.ChannelNotConfigured:
         raise ApiProblem(422, "Channel not configured", error_class="invalid_request")
-    except Exception:
-        raise ApiProblem(502, "Failed to save token", error_class="persistence_failure")
+    except Exception as exc:
+        plan_logger.error("save_channel_token_failed", channel=channel, error=str(exc))
+        raise ApiProblem(502, "Failed to save token", error_class="persistence_failure") from exc
     return jsonify({"ok": True, "message": f"{channel} token 已绑定 ✓"})
 
 
@@ -151,8 +153,11 @@ def settings_save_notion_token() -> Any:
             os.chmod(token_path, 0o600)
     except ApiProblem:
         raise
-    except Exception:
-        raise ApiProblem(502, "Failed to save Notion token", error_class="persistence_failure")
+    except Exception as exc:
+        plan_logger.error("save_notion_token_failed", error=str(exc))
+        raise ApiProblem(
+            502, "Failed to save Notion token", error_class="persistence_failure"
+        ) from exc
     return jsonify({"ok": True, "message": "notion token 已绑定 ✓"})
 
 
