@@ -474,7 +474,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
   - `scripts/compare_benchmarks.py` 針對三種情境本機測試通過：baseline 與當前數值相同（無警告）、模擬 30% 迴歸（正確印出 `::warning::` 並標記 regression）、baseline 檔不存在（優雅跳過並印出 warning，exit 0）
   - `python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"`：新增的 `benchmark` job 區塊單獨解析成功；整檔解析在既存（本次未改動）的 `Validate syntax` step 上失敗（PyYAML 對 dedent-to-column-0 的 literal block scalar 的既知限制），與本次 C2 改動無關
 
-- [ ] **C3 — SPA Build / Lint CI 集成**
+- [x] **C3 — SPA Build / Lint CI 集成**
 
 **現狀**：frontend/ 使用 Vite + TypeScript，但 CI 中無前端建置/語法檢查。
 
@@ -484,6 +484,17 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 3. 驗證 CI 中 Node.js 版本（用 `actions/setup-node`）
 
 **驗證**：CI 上的 frontend-lint job 綠色通過
+
+**執行結果（2026-07-02）**：
+
+- 在 `.github/workflows/ci.yml` 新增獨立的 `frontend-lint` job（純新增，未修改既有 `unit`/`integration`/`e2e`/`benchmark` job）：`actions/checkout@v4` → `actions/setup-node@v4`（`cache: npm` + `cache-dependency-path: frontend/package-lock.json`）→ `cd frontend && npm ci` → `cd frontend && npx tsc --noEmit && npx vite build`。
+- **Node 版本**：釘選 `24`。`frontend/package.json` 沒有 `engines` 欄位，repo 裡也沒有 `.nvmrc` 可沿用，因此是刻意選擇而非沿用既有設定：本機檢查 `frontend/node_modules/vite/package.json` 的 `engines` 欄位為 `"^20.19.0 || >=22.12.0"`；以本次執行日期（2026-07-02）而言 Node 22 已於 2024-10 進入 Active LTS、Node 24 已於 2025-10 接手成為 Active LTS，選 24 能拿到比 22 更長的支援期，且滿足 vite 的版本要求（理由已寫進 ci.yml 該步驟的行內註解）。
+- **vite build 輸出路徑驗證**：`frontend/vite.config.ts` 的 `build.outDir` **本來就已經是** `../webui_app/spa_dist`（Plan 2026-06-18-002 U3 建置時就設定好），**不是 bug，不需要修**。本機在本 worktree 實際執行 `npx vite build` 確認：建置成功（exit 0），輸出的 `index.html` + `assets/*.js`/`*.css` 確實落在 repo 根目錄的 `webui_app/spa_dist/` 底下（`webui_app/spa_dist/` 已在 `.gitignore` 第 187 行，`git status` 建置後仍乾淨）。因此本次沒有第二個 commit（action item 2 只需驗證，未觸發任何 fix）。
+- **本機驗證**（`frontend/` 內，先執行 `npm install` 因為本 worktree 的 `node_modules/` 是真實安裝而非 junction，初始為空）：
+  - `npx tsc --noEmit` → **exit 2**（非本次改動造成）：既存的 `@types/node` 缺口——`src/__tests__/data-table-adoption.spec.ts`、`src/__tests__/theme-light-tokens.spec.ts`、`src/__tests__/token-resolution.spec.ts` 對裸露的 `node:fs`/`node:path`/`node:url` 报 `TS2591`，`src/api/client.ts:162` 對 `process` 报 `TS2591`，另外 `theme-light-tokens.spec.ts:65` 有兩個隱式 `any` 參數（`TS7006`）。這些都與本次 C3 改動無關（未新增/修改任何 `.ts`/`.vue` 原始碼），依計畫指示不在本次範圍內修復，只如實記錄。
+  - `npx vite build` → **exit 0**，乾淨成功，204 個模組轉譯，輸出如上述正確落在 `webui_app/spa_dist/`。
+  - 因此新 job 目前會是紅的（卡在 `tsc --noEmit` 那一步），這是如實反映現狀，不是本次改動的缺陷——後續應開一個獨立 unit 補上 `@types/node`（`npm i -D @types/node` 並在 `tsconfig.json` 的 `types` 欄位加上 `"node"`）讓 job 轉綠，不屬於 C3 範圍。
+- **YAML 驗證**：`python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml', encoding='utf-8'))"` 在既存（C2 已記錄、本次未觸碰）的 `Validate syntax` step 的 literal block scalar dedent-to-column-0 問題上失敗，與 C3 改動無關；沿用 C2 的驗證法，把新增的 `frontend-lint` job 區塊單獨抽出、前綴 `jobs:\n` 後 parse，成功解析，且結構符合預期（`runs-on`/`timeout-minutes`/4 個 steps）。
 
 ---
 
