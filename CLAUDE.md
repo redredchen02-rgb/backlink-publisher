@@ -52,9 +52,9 @@ from backlink_publisher.image_gen import ImageGenAdapter
 
 ## WebUI Layout
 
-- `webui_app/` — Flask app (37 route modules, `create_app()` factory), including `webui_app/api/` (the `/api/v1/*` seam layer — see ARCHITECTURE.md and D2/C1b for its bare-except cleanup work)
+- `webui_app/` — Flask app (36 route modules, `create_app()` factory), including `webui_app/api/` (the `/api/v1/*` seam layer — see ARCHITECTURE.md and D2/C1b for its bare-except cleanup work)
 - `webui_store/` — state persistence. **10** `_LazyStore`-backed singleton stores total (live-recomputed 2026-07-02, method: `grep -rn "_LazyStore(" webui_store/*.py`; supersedes a stale "9" figure that missed one): the 8 declared in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`), plus `channel_status_store` (`webui_store/channel_status.py`), plus `verify_health_store` (`webui_store/verify_health.py`) — a pre-existing `_LazyStore` singleton that was never re-exported through `__init__.py.__all__` and so was previously left out of the count. (A separate, not-yet-landed plan, `docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md`, would add an 11th store, `webui_store/error_reports.py` — it has not landed in this worktree/repo as of this count, so it is not included here.)
-- `webui_app/services/` — backend logic (19 modules: bind jobs, browser login, recheck/keep-alive, 4 `copilot_*` advisory modules, credential/oauth services, health projection, settings, survival, SEO viz, medium liveness, pipeline, themed-content, url-verify throttle)
+- `webui_app/services/` — backend logic (22 modules: bind jobs, browser login, recheck/keep-alive, alerting, app_meta, 4 `copilot_*` advisory modules, credential/oauth services, health projection, settings, survival, SEO viz, medium liveness, pipeline, themed-content, url-verify throttle, `_keepalive_engine`)
 - `templates/base.html` — owns the single `<head>`; every legacy Jinja page `{% extends 'base.html' %}`
 - `static/js/lib/` — shared ESM layer for legacy Jinja pages (`api.js`, `dom.js`, `profiles.js`)
 - `static/css/tokens.css` — single `:root` token source, shared by both frontends
