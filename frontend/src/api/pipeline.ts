@@ -77,8 +77,20 @@ export const previewBacklink = (p: PlanPayload): Promise<PreviewResponse> =>
 export const validateBacklinks = (plans: PlanRow[] | string): Promise<ValidateResponse> =>
   sendJson('POST', '/pipeline/validate', { plans })
 
+// Backend publish is synchronous with a documented 300s timeout (see
+// webui_app/api/v1/pipeline.py's module docstring). The client timeout here
+// is set safely above that so a slow-but-still-running publish isn't
+// mistaken for a hang, and noRetry is set because a client-side abort/
+// network error doesn't prove the server didn't already publish — retrying
+// could duplicate a live post to an external platform (code-review finding,
+// 2026-07-02).
+const PUBLISH_TIMEOUT_MS = 310_000
+
 export const publishBacklinks = (p: PublishPayload): Promise<PublishResult> =>
-  sendJson('POST', '/pipeline/publish', p)
+  sendJson('POST', '/pipeline/publish', p, {
+    timeoutMs: PUBLISH_TIMEOUT_MS,
+    noRetry: true,
+  })
 
 export const regenArticleBody = (p: RegenBodyPayload): Promise<RegenBodyResponse> =>
   sendJson('POST', '/pipeline/regen-body', p)

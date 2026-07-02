@@ -126,3 +126,48 @@ describe('sendJson CSRF retry', () => {
     expect(seen).toEqual(['t1', 't2']) // refreshed token on retry
   })
 })
+
+describe('sendJson noRetry (code-review finding, 2026-07-02)', () => {
+  // A client-side network error/timeout doesn't prove the server never
+  // processed a non-idempotent mutation (e.g. /pipeline/publish). noRetry
+  // must skip the network-error auto-retry entirely, while still allowing
+  // the (unrelated) CSRF-403 retry to fire when the server actually responds.
+
+  it('does NOT retry on a network-level TypeError when noRetry is set', async () => {
+    let calls = 0
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).endsWith('/csrf-token')) return jsonResponse({ csrf_token: 't1' })
+      calls += 1
+      throw new TypeError('Failed to fetch')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      sendJson('POST', '/pipeline/publish', { plans: [], platform: 'x' }, { noRetry: true }),
+    ).rejects.toBeInstanceOf(TypeError)
+    expect(calls).toBe(1) // no retry attempted
+  })
+
+  it('still retries once on a 403 (CSRF rotation) even with noRetry set', async () => {
+    const seen: string[] = []
+    let tokenSeq = 0
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith('/csrf-token')) {
+        tokenSeq += 1
+        return jsonResponse({ csrf_token: `t${tokenSeq}` })
+      }
+      seen.push(String((init?.headers as Record<string, string>)['X-CSRFToken']))
+      return seen.length === 1 ? jsonResponse({ ok: false }, 403) : jsonResponse({ ok: true })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await sendJson(
+      'POST',
+      '/pipeline/publish',
+      { plans: [], platform: 'x' },
+      { noRetry: true },
+    )
+    expect(result).toEqual({ ok: true })
+    expect(seen).toEqual(['t1', 't2'])
+  })
+})

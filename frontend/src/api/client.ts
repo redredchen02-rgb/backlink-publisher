@@ -192,12 +192,23 @@ export async function getJson<T = unknown>(
   return withRetry(doFetch)
 }
 
-/** Send a mutating JSON request with a fresh CSRF token; retry once on 403. */
+/**
+ * Send a mutating JSON request with a fresh CSRF token; retry once on 403.
+ *
+ * `noRetry` opts out of the network-error auto-retry (see `withRetry`) for
+ * non-idempotent endpoints where a client-side timeout/network blip doesn't
+ * prove the server didn't already process the request — e.g. `/pipeline/
+ * publish`, which can post live content to an external platform. The
+ * 403-rotation retry above is unaffected: that only fires after a definite
+ * server response, never after a network-level failure. (Code-review
+ * finding, 2026-07-02 — auto-retrying a call the server may have already
+ * completed risked a duplicate publish.)
+ */
 export async function sendJson<T = unknown>(
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; noRetry?: boolean },
 ): Promise<T> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
 
@@ -224,7 +235,7 @@ export async function sendJson<T = unknown>(
     return (await resp.json()) as T
   }
 
-  return withRetry(doSendWithCsrf)
+  return options?.noRetry ? doSendWithCsrf() : withRetry(doSendWithCsrf)
 }
 
 /** Test seam: reset the in-memory token (never persisted anyway). */
