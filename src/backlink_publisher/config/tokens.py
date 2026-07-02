@@ -72,8 +72,11 @@ def _load_token(path: Path | None, default_filename: str) -> dict[str, Any] | No
     try:
         with open(token_path, encoding="utf-8") as f:
             return cast("dict[str, Any] | None", json.load(f))
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
         # debt: config-tokens-load-token-parse-failure
+        # UnicodeDecodeError: a token file with invalid UTF-8 bytes must
+        # degrade to None like any other corrupt file, not crash the
+        # caller — code-review finding, 2026-07-02.
         return None
 
 

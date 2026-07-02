@@ -7,10 +7,12 @@ All Flask-free helpers are in webui_app.services.settings_service (U4).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import sqlite3
 from typing import Any
 
 from flask import render_template
 
+from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config import (
     load_blogger_token,
     load_config,
@@ -353,8 +355,11 @@ def _render(template_name: str, **kwargs: Any) -> Any:
     if 'tasks' not in kwargs:
         try:
             kwargs['tasks'] = _g_cache('tasks', _queue_store.load)
-        except (OSError, ValueError):
+        except (OSError, ValueError, sqlite3.Error):
             # debt: webui-render-queue-load-failure
+            # sqlite3.Error: the queue store is SQLite-backed (webui.db); a
+            # locked/corrupt DB must degrade to an empty task list like any
+            # other read failure — code-review finding, 2026-07-02.
             kwargs['tasks'] = []
     if 'now_iso' not in kwargs:
         now = datetime.now()
@@ -371,8 +376,13 @@ def _render(template_name: str, **kwargs: Any) -> Any:
         try:
             cfg = _g_cache('config', load_config)
             kwargs['image_gen_status'] = _image_gen_status(cfg)
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError, DependencyError):
             # debt: webui-render-image-gen-status-failure
+            # DependencyError: load_config() raises this for a malformed
+            # config.toml (e.g. an unmapped Blogger blog_id) — the original
+            # rationale for this fallback names exactly this failure mode,
+            # but the narrowed except missed it — code-review finding,
+            # 2026-07-02.
             kwargs['image_gen_status'] = {
                 'configured': False, 'token_present': False,
                 'config': None, 'token_path': '', 'token_mtime': None,

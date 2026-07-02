@@ -48,3 +48,19 @@ def test_check_url_allow_private_still_blocks_metadata() -> None:
     url = "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
     assert _check_url_for_ssrf(url) is not None
     assert _check_url_for_ssrf(url, allow_private=True) is not None
+
+
+def test_check_url_degrades_on_idna_encoding_failure_instead_of_raising(monkeypatch) -> None:
+    """Code-review finding, 2026-07-02: an IDNA-invalid hostname makes
+    ``socket.getaddrinfo`` raise ``UnicodeError`` — a ``ValueError``
+    subclass, not ``OSError``. The never-raises contract documented on
+    ``_check_url_for_ssrf`` requires this to degrade to a blocked result
+    (``dns_failure``), not propagate.
+    """
+    def _raise_unicode_error(host, *args, **kwargs):
+        raise UnicodeError("label too long")
+
+    monkeypatch.setattr(
+        "backlink_publisher._util.net_safety.socket.getaddrinfo", _raise_unicode_error
+    )
+    assert _check_url_for_ssrf("http://evil.example.com/") == "dns_failure"

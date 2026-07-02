@@ -232,6 +232,29 @@ def test_no_parseable_rows_renders_red_banner(client, seeded_session, monkeypatc
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def test_render_degrades_tasks_on_sqlite_error(app, monkeypatch):
+    """Code-review finding, 2026-07-02: _render's tasks fallback named a
+    locked/corrupt queue DB as its own rationale, but its except clause
+    didn't actually catch sqlite3.Error — the queue store is SQLite-backed,
+    so this crashed the whole page instead of degrading to an empty list.
+    """
+    import sqlite3
+
+    from webui_store import queue_store as _queue_store_instance
+
+    def _raise_sqlite_error():
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(_queue_store_instance, "load", _raise_sqlite_error)
+
+    with app.test_request_context("/"):
+        from webui_app.helpers.contexts import _render
+        resp = _render("index.html", published=None, config={}, history_active=True)
+
+    status_code = resp.status_code if hasattr(resp, "status_code") else 200
+    assert status_code == 200
+
+
 def test_legacy_caller_without_publish_state_renders_green(app):
     """Template default: when neither publish_state nor publish_error is
     passed but `published` is truthy, the template falls back to all_success.

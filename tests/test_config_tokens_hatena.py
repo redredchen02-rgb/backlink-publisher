@@ -56,6 +56,15 @@ class TestHatenaToken:
     def test_load_returns_none_when_missing(self, config_dir):
         assert load_hatena_token() is None
 
+    def test_load_returns_none_on_invalid_utf8_instead_of_raising(self, config_dir):
+        """Code-review finding, 2026-07-02: a token file with invalid UTF-8
+        bytes must degrade to None like any other corrupt file, not raise
+        UnicodeDecodeError past the caller.
+        """
+        cred_file = config_dir / "hatena-credentials.json"
+        cred_file.write_bytes(b"\xff\xfe\x00not valid utf-8")
+        assert load_hatena_token() is None
+
     def test_token_files_includes_hatena(self):
         platforms = {p for p, _ in _TOKEN_FILES}
         assert "hatena" in platforms

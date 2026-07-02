@@ -10,6 +10,8 @@ __tier__ = "unit"
 
 import pytest
 
+from backlink_publisher._util.errors import DependencyError
+
 # Route tests for /settings/test-image-gen + /settings/generate-sample-image
 # removed in U8 5b (Plan 2026-06-18-002) — those routes are retired.
 # Equivalent coverage at /api/v1/settings/image-gen/* in test_webui_api_v1_image_gen.py.
@@ -86,3 +88,35 @@ def test_image_gen_status_helper_reports_token_presence(tmp_path, monkeypatch):
     status = _image_gen_status(cfg)
     assert status["token_present"] is True
     assert status["token_mtime"]  # non-empty timestamp string
+
+
+# ── _render's image_gen_status fallback ──────────────────────────────────────
+
+
+def test_render_degrades_image_gen_status_on_dependency_error(tmp_path, monkeypatch):
+    """Code-review finding, 2026-07-02: _render's image_gen_status fallback
+    named DependencyError (a malformed-config failure) as its own rationale,
+    but its except clause didn't actually catch it — a config.toml that
+    load_config() rejects with DependencyError crashed the whole page
+    instead of degrading to the documented 'not configured' status.
+    """
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+    from webui_app import create_app
+
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["CSRF_ENABLED"] = False
+
+    def _raise_dependency_error():
+        raise DependencyError("unmapped blog_id")
+
+    monkeypatch.setattr(
+        "webui_app.helpers.contexts.load_config", _raise_dependency_error
+    )
+
+    with app.test_request_context("/"):
+        from webui_app.helpers.contexts import _render
+        resp = _render("index.html", published=None, config={}, history_active=True)
+
+    status_code = resp.status_code if hasattr(resp, "status_code") else 200
+    assert status_code == 200

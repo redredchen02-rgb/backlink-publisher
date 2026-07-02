@@ -77,8 +77,11 @@ def _resolve_host_ips(host: str) -> tuple[list[str], str | None]:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror:
         return [], "dns_failure"
-    except OSError:
+    except (OSError, UnicodeError):
         # debt: net-safety-dns-resolve-oserror
+        # UnicodeError: getaddrinfo raises this (a ValueError subclass, not
+        # OSError) when the hostname fails IDNA encoding (e.g. an overlong
+        # or empty label) — code-review finding, 2026-07-02.
         return [], "dns_failure"
     ips: list[str] = []
     for fam, _typ, _proto, _canon, sockaddr in infos:
