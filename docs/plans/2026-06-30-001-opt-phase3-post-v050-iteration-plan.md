@@ -549,7 +549,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 - `docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md` 的 `webui_app/api/v1/error_reports.py` 尚未落地（confirmed 不存在），本次未掃描該檔（項目 7 不適用）。
 - 測試：`tests/test_debt_registry_format.py`（332 passed）、`py_compile`/`compileall` 全過所有被改動檔案；針對每個被改動模組跑對應測試檔（`test_webui_api_v1_*`、`test_pipeline_api_seam.py`、`test_drafts_bulk_routes.py`、`test_autopilot_scheduler.py`、`test_credential_save_dispatch_drift.py`、`test_net_safety_allow_private.py`、`test_idempotency_store.py`、`test_optimization_rules.py`、`test_spray_backlinks_*`、`test_config_tokens_*`、`test_url_derive.py`、`test_keepalive_status.py`、`test_cli_probe_citations.py`、`test_dedup_enforce_gate.py` 等）——除本 worktree既有、與本次改動無關的 pre-existing 失敗（Windows chmod 0600 語意、PID 存活性偵測、SPA 路由前綴漂移、`test_no_raw_requests_outside_http_client.py` 的 Windows 路徑分隔符問題）外，所有直接命中被改動程式碼路徑的測試（`test_webui_api_v1_oauth.py`、`test_webui_api_v1_image_gen.py`、`test_webui_api_v1_llm_diagnostics.py`、`test_webui_api_v1_global_settings.py`、`test_webui_api_v1_medium_login.py`、`test_webui_api_v1_settings_credentials.py`、`test_webui_api_v1_campaigns.py`、`test_webui_api_v1_channel_bind.py`、`test_webui_api_v1_drafts.py`、`test_webui_api_v1_monitor.py`、`test_webui_api_v1_pipeline.py` 等）全數通過。
 
-- [ ] **D2a — 訊號往返驗證〔R1a，新增〕**
+- [x] **D2a — 訊號往返驗證〔R1a，新增〕**
 
 **現狀**：D2 的 except 分類只處理「例外有沒有被吞掉」，但 `docs/solutions/` 記錄的多個歷史案例（dofollow-undercounting 的三重缺口、language-matches-always-true 永遠回傳 True 的判斷式）根因根本不是被吞掉的例外，而是資料/邏輯層的靜默遺漏——單靠 except 分類無法防止這類 bug 重演。
 
@@ -558,6 +558,18 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 2. 可參考 `tests/test_ledger_aggregate.py`（`recheck-ledger-liveness-seam` debt 條目提到的、已經有類似「斷言 live 數字真的下降」的正向整合測試）作為既有可仿效的模式
 
 **驗證**：五個接縫模組各自至少一個新的往返驗證測試，且測試確實斷言終點狀態的具體數值/內容，不是型別或結構
+
+**執行記錄**：讀了兩個歷史案例——`docs/solutions/logic-errors/2026-06-05-001-live-dofollow-undercounting-triple-gap.md`（三重缺口：`verified_at` 沒寫回、`publish.unverified` 未排入 recheck、`uncertain` 平台的 probe 信號被丟棄）與 `docs/solutions/logic-errors/language-matches-always-true-no-op-gate-2026-05-14.md`（`language_matches()` 每個分支都 `return True`，唯一的既有測試只斷言 `isinstance(warnings, list)`，型別測試永遠綠燈）。兩案例的共同教訓：既有測試只斷言型別/呼叫發生，從未斷言終點的具體值——這正是本單元要堵的洞。逐一檢視五個模組既有測試後發現：`idempotency/store.py`、`ledger/`（既有 `recheck-ledger-liveness-seam` 測試群）已有一定往返覆蓋，但仍各自存在未斷言的欄位/路徑；`gap/events_gap.py` 的 `PipelineGap.host` 從未被斷言過；`events/reconciler.py` 與 `webui_app/api/v1/campaigns.py` 的既有測試明確用 spy/monkeypatch 繞過真實儲存層（`_spy_update`、`campaigns_mod._api` 全面 patch），只證明「呼叫發生」而非「終點狀態真的變了」。
+
+| 模組 | 測試 | 具體斷言 |
+|---|---|---|
+| `ledger/` | `tests/test_ledger_aggregate.py::test_uncertain_platform_confirmed_dofollow_recheck_promotes_live_dofollow`（Gap 3 的獨立場景，不同於既有 `recheck-ledger-liveness-seam` 的 host_gone/dofollow_lost 測試群） | `_recheck` 寫入 `confirmed_dofollow=True` 後，`row.live_dofollow == 1`、`row.live_dofollow_platforms == ["wordpresscom"]`、`row.dofollow.uncertain == 0`（基線先斷言 `baseline.live_dofollow == 0` 且 `dofollow.uncertain == 1`） |
+| `gap/` | `tests/test_events_gap.py::TestFindGaps::test_gap_host_and_payload_reflect_the_actual_event` | `gap.host == "blog.example.org"`（先前全部測試只斷言 `gap_type`/`target_url`，從未斷言 `host`）且 `gap.last_intent_payload == {...}` 的具體字典內容 |
+| `idempotency/store.py` | `tests/test_idempotency_store.py::test_run_id_persists_through_intent_and_transition` | `intent_write(run_id="run-abc-123")` 後 `rec.run_id == "run-abc-123"`，且 `transition(..., "done", ...)`（不傳 `run_id`）之後 `rec.run_id` 仍是 `"run-abc-123"`（COALESCE 沒有靜默清空） |
+| `events/`（`reconciler.py`） | `tests/test_reconciler_batch_read.py::test_auto_fix_persists_to_real_checkpoint_file_on_disk` | 不 monkeypatch `_update_checkpoint_item`/`list_failed_items`，跑真實 `checkpoint.create_checkpoint` → `_reconcile_checkpoints` → `checkpoint.load_checkpoint(run_id)` 讀回磁碟 JSON，斷言 `item["status"] == "done"` |
+| `webui_app/api/` | `tests/test_webui_api_v1_campaigns.py::test_webui_campaigns_create_persists_to_real_campaign_store` | 不 patch 模組級 `_api`，用隔離的 `tmp_path` config dir 真的打 `POST /api/v1/campaigns` → 讀回 `campaign_store.get(campaign_id)`，斷言 `stored["platforms"] == ["blogger"]`、`stored["mode"] == "draft"`、`stored["seeds"][0]["seed_text"] == "round-trip seed"` |
+
+測試結果：`tests/test_reconciler_batch_read.py`（12 passed）、`tests/test_ledger_aggregate.py`（23 passed）、`tests/test_events_gap.py`（11 passed）、`tests/test_webui_api_v1_campaigns.py`（5 passed）全過；`tests/test_idempotency_store.py`（25 passed, 2 pre-existing failed — `test_attempting_with_dead_pid_is_stale`、`test_store_files_are_0600`，與本次改動無關的既有 Windows PID 存活性偵測/chmod 0600 語意失敗，計畫文件已記載）。
 
 - [ ] **D2b — debt_registry.toml 結構化定位 + 防敷衍機制〔doc-review 新增，取代 C1b 原本失效的相似度檢查〕**
 
