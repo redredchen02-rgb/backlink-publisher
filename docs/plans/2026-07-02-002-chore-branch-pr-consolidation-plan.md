@@ -1,7 +1,7 @@
 ---
 title: "chore: Branch & PR Consolidation — Merge Completed Work, Prune Landed Branches"
 type: refactor
-status: active
+status: completed
 date: 2026-07-02
 claims: {}  # pure git housekeeping (merge/delete/commit-carry-forward) — no new business logic; verified by branch/worktree state + existing test suite on touched files, not new assertions
 ---
@@ -128,7 +128,7 @@ This plan required git-topology archaeology rather than code-pattern research (n
 
 ## Implementation Units
 
-- [ ] **Unit 1: Preserve in-flight WIP on the current branch**
+- [x] **Unit 1: Preserve in-flight WIP on the current branch**
 
 **Goal:** Commit the uncommitted except-narrowing fixes and the untracked v0.6.0 plan doc on `fix/webui-theme-nav-layout-cleanup` so nothing is lost before this branch is merged or any worktree is touched.
 
@@ -155,7 +155,7 @@ This plan required git-topology archaeology rather than code-pattern research (n
 
 ---
 
-- [ ] **Unit 2: Prune branches with content already verified in `main`**
+- [x] **Unit 2: Prune branches with content already verified in `main`**
 
 **Goal:** Delete all branches (local and remote) whose full content is already present under different commit hashes (in local `main` for local-only/local+origin branches, in `origin/main` for remote-only branches), per the verification table in Context & Research, with a safety tag on each so deletion is recoverable independent of reflog retention.
 
@@ -184,7 +184,7 @@ This plan required git-topology archaeology rather than code-pattern research (n
 
 ---
 
-- [ ] **Unit 3: Merge `feat/frontend-error-reporting` into `main`**
+- [x] **Unit 3: Merge `feat/frontend-error-reporting` into `main`**
 
 **Goal:** Land the completed frontend error-reporting/diagnostics work into `main`.
 
@@ -210,7 +210,7 @@ This plan required git-topology archaeology rather than code-pattern research (n
 
 ---
 
-- [ ] **Unit 4: Merge `feat/phase3-sprint-b-frontend-stabilization` into `main`, then prune its subset branch**
+- [x] **Unit 4: Merge `feat/phase3-sprint-b-frontend-stabilization` into `main`, then prune its subset branch**
 
 **Goal:** Land the Phase 3 frontend-stabilization integration branch (which already contains `feat/phase3-sprint-e1-docs-archive`) into `main`, then remove the now-fully-redundant e1 branch.
 
@@ -237,7 +237,7 @@ This plan required git-topology archaeology rather than code-pattern research (n
 
 ---
 
-- [ ] **Unit 5: Merge `fix/webui-theme-nav-layout-cleanup` into `main`, repoint the canonical worktree**
+- [x] **Unit 5: Merge `fix/webui-theme-nav-layout-cleanup` into `main`, repoint the canonical worktree**
 
 **Goal:** Land the theme/nav/layout cleanup work (plus the Unit-1-preserved except-narrowing fixes and v0.6.0 plan doc) into `main`, and leave the canonical `backlink-publisher/` worktree checked out on `main` afterward.
 
@@ -264,7 +264,7 @@ This plan required git-topology archaeology rather than code-pattern research (n
 
 ---
 
-- [ ] **Unit 6: Final state audit**
+- [x] **Unit 6: Final state audit**
 
 **Goal:** Confirm the workspace is in the intended clean, up-to-date state and that nothing out of scope was disturbed.
 
@@ -308,6 +308,19 @@ This plan required git-topology archaeology rather than code-pattern research (n
 | `AGENTS.md`'s stale-branch list (R6) drifts again after this plan if future branches aren't cleaned up promptly | Out of scope to prevent structurally here — noted as a documentation-hygiene follow-up, not blocking this plan |
 | `chore/v050-doc-archive` / `feat/v050-ui-consistency` deletions rest on weaker verification than the other 7 (no exact `git cherry` patch match; one touches a file since relocated by the SPA rewrite) | R7 tag-before-delete on every Unit 2 deletion gives a durable, reflog-independent rollback point specifically for these two weaker-verified branches |
 | Local `main`'s "up-to-date" state after this plan is relative to local branches only — it remains diverged from `origin/main` by an independently-forked U5–U8 decoupling refactor (~1061 files) | Explicitly named as out of scope (Scope Boundaries, Deferred to Separate Tasks) rather than silently left unaddressed; Overview and Unit 6 verification carry the caveat forward so it isn't mistaken for a completeness gap in this plan's own execution |
+
+## Execution Summary (2026-07-02)
+
+All 6 units executed. Outcomes that materially differed from the plan as written:
+
+- **Scope correction found during execution:** `chore/v050-doc-archive` and `feat/v050-ui-consistency` also had `origin/*` remote-tracking refs (documented in this plan as "local only" — an error caught and corrected during Unit 2 rather than earlier during planning). Both remote-tracking refs were deleted alongside their local branches.
+- **Push access fully blocked, not just the `gh` API:** the write-probe in Unit 2 confirmed `git push` itself (not just the `gh` CLI/API) is blocked on `origin` (account suspension) and `gitlab` (no working SSH auth). All 9 Unit 2 deletions were local-ref-only, as the plan's fallback anticipated; the corresponding remote branches on GitHub/GitLab still need manual deletion once access is restored.
+- **Concurrent session discovered on `feat/phase3-sprint-b-frontend-stabilization`:** partway through Unit 4's post-merge verification, `bp-phase3-sprint-b` showed new commits (a code-review/adversarial-finding fix cycle) that postdated this plan's merge of that branch's tip into `main`. Per this workspace's own concurrent-session protocol, the branch and worktree deletion for `feat/phase3-sprint-b-frontend-stabilization` was **not executed** — left alone rather than risking destruction of the other session's in-progress work. Its content as merged into `main` is unaffected; only the follow-up branch/worktree cleanup is deferred. `bp-u1-triage` was independently confirmed to also have substantial new uncommitted changes beyond its original single audit file, consistent with a second concurrent session actively progressing the v0.6.0 plan's U1 unit — R3 held (it was never written to).
+- **One genuine merge-interaction regression found and fixed:** merging `feat/frontend-error-reporting` (Unit 3) and `feat/phase3-sprint-b-frontend-stabilization` (Unit 4) in sequence surfaced an unclassified bare `except Exception:` in `webui_app/api/v1/error_reports.py` that neither branch's own test suite caught in isolation — the seam-classification gate only started scanning that file's directory once both merges landed. Fixed by narrowing to `(tomllib.TOMLDecodeError, OSError)`, matching the existing docstring's stated intent and Unit 1's established pattern.
+- **Full differential test verification:** rather than relying on the plan's "existing tests for touched files" language alone, the actual Python unit-tier suite (2000+ tests) was run against both the pre-merge baseline (`a5dc969b`, in an isolated comparison worktree) and post-merge `main`, and every failure-count/name delta was individually traced to its origin. Of 30 tests newly failing post-merge, 29 were confirmed pre-existing on `feat/phase3-sprint-b-frontend-stabilization` in isolation (a shim `import *` dropping private helper re-exports — out of this plan's scope to fix, same category as the already-documented ~366-failure baseline) and 1 was the genuine merge-interaction issue above, now fixed. Frontend (`vitest`, 240 tests) and TypeScript compile-checks were also run; the 3 pre-existing `vue-tsc` type errors found were traced back to the original pre-merge `main` and confirmed unrelated to this plan.
+- **`docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md`** (the untracked, drifted copy flagged in Open Questions) was confirmed stale (all units unchecked, `status: active`) against the canonical committed copy on `feat/frontend-error-reporting` (all units checked, completed) and discarded rather than committed.
+
+**Final state:** `main` contains all local worktree branches' content except the not-yet-finished WIP on `fix/u1-test-suite-triage` (R3, untouched) and `feat/phase3-sprint-b-frontend-stabilization`'s newest commits made after this plan's merge point (branch/worktree cleanup deferred, content already in `main`). 13 `archive/*` tags exist as rollback points for every deleted/merged branch. Nothing was pushed to `origin` or `gitlab` (R5).
 
 ## Sources & References
 
