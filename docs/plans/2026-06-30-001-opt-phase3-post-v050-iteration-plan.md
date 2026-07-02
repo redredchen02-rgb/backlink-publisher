@@ -571,7 +571,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 測試結果：`tests/test_reconciler_batch_read.py`（12 passed）、`tests/test_ledger_aggregate.py`（23 passed）、`tests/test_events_gap.py`（11 passed）、`tests/test_webui_api_v1_campaigns.py`（5 passed）全過；`tests/test_idempotency_store.py`（25 passed, 2 pre-existing failed — `test_attempting_with_dead_pid_is_stale`、`test_store_files_are_0600`，與本次改動無關的既有 Windows PID 存活性偵測/chmod 0600 語意失敗，計畫文件已記載）。
 
-- [ ] **D2b — debt_registry.toml 結構化定位 + 防敷衍機制〔doc-review 新增，取代 C1b 原本失效的相似度檢查〕**
+- [x] **D2b — debt_registry.toml 結構化定位 + 防敷衍機制〔doc-review 新增，取代 C1b 原本失效的相似度檢查〕** ✅ 已完成（2026-07-02）
 
 **現狀**：C1b 原本規劃用「理由文字相似度 >90% 視為重複」防止敷衍式合規。**adversarial review 用 `difflib.SequenceMatcher`（即計畫原本說的「簡單字串相似度、不用 NLP」）實際計算，發現這個機制兩面都不可靠**：兩句實質重複但換句話說的籠統理由，相似度只有 0.488（低於門檻，抓不到真正的重複）；兩句針對不同呼叫點、各自具體但剛好用了相近句型的合格理由，相似度卻有 0.934（高於門檻，會把合格的工作誤判為重複）。**〔深化 doc-review 修正〕更根本的問題不是「完全沒有唯一性檢查」**——`tests/test_debt_registry_format.py::test_all_slugs_unique` 已即時查證存在，`slug` 目前就是全域唯一（registry 檔頭註解也明確記載 `slug` 為 unique identifier）。真正的缺口是：`location` 欄位不存在，也沒有機制把一則 `# debt: <slug>` 註解跟 `debt_registry.toml` 裡的條目綁到具體呼叫點——就算加了 `location` 欄位但只是可選、不驗證 (slug, location) 唯一性，最便宜的敷衍路徑會是：寫**一筆**籠統但剛好 ≥80 字的理由，然後在多個不同呼叫點都用同一個既有（已通過全域唯一性檢查）的 `# debt: <slug>` 引用它——每個呼叫點都能通過「有對應的理由註解」檢查，因為 slug 本身確實唯一、`location` 缺席讓每個呼叫點是否各自對應到獨立條目完全沒有檢查。
 
@@ -586,6 +586,8 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 6. **〔深化新增，adversarial review 發現的殘留缺口〕** (slug, location) 唯一性只保證「同一個呼叫點不能重複引用別人的 slug」，不保證理由本身有差異化內容——最便宜的規避路徑會是替每個新呼叫點複製貼上同一段（改幾個字避免 100% 一致的）籠統理由，各自建立獨立、格式合法的條目。新增一個檢查：拒絕 `debt_registry.toml` 裡出現**逐字完全相同**的 `rationale` 字串（精確字串比對，不是模糊相似度——避免重蹈 C1b 原本文字相似度檢查已被證實的雙向失效）；這攔不下換句話說的規避，但能攔下最省力的複製貼上路徑，且不需要額外引入不可靠的相似度演算法
 
 **驗證**：`pytest tests/test_debt_registry_format.py -x` 全過；刻意讓兩個不同呼叫點的 `# debt:` 註解指向同一個 `location`，確認測試會紅燈；刻意寫一個 `# debt: <slug>` 註解但不在 `debt_registry.toml` 建立對應的 `location`，確認交叉比對測試會紅燈；刻意讓兩筆不同 (slug, location) 條目使用逐字相同的 `rationale`，確認新增的精確字串比對測試會紅燈
+
+**執行記錄**：`location` 欄位格式選定 `path/to/file.py:<line_number>`（陣列，非單一字串）——放棄 `function_name` 變體，因為行號是掃描器能直接從 `# debt: <slug>` 註解自身的 regex/AST 比對算出的值，不需要額外解析所在函式，且在巢狀/匿名 scope 下行號永遠精確、function_name 則會有歧義。用陣列而非單一字串是因為即時查證發現 D2 已有 5 個 slug（`campaign-bootstrap-status-fail-soft` 等）的理由文字本來就是刻意合寫多個呼叫點（例如同一函式內三個連續的 except Exception），陣列讓一則條目可以誠實列出所有被涵蓋的呼叫點，而交叉比對測試仍然逐一核對每個實際註解的 file:line 是否都在該陣列內——真正新增、未被列入的呼叫點一樣會被擋下。全代碼庫 grep `# debt: ` 比對 `debt_registry.toml` 現有 41 筆條目後：**30 筆條目**（D2 的 25 筆 + 更早分類的 3 個接縫檔案共 5 筆）被至少一個 `# debt: <slug>` 註解引用，全數補上 `location`（合計 36 個 file:line，其中 5 筆條目各自涵蓋 2-3 個呼叫點）；剩餘 11 筆純登記型條目（`ko-corpus-calibration`、`debt-registry-staleness` 等）確認代碼庫內無對應註解，維持不補 `location`。(slug, location) 唯一性測試改為檢查「同一個 location 是否被超過一筆條目宣告」（而非狹義的 (slug,location) tuple）——因為 `slug` 本身已受 `test_all_slugs_unique` 全域唯一性保護，狹義 tuple 檢查在 slug 唯一的前提下幾乎必然恆真，真正有意義的違規形狀是「兩個不同 slug 的條目都宣稱同一個呼叫點」（同一行程式碼不可能同時屬於兩個 debt 分類）。四個驗證場景全數手動觸發確認：① `pytest tests/test_debt_registry_format.py -x` 420 通過；② 暫時新增一筆條目把 `location` 指向已被 `net-safety-dns-resolve-oserror` 佔用的同一行，`test_slug_location_pairs_unique` 紅燈，還原後恢復綠燈；③ 在 `_util/net_safety.py` 暫時多加一行 `# debt: net-safety-dns-resolve-oserror` 但不更新該 slug 的 `location` 陣列，`test_cross_reference_debt_comments_have_registry_entries` 紅燈，還原後恢復綠燈；④ 暫時讓 `gap-derive-host-urlparse-failure` 的 `rationale` 跟 `reconciler-history-dedupkey-parse-failure` 逐字相同，`test_no_exact_duplicate_rationale` 紅燈，還原後恢復綠燈。另加 3 個獨立於真實 registry 的 self-test（比照 C1b 對 checker 函式本身做合成 fixture 測試）證明三個檢查函式本身有牙齒，不只是依賴當下乾淨的 registry 內容。
 
 - [ ] **D3 — ko-corpus-calibration**
 
