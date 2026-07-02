@@ -431,7 +431,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 - `ci.yml` 的 `unit` job 內 `-m "unit"` 單一 pytest 呼叫已拆成同一 job 內的兩個循序 step：`Run unit tests (seam — no reruns)`（`-m "unit and seam"`，無 `--reruns`）與 `Run unit tests (rest — reruns enabled)`（`-m "unit and not seam"`，`--reruns 2 --reruns-delay 1`）。覆蓋率透過第二個 step 的 `--cov-append` 疊加到第一個 step 的 `.coverage` 資料上，最終 `coverage-unit.json` 反映兩個 step 加總的覆蓋率，不會遺失任一半的追蹤。
 - `pyproject.toml` 的 pytest `markers` 清單已新增 `seam` 宣告，避免 `--strict-markers` 讓 collection 直接失敗。
 
-- [ ] **C1b — 接縫層裸 except AST 掃描器〔R5，新增，doc-review 後收斂為純掃描器〕**
+- [x] **C1b — 接縫層裸 except AST 掃描器〔R5，新增，doc-review 後收斂為純掃描器〕**（2026-07-02 完成，執行紀錄見下方「驗證」段落之後）
 
 **依賴**：D2 完成分類規則與理由標籤格式的定義（不需要等全部 except 都分類完，但兩邊必須共用同一套字面格式，見動作 5）
 
@@ -449,6 +449,14 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 6. **〔深化新增，feasibility review 發現〕** C1b 依 doc-review 決策可以在 D2 完全分類完成前先上線（見上方「依賴」），但這代表上線當下 `src/backlink_publisher/`＋`webui_app/api/` 裡仍有約 97+15 處（且已知還有低估，見 D2 現狀）尚未分類的裸 except——若掃描器對所有裸 except 一律紅燈，會讓 C1b 上線那一刻起，所有後續 PR 的 unit-seam 測試全部變紅，而不是只攔截「新增」的違規。比照 `tests/conftest.py` 既有的 `GRANDFATHERED_EXPANDUSER_SITES`（shrink-only 允許清單）模式：C1b 上線時，先用一次性即時 grep 產生「已知既存」的裸 except 位置清單，凍結成一份 shrink-only 的 grandfathered 清單；掃描器只對**不在**這份清單裡的裸 except 紅燈，D2 逐步分類完成後從清單移除對應項目，清單只能縮小不能新增
 
 **驗證**：CI 上這個新測試綠色通過（含情境 (a)(b)(c) 三種紅色路徑自我測試都通過）；刻意在接縫層新增一個未分類的裸 except 後重跑測試，確認會紅燈；確認 grandfathered 清單裡的既存項目上線當下不會讓 CI 紅燈，且清單被 CI 強制為 shrink-only（新增項目會被拒絕）
+
+**執行紀錄（2026-07-02）**：新增 `tests/test_seam_except_classification.py`，用 `ast.walk` 掃描六個目錄（`src/backlink_publisher/{events,gap,idempotency,ledger,_util}` + `webui_app/api/`，含 `v1/` 子目錄）。理由偵測綁定到每個 `ExceptHandler` 自己的 `(lineno, end_lineno)` 範圍（不是固定行數窗口），已用即時腳本驗證 `ast.end_lineno` 對背靠背、巢狀 handler 都能正確界定範圍不互相污染。
+
+- **共用格式常數**：`# debt: <slug>` 的偵測 regex（`DEBT_COMMENT_RE`）與字面前綴（`DEBT_COMMENT_PREFIX`）新增為 `tests/conftest.py` 的模組級常數（比照既有 `GRANDFATHERED_EXPANDUSER_SITES` 的「tests/ 不是套件、共用常數放 conftest.py」慣例），`test_seam_except_classification.py` 用 `from conftest import DEBT_COMMENT_RE` 引用。D2b 未來要做 debt_registry.toml 的 location-binding 時，應該從同一個常數讀取，不要各自重新定義 regex——已在 conftest.py 該常數上方寫明這個共用約定。理由偵測還接受「緊鄰的 log/logger 呼叫」作為替代形式（例如 `plan_logger.error(...)`、`_log_recon_event(...)`），這個 regex 是掃描器自己的實作細節，不是 D2/D2b 共用格式，因此刻意留在測試檔本地、未搬進 conftest.py。
+- **紅色路徑自我測試（3 情境全過）**：(a) 孤立裸 except 無理由 → 正確標記為未分類；(b) 四個背靠背、中間無程式碼的 try/except（頭尾兩個各自有 `# debt:` 理由、中間兩個沒有）→ 正確只標記中間兩個，證明理由不會往前或往後污染到相鄰 handler（直接對應 `webui_app/helpers/contexts.py` 的真實背靠背形狀）；(c) 巢狀 try/except（內層無理由、外層有）→ 內層正確標記為未分類，證明外層的理由註解不會被誤判為屬於內層。額外附加健檢：`# debt:` 理由、log 呼叫理由、完全裸 `except:`、以及「已窄化型別」（`except (OSError, ValueError):`，驗證掃描器正確地不掃描它，對應動作 3 的已知限制）都各自驗證了預期行為。
+- **Grandfathered 清單（4 筆，即時掃描產生，非手動 grep）**：用本檔案自己的 `_discover_unclassified_sites()` 對六個掃描目錄即時掃描，D2 完成後剩下 4 處既存、既無 `# debt:` 也無 log 呼叫的裸 `except Exception:`：`events/_project_helpers.py:263`、`events/_project_helpers.py:265`（sqlite3.IntegrityError 後援查詢路徑，僅有 `# noqa: BLE001`）、`idempotency/audit_log.py:46`（`_current_user()` 的 `getpass.getuser()` 後援，僅有 `# pragma: no cover`）、`ledger/aggregate.py:68`（`canonicalize_url()` 失敗後援，僅有 `# noqa: BLE001`）。已凍結為 `GRANDFATHERED_BARE_EXCEPT_SITES`（shrink-only frozenset），`test_no_new_unclassified_bare_except_in_seam_modules` 斷言即時掃描結果是這份清單的子集。
+- **手動迴歸驗證**：暫時在 `_util/net_safety.py` 尾端加入一個新的未分類裸 `except Exception:`，重跑測試確認紅燈（`AssertionError` 準確列出新增的 `(路徑, 行號)`），隨後完整還原該檔案（`git checkout --` 確認無殘留 diff）。
+- **已知限制**：已在掃描器模組 docstring 中明確記錄——只抓字面上的裸 `except Exception:`／完全裸 `except:`；窄化成具體型別但沒加理由的情況（D2 已人工修好的 3+1 個既有案例）不在此掃描器的 AST 形狀範圍內，留待未來迭代。
 
 - [ ] **C2 — 性能基準趨勢**
 
