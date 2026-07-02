@@ -577,7 +577,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 **驗證**：`pytest tests/test_debt_registry_format.py -x` 全過；刻意讓兩個不同呼叫點的 `# debt:` 註解指向同一個 `location`，確認測試會紅燈；刻意寫一個 `# debt: <slug>` 註解但不在 `debt_registry.toml` 建立對應的 `location`，確認交叉比對測試會紅燈；刻意讓兩筆不同 (slug, location) 條目使用逐字相同的 `rationale`，確認新增的精確字串比對測試會紅燈
 
-- [ ] **D3 — ko-corpus-calibration**
+- [x] **D3 — ko-corpus-calibration** ✅ 已完成（2026-07-02，worktree `bp-phase3-sprint-e1`）
 
 **現狀**：Korean 語言檢測閾值 `RATIO_THRESHOLD=0.30` 是未經校準的 v1 默認值（`debt_registry.toml` 中唯一仍 `open` 的條目：`ko-corpus-calibration`）。
 
@@ -588,6 +588,14 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 4. 添加 corpus 校準測試（測試已知韓文文本能被正確檢測），並將 `debt_registry.toml` 的 `ko-corpus-calibration` 條目更新為 `resolved` + `resolved_date`
 
 **驗證**：校準後的閾值在測試 corpus 上達到 ≥95% 檢測率，無假陽性
+
+**執行結果（2026-07-02）**：
+
+- 實際收集 **31 篇**真實韓文樣本（未達 ~50 的目標，如實記錄短缺原因：Naver Blog 與多數 `chosun.com`/`hani.co.kr` 文章走前端 JS/iframe 渲染、`namu.wiki` 對抓取一律回 403，本次 session 的抓取工具無法執行 JS，故改以可穩定抓到全文的來源為主）——來源涵蓋 22 篇 `ko.wikipedia.org`（刻意納入歷史/法律/哲學等漢字詞彙密集主題，如 이순신、헌법、불교、유교）、5 篇真實新聞（OhmyNews、Khan、Travie、Eroun、Hidoc）、4 篇部落格平台文章（Brunch、2 個 Tistory 引擎自訂網域、HeyDealer 品牌部落格）。另收集 7 篇非韓文負控制樣本（英/日/中/俄，皆為真實 Wikipedia 原文）。完整來源清單見 `tests/fixtures/ko_corpus/MANIFEST.md`。
+- 對 corpus 執行 `detect_language_from_markdown()`：**校準前後皆為 100%**（31/31 皆正確判定為 `ko`）、負控制樣本 **0/7 假陽性**——`RATIO_THRESHOLD` 本身未變動，因為已達標且找不到會使其失效的真實反例：本次收集到漢字密度最高的真實樣本（이순신 條目，含大量武官職銜漢字括注）Hangul 比例仍高達 ~0.92，遠高於 0.30 門檻；曾嘗試進一步抓取更極端的漢文/法律文本（`sillok.history.go.kr`、`db.itkc.or.kr`、`law.go.kr`）驗證原始 debt 條目假設的最壞情境，但三者皆為前端動態渲染頁面，抓取工具拿不到本文內容。
+- 新增永久回歸測試 `tests/linkcheck/test_ko_corpus_calibration.py`（42 個測試，含整體檢測率斷言、逐檔案斷言、負控制假陽性斷言），已通過：`pytest tests/linkcheck/test_ko_corpus_calibration.py -q` → 42 passed；`pytest tests/test_language_check.py tests/linkcheck/ -q` → 116 passed（無既有測試迴歸）。
+- `debt_registry.toml` 的 `ko-corpus-calibration` 條目更新為 `status = "resolved"`、`resolved_date = "2026-07-02"`，`rationale` 改寫為記錄實際校準結果；`pytest tests/test_debt_registry_format.py -q` → 132 passed。
+- `src/backlink_publisher/linkcheck/language.py` 的 `_RATIO_THRESHOLD` 行內註解同步更新，移除「uncalibrated v1 default」字樣，改為記錄校準依據與回歸測試位置（數值本身維持 0.30 不變）。
 
 ---
 

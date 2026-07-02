@@ -100,10 +100,11 @@ resolved_date = "2026-06-16"
 [[items]]
 slug = "ko-corpus-calibration"
 severity = "low"
-rationale = "Korean language detection threshold (RATIO_THRESHOLD=0.30) is an uncalibrated v1 default — never validated against real Korean articles (Naver Blog, Tistory, Korean news). A Hanja-heavy article can fall through to keyword scoring. Deferred to post-merge per plan 2026-05-18-006. Requires a corpus calibration spike against ~50 real ko articles."
+rationale = "RESOLVED 2026-07-02 (plan 2026-06-30-001 Sprint D3): calibrated RATIO_THRESHOLD=0.30 against a corpus of 31 real Korean samples (Wikipedia, news incl. OhmyNews/Khan/Travie/Eroun/Hidoc, and blogs incl. Brunch/Tistory-engine sites — tests/fixtures/ko_corpus/MANIFEST.md), several deliberately Hanja-dense (military-rank glosses, Sino-Korean philosophy/legal vocabulary). Achieved 100% detection (31/31) with zero false positives on a 7-sample non-Korean (en/ja/zh/ru) negative-control set, both clear of the plan's >=95% bar, so the threshold value itself was left unchanged. The most Hanja-dense real sample collected (이순신 biography) still had a Hangul ratio of ~0.92, far above 0.30 — the originally-feared Hanja-heavy fallthrough did not materialize in any real sample found. Permanent regression guard added at tests/linkcheck/test_ko_corpus_calibration.py."
 discovered = "2026-05-18"
 owner = "unassigned"
-status = "open"
+status = "resolved"
+resolved_date = "2026-07-02"
 
 [[items]]
 slug = "reconciler-history-dedupkey-parse-failure"
