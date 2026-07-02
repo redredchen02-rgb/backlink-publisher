@@ -48,6 +48,28 @@ def test_intent_then_done_with_verify_ok(store):
     assert rec.live_url == "https://blogger.com/p/1"
 
 
+def test_run_id_persists_through_intent_and_transition(store):
+    """D2a signal round-trip: no existing test asserts ``rec.run_id`` anywhere
+    in this file, even though ``test_intent_then_done_with_verify_ok`` passes
+    ``run_id="r1"`` to ``intent_write``. A regression in the ``run_id``
+    column mapping (``_row_to_record`` field order) or in ``transition``'s
+    ``COALESCE(?, run_id)`` (e.g. silently nulling it when the caller omits
+    ``run_id``) would pass every existing test — this reads the persisted row
+    back and checks the concrete originating value survives the full
+    attempting -> done write path."""
+    key = _key()
+    store.intent_write(key, run_id="run-abc-123")
+    rec = store.get(key)
+    assert rec.run_id == "run-abc-123"
+
+    # transition() is called WITHOUT run_id — COALESCE must preserve the value
+    # recorded at intent_write time, not silently drop it to NULL.
+    store.transition(key, "done", live_url="https://blogger.com/p/x")
+    rec = store.get(key)
+    assert rec.state == "done"
+    assert rec.run_id == "run-abc-123"
+
+
 def test_verify_failure_leaves_done_state(store):
     """R6: a verify failure sets verify_ok=False but never changes state away
     from done — a flake must not make the key re-publishable."""
