@@ -637,7 +637,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 *測試*：`tests/test_docs_homeomorphism.py`、`test_gate_verdicts_ledger.py`、`test_canary_pending_deadline.py`、`test_no_orphan_code.py`、`test_no_orphaned_guard_scripts.py` 全數通過（24 passed）。
 
-- [ ] **E2 — AGENTS.md / CLAUDE.md 同步〔R7〕**
+- [x] **E2 — AGENTS.md / CLAUDE.md 同步〔R7〕** ✅ 已完成（2026-07-02，worktree `bp-phase3-sprint-e1`）
 
 **現狀**：workspace root 的 AGENTS.md 是最新的，但需要確保它與 `backlink-publisher/AGENTS.md` 同步。**〔R7 補上〕** `CLAUDE.md` 現況完全沒提到 Vue 3 SPA、`frontend/` 或 `BACKLINK_PUBLISHER_SPA` 旗標的存在，而 `ARCHITECTURE.md` 已經正確記載這些；`webui_app/AGENTS.md` 有相同的缺口，且其 Structure 表完全沒列出 `api/` 目錄——即 D2/C1b 點名的接縫層之一。
 
@@ -651,6 +651,18 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 7. **〔深化修正，adversarial review 即時查證發現基準數字本身已過時〕** 「9 個 state-persistence stores」這個基準本身不準確——即時查證 `webui_store/verify_health.py` 的 `verify_health_store` 是一個既有但先前未被計入的 `_LazyStore`，代表**目前實際就是 10 個**，不是 9 個；若 `docs/plans/2026-07-01-002-...` 的 `webui_store/error_reports.py` 再落地，正確數字會是 **11**，不是原先設想的 10。執行 E2 時不要對「9」做加一運算，改為即時 grep `webui_store/*.py` 底下所有 `_LazyStore(` 宣告與 eager singleton，重新完整計數後更新 `CLAUDE.md`；同時確認 `webui_app/api/v1/spec.py` 是否已登記其 `/api/v1/error-reports` endpoint，供 B2 的 endpoint 清單使用
 
 **驗證**：兩份 AGENTS.md 與 CLAUDE.md 的 WebUI/架構描述彼此一致、且與 ARCHITECTURE.md 一致，無矛盾
+
+**執行摘要（2026-07-02）**：
+
+1. **金規則比對**：worktree `AGENTS.md`（`Repo Layout` 節，第 55 行）與 workspace-root `AGENTS.md`（第 3-5 行）的金規則文字實質一致（「編輯 `backlink-publisher/`，不編輯 `bp-*/`，除非正在該分支上工作」），未發現需要修正的分歧——原計畫「workspace root 較新」的假設仍成立，未發現反例。
+2. **Phase 3 相關 section**：worktree `AGENTS.md` 的 Frontend/SPA 說明（第 78-118 行）本身已相當完整，未過時；主要缺口在 CI 與 Known Quirks 的 branch 清單（見下）。
+3. **CI 配置同步**：即時查證確認 C1b **尚未落地**（計畫本身也標記為 `[ ]`），因此 CI 描述聚焦在已落地的 C1a／C2／C3／A1。重寫了 worktree `AGENTS.md` 的「CI (GitHub Actions)」整節：新增 `benchmark`（C2）與 `frontend-lint`（C3）兩個 job 的完整說明、`unit` job 的 seam/rest 兩步拆分機制（C1a，含 `tests/conftest.py` AST 自動判定說明）、修正一句已過時的敘述（原文聲稱 ruff 「取代」了 py_compile/ast.parse 檢查，但 A1 已把語法驗證加回來，兩者現在並存）。順帶補上「Additional workflows」清單原本遺漏的 `e2e.yml` 與 `api-contract.yml`（兩者皆為既有、非本計畫產物，但原清單漏列，趁本次一併修正以求準確）。
+4. **Branches and launchers**：worktree `AGENTS.md` 的「Known Quirks」branch 清單改寫，反映 A3 的即時查證結果——`fix/drafts-store-test-isolation`／`fix/recheck-ledger-liveness-seam` 更正為「內容已 squash-merge 進 main（PR #42／#31），刪除動作待用戶授權」（原文誤稱「stale, unmerged」）；新增 `fix/webui-theme-nav-layout-cleanup`（本機、未推送、已完成的獨立工作分支）、`feat/phase3-sprint-b-frontend-stabilization`、`feat/phase3-sprint-e1-docs-archive`（本 worktree）、`feat/frontend-error-reporting`（並行、不相關計畫）四個先前未提及的分支；`chore/v050-doc-archive`／`feat/v050-ui-consistency` 明確標註「A3 本次查證範圍未涵蓋，維持舊描述但不算重新確認」，避免誤植為已驗證。
+5. **`CLAUDE.md` WebUI/架構描述**：新增「Dual-frontend: Vue 3 SPA (primary) + legacy Jinja (fallback)」小節，涵蓋 `BACKLINK_PUBLISHER_SPA` 旗標、13 個已遷移 navItems、B1 稽核發現的 4 個「有 SPA 頁面但 Flask 端未 redirect」缺口、`/ce:health` 維持 legacy-only 的決策，並對齊 `ARCHITECTURE.md`。
+6. **`webui_app/AGENTS.md`**：Structure 表新增 `api/` 目錄（19 個頂層模組 + `v1/` 子套件，63 個已註冊 endpoint）與 `spa_dist/`，並在檔案開頭新增雙前端說明段落；順帶修正三個明顯過時的模組計數（`routes/` 20→36、`services/` 5→22、`helpers/` 8→9——與 `CLAUDE.md`／root `AGENTS.md` 現有的正確計數對齊，避免文件互相矛盾）。
+7. **State-persistence store 計數（即時重新計算，方法：`grep -rn "_LazyStore(" webui_store/*.py`）**：確認**現在是 10 個**，不是 9，也還不是 11——`webui_store/__init__.py` 宣告的 8 個（`history_store`／`profiles_store`／`drafts_store`／`schedule_store`／`queue_store`／`campaign_store`／`publish_defaults_store`／`batch_ops_store`）＋ `channel_status_store`（`channel_status.py`）＋ `verify_health_store`（`verify_health.py`，既有但先前未計入，如計畫所預期）。`docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md` 的 `webui_store/error_reports.py` **尚未落地**於本 worktree（`grep -rn "error.report" --include=*.py .` 除計畫文件本身外零匹配），故未計入 11；`webui_app/api/v1/spec.py` 同樣尚未登記 `/api/v1/error-reports` endpoint。`CLAUDE.md` 與 worktree `AGENTS.md` 已同步更新為「10」並附上查證方法與日期，供未來重新計數時比對。
+
+**測試**：`tests/test_agents_md_has_binding_section.py` 通過（未觸碰「Binding a channel」章節）。逐一 grep 專案內找不到任何測試會斷言 `CLAUDE.md`／`AGENTS.md` 的 store 數量字面值——這是一個文件與程式碼可能再次漂移而無自動化保護的已知缺口，記錄於此供未來考慮補一個輕量的「grep 出的即時計數 == 文件宣稱的數字」回歸測試（不在本次 E2 範圍內新增）。
 
 - [ ] **E3 — 運行時健康檢查增強**
 
