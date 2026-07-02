@@ -143,17 +143,19 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 **現狀**：workspace root 目前沒有 `.github/` 目錄（已直接查證），canonical CI 在 `backlink-publisher/.github/workflows/ci.yml`。無需進一步動作。
 
-- [ ] **A3 — git worktree 協調（建議重新確認）**
+- [x] **A3 — git worktree 協調**（✅ 狀態已確認，分支刪除待用戶執行）
 
-**現狀**：**〔2026-07-01 深化即時查證〕** `git branch -a` 已直接驗證：`opt/bulk-modernize`、`refactor/u5-publish-one-row-enhance-payload` 本地分支已清理；`refactor/u1-generate-payload` 本地已清理但遠端（`origin/refactor/u1-generate-payload`）仍在，優先級較低；`fix/drafts-store-test-isolation`、`fix/recheck-ledger-liveness-seam` 本地與遠端都還在，尚未清理。**目前所在分支是 `fix/webui-theme-nav-layout-cleanup`**——這不是待清理的殘留分支，而是 `docs/plans/2026-07-01-001-...` 的正牌工作分支，該計畫 4 個 unit 已全數提交（見「併發計畫交叉引用」）；A3 執行時不應把這個分支當成清理對象，只需確認它後續有沒有循正常流程開 PR／合併。
+**現狀**：**〔2026-07-02 執行期間再查證〕** `git branch -a` 重新確認：`opt/bulk-modernize`、`refactor/u5-publish-one-row-enhance-payload` 已清理（local+remote 均不存在）。`fix/drafts-store-test-isolation`、`fix/recheck-ledger-liveness-seam` **本地與遠端都仍在**——但透過 `git log --grep` 交叉比對 main 分支歷史，確認兩者內容都已透過 squash-merge 併入 main：`fix/recheck-ledger-liveness-seam`（tip `0b30cfaf`）已併入 main 的 `1ec41c76 (#31)`；`fix/drafts-store-test-isolation`（tip `5bc7327f`）已併入 main 的 `129d1490 (#42)`。`git merge-base --is-ancestor` 對兩者都回報 false，這是 squash-merge 的預期行為（commit hash 不同但內容已進 main），不代表尚未合併。`refactor/u1-generate-payload` 遠端分支仍在（local 已清理）。
 
-**動作**：
-1. 執行 `git branch -a` 重新確認：`fix/drafts-store-test-isolation`、`fix/recheck-ledger-liveness-seam` 是否已清理（上次即時查證仍未清理）
-2. `refactor/u1-generate-payload` 遠端分支視情況決定是否一併清理，或留給該分支對應 PR 自然合併後再清
-3. 若尚未清理，比照原計畫執行；若已清理，僅需確認 AGENTS.md 的 branch 列表已同步（E2 也會涵蓋）
-4. **不要**把目前所在的 `fix/webui-theme-nav-layout-cleanup` 分支當成清理目標——先確認它是否已開 PR／合併，而非直接處理
+目前所在分支 `fix/webui-theme-nav-layout-cleanup` 沒有設定 upstream（`git rev-parse @{u}` 報錯 no upstream configured），代表**從未推送到遠端**，也就沒有對應的 PR。`gh pr list` 因帳號被 GitHub 停權（`HTTP 403: account was suspended`）無法查證，但 no-upstream 這個事實本身已經足夠：這個分支目前是純本地、未開 PR 的工作分支，不是待清理的殘留分支，A3 不應碰它。
 
-**驗證**：`git branch -a` 顯示合理且乾淨的 branch 列表，且 `fix/webui-theme-nav-layout-cleanup` 的狀態（待合併/已合併）已確認而非被誤判為待清理殘留
+**動作結果**：
+1. 已確認 `fix/drafts-store-test-isolation`、`fix/recheck-ledger-liveness-seam` 的內容已安全併入 main（squash-merge，PR #42／#31）——刪除兩者的 local+remote 分支在內容上是安全的
+2. 因為刪除 remote 分支屬於「對共享狀態可見」的操作，透過 AskUserQuestion 徵求用戶確認是否執行刪除；60 秒無回應，依 git 安全協議（未經明確同意不執行破壞性/遠端可見操作）**不代為執行刪除**，只記錄查證結果，刪除動作留給用戶或未來一次明確授權的執行
+3. `refactor/u1-generate-payload` 遠端殘留分支比照處理，同樣留待用戶決定
+4. 確認 `fix/webui-theme-nav-layout-cleanup`（本任務目前所在分支）沒有 upstream、未開 PR，純本地工作分支，A3 未將其列入清理範圍
+
+**驗證**：`git branch -a` 現況已記錄；`fix/webui-theme-nav-layout-cleanup` 狀態已確認為「純本地、未推送、未開 PR」而非誤判為待清理殘留；兩個確認可安全刪除的分支已列出但刪除動作待用戶授權（見 Risk Register 新增項）
 
 ---
 
@@ -569,6 +571,7 @@ E3 (獨立)                              │
 | **兩份具名、檔案範圍有重疊的並行計畫**（`2026-07-01-001` 已完成、`2026-07-01-002` 進行中）與 Phase 3 共用 `webui_app/api/`、`webui_store/`、shell 元件（`TopBar.vue`/`SideNav.vue`/`AppShell.vue`）、`config.example.toml`、budget TOML | 中 | 中 | 執行 A1／B1／D2／C1b／E2 前，先查一次 `docs/plans/` 有無其他 active 且路徑重疊的計畫（見「併發計畫交叉引用」小節）；不倚賴本文件記錄的計畫清單 |
 | **本計畫規模（18+ 項任務，5 個 sprint）明顯大於 `docs/plans/` 其他計畫**（觀察值，非結論） | 低 | 低 | 維持單一文件的決定已在修正案中確認；若執行中發現規模確實難以管理，可考慮把 D3/C2/C3/E3 標記為 Final verification 的非阻塞項目 |
 | **〔2026-07-02 執行期間發現，超出本計畫範圍〕`main`／本分支已存在約 366 個與 Phase 3 無關的預存失敗測試**（即使套用 CI 實際使用的 `-m "unit"` filter 仍有 366 個，未過濾則 459 個），確認並非 Windows 本機環境假象——以 `tests/test_cli_plan_check.py`（72 個失敗）為例，`git show main:...` 直接證實 `cli/plan/plan_check.py` 委託模組缺少 `SCHEMA_VERSION` 重新匯出，這個缺陷已經在 `main` 的既有 commit 歷史裡，與本次 A1/Phase 3 的任何改動無關；另外抽查 `test_cli_canary_seed.py`（`_sleep` 屬性已不存在）與 `test_no_raw_home_path_primitives.py`（`GRANDFATHERED_EXPANDUSER_SITES` 清單已跟原始碼行號脫節）確認是同類型、真實的既存 code/test drift，不是平台差異 | 高（已直接驗證） | 中 | 明確排除在 Phase 3 範圍外——A1 及後續 Sprint 的「pytest 全過」驗收標準改為「與本次改動的檔案相關的測試全過」，不含這批既存失敗；建議另開一個獨立的健檢/清理計畫追查根因（懷疑源頭是先前的大規模自動化 commit，如 `a64b205f "opt(src): add __all__ declarations, fix imports..."`），不併入本計畫執行 |
+| **〔2026-07-02 A3 執行期間發現〕`fix/drafts-store-test-isolation`、`fix/recheck-ledger-liveness-seam` 兩個殘留分支（local+remote）內容已透過 squash-merge 安全併入 main（PR #42／#31），可以刪除，但刪除 remote 分支屬於對共享狀態可見的操作** | 低（內容安全性已驗證；未刪除只是留著不美觀） | 低 | 已透過 AskUserQuestion 徵求刪除授權，60 秒無回應，依 git 安全協議不代為執行；刪除動作（`git branch -d` + `git push origin --delete`，兩者皆可安全執行）留給用戶下次明確指示時處理，不再視為本計畫的阻塞項 |
 
 ---
 
