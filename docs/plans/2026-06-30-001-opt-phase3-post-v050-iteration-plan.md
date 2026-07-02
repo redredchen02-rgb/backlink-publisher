@@ -569,7 +569,7 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
 
 ## Sprint E: Documentation & Observability
 
-- [ ] **E1 — docs/ 目錄整理（死文檔歸檔）〔R6〕**
+- [x] **E1 — docs/ 目錄整理（死文檔歸檔）〔R6〕**（完成於 2026-07-02，worktree `bp-phase3-sprint-e1`，commits `a29bea7d` / `dbf551ed` / `09d7a3cb`）
 
 **現狀**：docs/ 包含 15 個子目錄 + 多個根文件，其中部分已過時或重複。
 
@@ -587,6 +587,23 @@ Phase 3 ─┬─ Sprint A: Workspace Hygiene（工作區清理）
    - `docs/spike-notes/` → 如果對應 spike 已關閉，歸檔
 
 **驗證**：`docs/` 根目錄只有活躍文檔，過時文件都在 `_archive/`；4 份根目錄優化報告與 2 支 `.fix_webui*.py` 腳本都已歸檔或刪除
+
+**執行摘要（2026-07-02）**：
+
+*刪除*（4 份 root 優化報告已核實 `docs/optimization-history.md` 確實逐項涵蓋其內容後歸檔，其餘為已在別處存在的**逐位元組相同重複件**，直接刪除不留副本）：
+- `.fix_webui.py` / `.fix_webui2.py`（唯一一次 commit 2026-06-26 後從未再碰，無任何腳本/CI/文檔按檔名引用；`docs/optimization-history.md` Phase 8 已證實其修的 113 個 mypy 錯誤早已清零）
+- `docs/ideation/{2026-05-14-round3-fresh-pass-ideation,2026-06-05-backlog-convergence-ideation}.md`、`docs/notes/2026-05-26-002-opt-verify-consolidation-REVIEW.md`、`docs/bug-sweep-2026-05-18.md`、`docs/MEDIUM_OAUTH_SETUP.md`（root 重複件）——皆為 `docs/_archive/` 或 `docs/operations/` 已有副本的重複
+- `docs/brainstorms/_archive/`（28 檔全部）——與 `docs/_archive/brainstorms/` 逐位元組相同，2026-06-18-001 需求文件已標記此為已知待清理債務
+
+*歸檔到 `docs/_archive/`*（附取代/歸檔理由 header note）：4 份 root 優化報告；`docs/spikes/` 的 4 份 spike 報告 + template + 3 份 velog 原始 fixture（Velog/Medium-GraphQL/Chrome-lifecycle 均已透過其他方式出貨或放棄）；`docs/spike-notes/2026-05-27-registration-drift-*-progress.md`（工作已出貨，同名測試檔案已存在於 `tests/`）；`docs/requirements/2026-05-25-channel-expansion-plan-requirements.md`（目標早已超額達成，28 個平台已註冊）；`docs/runbooks/RUNBOOK-2026-05-20-operator-gated.md`；`docs/brainstorms/_drafts/` 3 份 followup 模板（觸發日期佔位符從未填入，gate 條件從未觸發）
+
+*保留為活躍*（逐一以程式碼/測試交叉核實，未僅憑計畫文字判斷）：`docs/ideation/gate-verdicts.md`（`tests/test_gate_verdicts_ledger.py` 強制檢查）、`docs/discovery/canary-pending.md`（`tests/test_canary_pending_deadline.py` 強制檢查）、`docs/notes/channel-decisions.json` + `retired-platforms/*`（`channel_discovery/decided.py` 執行期讀取)、`docs/architecture/*`、`docs/audits/*`（刻意保留的凍結歷史記錄）、`docs/operations/*`（每個引用的 CLI verb/env var 皆核實仍存在於 `src/`)、`docs/runbooks/2026-06-17-citation-probe-activation.md`（checkbox 皆未勾選，live-run gate 尚未關閉)
+
+*懸空引用掃描*（`grep` 全倉庫排除 `.git/node_modules/__pycache__`，非僅信任「移動後不會有事」）：發現並修正 5 處真實斷鏈——`src/backlink_publisher/publishing/browser_publish/{chrome_session,_chrome_session_impl}.py` docstring 引用、`scripts/velog_spike/p0_1b_harvest.py` 執行期讀取的 fixture 路徑、`tests/{test_config_echo,test_logger_redactor}.py` docstring、`docs/solutions/test-failures/...-2026-05-14.md`、`docs/ideation/{gate-verdicts,2026-06-05-dofollow-throughput-ideation}.md` 的交叉引用，全部改指向新的 `docs/_archive/...` 路徑。唯一刻意不修的懸空引用：`docs/plans/2026-06-16-004-...`（已出貨計畫）引用 `2026-06-05-backlog-convergence-ideation.md`——因 `docs/plans/` 不在 E1 範圍內，內容仍可於 `docs/_archive/ideation/` 找回。
+
+*同步更新*：`docs/README.md`（移除易過期的檔案數量、標註哪些檔案受程式碼/測試強制、不可歸檔）、`docs/active-docs.md`（原凍結於 2026-06-18 v0.5.0 convergence，漏列此後出貨的 13 份計畫，現已依 `status:` frontmatter 全量更新為 17 份計畫的正確狀態）。`README.md` / `README.zh.md` 檢查後確認未引用任何被移動/刪除的檔案，無需修改。
+
+*測試*：`tests/test_docs_homeomorphism.py`、`test_gate_verdicts_ledger.py`、`test_canary_pending_deadline.py`、`test_no_orphan_code.py`、`test_no_orphaned_guard_scripts.py` 全數通過（24 passed）。
 
 - [ ] **E2 — AGENTS.md / CLAUDE.md 同步〔R7〕**
 
