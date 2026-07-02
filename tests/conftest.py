@@ -834,6 +834,99 @@ def _fetch_csrf(client) -> str:
     return match.group(1)
 
 
+# ── plan-check git-repo shared fixtures (D1: extracted from ────────────────
+#   test_cli_plan_check.py's Unit 2/3 split into
+#   test_cli_plan_check_git.py + test_cli_plan_check_cli.py) ────────────────
+#
+# ``repo_with_origin`` is consumed by both split files (git-helper unit tests
+# AND CLI-wiring integration tests that need a real origin/main to resolve
+# claims against), so it lives here rather than being duplicated per file.
+
+
+def _git(cwd: Path, *args: str, check: bool = True) -> "subprocess.CompletedProcess":
+    """Helper: run ``git`` in *cwd* with C locale, returning the completed proc."""
+    import subprocess as _sp
+
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+    env["LANG"] = "C"
+    env["GIT_AUTHOR_NAME"] = "t"
+    env["GIT_AUTHOR_EMAIL"] = "t@t"
+    env["GIT_COMMITTER_NAME"] = "t"
+    env["GIT_COMMITTER_EMAIL"] = "t@t"
+    res = _sp.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True, env=env, check=False
+    )
+    if check:
+        assert res.returncode == 0, f"git {args} failed in {cwd}: {res.stderr}"
+    return res
+
+
+@pytest.fixture(scope="module")
+def _origin_repo_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Build the origin-wired repo ONCE per module.
+
+    The ~12 git subprocesses (init + 2 commits + bare clone + fetch) were
+    re-run for *every* consuming test under the old function-scoped fixture.
+    ``repo_with_origin`` now hands each test an isolated ``copytree`` of this
+    template, so per-test mutations (FETCH_HEAD backdating via ``os.utime``,
+    the real re-fetch in ``test_over_threshold_triggers_fetch``) land only on
+    the copy. The bare ``origin.git`` lives alongside and is only ever *read*
+    (fetch reads the remote, writes the local), so sharing it for the module's
+    lifetime is safe. Under xdist this fixture is per-worker; tests within a
+    module run sequentially on one worker, so the shared bare is never raced.
+
+    Layout:
+      - one commit on ``main`` (introduces ``src/foo.py`` and ``src/foo/bar.py``)
+      - one commit on a feature branch (``feat/x``) only
+      - a bare clone as ``origin``, then ``fetch origin`` so ``origin/main`` resolves
+    Returns the working-tree path (``.../main``).
+    """
+    base = tmp_path_factory.mktemp("origin_repo")
+    main = base / "main"
+    main.mkdir()
+    _git(main, "init", "-q", "-b", "main")
+    _git(main, "config", "user.email", "t@t")
+    _git(main, "config", "user.name", "t")
+    (main / "src").mkdir()
+    (main / "src" / "foo.py").write_text("# foo\n")
+    (main / "src" / "foo").mkdir(exist_ok=True)
+    (main / "src" / "foo" / "bar.py").write_text("# bar\n")
+    _git(main, "add", "src")
+    _git(main, "commit", "-q", "-m", "init")
+    # Feature branch with a commit NOT on main
+    _git(main, "checkout", "-q", "-b", "feat/x")
+    (main / "extra.py").write_text("# extra\n")
+    _git(main, "add", "extra.py")
+    _git(main, "commit", "-q", "-m", "extra on feature branch only")
+    _git(main, "checkout", "-q", "main")
+    # Bare clone + remote wiring so origin/main resolves
+    bare = base / "origin.git"
+    _git(main, "clone", "--bare", "-q", str(main), str(bare))
+    _git(main, "remote", "add", "origin", str(bare))
+    _git(main, "fetch", "-q", "origin")
+    return main
+
+
+@pytest.fixture
+def repo_with_origin(_origin_repo_template: Path, tmp_path: Path) -> Path:
+    """Per-test isolated copy of the build-once origin repo.
+
+    ``copytree`` duplicates the working tree *and* ``.git`` verbatim, so the
+    copy keeps the template's absolute ``origin`` URL (the shared bare repo,
+    still alive for the module) — the real-fetch test resolves a remote — while
+    its FETCH_HEAD and refs are private to this test. ``copy2`` preserves
+    FETCH_HEAD's mtime; tests that care set it explicitly via ``os.utime``.
+    """
+    dest = tmp_path / "main"
+    shutil.copytree(_origin_repo_template, dest)
+    return dest
+
+
+def _head_sha(repo: Path, rev: str = "HEAD") -> str:
+    return _git(repo, "rev-parse", rev).stdout.strip()
+
+
 # ── Layer 3: Credential tripwire (Plan 2026-05-27-005 Unit 7) ───────────────
 #
 # Session fixture that watches REAL_CONFIG_ROOT / REAL_CACHE_ROOT for unexpected
