@@ -97,7 +97,7 @@ def _load_error_reports_settings() -> dict[str, Any]:
     try:
         with config_path.open("rb") as f:
             data = tomllib.load(f)
-    except Exception:
+    except (tomllib.TOMLDecodeError, OSError):
         return {}
     section = data.get("error_reports")
     return section if isinstance(section, dict) else {}
