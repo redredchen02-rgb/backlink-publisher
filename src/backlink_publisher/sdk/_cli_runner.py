@@ -137,7 +137,10 @@ def _rewrite_cli_cmd(cmd: Any) -> tuple[Any, Any]:
         return cmd, None
     module = _CLI_MODULES.get(cmd[0])
     if module is None:
-        return cmd, None
+        # Not a recognized `backlink_publisher` CLI module -- run as given, but
+        # still force UTF-8 child I/O so this path doesn't silently reintroduce
+        # the Windows ANSI-codepage crash this module exists to fix.
+        return cmd, utf8_child_env(os.environ)
     new_cmd = [sys.executable, '-m', module, *cmd[1:]]
     env = utf8_child_env(os.environ)
     env['PYTHONPATH'] = _SRC_DIR + (
