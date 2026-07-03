@@ -83,4 +83,28 @@ describe('PrQueuePage', () => {
     expect(w.find('[role="alert"]').exists()).toBe(true)
     expect(w.findAll('button').some((b) => b.text() === '重试')).toBe(true)
   })
+
+  // Code review (correctness/reliability/kieran-typescript, converged): the LITE
+  // check must be best-effort, not a hard gate — a transient /app-config failure
+  // must not block a healthy /api/pr-queue in full edition.
+  it('falls open to the normal fetch when /app-config itself fails, instead of blocking a healthy queue endpoint', async () => {
+    vi.mocked(getJson).mockRejectedValue(new Error('network error'))
+    vi.mocked(prQueueApi.fetchPrQueue).mockResolvedValue([ITEM])
+    const w = mountPage()
+    await flushPromises()
+
+    expect(prQueueApi.fetchPrQueue).toHaveBeenCalled()
+    expect(w.find('[role="alert"]').exists()).toBe(false)
+    expect(w.text()).toContain('Example opportunity')
+  })
+
+  it('treats a missing lite_edition field as non-LITE (fetches normally)', async () => {
+    vi.mocked(getJson).mockResolvedValue({})
+    vi.mocked(prQueueApi.fetchPrQueue).mockResolvedValue([])
+    const w = mountPage()
+    await flushPromises()
+
+    expect(prQueueApi.fetchPrQueue).toHaveBeenCalled()
+    expect(w.text()).toContain('暂无 PR 机会')
+  })
 })

@@ -97,10 +97,12 @@
 |---|---|---|---|---|
 | B1 | `/app/pr-queue` 在 LITE 版下顯示通用「未知錯誤」而非「功能未開放於 LITE 版」 | 中（只有點進 pr-queue 才看到，且僅 LITE 版） | 簡單 | **已修復**（2026-07-03，分支 `fix/pr-queue-lite-error-message`，見下方「已完成」） |
 | B2 | `/`、`/ce:history` 首頁在「從未發佈過」的正常情境下持續顯示「系统降级」紅色橫幅 | **高**（每次打開主入口都看到，任何新安裝/新設定完 channel 但還沒發第一篇的使用者都會遇到） | 需要先有產品決策（見發現 #2），程式碼修改本身不難 | 獨立，**需要使用者先決定要不要改、改成什麼樣**，才進 U15 動工 |
+| B3〔2026-07-03，B1 code review 發現〕 | `frontend/src/api/prQueue.ts` 的 `fetchPrQueue()`/`updatePrStatus()` 沒有 timeout/AbortController（`frontend/src/api/client.ts` 的 `getJson`/`sendJson` 有 15s timeout + 重試，這兩個手寫 `fetch` 呼叫繞過了它）——後端若 hang，使用者卡在 loading 骨架、刷新按鈕被 disabled，沒有逃生路徑 | 低（僅在後端異常掛起時才會遇到，屬邊角情境） | 中（改用 `client.ts` 的 `getJson`/`sendJson` 取代手寫 `fetch`，需確認錯誤形狀相容） | **既存缺陷，非 B1 引入**（B1 diff 未改動 `prQueue.ts`）；獨立，未排入 U15 |
+| B4〔2026-07-03，B1 code review 發現〕 | `PrQueuePage.vue` 的 `load()` 沒有 request-generation 防護，`markStatus()` 的內部重新載入與手動「刷新」按鈕可並發觸發多次 `load()`，最後 resolve 的（不一定是最後啟動的）會覆蓋 `items`/`error`/`liteUnavailable`，可能讓過期的錯誤狀態蓋掉之後成功的資料 | 低（需要快速連續操作才會踩到，UX 級而非資料損毀） | 中（加一個遞增的 request-generation counter，~8-10 行） | **既存缺陷，非 B1 引入**（已比對 base SHA `f835820e` 的原始檔案，`markStatus()` 呼叫 `load()` 缺乏防護的模式在 B1 之前就存在；B1 多加一次 await 讓視窗略為變寬，但根因無關）；獨立，未排入 U15 |
 
 ## 已完成
 
-- [x] **B1**（2026-07-03，分支 `fix/pr-queue-lite-error-message`）：`frontend/src/pages/PrQueue/PrQueuePage.vue` 現在會先讀 `/app-config` 的 `lite_edition` 旗標，LITE 版下直接跳過必然 404 的 `fetchPrQueue()` 呼叫，改顯示 `StateBlock` 的 `empty` 狀態「PR 机会队列在当前版本（LITE）中未开放。」，不再是通用「出错了」+ 打不通的重試按鈕。沒有動後端 404 gate（刻意維持「跟任何未匹配路徑一樣」，不洩漏隱藏路由存在）也沒有動共用的 `classifyError` 分類法（範圍只限本頁）。新增 `PrQueuePage.spec.ts`（4 案例），`npm test` 244/244 綠、typecheck 乾淨（3 個既有無關錯誤不受影響）。
+- [x] **B1**（2026-07-03，分支 `fix/pr-queue-lite-error-message`）：`frontend/src/pages/PrQueue/PrQueuePage.vue` 現在會先讀 `/app-config` 的 `lite_edition` 旗標，LITE 版下直接跳過必然 404 的 `fetchPrQueue()` 呼叫，改顯示 `StateBlock` 的 `empty` 狀態「PR 机会队列在当前版本（LITE）中未开放。」，不再是通用「出错了」+ 打不通的重試按鈕。沒有動後端 404 gate（刻意維持「跟任何未匹配路徑一樣」，不洩漏隱藏路由存在）也沒有動共用的 `classifyError` 分類法（範圍只限本頁）。新增 `PrQueuePage.spec.ts`。`ce-code-review`（10 位 reviewer：correctness/testing/maintainability/project-standards/agent-native/learnings/security/reliability/kieran-typescript/julik-frontend-races）跑過一輪，其中 correctness＋reliability＋kieran-typescript 三方獨立收斂到同一個真實問題：初版把 `/app-config` 讀取與 `fetchPrQueue()` 包在同一個 try/catch，導致 `/app-config` 瞬斷會誤擋住原本健康的 `/api/pr-queue`——已修正為「best-effort、fail-open」（`/app-config` 失敗時預設當作非 LITE，照常嘗試 `fetchPrQueue()`），並補測試涵蓋這條路徑與 `lite_edition` 欄位缺失的情況。測試最終 6 案例，`npm test` 246/246 綠、typecheck 乾淨（3 個既有無關錯誤不受影響）。審查中發現兩個既存（B1 之前就有）、獨立於本次修復的缺陷已記錄為 B3／B4；race-condition／無 timeout 相關發現與此次修復無關，不阻擋本次合併。
 
 ## 待辦
 

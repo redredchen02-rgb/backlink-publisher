@@ -55,8 +55,20 @@ const load = async () => {
   error.value = null
   liteUnavailable.value = false
   try {
-    const config = await getJson<AppConfig>('/app-config')
-    if (config.lite_edition) {
+    // The LITE check is a best-effort optimization, not a hard gate: a
+    // transient /app-config failure (network hiccup, timeout) must not
+    // block the actual queue fetch in full edition, where /api/pr-queue
+    // itself would have succeeded fine. Fail open to "not LITE" on error —
+    // code review found the original unconditional single try/catch here
+    // coupled pr-queue availability to an unrelated endpoint's health.
+    let isLite = false
+    try {
+      const config = await getJson<AppConfig>('/app-config')
+      isLite = config.lite_edition === true
+    } catch {
+      // Best-effort only — fall through to the real fetch below.
+    }
+    if (isLite) {
       liteUnavailable.value = true
       items.value = []
       return

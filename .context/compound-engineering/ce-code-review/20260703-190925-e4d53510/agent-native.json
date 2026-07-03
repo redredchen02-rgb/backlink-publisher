@@ -1,0 +1,69 @@
+{
+  "review_type": "agent-native-architecture",
+  "scope": "incremental",
+  "worktree": "C:\Users\user\Dexfucius\backlink-publisher-69\bp-pr-queue-fix",
+  "base_sha": "f835820e",
+  "head_sha": "698ac012",
+  "files_changed": [
+    "docs/audits/2026-07-03-webui-feature-error-backlog.md",
+    "docs/plans/2026-07-02-001-opt-v060-uiux-pipeline-upgrade-plan.md",
+    "frontend/src/pages/PrQueue/PrQueuePage.spec.ts",
+    "frontend/src/pages/PrQueue/PrQueuePage.vue"
+  ],
+  "triage": {
+    "has_agent_integration": false,
+    "note": "This is a Flask + Vue SPA WebUI backed by a CLI pipeline (backlink-publisher). There is no chat/tool-calling agent surface (no MCP server, no `tool()`/streamText/generateText registrations, no LLM-as-orchestrator layer). LLM usage found in the repo (llm/client.py, publishing/adapters/llm_anchor_provider.py, cli/plan/generate_backlink_text.py) is content-generation (anchor text), not an agent acting on the user's behalf inside the app. The project's own convention treats the CLI (`pr-opportunities`, `plan-backlinks`, etc.) as the automation/agent-accessible surface and the WebUI/SPA as the human surface. This diff does not change that landscape, so full agent-native scoring (capability map, noun test) is not meaningfully applicable to a presentation-only Vue change; review is scoped to whether the diff creates a new UI-only capability or masks/changes API-level access."
+  },
+  "diff_summary": {
+    "component": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+    "change": "Adds a pre-flight GET /api/v1/app-config check (an endpoint already consumed elsewhere, e.g. TopBar.vue) and, when `lite_edition` is true, skips the doomed GET /api/pr-queue call and renders a static localized empty-state message ('PR 机会队列在当前版本（LITE）中未开放。') instead of the generic error+retry UI. No new component state affects server behavior; `liteUnavailable` is purely a rendering branch.",
+    "backend_gate_unchanged": true,
+    "backend_gate_location": "webui_app/__init__.py `_lite_surface_gate` (via webui_app/helpers/edition.py `is_lite_edition` / `LITE_HIDDEN_BLUEPRINTS`) — returns a deliberately generic 404 for any blueprint in LITE_HIDDEN_BLUEPRINTS under LITE edition, by design (per the gate's own docstring, so as not to leak hidden-route existence). This gate is unchanged by the diff and applies uniformly to any caller of /api/pr-queue or /api/pr-queue/status — browser, CLI script, curl, or a future agent tool alike."
+  },
+  "agent_native_gap_assessment": {
+    "new_capability_introduced": false,
+    "new_endpoint_introduced": false,
+    "ui_only_capability_with_no_api": false,
+    "reasoning": "The only 'capability' added is a client-side short-circuit to avoid an HTTP round trip that would always 404 under LITE edition, replacing a generic error message with an accurate one. It does not add, hide, or restrict any functionality beyond what the server already enforces. Since the server-side gate (_lite_surface_gate) is the actual authority and is unconditional/uniform for every caller regardless of client, an agent hitting GET /api/pr-queue directly (bypassing this Vue page entirely, e.g. via curl, a script, or a future MCP tool) receives exactly the same 404 a human's browser would receive pre- or post-diff. There is therefore no new asymmetry between what a human user can do through the UI and what an agent could do by calling the API: both are equally blocked under LITE edition, and both are equally permitted under non-LITE edition. This is a case of a shared, server-enforced restriction rather than a UI-side capability gate -- consistent with agent-native principles rather than violating them."
+  },
+  "capability_map": [
+    {
+      "ui_action": "View PR opportunity queue (GET /api/pr-queue) under LITE edition",
+      "location": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "agent_tool": "N/A (no agent/tool layer in this codebase); API GET /api/pr-queue exists and is directly callable, same 404 as human path under LITE",
+      "in_prompt": "N/A (no system prompt construction found)",
+      "priority": "Should have parity",
+      "status": "OK -- restriction is server-enforced and applies equally to any caller, not a UI-only gap"
+    },
+    {
+      "ui_action": "Update PR item status (PATCH-like via updatePrStatus / POST /api/pr-queue/status)",
+      "location": "frontend/src/pages/PrQueue/PrQueuePage.vue (markStatus)",
+      "agent_tool": "Unchanged by this diff; not reviewed here (pre-existing, out of scope per task framing)",
+      "in_prompt": "N/A",
+      "priority": "Must have parity",
+      "status": "Unchanged -- not touched by this diff"
+    }
+  ],
+  "findings": {
+    "critical": [],
+    "warnings": [],
+    "observations": [
+      {
+        "text": "The empty-state copy for the non-LITE, genuinely-empty case references a CLI ingestion path ('通过 pr-opportunities ingest 导入 HARO/SOS/HaB2BW 摘要') confirming the project already treats the CLI (src/backlink_publisher/cli/pr_opportunities.py) as the automation-facing route for populating this data, separate from the WebUI. That CLI command has no lite_edition/is_lite_edition awareness at all -- but LITE_HIDDEN_BLUEPRINTS/`_lite_surface_gate` is a WebUI-blueprint concept, not a CLI concept, so this is expected/orthogonal rather than a gap introduced by this diff.",
+        "confidence": "moderate"
+      },
+      {
+        "text": "Good practice worth noting: the change avoids a 'silent action' / confusing-UX anti-pattern by not showing a retry button that could never succeed (doomed request under a permanent, by-design 404). The new spec file (PrQueuePage.spec.ts) explicitly asserts fetchPrQueue is never called and no retry button renders in the LITE case, which keeps the UI honest about what is and isn't actionable.",
+        "confidence": "high"
+      },
+      {
+        "text": "The other two changed files (docs/audits/2026-07-03-webui-feature-error-backlog.md, docs/plans/2026-07-02-001-opt-v060-uiux-pipeline-upgrade-plan.md) are planning/audit documentation only, with no code or capability changes.",
+        "confidence": "high"
+      }
+    ]
+  },
+  "score": {
+    "high_priority_capabilities_agent_accessible": "N/A -- no new capability introduced by this diff; pre-existing PR-queue API surface is unchanged and equally accessible/inaccessible to any caller",
+    "verdict": "PASS"
+  }
+}
