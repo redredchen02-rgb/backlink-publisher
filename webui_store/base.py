@@ -12,10 +12,16 @@ the real store (with resolved path) is created lazily when first accessed.
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime, UTC
 import json
 from pathlib import Path
 import threading
 from typing import Any, Protocol, runtime_checkable
+
+
+def _now_iso() -> str:
+    """Return the current UTC time in ISO-8601 format."""
+    return datetime.now(UTC).isoformat()
 
 
 @runtime_checkable

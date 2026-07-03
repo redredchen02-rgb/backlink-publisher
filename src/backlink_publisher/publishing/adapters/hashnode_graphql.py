@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -10,7 +9,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -21,12 +20,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 15
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("HASHNODE_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="hashnode",
+        env_var="HASHNODE_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("hashnode")
     if toml_val is not None:
@@ -36,12 +34,13 @@ def _post_publish_delay_s() -> int:
 
 def _load_credentials(config: Config) -> dict[str, str]:
     from backlink_publisher.config.tokens import _load_token
-    data = _load_token(config.hashnode_token_path, "hashnode-token.json")
+    tp = config.token_path("hashnode")
+    data = _load_token(tp, "hashnode-token.json")
     if not data:
         raise DependencyError(
             "Hashnode token not configured. "
-            f"Write {{\"personal_access_token\": \"<pat>\", \"publication_id\": \"<pub-id>\"}} "
-            f"to {config.hashnode_token_path} (chmod 600). "
+            f'Write {{"personal_access_token": "<pat>", "publication_id": "<pub-id>"}} '
+            f"to {tp} (chmod 600). "
             "Get your PAT at https://hashnode.com/settings/developer."
         )
     pat = (data.get("personal_access_token") or "").strip()
@@ -70,7 +69,7 @@ class HashnodeGraphQLAdapter(Publisher):
     @classmethod
     def available(cls, config: Config) -> bool:
         from backlink_publisher.config.tokens import _load_token
-        data = _load_token(config.hashnode_token_path, "hashnode-token.json")
+        data = _load_token(config.token_path("hashnode"), "hashnode-token.json")
         if not data:
             return False
         return bool(

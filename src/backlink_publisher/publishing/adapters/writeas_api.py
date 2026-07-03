@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -10,7 +9,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -21,12 +20,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 5
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("WRITEAS_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="writeas",
+        env_var="WRITEAS_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("writeas")
     if toml_val is not None:
@@ -36,12 +34,13 @@ def _post_publish_delay_s() -> int:
 
 def _load_token(config: Config) -> str:
     from backlink_publisher.config.tokens import _load_token as _load
-    data = _load(config.writeas_token_path, "writeas-token.json")
+    tp = config.token_path("writeas")
+    data = _load(tp, "writeas-token.json")
     if not data:
         raise DependencyError(
             "Write.as token not configured. "
-            f"Write {{\"token\": \"<api-token>\"}} "
-            f"to {config.writeas_token_path} (chmod 600). "
+            f'Write {{"token": "<api-token>"}} '
+            f"to {tp} (chmod 600). "
             "Create at https://write.as/settings#term"
         )
     token = (data.get("token") or "").strip()
@@ -56,7 +55,7 @@ class WriteasAPIAdapter(Publisher):
     @classmethod
     def available(cls, config: Config) -> bool:
         from backlink_publisher.config.tokens import _load_token as _load
-        data = _load(config.writeas_token_path, "writeas-token.json")
+        data = _load(config.token_path("writeas"), "writeas-token.json")
         if not data:
             return False
         return bool((data.get("token") or "").strip())

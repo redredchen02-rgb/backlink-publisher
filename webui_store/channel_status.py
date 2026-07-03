@@ -19,7 +19,7 @@ from backlink_publisher._util.errors import UsageError
 from backlink_publisher.cli._bind.channels import CHANNELS
 from backlink_publisher.config.loader import _config_dir
 from backlink_publisher.events._store_sqlite import _retry_sqlite
-from webui_store.base import _LazyStore
+from webui_store.base import _LazyStore, _now_iso
 from webui_store.sqlite_base import BaseSqliteStore, WebUIDatabase
 
 log = logging.getLogger(__name__)
@@ -166,10 +166,6 @@ def _make_channel_status_store() -> ChannelStatusSqliteStore:
 
 
 channel_status_store: _LazyStore = _LazyStore(_make_channel_status_store)
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _validate_channel(channel: str) -> None:
@@ -413,7 +409,6 @@ def credential_age_days(channel: str) -> float | None:
 
     Best-effort: returns None on any parse error.  Used for TTL badge (R8).
     """
-    from datetime import datetime
 
     rec = get_status(channel)
     raw = rec.get("bound_at")

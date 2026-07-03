@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
 from typing import Any
@@ -11,7 +10,7 @@ from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -22,12 +21,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 10
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("RENTRY_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="rentry",
+        env_var="RENTRY_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("rentry")
     if toml_val is not None:

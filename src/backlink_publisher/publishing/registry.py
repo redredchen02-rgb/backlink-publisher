@@ -76,6 +76,31 @@ if TYPE_CHECKING:
     from .adapters.base import AdapterResult
 
 
+def get_platform_throttle_seconds(
+    platform: str,
+    env_var: str,
+    default: int,
+) -> int:
+    """Get post-publish delay for a platform from env var or config.
+
+    Priority: env var > config TOML > default.
+    This centralizes the throttle lookup pattern used by all adapters.
+    """
+    import os
+
+    env_val = os.environ.get(env_var)
+    if env_val is not None:
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            return default
+    from backlink_publisher.config import load_config
+    toml_val = load_config().platform_throttle.get(platform)
+    if toml_val is not None:
+        return int(toml_val)
+    return default
+
+
 class Publisher(ABC):
     """Abstract base for a single-platform publisher.
 
@@ -89,12 +114,7 @@ class Publisher(ABC):
     mechanism: str = "api"
 
     @abstractmethod
-    def publish(
-        self,
-        payload: dict[str, Any],
-        mode: str,
-        config: Config,
-    ) -> AdapterResult:
+    def publish(self, payload: dict[str, Any], mode: str, config: Config) -> AdapterResult:
         """Publish the payload. Return an ``AdapterResult`` on success.
 
         Raise:
@@ -129,6 +149,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class RegistryEntry:
     """Aggregated metadata for a registered platform."""
+
     publishers: list[type[Publisher] | Publisher]
     dofollow: _DofollowStatus
     rationale: str | None = None
@@ -148,6 +169,7 @@ class RegistryEntry:
     # Session descriptor for credential lifecycle management. ``None`` for
     # channels that do not use session-based credential management.
     session: SessionDescriptor | None = None
+
 
 _REGISTRY: dict[str, RegistryEntry] = {}
 
@@ -242,19 +264,23 @@ _ReferralValue = Literal["high", "low"]
 #      can never silently drift from the existing ``BindBackend`` descriptor.
 # (Promoting this to a required ``register()`` kwarg is a viable follow-up
 # hardening; the coverage guard already gives the same fail-loud guarantee.)
-_AUTH_TYPE_VALUES: frozenset[str] = frozenset({
-    "anon", "token", "token_fields", "paste_blob", "userpass", "oauth",
-    "live_browser",
-})
+_AUTH_TYPE_VALUES: frozenset[str] = frozenset(
+    {"anon", "token", "token_fields", "paste_blob", "userpass", "oauth", "live_browser"}
+)
 _AUTH_TYPE_BY_PLATFORM: dict[str, str] = {
     # ANON — no credentials (anonymous publish / auto-bootstrap)
-    "telegraph": "anon", "txtfyi": "anon", "rentry": "anon", "notesio": "anon",
+    "telegraph": "anon",
+    "txtfyi": "anon",
+    "rentry": "anon",
+    "notesio": "anon",
     # TOKEN — single secret field
     "devto": "token",
-    "hackmd": "token", "mataroa": "token",
+    "hackmd": "token",
+    "mataroa": "token",
     "qiita": "token",  # API token, single secret field
     # TOKEN+FIELDS — secret + extra config field(s)
-    "ghpages": "token_fields", "notion": "token_fields",
+    "ghpages": "token_fields",
+    "notion": "token_fields",
     "wordpresscom": "token_fields",
     "tumblr": "token_fields",
     # hatena: api_key + hatena_id + blog_id (secret + 2 config fields)
@@ -270,7 +296,9 @@ _AUTH_TYPE_BY_PLATFORM: dict[str, str] = {
     # OAUTH — redirect flow
     "blogger": "oauth",
     # LIVE-BROWSER — driven browser login (Chrome/Playwright)
-    "velog": "live_browser", "medium": "live_browser", "mastodon": "live_browser",
+    "velog": "live_browser",
+    "medium": "live_browser",
+    "mastodon": "live_browser",
 }
 # Which auth_types are consistent with a declared ``bind[].backend``. Used by
 # the consistency test only (not at runtime). ``cookie`` backend currently
@@ -314,8 +342,8 @@ def register(
     referral_value: _ReferralValue | None = None,
     ui: UiMeta | None = None,
     bind: list[BindDescriptor] | tuple[BindDescriptor, ...] | None = None,
-    policy: Policy | None = None,        # noqa: F811 — shadows re-exported manifest helper
-    visibility: Visibility = "active",   # noqa: F811 — shadows re-exported manifest helper
+    policy: Policy | None = None,  # noqa: F811 — shadows re-exported manifest helper
+    visibility: Visibility = "active",  # noqa: F811 — shadows re-exported manifest helper
     credential_saver: Callable[..., Any] | None = None,  # U3a
     dispatch_weight: float = 1.0,
     session: SessionDescriptor | None = None,
@@ -422,8 +450,7 @@ def register(
         bind_tuple = ()
     if ui is not None and not isinstance(ui, UiMeta):
         raise RegistryError(
-            f"`register({platform!r}, ..., ui=...)` — expected UiMeta, "
-            f"got {type(ui).__name__}."
+            f"`register({platform!r}, ..., ui=...)` — expected UiMeta, got {type(ui).__name__}."
         )
     if policy is not None and not isinstance(policy, Policy):
         raise RegistryError(
@@ -451,8 +478,16 @@ def register(
     )
 
 
+def _ensure_adapters_initialized() -> None:
+    """Trigger adapter-registry lazy init so _REGISTRY is populated."""
+    import backlink_publisher.publishing.adapters as _adapters  # type: ignore[import-untyped]
+
+    _adapters._lazy_init()
+
+
 def registered_platforms() -> list[str]:
     """Return the list of platforms with at least one adapter registered."""
+    _ensure_adapters_initialized()
     return sorted(_REGISTRY.keys())
 
 
@@ -572,6 +607,7 @@ def dispatch_weight(name: str, language: str = "default") -> float:
     # avoid circular dependency at module load time).
     try:
         from backlink_publisher.optimization import OptimizationState
+
         state = OptimizationState()
         data = state.load()
 
@@ -599,10 +635,17 @@ def dispatch_weight(name: str, language: str = "default") -> float:
             # a low-base channel) is preserved rather than silently re-promoted.
             # A deliberate operator lock wins over the floor — an operator may
             # intentionally pin a platform to 0, and automation must not undo it.
-            if value <= 0 and not wentry.get("locked", False) and not wentry.get("intentional_zero", False):
-                floor = float(
-                    data.get("rules", {}).get("aggregated_stats", {}).get("min_weight") or 0.0
-                ) or 0.01
+            if (
+                value <= 0
+                and not wentry.get("locked", False)
+                and not wentry.get("intentional_zero", False)
+            ):
+                floor = (
+                    float(
+                        data.get("rules", {}).get("aggregated_stats", {}).get("min_weight") or 0.0
+                    )
+                    or 0.01
+                )
                 value = max(value, floor)
             return value
     except Exception:

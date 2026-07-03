@@ -12,6 +12,7 @@ Conventions:
 
 from __future__ import annotations
 
+import functools
 from urllib.parse import (
     parse_qsl,
     ParseResult,
@@ -177,6 +178,7 @@ def strip_fragment_query(url: str) -> str:
 _DEFAULT_PORTS: dict[str, int] = {"http": 80, "https": 443}
 
 
+@functools.lru_cache(maxsize=4096)
 def canonicalize_url(url: str) -> str:
     """Return a canonical form of ``url`` for use as a dedup key.
 

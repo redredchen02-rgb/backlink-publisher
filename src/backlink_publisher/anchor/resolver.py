@@ -29,11 +29,8 @@ import unicodedata
 import weakref
 
 from backlink_publisher._util.text_validation import (
-    _MIN_ANCHOR_LEN,
-    _MAX_ANCHOR_LEN,
-    FORBIDDEN_ANCHOR_TEXTS,
-    _UNSAFE_ANCHOR_CHARS,
     _passes_filters_with_rule,
+    FORBIDDEN_ANCHOR_TEXTS,
 )
 from backlink_publisher.config import Config, get_anchor_pool_v2
 from backlink_publisher.publishing.adapters.llm_anchor_provider import (

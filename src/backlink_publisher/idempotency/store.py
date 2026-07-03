@@ -267,14 +267,16 @@ class DedupStore:
         try:
             fd = os.open(str(sp), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
-            # Lost the create race: the winner is mid-write. Re-read with a short
-            # backoff until its bytes are visible rather than returning `token`
-            # (which would differ from the persisted secret).
-            for _ in range(50):
+            # Lost the create race: the winner is mid-write. Re-read with
+            # exponential backoff until its bytes are visible rather than
+            # returning `token` (which would differ from the persisted secret).
+            delay = 0.001  # 1ms initial
+            for _ in range(10):
                 won = self._read_secret(sp)
                 if won:
                     return won
-                time.sleep(0.01)
+                time.sleep(delay)
+                delay = min(delay * 2, 0.05)  # cap at 50ms
             return self._read_secret(sp) or token
         try:
             os.write(fd, token)

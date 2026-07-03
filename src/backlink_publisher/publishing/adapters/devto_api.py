@@ -42,7 +42,6 @@ Design choices:
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any, cast
 
@@ -51,7 +50,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_devto_token
 from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -63,12 +62,11 @@ _MAX_TAGS = 4
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("DEVTO_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="devto",
+        env_var="DEVTO_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("devto")
     if toml_val is not None:
@@ -91,7 +89,7 @@ def _required_headers(api_key: str) -> dict[str, str]:
 
 def _load_api_key(config: Config) -> str:
     """Return the API key, raising DependencyError when not configured."""
-    token_path = config.devto_token_path
+    token_path = config.token_path("devto")
     data = load_devto_token(token_path)
     api_key = cast(str, (data or {}).get("api_key", "")).strip()
     if not api_key:
@@ -167,7 +165,7 @@ class DevtoAPIAdapter(Publisher):
     @classmethod
     def available(cls, config: Config) -> bool:
         """Return True when devto-token.json exists with a non-empty api_key."""
-        token_path = config.devto_token_path
+        token_path = config.token_path("devto")
         data = load_devto_token(token_path)
         if not data:
             return False

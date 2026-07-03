@@ -48,7 +48,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.config.loader import _config_dir
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from . import _medium_selectors as sel
 from .base import AdapterResult
@@ -72,12 +72,11 @@ _SAVE_DRAFT_SETTLE_MS: int = 2_000          # settle after Save Draft click (ms)
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("MEDIUM_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="medium",
+        env_var="MEDIUM_PUBLISH_DELAY_S",
+        default=_DEFAULT_MEDIUM_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("medium")
     if toml_val is not None:
@@ -219,7 +218,7 @@ class MediumBrowserAdapter(Publisher):
     ) -> AdapterResult:
         if sync_playwright is None:
             raise DependencyError(
-                "Playwright is not installed. Run: playwright install chromium"
+                "Playwright is not installed. Install with: pip install backlink-publisher[browser]"
             )
 
         article_id = payload.get("id", "")

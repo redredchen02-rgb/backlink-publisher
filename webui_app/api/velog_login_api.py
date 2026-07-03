@@ -26,7 +26,7 @@ _MESSAGES: dict[str, str] = {
         "已有一个绑定窗口正在运行。请关闭已打开的 Chromium 窗口后再试。"
     ),
     "playwright_not_installed": (
-        "Playwright 未安装。请在终端运行：python -m playwright install chromium"
+        "Playwright is not installed. Install with: pip install backlink-publisher[browser]"
     ),
     "login_url_unreachable": "无法打开 velog.io，请检查网络连接后再试。",
 }

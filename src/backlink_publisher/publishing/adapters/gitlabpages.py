@@ -86,13 +86,14 @@ def _load_token(config: Config) -> str:
     The message names the ``pages`` CI-job precondition loudly — committing a
     file does nothing without it.
     """
-    _require_secure_mode(config.gitlabpages_token_path)
-    data = load_gitlabpages_token(config.gitlabpages_token_path)
+    tp = config.token_path("gitlabpages")
+    _require_secure_mode(tp)
+    data = load_gitlabpages_token(tp)
     token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "GitLab Pages PAT not configured. "
-            f"Write {{\"token\": \"<pat>\"}} to {config.gitlabpages_token_path} "
+            f'Write {{"token": "<pat>"}} to {tp} '
             "(chmod 600). PAT needs `api` scope. NOTE: the target project must "
             "already have a `pages` CI job emitting public/ — the adapter does "
             "not create .gitlab-ci.yml, and committing a file does not publish "
@@ -178,7 +179,7 @@ class GitLabPagesAPIAdapter(Publisher):
         cfg = config.gitlabpages
         if cfg is None or not cfg.project:
             return False
-        data = load_gitlabpages_token(config.gitlabpages_token_path)
+        data = load_gitlabpages_token(config.token_path("gitlabpages"))
         return bool(data and (data.get("token") or "").strip())
 
     def publish(

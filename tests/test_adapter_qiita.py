@@ -29,18 +29,18 @@ _TOKEN = "qiita-test-token-secret-abc123"
 @pytest.fixture
 def config(tmp_path):
     cfg = MagicMock()
-    cfg.qiita_token_path = tmp_path / "qiita-token.json"
-    tok = cfg.qiita_token_path
+    tok = tmp_path / "qiita-token.json"
     tok.write_text(json.dumps({"token": _TOKEN}))
     os.chmod(tok, 0o600)
+    cfg.token_path.return_value = tok
     return cfg
 
 
 @pytest.fixture
 def config_no_token(tmp_path):
     cfg = MagicMock()
-    cfg.qiita_token_path = tmp_path / "qiita-token.json"
-    # File absent → not configured
+    # File absent → not configured; token_path returns path to non-existent file
+    cfg.token_path.return_value = tmp_path / "qiita-token.json"
     return cfg
 
 

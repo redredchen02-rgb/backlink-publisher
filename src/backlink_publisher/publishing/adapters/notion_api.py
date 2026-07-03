@@ -33,7 +33,6 @@ Design choices:
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -42,7 +41,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_notion_token
 from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -54,12 +53,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 30
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("NOTION_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="notion",
+        env_var="NOTION_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("notion")
     if toml_val is not None:
@@ -83,7 +81,7 @@ def _required_headers(integration_token: str) -> dict[str, str]:
 
 def _load_credentials(config: Config) -> tuple[str, str]:
     """Return (integration_token, database_id), raising DependencyError when absent."""
-    token_path = config.notion_token_path
+    token_path = config.token_path("notion")
     data = load_notion_token(token_path)
     integration_token = (data or {}).get("integration_token", "").strip()
     database_id = (data or {}).get("database_id", "").strip()
@@ -207,7 +205,7 @@ class NotionAPIAdapter(Publisher):
     @classmethod
     def available(cls, config: Config) -> bool:
         """Return True when the notion-token.json file exists with both keys."""
-        token_path = config.notion_token_path
+        token_path = config.token_path("notion")
         data = load_notion_token(token_path)
         if not data:
             return False

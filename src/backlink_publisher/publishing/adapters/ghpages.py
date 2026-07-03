@@ -72,12 +72,13 @@ def _load_token(config: Config) -> str:
     Mirrors the telegraph/blogger pattern — fail loud at adapter entry rather
     than returning ``None`` and bumping the failure deeper into publish path.
     """
-    data = load_ghpages_token(config.ghpages_token_path)
+    tp = config.token_path("ghpages")
+    data = load_ghpages_token(tp)
     token: str = cast(str, (data or {}).get("token") or "")
     if not token:
         raise DependencyError(
             "GitHub Pages PAT not configured. "
-            f"Write {{\"token\": \"<pat>\"}} to {config.ghpages_token_path} "
+            f'Write {{"token": "<pat>"}} to {tp} '
             "(chmod 600). PAT needs Contents:Read+Write on the target repo."
         )
     return token

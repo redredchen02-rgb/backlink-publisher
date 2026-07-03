@@ -7,7 +7,6 @@ localStorage origins, and probe session liveness via GraphQL currentUser query.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import requests

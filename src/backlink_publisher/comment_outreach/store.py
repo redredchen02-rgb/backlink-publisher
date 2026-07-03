@@ -31,9 +31,9 @@ from typing import Any
 
 from backlink_publisher._compat import fcntl
 from backlink_publisher._util.errors import DependencyError, InputValidationError, PipelineError
-from backlink_publisher._util.permissions import check_0600
 from backlink_publisher._util.jsonl import atomic_write_jsonl
 from backlink_publisher._util.logger import PipelineLogger
+from backlink_publisher._util.permissions import check_0600
 from backlink_publisher.comment_outreach import schema
 
 status_logger = PipelineLogger("comment-status")

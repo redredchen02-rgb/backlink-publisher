@@ -24,14 +24,14 @@ _PATCH_TARGET = "backlink_publisher.publishing.adapters.hackmd_api.http_post"
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cfg = MagicMock()
-    cfg.hackmd_token_path = tmp_path / "hackmd-token.json"
+    cfg.token_path.return_value = tmp_path / "hackmd-token.json"
     return cfg
 
 
 @pytest.fixture
 def config_with_token(config):
-    config.hackmd_token_path.write_text(json.dumps({"token": "hmd_secret_abc", "token_rev": 1}))
-    os.chmod(config.hackmd_token_path, 0o600)  # R10: real bind writes 0o600
+    config.token_path.return_value.write_text(json.dumps({"token": "hmd_secret_abc", "token_rev": 1}))
+    os.chmod(config.token_path.return_value, 0o600)  # R10: real bind writes 0o600
     return config
 
 
@@ -59,7 +59,7 @@ class TestLoadToken:
             _load_token(config)
 
     def test_raises_when_token_empty(self, config):
-        config.hackmd_token_path.write_text(json.dumps({"token": ""}))
+        config.token_path.return_value.write_text(json.dumps({"token": ""}))
         with pytest.raises(DependencyError, match="token"):
             _load_token(config)
 
@@ -68,8 +68,8 @@ class TestLoadToken:
 
     def test_rejects_world_readable_token_file(self, config):
         """R10: a 0o644 token file must be refused, not loaded silently."""
-        config.hackmd_token_path.write_text(json.dumps({"token": "x"}))
-        os.chmod(config.hackmd_token_path, 0o644)
+        config.token_path.return_value.write_text(json.dumps({"token": "x"}))
+        os.chmod(config.token_path.return_value, 0o644)
         with pytest.raises(DependencyError, match="0o600"):
             _load_token(config)
 
@@ -104,7 +104,7 @@ class TestAvailable:
         assert HackmdAPIAdapter.available(config) is False
 
     def test_false_when_token_empty(self, config):
-        config.hackmd_token_path.write_text(json.dumps({"token": ""}))
+        config.token_path.return_value.write_text(json.dumps({"token": ""}))
         assert HackmdAPIAdapter.available(config) is False
 
     def test_true_when_token_present(self, config_with_token):

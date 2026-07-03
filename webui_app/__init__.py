@@ -16,7 +16,8 @@ from typing import Any
 import uuid
 
 import flask
-from flask import abort, Flask, request as _flask_req
+from flask import abort, Flask
+from flask import request as _flask_req
 
 
 def _get_version_file() -> Path:

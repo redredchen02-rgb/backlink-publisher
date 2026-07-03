@@ -108,8 +108,8 @@ class TestSetupChecks:
         config = MagicMock()
         config.ghpages = MagicMock()
         config.ghpages.repo = "owner/repo"
-        config.ghpages_token_path = MagicMock()
-        config.ghpages_token_path.exists.return_value = False
+        config.token_path.return_value = MagicMock()
+        config.token_path.return_value.exists.return_value = False
 
         result = _check_ghpages_setup(config)
         assert result is not None

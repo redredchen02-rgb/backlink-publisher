@@ -20,14 +20,14 @@ from backlink_publisher.publishing.adapters.devto_api import (
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cfg = MagicMock()
-    cfg.devto_token_path = tmp_path / "devto-token.json"
+    cfg.token_path.return_value = tmp_path / "devto-token.json"
     return cfg
 
 
 @pytest.fixture
 def config_with_token(config, tmp_path):
     token_data = {"api_key": "devto_test_key_abc123", "token_rev": 1}
-    config.devto_token_path.write_text(json.dumps(token_data))
+    config.token_path.return_value.write_text(json.dumps(token_data))
     return config
 
 
@@ -62,7 +62,7 @@ class TestLoadApiKey:
             _load_api_key(config)
 
     def test_raises_dependency_error_when_api_key_empty(self, config):
-        config.devto_token_path.write_text(json.dumps({"api_key": ""}))
+        config.token_path.return_value.write_text(json.dumps({"api_key": ""}))
         with pytest.raises(DependencyError, match="API key"):
             _load_api_key(config)
 
@@ -126,7 +126,7 @@ class TestDevtoAPIAdapterAvailable:
         assert DevtoAPIAdapter.available(config) is False
 
     def test_false_when_api_key_empty(self, config):
-        config.devto_token_path.write_text(json.dumps({"api_key": ""}))
+        config.token_path.return_value.write_text(json.dumps({"api_key": ""}))
         assert DevtoAPIAdapter.available(config) is False
 
     def test_true_when_api_key_present(self, config_with_token):

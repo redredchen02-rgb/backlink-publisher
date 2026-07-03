@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -10,7 +9,7 @@ from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_linkedin_token
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -21,12 +20,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 60  # 60 s: LinkedIn 429s observed at < 30 
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("LINKEDIN_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="linkedin",
+        env_var="LINKEDIN_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("linkedin")
     if toml_val is not None:
@@ -64,7 +62,7 @@ class LinkedInAPIAdapter(Publisher):
 
     @classmethod
     def available(cls, config: Config) -> bool:
-        data = load_linkedin_token(config.linkedin_token_path)
+        data = load_linkedin_token(config.token_path("linkedin"))
         if not data:
             return False
         return bool((data.get("token") or "").strip())
@@ -79,12 +77,13 @@ class LinkedInAPIAdapter(Publisher):
         article_id = payload.get("id", "")
         log.info(json.dumps(dict(adapter="linkedin", phase="start", id=article_id)))
 
-        token_data = load_linkedin_token(config.linkedin_token_path)
+        tp = config.token_path("linkedin")
+        token_data = load_linkedin_token(tp)
         if not token_data:
             raise DependencyError(
                 "LinkedIn token not configured.\n"
-                f"Write {{\"token\": \"<access_token>\", \"person_id\": \"urn:li:person:<id>\"}} "
-                f"to {config.linkedin_token_path} (chmod 600).\n"
+                f'Write {{"token": "<access_token>", "person_id": "urn:li:person:<id>"}} '
+                f"to {tp} (chmod 600).\n"
                 "Get a token via LinkedIn Developer Portal with w_member_social scope."
             )
         access_token = (token_data.get("token") or "").strip()

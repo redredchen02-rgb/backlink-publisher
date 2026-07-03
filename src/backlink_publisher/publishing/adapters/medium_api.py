@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any, cast
 
@@ -16,7 +15,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.config.types import MEDIUM_API_BASE, MEDIUM_API_TIMEOUT
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 
 from .base import AdapterResult
@@ -29,17 +28,11 @@ _DEFAULT_MEDIUM_PUBLISH_DELAY_S: int = 30  # 30 s: shared with MEDIUM_THROTTLE_M
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("MEDIUM_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
-    from backlink_publisher.config import load_config
-    toml_val = load_config().platform_throttle.get("medium")
-    if toml_val is not None:
-        return int(toml_val)
-    return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="medium",
+        env_var="MEDIUM_PUBLISH_DELAY_S",
+        default=_DEFAULT_MEDIUM_PUBLISH_DELAY_S,
+    )
 
 
 class _TransientHTTPError(Exception):

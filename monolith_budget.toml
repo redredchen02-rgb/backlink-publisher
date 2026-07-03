@@ -41,9 +41,61 @@ rationale = "3 reducers (_project_checkpoint, _project_history, _project_drafts)
 ceiling = 500
 rationale = "Holds the 3 reducers (_project_checkpoint, _project_history, _project_drafts). Emit helpers (_emit_confirmed_history_row, _emit_drafts_confirmed, _parse_row_timestamps) extracted to _project_emit.py (2026-06-11). Ceiling tightened 620→500 = round_up_to_10(467+30) per policy."
 
-[files."src/backlink_publisher/publishing/adapters/__init__.py"]
+[files."src/backlink_publisher/cli/publish_backlinks/_engine.py"]
+ceiling = 480
+rationale = "Publish dispatch engine: payload building, platform routing, checkpoint ops, auth expiry handling. Split from __init__.py during publish-backlinks package refactor. SLOC 448. Ceiling 480 = round_up_to_10(448+30) per policy."
+
+[files."src/backlink_publisher/cli/admin/phase0_seal.py"]
+ceiling = 460
+rationale = "Phase 0 seal implementation: fill/deplete operations, seal validation, LLM body gen, sealing state machine. Full implementation (cli/phase0_seal.py is a 3-line shim re-exporting from here). SLOC 430. Ceiling 460 = round_up_to_10(430+30) per policy."
+
+[files."src/backlink_publisher/cli/_resume.py"]
+ceiling = 450
+rationale = "Resume publish pipeline: checkpoint discovery, partial-run continuation, dedup gate, per-platform resume state. SLOC 423. Ceiling 450 = round_up_to_10(423+30) per policy."
+
+[files."src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py"]
+ceiling = 400
+rationale = "Chrome CDP session implementation: launch/attach, cookie injection, navigation, screenshot, crash recovery. Core of browser-based publish flow. SLOC 374. Ceiling 400 = round_up_to_10(374+30) per policy."
+
+[files."src/backlink_publisher/optimization/rules.py"]
+ceiling = 400
+rationale = "Dispatch weight optimization rules engine: signal collection, aggregated stats, floor clamping, weight computation. SLOC 371. Ceiling 400 = round_up_to_10(371+30) per policy."
+
+[files."src/backlink_publisher/cli/plan/generate_backlink_text.py"]
+ceiling = 400
+rationale = "Backlink text generation: LLM prompt construction, multi-template body gen, link insertion, length enforcement. Full implementation (cli/generate_backlink_text.py is a 3-line shim). SLOC 366. Ceiling 400 = round_up_to_10(366+30) per policy."
+
+[files."src/backlink_publisher/cli/_report_format.py"]
+ceiling = 390
+rationale = "Anchor report formatting: tabular output, platform breakdown, dofollow status, summary metrics. SLOC 363. Ceiling 390 = round_up_to_10(363+30) per policy."
+
+[files."src/backlink_publisher/publishing/session/provider.py"]
+ceiling = 380
+rationale = "Browser session provider: storage state management, cookie refresh, session pool, concurrent access guard. SLOC 352. Ceiling 380 = round_up_to_10(352+30) per policy."
+
+[files."src/backlink_publisher/cli/_dedup_ops.py"]
+ceiling = 380
+rationale = "Dedup operations: URL normalization, content hash comparison, duplicate detection across platform runs. SLOC 350. Ceiling 380 = round_up_to_10(350+30) per policy."
+
+[files."webui_app/api/v1/schemas.py"]
+ceiling = 500
+rationale = "OpenAPI request/response schemas: typed payload models for pipeline, settings, channel bind, OAuth, LLM config endpoints. Pure declarative schemas aligned with spec.py. SLOC 474. Ceiling 500 = round_up_to_10(474+30) per policy."
+
+[files."webui_app/routes/sites.py"]
+ceiling = 410
+rationale = "Sites management routes: site CRUD, URL category editor, bulk import/export. SLOC 376. Ceiling 410 = round_up_to_10(376+30) per policy."
+
+[files."webui_app/api/sites_api.py"]
 ceiling = 340
-rationale = "U3 auto-scan catalog registration (Plan 2026-06-05): register_catalog_entries() function (import-time YAML scan + _CATALOG_AUTO_REGISTERED cache) + tests added ~46 SLOC to reach 302. Ceiling=round_up_to_10(302+30)=340 per ratchet policy."
+rationale = "Sites API layer: site CRUD endpoints, validation, category operations. SLOC 310. Ceiling 340 = round_up_to_10(310+30) per policy."
+
+[files."webui_store/channel_status.py"]
+ceiling = 310
+rationale = "Channel status store: mark_bound/mark_expired reconciliation, binding status queries, _LazyStore singleton. SLOC 279. Ceiling 310 = round_up_to_10(279+30) per policy."
+
+[files."src/backlink_publisher/publishing/adapters/__init__.py"]
+ceiling = 400
+rationale = "U4 lazy-init refactor (2026-07-03): PEP 562 __getattr__ + _lazy_init() guard + register_all_adapters() in function scope moved 24 adapter imports out of module level. SLOC reached 368. Ceiling 400 = round_up_to_10(368+30) per ratchet policy."
 
 [files."src/backlink_publisher/cli/phase0_seal.py"]
 ceiling = 40
@@ -133,8 +185,8 @@ ceiling = 260
 rationale = "Audit KEEP (2026-06-15): config dataclasses + constants. radon SLOC 222 across 30 frozen dataclasses with near-zero logic — this IS the config schema SSoT (blogger/medium/oauth/targets/throttle). Splitting would just re-distribute declarations the loader + writer both walk end-to-end. Ceiling 260 = round_up_to_10(222+30)."
 
 [files."src/backlink_publisher/publishing/registry.py"]
-ceiling = 300
-rationale = "Audit KEEP (2026-06-15): Publisher ABC + table-driven dispatcher. radon SLOC 270 holds the register() contract (dofollow/manifest/visibility/rejection-map) and dispatch(); the adapter __init__.py and manifest_contract.py both depend on this surface as one unit. Ceiling 300 = round_up_to_10(270+30)."
+ceiling = 340
+rationale = "Optimization (2026-07-03): added get_platform_throttle_seconds() helper to consolidate adapter throttle lookups (18 adapters now use this instead of individual load_config() calls). SLOC 314 after addition. Ceiling 340 = round_up_to_10(314+30) per policy."
 
 [files."src/backlink_publisher/cli/spray_backlinks/core.py"]
 ceiling = 540

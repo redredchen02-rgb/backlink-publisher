@@ -12,7 +12,6 @@ dependencies = [
     "google-api-python-client>=2.196,<3",
     "google-auth-oauthlib>=1.4",
     "google-auth-httplib2>=0.2",
-    "playwright>=1.55,<2",
     "requests>=2.32.4,<3",
     "websocket-client>=1.9",
     "beautifulsoup4>=4.13,<5",
@@ -22,9 +21,9 @@ dependencies = [
     "apiflask>=3.1,<4",
     "pydantic>=2.5",
     "pyyaml>=6.0.3",
-    "google-analytics-data>=0.18,<1",
     "structlog>=24.1,<26",
     "flask-compress>=1.14,<2",
+    "waitress>=3.0,<4",
 ]
 
 [project.optional-dependencies]
@@ -32,7 +31,11 @@ dependencies = [
 # must be deterministic across CI matrix rows; bumping radon requires re-measuring all
 # 5 monolith ceilings in the same PR. See docs/plans/2026-05-18-006-feat-monolith-sloc-ceiling-plan.md.
 # ruff is pinned to exact version for deterministic lint results on CI.
-dev = ["pytest>=8.4", "pytest-mock>=3.15", "pytest-timeout>=2.4", "pytest-socket>=0.7", "pytest-env>=1.6", "pytest-asyncio>=1.1,<2", "pytest-xdist>=3.6", "pytest-cov>=6.0", "pytest-benchmark>=5.1", "pytest-rerunfailures>=14.0", "hypothesis>=6.151", "radon==6.0.1", "ruff>=0.15", "mypy>=1.8", "mutmut>=2.4", "vulture>=2.16"]
+dev = ["pytest>=8.4", "pytest-mock>=3.15", "pytest-timeout>=2.4", "pytest-socket>=0.7", "pytest-env>=1.6", "pytest-asyncio>=1.1,<2", "pytest-xdist>=3.6", "pytest-cov>=6.0", "pytest-benchmark>=5.1", "pytest-rerunfailures>=14.0", "hypothesis>=6.151", "radon==6.0.1", "ruff>=0.15,<1", "mypy>=1.8", "mutmut>=2.4", "vulture>=2.16", "import-linter>=1.6", "pip-audit>=2.7"]
+# browser: Playwright for browser-based publishing and credential binding
+browser = ["playwright>=1.55,<2"]
+# analytics: Google Analytics Data API for referral attribution and click tracking
+analytics = ["google-analytics-data>=0.18,<1"]
 # webwright: Microsoft Research's browser agent framework (microsoft/Webwright).
 # The PyPI package "webwright==0.0.7" is an unrelated project from MittaAI and MUST NOT be used.
 # Pin to a specific commit SHA — upstream is in rapid iteration with no formal releases.

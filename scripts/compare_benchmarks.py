@@ -7,15 +7,9 @@ main's last successful CI run, one from the current run), diffs the ``mean``
 timing per benchmark by ``fullname``, and flags anything that regressed
 beyond ``--threshold-pct``.
 
-Warn-only by design: this always exits 0. It mirrors the "advisory
-(warn-only)" contract already documented in ``tests/test_benchmarks.py``'s
-module docstring, and the threshold itself starts deliberately lenient (see
-the ``--threshold-pct`` default and the rationale comment next to its use in
-ci.yml) — pytest-benchmark wall-clock timings on shared GitHub-hosted
-runners are noisy enough on their own that a strict, hard-failing gate would
-punish runner noise rather than real regressions. Tighten (and consider
-hard-failing) once real-world variance across several weeks of runs
-establishes the noise floor.
+Blocking by design: exits non-zero when any benchmark regresses beyond the
+threshold. The 20% threshold is deliberately lenient to absorb shared-runner
+noise; tighten once real-world variance is measured across several weeks.
 
 Usage:
   compare_benchmarks.py --baseline baseline/benchmark-result.json \\
@@ -25,7 +19,7 @@ If ``--baseline`` does not exist (e.g. first run after enabling this gate,
 or the baseline-artifact fetch step failed), the comparison is skipped with
 a warning rather than treated as an error.
 
-Exit code: always 0 (warn-only — see module docstring).
+Exit code: 0 on success, 1 when regressions exceed threshold.
 """
 from __future__ import annotations
 
@@ -95,14 +89,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if regressions:
         for name, pct in regressions:
-            print(f"::warning::Benchmark '{name}' regressed {pct:.1f}% vs main "
-                  f"baseline (threshold: {args.threshold_pct:.0f}%, warn-only "
-                  f"per tests/test_benchmarks.py)")
+            print(f"::error::Benchmark '{name}' regressed {pct:.1f}% vs main "
+                  f"baseline (threshold: {args.threshold_pct:.0f}%)")
+        return 1
     else:
         print(f"No benchmarks regressed beyond the {args.threshold_pct:.0f}% "
-              f"warn-only threshold.")
-
-    return 0  # warn-only — see module docstring
+              f"threshold.")
+        return 0
 
 
 if __name__ == "__main__":

@@ -183,7 +183,7 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
     from backlink_publisher.http import get as http_get
 
     try:
-        token_data = load_blogger_token(config.blogger_token_path)
+        token_data = load_blogger_token(config.token_path("blogger"))
     except Exception as e:
         return _never(f"blogger token file unreadable: {e}")
 

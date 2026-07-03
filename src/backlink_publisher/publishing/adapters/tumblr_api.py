@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -12,7 +11,7 @@ from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -23,12 +22,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 15
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("TUMBLR_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="tumblr",
+        env_var="TUMBLR_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("tumblr")
     if toml_val is not None:
@@ -38,14 +36,15 @@ def _post_publish_delay_s() -> int:
 
 def _load_credentials(config: Config) -> dict[str, str]:
     from backlink_publisher.config.tokens import _load_token
-    data = _load_token(config.tumblr_credentials_path, "tumblr-credentials.json")
+    tp = config.token_path("tumblr")
+    data = _load_token(tp, "tumblr-credentials.json")
     if not data:
         raise DependencyError(
             "Tumblr credentials not configured. "
-            f"Write {{\"consumer_key\": ..., \"consumer_secret\": ..., "
-            f"\"oauth_token\": ..., \"oauth_token_secret\": ..., "
-            f"\"blog_name\": \"your-blog\"}} "
-            f"to {config.tumblr_credentials_path} (chmod 600). "
+            f'Write {{"consumer_key": ..., "consumer_secret": ..., '
+            f'"oauth_token": ..., "oauth_token_secret": ..., '
+            f'"blog_name": "your-blog"}} '
+            f"to {tp} (chmod 600). "
             "Register an app at https://www.tumblr.com/oauth/apps"
         )
     for field in ("consumer_key", "consumer_secret", "oauth_token", "oauth_token_secret", "blog_name"):
@@ -84,7 +83,7 @@ class TumblrAPIAdapter(Publisher):
     @classmethod
     def available(cls, config: Config) -> bool:
         from backlink_publisher.config.tokens import _load_token
-        data = _load_token(config.tumblr_credentials_path, "tumblr-credentials.json")
+        data = _load_token(config.token_path("tumblr"), "tumblr-credentials.json")
         if not data:
             return False
         return all(

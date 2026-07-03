@@ -125,7 +125,7 @@ def _probe_playwright_context(config: Config) -> Any:
     """
     if sync_playwright is None:
         raise DependencyError(
-            "Playwright 未安装，请运行 playwright install chromium"
+            "Playwright is not installed. Install with: pip install backlink-publisher[browser]"
         )
     pw_cm = sync_playwright()
     pw = pw_cm.__enter__()
@@ -145,7 +145,7 @@ def _playwright_context(config: Config) -> Any:
     """
     if sync_playwright is None:
         raise DependencyError(
-            "Playwright 未安装，请运行 playwright install chromium"
+            "Playwright is not installed. Install with: pip install backlink-publisher[browser]"
         )
     udd = _user_data_dir(config)
     udd.mkdir(parents=True, exist_ok=True, mode=0o700)

@@ -12,8 +12,8 @@ from typing import cast
 from backlink_publisher._util.cache import _ttl_cache_get, _ttl_cache_set
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher._util.paths import (
-    _cache_dir,
-    _config_dir,
+    _cache_dir,  # noqa: F401 — re-exported for config.__init__
+    _config_dir,  # noqa: F401 — re-exported for config.__init__
     _resolve_config_dir,
 )
 
@@ -48,7 +48,6 @@ from .types import (
     VelogConfig,
     ZennConfig,
 )
-
 
 log = logging.getLogger(__name__)
 

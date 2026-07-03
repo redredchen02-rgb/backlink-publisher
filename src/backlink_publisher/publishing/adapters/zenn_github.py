@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 import time
 from typing import Any, cast
@@ -41,7 +40,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_zenn_token
 from backlink_publisher.http import get as http_get
 from backlink_publisher.http import put as http_put
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -52,12 +51,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 10  # 10 s: GitHub push rate limit buffer
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("ZENN_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="zenn",
+        env_var="ZENN_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("zenn")
     if toml_val is not None:
@@ -83,7 +81,7 @@ def _required_headers(token: str) -> dict[str, str]:
 
 
 def _load_token(config: Config) -> str:
-    token_path = config.zenn_token_path
+    token_path = config.token_path("zenn")
     data = load_zenn_token(token_path)
     token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
@@ -159,7 +157,7 @@ class ZennGitHubAdapter(Publisher):
 
     @classmethod
     def available(cls, config: Config) -> bool:
-        data = load_zenn_token(config.zenn_token_path)
+        data = load_zenn_token(config.token_path("zenn"))
         if not data or not (data.get("token") or "").strip():
             return False
         github_repo = (config.zenn and config.zenn.github_repo) or (data.get("github_repo") or "").strip()
@@ -176,7 +174,7 @@ class ZennGitHubAdapter(Publisher):
         article_id = payload.get("id", "")
         log.info(json.dumps(dict(adapter="zenn", phase="start", id=article_id)))
 
-        token_data = load_zenn_token(config.zenn_token_path) or {}
+        token_data = load_zenn_token(config.token_path("zenn")) or {}
         repo = (config.zenn and config.zenn.github_repo) or (token_data.get("github_repo") or "").strip()
         branch = (config.zenn and config.zenn.branch) or "main"
         zenn_username = (config.zenn and config.zenn.username) or (token_data.get("username") or "").strip()

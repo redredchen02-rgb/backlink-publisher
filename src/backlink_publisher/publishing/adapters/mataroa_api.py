@@ -28,7 +28,6 @@ Design choices (mirrors ``hackmd_api.py`` / ``devto_api.py``):
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any, cast
 
@@ -37,7 +36,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_mataroa_token
 from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -48,12 +47,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 15
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("MATAROA_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="mataroa",
+        env_var="MATAROA_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("mataroa")
     if toml_val is not None:
@@ -78,13 +76,14 @@ def _require_secure_mode(path: Any) -> None:
 
 def _load_token(config: Config) -> str:
     """Return the API token, raising DependencyError when not configured."""
-    _require_secure_mode(config.mataroa_token_path)
-    data = load_mataroa_token(config.mataroa_token_path)
+    tp = config.token_path("mataroa")
+    _require_secure_mode(tp)
+    data = load_mataroa_token(tp)
     token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "Mataroa API token not configured. "
-            f"Write {{\"token\": \"<token>\"}} to {config.mataroa_token_path} "
+            f'Write {{"token": "<token>"}} to {tp} '
             "(chmod 600). Enable at mataroa.blog → account settings → API."
         )
     return token
@@ -110,7 +109,7 @@ class MataroaAPIAdapter(Publisher):
     @classmethod
     def available(cls, config: Config) -> bool:
         """Return True when mataroa-token.json exists with a non-empty token."""
-        data = load_mataroa_token(config.mataroa_token_path)
+        data = load_mataroa_token(config.token_path("mataroa"))
         if not data:
             return False
         return bool((data.get("token") or "").strip())

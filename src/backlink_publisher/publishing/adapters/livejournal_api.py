@@ -39,7 +39,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 from pathlib import Path
 import time
 from typing import Any, cast
@@ -49,7 +48,7 @@ from backlink_publisher._util.errors import DependencyError, ExternalServiceErro
 from backlink_publisher.config import Config
 from backlink_publisher.persistence import safe_write
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .http_form_post import attach_link_verification
@@ -66,12 +65,11 @@ _LIVEJOURNAL_PUBLISH_DELAY_ENV = "LIVEJOURNAL_PUBLISH_DELAY_S"
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get(_LIVEJOURNAL_PUBLISH_DELAY_ENV)
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="livejournal",
+        env_var="LIVEJOURNAL_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("livejournal")
     if toml_val is not None:

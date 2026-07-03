@@ -132,7 +132,7 @@ class TestGhpagesConfig:
     def test_config_ghpages_token_path_is_in_config_dir(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         cfg = Config()
-        assert cfg.ghpages_token_path == tmp_path / "ghpages-token.json"
+        assert cfg.token_path("ghpages") == tmp_path / "ghpages-token.json"
 
 
 # ───────────────────────────────────────────────────────────────────────────────

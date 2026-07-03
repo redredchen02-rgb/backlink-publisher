@@ -115,7 +115,7 @@ def query_site(
         return ClickQueryResult(
             target_site=target_site,
             error_class="dependency_missing",
-            error_reason=f"google-analytics-data not installed: {exc}",
+            error_reason=f"google-analytics-data not installed. Install with: pip install backlink-publisher[analytics]: {exc}",
         )
 
     try:

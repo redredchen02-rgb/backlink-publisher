@@ -9,8 +9,8 @@ st_mode is always 0o100666), so permission checks are skipped on Windows.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
+import sys
 
 from backlink_publisher._util.errors import DependencyError
 

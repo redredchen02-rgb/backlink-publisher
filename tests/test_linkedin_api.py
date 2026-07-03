@@ -21,17 +21,17 @@ from backlink_publisher.publishing.adapters.linkedin_api import LinkedInAPIAdapt
 @pytest.fixture
 def config(tmp_path):
     cfg = MagicMock()
-    cfg.linkedin_token_path = tmp_path / "linkedin-token.json"
+    cfg.token_path.return_value = tmp_path / "linkedin-token.json"
     cfg.config_dir = tmp_path
     return cfg
 
 
 @pytest.fixture
 def config_with_token(config):
-    config.linkedin_token_path.write_text(
+    config.token_path.return_value.write_text(
         json.dumps({"token": "tok123", "person_id": "urn:li:person:abc"})
     )
-    os.chmod(config.linkedin_token_path, 0o600)
+    os.chmod(config.token_path.return_value, 0o600)
     return config
 
 

@@ -35,7 +35,6 @@ from typing import Any
 
 from flask import jsonify, request
 
-from backlink_publisher._util.logger import plan_logger
 from backlink_publisher._util.markdown import render_to_html
 from backlink_publisher.sdk.api import PipelineAPI, publish_state_summary
 

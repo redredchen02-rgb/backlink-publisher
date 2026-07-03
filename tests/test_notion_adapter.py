@@ -20,7 +20,7 @@ from backlink_publisher.publishing.adapters.notion_api import (
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cfg = MagicMock()
-    cfg.notion_token_path = tmp_path / "notion-token.json"
+    cfg.token_path.return_value = tmp_path / "notion-token.json"
     return cfg
 
 
@@ -31,7 +31,7 @@ def config_with_token(config, tmp_path):
         "database_id": "test_db_12345",
         "token_rev": 1,
     }
-    config.notion_token_path.write_text(json.dumps(token_data))
+    config.token_path.return_value.write_text(json.dumps(token_data))
     return config
 
 
@@ -67,14 +67,14 @@ class TestLoadCredentials:
             _load_credentials(config)
 
     def test_raises_dependency_error_when_token_empty(self, tmp_path, config):
-        config.notion_token_path.write_text(
+        config.token_path.return_value.write_text(
             json.dumps({"integration_token": "", "database_id": "db1"})
         )
         with pytest.raises(DependencyError, match="integration token"):
             _load_credentials(config)
 
     def test_raises_dependency_error_when_database_id_missing(self, config):
-        config.notion_token_path.write_text(
+        config.token_path.return_value.write_text(
             json.dumps({"integration_token": "secret_x", "database_id": ""})
         )
         with pytest.raises(DependencyError, match="database_id"):
@@ -150,13 +150,13 @@ class TestNotionAPIAdapterAvailable:
         assert NotionAPIAdapter.available(config) is False
 
     def test_false_when_token_empty(self, config):
-        config.notion_token_path.write_text(
+        config.token_path.return_value.write_text(
             json.dumps({"integration_token": "", "database_id": "db1"})
         )
         assert NotionAPIAdapter.available(config) is False
 
     def test_false_when_db_id_empty(self, config):
-        config.notion_token_path.write_text(
+        config.token_path.return_value.write_text(
             json.dumps({"integration_token": "secret_x", "database_id": ""})
         )
         assert NotionAPIAdapter.available(config) is False

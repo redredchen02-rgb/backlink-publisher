@@ -174,7 +174,7 @@ def test_blogger_status_reports_client_without_leaking_secret(client):
 
 def test_revoke_blogger_deletes_token_file(client, _isolated_config_dir):
     from backlink_publisher.config import load_config
-    p = load_config().blogger_token_path
+    p = load_config().token_path("blogger")
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("{}")
     resp = client.post("/api/v1/settings/blogger/revoke", headers=_headers())
@@ -191,7 +191,7 @@ def test_revoke_blogger_absent_token_still_ok(client, _isolated_config_dir):
 
 def test_revoke_blogger_delete_failure_is_502(client):
     cfg = MagicMock()
-    cfg.blogger_token_path.unlink.side_effect = OSError("locked")
+    cfg.token_path.return_value.unlink.side_effect = OSError("locked")
     with patch("webui_app.api.oauth_api.load_config", return_value=cfg):
         resp = client.post("/api/v1/settings/blogger/revoke", headers=_headers())
     assert resp.status_code == 502

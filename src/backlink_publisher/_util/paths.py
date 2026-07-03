@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 _SANDBOX_SENTINEL = "BACKLINK_PUBLISHER_TEST_SANDBOX"
 _FAIL_CLOSED_MSG = (
     "{override_key} is unset but {sentinel} is set — the test harness "

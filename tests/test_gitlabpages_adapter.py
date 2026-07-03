@@ -26,7 +26,7 @@ _PUT = "backlink_publisher.publishing.adapters.gitlabpages.http_put"
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cfg = MagicMock()
-    cfg.gitlabpages_token_path = tmp_path / "gitlabpages-token.json"
+    cfg.token_path.return_value = tmp_path / "gitlabpages-token.json"
     cfg.gitlabpages = GitlabPagesConfig(
         project="me/myrepo", branch="main",
         path_template="public/{slug}/index.html", pages_base_url="",
@@ -36,8 +36,8 @@ def config(tmp_path, monkeypatch):
 
 @pytest.fixture
 def config_with_token(config):
-    config.gitlabpages_token_path.write_text(json.dumps({"token": "glpat_secret_99", "token_rev": 1}))
-    os.chmod(config.gitlabpages_token_path, 0o600)  # R10: real bind writes 0o600
+    config.token_path.return_value.write_text(json.dumps({"token": "glpat_secret_99", "token_rev": 1}))
+    os.chmod(config.token_path.return_value, 0o600)  # R10: real bind writes 0o600
     return config
 
 
@@ -66,8 +66,8 @@ class TestLoadToken:
 
     def test_rejects_world_readable_token_file(self, config):
         """R10: a 0o644 PAT file must be refused."""
-        config.gitlabpages_token_path.write_text(json.dumps({"token": "x"}))
-        os.chmod(config.gitlabpages_token_path, 0o644)
+        config.token_path.return_value.write_text(json.dumps({"token": "x"}))
+        os.chmod(config.token_path.return_value, 0o644)
         with pytest.raises(DependencyError, match="0o600"):
             _load_token(config)
 
