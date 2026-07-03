@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Backlink Publisher WebUI 启动脚本 — Windows PowerShell 版
   等价于 launcher.command (macOS)
@@ -15,6 +15,11 @@
 
   或者直接双击 启动WebUI.bat（推荐：更简单可靠）
 #>
+
+# 强制 UTF-8 输出，避免非 UTF-8 系统区域设置下的乱码 (Console 输出编码；
+# 本文件本身另存为带 BOM 的 UTF-8，供 Windows PowerShell 5.1 在解析阶段
+# 正确解码字面量中文字符串，二者缺一都无法根治乱码)。
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # ---- 定位项目目录 (支持 scripts/ 和 workspace-root 两种位置) ----
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
