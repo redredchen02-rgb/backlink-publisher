@@ -23,6 +23,7 @@ import subprocess
 import sys
 from typing import Any
 
+from backlink_publisher._util.subprocess_env import utf8_child_env
 from backlink_publisher.content import fetch as content_fetch
 
 # ── fetch-verify bypass (inlined from webui_app/helpers/url_meta to avoid
@@ -138,7 +139,7 @@ def _rewrite_cli_cmd(cmd: Any) -> tuple[Any, Any]:
     if module is None:
         return cmd, None
     new_cmd = [sys.executable, '-m', module, *cmd[1:]]
-    env = os.environ.copy()
+    env = utf8_child_env(os.environ)
     env['PYTHONPATH'] = _SRC_DIR + (
         os.pathsep + env['PYTHONPATH'] if env.get('PYTHONPATH') else ''
     )
@@ -151,6 +152,8 @@ def _base_subprocess_kwargs(stdin: Any, cwd: Any, env: Any, timeout: int = 300) 
         input=stdin,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=cwd,
         env=env,
         timeout=timeout,
