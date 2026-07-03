@@ -472,7 +472,7 @@ def _single_run_lock(config_dir: Path) -> Iterator[bool]:
 
     Yields True if acquired, False if another run already holds the lock.
     """
-    from backlink_publisher._compat import fcntl
+    import fcntl
 
     config_dir.mkdir(parents=True, exist_ok=True)
     lock_path = config_dir / ".probe-citations.lock"

@@ -46,7 +46,7 @@ import os
 import random
 import time
 
-from backlink_publisher._compat import fcntl
+import fcntl
 
 mimetypes.add_type("image/webp", ".webp")
 from collections.abc import Iterator

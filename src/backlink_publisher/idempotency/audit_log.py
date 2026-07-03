@@ -26,7 +26,7 @@ from pathlib import Path
 import time
 from typing import Any
 
-from backlink_publisher._compat import fcntl
+import fcntl
 
 from ..config import _config_dir
 

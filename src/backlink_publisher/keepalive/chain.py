@@ -39,7 +39,7 @@ def _cycle_lock(config_dir: Path) -> Generator[bool, None, None]:
 
     Yields True if acquired, False if another keepalive cycle is already running.
     """
-    from backlink_publisher._compat import fcntl
+    import fcntl
 
     config_dir.mkdir(parents=True, exist_ok=True)
     lock_path = config_dir / ".keepalive-run.lock"

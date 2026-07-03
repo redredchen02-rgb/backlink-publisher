@@ -42,7 +42,7 @@ from pathlib import Path
 import time
 from typing import Any, cast, TYPE_CHECKING
 
-from backlink_publisher._compat import fcntl
+import fcntl
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
 from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.logger import opencli_logger as log
