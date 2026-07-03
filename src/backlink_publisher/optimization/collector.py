@@ -17,6 +17,7 @@ import subprocess
 import sys
 from typing import Any, cast
 
+from backlink_publisher._util.subprocess_env import utf8_child_env
 from backlink_publisher.config.loader import _config_dir as _resolve_config_dir
 from backlink_publisher.optimization import OptimizationState
 
@@ -152,6 +153,9 @@ def _try_cli_collect(
             + extra_args,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=utf8_child_env(),
             timeout=30,
         )
         if result.returncode != 0:

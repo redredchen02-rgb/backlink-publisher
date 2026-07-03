@@ -37,6 +37,8 @@ import sys
 import time
 from typing import Any
 
+from backlink_publisher._util.subprocess_env import utf8_child_env
+
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
@@ -139,6 +141,9 @@ def _run_step(cmd: list[str], step_name: str) -> StepResult:
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=utf8_child_env(),
             timeout=7200,  # 2h per step
         )
         duration = time.time() - start
@@ -180,6 +185,9 @@ def _run_pipe_step(
             input=input_data,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=utf8_child_env(),
             timeout=7200,
         )
         duration = time.time() - start
@@ -390,6 +398,9 @@ def _count_gaps(config: PipelineConfig) -> int:
             input=ledger_out,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=utf8_child_env(),
             timeout=300,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
