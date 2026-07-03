@@ -11,12 +11,17 @@ otherwise. Every subprocess call site that captures text output from a
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import os
 
 
-def utf8_child_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
+def utf8_child_env(base_env: Mapping[str, str] | None = None) -> dict[str, str]:
     """Return a copy of *base_env* (or ``os.environ`` if ``None``) with
     ``PYTHONIOENCODING`` forced to ``"utf-8"``.
+
+    Accepts any ``Mapping`` (including ``os.environ`` itself, which is an
+    ``os._Environ`` rather than a plain ``dict``) rather than requiring the
+    caller to pre-copy it.
 
     Forces unconditionally rather than ``setdefault`` — correctness here
     doesn't depend on operator configuration.
