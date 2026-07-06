@@ -200,10 +200,26 @@ jobs:
       - name: Run integration tests
         # Longer per-test timeout (60s) — integration tests may touch SQLite,
         # filesystem, or spawn subprocesses.
-        # R18: no longer re-run all unit tests for coverage. The unit job
-        # already measures unit coverage; this job only validates integration tests.
         run: |
           python -m pytest tests/ -v --tb=short --timeout=60 -n auto -m "integration" --strict-markers --strict-config
+
+      - name: Full-suite coverage gate (R18)
+        # Run without -m filter to measure combined coverage. --cov-fail-under=80
+        # is set on the CLI, not addopts, to avoid conftest module-load silencing
+        # (see docs/solutions/test-failures/strict-markers-addopts-noop-conftest-module-load-2026-06-01.md).
+        # Baseline: 83.2% measured 2026-06-09; floor set at 80% to prevent
+        # regressions. Both pre-reconcile lineages carried this gate; the
+        # debt-registry claim 'no-coverage-gate: resolved' depends on it
+        # (tests/test_debt_registry_freshness.py).
+        run: |
+          python -m pytest tests/ --tb=short --timeout=60 -n auto --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:coverage-full.json --cov-fail-under=80
+
+      - name: Upload full coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-full-${{ matrix.python-version }}
+          path: coverage-full.json
+          if-no-files-found: error
 
   # ═══════════════════════════════════════════════════════════════════════════
   # U2: E2E tests — full end-to-end requiring real network or browser

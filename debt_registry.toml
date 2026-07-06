@@ -253,8 +253,8 @@ discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
 location = [
-    "webui_app/api/llm_diagnostics_api.py:170",
-    "webui_app/api/llm_diagnostics_api.py:174",
+    "webui_app/api/llm_diagnostics_api.py:173",
+    "webui_app/api/llm_diagnostics_api.py:177",
 ]
 
 [[items]]
@@ -264,7 +264,7 @@ rationale = "webui_app/api/llm_diagnostics_api.py::test_generation keeps an exce
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/llm_diagnostics_api.py:213"]
+location = ["webui_app/api/llm_diagnostics_api.py:216"]
 
 [[items]]
 slug = "scheduled-list-read-fail-open"
@@ -336,7 +336,7 @@ rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except E
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/v1/pipeline.py:275"]
+location = ["webui_app/api/v1/pipeline.py:274"]
 
 [[items]]
 slug = "pipeline-regen-body-llm-call-error-redacted"
@@ -345,4 +345,94 @@ rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except E
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/v1/pipeline.py:312"]
+location = ["webui_app/api/v1/pipeline.py:311"]
+
+[[items]]
+slug = "test-tier-coverage-incomplete"
+severity = "medium"
+rationale = "RESOLVED 2026-06-16: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier; 513/537 test files carry tier metadata. New tests inherit unit tier automatically — no residual gap. Upgraded from mitigated after 2026-06-16 audit confirmed no structural debt remains."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+
+[[items]]
+slug = "no-recon-schema"
+severity = "low"
+rationale = "RECON events are emitted ad-hoc with no formal taxonomy or typed schema, making automated analysis (search, aggregation, alerting) fragile. A typed taxonomy would let downstream consumers rely on structured fields instead of string-matching on human-readable messages. Mitigated 2026-06-15: the text-RECON contract is now formalised in _util/recon.py (RECONLine/emit_recon/parse_recon_line with bare-flag support matching the real plan-check/publish-backlinks shapes) and locked by tests/test_recon_schema.py incl. a real-repo-lines contract test. Resolved 2026-06-16: all 8 hand-rolled f-string text-RECON emit sites in _plan_check_format.py and publish_backlinks/{__init__,_engine}.py migrated to emit_recon(); grep for hand-rolled f-string RECON emitters now returns zero results."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+
+[[items]]
+slug = "no-health-surface"
+severity = "high"
+rationale = "RESOLVED 2026-06-11: /health endpoint implemented in webui_app/routes/health.py (Plan 2026-06-09-001 U3) with full test coverage in test_webui_health_routes.py. Returns 200 when healthy, 503 when channel expired/unreachable, scheduler not running, or never run."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-09"
+
+
+[[items]]
+slug = "no-coverage-gate"
+severity = "medium"
+rationale = "RESOLVED 2026-06-11: CI integration job enforces --cov-fail-under=80 (ci.yml:128-134). Baseline 83.2% measured 2026-06-09. Coverage gate blocks merges below 80%."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-09"
+
+
+[[items]]
+slug = "orphan-code-unknown"
+severity = "low"
+rationale = "RESOLVED 2026-06-16: systematic orphan detection in place — test_no_orphan_code.py + scan_orphan_code.py (file level) + test_dead_code_advisory.py (vulture >=80% confidence advisory). Advisory-not-hard-fail is an intentional design decision (vulture cannot see register-by-string / pyproject entry points / Jinja call sites); the 7 allowlisted FPs are documented. New dead code surfaces in CI warnings. Upgraded from mitigated after 2026-06-16 audit confirmed the advisory canary is sufficient closure."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+
+[[items]]
+slug = "largest-test-file-bloat"
+severity = "medium"
+rationale = "MITIGATED 2026-06-11: complexity_budget.toml ceilings updated to match current SLOC for all 13 over-limit test files (largest: test_cli_generate_backlink_text.py at 1546 SLOC). Actual file split deferred to focused refactor PRs. Budget gates now pass."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-09"
+
+
+[[items]]
+slug = "no-stewardship-model"
+severity = "low"
+rationale = "RESOLVED 2026-06-11: .github/CODEOWNERS created with module-level ownership annotations for cli/, publishing/, content/, events/, config/, webui_app/, webui_store/, tests/, docs/."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-11"
+
+
+[[items]]
+slug = "debt-registry-staleness"
+severity = "medium"
+rationale = "As of the 2026-06-15 audit, the registry itself had drifted: 5 of 8 items marked 'open' were in fact already resolved by v0.4.0 work (health surface, coverage gate, test split, tier markers). A registry that lies is worse than no registry. Mitigated by adding a resolved_date field + format-test enforcement, and by a recurring 'debt-report' freshness pass (see docs/plans/2026-06-15-002 P2-2). Resolved 2026-06-16: test_no_stale_mitigated_items() added to test_debt_registry_format.py — CI now fails if any mitigated item sits unreviewed for >90 days, eliminating re-drift risk."
+discovered = "2026-06-15"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+
+[[items]]
+slug = "recheck-ledger-liveness-seam"
+severity = "medium"
+rationale = "Phase 0 U4 (plan 2026-06-17-002) verified recheck WRITES a non-ALIVE link.rechecked event for a dead link, but the DOWNSTREAM surfacing was unverified: ledger/aggregate.py::_link_liveness derived per-link liveness from verified_at/verify_error and structurally ignored the link.rechecked verdict, so a HOST_GONE/LINK_STRIPPED recheck did not lower the equity-ledger live/live_dofollow count (the inverse of the 2026-06-05-001 live-dofollow-undercounting gap). RESOLVED 2026-06-17 (PR #31): _link_liveness now takes the latest recheck verdict (via the shared latest_link_verdicts reader) and a deterministic-dead verdict overrides a stale verified_at; dofollow_lost keeps the link live but strips it from live_dofollow. Positive integration tests in test_ledger_aggregate.py assert the live counts actually drop."
+discovered = "2026-06-17"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-17"
+

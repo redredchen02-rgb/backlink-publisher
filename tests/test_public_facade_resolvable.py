@@ -53,12 +53,17 @@ def test_import_is_lazy_no_eager_adapter_registration() -> None:
     adapter graph — the registry stays empty until ``register_all_adapters()`` /
     an explicit adapter import. Proves the facade is lazy (no cycle, no eager
     side effects)."""
+    # NOTE: probe the private ``_REGISTRY`` dict, not ``registered_platforms()``
+    # — the public accessor now performs lazy init itself (it would populate
+    # the registry as a side effect of the measurement).
     result = _python_subprocess(
         "import sys, backlink_publisher; "
-        "from backlink_publisher.publishing.registry import registered_platforms; "
-        "n = len(registered_platforms()); "
-        "print('REGISTERED:', n); "
-        "sys.exit(0 if n == 0 else 1)"
+        "from backlink_publisher.publishing import registry; "
+        "n = len(registry._REGISTRY); "
+        "graph = [m for m in sys.modules if m.startswith("
+        "'backlink_publisher.publishing.adapters.')]; "
+        "print('REGISTERED:', n, 'ADAPTER_MODULES:', graph); "
+        "sys.exit(0 if n == 0 and not graph else 1)"
     )
     assert result.returncode == 0, (
         f"`import backlink_publisher` eagerly registered adapters (registry not "

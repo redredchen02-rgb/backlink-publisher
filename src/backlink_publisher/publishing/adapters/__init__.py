@@ -368,6 +368,42 @@ def register_all_adapters() -> None:
         **ZENN_MANIFEST,
     )
 
+    # Export the deferred-imported classes to module globals so attribute
+    # access (``adapters.BloggerAPIAdapter``) resolves after ``__getattr__``
+    # triggers ``_lazy_init()``. Without this, the function-local imports
+    # above never reach the module namespace and every public class name in
+    # ``__all__`` raises AttributeError despite lazy init having run.
+    globals().update(
+        BrowserPublishDispatcher=BrowserPublishDispatcher,
+        BloggerAPIAdapter=BloggerAPIAdapter,
+        DevtoAPIAdapter=DevtoAPIAdapter,
+        GitHubPagesAPIAdapter=GitHubPagesAPIAdapter,
+        GitLabPagesAPIAdapter=GitLabPagesAPIAdapter,
+        HackmdAPIAdapter=HackmdAPIAdapter,
+        HashnodeGraphQLAdapter=HashnodeGraphQLAdapter,
+        HatenaAtomPubAdapter=HatenaAtomPubAdapter,
+        TelegraphCdpAdapter=TelegraphCdpAdapter,
+        LinkedInAPIAdapter=LinkedInAPIAdapter,
+        LivejournalAPIAdapter=LivejournalAPIAdapter,
+        MataroaAPIAdapter=MataroaAPIAdapter,
+        MediumAPIAdapter=MediumAPIAdapter,
+        MediumBraveAdapter=MediumBraveAdapter,
+        MediumBrowserAdapter=MediumBrowserAdapter,
+        NotesioFormPostAdapter=NotesioFormPostAdapter,
+        NotionAPIAdapter=NotionAPIAdapter,
+        QiitaAPIAdapter=QiitaAPIAdapter,
+        RentryAPIAdapter=RentryAPIAdapter,
+        SubstackAPIAdapter=SubstackAPIAdapter,
+        TelegraphAPIAdapter=TelegraphAPIAdapter,
+        TumblrAPIAdapter=TumblrAPIAdapter,
+        TxtfyiFormPostAdapter=TxtfyiFormPostAdapter,
+        VelogGraphQLAdapter=VelogGraphQLAdapter,
+        WordpresscomAPIAdapter=WordpresscomAPIAdapter,
+        WriteasAPIAdapter=WriteasAPIAdapter,
+        ZennGitHubAdapter=ZennGitHubAdapter,
+        _livejournal_credential_saver=_livejournal_credential_saver,
+    )
+
 
 _INITIALIZED: bool = False
 
