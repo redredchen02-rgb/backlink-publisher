@@ -135,6 +135,19 @@ class TestGetRoutes:
         resp = client.get("/")
         assert resp.status_code == 200
 
+    def test_settings_redirects_to_spa(self, client):
+        """/settings 302s to the SPA page (P13 B1 migration)."""
+        resp = client.get("/settings")
+        assert resp.status_code == 302
+        assert "/app/settings" in resp.headers["Location"]
+
+    def test_api_admin_errors_loopback_smoke(self, client):
+        """Loopback-only error baseline endpoint answers the test client
+        (remote_addr 127.0.0.1) with a JSON payload."""
+        resp = client.get("/api/admin/errors")
+        assert resp.status_code == 200
+        assert resp.is_json
+
     def test_homepage_has_mode_toggle(self, client):
         """Plan 012 Unit 5 — single/batch toggle DOM present on home page."""
         resp = client.get("/")
