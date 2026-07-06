@@ -129,6 +129,33 @@ describe('HistoryPage', () => {
     expect((btn.element as HTMLButtonElement).disabled).toBe(true)
   })
 
+  it('a successful bulk action only deselects the ids it actually submitted (code review)', async () => {
+    // If the user reselects a DIFFERENT row while the first bulk call is still
+    // in flight, that reselection must survive -- run() must not blanket-clear
+    // `selected` on success, only remove the ids this call actually acted on.
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+    let resolveDelete!: (v: { items: typeof PUBLISHED[]; message?: string }) => void
+    const pending = new Promise<{ items: typeof PUBLISHED[]; message?: string }>((res) => {
+      resolveDelete = res
+    })
+    vi.mocked(api.bulkDeleteHistory).mockReturnValue(pending)
+    const w = mountPage()
+    await flushPromises()
+
+    const checkboxes = w.findAll('tbody tr input[type="checkbox"]')
+    await checkboxes[0].setValue(true) // select PUBLISHED (id 7)
+    await w.find('.bulk-delete').trigger('click') // in-flight, still holding [7]
+
+    await checkboxes[1].setValue(true) // reselect FAILED (id 8) mid-flight
+
+    resolveDelete({ items: [FAILED] }) // id 7 deleted server-side
+    await flushPromises()
+
+    expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7'])
+    const remainingCheckbox = w.find('tbody tr input[type="checkbox"]')
+    expect((remainingCheckbox.element as HTMLInputElement).checked).toBe(true)
+  })
+
   it('an action failure surfaces a classifyError toast (no raw server text)', async () => {
     vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
     vi.mocked(api.deleteHistory).mockRejectedValue({ status: 500, detail: 'stacktrace' })

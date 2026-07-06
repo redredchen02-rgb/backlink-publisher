@@ -57,13 +57,24 @@ function reportError(e: unknown): void {
   toastError(e)
 }
 
-async function run(fn: () => Promise<DraftMutationResult>): Promise<void> {
+/**
+ * `idsToDeselect` (code review): only the ids this specific call acted on are
+ * removed from `selected` on success -- not a blanket clear. Without this, a
+ * user who changes their selection WHILE a bulk action is in flight has that
+ * reselection silently wiped out when the in-flight call resolves, even though
+ * it had nothing to do with the completed action.
+ */
+async function run(fn: () => Promise<DraftMutationResult>, idsToDeselect?: string[]): Promise<void> {
   if (busy.value) return
   busy.value = true
   try {
     const r = await fn()
     qc.setQueryData(QKEY, { items: r.items })
-    selected.value = new Set()
+    if (idsToDeselect?.length) {
+      const remaining = new Set(selected.value)
+      for (const id of idsToDeselect) remaining.delete(id)
+      selected.value = remaining
+    }
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
     reportError(e)
@@ -78,14 +89,23 @@ function onSchedule(id: string): void {
     notify.push('请先选择排程时间', 'warning')
     return
   }
-  run(() => scheduleDraft(id, at))
+  run(() => scheduleDraft(id, at), [id])
 }
-const onPublishNow = (id: string) => run(() => publishDraftNow(id))
-const onCancel = (id: string) => run(() => cancelDraft(id))
-const onDelete = (id: string) => run(() => deleteDraft(id))
-const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
-const onBulkPublishNow = () => run(() => bulkPublishDraftsNow([...selected.value]))
-const onBulkCancel = () => run(() => bulkCancelDrafts([...selected.value]))
+const onPublishNow = (id: string) => run(() => publishDraftNow(id), [id])
+const onCancel = (id: string) => run(() => cancelDraft(id), [id])
+const onDelete = (id: string) => run(() => deleteDraft(id), [id])
+const onBulkDelete = () => {
+  const ids = [...selected.value]
+  return run(() => bulkDeleteDrafts(ids), ids)
+}
+const onBulkPublishNow = () => {
+  const ids = [...selected.value]
+  return run(() => bulkPublishDraftsNow(ids), ids)
+}
+const onBulkCancel = () => {
+  const ids = [...selected.value]
+  return run(() => bulkCancelDrafts(ids), ids)
+}
 </script>
 
 <template>

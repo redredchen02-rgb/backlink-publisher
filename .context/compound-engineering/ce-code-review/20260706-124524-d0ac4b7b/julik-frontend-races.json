@@ -1,0 +1,53 @@
+{
+  "reviewer": "julik-frontend-races",
+  "findings": [
+    {
+      "title": "Bulk success clears selection, wiping mid-flight reselection",
+      "severity": "P2",
+      "file": "frontend/src/pages/History/HistoryPage.vue",
+      "line": 60,
+      "why_it_matters": "If a user selects rows A/B and clicks the recheck-selected button, then -- while the request is still pending -- unchecks A/B and checks an unrelated row C to queue up their next action, the successful resolution of the recheck call unconditionally executes selected.value = new Set(), silently discarding the C selection that had nothing to do with the completed recheck. The user sees their freshly-made selection vanish with no error and no explanation, and the bulk-action buttons revert to disabled because selected.size is now 0. This is trivially triggerable by any user who tries to work ahead while waiting rather than a rare timing coincidence, and it is now a materially wider target because U3 added two more bulk buttons (recheck-selected, publish-now-selected, cancel-selected-schedule all sharing one busy+selected pair on History; publish-now/cancel/delete on Drafts) plus, per the drafts.ts single-flight comment, backend operations (recheck hits external URLs, publish-now kicks a job) that plausibly run longer than the original bulk-delete -- both effects widen the exposed window and the number of times a user hits it per session.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "On success, remove only the ids that were actually submitted in this call (capture them once as a snapshot, e.g. const ids = [...selected.value] before calling fn(ids), then on success do selected.value = new Set([...selected.value].filter(id => !ids.includes(id)))) instead of blanket-replacing with new Set(). Alternatively, disable each row checkbox with :disabled=\"busy\" so selection literally cannot change until the in-flight request settles -- whichever UX is intended, it is a small, local, dependency-free fix (under a dozen lines), not a reason to pull in a state-management library.",
+      "confidence": 0.72,
+      "evidence": [
+        "run() unconditionally does selected.value = new Set() on success (HistoryPage.vue line 60), regardless of what selected.value currently contains at that point.",
+        "The row checkbox has no :disabled=\"busy\" (HistoryPage.vue lines 128-133): input type=checkbox :checked=\"selected.has(row.id)\" ... @change=\"toggle(row.id)\", so the user can freely toggle selection while a bulk action's promise is still pending -- only the bulk/row action buttons are gated by :disabled=\"busy\", the checkbox itself is not.",
+        "client.ts's sendJson has a default 15s timeout (DEFAULT_TIMEOUT_MS), a 403-retry-with-fresh-CSRF path, and a one-shot network retry in withRetry -- so the busy window for a single bulk call can realistically span multiple seconds, giving ample time for the user to reselect rows before the original call resolves.",
+        "drafts.ts's new comment above bulkPublishDraftsNow explicitly documents backend single-flight semantics with a 409 rejection for concurrent calls, implying these new bulk endpoints (recheck / publish-now / cancel) are expected to have non-trivial in-flight duration -- exactly the window in which the clobber occurs."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "Same reset-clobbers-selection bug on Drafts bulk actions",
+      "severity": "P2",
+      "file": "frontend/src/pages/Drafts/DraftsPage.vue",
+      "line": 63,
+      "why_it_matters": "Identical mechanism to the History page: run() does selected.value = new Set() unconditionally on success while the row checkbox (lines 128-133) has no :disabled=\"busy\" guard, so a user who reselects a different draft while publish-now-selected/cancel-selected-schedule/delete-selected is in flight will have that unrelated reselection silently wiped the moment the original call resolves. DraftsPage now has 3 bulk buttons sharing one busy+selected pair (up from 1 before U3), and bulk-publish-now in particular is documented (drafts.ts) as backend single-flight / job-kicking, i.e. plausibly slower than a delete -- both changes widen the practical exposure of this pre-existing clearing behavior.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Same remedy as HistoryPage.vue: clear only the submitted ids on success (snapshot them at call time and diff them out of the current selection) rather than blanket-replacing with new Set(), or disable the checkbox inputs while busy. Since both pages duplicate this exact run()/busy/selected pattern verbatim, consider extracting one small shared composable (a dozen lines, e.g. useBulkSelection()) so the fix is applied once and cannot drift between the two pages -- no need for a routing/state library for this.",
+      "confidence": 0.72,
+      "evidence": [
+        "run() does selected.value = new Set() unconditionally on success (DraftsPage.vue line 63).",
+        "The draft checkbox has no :disabled=\"busy\" (DraftsPage.vue lines 128-133), so selection remains mutable during an in-flight bulk-publish-now/bulk-cancel/bulk-delete call.",
+        "drafts.ts's comment above bulkPublishDraftsNow documents backend single-flight enforcement (409 on concurrent calls) -- implying these bulk calls are expected to have a meaningful in-flight duration, which is exactly the window in which a mid-flight selection change gets silently discarded on success.",
+        "DraftsPage.vue now wires 3 buttons (bulk-publish-now, bulk-cancel, bulk-delete) to the same shared busy/selected pair (lines 83-85, 93-116), tripling the number of opportunities per session to hit this clobber compared to the pre-U3 single bulk-delete button."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "The busy flag is per-Vue-instance/per-tab, not a cross-tab or cross-window lock; two browser tabs open on the same page can both dispatch a bulk call concurrently. The backend's single-flight 409 rejection is the actual guardrail here and is exercised by DraftsPage.spec.ts's 409 test, so this is handled, but it is worth keeping in mind that the frontend busy ref alone would not prevent it.",
+    "If vue-query's default refetch behavior (e.g. refetch-on-window-focus) is enabled anywhere upstream of these pages, a background list refetch that resolves after a bulk mutation's qc.setQueryData write could overwrite the mutation's fresher result with stale server data. This is unaffected by the U3 diff itself (same risk existed for bulk-delete), but the new, plausibly-slower bulk-recheck/bulk-publish-now calls widen the window in which such an overwrite could land after the mutation's own write. Not confirmed from the diff alone -- would need to check the QueryClient's defaultOptions.",
+    "run()/busy/selected is now duplicated near-verbatim across HistoryPage.vue and DraftsPage.vue; any fix to the selection-clobber issue applied to only one file will leave the other one buggy. A tiny shared composable (not a library) would keep both pages' bulk-action lifecycle in sync going forward."
+  ],
+  "testing_gaps": [
+    "No test in HistoryPage.spec.ts or DraftsPage.spec.ts interleaves a checkbox change with an in-flight bulk-action promise -- every bulk-action test resolves the mocked API call and then calls flushPromises with no intervening user interaction, so the selection-clobber race described above is completely untested.",
+    "No test asserts the busy guard actually prevents a second rapid click on the same bulk button before its promise settles (e.g. triggering click twice back-to-back on .bulk-recheck/.bulk-publish-now and asserting the API mock was called exactly once) -- current tests only ever click a bulk button once per test.",
+    "No test asserts mutual exclusion across different bulk buttons sharing one busy flag (e.g. click bulk-publish-now then immediately click bulk-cancel before the first mock resolves, and assert the second is a no-op) -- with 3 buttons per page now sharing a single busy ref, this cross-button interaction is the primary new surface U3 introduces and it has no coverage."
+  ]
+}

@@ -112,6 +112,38 @@ def from_pipe_result(result: Any, *, status: int = 502) -> ApiProblem:
     )
 
 
+#: Ceiling on a single bulk-operation's ``ids`` array (history/drafts bulk
+#: endpoints). These are UI-driven selections (checkboxes), not a bulk-import
+#: API, and each id triggers real per-item work (a scheduler job, a store
+#: write, an outbound liveness check) -- an unbounded array lets one request
+#: hold a route's resources (including the bulk-publish-now single-flight
+#: lock) for a duration proportional to array size (code review, Plan
+#: 2026-07-02-001 U3).
+MAX_BULK_IDS = 500
+
+
+def require_ids(data: dict) -> list[str]:
+    """Validate and return the ``ids`` array from a bulk-operation request body.
+
+    Shared by history.py/drafts.py's bulk-* endpoints -- was duplicated
+    verbatim in both before this extraction (code review, Plan
+    2026-07-02-001 U3).
+    """
+    ids = data.get("ids")
+    if not isinstance(ids, list) or not ids:
+        raise ApiProblem(
+            422, "Missing ids", detail="`ids` must be a non-empty array.",
+            error_class="invalid_request",
+        )
+    if len(ids) > MAX_BULK_IDS:
+        raise ApiProblem(
+            422, "Too many ids",
+            detail=f"`ids` must contain at most {MAX_BULK_IDS} entries (got {len(ids)}).",
+            error_class="invalid_request",
+        )
+    return [str(i) for i in ids]
+
+
 def register_api_error_handlers(app: Flask) -> None:
     """Wire RFC 9457 handlers, scoped to ``/api/v1`` so the rest of the app is untouched.
 

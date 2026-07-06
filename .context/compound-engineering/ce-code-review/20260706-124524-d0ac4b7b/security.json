@@ -1,0 +1,54 @@
+{
+  "reviewer": "security",
+  "findings": [
+    {
+      "title": "bulk-publish-now lacks ALLOW_NETWORK hard-stop despite real external side effects",
+      "severity": "P1",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 138,
+      "why_it_matters": "POST /api/v1/drafts/bulk-publish-now schedules the drafts store facade bulk_publish_now(), which for each id in the request registers an APScheduler job running _publish_draft_job -- a real call to PipelineAPI().publish() that posts content to an external platform (Medium/velog/Blogger/etc, webui_app/scheduler.py lines ~102-121). The plan treats this endpoint as the same tier as bulk-delete (app-level _global_csrf_guard + _global_origin_guard only, no inline guard) on the reasoning that it is not a 0600 credential write. But the codebase own precedent for the higher tier (webui_app/api/v1/settings_credentials.py) pairs the Origin check with an explicit _refuse_when_allow_network() hard-stop specifically because when BACKLINK_PUBLISHER_ALLOW_NETWORK=1 exposes the WebUI off-loopback, a direct (non-browser) HTTP client controls every request header, so an Origin/Referer check provides no protection at all -- only the ALLOW_NETWORK refusal does. The blast radius of bulk-publish-now (mass real-world publish actions to third-party platforms, no per-request cap on how many) is comparable to or larger than a single credential write, yet it has none of that hard-stop, meaning any party reachable on the network under ALLOW_NETWORK=1 could force a batch of real publish actions across every drafted item. This is a tier-classification gap, not an implementation bug -- the bulk-delete analogy undercounts the risk because bulk-delete only mutates local state, while bulk-publish-now has an irreversible external-facing effect.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Add the same _refuse_when_allow_network() plus _check_bind_origin_or_abort() inline pair used by webui_app/api/v1/settings_credentials.py to drafts_bulk_publish_now() (and arguably to the pre-existing single-item /drafts/publish-now, which has the identical gap but predates this diff), or explicitly document in the plan why a mass real-publish trigger is judged lower-risk than a local credential write.",
+      "confidence": 0.65,
+      "evidence": [
+        "webui_app/api/v1/drafts.py lines 138-157: drafts_bulk_publish_now() calls only _require_ids() then _api.bulk_publish_now(ids) -- no _check_bind_origin_or_abort() or _refuse_when_allow_network() call.",
+        "webui_app/scheduler.py lines 102-121: _publish_draft_job() calls PipelineAPI().publish(plans_jsonl, platform, publish_mode) -- a real outbound publish to the configured external platform, not a local-only mutation.",
+        "webui_app/api/v1/settings_credentials.py lines 75-79 and 122-125: the higher-tier pattern this endpoint was compared against -- transport guards active checks _refuse_when_allow_network() then _check_bind_origin_or_abort() -- specifically because Origin/Referer checks are meaningless against a direct HTTP client once the WebUI is exposed off-loopback.",
+        "tests/test_webui_lite_origin_guard_coverage.py lines 143-151: the rationale comment explicitly frames the U3 endpoints (including bulk-publish-now) as same tier as the sibling bulk-delete endpoints with no inline guard warranted -- the tier decision under scrutiny."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "Unbounded ids array on bulk endpoints enables resource-exhaustion / mass-publish fan-out",
+      "severity": "P2",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 61,
+      "why_it_matters": "_require_ids() in both webui_app/api/v1/drafts.py and webui_app/api/v1/history.py only checks that ids is a non-empty list -- there is no upper bound on its length, and the app sets no MAX_CONTENT_LENGTH (confirmed absent; webui_app/api/v1/error_reports.py explicitly documents and works around this same gap with its own _MAX_REQUEST_BYTES=100000 ceiling, so the precedent for guarding against an oversized payload exists elsewhere in this very PR family but was not applied here). For bulk-publish-now, DraftAPI.bulk_publish_now() (webui_app/api/drafts_api.py lines 320-379) loops per id doing a store update plus an individual _scheduler.add_job() call with no cap -- so one request with a very large ids array both schedules an unbounded number of real external publish jobs (amplifying the tier-mismatch finding above) and ties up the request thread while holding _bulk_publish_lock for the full duration of that loop, incidentally rejecting legitimate concurrent bulk-publish attempts with 409 for that whole window. Separately, HistoryAPI.bulk_recheck() calling recheck_many() (webui_app/services/recheck.py lines 227-258) synchronously calls recheck_one() per item with a 10-second per-URL network-verify timeout and no cap, so a caller supplying every known history id can block a worker thread for roughly len(ids) times 10 seconds -- a straightforward request-thread-exhaustion DoS on a single-request-server topology.",
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Add a maximum-length check to _require_ids() (e.g. reject with 422 above some conservative cap such as 100-200 ids), applied uniformly to bulk-delete, bulk-publish-now, bulk-cancel and bulk-recheck, mirroring the _MAX_REQUEST_BYTES precedent already established in webui_app/api/v1/error_reports.py.",
+      "confidence": 0.72,
+      "evidence": [
+        "webui_app/api/v1/drafts.py lines 54-61 and webui_app/api/v1/history.py lines 36-43: _require_ids() validates only that ids is a list and is non-empty -- no length ceiling.",
+        "webui_app/api/drafts_api.py lines 320-379: bulk_publish_now() loops per id, calling _scheduler.add_job() once per item with no batch-size limit.",
+        "webui_app/services/recheck.py lines 227-258: recheck_many() calls recheck_one() synchronously per item; recheck_one() has a default max_wait_per_url=10 second network-verify timeout per URL, uncapped by batch size.",
+        "webui_app/api/v1/error_reports.py lines 62-68: sibling module in the same codebase explicitly adds a request-size ceiling and documents that the site sets no app-wide MAX_CONTENT_LENGTH -- the precedent this diffs new endpoints did not follow.",
+        "webui_app/api/v1/drafts.py lines 146-155: _bulk_publish_lock is held for the entire duration of the potentially unbounded _api.bulk_publish_now(ids) call."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "If BACKLINK_PUBLISHER_ALLOW_NETWORK=1 is ever enabled, the entire drafts/history mutating surface (including the pre-existing single-item /drafts/publish-now, /drafts/cancel, /history/recheck, and now their bulk siblings) relies solely on Origin/CSRF checks that are trivially bypassed by a direct non-browser HTTP client -- only the settings-credential routes have the extra _refuse_when_allow_network() hard-stop. This is a broader, largely pre-existing pattern that this diff extends rather than introduces.",
+    "The bulk-publish-now single-flight lock has no timeout; it is released via a finally block so it cannot deadlock from a normal exception, but an unusually slow or hung underlying store/scheduler call would leave the lock held (and all bulk-publish attempts 409ing) for as long as that call hangs, with no mitigation beyond process restart.",
+    "No app-wide MAX_CONTENT_LENGTH is configured, so any JSON-array-accepting endpoint (not just the three added here) remains exposed to large-payload memory/CPU consumption absent an endpoint-local size check."
+  ],
+  "testing_gaps": [
+    "No test exercises bulk-publish-now, bulk-cancel, or bulk-recheck with a very large ids array (e.g. thousands of entries) to characterize request latency, memory, or scheduler-job growth.",
+    "No test verifies the three new bulk endpoints behavior under BACKLINK_PUBLISHER_ALLOW_NETWORK=1, unlike the credential-write endpoints which have explicit ALLOW_NETWORK-refusal test coverage.",
+    "No test asserts an upper bound on ids length is rejected, because no such bound currently exists in _require_ids()."
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "reviewer": "reliability",
+  "findings": [
+    {
+      "title": "Single-flight lock has no timeout; a hang wedges endpoint forever",
+      "severity": "P1",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 152,
+      "why_it_matters": "The new _bulk_publish_lock (module-level threading.Lock(), drafts.py:35) is acquired non-blocking by callers, but nothing bounds how long the holder keeps it: the route wraps the synchronous call _api.bulk_publish_now(ids) in a bare try/finally: _bulk_publish_lock.release() with no timeout on the call itself. If that call ever hangs instead of raising or returning -- e.g. a deadlock/stall inside _scheduler.add_job() (APScheduler internal RLock, shared with every other job add/remove/execute in the process, webui_app/scheduler.py) or a stuck _drafts_store write -- the Flask worker thread handling that request blocks forever, the finally never runs, and the lock is never released. Because the guard is a non-blocking acquire(blocking=False), every subsequent bulk-publish-now request gets 409 already-running permanently, with no lease/TTL and no watchdog to reclaim it. Recovery requires either the stuck call eventually returning (unbounded) or a full process restart -- there is no in-process self-healing path. webui.py app.run(...) does not pass threaded=True, so on the Werkzeug dev server this could also stall the single request-handling thread for the whole app, not just this endpoint, though the actual production WSGI front-end could not be confirmed from this diff alone.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Bound the critical section: run _api.bulk_publish_now(ids) via a worker/executor and call .result(timeout=N) (or add an internal deadline to DraftAPI.bulk_publish_now itself), returning 503/504 on timeout. Separately, give the lock a recoverable lease (e.g. store an acquisition timestamp alongside the Lock and force-clear plus log loudly if held past a max age) so a genuine hang degrades to occasionally-slow rather than permanently-broken-until-restart.",
+      "confidence": 0.82,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:35 _bulk_publish_lock = threading.Lock() -- module-level singleton, no TTL/lease concept.",
+        "webui_app/api/v1/drafts.py:146-155 -- if not _bulk_publish_lock.acquire(blocking=False): raise ApiProblem(409, ...) then try: result = _api.bulk_publish_now(ids) finally: _bulk_publish_lock.release() -- release depends entirely on the wrapped call returning or raising; there is no acquire(timeout=...), no wall-clock deadline around the call, and no watchdog thread that can force-clear the lock.",
+        "webui_app/api/drafts_api.py:320-379 bulk_publish_now performs a synchronous loop of _drafts_store.get_item/update_item and _scheduler.add_job calls with no per-call timeout of its own, so any stall inside that loop stalls the whole guarded section.",
+        "webui.py:113 app.run(host=bind_host, port=port, debug=debug_mode, use_reloader=False) -- no threaded=True, so Werkzeug dev server defaults to handling one request at a time; a stuck request here could block the entire app, not just this route (could not confirm from the diff alone whether production runs behind a different, multi-worker WSGI server)."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "502 nothing-changed contract misapplied to non-atomic bulk_cancel",
+      "severity": "P2",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 41,
+      "why_it_matters": "This diff widens _INFRA_FAILURE_CODES to map BULK_CANCEL_FAILURE to the same 502 status as PERSISTENCE_FAILURE, and the module docstring states that bucket means 502 problem+json (nothing changed). That is true for bulk_publish_now BULK_SCHEDULER_FAILURE, whose facade method explicitly rolls back completed scheduler jobs and store mutations on failure (drafts_api.py:357-370). But DraftAPI.bulk_cancel (drafts_api.py:381-411) has no equivalent rollback: it iterates staged_items, and on the Nth item _remove_scheduled_job failure it raises and the outer except returns a flat 502 -- discarding completed_cancels, which already had their scheduler jobs removed and store status flipped to pending for every item processed before the failure. A caller of the new /api/v1/drafts/bulk-cancel sees a 502 that (by the file own documented convention) implies nothing changed, and the error response never includes the refreshed item list (_raise_if_hard_failure raises before _refreshed() runs), so there is no way from the HTTP response alone to learn that some items actually were cancelled.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Either give bulk_cancel the same collect-then-rollback pattern bulk_publish_now already has (re-add the scheduler jobs / revert store status for completed_cancels before returning the 502), or stop presenting BULK_CANCEL_FAILURE as a nothing-changed infra failure -- report which ids succeeded vs failed (e.g. a partial-results field) so the caller can reconcile instead of assuming atomicity.",
+      "confidence": 0.72,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:40-42 _INFRA_FAILURE_CODES = {PERSISTENCE_FAILURE, BULK_SCHEDULER_FAILURE, BULK_CANCEL_FAILURE} maps all three to 502 uniformly.",
+        "webui_app/api/v1/drafts.py:14 module docstring: PERSISTENCE_FAILURE maps to 502 problem+json (nothing changed) -- the newly-added codes inherit this same 502 bucket/contract without re-stating whether it still holds.",
+        "webui_app/api/drafts_api.py:381-411 bulk_cancel: completed_cancels accumulates ids whose job was already removed and store already flipped to pending before a later item failure raises; the except block returns ok:False, error_code:BULK_CANCEL_FAILURE with no rollback of completed_cancels and no mention of them in flash_msg (which says operation aborted).",
+        "webui_app/api/v1/drafts.py:64-79 _raise_if_hard_failure raises ApiProblem (short-circuiting before _refreshed() is ever reached) whenever result.get(ok) is falsy, so the 502 response for bulk-cancel never carries the current item list showing the partial mutation.",
+        "tests/test_webui_api_v1_bulk_ops.py:150-159 test_webui_drafts_bulk_cancel_failure_returns_502 mocks DraftAPI.bulk_cancel to return the failure dict directly, so it never exercises the real facade partial-completion/no-rollback code path through the HTTP layer."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "webui.py app.run() does not pass threaded=True; if this is what actually serves production traffic, any single stuck request (this endpoint or otherwise) could block the whole app on Werkzeug dev server, not just bulk-publish-now -- could not confirm the real production WSGI front-end from the diff alone.",
+    "HistoryAPI.bulk_recheck (webui_app/api/history_api.py:207-235) has no try/except around its per-item _history_store.update_item calls; an exception partway through the loop falls through to the app generic 500 handler, leaving some entries updated and others not with no indication of which. This is pre-existing (already reachable via the legacy /ce:history/bulk-recheck Jinja route before this diff) but is now also reachable via the new JSON API consumer.",
+    "No maximum batch size is enforced on the ids array for bulk-publish-now/bulk-cancel/bulk-recheck; a very large batch runs synchronously inside the single-flight lock (for bulk-publish-now specifically) with no chunking, so lock-hold duration and request latency scale unbounded with list size.",
+    "APScheduler job-execution pool is capped at max_workers=1 (webui_app/scheduler.py:26); bulk-publish-now stagger-schedules N jobs a few seconds apart, but if one publish takes longer than the stagger interval, later jobs queue up behind it on the single worker thread -- a separate, pre-existing constraint that a large bulk-publish-now burst would make more visible."
+  ],
+  "testing_gaps": [
+    "No test simulates the underlying DraftAPI.bulk_publish_now call actually hanging (never returning) to confirm/document that the single-flight lock then becomes permanently unrecoverable without a process restart -- existing test_webui_drafts_bulk_publish_now_double_submit_returns_409 only proves the lock is held during a synchronous mocked call, not what happens if that call never completes.",
+    "No test exercises the real (unmocked) DraftAPI.bulk_cancel rollback-vs-no-rollback behavior through the HTTP layer for a genuine partial multi-item failure (e.g. item 1 of 3 succeeds, item 2 fails) to confirm whether the 502 response implied nothing-changed contract actually holds and whether the refreshed item list would reveal the partial mutation.",
+    "No test covers a large ids payload (e.g. hundreds of ids) for bulk-publish-now to characterize how long the single-flight lock is realistically held and whether legitimate concurrent users get spurious 409s during normal (non-bug) operation."
+  ]
+}
