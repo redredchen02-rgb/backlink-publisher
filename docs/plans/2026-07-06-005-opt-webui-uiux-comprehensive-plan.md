@@ -4,17 +4,7 @@ type: optimization
 status: active
 date: 2026-07-06
 priority: high
-claims:
-  paths:
-    - frontend/
-    - webui_app/
-    - webui_store/
-    - src/backlink_publisher/
-    - tests/
-    - docs/
-    - monolith_budget.toml
-    - complexity_budget.toml
-  shas: []
+claims: {}
 ---
 
 # opt: WebUI 全面 UI/UX 優化(fleet 合併後新一輪)
