@@ -249,7 +249,7 @@ graph TB
 
 ### Sprint B — 複雜度／SLOC 預算完整性
 
-- [ ] **B1: 補齊未追蹤的 SLOC／複雜度預算項目〔R4〕**
+- [x] **B1: 補齊未追蹤的 SLOC／複雜度預算項目〔R4〕** ✅ 已完成（commit `0441486f`）——11 個 SLOC 項目 + 3 個 CC 項目全數補上，`pytest tests/test_no_monolith_regrowth.py tests/test_no_complexity_regrowth.py` 對新增項目全數通過。**執行期發現，偏離規劃假設**：3 個新追蹤函式（CC 27–29）都低於 CC-30 backstop，原本「沿用既有 style（exact-current-CC 零 headroom）」的假設不適用——那個慣例只用於已經超過 backstop 的函式。改用 `ceiling = 31`（backstop+1，schema 本身文件化的最小合法 seed 值）統一套用於三者，並在 rationale 中說明理由。另外，`pytest` 全量執行仍有 9 個既有失敗（`cli/publish_backlinks/__init__.py`、`webui_store/channel_status.py`、`webui_app/routes/health.py`、`webui_app/health_metrics.py`、`cli/_report_format.py`）——經比對 branch base commit（`667e5cce`）確認為此分支建立前就已存在的 SLOC/ceiling 漂移，與 B1、C1 皆無關（`git diff --stat` 顯示這些檔案在 C1 前後行數不變，純 noqa 註解增刪），不在本 unit 範圍內修復，記錄為後續追蹤項。
 
 **Goal:** 為 11 個落在 300–370 SLOC 區間但未被 `monolith_budget.toml` 追蹤的檔案，以及 3 個未被 `complexity_budget.toml` 追蹤的高複雜度函式（`spray_backlinks/core.py::main` CC 29、`medium_brave.py::MediumBraveAdapter.publish` CC 27、`_seal_init.py::_handle_init` CC 27），補上正式的預算項目。
 
@@ -292,7 +292,7 @@ graph TB
 
 ### Sprint C — Lint 債務誠實化
 
-- [ ] **C1: 清除死 `noqa` 註解 + 記錄 BLE 規則決策〔R6〕**
+- [x] **C1: 清除死 `noqa` 註解 + 記錄 BLE 規則決策〔R6〕** ✅ 已完成（commit `4bf8b70f`）——132 檔（131 原始碼 + `pyproject.toml`）、共移除 340 個死 `noqa`（218 個 `BLE001` 符合原估計，另 122 個是同樣已被 per-file-ignores 涵蓋的 `F401`/`E402`/其他規則死註解）。`ruff check --extend-select RUF100` 復驗確認 0 殘留；`ruff check src/ webui_app/ webui_store/` 前後皆為 173 個既有錯誤、集合完全相同，證實純註解移除、無行為/lint 訊號變化。**執行期發現，偏離規劃假設**：計畫原文的 `ruff check --select RUF100 --fix` 指令本身有風險——`--select` 會**取代**（而非疊加）`pyproject.toml` 設定的規則集，導致 ruff 判斷「noqa 是否死亡」時只看得到 RUF100、看不到專案實際啟用的 `F,E,W,UP,I`，因而誤刪了仍在抑制真實違規的合法 noqa（例如 `anchor/profile.py` 的 `# noqa: F401`/`E402`）。第一次嘗試導致全專案錯誤數從 173 暴增到 377，已用 `git checkout --` 撤銷重做。正確指令改為 `ruff check --extend-select RUF100 --fix --fixable RUF100 src/ webui_app/ webui_store/`（疊加規則集以取得正確判斷情境，同時把自動修復範圍限制在僅 RUF100）。
 
 **Goal:** 清除約 200 個暗示「已通過 lint 審查」但實際從未被任何啟用規則檢查過的 `# noqa: BLE001` 註解，以及其他重複/已被 `per-file-ignores` 涵蓋的 `F401`/`E402` 死註解，並在 `pyproject.toml` 中明確記錄「暫不啟用 BLE 規則」的決策理由。
 
