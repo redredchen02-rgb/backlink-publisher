@@ -21,6 +21,10 @@ export interface HistoryItem {
 
 export interface HistoryList {
   items: HistoryItem[]
+  // Plan 2026-07-02-001 U5: present only when the request included `limit`.
+  total?: number
+  limit?: number
+  offset?: number
 }
 
 export interface HistoryMutationResult {
@@ -28,7 +32,14 @@ export interface HistoryMutationResult {
   message?: string
 }
 
-export const listHistory = (): Promise<HistoryList> => getJson('/history')
+export const listHistory = (params?: { limit?: number; offset?: number }): Promise<HistoryList> => {
+  if (params?.limit == null) return getJson('/history')
+  const qs = new URLSearchParams({
+    limit: String(params.limit),
+    offset: String(params.offset ?? 0),
+  })
+  return getJson(`/history?${qs}`)
+}
 
 export const deleteHistory = (id: string): Promise<HistoryMutationResult> =>
   sendJson('POST', '/history/delete', { id })

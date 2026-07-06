@@ -1,14 +1,18 @@
 <script setup lang="ts">
 // Draft-queue page — Plan 2026-06-18-002 U7 (second page).
 //
-// Replaces the legacy ?tab=draft tab. Lists the draft queue (four-state); a
-// pending draft can be scheduled (datetime), published now, or deleted; a
-// scheduled draft can be cancelled or deleted; plus bulk-delete. Every mutation
-// returns the refreshed list (written straight into the query cache). Server
-// messages (incl. the "job lingered" warning) surface as toasts; failures go
-// through classifyError (fixed copy, never raw server text).
+// Replaces the legacy ?tab=draft tab. Lists the draft queue (four-state, now
+// via DataTable/U5); a pending draft can be scheduled (datetime), published
+// now, or deleted; a scheduled draft can be cancelled or deleted; plus
+// bulk-delete. Server messages (incl. the "job lingered" warning) surface as
+// toasts; failures go through classifyError (fixed copy, never raw server text).
+//
+// Plan 2026-07-02-001 U5: paginated via DataTable. Mutation endpoints return
+// the FULL table (unchanged contract), not a page-shaped envelope, so
+// mutations refetch this page from the server rather than reshaping the
+// full-table response locally.
 import { computed, reactive, ref } from 'vue'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import {
   bulkDeleteDrafts,
   cancelDraft,
@@ -16,50 +20,49 @@ import {
   listDrafts,
   publishDraftNow,
   scheduleDraft,
-  type DraftItem,
   type DraftMutationResult,
 } from '../../api/drafts'
-import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
 
-const QKEY = ['drafts']
-const qc = useQueryClient()
+const PAGE_SIZE = 50
+
 const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 
-const query = useQuery({ queryKey: QKEY, queryFn: listDrafts })
-const items = computed<DraftItem[]>(() => query.data.value?.items ?? [])
-
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (query.isPending.value) return 'loading'
-  if (query.isError.value) return 'error'
-  return items.value.length ? 'ready' : 'empty'
+const offset = ref(0)
+const query = useQuery({
+  queryKey: computed(() => ['drafts', offset.value]),
+  queryFn: () => listDrafts({ limit: PAGE_SIZE, offset: offset.value }),
+  placeholderData: keepPreviousData,
 })
+const items = computed(() => query.data.value?.items ?? [])
+const total = computed(() => query.data.value?.total)
 
 const scheduleInputs = reactive<Record<string, string>>({})
 const selected = ref<Set<string>>(new Set())
 const busy = ref(false)
 
-function toggle(id: string): void {
-  const next = new Set(selected.value)
-  next.has(id) ? next.delete(id) : next.add(id)
-  selected.value = next
-}
-
 function reportError(e: unknown): void {
   toastError(e)
 }
 
+/** Run a mutation, refetch this page, clamp offset if deletion overflowed it. */
 async function run(fn: () => Promise<DraftMutationResult>): Promise<void> {
   if (busy.value) return
   busy.value = true
   try {
     const r = await fn()
-    qc.setQueryData(QKEY, { items: r.items })
-    selected.value = new Set()
     if (r.message) notify.push(r.message, 'info')
+    await query.refetch()
+    const newTotal = query.data.value?.total
+    if (newTotal != null && offset.value > 0 && offset.value >= newTotal) {
+      offset.value = Math.max(0, Math.floor((newTotal - 1) / PAGE_SIZE) * PAGE_SIZE)
+      await query.refetch()
+    }
+    selected.value = new Set()
   } catch (e) {
     reportError(e)
   } finally {
@@ -95,27 +98,31 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
       </button>
     </header>
 
-    <StateBlock
-      :state="blockState"
-      :error="query.error.value"
+    <DataTable
+      :items="items"
+      :loading="query.isPending.value"
+      :error="query.isError.value ? query.error.value : undefined"
       empty-text="草稿队列是空的"
+      :selected="selected"
+      :total="total"
+      :limit="PAGE_SIZE"
+      :offset="offset"
       @retry="query.refetch()"
+      @update:selected="selected = $event"
+      @update:offset="offset = $event"
     >
-      <ul class="rows">
-        <li v-for="row in items" :key="row.id" class="draft" :data-status="row.status">
-          <input
-            type="checkbox"
-            :checked="selected.has(row.id)"
-            :aria-label="`选择 ${row.target_url}`"
-            @change="toggle(row.id)"
-          />
-          <div class="draft__main">
-            <span class="draft__target">{{ row.target_url }}</span>
-            <span class="muted">
-              {{ row.platform }} · <span class="status" :data-status="row.status">{{ row.status }}</span>
-              <template v-if="row.scheduled_at"> · {{ row.scheduled_at }}</template>
-            </span>
-          </div>
+      <template #head>
+        <th>目标页</th>
+        <th>状态</th>
+        <th>操作</th>
+      </template>
+      <template #row="{ row }">
+        <td class="col-target draft__target" :title="row.target_url">{{ row.target_url }}</td>
+        <td class="muted">
+          {{ row.platform }} · <span class="status" :data-status="row.status">{{ row.status }}</span>
+          <template v-if="row.scheduled_at"> · {{ row.scheduled_at }}</template>
+        </td>
+        <td>
           <div class="draft__actions">
             <template v-if="row.status === 'scheduled'">
               <button type="button" :disabled="busy" @click="onCancel(row.id)">取消排程</button>
@@ -131,9 +138,9 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
             </template>
             <button type="button" class="delete" :disabled="busy" @click="onDelete(row.id)">删除</button>
           </div>
-        </li>
-      </ul>
-    </StateBlock>
+        </td>
+      </template>
+    </DataTable>
   </section>
 </template>
 
@@ -150,27 +157,8 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   flex-wrap: wrap;
   gap: 0.75rem;
 }
-.rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.draft {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-.draft__main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
+.col-target {
+  max-width: 24rem;
 }
 .draft__target {
   overflow: hidden;
