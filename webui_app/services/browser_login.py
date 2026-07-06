@@ -32,6 +32,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+from backlink_publisher._util.subprocess_env import utf8_child_env
 from backlink_publisher.config.loader import _cache_dir
 
 # Absolute path so the spawned subprocess finds ``backlink_publisher`` regardless
@@ -76,7 +77,7 @@ def spawn_browser_login(module: str, *, probe_seconds: float = 1.5) -> SpawnResu
     try:
         proc = subprocess.Popen(
             [sys.executable, "-m", module],
-            env={**os.environ, "PYTHONPATH": pythonpath},
+            env=utf8_child_env({**os.environ, "PYTHONPATH": pythonpath}),
             stdout=fh,
             stderr=subprocess.STDOUT,
             start_new_session=True,

@@ -34,6 +34,7 @@ from typing import Any
 import uuid
 
 from backlink_publisher._util.errors import UsageError
+from backlink_publisher._util.subprocess_env import utf8_child_env
 from backlink_publisher.events import EventStore
 from backlink_publisher.events._project_helpers import (
     _ensure_article,
@@ -238,11 +239,12 @@ class KeepaliveJobRegistry:
 
         def _run() -> Any:
             try:
-                env = dict(os.environ, BP_DRY_RUN="0")
+                env = utf8_child_env(dict(os.environ, BP_DRY_RUN="0"))
                 proc = subprocess.run(
                     ["bash", "scripts/run-full-pipeline.sh"],
                     cwd=str(repo_root),
-                    capture_output=True, text=True, timeout=7200,
+                    capture_output=True, text=True,
+                    encoding="utf-8", errors="replace", timeout=7200,
                     env=env,
                 )
                 combined = proc.stdout or ""

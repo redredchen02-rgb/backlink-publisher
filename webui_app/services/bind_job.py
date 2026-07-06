@@ -23,6 +23,7 @@ from typing import Any
 import uuid
 
 from backlink_publisher._util.errors import UsageError
+from backlink_publisher._util.subprocess_env import utf8_child_env
 from backlink_publisher.cli._bind.channels import CHANNELS
 
 BIND_ERROR_MESSAGES: dict[str, str] = {
@@ -97,7 +98,7 @@ class BindJobRegistry:
                     )
 
             job_id = uuid.uuid4().hex
-            env = os.environ.copy()
+            env = utf8_child_env(os.environ)
             env["PYTHONPATH"] = _SRC_DIR + (
                 os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
             )
@@ -113,6 +114,8 @@ class BindJobRegistry:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     bufsize=1,
                 )
             except OSError as exc:

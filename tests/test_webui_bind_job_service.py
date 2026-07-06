@@ -75,6 +75,23 @@ class TestRegistryStart:
         assert job.id and len(job.id) >= 8
         assert job.status in {"running", "done"}
 
+    def test_start_passes_utf8_encoding_and_pythonioencoding_env(self, registry):
+        captured: dict[str, Any] = {}
+
+        def _factory(*_args: Any, **kwargs: Any) -> _FakeProc:
+            captured.update(kwargs)
+            return _FakeProc(_events_jsonl(
+                {"event": "channel.bind.start", "channel": "medium"},
+                {"event": "channel.bind.persisted", "channel": "medium"},
+            ))
+
+        registry._popen = _factory
+        registry.start("medium")
+
+        assert captured["encoding"] == "utf-8"
+        assert captured["errors"] == "replace"
+        assert captured["env"]["PYTHONIOENCODING"] == "utf-8"
+
     def test_concurrent_bind_same_channel_rejected(self, registry):
         # Use a slow proc whose stdout never terminates within the test window
         # to keep status="running" while we attempt the second start.
