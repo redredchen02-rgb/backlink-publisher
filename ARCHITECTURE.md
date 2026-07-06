@@ -208,8 +208,10 @@ State is intentionally split by responsibility:
 
 - `checkpoint.py`: cache-directory JSON checkpoints for `publish-backlinks`
   resume and batch status.
-- `webui_store/`: lazy JSON stores for WebUI history, profiles, drafts,
-  schedule, queue, and channel status.
+- `webui_store/`: lazy stores for WebUI state — 11 `_LazyStore`-backed
+  singletons total (history, profiles, drafts, schedule, queue, campaign,
+  publish defaults, batch ops, channel status, verify health, error reports;
+  see `CLAUDE.md` / `AGENTS.md` for the live-recount method).
 - `events/store.py`: SQLite-backed append/projected event store at `events.db`,
   with WAL mode, 0600 file hygiene, and schema upgrade on connect.
 - `idempotency/store.py`: authoritative SQLite dedup store at `dedup.db`, kept
@@ -239,6 +241,7 @@ markers.
 
 Repo instruction files:
 
+- `CLAUDE.md`: Claude Code guidance for this repo (present at repo root).
 - `AGENTS.md`: canonical repo governance and contributor workflow.
 - `webui_app/AGENTS.md`: WebUI-specific structure, conventions, and
   anti-patterns.
@@ -246,13 +249,12 @@ Repo instruction files:
 
 Repo-local capability directories:
 
-- `.agents/skills/channel-probe/SKILL.md`: local skill for backlink channel
-  probe triage.
-- `.claude/skills/channel-probe/SKILL.md`: legacy/parallel skill copy.
-- `.claude/settings.local.json`: local tool/settings file; do not treat it as
-  portable architecture proof.
-
-No `CLAUDE.md` was present during this scan.
+- `.claude/skills/channel-probe/SKILL.md`: local skill for backlink channel
+  probe triage (the only skill copy in-tree; an earlier `.agents/skills/`
+  duplicate no longer exists).
+- `.claude/settings.local.json` may exist on individual machines as an
+  untracked local tool/settings file; do not treat it as portable
+  architecture proof.
 
 ## Build, Install, And Run
 
