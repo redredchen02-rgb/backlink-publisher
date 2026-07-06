@@ -13,6 +13,7 @@ vi.mock('../../api/client', () => ({
 }))
 
 import * as prQueueApi from '../../api/prQueue'
+import type { PrItem } from '../../api/prQueue'
 import { getJson } from '../../api/client'
 import PrQueuePage from './PrQueuePage.vue'
 
@@ -24,6 +25,15 @@ const ITEM = {
   summary: 'Summary text',
   source: 'HARO',
   deadline: '2026-07-10',
+}
+
+/** A promise whose resolution the test controls, to force a specific interleaving. */
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
 }
 
 let pinia: ReturnType<typeof createPinia>
@@ -106,5 +116,51 @@ describe('PrQueuePage', () => {
 
     expect(prQueueApi.fetchPrQueue).toHaveBeenCalled()
     expect(w.text()).toContain('暂无 PR 机会')
+  })
+
+  // B4 (backlog, found in B2's code review): load() had no request-generation
+  // guard. markStatus() calls load() internally after updating a row, and two
+  // DIFFERENT rows' markStatus() calls are independently triggerable (the
+  // updating.has(id) guard only blocks re-clicking the SAME row) — so two
+  // overlapping load() calls could resolve out of order, with the earlier
+  // (now-stale) one overwriting the later one's fresher result.
+  it('a load() superseded by a newer one never touches the network or shared state', async () => {
+    vi.mocked(getJson).mockResolvedValue({ lite_edition: false })
+    const itemA = { ...ITEM, id: 'pr1', headline: 'Item A' }
+    const itemB = { ...ITEM, id: 'pr2', headline: 'Item B' }
+
+    vi.mocked(prQueueApi.fetchPrQueue).mockResolvedValueOnce([itemA, itemB])
+    const w = mountPage()
+    await flushPromises()
+    expect(w.text()).toContain('Item A')
+    expect(w.text()).toContain('Item B')
+
+    const pending = deferred<PrItem[]>()
+    vi.mocked(prQueueApi.fetchPrQueue).mockReturnValueOnce(pending.promise)
+    vi.mocked(prQueueApi.updatePrStatus).mockResolvedValue({ ...itemA, status: 'won' })
+
+    // Grab both buttons *before* clicking either — the first click's load()
+    // sets loading.value = true, which swaps StateBlock to its loading variant
+    // and hides the table (and row B's button) until that load() completes.
+    // Firing both clicks before awaiting either lets both markStatus() calls
+    // start before either has re-rendered, reproducing two overlapping load()s.
+    const wonButtonForA = w.findAll('tr[data-id="pr1"] button').find((b) => b.text() === '✓')!
+    const skipButtonForB = w.findAll('tr[data-id="pr2"] button').find((b) => b.text() === '✕')!
+    wonButtonForA.trigger('click') // markStatus(A) -> load() -- started first, now stale
+    skipButtonForB.trigger('click') // markStatus(B) -> load() -- started second, now current
+    await flushPromises()
+
+    // The earlier (A) load() must recognize it's stale as soon as it can — at
+    // its first checkpoint after the /app-config check — and never even call
+    // fetchPrQueue(). Only the later (B) load() reaches the network, so the
+    // total call count is the initial mount's call plus exactly one more —
+    // not two more (which would mean both A's and B's load() both fired).
+    expect(prQueueApi.fetchPrQueue).toHaveBeenCalledTimes(2)
+
+    pending.resolve([{ ...itemB, headline: 'Fresh result from the current load' }])
+    await flushPromises()
+
+    expect(w.text()).toContain('Fresh result from the current load')
+    expect(w.find('[role="alert"]').exists()).toBe(false)
   })
 })

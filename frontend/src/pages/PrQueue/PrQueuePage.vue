@@ -50,7 +50,19 @@ const emptyText = computed(() =>
     : '暂无 PR 机会。通过 pr-opportunities ingest 导入 HARO/SOS/HaB2BW 摘要。',
 )
 
+// Request-generation guard (backlog B4, found in B2's code review): markStatus's
+// internal reload and the manual "刷新" button can both call load() while an
+// earlier call is still in flight. Without this, whichever response *resolves*
+// last wins — not whichever call *started* last — so a slower earlier request
+// could overwrite items/error/liteUnavailable with stale data after a newer,
+// faster request already rendered the current truth. Each load() call captures
+// the generation it belongs to at the start and checks it's still current
+// before ever writing to shared state; a superseded call no-ops entirely
+// (including skipping loading.value = false, which the newer call owns).
+let loadGeneration = 0
+
 const load = async () => {
+  const generation = ++loadGeneration
   loading.value = true
   error.value = null
   liteUnavailable.value = false
@@ -68,16 +80,22 @@ const load = async () => {
     } catch {
       // Best-effort only — fall through to the real fetch below.
     }
+    if (generation !== loadGeneration) return // superseded while checking /app-config
     if (isLite) {
       liteUnavailable.value = true
       items.value = []
       return
     }
-    items.value = await fetchPrQueue()
+    const result = await fetchPrQueue()
+    if (generation !== loadGeneration) return // superseded while fetching the queue
+    items.value = result
   } catch (e) {
+    if (generation !== loadGeneration) return // superseded — don't resurrect a stale error
     error.value = e instanceof Error ? e : new Error(String(e))
   } finally {
-    loading.value = false
+    if (generation === loadGeneration) {
+      loading.value = false
+    }
   }
 }
 
