@@ -83,7 +83,7 @@ class TestSettingsRoutes:
             "/settings/save-target-keywords", data={"domain_count": "0"},
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_save_target_keywords_with_oversize_keyword_redirects(self, client):
         """Keyword >60 chars → redirect with danger flash, not 422."""
@@ -104,7 +104,7 @@ class TestSettingsRoutes:
             data={"min_interval_hours": "4", "jitter_minutes": "30"},
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_settings_schedule_save_invalid_redirects(self, client):
         resp = client.post(
@@ -112,7 +112,7 @@ class TestSettingsRoutes:
             data={"min_interval_hours": "not-a-number"},
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_save_blog_ids_redirects(self, client):
         resp = client.post(
@@ -120,12 +120,12 @@ class TestSettingsRoutes:
             data={"domain[]": "https://x.com/", "blog_id[]": "12345"},
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_save_blog_ids_empty_redirects(self, client):
         resp = client.post("/settings/save-blog-ids", data={})
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     # Medium Integration-Token routes removed in U8 (Medium discontinued the tokens;
     # the management UI is retired — see settings_basic.py). No replacement endpoint.
@@ -141,7 +141,7 @@ class TestSettingsRoutes:
     def test_revoke_blogger_redirects(self, client):
         resp = client.post("/settings/revoke-blogger")
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/settings?")
+        assert resp.headers["Location"].startswith("/app/settings?")
 
     def test_save_blogger_oauth_missing_creds_redirects(self, client):
         resp = client.post(
