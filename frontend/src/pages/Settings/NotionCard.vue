@@ -7,7 +7,7 @@
 // (mirrors the legacy form), so the secret is never pre-filled and a blank submit
 // is a 422 the user must resolve by re-entering the token. database_id is NOT a
 // secret, so it hydrates from the status GET for display/edit.
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getNotionStatus, saveNotionToken, clearNotionToken } from '../../api/settings'
 import StateBlock from '../../components/StateBlock.vue'
@@ -52,10 +52,14 @@ const { dirty, markClean } = useSnapshotDirty('settings-notion', 'Notion', () =>
 // Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline (best-
 // effort field attribution via regex — see useSettingsForm's docstring),
 // success toast + this card's `markClean()`, per-card `saving` busy.
-const { saving, formError, fieldErrors, run } = useSettingsForm(markClean, {
-  integration_token: /integration[ _]?token/i,
-  database_id: /database[ _]?id/i,
-})
+const { saving, formError, fieldErrors, run } = useSettingsForm(
+  markClean,
+  {
+    integration_token: /integration[ _]?token/i,
+    database_id: /database[ _]?id/i,
+  },
+  'settings.notion',
+)
 
 watch(
   () => status.value,

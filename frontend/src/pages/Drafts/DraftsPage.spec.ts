@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { MutationCache, QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 
 vi.mock('../../api/drafts', () => ({
   listDrafts: vi.fn(),
@@ -17,7 +17,8 @@ vi.mock('../../api/drafts', () => ({
 import * as api from '../../api/drafts'
 import DraftsPage from './DraftsPage.vue'
 import { useNotificationsStore } from '../../stores/notifications'
-import { ApiError } from '../../api/client'
+import { ApiError, _resetCsrfForTest } from '../../api/client'
+import { reportMutationError, _resetCaptureStateForTest } from '../../lib/errorCapture'
 
 const PENDING = { id: 'p1', target_url: 'https://a.com/', status: 'pending', platform: 'velog' }
 const SCHEDULED = {
@@ -34,7 +35,16 @@ beforeEach(() => {
 })
 
 function mountPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // Mirrors main.ts's QueryClient construction (MutationCache.onError ->
+  // reportMutationError) so W13's useMutation migration is exercised
+  // end-to-end, not just "does the toast still work".
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+    mutationCache: new MutationCache({
+      onError: (error, _variables, _onMutateResult, mutation) =>
+        reportMutationError(error, mutation.options.mutationKey),
+    }),
+  })
   return mount(DraftsPage, { global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] } })
 }
 
@@ -227,5 +237,103 @@ describe('DraftsPage', () => {
     await flushPromises()
     expect((w.find('.bulk-publish-now').element as HTMLButtonElement).disabled).toBe(true)
     expect((w.find('.bulk-cancel').element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  // ── W13: mutation error-report coverage (discovery #4 / D7 useMutation migration) ──
+  //
+  // End-to-end through the REAL lib/errorCapture module + a real
+  // MutationCache (see mountPage above) — stubs `fetch` and asserts on
+  // POST /error-reports calls, proving DraftsPage's useMutation migration
+  // actually reaches MutationCache.onError -> reportMutationError -> D8.
+
+  interface ReportCall {
+    url: string
+    body: Record<string, unknown>
+  }
+
+  function installErrorReportFetchStub(): ReportCall[] {
+    const calls: ReportCall[] = []
+    let nextId = 1
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : {} })
+        return new Response(
+          JSON.stringify({ id: `draft-report-${nextId++}` }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        )
+      }),
+    )
+    return calls
+  }
+
+  describe('W13: error-reports coverage via useMutation', () => {
+    beforeEach(() => {
+      _resetCaptureStateForTest()
+      document.head.innerHTML = '<meta name="csrf-token" content="test-token">'
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      _resetCsrfForTest()
+      document.head.innerHTML = ''
+    })
+
+    it('a 500 delete failure shows the classified toast AND submits an error-report', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING] })
+      vi.mocked(api.deleteDraft).mockRejectedValue(new ApiError('server exploded', 500, { detail: 'boom' }))
+      const w = mountPage()
+      const notify = useNotificationsStore()
+      await flushPromises()
+
+      await btn(w, '删除').trigger('click')
+      await flushPromises()
+
+      expect(notify.toasts.some((t) => t.severity === 'error' && t.message.includes('服务器出错了'))).toBe(
+        true,
+      )
+      expect(calls).toHaveLength(1)
+      expect(calls[0].url).toContain('/error-reports')
+    })
+
+    it('a 422 delete failure does NOT submit an error-report (D8)', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING] })
+      vi.mocked(api.deleteDraft).mockRejectedValue(new ApiError('rejected', 422, { detail: 'x' }))
+      const w = mountPage()
+      await flushPromises()
+
+      await btn(w, '删除').trigger('click')
+      await flushPromises()
+
+      expect(calls).toHaveLength(0)
+    })
+
+    it('a 403 (non-422 4xx, e.g. CSRF) delete failure IS reported', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING] })
+      vi.mocked(api.deleteDraft).mockRejectedValue(new ApiError('forbidden', 403, {}))
+      const w = mountPage()
+      await flushPromises()
+
+      await btn(w, '删除').trigger('click')
+      await flushPromises()
+
+      expect(calls).toHaveLength(1)
+    })
+
+    it('a network error (TypeError) on publish-now is reported', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING] })
+      vi.mocked(api.publishDraftNow).mockRejectedValue(new TypeError('Failed to fetch'))
+      const w = mountPage()
+      await flushPromises()
+
+      await btn(w, '立即发布').trigger('click')
+      await flushPromises()
+
+      expect(calls).toHaveLength(1)
+    })
   })
 })

@@ -7,8 +7,21 @@
 // returns the refreshed list (written straight into the query cache). Server
 // messages (incl. the "job lingered" warning) surface as toasts; failures go
 // through classifyError (fixed copy, never raw server text).
+//
+// Plan 2026-07-06-005 W13 (D7): every draft mutation runs through a single
+// shared `useMutation` (rather than a plain try/catch `run()`), so a failure
+// is observed by main.ts's `MutationCache.onError` and flows into the
+// error-reports dashboard (the discovery-#4 gap this unit exists to close).
+// One shared mutation (not one per action) intentionally preserves the
+// pre-existing "single shared `busy` lock across every action, row or bulk"
+// semantics from before this migration — `mutation.isPending` stands in for
+// the old `busy` ref 1:1, so DraftsPage.spec.ts's busy/disabled assertions
+// are unaffected. The mutation's "variables" is a closure (`fn`), so it can
+// never carry a page's raw call arguments/secrets even though `useMutation`
+// makes `variables` available to `MutationCache.onError` — see
+// lib/errorCapture.ts's module docstring for why that boundary matters.
 import { computed, reactive, ref } from 'vue'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   bulkCancelDrafts,
   bulkDeleteDrafts,
@@ -41,7 +54,15 @@ const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
 
 const scheduleInputs = reactive<Record<string, string>>({})
 const selected = ref<Set<string>>(new Set())
-const busy = ref(false)
+
+// Single shared mutation for every draft action (row or bulk) — see the
+// script-block header comment for why this stays one shared "busy" surface
+// rather than one useMutation per action.
+const mutation = useMutation({
+  mutationKey: ['drafts', 'mutate'],
+  mutationFn: (fn: () => Promise<DraftMutationResult>) => fn(),
+})
+const busy = computed(() => mutation.isPending.value)
 
 function toggle(id: string): void {
   const next = new Set(selected.value)
@@ -66,9 +87,11 @@ function reportError(e: unknown): void {
  */
 async function run(fn: () => Promise<DraftMutationResult>, idsToDeselect?: string[]): Promise<void> {
   if (busy.value) return
-  busy.value = true
   try {
-    const r = await fn()
+    // mutateAsync rethrows on failure (so the local catch below still runs
+    // classifyError -> toast), while main.ts's MutationCache.onError
+    // independently observes every failure -> error-reports (D7/D8).
+    const r = await mutation.mutateAsync(fn)
     qc.setQueryData(QKEY, { items: r.items })
     if (idsToDeselect?.length) {
       const remaining = new Set(selected.value)
@@ -78,8 +101,6 @@ async function run(fn: () => Promise<DraftMutationResult>, idsToDeselect?: strin
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
     reportError(e)
-  } finally {
-    busy.value = false
   }
 }
 

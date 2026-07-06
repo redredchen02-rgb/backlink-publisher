@@ -16,11 +16,13 @@ import {
   reportRouterError,
   reportQueryError,
   reportMutationError,
+  reportManualMutationError,
+  shouldReportMutationError,
   _resetGlobalErrorListenersForTest,
   _resetCaptureStateForTest,
 } from './errorCapture'
 import { errorCapturePlugin } from '../stores/errorCapturePlugin'
-import { _resetCsrfForTest } from '../api/client'
+import { _resetCsrfForTest, ApiError } from '../api/client'
 
 
 interface FetchCall {
@@ -259,6 +261,97 @@ describe('hook 4b: MutationCache onError', () => {
     // Negative, paired with the positive assertion above.
     expect(raw).not.toContain('sk-anothersecret456')
     expect(raw).not.toContain('api_key')
+  })
+})
+
+// ── D8: mutation error-report routing (plan 2026-07-06-005 W13) ────────────
+
+describe('D8 routing: shouldReportMutationError', () => {
+  it('excludes ONLY the enumerated expected validation code, 422', () => {
+    expect(shouldReportMutationError(new ApiError('rejected', 422, {}))).toBe(false)
+  })
+
+  it.each([400, 403, 404, 409, 401, 419])(
+    'reports every OTHER 4xx (%d) — CSRF/invariant/aged-out-undo signals are incident-class, not silently excluded',
+    (status) => {
+      expect(shouldReportMutationError(new ApiError('rejected', status, {}))).toBe(true)
+    },
+  )
+
+  it('reports 5xx', () => {
+    expect(shouldReportMutationError(new ApiError('boom', 500, {}))).toBe(true)
+  })
+
+  it('reports network errors (TypeError) — not an ApiError at all', () => {
+    expect(shouldReportMutationError(new TypeError('Failed to fetch'))).toBe(true)
+  })
+
+  it('reports AbortError (timeout)', () => {
+    expect(shouldReportMutationError(new DOMException('The operation was aborted', 'AbortError'))).toBe(
+      true,
+    )
+  })
+})
+
+describe('D8 applied to hook 4b: reportMutationError', () => {
+  it('a mutation failing with 422 does NOT submit a report', async () => {
+    const calls = installFetchStub()
+    reportMutationError(new ApiError('rejected', 422, { detail: 'x' }), ['history', 'delete'])
+    await flushPromises()
+    expect(calls).toHaveLength(0)
+  })
+
+  it('a mutation failing with 403 (non-422 4xx) DOES submit a report', async () => {
+    const calls = installFetchStub()
+    reportMutationError(new ApiError('forbidden', 403, {}), ['history', 'delete'])
+    await flushPromises()
+    expect(calls).toHaveLength(1)
+    expect(calls[0].body.source).toBe('vue-mutation-error')
+  })
+
+  it('a mutation failing with 500 DOES submit a report', async () => {
+    const calls = installFetchStub()
+    reportMutationError(new ApiError('server exploded', 500, {}), ['history', 'delete'])
+    await flushPromises()
+    expect(calls).toHaveLength(1)
+  })
+})
+
+describe('reportManualMutationError — HistoryPage/Settings hand-written catch blocks', () => {
+  it('a 500 from a manual catch block is reported (History delete example)', async () => {
+    const calls = installFetchStub()
+    reportManualMutationError(new ApiError('server exploded', 500, {}), 'history.delete')
+    await flushPromises()
+    expect(calls).toHaveLength(1)
+    expect(calls[0].body.message).toContain('history.delete')
+  })
+
+  it('a 422 from a manual catch block is NOT reported (Settings inline-validation example)', async () => {
+    const calls = installFetchStub()
+    reportManualMutationError(new ApiError('rejected', 422, { detail: 'x' }), 'settings.save')
+    await flushPromises()
+    expect(calls).toHaveLength(0)
+  })
+
+  it('a 403 (CSRF) from a manual catch block is reported, not treated as an expected 4xx', async () => {
+    const calls = installFetchStub()
+    reportManualMutationError(new ApiError('forbidden', 403, {}), 'history.bulk-delete')
+    await flushPromises()
+    expect(calls).toHaveLength(1)
+  })
+
+  it('a 404 (aged-out undo) from a manual catch block is reported', async () => {
+    const calls = installFetchStub()
+    reportManualMutationError(new ApiError('not found', 404, {}), 'history.undelete')
+    await flushPromises()
+    expect(calls).toHaveLength(1)
+  })
+
+  it('a network error (TypeError) from a manual catch block is reported', async () => {
+    const calls = installFetchStub()
+    reportManualMutationError(new TypeError('Failed to fetch'), 'history.recheck')
+    await flushPromises()
+    expect(calls).toHaveLength(1)
   })
 })
 

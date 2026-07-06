@@ -506,7 +506,9 @@ graph TB
 
 ### Phase F — 誠實性收尾與首跑
 
-- [ ] **W13: mutation 錯誤上報覆蓋——useMutation 遷移〔R13〕**
+- [x] **W13: mutation 錯誤上報覆蓋——useMutation 遷移〔R13〕**
+
+〔W13 執行結果,2026-07-06,分支 `feat/w13-mutation-error-reporting`〕已完成。`main.ts` 既有 MutationCache onError 掛點(2026-07-01-002 U6)驗證正確且已呼叫 `reportMutationError`,未重新接線。D8 分流規則實作於 `errorCapture.ts`:只有 422 排除,其餘(400/403/404/409/其他 4xx、5xx、網路錯誤)一律上報(`EXPECTED_VALIDATION_STATUSES = new Set([422])`),CSRF 類 403、已 purge 的 undelete 404 等事故訊號不會被吞。DraftsPage 乾淨遷移到 `useMutation`(原本共用單一 busy 布林,行為零改變,14 個既有測試全過)。**HistoryPage 技術判斷(保守做法)**:保留 W5 的手寫邏輯,不做完整 useMutation 遷移——理由是 W5 的 rowBusy/bulkBusy 互斥(D6)在第一個 `await` 前同步檢查,重新接進 `useMutation` 的非同步 `isPending` 會讓兩套獨立的響應式系統產生 race,且無實質好處;改為在每個 catch 區塊(`onDelete`/`onUndo`/`onRecheck`/`onBulkDelete`/`onBulkRecheck`/`confirmPurge`)額外呼叫新的 `reportManualMutationError(error, context)` helper(共用同一個 D8 predicate),W5 既有的 busy 互斥/undo 狀態機測試全數不回歸。`useSettingsForm` 補上非 422 錯誤的上報(新增選填 `context` 參數,5 張卡與 SettingsPage 傳入對應標籤)。**順手修復**:發現並清掉 2 個 W6 遺留的 `ref` unused-import eslint 錯誤(`NotionCard.vue`/`SettingsPage.vue`——W6 把 state 邏輯移進 composable 後忘記清 import),已獨立驗證確認是既有問題非本 unit 引入。vitest 52 檔 379 測試全綠(新增 31)、vue-tsc 零錯誤、eslint 乾淨。
 
 **Goal:** 修復發現 #4 的可指名根因:History/Drafts/Settings 的 mutation 錯誤進入 error-reports 儀表板(接手 attention-dashboard K11 的 defer,交接已在 turf 表記錄)。
 

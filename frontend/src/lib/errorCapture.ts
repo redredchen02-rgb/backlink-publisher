@@ -44,7 +44,7 @@ import {
   classifySeverity,
   DedupTracker,
 } from '../../../webui_app/static/js/lib/error-capture-core.js'
-import { sendJson } from '../api/client'
+import { ApiError, sendJson } from '../api/client'
 import { useNotificationsStore } from '../stores/notifications'
 
 interface ErrorInfo {
@@ -306,10 +306,60 @@ export function reportQueryError(error: unknown, queryKey?: unknown): void {
   void captureAndSubmit(info)
 }
 
+// ── D8 mutation error-report routing rule ───────────────────────────────────
+//
+// Plan 2026-07-06-005 W13 (D8), refined per the plan's doc-review adversarial
+// finding "D8 error-report routing is unspecified for 4xx codes other than
+// 422" (confidence 0.70): the ONLY status excluded from error-reports is the
+// explicitly-enumerated expected validation code, 422 — e.g. Settings' 422
+// inline-validation contract (useSettingsForm.ts), where a 422 is a normal,
+// user-correctable form-validation outcome, not an incident.
+//
+// Every OTHER 4xx is an incident-class signal and MUST be reported:
+//   - 403 (e.g. a CSRF-guard regression) — never assume "permission errors are
+//     expected", a real one is exactly what an operator needs to see.
+//   - 400 (a data-invariant violation) — the corresponding History/Drafts
+//     action is now silently rejecting valid-looking input.
+//   - 404 (e.g. History's undelete on a row that aged out of the undo window
+//     and got purged server-side) — an operator race, worth surfacing.
+//   - 409, or anything else not explicitly listed above.
+// 5xx and network failures (TypeError, timeout/AbortError — see
+// client.ts's withRetry) are always reported; they never reach this
+// predicate's `false` branch.
+//
+// Do NOT rewrite this as "exclude all 4xx" — that recreates the exact
+// invisible-mutation-error class W13 exists to fix (quarantine-not-silent-
+// else principle the plan itself cites).
+const EXPECTED_VALIDATION_STATUSES: ReadonlySet<number> = new Set([422])
+
+export function shouldReportMutationError(error: unknown): boolean {
+  return !(error instanceof ApiError && EXPECTED_VALIDATION_STATUSES.has(error.status))
+}
+
 /** Hook 4b — MutationCache constructor onError (useMutation failures).
  *  `mutationKey` must be the mutation's KEY only — never its `variables`. */
 export function reportMutationError(error: unknown, mutationKey?: unknown): void {
+  if (!shouldReportMutationError(error)) return
   const info = withContextPrefix(toErrorInfo(error, 'mutation-error'), keyToString(mutationKey))
+  void captureAndSubmit(info)
+}
+
+/**
+ * Manual counterpart to `reportMutationError`, for pages that keep a
+ * hand-written try/catch mutation call instead of migrating to `useMutation`
+ * (plan 2026-07-06-005 W13 D7 — HistoryPage's D6 busy mutex + undo state
+ * machine, plus Settings' per-card `useSettingsForm` 422-vs-toast contract,
+ * were judged too risky/out-of-scope to re-thread through `useMutation`, but
+ * their non-422 failures must still reach error-reports exactly like a real
+ * mutation would). Applies the same D8 filter as `reportMutationError`.
+ *
+ * `context` must be a short free-form label identifying the call site (e.g.
+ * `'history.delete'`) — never call-site variables/payload, per this file's
+ * module-level SECURITY note.
+ */
+export function reportManualMutationError(error: unknown, context: string): void {
+  if (!shouldReportMutationError(error)) return
+  const info = withContextPrefix(toErrorInfo(error, 'mutation-error'), context)
   void captureAndSubmit(info)
 }
 

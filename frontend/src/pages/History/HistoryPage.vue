@@ -42,6 +42,18 @@
 // | row op in flight (row A)                           | only row A's own buttons are disabled; row B's row buttons stay enabled; bulk buttons become disabled (mutual-exclusion matrix, D6) |
 // | bulk op in flight                                  | entire table (every row's controls + checkboxes) + bulk buttons are disabled |
 // | rapid repeated clicks on the same button           | the handler's busy-set check happens synchronously before the first `await`, so a second synchronous click sees the id/bulk lock already set and no-ops — exactly one API call |
+// Plan 2026-07-06-005 W13 (D7, option b): this page's mutations deliberately
+// stay hand-written async functions rather than migrating to `useMutation`.
+// W5's rowBusy/bulkBusy mutual-exclusion matrix (D6) above and the undo
+// state machine are precise and synchronous (the busy-set check happens
+// BEFORE the first `await`, guaranteeing exactly-once dispatch under rapid
+// clicks — see the "rapid repeated clicks" test); re-threading that through
+// useMutation's per-call `isPending` risked introducing a race between the
+// mutation's own reactive update and this page's own `rowBusy`/`bulkBusy`
+// refs for no behavioral gain. Instead, every catch block below calls
+// `reportManualMutationError` (in addition to the existing `toastError`) so
+// a failure still reaches error-reports exactly like a real
+// MutationCache-observed mutation would — see that function's docstring.
 import { computed, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
@@ -59,6 +71,7 @@ import StateBlock from '../../components/StateBlock.vue'
 import Icon from '../../components/Icon.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
+import { reportManualMutationError } from '../../lib/errorCapture'
 import { useNotificationsStore } from '../../stores/notifications'
 
 const QKEY = ['history']
@@ -216,7 +229,12 @@ function rowDisabled(id: string): boolean {
 const tableLocked = computed(() => bulkBusy.value)
 const bulkButtonsDisabled = computed(() => bulkBusy.value || rowBusy.value.size > 0)
 
-function reportError(e: unknown): void {
+/** `context` is a short free-form call-site label (e.g. `'history.delete'`)
+ *  — never raw error/response payload — forwarded to error-reports (D8:
+ *  non-422 failures, incl. CSRF 403 / invariant 400 / aged-out undo 404, are
+ *  incident-class and must be reported, same as a 500). */
+function reportError(e: unknown, context: string): void {
+  reportManualMutationError(e, context)
   toastError(e)
 }
 
@@ -231,7 +249,7 @@ async function onDelete(id: string): Promise<void> {
     qc.setQueryData(QKEY, { items: r.items })
     beginUndoWindow(row)
   } catch (e) {
-    reportError(e)
+    reportError(e, 'history.delete')
   } finally {
     setRowBusy(id, false)
   }
@@ -252,8 +270,10 @@ async function onUndo(id: string): Promise<void> {
     notify.push('已撤销删除', 'success')
   } catch (e) {
     // 404 (aged past the purge window) — nothing left to undo; hide it.
+    // D8: a 404 here is an operator-visible race (server purged the row
+    // before the undo click landed), NOT an expected-422 — still reported.
     finalizeDelete(id)
-    reportError(e)
+    reportError(e, 'history.undelete')
   } finally {
     setRowBusy(id, false)
   }
@@ -268,7 +288,7 @@ async function onRecheck(id: string): Promise<void> {
     selected.value = withoutId(selected.value, id)
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
-    reportError(e)
+    reportError(e, 'history.recheck')
   } finally {
     setRowBusy(id, false)
   }
@@ -291,7 +311,7 @@ async function onBulkDelete(): Promise<void> {
     }
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
-    reportError(e)
+    reportError(e, 'history.bulk-delete')
   } finally {
     bulkBusy.value = false
   }
@@ -309,7 +329,7 @@ async function onBulkRecheck(): Promise<void> {
     selected.value = remaining
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
-    reportError(e)
+    reportError(e, 'history.bulk-recheck')
   } finally {
     bulkBusy.value = false
   }
@@ -332,6 +352,14 @@ async function confirmPurge(): Promise<void> {
     const r = await purgeFailedHistory()
     qc.setQueryData(QKEY, { items: r.items })
     if (r.message) notify.push(r.message, 'info')
+  } catch (e) {
+    // No toastError here (unlike reportError above) — ConfirmDialog itself
+    // shows an inline error and keeps the dialog open on rejection (see its
+    // onConfirmClick), so a global toast would double-surface the same
+    // failure. Error-reports still needs this failure (D8), so report it
+    // manually, then rethrow so ConfirmDialog's own handling still runs.
+    reportManualMutationError(e, 'history.purge-failed')
+    throw e
   } finally {
     bulkBusy.value = false
   }

@@ -18,6 +18,9 @@ import * as api from '../../api/history'
 import HistoryPage from './HistoryPage.vue'
 import Icon from '../../components/Icon.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { ApiError } from '../../api/client'
+import { _resetCaptureStateForTest } from '../../lib/errorCapture'
+import { _resetCsrfForTest } from '../../api/client'
 
 const PUBLISHED = { id: '7', target_url: 'https://a.com/', status: 'published', platform: 'blogger' }
 const FAILED = { id: '8', target_url: 'https://b.com/', status: 'failed', platform: 'medium' }
@@ -351,5 +354,124 @@ describe('HistoryPage', () => {
     expect(api.purgeFailedHistory).toHaveBeenCalledTimes(1)
     expect(notify.toasts.some((t) => t.message.includes('已清除 1 条失败记录'))).toBe(true)
     expect(w.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  // ── W13: mutation error-report coverage (discovery #4 / D7 option b / D8) ──
+  //
+  // End-to-end through the REAL lib/errorCapture module (not mocked) —
+  // stubs `fetch` and asserts on POST /error-reports calls, exactly like
+  // errorCapture.spec.ts's own hook tests, so this proves the full path:
+  // HistoryPage's catch block -> reportManualMutationError -> D8 filter ->
+  // captureAndSubmit -> sendJson('/error-reports').
+
+  interface ReportCall {
+    url: string
+    body: Record<string, unknown>
+  }
+
+  function installErrorReportFetchStub(): ReportCall[] {
+    const calls: ReportCall[] = []
+    let nextId = 1
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : {} })
+        return new Response(
+          JSON.stringify({ id: `hist-report-${nextId++}` }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        )
+      }),
+    )
+    return calls
+  }
+
+  describe('W13: error-reports coverage for hand-written mutations', () => {
+    beforeEach(() => {
+      _resetCaptureStateForTest()
+      document.head.innerHTML = '<meta name="csrf-token" content="test-token">'
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      _resetCsrfForTest()
+      document.head.innerHTML = ''
+    })
+
+    it('a 500 delete failure shows the classified toast AND submits an error-report', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      vi.mocked(api.deleteHistory).mockRejectedValue(new ApiError('server exploded', 500, { detail: 'boom' }))
+      const w = mountPage()
+      const notify = useNotificationsStore()
+      await flushPromises()
+
+      await w.find('.row-actions button:last-child').trigger('click')
+      await flushPromises()
+
+      expect(notify.toasts.some((t) => t.severity === 'error' && t.message.includes('服务器出错了'))).toBe(
+        true,
+      )
+      expect(calls).toHaveLength(1)
+      expect(calls[0].url).toContain('/error-reports')
+      expect(calls[0].body.message).toContain('history.delete')
+    })
+
+    it('a 422 delete failure shows the toast but does NOT submit an error-report (D8)', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      vi.mocked(api.deleteHistory).mockRejectedValue(new ApiError('rejected', 422, { detail: '校验失败详情' }))
+      const w = mountPage()
+      await flushPromises()
+
+      await w.find('.row-actions button:last-child').trigger('click')
+      await flushPromises()
+
+      expect(calls).toHaveLength(0)
+    })
+
+    it('a 403 (non-422 4xx, e.g. CSRF) delete failure IS reported — not swallowed as "just a 4xx"', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      vi.mocked(api.deleteHistory).mockRejectedValue(new ApiError('forbidden', 403, {}))
+      const w = mountPage()
+      await flushPromises()
+
+      await w.find('.row-actions button:last-child').trigger('click')
+      await flushPromises()
+
+      expect(calls).toHaveLength(1)
+    })
+
+    it('a network error (TypeError) on recheck is reported with the correct call-site context', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      vi.mocked(api.recheckHistory).mockRejectedValue(new TypeError('Failed to fetch'))
+      const w = mountPage()
+      await flushPromises()
+
+      await w.find('.row-actions button:first-child').trigger('click') // 重核
+      await flushPromises()
+
+      expect(calls).toHaveLength(1)
+      expect(calls[0].body.message).toContain('history.recheck')
+    })
+
+    it('an aged-out undo (404) is reported, not treated as a silent expected outcome', async () => {
+      const calls = installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
+      const w = mountPage()
+      await flushPromises()
+
+      await w.find('.row-actions button:last-child').trigger('click') // delete -> undo window
+      await flushPromises()
+
+      vi.mocked(api.undeleteHistory).mockRejectedValue(new ApiError('not found', 404, {}))
+      await w.find('.undo-link').trigger('click')
+      await flushPromises()
+
+      expect(calls).toHaveLength(1)
+      expect(calls[0].body.message).toContain('history.undelete')
+    })
   })
 })
