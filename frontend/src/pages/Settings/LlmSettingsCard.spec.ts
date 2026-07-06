@@ -84,17 +84,35 @@ describe('LlmSettingsCard', () => {
     expect((w.find('#llm-key').element as HTMLInputElement).value).toBe('')
   })
 
-  it('surfaces a 422 save rejection as a warning toast carrying the detail', async () => {
+  it('W6: a 422 mentioning Endpoint renders inline under that field, not a toast', async () => {
     vi.mocked(api.saveLlmConfig).mockRejectedValue(
-      new ApiError('rejected', 422, { detail: 'LLM Endpoint 必须是 https://' }),
+      new ApiError('rejected', 422, { detail: 'Endpoint 必须以 https:// 开头' }),
     )
     const w = mountCard()
     await flushPromises()
     await w.find('form').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="err-endpoint"]').text()).toContain('https')
+    expect(w.find('[data-test="llm-form-error"]').exists()).toBe(false)
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('https')
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: a 422 mentioning image_gen_endpoint attributes to the image-gen field, not the plain endpoint one', async () => {
+    vi.mocked(api.saveLlmConfig).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: 'image_gen_endpoint 必须以 https:// 开头' }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    // the image-gen fields only render once the feature toggle is on
+    const toggles = w.findAll('.switch input[type="checkbox"]')
+    await toggles[1].setValue(true)
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="err-img-ep"]').exists()).toBe(true)
+    expect(w.find('[data-test="err-endpoint"]').exists()).toBe(false)
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('renders the connection probe result inline (ok → 连接成功 + model count)', async () => {

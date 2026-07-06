@@ -10,10 +10,10 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getNotionStatus, saveNotionToken, clearNotionToken } from '../../api/settings'
-import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
+import { useSettingsForm } from '../../composables/useSettingsForm'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -42,13 +42,20 @@ const state = computed<FourState>(() => {
 // integration_token starts blank (never pre-filled); database_id hydrates from
 // status (not a secret).
 const form = reactive({ integration_token: '', database_id: '' })
-const saving = ref(false)
 
 // Plan 2026-07-06-005 W2 — hydration-overwrite fix; see BloggerCard's
 // identical comment for the full rationale (same shape: a secret field that
 // gets programmatically blanked after save, plus a non-secret field hydrated
 // from the status query).
 const { dirty, markClean } = useSnapshotDirty('settings-notion', 'Notion', () => form)
+
+// Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline (best-
+// effort field attribution via regex — see useSettingsForm's docstring),
+// success toast + this card's `markClean()`, per-card `saving` busy.
+const { saving, formError, fieldErrors, run } = useSettingsForm(markClean, {
+  integration_token: /integration[ _]?token/i,
+  database_id: /database[ _]?id/i,
+})
 
 watch(
   () => status.value,
@@ -66,24 +73,15 @@ const tokenPlaceholder = computed(() =>
 )
 
 async function onSave(): Promise<void> {
-  if (saving.value) return
-  saving.value = true
-  try {
-    const r = await saveNotionToken(form.integration_token, form.database_id)
-    notify.push(r.message || 'Notion 凭据已保存', 'success')
-    form.integration_token = ''
-    markClean()
+  const result = await run(() => saveNotionToken(form.integration_token, form.database_id), {
+    successMessage: 'Notion 凭据已保存',
+    onSuccess: () => {
+      form.integration_token = ''
+    },
+  })
+  if (result) {
     await qc.invalidateQueries({ queryKey: ['settings', 'notion-status'] })
     await qc.invalidateQueries({ queryKey: ['settings', 'channels'] })
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 422) {
-      const detail = (e.payload as { detail?: string })?.detail
-      notify.push(detail || '请填写 Integration Token 和 Database ID', 'warning')
-      return
-    }
-    toastError(e)
-  } finally {
-    saving.value = false
   }
 }
 
@@ -129,6 +127,9 @@ async function onClear(): Promise<void> {
             autocomplete="off"
             :placeholder="tokenPlaceholder"
           />
+          <small v-if="fieldErrors.integration_token" class="field-error" data-test="err-token">
+            {{ fieldErrors.integration_token }}
+          </small>
         </div>
         <div class="field">
           <label for="nt-db">Database ID</label>
@@ -140,7 +141,11 @@ async function onClear(): Promise<void> {
             autocomplete="off"
             placeholder="32 位十六进制 ID"
           />
+          <small v-if="fieldErrors.database_id" class="field-error" data-test="err-db">
+            {{ fieldErrors.database_id }}
+          </small>
         </div>
+        <p v-if="formError" class="form-error" data-test="notion-form-error">{{ formError }}</p>
         <div class="notion__actions">
           <button type="submit" :disabled="saving">
             {{ saving ? '保存中…' : '确认绑定' }}
@@ -214,5 +219,11 @@ async function onClear(): Promise<void> {
 .tag--err {
   color: var(--danger);
   border-color: currentColor;
+}
+.field-error,
+.form-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin: 0.25rem 0 0;
 }
 </style>

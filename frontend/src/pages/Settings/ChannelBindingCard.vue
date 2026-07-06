@@ -63,6 +63,25 @@ const state = computed<FourState>(() => {
 const edits = reactive<Record<string, Record<string, string>>>({})
 const savingSlug = ref<string | null>(null)
 
+// Plan 2026-07-06-005 W6 — shared save convention, per-slug variant: a 422
+// renders inline under THAT slug's form (never a global toast), keyed by
+// slug rather than by `useSettingsForm`'s single fieldMap because this card
+// hosts N independent dynamic forms (one per fixed-credential channel) in
+// one component instance — `useSettingsForm` assumes one form per instance,
+// which doesn't fit here, so the same detail-extraction + no-toast-on-422
+// behavior is reproduced directly (see useSettingsForm's module docstring
+// for the same field-attribution caveat: the backend detail is a freeform
+// string, not structured per-field data).
+const formErrors = reactive<Record<string, string>>({})
+
+function detailOf(payload: unknown): string {
+  if (payload && typeof payload === 'object' && 'detail' in payload) {
+    const d = (payload as Record<string, unknown>).detail
+    if (d != null) return String(d)
+  }
+  return '校验失败'
+}
+
 // Plan 2026-07-06-005 W2 — this card's hydration was already non-destructive
 // (the loop below only ever seeds a *missing* field key blank, it never
 // overwrites a key that's already present — so a refetch triggered while
@@ -135,6 +154,7 @@ function clearSecretInputs(form: ChannelBindingForm): void {
 async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   if (savingSlug.value) return
   savingSlug.value = form.slug
+  delete formErrors[form.slug]
   try {
     const body: Record<string, string | number> = { auth_type: form.auth_type }
     if (clear) {
@@ -160,10 +180,10 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   } catch (e) {
     // 422 = a credential failed a validation gate (SSRF / cookie schema / hostname
     // / both-userpass-required); the problem+json detail is the server-sanitized,
-    // actionable message (rendered text-only by the toast).
+    // actionable message — W6: rendered inline under THIS slug's form, never a
+    // global toast (see the `formErrors` comment above `edits`).
     if (e instanceof ApiError && e.status === 422) {
-      const detail = (e.payload as { detail?: string })?.detail
-      notify.push(detail || '凭据校验失败', 'warning')
+      formErrors[form.slug] = detailOf(e.payload)
       return
     }
     toastError(e)
@@ -221,6 +241,10 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
             />
             <small v-if="fld.help" class="muted">{{ fld.help }}</small>
           </div>
+
+          <p v-if="formErrors[f.slug]" class="form-error" :data-test="`bind-error-${f.slug}`">
+            {{ formErrors[f.slug] }}
+          </p>
 
           <div class="bind__actions">
             <button type="submit" :disabled="savingSlug === f.slug">
@@ -316,5 +340,10 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 }
 .tag--muted {
   color: var(--text-secondary);
+}
+.form-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin: 0.25rem 0 0;
 }
 </style>

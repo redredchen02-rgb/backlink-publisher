@@ -343,7 +343,9 @@ graph TB
 
 ### Phase C — 表單與視覺
 
-- [ ] **W6: 共享表單體系——useChannelCard 擴充為全 Settings 慣例〔R6〕**
+- [x] **W6: 共享表單體系——useChannelCard 擴充為全 Settings 慣例〔R6〕**
+
+〔W6 執行結果,2026-07-06,分支 `feat/w6-shared-form-system`(堆疊於 W2)〕已完成。**計畫假設有誤,已修正**:`useChannelCard`/saveWith422 composable 在 repo 內實際不存在(跨 worktree 查證確認),改用計畫本身備案的 `useSettingsForm` 從零建立。新 composable 提供 `run(action, {successMessage, onSuccess})`:per-instance busy、成功 toast、呼叫 W2 的 `markClean()`、422 絕不產生全域 toast(改用選填 `fieldMap` regex 對應 detail 字串到欄位層級錯誤,無對應時退回 `formError` 橫幅)。5 張卡(BlogIdsCard/BloggerCard/NotionCard/LlmSettingsCard + SettingsPage 的 2 段)遷移完成;`ChannelBindingCard` 因是 N 個動態 per-slug 表單共用一個元件實例,不適合套用單表單設計,改用手刻但邏輯一致的對應版本(`formErrors: Record<slug,string>`)。`ChannelsCard`/`MediumCard`/`VelogCard` 刻意不動(唯讀或純動作卡,無 save-with-422 表單)。**422 inline validation 侷限**(已記錄於 composable docstring):後端 `webui_app/api/v1/errors.py` 只回傳自由格式字串 `detail`,從無結構化逐欄位資料,故欄位歸屬是盡力而為的 regex 比對,無法區分的欄位(如排程的兩個數字欄位)退回 section 級橫幅——仍滿足「不彈全域 toast」但非逐欄位精準。vitest 49 檔 319 測試全綠(新增 16)、vue-tsc 零錯誤。
 
 **Goal:** Settings 10 段統一 save 慣例(422 inline、成功 toast、dirty 整合)——擴充既有 `useChannelCard`,不另起爐灶。
 
