@@ -72,6 +72,16 @@ GRANDFATHERED: frozenset[tuple[str, str]] = frozenset(
         ("test_webui_three_url.py", "CSRF_ENABLED"),
         ("test_webui_three_url.py", "SESSION_COOKIE_SECURE"),
         ("test_webui_three_url.py", "WTF_CSRF_ENABLED"),
+        # D1 split (2026-07): test_webui_three_url.py was split into
+        # route-contract + pool-derivation + content-fetch-gate files; the
+        # split files inherit the same not-yet-migrated fixtures.
+        ("test_webui_content_fetch_gate.py", "CSRF_ENABLED"),
+        ("test_webui_content_fetch_gate.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_content_fetch_gate.py", "WTF_CSRF_ENABLED"),
+        ("test_webui_three_url_pool_derivation.py", "SESSION_COOKIE_SECURE"),
+        ("test_webui_three_url_pool_derivation.py", "WTF_CSRF_ENABLED"),
+        # D2a campaigns API test (2026-07) — defines its own app fixture.
+        ("test_webui_api_v1_campaigns.py", "CSRF_ENABLED"),
         ("test_webui_unit3_security.py", "CSRF_ENABLED"),
         ("test_webui_unit3_security.py", "WTF_CSRF_ENABLED"),
         ("test_webui_url_verify_routes.py", "SESSION_COOKIE_SECURE"),

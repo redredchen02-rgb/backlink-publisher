@@ -124,8 +124,22 @@ def _make_publish_payload(url_mode: str = "A", platform: str = "medium") -> dict
         "links": [
             {"url": "https://example.com", "anchor": "Example",
              "kind": "main_domain", "required": True},
+            {"url": "https://example.com/article", "anchor": "Article",
+             "kind": "target", "required": True},
+            {"url": "https://wikipedia.org", "anchor": "Wiki",
+             "kind": "supporting", "required": False},
+            {"url": "https://mdn.dev", "anchor": "MDN",
+             "kind": "supporting", "required": False},
+            {"url": "https://stackoverflow.com", "anchor": "SO",
+             "kind": "supporting", "required": False},
+            {"url": "https://github.com", "anchor": "GitHub",
+             "kind": "supporting", "required": False},
         ],
-        "link_count": 1,
+        "seo": {
+            "title": "Benchmark Test Article | SEO",
+            "description": "SEO description",
+            "canonical_url": "https://example.com/article",
+        },
         "approved": True,
         "dofollow": True,
     }

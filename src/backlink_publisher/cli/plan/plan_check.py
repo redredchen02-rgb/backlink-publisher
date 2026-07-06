@@ -18,6 +18,8 @@ from backlink_publisher.cli._plan_check_format import (
     _format_human_drift,
 )
 from backlink_publisher.cli._plan_check_git import (
+    _classify_fetch_stderr,
+    _fetch_head_age_seconds,
     _maybe_fetch_origin_main,
     _path_exists_on_main,
     _sha_reachable_from_main,
@@ -33,11 +35,34 @@ from backlink_publisher.cli._plan_check_schema import (
     _parse_frontmatter,
     _read_plan_text,
     _validate_claims_schema,
+    _validate_sha_format,
     PlanClaimsFilenameDateMismatch,
     PlanClaimsFrontmatterSchemaError,
     PlanClaimsGlobUnsupported,
     PlanClaimsMissingOnPostCutoff,
+    SCHEMA_VERSION,
 )
+
+__all__ = [
+    "FetchOutcome",
+    "PlanClaimsFilenameDateMismatch",
+    "PlanClaimsFrontmatterSchemaError",
+    "PlanClaimsGlobUnsupported",
+    "PlanClaimsMissingOnPostCutoff",
+    "SCHEMA_VERSION",
+    "main",
+    "_check_filename_date_lock",
+    "_classify_fetch_stderr",
+    "_fetch_head_age_seconds",
+    "_grandfathered",
+    "_maybe_fetch_origin_main",
+    "_parse_frontmatter",
+    "_path_exists_on_main",
+    "_read_plan_text",
+    "_sha_reachable_from_main",
+    "_validate_claims_schema",
+    "_validate_sha_format",
+]
 
 # ---------------------------------------------------------------------------
 # Unit 3: CLI dispatch — argparse, output formatters, exit-code mapping

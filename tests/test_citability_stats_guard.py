@@ -60,7 +60,7 @@ def test_exactly_one_warn_emitted_when_no_data_source():
         "backlink_publisher.cli.plan_backlinks._citability.plan_logger"
     ) as mock_logger:
         build_stat_paragraph("example.com", {}, language="en")
-    mock_logger.warn.assert_called_once()
+    mock_logger.warning.assert_called_once()
 
 
 def test_no_warn_emitted_when_data_source_present():
@@ -70,7 +70,7 @@ def test_no_warn_emitted_when_data_source_present():
         "backlink_publisher.cli.plan_backlinks._citability.plan_logger"
     ) as mock_logger:
         build_stat_paragraph("example.com", row, language="en")
-    mock_logger.warn.assert_not_called()
+    mock_logger.warning.assert_not_called()
 
 
 def test_apply_long_form_levers_emits_exactly_one_warn_without_data_source():
@@ -80,7 +80,7 @@ def test_apply_long_form_levers_emits_exactly_one_warn_without_data_source():
     ) as mock_logger:
         apply_long_form_levers("body", "example.com", {}, language="en")
     # Only the stat degradation WARN, not more
-    assert mock_logger.warn.call_count == 1
+    assert mock_logger.warning.call_count == 1
 
 
 def test_apply_long_form_levers_no_warn_with_data_source():
@@ -90,7 +90,7 @@ def test_apply_long_form_levers_no_warn_with_data_source():
         "backlink_publisher.cli.plan_backlinks._citability.plan_logger"
     ) as mock_logger:
         apply_long_form_levers("body", "example.com", row, language="en")
-    mock_logger.warn.assert_not_called()
+    mock_logger.warning.assert_not_called()
 
 
 # ── guard: data_source present → numeric stat allowed ────────────────────────
