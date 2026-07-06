@@ -733,10 +733,14 @@ def ce_health() -> Any:
 
 @bp.route("/health", methods=["GET"])
 def health_json() -> Any:
-    """Machine-readable health endpoint (Plan 2026-06-09-001 U3 / R15–R17).
+    """Machine-readable health endpoint (Plan 2026-06-09-001 U3 / R15–R17;
+    Plan 2026-07-06-005 W15 / D13 stopped treating never_run as degraded).
 
-    Returns 200 when healthy, 503 when any channel is expired/unreachable,
-    scheduler is not running, or no pipeline run has ever been recorded.
+    Returns 200 when healthy, 503 when any channel is expired/unreachable or
+    the scheduler is not running. A fresh install that has never published
+    (no pipeline run recorded yet) is NOT degraded on its own — see
+    ``never_run`` in the payload — and does not trigger 503 unless a real
+    failure is also present.
     GET-only — the global CSRF guard skips GET requests, so no token needed.
     ``BACKLINK_PUBLISHER_ALLOW_NETWORK=1`` extends to off-loopback callers.
     """
