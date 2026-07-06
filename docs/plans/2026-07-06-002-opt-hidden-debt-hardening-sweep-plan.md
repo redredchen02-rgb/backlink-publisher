@@ -452,7 +452,7 @@ graph TB
 
 ---
 
-- [ ] **E3: LITE 延後決策觸發條件驗證〔R12〕**
+- [x] **E3: LITE 延後決策觸發條件驗證〔R12〕** ✅ 已完成（commit `176865c0`，報告：`docs/audits/2026-07-06-lite-deferral-trigger-check.md`）——**R7（跨行程 rehydrate）：已觸發**（帶但書）——2026-06-09 引入的 autopilot per-site keepalive scheduler 確實符合「引入無人值守排程」的字面觸發條件，但其重新設計的路徑（每 tick 立即持久化、重啟即重新註冊）結構上已規避 G5b 原本針對的孤兒 job 風險,建議後續計畫聚焦「驗證重啟安全性」而非原始的重量級修復。**R10（無 per-probe timeout）：已觸發**，且風險更高——`recheck-backlinks` CLI 本身早已有 timeout/budget/lock，但 2026-06-09 後的 autopilot 路徑完全沒有等效的 batch 上限，且與 queue processor/batch_ops/purge 共用同一個 `ThreadPoolExecutor(max_workers=1)`，單一卡住的 probe 會拖垮整個背景任務子系統。**R8：未觸發**——`schema.py`/`_payload_types.py` 自 2026-06-05 起僅有 lint pass,無實質欄位變更,無新增 SSRF 相關欄位。三者皆未實作修復,依 Scope Boundaries 建議另開追蹤計畫。
 
 **Goal:** 驗證 `docs/solutions/architecture-patterns/2026-06-05-lite-accepted-deferrals.md` 記錄的 3 個延後決策（R7 跨行程 rehydrate、R8 Pydantic 非權威驗證、R10 無 per-probe timeout）的恢復觸發條件是否已因近期 scheduler/keepalive/recheck 相關開發而成立。
 
