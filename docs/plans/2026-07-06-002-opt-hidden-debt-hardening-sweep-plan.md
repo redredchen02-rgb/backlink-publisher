@@ -344,7 +344,7 @@ graph TB
 
 ---
 
-- [ ] **D2: `publishing/adapters/` except-Exception 分類掃描〔R8〕**
+- [x] **D2: `publishing/adapters/` except-Exception 分類掃描〔R8〕** ✅ 已完成（commit `a5f8ba3a`）——即時 grep 確認 56 個站點（28 檔案）+ 1 個 tuple-form（`_verify_live.py`）= 57 個站點，聚類為 35 筆 `debt_registry.toml` entry（同檔案/同函式或 sibling 函式規則，未跨檔案聚類）。**`medium_browser.py:330` 依 K8 判定的 fix-now 已修復**：Save Draft 點擊失敗原本 log 後仍回傳 `status="drafted"` 假成功，現在改為 `raise ExternalServiceError(...)`，紅→綠測試證明（`test_save_draft_click_failure_raises_instead_of_reporting_drafted`），另補 271/322 行的鎖定測試證明其「accepted」分類正確、未被誤修。**安全複核**：15+ 個 adapter 逐一比對其認證機制（header 位置）與目標平台文件化的錯誤回應格式，確認皆不會回顯憑證，故除既有的 `_redact_for_log` 模式外無需額外清洗修復。**執行期發現，偏離規劃假設**：`link_attr_verifier.py` 的 6 個站點依 doc-review 提醒獨立複核（不等其他站點引用它），確認其契約是「明確 sentinel，從不 raise」，維持 accepted。`pytest tests/test_debt_registry_format.py` 有 1 個既有失敗（`webui_app/api/llm_diagnostics_api.py`／`webui_app/api/v1/pipeline.py` 的過期行號，經 `git stash` 對照確認與本 unit 無關，不在範圍內修復）。
 
 **Goal:** 對 `publishing/adapters/` 目錄下 56 個 `except Exception` 站點（deepening 複核已用即時 grep 更正自研究快照的 78；Phase 3 D2 明確排除的區塊）套用相同的分類方法論，優先審視有靜默丟失真實失敗訊號風險的站點。
 
