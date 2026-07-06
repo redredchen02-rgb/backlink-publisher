@@ -112,6 +112,71 @@ def from_pipe_result(result: Any, *, status: int = 502) -> ApiProblem:
     )
 
 
+#: Server-side upper bound on a single page's `limit` (Plan 2026-07-02-001 U5).
+#: A page this size is already far beyond anything the DataTable UI paginates
+#: through by hand; caps a client from forcing one request to serialise/slice
+#: an unbounded number of items.
+MAX_PAGE_LIMIT = 500
+
+
+def parse_pagination() -> tuple[int | None, int]:
+    """Parse optional ``?limit=&offset=`` query params for a list endpoint.
+
+    Returns ``(None, 0)`` when ``limit`` is absent -- the caller's signal to
+    skip pagination entirely and return the flat, pre-U5 ``{items: [...]}}``
+    shape unchanged (opt-in incremental pagination, K6: old clients don't
+    break). When ``limit`` is present, both values are validated: negative,
+    non-numeric, or oversized (> MAX_PAGE_LIMIT) values raise a 400 problem+json
+    rather than silently clamping, since a caller passing a malformed value is
+    a client bug worth surfacing, not data worth guessing at.
+    """
+    limit_raw = request.args.get("limit")
+    if limit_raw is None:
+        return None, 0
+    offset_raw = request.args.get("offset", "0")
+    try:
+        limit = int(limit_raw)
+        offset = int(offset_raw)
+    except (TypeError, ValueError):
+        raise ApiProblem(
+            400, "Invalid pagination parameters",
+            detail="`limit`/`offset` must be integers.",
+            error_class="invalid_request",
+        )
+    if limit < 0 or offset < 0:
+        raise ApiProblem(
+            400, "Invalid pagination parameters",
+            detail="`limit`/`offset` must be non-negative.",
+            error_class="invalid_request",
+        )
+    if limit > MAX_PAGE_LIMIT:
+        raise ApiProblem(
+            400, "Invalid pagination parameters",
+            detail=f"`limit` must be <= {MAX_PAGE_LIMIT}.",
+            error_class="invalid_request",
+        )
+    return limit, offset
+
+
+def paginate(items: list, limit: int | None, offset: int) -> dict[str, Any]:
+    """Build the list-endpoint response envelope for a (possibly paginated) list.
+
+    ``limit is None`` (no ``?limit=`` given) returns the original flat
+    ``{"items": [...]}`` shape. Otherwise returns the page envelope
+    ``{"items": [...], "total": N, "limit": L, "offset": O}`` -- ``total`` is
+    the full unpaginated count, so the client can compute page count/clamp
+    without a second request.
+    """
+    if limit is None:
+        return {"items": items}
+    return {
+        "items": items[offset:offset + limit],
+        "total": len(items),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
 def register_api_error_handlers(app: Flask) -> None:
     """Wire RFC 9457 handlers, scoped to ``/api/v1`` so the rest of the app is untouched.
 

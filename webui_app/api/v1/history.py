@@ -19,7 +19,7 @@ from flask import jsonify, request
 
 from ..history_api import HistoryAPI
 from . import bp
-from .errors import ApiProblem
+from .errors import ApiProblem, paginate, parse_pagination
 
 _api = HistoryAPI()
 
@@ -45,8 +45,16 @@ def _require_ids(data: dict) -> list[str]:
 
 @bp.get("/history")
 def history_list() -> Any:
-    """Full publish-history list (events.db, normalised)."""
-    return jsonify({"items": _api.list()})
+    """Publish-history list (events.db, normalised).
+
+    Plan 2026-07-02-001 U5: opt-in incremental pagination via ``?limit=&offset=``.
+    Paginated at this layer, not pushed into the store -- history has dual
+    JSON/events.db backends, so store-level pagination would need to fan out
+    differently per backend. Omitting ``limit`` returns the original flat
+    ``{items: [...]}`` shape (old clients don't break, K6).
+    """
+    limit, offset = parse_pagination()
+    return jsonify(paginate(_api.list(), limit, offset))
 
 
 @bp.post("/history/delete")

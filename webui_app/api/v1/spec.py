@@ -374,13 +374,24 @@ def build_spec() -> APISpec:
         operations={
             "get": {
                 "operationId": "getHistory",
-                "summary": "Full publish-history list.",
+                "summary": "Publish-history list, optionally paginated.",
                 "description": (
-                    "Read-only: every publish-history entry from events.db, "
-                    "normalised for display. No pagination yet."
+                    "Read-only: publish-history entries from events.db, normalised "
+                    "for display. Omitting `limit` returns every entry in the "
+                    "original flat shape; passing `limit` returns a page envelope "
+                    "with `total`/`limit`/`offset` (Plan 2026-07-02-001 U5)."
                 ),
                 "tags": ["history"],
-                "responses": {"200": _ok("History list.", HistoryListSchema)},
+                "parameters": [
+                    {"name": "limit", "in": "query", "required": False,
+                     "schema": {"type": "integer", "minimum": 0, "maximum": 500}},
+                    {"name": "offset", "in": "query", "required": False,
+                     "schema": {"type": "integer", "minimum": 0, "default": 0}},
+                ],
+                "responses": {
+                    "200": _ok("History list (paginated if `limit` given).", HistoryListSchema),
+                    "400": _problem_response("Invalid limit/offset."),
+                },
             }
         },
     )
@@ -463,13 +474,23 @@ def build_spec() -> APISpec:
         operations={
             "get": {
                 "operationId": "getDrafts",
-                "summary": "Full draft-queue list (newest first).",
+                "summary": "Draft-queue list (newest first), optionally paginated.",
                 "description": (
-                    "Read-only: every draft in the queue with its status "
-                    "(pending/scheduled), newest first."
+                    "Read-only: drafts in the queue with their status "
+                    "(pending/scheduled), newest first. Same pagination contract "
+                    "as GET /history (Plan 2026-07-02-001 U5)."
                 ),
                 "tags": ["drafts"],
-                "responses": {"200": _ok("Draft list.", DraftListSchema)},
+                "parameters": [
+                    {"name": "limit", "in": "query", "required": False,
+                     "schema": {"type": "integer", "minimum": 0, "maximum": 500}},
+                    {"name": "offset", "in": "query", "required": False,
+                     "schema": {"type": "integer", "minimum": 0, "default": 0}},
+                ],
+                "responses": {
+                    "200": _ok("Draft list (paginated if `limit` given).", DraftListSchema),
+                    "400": _problem_response("Invalid limit/offset."),
+                },
             }
         },
     )

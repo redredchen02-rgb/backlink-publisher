@@ -241,9 +241,17 @@ class HistoryItemSchema(Schema):
 
 
 class HistoryListSchema(Schema):
-    """The full history list (object envelope, never a bare array)."""
+    """The history list (object envelope, never a bare array).
+
+    Plan 2026-07-02-001 U5: `total`/`limit`/`offset` are present only when the
+    request included `?limit=` -- omitted entirely for the original flat,
+    unpaginated shape.
+    """
 
     items = fields.List(fields.Nested(HistoryItemSchema), required=True)
+    total = fields.Integer()
+    limit = fields.Integer()
+    offset = fields.Integer()
 
 
 class HistoryMutationResultSchema(Schema):
@@ -284,7 +292,12 @@ class DraftItemSchema(Schema):
 
 
 class DraftListSchema(Schema):
+    """Plan 2026-07-02-001 U5: `total`/`limit`/`offset` only present with `?limit=`."""
+
     items = fields.List(fields.Nested(DraftItemSchema), required=True)
+    total = fields.Integer()
+    limit = fields.Integer()
+    offset = fields.Integer()
 
 
 class DraftMutationResultSchema(Schema):
