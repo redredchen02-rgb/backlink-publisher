@@ -23,22 +23,10 @@ from backlink_publisher.publishing.content_negotiation import extract_publish_ht
 from backlink_publisher.publishing.registry import Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 
-from .base import AdapterResult, BaseAdapter
+from .base import AdapterResult, BaseAdapter, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _BLOGGER_API = "https://www.googleapis.com/blogger/v3"
-
-
-class _TransientHTTPError(Exception):
-    """Sentinel raised when an HTTP response status warrants a retry.
-
-    Module-private — not exported. Does not extend ExternalServiceError so it
-    is not caught by the retry guard in retry_transient_call.
-    """
-
-    def __init__(self, status_code: int) -> None:
-        self.status_code = status_code
-        super().__init__(f"HTTP {status_code}")
 
 
 class BloggerAPIAdapter(BaseAdapter, Publisher):
@@ -155,7 +143,7 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
                     reason=f"Blogger HTTP {resp.status_code}",
                 )
             if resp.status_code in RETRYABLE_HTTP_STATUSES:
-                raise _TransientHTTPError(resp.status_code)
+                raise TransientError(resp.status_code)
             if not resp.ok:
                 raise ExternalServiceError(
                     f"Blogger API error HTTP {resp.status_code}: {resp.text[:200]}"
@@ -165,10 +153,10 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
         try:
             result = retry_transient_call(
                 _do_post,
-                is_retryable=lambda exc: isinstance(exc, _TransientHTTPError),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="blogger-api",
             )
-        except _TransientHTTPError as exc:
+        except TransientError as exc:
             raise ExternalServiceError(
                 f"Blogger API rate-limited (HTTP {exc.status_code})"
             ) from exc
