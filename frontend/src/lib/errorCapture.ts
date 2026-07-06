@@ -174,19 +174,27 @@ function notifySuccess(message: string, reportId: string): void {
   }
 }
 
-async function captureAndSubmit(errorInfo: ErrorInfo): Promise<void> {
+// Returns the server-persisted report id when a report was actually
+// submitted, or null when the error was ignored/deduped/failed to submit.
+// Plan 2026-07-06-005 W10 (stores/rowReportLinks.ts) relies on this return
+// value being the LITERAL id of the report that submission produced — never
+// a guess — to correlate a specific History row's failure with its report.
+async function captureAndSubmit(errorInfo: ErrorInfo): Promise<string | null> {
   try {
-    if (shouldIgnoreError(errorInfo)) return
+    if (shouldIgnoreError(errorInfo)) return null
     const fingerprint = computeFingerprint(errorInfo)
     const decision = tracker.record(fingerprint)
-    if (!decision.shouldSubmitNow) return
+    if (!decision.shouldSubmitNow) return null
     const payload = buildPayload(errorInfo, fingerprint)
     const result = await submitReport(payload)
-    if (result) notifySuccess(errorInfo.message || errorInfo.name, result.id)
+    if (!result) return null
+    notifySuccess(errorInfo.message || errorInfo.name, result.id)
+    return result.id
   } catch {
     // A bug in this module's own capture/submission logic must never itself
     // become a new uncaught error — isSelfOriginatedError guards against the
     // resulting self-report loop, but only if we never let it escape here.
+    return null
   }
 }
 
@@ -356,11 +364,21 @@ export function reportMutationError(error: unknown, mutationKey?: unknown): void
  * `context` must be a short free-form label identifying the call site (e.g.
  * `'history.delete'`) — never call-site variables/payload, per this file's
  * module-level SECURITY note.
+ *
+ * Returns the submitted report's id (or null — filtered/deduped/failed to
+ * submit), per Plan 2026-07-06-005 W10: HistoryPage.vue awaits/chains this to
+ * learn exactly which report a given row's failed action produced, then
+ * records that in stores/rowReportLinks.ts. Existing callers that don't need
+ * the id (Settings) may keep ignoring the returned promise — this is a
+ * backward-compatible signature widening (void -> Promise<string | null>).
  */
-export function reportManualMutationError(error: unknown, context: string): void {
-  if (!shouldReportMutationError(error)) return
+export async function reportManualMutationError(
+  error: unknown,
+  context: string,
+): Promise<string | null> {
+  if (!shouldReportMutationError(error)) return null
   const info = withContextPrefix(toErrorInfo(error, 'mutation-error'), context)
-  void captureAndSubmit(info)
+  return captureAndSubmit(info)
 }
 
 // ── hook 5: Pinia $onAction onError ──────────────────────────────────────────

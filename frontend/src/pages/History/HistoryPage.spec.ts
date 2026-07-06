@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 
 vi.mock('../../api/history', () => ({
   listHistory: vi.fn(),
@@ -18,9 +19,28 @@ import * as api from '../../api/history'
 import HistoryPage from './HistoryPage.vue'
 import Icon from '../../components/Icon.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useRowReportLinksStore } from '../../stores/rowReportLinks'
 import { ApiError } from '../../api/client'
 import { _resetCaptureStateForTest } from '../../lib/errorCapture'
 import { _resetCsrfForTest } from '../../api/client'
+
+// jsdom doesn't implement scrollIntoView — W10's highlight-on-return feature
+// calls it, so stub it globally for this file (mirrors the plan's a11y
+// scenario: we only assert it was invoked with the expected behavior, not
+// any real scroll geometry).
+Element.prototype.scrollIntoView = vi.fn()
+
+const ROUTES = [
+  { path: '/', name: 'root', component: { template: '<div />' } },
+  { path: '/history', name: 'history', component: { template: '<div />' } },
+  { path: '/error-reports/:id', name: 'error-report-detail', component: { template: '<div />' } },
+]
+
+function makeRouter(initialPath = '/history'): Router {
+  const router = createRouter({ history: createMemoryHistory(), routes: ROUTES })
+  void router.push(initialPath)
+  return router
+}
 
 const PUBLISHED = { id: '7', target_url: 'https://a.com/', status: 'published', platform: 'blogger' }
 const FAILED = { id: '8', target_url: 'https://b.com/', status: 'failed', platform: 'medium' }
@@ -42,16 +62,44 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  document.body.innerHTML = ''
 })
 
 let lastQueryClient: QueryClient
+let lastRouter: Router
 
-function mountPage() {
+function mountPage(initialPath = '/history') {
   // Share the SAME pinia between the component and the test's store lookups.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   lastQueryClient = queryClient
+  const router = makeRouter(initialPath)
+  lastRouter = router
   return mount(HistoryPage, {
-    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }], router] },
+  })
+}
+
+/** Like `mountPage`, but awaits the router's initial navigation FIRST — the
+ *  W10 highlight-on-return tests need `route.query.highlight` to already be
+ *  resolved at HistoryPage's setup() time (a router push kicked off but not
+ *  yet settled when a component mounts is a real vue-router timing gap: its
+ *  `useRoute()` result only reflects the target location once navigation
+ *  resolves, and no further reactive change is guaranteed to reach a watcher
+ *  registered afterward — confirmed with a minimal repro during this unit's
+ *  implementation). The other ~25 tests in this file don't depend on the
+ *  initial route/query, so they keep using the synchronous `mountPage`. */
+async function mountPageAt(initialPath: string) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  lastQueryClient = queryClient
+  const router = createRouter({ history: createMemoryHistory(), routes: ROUTES })
+  await router.push(initialPath)
+  lastRouter = router
+  // attachTo: document.body — the highlight feature's scroll-to-row step
+  // uses `document.querySelector`, which finds nothing in @vue/test-utils'
+  // default detached render tree.
+  return mount(HistoryPage, {
+    attachTo: document.body,
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }], router] },
   })
 }
 
@@ -472,6 +520,133 @@ describe('HistoryPage', () => {
 
       expect(calls).toHaveLength(1)
       expect(calls[0].body.message).toContain('history.undelete')
+    })
+  })
+
+  // ── W10: cross-page deep-link ───────────────────────────────────────────
+
+  describe('W10: 查看报告 deep-link (row -> error-report)', () => {
+    beforeEach(() => {
+      _resetCaptureStateForTest()
+      document.head.innerHTML = '<meta name="csrf-token" content="test-token">'
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      _resetCsrfForTest()
+      document.head.innerHTML = ''
+    })
+
+    it('happy path: a delete failure surfaces a "查看报告" link on that exact row, linking to the real report id', async () => {
+      installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+      vi.mocked(api.deleteHistory).mockRejectedValue(new ApiError('server exploded', 500, {}))
+      const w = mountPage()
+      await flushPromises()
+
+      // Only row 7 (PUBLISHED) has its delete button clicked/fail — row 8 never did.
+      await w.findAll('tbody tr')[0].find('.row-actions button:last-child').trigger('click')
+      await flushPromises()
+
+      const rowReportLinks = useRowReportLinksStore()
+      const reportId = rowReportLinks.reportIdForRow('7')
+      expect(reportId).toBeTruthy()
+      expect(rowReportLinks.reportIdForRow('8')).toBeUndefined()
+
+      const link = w.find('a.row-report-link')
+      expect(link.exists()).toBe(true)
+      expect(link.attributes('href')).toBe(`/error-reports/${reportId}`)
+    })
+
+    it('a row whose action never failed shows no "查看报告" link (no fabricated correspondence)', async () => {
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+      const w = mountPage()
+      await flushPromises()
+
+      // FAILED here means the ORIGINAL PUBLISH failed — unrelated to any UI
+      // mutation error-report; asserting this never gets a fabricated link.
+      expect(w.find('a.row-report-link').exists()).toBe(false)
+    })
+
+    it('a subsequent successful delete clears the stale "查看报告" link for that row', async () => {
+      installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      vi.mocked(api.deleteHistory).mockRejectedValueOnce(new ApiError('server exploded', 500, {}))
+      const w = mountPage()
+      await flushPromises()
+
+      await w.find('.row-actions button:last-child').trigger('click')
+      await flushPromises()
+      expect(w.find('a.row-report-link').exists()).toBe(true)
+
+      vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
+      await w.find('.row-actions button:last-child').trigger('click')
+      await flushPromises()
+
+      expect(w.find('a.row-report-link').exists()).toBe(false)
+    })
+
+    it('a 422 delete failure does not create a "查看报告" link (D8: not incident-class)', async () => {
+      installErrorReportFetchStub()
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      vi.mocked(api.deleteHistory).mockRejectedValue(new ApiError('rejected', 422, {}))
+      const w = mountPage()
+      await flushPromises()
+
+      await w.find('.row-actions button:last-child').trigger('click')
+      await flushPromises()
+
+      expect(w.find('a.row-report-link').exists()).toBe(false)
+    })
+  })
+
+  describe('W10: highlight-on-return from an error-report\'s "回到来源"', () => {
+    it('happy path: ?highlight=<id> scrolls to and highlights the matching row, with an sr-only announcement', async () => {
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+      const w = await mountPageAt('/history?highlight=8')
+      await flushPromises()
+
+      const scrollSpy = vi.mocked(Element.prototype.scrollIntoView)
+      expect(scrollSpy).toHaveBeenCalled()
+
+      const row = w.findAll('tbody tr').find((r) => r.attributes('data-row-id') === '8')!
+      expect(row.classes()).toContain('row--highlight')
+      expect(w.text()).toContain('已定位到目标记录')
+
+      // The query param is stripped so a refresh/back doesn't re-trigger it.
+      expect(lastRouter.currentRoute.value.query.highlight).toBeUndefined()
+    })
+
+    it('edge case: a highlight target no longer in the list shows a non-silent "not in list" notice', async () => {
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      const w = await mountPageAt('/history?highlight=does-not-exist')
+      await flushPromises()
+
+      expect(w.find('.highlight-missing').exists()).toBe(true)
+      expect(w.text()).toContain('该项目已不在列表中')
+    })
+
+    it('the "not in list" notice can be dismissed', async () => {
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      const w = await mountPageAt('/history?highlight=does-not-exist')
+      await flushPromises()
+
+      expect(w.find('.highlight-missing').exists()).toBe(true)
+      await w.find('.highlight-missing__dismiss').trigger('click')
+      expect(w.find('.highlight-missing').exists()).toBe(false)
+    })
+
+    it('a11y: reduced motion uses an instant (non-smooth) scroll', async () => {
+      const matchMediaSpy = vi.fn().mockReturnValue({ matches: true })
+      vi.stubGlobal('matchMedia', matchMediaSpy)
+      vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+      const w = await mountPageAt('/history?highlight=7')
+      await flushPromises()
+
+      const scrollSpy = vi.mocked(Element.prototype.scrollIntoView)
+      expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }))
+      expect(w.exists()).toBe(true)
+      vi.unstubAllGlobals()
     })
   })
 })

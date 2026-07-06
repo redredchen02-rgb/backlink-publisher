@@ -353,6 +353,22 @@ describe('reportManualMutationError — HistoryPage/Settings hand-written catch 
     await flushPromises()
     expect(calls).toHaveLength(1)
   })
+
+  // Plan 2026-07-06-005 W10 — HistoryPage's rowReportLinks correlation relies
+  // on this resolving with the LITERAL submitted report id (or null), never a
+  // guess. See stores/rowReportLinks.ts's docstring.
+  it('resolves with the submitted report id on success — stores/rowReportLinks.ts wires a row to this exact value', async () => {
+    installFetchStub()
+    const reportId = await reportManualMutationError(new ApiError('server exploded', 500, {}), 'history.delete')
+    expect(typeof reportId).toBe('string')
+    expect(reportId).toBeTruthy()
+  })
+
+  it('resolves with null when the D8 filter excludes the error (422) — never a fabricated id', async () => {
+    installFetchStub()
+    const reportId = await reportManualMutationError(new ApiError('rejected', 422, {}), 'settings.save')
+    expect(reportId).toBeNull()
+  })
 })
 
 // ── hook 3: router.onError ───────────────────────────────────────────────────

@@ -439,7 +439,9 @@ graph TB
 
 **Verification:** U8 既有測試不回歸;新增指令經鍵盤全流程可達。
 
-- [ ] **W10: 跨頁上下文 deep-link 系統化〔R10〕**
+- [x] **W10: 跨頁上下文 deep-link 系統化(部分,見執行結果的誠實限制)〔R10〕**
+
+〔W10 執行結果,2026-07-06,分支 `feat/w10-cross-page-deeplink`〕已完成,但**發現並誠實記錄一個資料模型限制**:error-reports 的 `fingerprint` 只由錯誤名稱+訊息+堆疊組成,不含任何可反查 History 行的欄位;`HistoryItem.status === 'failed'` 代表發布本身失敗,跟 UI mutation 錯誤上報是兩回事。**沒有為了完成任務硬做脆弱的啟發式對應**(依交辦指示)。改做:新增 session-scoped(僅記憶體,不跨頁面重載)`stores/rowReportLinks.ts`,在 W13 的 `reportManualMutationError` 實際回傳 report id 時(型別從 `void` 擴充為 `Promise<string|null>`,向後相容)雙向記錄「這一行的這次失敗對應到這個 report」。HistoryPage 只對**本次 session 內真的失敗過**的行顯示「查看報告」連結(從未失敗的行不顯示,行動作後續成功則連結清除);error-report 詳情頁「回到來源」:同 session 內用 `?highlight=<rowId>` 導航定位高亮(outline + aria-live,非純顏色,`prefers-reduced-motion` 時無動畫);目標行已消失/翻頁不可見時顯示「該項目已不在列表中」提示。**偏離**:未做跨頁面重載/跨 session 都能高亮回源的完整方案——會需要用 URL 編碼上下文,但在 W5 的多行併發 busy 模型下有 race 風險(兩行非同步操作可能互踩同一個 URL query 參數,產生悄悄錯誤的行對應,正是交辦時要求避免的脆弱 heuristic),故跨 session 只做頁面層級 fallback(從 report 自身 `url` 欄位解析,同源限定),UI 文案與程式碼注釋都誠實標示此限制。vitest 53 檔 397 測試全綠(新增 18)、vue-tsc 零錯誤、eslint 乾淨。
 
 **Goal:** 「發布→監控→修錯→回原位」工作流的行內 deep-link 成體系:History 失敗行 → error-report 詳情;error-report → 回到來源頁定位到該行。
 

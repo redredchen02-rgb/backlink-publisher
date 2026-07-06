@@ -14,6 +14,7 @@ import * as api from '../../api/errorReports'
 import ErrorReportDetailPage from './ErrorReportDetailPage.vue'
 import ErrorReportsPage from './ErrorReportsPage.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useRowReportLinksStore } from '../../stores/rowReportLinks'
 
 const BASE_REPORT = {
   id: 'report-1',
@@ -40,6 +41,7 @@ function makeRouter(initialPath = '/error-reports/report-1') {
         name: 'error-report-detail',
         component: { template: '<div />' },
       },
+      { path: '/history', name: 'history', component: { template: '<div />' } },
     ],
   })
   router.push(initialPath)
@@ -187,5 +189,56 @@ describe('ErrorReportDetailPage', () => {
     // No re-mount / manual refetch call here — the shared QueryClient's
     // invalidateQueries triggered the list page's own background refetch.
     expect(listWrapper.find('.status[data-status="resolved"]').exists()).toBe(true)
+  })
+
+  // ── W10: "回到来源" (back to source) ────────────────────────────────────
+
+  describe('W10: 回到来源', () => {
+    it('happy path: when rowReportLinks still knows the origin row (same SPA session), the button navigates to the source route WITH a highlight query param', async () => {
+      vi.mocked(api.getErrorReport).mockResolvedValue({ ...BASE_REPORT, id: 'report-1' })
+      const router = makeRouter('/error-reports/report-1')
+      const rowReportLinks = useRowReportLinksStore()
+      rowReportLinks.link('history', 'row-42', 'report-1')
+
+      const { w } = await mountDetail(undefined, router)
+      await flushPromises()
+
+      const btn = w.find('.back-to-source__btn')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text()).toContain('回到来源并定位记录')
+
+      await btn.trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('history')
+      expect(router.currentRoute.value.query.highlight).toBe('row-42')
+    })
+
+    it('fallback: with no session-live row link, falls back to the page-level url the report captured (no row highlight)', async () => {
+      const sameOriginUrl = `${window.location.origin}/app/history?foo=bar`
+      vi.mocked(api.getErrorReport).mockResolvedValue({ ...BASE_REPORT, id: 'report-2', url: sameOriginUrl })
+      const router = makeRouter('/error-reports/report-2')
+
+      const { w } = await mountDetail(undefined, router)
+      await flushPromises()
+
+      const btn = w.find('.back-to-source__btn')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text()).toContain('回到来源页面')
+      expect(btn.text()).not.toContain('定位记录')
+    })
+
+    it('edge case: no usable url (cross-origin/malformed/missing) hides the button and shows honest fallback text, never a broken link', async () => {
+      vi.mocked(api.getErrorReport).mockResolvedValue({
+        ...BASE_REPORT,
+        id: 'report-3',
+        url: 'https://totally-different-origin.example/x',
+      })
+      const { w } = await mountDetail(undefined, makeRouter('/error-reports/report-3'))
+      await flushPromises()
+
+      expect(w.find('.back-to-source__btn').exists()).toBe(false)
+      expect(w.text()).toContain('暂无法定位来源页面')
+    })
   })
 })

@@ -23,7 +23,7 @@
 // status without a full reload — TanStack Query's default prefix matching
 // covers every filtered variant of the list query.
 import { computed, ref } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   getErrorReport,
@@ -34,6 +34,7 @@ import {
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useRowReportLinksStore } from '../../stores/rowReportLinks'
 
 const LIST_KEY_PREFIX = ['error-reports'] as const
 
@@ -44,9 +45,11 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const route = useRoute()
+const router = useRouter()
 const qc = useQueryClient()
 const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
+const rowReportLinks = useRowReportLinksStore()
 
 const reportId = computed(() => String((route.params as Record<string, string>).id ?? ''))
 const detailKey = computed(() => ['error-report', reportId.value] as const)
@@ -58,6 +61,55 @@ const query = useQuery({
 })
 
 const report = computed<ErrorReportItem | null>(() => query.data.value ?? null)
+
+// ── W10 "回到来源" (back to source) ──────────────────────────────────────
+//
+// Two tiers, in order of precision — see stores/rowReportLinks.ts's
+// docstring for exactly why a row-level link is only ever available in the
+// first tier:
+//   1. rowReportLinks still remembers (THIS SPA session only) that this
+//      exact report id was produced by a specific row's failed action —
+//      navigate straight back to that row and highlight it.
+//   2. Otherwise, fall back to the page-level `url` the report itself
+//      captured at the moment the error happened (lib/errorCapture.ts's
+//      `currentUrl()`) — same-origin path + query only, no row target. This
+//      covers reports from a previous session/reload, where no row-level
+//      correlation could ever have survived.
+// If neither is available (report.url missing, cross-origin, or malformed),
+// there is genuinely nothing to navigate back to — the button/link is
+// hidden entirely rather than pointing somewhere wrong.
+function safePathFromUrl(url: string | undefined): string | null {
+  if (!url) return null
+  try {
+    const u = new URL(url, window.location.origin)
+    if (u.origin !== window.location.origin) return null
+    return u.pathname + u.search
+  } catch {
+    return null
+  }
+}
+
+const rowLink = computed(() => (report.value ? rowReportLinks.linkForReport(report.value.id) : undefined))
+
+const backTarget = computed<{ name: string; query: Record<string, string> } | { path: string } | null>(() => {
+  if (rowLink.value) {
+    return { name: rowLink.value.routeName, query: { highlight: rowLink.value.rowId } }
+  }
+  const path = safePathFromUrl(report.value?.url)
+  return path ? { path } : null
+})
+
+const backTargetLabel = computed(() => (rowLink.value ? '回到来源并定位记录' : '回到来源页面'))
+
+function goToSource(): void {
+  const target = backTarget.value
+  if (!target) return
+  if ('name' in target) {
+    void router.push({ name: target.name, query: target.query })
+  } else {
+    void router.push(target.path)
+  }
+}
 
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
   if (query.isPending.value) return 'loading'
@@ -137,6 +189,15 @@ function fmtTime(iso: string | undefined): string {
       @retry="query.refetch()"
     >
       <template v-if="report">
+        <div v-if="backTarget" class="back-to-source">
+          <button type="button" class="back-to-source__btn" @click="goToSource">
+            ← {{ backTargetLabel }}
+          </button>
+        </div>
+        <p v-else class="muted back-to-source-missing">
+          暂无法定位来源页面（该报告未记录可用的来源地址）。
+        </p>
+
         <div class="summary">
           <span class="status" :data-status="report.status">
             {{ STATUS_LABELS[report.status] ?? report.status }}
@@ -227,6 +288,19 @@ function fmtTime(iso: string | undefined): string {
 }
 .back-link:hover {
   text-decoration: underline;
+}
+.back-to-source__btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-sm, 0.85rem);
+  text-decoration: underline;
+}
+.back-to-source-missing {
+  font-size: var(--text-sm, 0.85rem);
 }
 .summary {
   display: flex;
