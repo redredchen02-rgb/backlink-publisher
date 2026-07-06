@@ -1,0 +1,12 @@
+{
+  "reviewer": "project-standards",
+  "findings": [],
+  "residual_risks": [
+    "PrQueuePage.vue's B4 fix introduces a request-generation counter (loadGeneration) as its race-guard mechanism, distinct from the AbortController-based pattern used by webui_app/static/js/monitor_hub.js for the equivalent problem (per tests/test_webui_feedback_states.py's test_monitor_hub_load_guards_against_out_of_order_render). No CLAUDE.md/AGENTS.md rule mandates a single race-guard idiom across the two frontends, so this is not cited as a standards violation, but it is a second, independently-invented pattern for the same class of bug in the same repo.",
+    "prQueue.ts's new _fetchWithTimeout/_TIMEOUT_MS duplicate client.ts's fetchWithTimeout/DEFAULT_TIMEOUT_MS logic verbatim (same 15s constant, same AbortController-in-finally shape) rather than extracting a shared helper; the in-file comment explains why client.ts's getJson/sendJson can't be reused (different API_BASE), but doesn't address why the timeout primitive itself couldn't be factored out independently of the base-path coupling. Not a cited rule violation (no DRY/shared-helper rule found in the standards files for frontend/src/api/), but worth flagging for maintainability's lane."
+  ],
+  "testing_gaps": [
+    "No test exercises the interaction between B3 (timeout/AbortController in prQueue.ts) and B4 (loadGeneration guard in PrQueuePage.vue) together -- e.g. a load() that gets superseded while its underlying fetchPrQueue() call is itself mid-timeout.",
+    "PrQueuePage.spec.ts's new B4 test depends on a specific microtask interleaving (two synchronous click handlers racing through the same await points) to reproduce the superseded-load scenario; it isn't independently validated against a Vue reactivity-tick change that could alter the interleaving, though the doc-only audit file (docs/audits/2026-07-03-webui-feature-error-backlog.md) states the author verified red/green via git stash, which mitigates this."
+  ]
+}

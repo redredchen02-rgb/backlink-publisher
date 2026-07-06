@@ -1,0 +1,37 @@
+{
+  "reviewer": "adversarial",
+  "findings": [
+    {
+      "title": "updatePrStatus can stack two independent 15s timeouts to ~30s",
+      "severity": "P2",
+      "file": "frontend/src/api/prQueue.ts",
+      "line": 74,
+      "why_it_matters": "B3's own comment frames the fix as giving updatePrStatus/fetchPrQueue a single bounded 15s escape hatch 'matching client.ts's DEFAULT_TIMEOUT_MS'. In the actual deployed SPA that promise doesn't hold for updatePrStatus: it awaits _csrf() (its own independent _fetchWithTimeout call to /api/v1/csrf-token) before making the status-update fetch (a second independent _fetchWithTimeout call), so a degraded backend can make a single row-action click take up to ~30s, not 15s, before the user sees any feedback. This isn't a rare fallback path either -- webui_app/routes/spa.py serves the SPA's index.html verbatim via send_from_directory (never through Jinja), and frontend/index.html has no <meta name=\"csrf-token\"> tag at all (confirmed by reading both files), so document.querySelector('meta[name=\"csrf-token\"]') always misses in the real SPA and _csrf() always takes the network branch. Compounding this, prQueue.ts's _csrf() has no token cache (unlike client.ts's csrfToken(), which holds the token in a module-level variable and only re-fetches on 403 or force=true) -- every single markStatus() click issues a fresh CSRF fetch, every time.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Cache the CSRF token at module scope in prQueue.ts the same way client.ts's csrfToken() does (fetch once, reuse until a 403 forces refresh), so updatePrStatus normally makes one network round trip instead of two; alternatively, wrap _csrf() + the status fetch in one shared AbortController/deadline so updatePrStatus's total worst-case latency is bounded at 15s as the fix's own comments claim.",
+      "confidence": 0.75,
+      "evidence": [
+        "frontend/src/api/prQueue.ts lines 41-52: _csrf() has no cached token variable, unlike client.ts; every call either reads the (absent, in the SPA) meta tag or hits _fetchWithTimeout('/api/v1/csrf-token', ...) fresh.",
+        "frontend/src/api/prQueue.ts lines 65-77 (updatePrStatus): `await _csrf()` (line 74) is evaluated while constructing the request that itself is passed to a second `_fetchWithTimeout` call (line 69) -- two sequential, independently-15s-bounded fetches, so worst case is ~30s not 15s.",
+        "webui_app/routes/spa.py lines 38-53: /app/* always returns spa_dist/index.html via send_from_directory (a static file send), never render_template, so no server-side templating step exists to inject a CSRF meta tag.",
+        "frontend/index.html (the SPA entry, built into spa_dist): contains no <meta name=\"csrf-token\"> element anywhere in <head>.",
+        "frontend/src/api/client.ts lines 1-9 (top-of-file comment, unchanged by this diff): explicitly states 'the SPA has no server-rendered meta, so it reads the token from the /api/v1/csrf-token endpoint' -- confirming this is the SPA's normal path, not an edge case.",
+        "frontend/src/api/client.ts lines 21-39 (csrfToken()): shows the caching pattern (module-level `_csrf` var, reused unless force=true) that prQueue.ts's own `_csrf()` does not implement."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "B4's monotonic loadGeneration guard was adversarially traced through N-way overlapping load() calls (not just 2), same-row markStatus double-invocation, and the updating Set's read-modify-write pattern in markStatus's start/finally blocks. All three held up: only the load() call matching the current global counter at each checkpoint can ever write items/error/liteUnavailable/loading (structurally provable since a call's synchronous prologue always runs strictly before any later call's prologue), the updating.has(id) same-row guard is atomic because there is no await between the check and the Set mutation, and a superseded load() bailing out early never blocks markStatus's own finally from clearing that row's updating entry (the two are decoupled). No exploitable interleaving was found for the specific attack vectors requested.",
+    "B5's re-check of sessionStorage.getItem(DISMISS_KEY) inside the /health fetch's .then() callback correctly closes the single-dismiss-during-fetch race (dismiss-then-late-response can no longer un-hide the bar). A 'rapid dismiss->undismiss->dismiss' scenario was considered but has no real trigger path in this codebase: nothing anywhere in index.js ever calls sessionStorage.removeItem(DISMISS_KEY) or otherwise clears the flag, so once dismissed within a browser session there is no in-page 'undismiss' action to race against. The flag is sticky for the whole session by design (pre-existing, unmodified by B5); if the underlying health status genuinely worsens after a user dismisses it, nothing re-surfaces the bar in that session -- worth confirming this is the intended product behavior, but it is not a new race introduced by B5.",
+    "B3's AbortController timeout racing against a fetch that is resolving at the exact same instant was traced through the Fetch/AbortController settlement model: a Promise can only settle once, so this cannot produce a double-settlement or unhandled rejection; .finally(() => clearTimeout(timer)) is safe to run on an already-fired timer. The only plausible user-visible effect is an occasional spurious timeout error for a request that technically completed at the last possible moment -- low likelihood, bounded impact (recoverable via retry), not confirmed in a real browser, so suppressed as a finding per the confidence threshold.",
+    "markStatus()'s catch branch comment ('Error is surfaced by load()') is inaccurate: load() only ever reflects errors from its own /app-config + fetchPrQueue calls, never the original updatePrStatus failure, so a failed status-change click can silently show no error at all if the subsequent load() call succeeds. This is pre-existing and unmodified by this diff (markStatus's try/catch/finally structure has no diff hunk), but it interacts with B4's guard: under overlapping load()s the followup call can also be silently dropped as 'superseded' by design, making the swallow deterministic in that path rather than merely incidental. Flagged here for awareness since it sits adjacent to B4's territory, not as a B3/B4/B5 regression."
+  ],
+  "testing_gaps": [
+    "PrQueuePage.spec.ts's B4 test covers exactly two overlapping load() calls; no test exercises 3+ overlapping calls (e.g., two markStatus() calls plus a concurrent manual refresh) to pin that only the truly-last-invoked generation ever writes state.",
+    "No test combines B3's timeout/AbortController behavior with B4's generation guard -- e.g., a markStatus() whose internal load() times out while a second, newer load() is also in flight -- so the composition between the two fixes is unverified beyond manual code tracing.",
+    "prQueue.spec.ts's CSRF-related tests all stub `document.head.innerHTML = '<meta name=\"csrf-token\" content=\"tok\">'` before calling updatePrStatus, so the actual SPA runtime path (no meta tag present, _csrf() always hits the network) is never exercised end-to-end by any test in this diff."
+  ]
+}

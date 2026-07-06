@@ -1,0 +1,29 @@
+{
+  "reviewer": "maintainability",
+  "findings": [
+    {
+      "title": "Timeout-wrapper logic duplicated verbatim across client.ts and prQueue.ts",
+      "severity": "P3",
+      "file": "frontend/src/api/prQueue.ts",
+      "line": 166,
+      "why_it_matters": "prQueue.ts's `_fetchWithTimeout` (AbortController + setTimeout + finally-clearTimeout) is a near-identical copy of client.ts's private `fetchWithTimeout`, and `_TIMEOUT_MS = 15_000` duplicates client.ts's `DEFAULT_TIMEOUT_MS` as a bare literal justified only by a comment claiming the two values match. The inline comment correctly argues against reusing client.ts's dedup/retry/CSRF-refresh machinery (different API base path), but that argument doesn't require re-implementing the timeout primitive itself — only the thin wrapper needs duplicating, and neither the constant nor the function is exported/imported anywhere, so a future change to one copy (a bug fix in the abort/cleanup logic, or a timeout-value change) has no mechanism forcing the other to follow. Extracting the wrapper (and the constant) into a small shared module that both client.ts and prQueue.ts import would eliminate the drift risk without pulling in any of the machinery the inline comment deliberately excludes.",
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Extract `fetchWithTimeout`/`DEFAULT_TIMEOUT_MS` from client.ts into a small shared module (e.g. `frontend/src/api/_fetchTimeout.ts`) and have both client.ts and prQueue.ts import it, instead of prQueue.ts reimplementing the wrapper and hardcoding a matching 15_000 literal.",
+      "confidence": 0.64,
+      "evidence": [
+        "client.ts:70-82 defines `DEFAULT_TIMEOUT_MS = 15_000` and `fetchWithTimeout(url, init, timeoutMs)` — AbortController + setTimeout + `.finally(() => clearTimeout(timer))`.",
+        "prQueue.ts:164-170 redefines the identical logic as `_TIMEOUT_MS = 15_000` and `_fetchWithTimeout` with the same AbortController/setTimeout/finally shape, justified by a comment claiming it '15s matches client.ts's DEFAULT_TIMEOUT_MS' rather than importing that constant.",
+        "Neither `DEFAULT_TIMEOUT_MS` nor `fetchWithTimeout` is exported from client.ts, so there is no mechanism ensuring the two copies stay in sync if either is changed later."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "The dismiss-flag recheck string in webui_app/static/js/index.js's _initHealthBar (`try { if (sessionStorage.getItem(DISMISS_KEY)) return; } catch (_) { /* ignore */ }`) now appears twice in the same function. It is a single line, both copies are within one function's visual scope, and a new test (`test_health_bar_fetch_resolution_rechecks_dismiss_before_showing`) already pins the literal string count at 2, which will catch accidental divergence. Given the small size and existing test lock, extracting a one-line helper is a marginal call, not a clear win — noted for awareness but not raised as a finding.",
+    "The codebase now has two different idioms for the same 'stale in-flight response overwrites current state' race: webui_app/static/js/monitor_hub.js cancels the superseded request itself (fresh AbortController per load(), prior one aborted, `ctrl.signal.aborted` checked on both the catch path and post-await), while PrQueuePage.vue's new `loadGeneration` counter lets the superseded fetchPrQueue() call run to completion over the network and only discards its result. Both are legitimate for their contexts (fetchPrQueue() doesn't expose a signal/abort parameter, so PrQueuePage.vue can't easily adopt the abort-based idiom without changing prQueue.ts's API), but a maintainer fixing a similar race in a third page may reasonably wonder which idiom is canonical.",
+    "The superseded load() call in PrQueuePage.vue still completes its network round-trip (fetchPrQueue()/getJson('/app-config')) before being discarded, since only the write to shared state is guarded, not the request itself — acceptable given fetchPrQueue() has no cancellation hook, but worth knowing if request volume during rapid clicking ever becomes a concern."
+  ],
+  "testing_gaps": []
+}
