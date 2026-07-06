@@ -1,5 +1,6 @@
 """Backward-compat shim — moved to backlink_publisher.cli.plan.plan_check (plan 2026-06-24-002 U8)."""
 import sys as _sys
+
 import backlink_publisher.cli.plan.plan_check as _real
 
 if __name__ != "__main__":

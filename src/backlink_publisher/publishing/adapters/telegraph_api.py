@@ -39,14 +39,13 @@ Design summary:
 
 from __future__ import annotations
 
+import fcntl
 import json
 import logging
 import mimetypes
 import os
 import random
 import time
-
-import fcntl
 
 mimetypes.add_type("image/webp", ".webp")
 from collections.abc import Iterator

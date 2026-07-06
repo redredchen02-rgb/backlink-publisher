@@ -1,5 +1,6 @@
 """Backward-compat shim — moved to backlink_publisher.cli.ops.probe_index (plan 2026-06-24-002 U8)."""
 import sys as _sys
+
 import backlink_publisher.cli.ops.probe_index as _real
 
 if __name__ != "__main__":

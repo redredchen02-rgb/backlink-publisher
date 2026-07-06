@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Any
+
 """Work-themed generation run registry and output parsing — Plan 2026-06-01-001 U6.
 
 Flask-free: no request/session access. Owns the in-memory run registry
@@ -8,7 +10,6 @@ from routes/sites.py.
 """
 
 import json
-from typing import Any
 
 # In-memory run registry — maps run_id → {main_url, summary, rows}.
 # Evicted FIFO when the cap is exceeded.  Lives here (not in cli_runner) so

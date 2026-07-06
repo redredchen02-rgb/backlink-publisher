@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> None:
         print(line)
 
     if not args.dry_run:
-        print(f"[collect-signals] Written to optimization_state.json")
+        print("[collect-signals] Written to optimization_state.json")
 
 
 if __name__ == "__main__":

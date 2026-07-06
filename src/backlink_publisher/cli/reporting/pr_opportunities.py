@@ -25,7 +25,12 @@ import json
 import sys
 from typing import Any
 
-from backlink_publisher.pr_outreach.store import STATUS_ENUM, load_opportunities, upsert_opportunity, update_status
+from backlink_publisher.pr_outreach.store import (
+    load_opportunities,
+    STATUS_ENUM,
+    update_status,
+    upsert_opportunity,
+)
 
 
 def _load_config_targets() -> dict[str, Any]:

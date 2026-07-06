@@ -22,11 +22,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, UTC
-
-from backlink_publisher.events import EventStore
-
 import functools
 import logging
+
+from backlink_publisher.events import EventStore
 
 _log = logging.getLogger(__name__)
 
@@ -825,7 +824,9 @@ def referral_conversion(
     """
     try:
         from backlink_publisher.events.kinds import (
-            GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED, REFERRAL_OBSERVED,
+            GSC_PAGE_SIGNAL,
+            PUBLISH_CONFIRMED,
+            REFERRAL_OBSERVED,
         )
 
         since = _window_start(datetime.now(timezone.utc), window_days)
@@ -918,7 +919,8 @@ def cost_metrics(
     """
     try:
         from backlink_publisher.events.kinds import (
-            GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED, RANKING_SNAPSHOT,
+            GSC_PAGE_SIGNAL,
+            RANKING_SNAPSHOT,
         )
 
         since = _window_start(datetime.now(timezone.utc), window_days)

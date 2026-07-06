@@ -18,13 +18,13 @@ Contract:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, UTC
+import fcntl
 import json
 from pathlib import Path
 import sys
 from typing import Any
 import uuid
 
-import fcntl
 from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,

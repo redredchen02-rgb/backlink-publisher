@@ -13,6 +13,7 @@ import sys
 
 def main(argv: list[str] | None = None) -> None:
     import argparse
+
     from backlink_publisher import checkpoint
     from backlink_publisher._util.errors import emit_error
 

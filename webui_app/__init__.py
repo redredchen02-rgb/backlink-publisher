@@ -11,8 +11,8 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 from datetime import timedelta
 import logging
 import os
-import time
 from pathlib import Path
+import time
 from typing import Any
 import uuid
 
@@ -155,6 +155,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # cost on every template render — both lineages independently made this
     # same optimization; kept once.
     import backlink_publisher.publishing.adapters
+
     from .helpers.security import (
         _check_bind_origin_or_abort,
         _check_csrf_or_abort,
@@ -184,6 +185,8 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
 
         from backlink_publisher.publishing.registry import (
             bound_platforms as registry_bound_platforms,
+        )
+        from backlink_publisher.publishing.registry import (
             registered_platforms,
             ui_meta,
         )

@@ -27,8 +27,8 @@ import json
 import sys
 from typing import Any
 
-from backlink_publisher.idempotency import DedupStore
 from backlink_publisher.cli.publish._dedup_gate import _key_for_row
+from backlink_publisher.idempotency import DedupStore
 
 #: Stable verdict strings (also the stderr summary count buckets).
 VERDICT_NEW = "NEW"

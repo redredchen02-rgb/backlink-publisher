@@ -14,9 +14,10 @@ Contract:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
 
+from backlink_publisher import config_echo
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher.click_track.engine import ClickQueryOptions
@@ -24,8 +25,6 @@ from backlink_publisher.config import ClickTrackConfig, load_config
 from backlink_publisher.events.store import EventStore
 from backlink_publisher.referral.engine import attribute_site
 from backlink_publisher.referral.store import append_referral_observed
-
-from backlink_publisher import config_echo
 
 _log = get_logger("referral-attribute")
 

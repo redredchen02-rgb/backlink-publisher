@@ -12,19 +12,17 @@ Contract:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
+from typing import cast
 
+from backlink_publisher import config_echo
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher.click_track.engine import ClickQueryOptions, handle_site
-from typing import cast
-
 from backlink_publisher.click_track.store import _Appendable, append_observed, append_query_failed
 from backlink_publisher.config import ClickTrackConfig, load_config
 from backlink_publisher.events.store import EventStore
-
-from backlink_publisher import config_echo
 
 _log = get_logger("click-track")
 

@@ -10,10 +10,10 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 from backlink_publisher.phase0 import validation as V
 from backlink_publisher.phase0.worktree import discover_worktree_heads
