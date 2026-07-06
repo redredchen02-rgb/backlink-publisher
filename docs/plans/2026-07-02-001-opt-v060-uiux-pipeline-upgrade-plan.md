@@ -751,6 +751,14 @@ merge(lanes) -> PublishRunState:
 
 **Dependencies:** 〔doc-review 修正,adversarial+product-lens 兩方一致〕**track (a)/(b)/(d) 不依賴 U1/U16**——retired 文檔、匿名軌 canary-seed、catalog 通道文檔與 CI gate 是否綠無關,可立即動工;僅 track (c) 的 operator 拋棄帳號準備同樣不需等 U1,應優先啟動(前置時間長:帳號申請、cookie 取得、anti-bot 特徵化)。track (b)/(c) 的 flip PR 本身(涉及 registry 真實變更)建議在 U1/U16 gate 可信後再合併,但**準備工作不等待**。各 track 互相獨立。
 
+〔track (a) 執行結果,2026-07-06,commit `72b88d1d`〕hashnode/writeas 補齊 `docs/notes/retired-platforms/` 文件與 README 索引——已落地 main。
+
+〔track (b) 執行結果,2026-07-06〕執行過程中發現並修復一個真 bug(commit `aeb62a06`,已落地 main):`dofollow_status()`/`is_registered()`/`visibility()` 等多個 registry accessor 讀 `_REGISTRY` 前不觸發 lazy adapter init,導致乾淨行程下 `canary-seed` CLI 對每個平台都誤判為「不在 uncertain 佇列」而拒絕執行——這正是 track (b)/(c) 長期停滯的技術根因之一,不只是 operator 未執行。修復後對 txtfyi 與 notesio 各跑了一次真實 canary-seed(target-url 由使用者確認為其合法網站):
+- txtfyi:貼文 `https://txt.fyi/cf61e8b0126d7416`,verdict=`ambiguous`(`anchor_not_found`,curl-based 驗證器需要瀏覽器層才能確認 rel 屬性)——維持 `dofollow="uncertain"` 不變,未 flip。
+- notesio:貼文 `https://notes.io/e3c4C`,同樣 verdict=`ambiguous`(`anchor_not_found`)——維持 `dofollow="uncertain"` 不變,未 flip。
+- 兩篇canary 貼文目前仍公開存在(CLI 有給 `delete_hint`,尚未執行手動刪除——待下一步決定是否瀏覽器複檢或直接刪除清理)。
+- 下一步(尚未執行,留待後續):用瀏覽器層(如 claude-in-chrome)重新檢視這兩篇貼文的實際 rel 屬性以解除 ambiguous;或視為維持現狀,兩平台繼續留在 canary-pending 佇列等下次視窗。
+
 〔2026-07-06 對帳——規格強化,依 learnings 掃描〕本 unit 現在是 pipeline 軌唯一可推進的實作單元(U10 parked 等它產生 telemetry)。基數更新:registry 現況 9 True / 10 False / **10 uncertain** / 2 retired(原文 7/9/8 過期)。另補三條硬規格,對應兩個**已經失敗過一次**的接縫:
 1. **Promotion 寫回路徑端到端**(`2026-06-05-001-live-dofollow-undercounting-triple-gap` 教訓——uncertain 平台的 dofollow 確認曾被靜默丟棄而非升級):flip 流程必須驗證 uncertain→confirmed 的完整寫回鏈(probe 結果 → `verified_at` 落盤 → recheck 排程納入 → 統計計入),測試打真 DB 路徑,不只注入 history。
 2. **雙序列化器 emit 接縫**(`dofollow-canary-verdict-dropped-at-publish-output-seam` 教訓——canary verdict 曾被 fresh(`AdapterResult.to_publish_output()`)與 resume(`cli/_resume.py`)兩條路徑同時丟掉):本 unit 若新增任何 canary/telemetry 欄位,必須枚舉全部 emit 接縫並加 both-paths presence 斷言。

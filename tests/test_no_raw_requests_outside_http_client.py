@@ -60,14 +60,14 @@ ALLOWLIST: dict[str, str] = {
     #     backlink) and retries 503 (which IS the anti-bot challenge signal this
     #     path must observe). SSRF — the one thing http_client would add — is
     #     enforced inline via _guard_ssrf(). Not a migration backlog item.
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:123": (
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:124": (
         "Form-GET whose 503/403 status IS the anti-bot challenge signal "
         "(detect_challenge). http_client's urllib3 Retry has 503 in its "
         "status_forcelist, so it would retry then mask the 503 as an opaque "
         "error — the challenge would never be observed. SSRF is enforced inline "
         "via _guard_ssrf(); raw requests is required for challenge visibility."
     ),
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:187": (
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:189": (
         "Create-exactly-once form POST (non-idempotent; a retry risks a "
         "DUPLICATE live backlink — P2 fix). http_client retries POSTs on "
         "429/5xx + connection errors, which would violate that contract. SSRF "

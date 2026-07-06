@@ -16,6 +16,7 @@ import {
 } from '../../api/settings'
 import { ApiError, csrfToken } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
+import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
@@ -94,8 +95,17 @@ async function onGoogleLogin(): Promise<void> {
   f.submit()
 }
 
-async function onRevoke(): Promise<void> {
-  if (!window.confirm('确认撤销 Blogger 授权？下次发布前需重新登入。')) return
+// Revoke — native window.confirm migrated to the shared ConfirmDialog (W3).
+// Same confirm semantics: confirm → revoke, cancel → no-op. Errors keep going
+// to the error toast (not the dialog's inline error) so the pre-W3 behavior of
+// "dialog gone, toast shown" is preserved — doRevoke therefore never rejects.
+const revokeOpen = ref(false)
+
+function onRevoke(): void {
+  revokeOpen.value = true
+}
+
+async function doRevoke(): Promise<void> {
   try {
     const r = await revokeBlogger()
     notify.push(r.message || 'Blogger 授权已撤销', 'success')
@@ -162,6 +172,16 @@ async function onRevoke(): Promise<void> {
         </small>
       </form>
     </StateBlock>
+
+    <ConfirmDialog
+      v-model:open="revokeOpen"
+      danger
+      title="撤销 Blogger 授权"
+      confirm-label="确认撤销"
+      :confirm="doRevoke"
+    >
+      <p>确认撤销 Blogger 授权？下次发布前需重新登入。</p>
+    </ConfirmDialog>
   </section>
 </template>
 
