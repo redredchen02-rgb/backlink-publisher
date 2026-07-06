@@ -471,6 +471,30 @@ def _reassert_config_isolation():
 
 
 @pytest.fixture(autouse=True)
+def _clear_process_ttl_cache():
+    """Clear ``backlink_publisher._util.cache``'s process-global TTL cache.
+
+    Plan 2026-07-06-004 Unit 2 introduced this cache's first consumer in this
+    branch: ``command_center._collect_subsystem_status()`` wraps its result
+    in a 3-5s TTL (K10) so repeated polls/tabs within that window collapse
+    onto one real query instead of re-reading history_store/drafts_store/
+    queue_store/error_report_store every time. The cache is keyed by a fixed
+    string at *process* scope, not per-request and not per-config-dir — so
+    two tests that happen to run within that few-second wall-clock window
+    (routine in a fast, xdist-parallel 10k+ test suite) would otherwise see
+    each other's cached aggregator snapshot even though
+    ``_isolate_user_dirs``/``_reassert_config_isolation`` pointed them at
+    different ``BACKLINK_PUBLISHER_CONFIG_DIR`` tmp dirs. Clearing before and
+    after every test keeps this process-global cache from leaking across
+    test boundaries.
+    """
+    from backlink_publisher._util.cache import _ttl_cache_clear
+    _ttl_cache_clear()
+    yield
+    _ttl_cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _restore_logger_levels():
     """Restore pipeline logger levels after each test.
 

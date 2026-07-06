@@ -19,6 +19,15 @@ individual subsystem's own try/except caught an error. Previously only the
 former set it, so a single silently-broken source could leave the
 "everything's fine" banner showing even though its own card had quietly
 degraded to 'unavailable'.
+
+Plan 2026-07-06-004 Unit 2 extended the aggregator to 6 signal sources total:
+the original 4 (credentials/keepalive/equity/history) plus an error-reports
+backlog and a schedule/queue backlog. The two new cards are "hybrid" — they
+carry an optional ``items`` list (the first N individual items) alongside the
+usual aggregate fields — but that shape lives entirely inside
+``_build_anomaly_cards()``'s card dicts, so this endpoint needed no code
+change beyond this docstring: whatever cards the aggregator returns are
+serialized as-is.
 """
 
 from __future__ import annotations
@@ -37,7 +46,7 @@ from . import bp
 
 @bp.get("/monitor/summary")
 def monitor_summary() -> Any:
-    """Anomaly-first monitor cards across credentials/keepalive/equity/history."""
+    """Anomaly-first monitor cards across all 6 signal sources (see module docstring)."""
     try:
         status = _collect_subsystem_status()
         cards = _build_anomaly_cards(status)

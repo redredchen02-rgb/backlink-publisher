@@ -11,17 +11,17 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import contextlib
-import threading
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+import threading
 
 from webui_store.base import Store
 from webui_store.queue_store import (
-    TaskUpdateOutcome,
     _JSON_FILENAME,
     _SENTINEL_NAME,
     QueueSqliteStore,
+    TaskUpdateOutcome,
 )
 from webui_store.sqlite_base import WebUIDatabase
 

@@ -20,14 +20,14 @@ Unit 5.
 
 from __future__ import annotations
 
-import enum
 from datetime import datetime
+import enum
 import json
 from typing import Any
 
 from backlink_publisher.events._store_sqlite import _retry_sqlite
 
-from .sqlite_base import BaseSqliteStore, _SQL_IDENTIFIER_RE
+from .sqlite_base import _SQL_IDENTIFIER_RE, BaseSqliteStore
 
 _SENTINEL_NAME = ".webui-queue-migrated-v1"
 _JSON_FILENAME = "publish-queue.json"

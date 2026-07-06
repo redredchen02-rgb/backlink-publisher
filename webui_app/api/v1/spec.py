@@ -58,6 +58,7 @@ from .schemas import (
     LlmTestGenerationRequestSchema,
     MediumLoginResultSchema,
     MediumStatusSchema,
+    MonitorCardItemSchema,
     MonitorSummarySchema,
     NotionStatusSchema,
     NotionTokenRequestSchema,
@@ -139,6 +140,7 @@ def build_spec() -> APISpec:
     spec.components.schema("PublishResponse", schema=PublishResponseSchema)
     spec.components.schema("RegenBodyRequest", schema=RegenBodyRequestSchema)
     spec.components.schema("RegenBodyResponse", schema=RegenBodyResponseSchema)
+    spec.components.schema("MonitorCardItem", schema=MonitorCardItemSchema)
     spec.components.schema("MonitorSummary", schema=MonitorSummarySchema)
     spec.components.schema("HistoryList", schema=HistoryListSchema)
     spec.components.schema("HistoryMutationResult", schema=HistoryMutationResultSchema)
@@ -1364,9 +1366,12 @@ def build_spec() -> APISpec:
                 "operationId": "getMonitorSummary",
                 "summary": "Anomaly-first monitor aggregate (today's anomalies first).",
                 "description": (
-                    "Fail-open aggregate across credentials/keepalive/equity/history. "
-                    "Severity + equity-gap computed server-side (single source); the SPA "
-                    "only displays. Versioned binding of the legacy /api/monitor-hub feed."
+                    "Fail-open aggregate across 6 signal sources: credentials/keepalive/"
+                    "equity/history plus (Plan 2026-07-06-004 Unit 2) error-reports backlog "
+                    "and schedule/queue backlog. The latter two are hybrid cards carrying an "
+                    "optional `items` list (first N individual items) alongside the aggregate "
+                    "headline. Severity + equity-gap computed server-side (single source); the "
+                    "SPA only displays. Versioned binding of the legacy /api/monitor-hub feed."
                 ),
                 "tags": ["monitor"],
                 "responses": {

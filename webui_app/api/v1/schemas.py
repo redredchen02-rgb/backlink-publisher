@@ -190,6 +190,39 @@ class MonitorActionSchema(Schema):
     href = fields.String(required=True)
 
 
+class MonitorCardItemSchema(Schema):
+    """One individual item inside a hybrid monitor card's ``items`` list.
+
+    Hybrid cards (error-reports backlog, schedule/queue backlog — Plan
+    2026-07-06-004 Unit 2 K1) carry an aggregate headline plus the first N
+    individual items for later per-item action (Unit 3/6). The shape is a
+    deliberate superset across the three item_type values (error_report,
+    scheduled_draft, queue_task) rather than three separate schemas — the
+    SPA switches on ``item_type``; fields that don't apply to a given
+    item_type are simply blank/absent rather than null-padded per key.
+    """
+
+    id = fields.String(required=True)
+    item_type = fields.String(
+        required=True,
+        metadata={"description": "error_report | scheduled_draft | queue_task."},
+    )
+    status = fields.String(
+        metadata={
+            "description": (
+                "Item's own bucket: open (error_report) | overdue | upcoming | "
+                "unscheduled (scheduled_draft) | pending | failed | other (queue_task)."
+            )
+        }
+    )
+    headline = fields.String(required=True)
+    detail = fields.String(required=True)
+    severity = fields.String(
+        allow_none=True, metadata={"description": "error_report only; free-form."}
+    )
+    occurrences = fields.Integer(allow_none=True, metadata={"description": "error_report only."})
+
+
 class MonitorCardSchema(Schema):
     """One subsystem card. Severity + gap computed server-side (plan R3)."""
 
@@ -204,6 +237,15 @@ class MonitorCardSchema(Schema):
         required=True, metadata={"description": "Legacy page to drill into."}
     )
     action = fields.Nested(MonitorActionSchema, allow_none=True)
+    items = fields.List(
+        fields.Nested(MonitorCardItemSchema),
+        metadata={
+            "description": (
+                "First-N individual items (hybrid cards only: error_reports, "
+                "schedule_queue). Absent on the 4 original aggregate-only cards."
+            )
+        },
+    )
 
 
 class MonitorSummarySchema(Schema):
