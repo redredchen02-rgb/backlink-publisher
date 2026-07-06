@@ -17,6 +17,7 @@ vi.mock('../../api/drafts', () => ({
 import * as api from '../../api/drafts'
 import DraftsPage from './DraftsPage.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { ApiError } from '../../api/client'
 
 const PENDING = { id: 'p1', target_url: 'https://a.com/', status: 'pending', platform: 'velog' }
 const SCHEDULED = {
@@ -174,9 +175,9 @@ describe('DraftsPage', () => {
 
   it('a double-submit rejected by the backend (409) surfaces a generic error toast, not a crash', async () => {
     vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING] })
-    vi.mocked(api.bulkPublishDraftsNow).mockRejectedValue({
-      name: 'ApiError', status: 409, message: 'Bulk publish already in progress',
-    })
+    vi.mocked(api.bulkPublishDraftsNow).mockRejectedValue(
+      new ApiError('Bulk publish already in progress', 409, { error_class: 'already_running' }),
+    )
     const w = mountPage()
     const notify = useNotificationsStore()
     await flushPromises()
@@ -184,6 +185,40 @@ describe('DraftsPage', () => {
     await w.find('.bulk-publish-now').trigger('click')
     await flushPromises()
     expect(notify.toasts.some((t) => t.severity === 'error')).toBe(true)
+    // Code review: busy/disabled must reset after a failed call too, so the
+    // operator can retry -- not just after a successful one.
+    expect((w.find('.bulk-publish-now').element as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('a successful bulk action only deselects the ids it actually submitted (code review)', async () => {
+    // If the user reselects a DIFFERENT row while the first bulk call is still
+    // in flight, that reselection must survive -- run() must not blanket-clear
+    // `selected` on success, only remove the ids this call actually acted on.
+    vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING, SCHEDULED] })
+    const pending = (() => {
+      let resolve!: (v: { items: typeof PENDING[]; message?: string }) => void
+      const promise = new Promise<{ items: typeof PENDING[]; message?: string }>((res) => {
+        resolve = res
+      })
+      return { promise, resolve }
+    })()
+    vi.mocked(api.bulkDeleteDrafts).mockReturnValue(pending.promise)
+    const w = mountPage()
+    await flushPromises()
+
+    const checkboxes = w.findAll('.draft input[type="checkbox"]')
+    await checkboxes[0].setValue(true) // select PENDING (p1)
+    await w.find('.bulk-delete').trigger('click') // in-flight, still holding [p1]
+
+    await checkboxes[1].setValue(true) // reselect SCHEDULED (s1) mid-flight
+
+    pending.resolve({ items: [SCHEDULED] }) // p1 deleted server-side
+    await flushPromises()
+
+    expect(api.bulkDeleteDrafts).toHaveBeenCalledWith(['p1'])
+    // s1's checkbox (reselected mid-flight) must still be checked afterward.
+    const remainingCheckbox = w.find('.draft input[type="checkbox"]')
+    expect((remainingCheckbox.element as HTMLInputElement).checked).toBe(true)
   })
 
   it('bulk action buttons stay disabled with no selection', async () => {

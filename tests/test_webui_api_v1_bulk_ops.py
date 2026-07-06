@@ -12,8 +12,12 @@ from __future__ import annotations
 
 __tier__ = "integration"
 
+import threading
+import time
+
 import webui_app.api.v1.drafts as drafts_mod
 import webui_app.api.v1.history as history_mod
+from webui_app.api.v1.errors import MAX_BULK_IDS
 
 PROBLEM_CT = "application/problem+json"
 
@@ -48,6 +52,34 @@ def test_webui_history_bulk_recheck_empty_ids_returns_422(client):
     resp = client.post("/api/v1/history/bulk-recheck", json={"ids": []})
     assert resp.status_code == 422
     assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+
+
+def test_webui_bulk_ids_over_max_returns_422(client, monkeypatch):
+    """Code review (security/adversarial, converged): each id triggers real
+    per-item work (scheduler job, store write, outbound liveness check), so an
+    unbounded array lets one request hold resources (including the
+    bulk-publish-now single-flight lock) proportional to array size. The cap
+    lives in the shared `require_ids` helper -- exercising it via one endpoint
+    proves the shared function, which every bulk-* route calls identically."""
+    _patch_history(monkeypatch, bulk_recheck=lambda ids: {"ok": True, "flash_msg": ""})
+    resp = client.post(
+        "/api/v1/history/bulk-recheck", json={"ids": [str(i) for i in range(MAX_BULK_IDS + 1)]}
+    )
+    assert resp.status_code == 422
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+    assert str(MAX_BULK_IDS) in resp.get_json()["detail"]
+
+
+def test_webui_bulk_ids_at_max_is_accepted(client, monkeypatch):
+    _patch_history(
+        monkeypatch,
+        bulk_recheck=lambda ids: {"ok": True, "flash_msg": f"已核实 {len(ids)} 条"},
+        list=lambda: [],
+    )
+    resp = client.post(
+        "/api/v1/history/bulk-recheck", json={"ids": [str(i) for i in range(MAX_BULK_IDS)]}
+    )
+    assert resp.status_code == 200
 
 
 def test_webui_history_bulk_recheck_missing_ids_key_returns_422(client):
@@ -125,6 +157,38 @@ def test_webui_drafts_bulk_publish_now_double_submit_returns_409(client, monkeyp
     assert entered == [["1"]]
 
 
+def test_webui_drafts_bulk_publish_now_concurrent_threads_exactly_one_wins(client, monkeypatch):
+    """Code review (testing, converged): the double-submit test above proves the
+    lock's mechanics only via same-thread recursion, not genuine concurrent
+    request handling. Mirrors tests/test_idempotency_store.py's
+    threading.Barrier pattern (test_concurrent_intent_write_exactly_one_wins) to
+    prove real thread-level mutual exclusion on _bulk_publish_lock."""
+    barrier = threading.Barrier(2, timeout=5)
+
+    def slow_bulk_publish_now(ids):
+        time.sleep(0.05)  # hold the lock briefly so the race is observable
+        return {"ok": True, "flash_msg": "正在批量发布 1 项，请稍候刷新页面"}
+
+    _patch_drafts(monkeypatch, bulk_publish_now=slow_bulk_publish_now, list_all=lambda: [])
+
+    results: list[int] = []
+    results_lock = threading.Lock()
+
+    def worker():
+        barrier.wait()
+        resp = client.post("/api/v1/drafts/bulk-publish-now", json={"ids": ["1"]})
+        with results_lock:
+            results.append(resp.status_code)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=5)
+
+    assert sorted(results) == [200, 409]
+
+
 # ── drafts/bulk-cancel ────────────────────────────────────────────────────
 
 
@@ -147,7 +211,13 @@ def test_webui_drafts_bulk_cancel_empty_ids_returns_422(client):
     assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
 
 
-def test_webui_drafts_bulk_cancel_failure_returns_502(client, monkeypatch):
+def test_webui_drafts_bulk_cancel_partial_failure_is_200_warning_with_refreshed_list(client, monkeypatch):
+    """Code review (correctness/reliability, converged): DraftAPI.bulk_cancel has
+    no rollback of already-completed cancellations when a later item in the same
+    batch fails -- unlike bulk_publish_now, "nothing changed" is not a safe
+    assumption. A bare 502 would hide from the client that earlier items in the
+    batch genuinely did get cancelled, so this must be a 200 + refreshed list +
+    warning (same treatment as SCHEDULER_SYNC_FAILED), not a hard error."""
     _patch_drafts(
         monkeypatch,
         bulk_cancel=lambda ids: {
@@ -155,8 +225,10 @@ def test_webui_drafts_bulk_cancel_failure_returns_502(client, monkeypatch):
             "error_code": "BULK_CANCEL_FAILURE",
             "flash_msg": "批量取消失敗：後台任務同步異常，已中止操作 (RuntimeError)",
         },
+        list_all=lambda: [{"id": "1", "status": "pending"}],
     )
-    resp = client.post("/api/v1/drafts/bulk-cancel", json={"ids": ["1"]})
-    assert resp.status_code == 502
-    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
-    assert resp.get_json()["error_class"] == "bulk_cancel_failure"
+    resp = client.post("/api/v1/drafts/bulk-cancel", json={"ids": ["1", "2"]})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["items"] == [{"id": "1", "status": "pending"}]
+    assert "後台任務同步異常" in body["message"]

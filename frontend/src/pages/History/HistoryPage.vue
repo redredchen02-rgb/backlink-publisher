@@ -50,16 +50,30 @@ function reportError(e: unknown): void {
   toastError(e)
 }
 
-/** Run a mutation, write the refreshed list back into the cache, surface message. */
-async function run(fn: () => Promise<HistoryMutationResult>, okMsg?: string): Promise<void> {
+/**
+ * Run a mutation, write the refreshed list back into the cache, surface message.
+ *
+ * `idsToDeselect` (code review): only the ids this specific call acted on are
+ * removed from `selected` on success -- not a blanket clear. Without this, a
+ * user who changes their selection WHILE a bulk action is in flight has that
+ * reselection silently wiped out when the in-flight call resolves, even though
+ * it had nothing to do with the completed action.
+ */
+async function run(
+  fn: () => Promise<HistoryMutationResult>,
+  idsToDeselect?: string[],
+): Promise<void> {
   if (busy.value) return
   busy.value = true
   try {
     const r = await fn()
     qc.setQueryData(QKEY, { items: r.items })
-    selected.value = new Set()
+    if (idsToDeselect?.length) {
+      const remaining = new Set(selected.value)
+      for (const id of idsToDeselect) remaining.delete(id)
+      selected.value = remaining
+    }
     if (r.message) notify.push(r.message, 'info')
-    else if (okMsg) notify.push(okMsg, 'success')
   } catch (e) {
     reportError(e)
   } finally {
@@ -67,11 +81,17 @@ async function run(fn: () => Promise<HistoryMutationResult>, okMsg?: string): Pr
   }
 }
 
-const onDelete = (id: string) => run(() => deleteHistory(id))
-const onRecheck = (id: string) => run(() => recheckHistory(id))
+const onDelete = (id: string) => run(() => deleteHistory(id), [id])
+const onRecheck = (id: string) => run(() => recheckHistory(id), [id])
 const onPurgeFailed = () => run(purgeFailedHistory)
-const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
-const onBulkRecheck = () => run(() => bulkRecheckHistory([...selected.value]))
+const onBulkDelete = () => {
+  const ids = [...selected.value]
+  return run(() => bulkDeleteHistory(ids), ids)
+}
+const onBulkRecheck = () => {
+  const ids = [...selected.value]
+  return run(() => bulkRecheckHistory(ids), ids)
+}
 
 const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 </script>
