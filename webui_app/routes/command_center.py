@@ -416,13 +416,22 @@ def _build_anomaly_cards(status: dict) -> list[dict]:
         cards.append(_card("credentials", "渠道凭证", "info", "状态不可用", _err(cred), "/settings", None))
     else:
         n = cred.get("failed_count", 0)
+        failed = cred.get("failed", [])
         if n:
+            # `failed_channels` (Plan 2026-07-06-004 Unit 6): the plain-text
+            # `detail` above ("、".join(...)) is fine for display but not
+            # machine-usable — the SPA needs the raw channel-name list to
+            # render one "重新验证" button per failed channel. Minimal
+            # structured-data addition alongside the existing formatted
+            # string; no other card gets this field.
             cards.append(_card("credentials", "渠道凭证", "danger",
-                               f"{n} 个渠道凭证失效", "、".join(cred.get("failed", [])),
-                               "/settings", {"label": "去设置", "href": "/settings"}))
+                               f"{n} 个渠道凭证失效", "、".join(failed),
+                               "/settings", {"label": "去设置", "href": "/settings"},
+                               failed_channels=failed))
         else:
             cards.append(_card("credentials", "渠道凭证", "ok",
-                               f"{cred.get('n_bound', 0)} 个渠道已绑定", "凭证健康", "/settings", None))
+                               f"{cred.get('n_bound', 0)} 个渠道已绑定", "凭证健康", "/settings", None,
+                               failed_channels=[]))
 
     # 2. Keep-alive / link liveness
     ka = status.get("keepalive", {})
@@ -544,7 +553,7 @@ def _build_schedule_queue_card(sq: dict) -> dict:
                  "/schedule", action, items=items)
 
 
-def _card(key, title, severity, headline, detail, deep_link, action, items=None):
+def _card(key, title, severity, headline, detail, deep_link, action, items=None, **extra):
     card = {
         "key": key, "title": title, "severity": severity,
         "headline": headline, "detail": detail or "",
@@ -552,6 +561,10 @@ def _card(key, title, severity, headline, detail, deep_link, action, items=None)
     }
     if items is not None:
         card["items"] = items
+    # `**extra` (Plan 2026-07-06-004 Unit 6): a narrow escape hatch for a
+    # single card-specific field (currently only credentials' `failed_channels`)
+    # rather than threading a new named parameter through every call site.
+    card.update(extra)
     return card
 
 

@@ -120,3 +120,40 @@ describe('Toast — reportId toasts stay sticky (Plan U7 regression guard)', () 
     expect(w.text()).not.toContain('will auto-dismiss')
   })
 })
+
+describe('Toast — undo action (Plan 2026-07-06-004 Unit 6)', () => {
+  it('a toast carrying undoAction shows a button with its label and fires onClick', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    const store = useNotificationsStore()
+    const onClick = vi.fn()
+    store.push('已标记为已解决', 'success', 6000, undefined, { label: '撤销', onClick })
+    await w.vm.$nextTick()
+
+    const btn = w.find('.toast__undo')
+    expect(btn.exists()).toBe(true)
+    expect(btn.text()).toBe('撤销')
+    await btn.trigger('click')
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('paired: a toast with no undoAction does NOT show the undo button', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    useNotificationsStore().push('ordinary toast', 'success')
+    await w.vm.$nextTick()
+
+    expect(w.find('.toast__undo').exists()).toBe(false)
+  })
+
+  it('an error-severity toast can carry undoAction too (assertive region)', async () => {
+    const w = mount(Toast, { global: { plugins: [pinia] } })
+    const onClick = vi.fn()
+    useNotificationsStore().push('撤销失败：boom', 'error', 0, undefined, { label: '重试', onClick })
+    await w.vm.$nextTick()
+
+    const region = w.find('[aria-live="assertive"]')
+    const btn = region.find('.toast__undo')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+})
