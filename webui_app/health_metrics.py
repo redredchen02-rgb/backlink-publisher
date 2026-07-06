@@ -516,7 +516,7 @@ def publish_to_index_latency(
     try:
         from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT
@@ -607,7 +607,7 @@ def index_rate_by_channel(
     try:
         from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         placeholders = ",".join("?" for _ in _TERMINAL_KINDS)
 
         # Total confirmed pages per channel in the window.
@@ -695,7 +695,7 @@ def impression_analysis(
     try:
         from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT
@@ -740,7 +740,7 @@ def ranking_lift_analysis(
     try:
         from backlink_publisher.events.kinds import RANKING_SNAPSHOT
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT
@@ -829,7 +829,7 @@ def referral_conversion(
             REFERRAL_OBSERVED,
         )
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
 
         # Referral sessions per channel.
         ref_rows = store.query(
@@ -923,7 +923,7 @@ def cost_metrics(
             RANKING_SNAPSHOT,
         )
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         placeholders = ",".join("?" for _ in _TERMINAL_KINDS)
 
         cost_rows = store.query(
@@ -975,9 +975,9 @@ def cost_metrics(
         ranking_gain = 0.0
         for r in ranking_rows:
             b = r["baseline_pos"]
-            l = r["latest_pos"]
-            if b is not None and l is not None:
-                delta = float(b) - float(l)
+            latest = r["latest_pos"]
+            if b is not None and latest is not None:
+                delta = float(b) - float(latest)
                 if delta > 0:
                     ranking_gain += delta
 
@@ -1013,7 +1013,7 @@ def decisions_by_platform(
     try:
         from backlink_publisher.events.kinds import RELIABILITY_DECISION
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT

@@ -554,9 +554,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_internal_error(exc):
         _log.error(
             "RECON api_5xx path=%s method=%s remote=%s error=%s",
-            request.path,
-            request.method,
-            request.remote_addr,
+            _flask_req.path,
+            _flask_req.method,
+            _flask_req.remote_addr,
             exc,
         )
         from flask import jsonify as _jsonify
@@ -566,9 +566,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_bad_gateway(exc):
         _log.error(
             "RECON api_502 path=%s method=%s remote=%s error=%s",
-            request.path,
-            request.method,
-            request.remote_addr,
+            _flask_req.path,
+            _flask_req.method,
+            _flask_req.remote_addr,
             exc,
         )
         from flask import jsonify as _jsonify
@@ -578,9 +578,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_service_unavailable(exc):
         _log.error(
             "RECON api_503 path=%s method=%s remote=%s error=%s",
-            request.path,
-            request.method,
-            request.remote_addr,
+            _flask_req.path,
+            _flask_req.method,
+            _flask_req.remote_addr,
             exc,
         )
         from flask import jsonify as _jsonify

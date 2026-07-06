@@ -772,8 +772,10 @@ def api_admin_errors():
         from backlink_publisher.events import EventStore
         from backlink_publisher.events.kinds import RELIABILITY_DECISION
 
+        from ..health_metrics import _window_start
+
         store = EventStore()
-        since = _window_start(datetime.now(timezone.utc), 1)
+        since = _window_start(datetime.now(UTC), 1)
 
         # Error class distribution from publish.failed.
         err_rows = store.query(
