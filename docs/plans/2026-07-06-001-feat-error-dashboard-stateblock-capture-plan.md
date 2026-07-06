@@ -2,6 +2,7 @@
 title: "feat: Capture StateBlock gracefully-handled errors in the error-reporting dashboard"
 type: feat
 status: parked
+parked: "2026-07-06 — holds a real finding (StateBlock-rendered errors are invisible to the error-reporting dashboard) but has no implementation units yet. Resume trigger: pick this up once docs/plans/2026-07-02-001-opt-v060-uiux-pipeline-upgrade-plan.md's U14/U15 error-audit units land, or whenever someone is ready to design the capture-hook approach in Open Questions below."
 date: 2026-07-06
 origin: docs/audits/2026-07-03-webui-feature-error-backlog.md
 claims: {}
