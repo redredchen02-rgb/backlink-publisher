@@ -22,7 +22,6 @@ from backlink_publisher.config import (
     save_config,
     upgrade_target_to_threeurl,
 )
-from backlink_publisher.events.history_query import list_history as _list_history
 from webui_store import (
     drafts_store as _drafts_store,
 )

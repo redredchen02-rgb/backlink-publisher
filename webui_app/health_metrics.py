@@ -22,11 +22,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, UTC
-
-from backlink_publisher.events import EventStore
-
 import functools
 import logging
+
+from backlink_publisher.events import EventStore
 
 _log = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ def fail_open(default=None):
         def wrapper(*args, **kwargs):
             try:
                 return fn(*args, **kwargs)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 _log.warning("health_metrics: %s failed: %s", fn.__name__, exc)
                 return default() if callable(default) else default
         return wrapper
@@ -359,7 +358,7 @@ def weights_snapshot() -> dict | None:
                 for p in top3
             ],
         }
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return None
 
 
@@ -472,7 +471,7 @@ def ranking_trend(store: EventStore) -> list[dict]:
                 "trend": trend,
             })
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -517,7 +516,7 @@ def publish_to_index_latency(
     try:
         from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT
@@ -584,7 +583,7 @@ def publish_to_index_latency(
             })
         out.sort(key=lambda x: -x["count"])
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -608,7 +607,7 @@ def index_rate_by_channel(
     try:
         from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         placeholders = ",".join("?" for _ in _TERMINAL_KINDS)
 
         # Total confirmed pages per channel in the window.
@@ -674,7 +673,7 @@ def index_rate_by_channel(
             })
         out.sort(key=lambda x: (x["index_rate"] if x["index_rate"] is not None else -1.0), reverse=True)
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -696,7 +695,7 @@ def impression_analysis(
     try:
         from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT
@@ -722,7 +721,7 @@ def impression_analysis(
             }
             for r in rows
         ]
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -741,7 +740,7 @@ def ranking_lift_analysis(
     try:
         from backlink_publisher.events.kinds import RANKING_SNAPSHOT
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT
@@ -805,7 +804,7 @@ def ranking_lift_analysis(
                 "latest_impressions": int(latest_impressions or 0),
             })
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -825,10 +824,12 @@ def referral_conversion(
     """
     try:
         from backlink_publisher.events.kinds import (
-            GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED, REFERRAL_OBSERVED,
+            GSC_PAGE_SIGNAL,
+            PUBLISH_CONFIRMED,
+            REFERRAL_OBSERVED,
         )
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
 
         # Referral sessions per channel.
         ref_rows = store.query(
@@ -898,7 +899,7 @@ def referral_conversion(
             })
         out.sort(key=lambda x: -(x["referral_sessions"]))
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -918,10 +919,11 @@ def cost_metrics(
     """
     try:
         from backlink_publisher.events.kinds import (
-            GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED, RANKING_SNAPSHOT,
+            GSC_PAGE_SIGNAL,
+            RANKING_SNAPSHOT,
         )
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         placeholders = ",".join("?" for _ in _TERMINAL_KINDS)
 
         cost_rows = store.query(
@@ -973,9 +975,9 @@ def cost_metrics(
         ranking_gain = 0.0
         for r in ranking_rows:
             b = r["baseline_pos"]
-            l = r["latest_pos"]
-            if b is not None and l is not None:
-                delta = float(b) - float(l)
+            latest = r["latest_pos"]
+            if b is not None and latest is not None:
+                delta = float(b) - float(latest)
                 if delta > 0:
                     ranking_gain += delta
 
@@ -989,7 +991,7 @@ def cost_metrics(
             "cost_per_indexed_url": cost_per_indexed,
             "cost_per_ranking_gain": cost_per_gain,
         }
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return {}
 
 
@@ -1011,7 +1013,7 @@ def decisions_by_platform(
     try:
         from backlink_publisher.events.kinds import RELIABILITY_DECISION
 
-        since = _window_start(datetime.now(timezone.utc), window_days)
+        since = _window_start(datetime.now(UTC), window_days)
         rows = store.query(
             """
             SELECT
@@ -1039,5 +1041,5 @@ def decisions_by_platform(
             }
             for r in rows
         ]
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []

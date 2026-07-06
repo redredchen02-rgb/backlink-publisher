@@ -66,7 +66,7 @@ rationale = "events/reconciler.py::_reconcile_history narrows a bare except arou
 discovered = "2026-07-01"
 owner = "unassigned"
 status = "accepted"
-location = ["src/backlink_publisher/events/reconciler.py:381"]
+location = ["src/backlink_publisher/events/reconciler.py:386"]
 
 [[items]]
 slug = "gap-derive-host-urlparse-failure"
@@ -253,8 +253,8 @@ discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
 location = [
-    "webui_app/api/llm_diagnostics_api.py:170",
-    "webui_app/api/llm_diagnostics_api.py:174",
+    "webui_app/api/llm_diagnostics_api.py:173",
+    "webui_app/api/llm_diagnostics_api.py:177",
 ]
 
 [[items]]
@@ -264,7 +264,7 @@ rationale = "webui_app/api/llm_diagnostics_api.py::test_generation keeps an exce
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/llm_diagnostics_api.py:213"]
+location = ["webui_app/api/llm_diagnostics_api.py:216"]
 
 [[items]]
 slug = "scheduled-list-read-fail-open"
@@ -336,7 +336,7 @@ rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except E
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/v1/pipeline.py:275"]
+location = ["webui_app/api/v1/pipeline.py:274"]
 
 [[items]]
 slug = "pipeline-regen-body-llm-call-error-redacted"
@@ -346,3 +346,50 @@ discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
 location = ["webui_app/api/v1/pipeline.py:312"]
+
+# ── D2 (plan 2026-07-06-002-opt-hidden-debt-hardening-sweep, publishing/adapters/ ──
+# except-Exception classification, 2026-07-06). Live re-grep of
+# `grep -c "except Exception" publishing/adapters/*.py` confirmed the
+# deepening-pass snapshot of 56 sites across 28 files (plus one tuple-form
+# `except (ValueError, Exception):` at _verify_live.py:276, called out
+# separately by the plan as belonging to the same classification pass) —
+# 57 individual call sites total, clustered below into 35 entries per the
+# same-file/same-function-or-sibling-functions rule (Phase 3 D2/D2b
+# precedent: campaign-bootstrap-status-fail-soft, image-gen-* above).
+
+[[items]]
+slug = "medium-browser-save-draft-false-success-fixed"
+severity = "critical"
+rationale = "medium_browser.py's Save Draft click handler used to catch any click failure, log a warning, and fall through to return AdapterResult(status='drafted', draft_url=final_url, ...) with zero signal the draft was never confirmed saved — docs/solutions/correctness/adapter-silent-exceptions-resolution.md named this a critical silent swallow. K8 step 3 applied (no independent recheck of draft-save success exists, and the fix is a local change to the handler's own control flow): the except now raises ExternalServiceError('...draft status is unconfirmed...') instead, verified red-then-green in tests/test_adapter_medium_browser.py::test_save_draft_click_failure_raises_instead_of_reporting_drafted."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-07-06"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:347"]
+
+[[items]]
+slug = "medium-browser-captcha-probe-reraise-accepted"
+severity = "low"
+rationale = "medium_browser.py's post-timeout CAPTCHA-iframe probe (inside the PlaywrightTimeoutError handler) narrows a bare except around page.locator(...).count() and only logs; the enclosing bare `raise` still re-raises the ORIGINAL PlaywrightTimeoutError regardless of whether the probe itself succeeded or errored, so a probe failure can never mask the timeout signal retry_transient_call needs — locked in by tests/test_adapter_medium_browser.py::test_captcha_probe_failure_still_propagates_original_timeout (K8-accepted per the plan's named classification)."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:285"]
+
+[[items]]
+slug = "medium-browser-tag-insertion-best-effort-accepted"
+severity = "low"
+rationale = "medium_browser.py's Publish-mode tag-insertion loop narrows a bare except around typing each tag into the Medium tags input and logs 'tag insertion failed (optional)'. Tags are non-authoritative metadata (not the status/published_url output field), so a failure here must not abort an otherwise-successful publish — locked in by tests/test_adapter_medium_browser.py::test_tag_insertion_failure_is_best_effort_and_publish_still_succeeds (K8-accepted per the plan's named classification)."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:337"]
+
+[[items]]
+slug = "medium-browser-mark-expired-swallow-accepted"
+severity = "low"
+rationale = "medium_browser.py::_safe_mark_expired narrows a bare except around webui_store.channel_status.mark_expired('medium') and only logs a warning. The caller is already about to raise AuthExpiredError regardless of whether the bookkeeping call succeeds, so a secondary filesystem failure here (disk full, permission denied) must not mask the primary auth-expired signal — the docstring already documents this intent; this entry formalizes it under D2's classification pass."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:159"]

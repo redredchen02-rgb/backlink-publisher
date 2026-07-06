@@ -10,7 +10,9 @@
 import { computed, reactive, ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
+  bulkCancelDrafts,
   bulkDeleteDrafts,
+  bulkPublishDraftsNow,
   cancelDraft,
   deleteDraft,
   listDrafts,
@@ -22,7 +24,6 @@ import {
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const QKEY = ['drafts']
 const qc = useQueryClient()
@@ -44,7 +45,11 @@ const busy = ref(false)
 
 function toggle(id: string): void {
   const next = new Set(selected.value)
-  next.has(id) ? next.delete(id) : next.add(id)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
   selected.value = next
 }
 
@@ -52,13 +57,24 @@ function reportError(e: unknown): void {
   toastError(e)
 }
 
-async function run(fn: () => Promise<DraftMutationResult>): Promise<void> {
+/**
+ * `idsToDeselect` (code review): only the ids this specific call acted on are
+ * removed from `selected` on success -- not a blanket clear. Without this, a
+ * user who changes their selection WHILE a bulk action is in flight has that
+ * reselection silently wiped out when the in-flight call resolves, even though
+ * it had nothing to do with the completed action.
+ */
+async function run(fn: () => Promise<DraftMutationResult>, idsToDeselect?: string[]): Promise<void> {
   if (busy.value) return
   busy.value = true
   try {
     const r = await fn()
     qc.setQueryData(QKEY, { items: r.items })
-    selected.value = new Set()
+    if (idsToDeselect?.length) {
+      const remaining = new Set(selected.value)
+      for (const id of idsToDeselect) remaining.delete(id)
+      selected.value = remaining
+    }
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
     reportError(e)
@@ -73,26 +89,55 @@ function onSchedule(id: string): void {
     notify.push('请先选择排程时间', 'warning')
     return
   }
-  run(() => scheduleDraft(id, at))
+  run(() => scheduleDraft(id, at), [id])
 }
-const onPublishNow = (id: string) => run(() => publishDraftNow(id))
-const onCancel = (id: string) => run(() => cancelDraft(id))
-const onDelete = (id: string) => run(() => deleteDraft(id))
-const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
+const onPublishNow = (id: string) => run(() => publishDraftNow(id), [id])
+const onCancel = (id: string) => run(() => cancelDraft(id), [id])
+const onDelete = (id: string) => run(() => deleteDraft(id), [id])
+const onBulkDelete = () => {
+  const ids = [...selected.value]
+  return run(() => bulkDeleteDrafts(ids), ids)
+}
+const onBulkPublishNow = () => {
+  const ids = [...selected.value]
+  return run(() => bulkPublishDraftsNow(ids), ids)
+}
+const onBulkCancel = () => {
+  const ids = [...selected.value]
+  return run(() => bulkCancelDrafts(ids), ids)
+}
 </script>
 
 <template>
   <section class="drafts">
     <header class="drafts__head">
       <h1>草稿队列</h1>
-      <button
-        type="button"
-        class="bulk-delete"
-        :disabled="busy || !selected.size"
-        @click="onBulkDelete"
-      >
-        删除选中 ({{ selected.size }})
-      </button>
+      <div class="drafts__bulk-actions">
+        <button
+          type="button"
+          class="bulk-publish-now"
+          :disabled="busy || !selected.size"
+          @click="onBulkPublishNow"
+        >
+          立即发布选中 ({{ selected.size }})
+        </button>
+        <button
+          type="button"
+          class="bulk-cancel"
+          :disabled="busy || !selected.size"
+          @click="onBulkCancel"
+        >
+          取消选中排程 ({{ selected.size }})
+        </button>
+        <button
+          type="button"
+          class="bulk-delete"
+          :disabled="busy || !selected.size"
+          @click="onBulkDelete"
+        >
+          删除选中 ({{ selected.size }})
+        </button>
+      </div>
     </header>
 
     <StateBlock
@@ -149,6 +194,10 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+.drafts__bulk-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 .rows {
   list-style: none;

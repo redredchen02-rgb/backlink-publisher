@@ -42,3 +42,13 @@ export const deleteDraft = (id: string): Promise<DraftMutationResult> =>
 
 export const bulkDeleteDrafts = (ids: string[]): Promise<DraftMutationResult> =>
   sendJson('POST', '/drafts/bulk-delete', { ids })
+
+// Single-flight on the backend: a concurrent call while one is still executing
+// rejects with ApiError (status 409, payload.error_class === 'already_running')
+// rather than queuing -- callers should disable the trigger button while a call
+// is in flight to avoid surfacing that as a user-facing error unnecessarily.
+export const bulkPublishDraftsNow = (ids: string[]): Promise<DraftMutationResult> =>
+  sendJson('POST', '/drafts/bulk-publish-now', { ids })
+
+export const bulkCancelDrafts = (ids: string[]): Promise<DraftMutationResult> =>
+  sendJson('POST', '/drafts/bulk-cancel', { ids })

@@ -38,7 +38,6 @@
 import type { App } from 'vue'
 // Cross-boundary import into the DOM-free shared decision module — the same
 // precedent already used for tokens.css in vite.config.ts's `server.fs.allow`.
-// eslint-disable-next-line import/no-relative-packages
 import {
   computeFingerprint,
   shouldIgnoreError,
@@ -277,7 +276,6 @@ export function installVueErrorHandler(app: App): void {
   app.config.errorHandler = (err, _instance, info) => {
     void captureAndSubmit(toErrorInfo(err, 'error-handler'))
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.error('[vue error]', info, err)
     }
   }

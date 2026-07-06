@@ -229,7 +229,7 @@ def _mock_null_response():
 
 def _mock_429_response():
     """HTTP 429 — a pre-create rate-limit rejection. _do_post raises
-    _TransientHTTPError(429) for this, which IS retryable (the server rejected
+    TransientError(429) for this, which IS retryable (the server rejected
     the request before creating anything)."""
     resp = MagicMock()
     resp.ok = False
@@ -375,7 +375,7 @@ class TestVelogGraphQLAdapterPublish:
 
     def test_write_post_429_exhausted_raises_external_service_error(self, tmp_path):
         """429 on every attempt → retry exhausts → retry_transient_call re-raises
-        _TransientHTTPError. It must surface as ExternalServiceError (the explicit
+        TransientError. It must surface as ExternalServiceError (the explicit
         except arm), not escape uncaught."""
         config = _make_config(tmp_path)
         adapter = VelogGraphQLAdapter()

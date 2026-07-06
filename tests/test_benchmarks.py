@@ -124,8 +124,22 @@ def _make_publish_payload(url_mode: str = "A", platform: str = "medium") -> dict
         "links": [
             {"url": "https://example.com", "anchor": "Example",
              "kind": "main_domain", "required": True},
+            {"url": "https://example.com/article", "anchor": "Article",
+             "kind": "target", "required": True},
+            {"url": "https://wikipedia.org", "anchor": "Wiki",
+             "kind": "supporting", "required": False},
+            {"url": "https://mdn.dev", "anchor": "MDN",
+             "kind": "supporting", "required": False},
+            {"url": "https://stackoverflow.com", "anchor": "SO",
+             "kind": "supporting", "required": False},
+            {"url": "https://github.com", "anchor": "GitHub",
+             "kind": "supporting", "required": False},
         ],
-        "link_count": 1,
+        "seo": {
+            "title": "Benchmark Test Article | SEO",
+            "description": "SEO description",
+            "canonical_url": "https://example.com/article",
+        },
         "approved": True,
         "dofollow": True,
     }
@@ -174,3 +188,133 @@ def test_benchmark_publish_50_rows_dry_run(benchmark):
 
     result = benchmark(_run)
     assert result >= 0
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# webui_store hot-path baselines (Plan 2026-07-06-002 Unit E2, R11)
+#
+# These establish first-time baselines only -- per K7 ("benchmark only, don't
+# optimize"), no code in webui_store/ or the link-attr verifier is changed
+# here even where the numbers below look slow. See the plan's E2 section.
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _make_history_records(n: int) -> list[dict]:
+    return [
+        {
+            "id": f"hist-{i}",
+            "platform": "medium" if i % 3 == 0 else "blogger",
+            "status": "published",
+            "target_url": f"https://example{i}.com/article",
+            "created_at": "2026-07-01T00:00:00+00:00",
+            "verified_at": None,
+            "verify_error": None,
+        }
+        for i in range(n)
+    ]
+
+
+def test_benchmark_history_update_item_100_records(benchmark, tmp_path):
+    """history.py update_item latency: whole-file load+save at ~100-record scale."""
+    from webui_store.history import HistoryStore
+
+    store = HistoryStore(tmp_path / "history_small.json")
+    store.save(_make_history_records(100))
+
+    def _run():
+        return store.update_item(
+            "hist-50", verified_at="2026-07-06T00:00:00+00:00", verify_error=None,
+        )
+
+    result = benchmark(_run)
+    assert result is True
+
+
+def test_benchmark_history_update_item_1000_records(benchmark, tmp_path):
+    """history.py update_item latency: whole-file load+save at ~1000-record scale.
+
+    Edge-case sibling of the 100-record case above -- compares against it to
+    sanity-check the load+save pattern behaves roughly O(n) as file size grows
+    (see the plan's E2 edge-case scenario).
+    """
+    from webui_store.history import HistoryStore
+
+    store = HistoryStore(tmp_path / "history_large.json")
+    store.save(_make_history_records(1000))
+
+    def _run():
+        return store.update_item(
+            "hist-500", verified_at="2026-07-06T00:00:00+00:00", verify_error=None,
+        )
+
+    result = benchmark(_run)
+    assert result is True
+
+
+def test_benchmark_campaign_update_seed_status(benchmark, tmp_path):
+    """campaign_store.py update_seed_status: single-txn SELECT->mutate->recompute->UPDATE."""
+    from webui_store.campaign_store import CampaignSqliteStore
+    from webui_store.sqlite_base import WebUIDatabase
+
+    store = CampaignSqliteStore(WebUIDatabase(tmp_path / "webui.db"))
+    seeds = [{"seed_text": f"seed {i}"} for i in range(20)]
+    campaign_id = store.create(mode="publish", platforms=["medium"], seeds=seeds)
+    # Pad the table so the benchmark isn't a trivial single-row table.
+    for _ in range(49):
+        store.create(mode="draft", platforms=["blogger"], seeds=seeds)
+
+    def _run():
+        return store.update_seed_status(
+            campaign_id, 0, status="processing", draft_count=1,
+        )
+
+    result = benchmark(_run)
+    assert result is True
+
+
+def test_benchmark_batch_ops_update_row(benchmark, tmp_path):
+    """batch_ops.py update_row: single-row status patch on the batch-op queue."""
+    from webui_store.batch_ops import BatchOpsSqliteStore
+    from webui_store.sqlite_base import WebUIDatabase
+
+    store = BatchOpsSqliteStore(WebUIDatabase(tmp_path / "webui.db"))
+    ids = store.enqueue_many(
+        [f"https://example{i}.com" for i in range(100)], "keep_alive",
+    )
+    row_id = ids[0]
+
+    def _run():
+        store.update_row(row_id, "processing", None)
+        return row_id
+
+    result = benchmark(_run)
+    assert result == row_id
+
+
+def test_benchmark_link_attr_verify_medium_content(benchmark):
+    """link_attr_verifier.py verify_link_attributes: nested-loop target match +
+    repeated full-text regex scan over medium-length HTML (~200 anchors)."""
+    from unittest.mock import patch as _patch
+
+    from backlink_publisher.publishing.adapters.link_attr_verifier import (
+        verify_link_attributes,
+    )
+
+    anchors = "\n".join(
+        '<a href="https://example{0}.com/page" rel="{1}">link {0}</a>'.format(
+            i, "nofollow" if i % 5 == 0 else "noopener",
+        )
+        for i in range(200)
+    )
+    html = f"<html><body>{anchors}</body></html>".encode()
+    target_urls = [f"https://example{i}.com/page" for i in range(0, 200, 10)]
+
+    with _patch(
+        "backlink_publisher.publishing.adapters.link_attr_verifier."
+        "_fetch_body_via_preflight",
+        return_value=(html, None),
+    ):
+        def _run():
+            return verify_link_attributes("https://example.com", target_urls=target_urls)
+
+        result = benchmark(_run)
+    assert result["verification"] == "ok"

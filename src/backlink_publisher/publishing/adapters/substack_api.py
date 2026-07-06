@@ -8,7 +8,7 @@ from backlink_publisher._util.errors import DependencyError, ExternalServiceErro
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 
 from .base import AdapterResult
@@ -153,6 +153,7 @@ class SubstackAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: substack-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Substack publish failed ({type(exc).__name__}): {exc}"

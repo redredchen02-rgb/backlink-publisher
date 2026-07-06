@@ -32,14 +32,13 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, UTC
+import fcntl
 import json
 import logging
 import os
 from pathlib import Path
 import random
 import time
-
-import fcntl
 
 log = logging.getLogger(__name__)
 

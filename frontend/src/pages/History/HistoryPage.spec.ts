@@ -7,6 +7,7 @@ vi.mock('../../api/history', () => ({
   listHistory: vi.fn(),
   deleteHistory: vi.fn(),
   bulkDeleteHistory: vi.fn(),
+  bulkRecheckHistory: vi.fn(),
   purgeFailedHistory: vi.fn(),
   recheckHistory: vi.fn(),
 }))
@@ -119,6 +120,60 @@ describe('HistoryPage', () => {
     }
     expect(warnSpy).not.toHaveBeenCalled()
     warnSpy.mockRestore()
+  })
+
+  it('bulk-rechecks the selected rows (U3)', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+    vi.mocked(api.bulkRecheckHistory).mockResolvedValue({
+      items: [PUBLISHED, FAILED],
+      message: '已核实 1 条：1 升为已发布，0 标为失败，0 跳过',
+    })
+    const w = mountPage()
+    const notify = useNotificationsStore()
+    await flushPromises()
+
+    await w.find('tbody tr input[type="checkbox"]').setValue(true) // select first row
+    await w.find('.bulk-recheck').trigger('click')
+    await flushPromises()
+
+    expect(api.bulkRecheckHistory).toHaveBeenCalledWith(['7'])
+    expect(notify.toasts.some((t) => t.message.includes('已核实'))).toBe(true)
+  })
+
+  it('bulk-recheck button stays disabled with no selection', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+    const w = mountPage()
+    await flushPromises()
+
+    const btn = w.find('.bulk-recheck')
+    expect((btn.element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('a successful bulk action only deselects the ids it actually submitted (code review)', async () => {
+    // If the user reselects a DIFFERENT row while the first bulk call is still
+    // in flight, that reselection must survive -- run() must not blanket-clear
+    // `selected` on success, only remove the ids this call actually acted on.
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+    let resolveDelete!: (v: { items: typeof PUBLISHED[]; message?: string }) => void
+    const pending = new Promise<{ items: typeof PUBLISHED[]; message?: string }>((res) => {
+      resolveDelete = res
+    })
+    vi.mocked(api.bulkDeleteHistory).mockReturnValue(pending)
+    const w = mountPage()
+    await flushPromises()
+
+    const checkboxes = w.findAll('tbody tr input[type="checkbox"]')
+    await checkboxes[0].setValue(true) // select PUBLISHED (id 7)
+    await w.find('.bulk-delete').trigger('click') // in-flight, still holding [7]
+
+    await checkboxes[1].setValue(true) // reselect FAILED (id 8) mid-flight
+
+    resolveDelete({ items: [FAILED] }) // id 7 deleted server-side
+    await flushPromises()
+
+    expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7'])
+    const remainingCheckbox = w.find('tbody tr input[type="checkbox"]')
+    expect((remainingCheckbox.element as HTMLInputElement).checked).toBe(true)
   })
 
   it('an action failure surfaces a classifyError toast (no raw server text)', async () => {

@@ -38,6 +38,7 @@ from typing import Any, cast, Protocol
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.cli._bind.channels import CHANNELS, EVENTS
 from backlink_publisher.config.loader import _config_dir
+from backlink_publisher.events.scrubber import scrub_text
 
 # Default per-bind timeout. Playwright accepts ms; 5 minutes lets the operator
 # finish a social-OAuth flow including 2FA without artificial pressure.
@@ -86,11 +87,21 @@ class IdentityMismatch(RuntimeError):
 class ChromeLaunchError(RuntimeError):
     """Raised by the Real Chrome backend when it cannot launch or connect to
     an existing Chrome instance via CDP. The ``error_code`` string maps to
-    a ``BIND_ERROR_MESSAGES`` entry in the WebUI bind_job service."""
+    a ``BIND_ERROR_MESSAGES`` entry in the WebUI bind_job service — it MUST
+    always be one of that dict's closed-enum keys (or another fixed,
+    hardcoded literal from this module), never text derived from a wrapped
+    exception's own message. ``detail`` (plan D3, R9) is the deliberately
+    separate escape hatch for that raw diagnostic text: it is NOT read by
+    ``bind_job.py``'s ``BIND_ERROR_MESSAGES.get(error_code, ...)`` lookup
+    and is not emitted on the terminal JSONL event, so it can never be
+    misinterpreted as an enum value by the WebUI poll API."""
 
-    def __init__(self, error_code: str = "chrome_not_available") -> None:
+    def __init__(
+        self, error_code: str = "chrome_not_available", *, detail: str | None = None
+    ) -> None:
         super().__init__(error_code)
         self.error_code = error_code
+        self.detail = detail
 
 
 @dataclass
@@ -229,7 +240,7 @@ def _persist_storage_state(
         storage_state_provider(path=str(tmp_path))
         os.chmod(tmp_path, 0o600)
         os.replace(tmp_path, resolved)
-    except Exception as exc:  # noqa: BLE001 — storage_state() is Playwright; OSError for file ops
+    except Exception as exc:
         # Best-effort cleanup; mask filesystem errors as PersistIOError
         try:
             if tmp_path.exists():
@@ -238,7 +249,18 @@ def _persist_storage_state(
             pass
         if isinstance(exc, UsageError):
             raise
-        raise PersistIOError(f"failed to persist storage_state: {exc}") from exc
+        # debt: driver-impl-persist-storage-state-message-scrubbed-fixed
+        # A serialization failure inside storage_state_provider (e.g. the
+        # Playwright/CDP layer choking on an unpicklable cookie value) can
+        # embed repr()'d cookie/session-token content in str(exc). This text
+        # never reaches run_bind's BindResult (which only forwards the fixed
+        # "persist_io_error" error_code, never PersistIOError's own message),
+        # but scrub_text() is applied here anyway as defense-in-depth for any
+        # future caller/log site that reads this exception's own text
+        # directly — see events/scrubber.py::scrub_text and its existing
+        # call sites in events/_project_reducers.py for the pattern.
+        cleaned, _hits = scrub_text(str(exc))
+        raise PersistIOError(f"failed to persist storage_state: {cleaned}") from exc
 
     return resolved
 
@@ -444,10 +466,12 @@ class _PlaywrightBrowserRunner:
                 headless=False,
                 args=["--disable-blink-features=AutomationControlled"],
             )
-        except Exception as exc:  # noqa: BLE001 — Playwright errors are opaque
+        # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+        except Exception as exc:
             try:
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+            except Exception:
                 pass
             # "User data directory is already in use" means another Chromium
             # instance is holding the profile lock — surface a distinct code
@@ -464,11 +488,13 @@ class _PlaywrightBrowserRunner:
         page = context.pages[0] if context.pages else context.new_page()
         try:
             page.goto(recipe.login_url, wait_until="domcontentloaded")
-        except Exception as exc:  # noqa: BLE001 — Playwright errors are opaque
+        # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+        except Exception as exc:
             try:
                 context.close()
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+            except Exception:
                 pass
             raise PlaywrightLaunchError("login_url_unreachable") from exc
 
@@ -480,14 +506,17 @@ class _PlaywrightBrowserRunner:
             try:
                 context.close()
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+            except Exception:
                 pass
             raise BoundPredicateTimeout() from exc
-        except Exception:  # noqa: BLE001 — re-raise after teardown; Playwright errors are opaque
+        # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+        except Exception:
             try:
                 context.close()
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+            except Exception:
                 pass
             raise
 
@@ -506,7 +535,8 @@ class _PlaywrightBrowserRunner:
                 try:
                     context.close()
                     pw.stop()
-                except Exception:  # noqa: BLE001
+                # debt: driver-impl-playwright-runner-launch-and-wait-cleanup-accepted
+                except Exception:
                     pass
 
         return _provider

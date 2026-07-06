@@ -23,7 +23,7 @@ def client(tmp_path, monkeypatch):
 
 
 def test_hub_view_renders(client):
-    resp = client.get("/monitor-hub")
+    resp = client.get("/monitor-hub/jinja")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "监控聚合" in body

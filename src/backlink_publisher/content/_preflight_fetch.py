@@ -36,6 +36,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
+# P14 A5: imported from _util.constants (moved to resolve _util → domain violation).
+from backlink_publisher._util.constants import USER_AGENT
 from backlink_publisher._util.net_safety import _check_url_for_ssrf, _make_ssrf_opener
 from backlink_publisher._util.url import normalize_url_for_fetch, safe_hostname, safe_urlparse
 
@@ -56,8 +58,6 @@ _MAX_REDIRECTS: int = 5
 PREFLIGHT_BODY_BYTES: int = 768_000
 
 #: Identifies this fetcher distinctly so targets can rate-limit it separately.
-#: P14 A5: imported from _util.constants (moved to resolve _util → domain violation).
-from backlink_publisher._util.constants import USER_AGENT
 
 #: Truncate the stored ``X-Robots-Tag`` value — it is untrusted, display-only.
 _X_ROBOTS_MAX_LEN: int = 256
@@ -183,7 +183,7 @@ def _x_robots_value(headers: Any) -> str | None:
         return None
     try:
         values = headers.get_all("X-Robots-Tag")
-    except Exception:  # noqa: BLE001
+    except Exception:
         values = None
     if not values:
         return None
@@ -225,9 +225,9 @@ def _build_facts_from_response(resp: Any, normalized: str) -> PreflightFacts:
         finally:
             try:
                 resp.close()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
-    except Exception:  # noqa: BLE001
+    except Exception:
         return PreflightFacts(reason="network_error")
 
     # Post-redirect SSRF re-check of the final URL (narrows the DNS-rebinding
@@ -280,7 +280,7 @@ def _safe_ssrf_check(url: str) -> str | None:
     """
     try:
         return _check_url_for_ssrf(url)
-    except Exception:  # noqa: BLE001 — malformed URL must not break never-raises
+    except Exception:
         return "invalid_host"
 
 
@@ -315,7 +315,7 @@ def fetch_target(url: str, *, timeout: float | None = None) -> PreflightFacts:
         return PreflightFacts(reason="timeout")
     except URLError as exc:
         return _classify_url_error(exc)
-    except Exception:  # noqa: BLE001 — routine must never raise out
+    except Exception:
         return PreflightFacts(reason="network_error")
 
     return _build_facts_from_response(resp, normalized)

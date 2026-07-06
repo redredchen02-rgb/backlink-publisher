@@ -29,6 +29,7 @@ from urllib.parse import quote
 
 import requests
 
+from backlink_publisher.events.scrubber import scrub_text
 from backlink_publisher.publishing.browser_publish.chrome_session import (
     _chrome_binary as _shared_chrome_binary,
 )
@@ -56,8 +57,17 @@ _CDP_WS_CONNECT_TIMEOUT_S: int = 5    # WebSocket handshake timeout for CDP sess
 def _chrome_profile_dir() -> Path:
     try:
         return _shared_chrome_profile_dir()
+    # debt: chrome-backend-profile-dir-error-code-contract-fixed
     except _ChromeSessionError as exc:
-        raise ChromeLaunchError(str(exc)) from exc
+        # Plan D3 fix (R9): this used to be `raise ChromeLaunchError(str(exc))`,
+        # stuffing arbitrary exception text into `error_code` — a field
+        # webui_app/services/bind_job.py treats as a closed enum via
+        # BIND_ERROR_MESSAGES.get(error_code, ...). error_code must stay one
+        # of this module's fixed literal codes; the wrapped exception's own
+        # (scrubbed) text goes on the separate `detail` attribute instead,
+        # which bind_job.py never reads as an enum value.
+        cleaned, _hits = scrub_text(str(exc))
+        raise ChromeLaunchError("chrome_not_available", detail=cleaned) from exc
 
 
 def _chrome_port() -> int:
@@ -113,7 +123,8 @@ class RealChromeBrowserRunner:
         page = _CdpPage(cdp)
         try:
             recipe.bound_predicate(page)
-        except Exception:  # noqa: BLE001 — re-raise after cleanup; predicate errors are opaque
+        # debt: chrome-backend-launch-and-wait-cleanup-reraise-accepted
+        except Exception:
             cdp.close()
             self._terminate_proc()
             raise
@@ -273,7 +284,8 @@ class _CdpClient:
             websocket_factory = websocket.create_connection
         try:
             self._ws = websocket_factory(ws_url, timeout=_CDP_WS_CONNECT_TIMEOUT_S)
-        except Exception as exc:  # noqa: BLE001 — websocket lib raises varies by backend
+        # debt: chrome-backend-cdpclient-fallback-cleanup-accepted
+        except Exception as exc:
             raise ChromeLaunchError("chrome_cdp_unavailable") from exc
         self._next_id = 1
         self._event_callbacks: dict[str, list[Callable[..., Any]]] = {}
@@ -338,7 +350,8 @@ class _CdpClient:
     def all_cookies(self) -> list[dict[str, Any]]:
         try:
             result = self.send("Network.getAllCookies")
-        except Exception:  # noqa: BLE001 — fallback to alternative CDP command
+        # debt: chrome-backend-cdpclient-fallback-cleanup-accepted
+        except Exception:
             result = self.send("Storage.getCookies")
         cookies = result.get("cookies", [])
         return cookies if isinstance(cookies, list) else []
@@ -346,7 +359,8 @@ class _CdpClient:
     def close(self) -> None:
         try:
             self._ws.close()
-        except Exception:  # noqa: BLE001
+        # debt: chrome-backend-cdpclient-fallback-cleanup-accepted
+        except Exception:
             pass
 
 

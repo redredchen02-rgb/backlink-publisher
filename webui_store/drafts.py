@@ -323,7 +323,7 @@ class DraftsSqliteStore(BaseSqliteStore):
                     self.update_item(item_id, status="failed", error=err_msg)
                     failed += 1
                     errors.append(f"{item_id}: {err_msg}")
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 err_msg = str(exc)
                 self.update_item(item_id, status="failed", error=err_msg)
                 failed += 1

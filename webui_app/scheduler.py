@@ -326,7 +326,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
 
     try:
         result = run_keepalive_for_site(site_url)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         result_success = False
         result_error = str(exc)
         result_checked = 0
@@ -349,7 +349,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
     }
     try:
         _hist_store.update(lambda hist: [entry, *hist][:200])
-    except Exception:  # noqa: BLE001
+    except Exception:
         plan_logger.debug("history_update_failed", site_url=site_url, exc_info=True)
 
     # Update autopilot_targets: last_run + alert_pending
@@ -364,7 +364,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
 
     try:
         _sched_store.update(_update_autopilot)
-    except Exception:  # noqa: BLE001
+    except Exception:
         plan_logger.debug("autopilot_state_update_failed", site_url=site_url, exc_info=True)
 
     plan_logger.info(

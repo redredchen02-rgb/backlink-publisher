@@ -26,7 +26,7 @@ from backlink_publisher.publishing._manifest_types import (
 
 def _get_registry() -> dict:
     """Lazy import to break circular dependency with registry.py."""
-    from .registry import _REGISTRY  # noqa: PLC0415
+    from .registry import _REGISTRY
     return _REGISTRY
 
 

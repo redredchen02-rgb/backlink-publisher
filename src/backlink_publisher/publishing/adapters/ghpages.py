@@ -524,6 +524,7 @@ class GitHubPagesAPIAdapter(Publisher):
             raise
         except ExternalServiceError:
             raise
+        # debt: ghpages-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"GitHub Pages publish failed ({type(exc).__name__}): {exc}"

@@ -34,7 +34,7 @@ from backlink_publisher.publishing import registry
 
 # Importing the adapters package populates the registry via ``register()`` side
 # effects — without it every channel would read as unregistered.
-import backlink_publisher.publishing.adapters  # noqa: F401,E402
+import backlink_publisher.publishing.adapters  # noqa: F401
 
 from ..ledger.aggregate import _classify, _link_liveness
 from ..ledger.sources import build_target_buckets

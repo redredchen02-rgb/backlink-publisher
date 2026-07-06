@@ -10,6 +10,7 @@ import { computed, ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   bulkDeleteHistory,
+  bulkRecheckHistory,
   deleteHistory,
   listHistory,
   purgeFailedHistory,
@@ -21,7 +22,6 @@ import StateBlock from '../../components/StateBlock.vue'
 import Icon from '../../components/Icon.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const QKEY = ['history']
 const qc = useQueryClient()
@@ -42,7 +42,11 @@ const busy = ref(false)
 
 function toggle(id: string): void {
   const next = new Set(selected.value)
-  next.has(id) ? next.delete(id) : next.add(id)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
   selected.value = next
 }
 
@@ -50,16 +54,30 @@ function reportError(e: unknown): void {
   toastError(e)
 }
 
-/** Run a mutation, write the refreshed list back into the cache, surface message. */
-async function run(fn: () => Promise<HistoryMutationResult>, okMsg?: string): Promise<void> {
+/**
+ * Run a mutation, write the refreshed list back into the cache, surface message.
+ *
+ * `idsToDeselect` (code review): only the ids this specific call acted on are
+ * removed from `selected` on success -- not a blanket clear. Without this, a
+ * user who changes their selection WHILE a bulk action is in flight has that
+ * reselection silently wiped out when the in-flight call resolves, even though
+ * it had nothing to do with the completed action.
+ */
+async function run(
+  fn: () => Promise<HistoryMutationResult>,
+  idsToDeselect?: string[],
+): Promise<void> {
   if (busy.value) return
   busy.value = true
   try {
     const r = await fn()
     qc.setQueryData(QKEY, { items: r.items })
-    selected.value = new Set()
+    if (idsToDeselect?.length) {
+      const remaining = new Set(selected.value)
+      for (const id of idsToDeselect) remaining.delete(id)
+      selected.value = remaining
+    }
     if (r.message) notify.push(r.message, 'info')
-    else if (okMsg) notify.push(okMsg, 'success')
   } catch (e) {
     reportError(e)
   } finally {
@@ -67,10 +85,17 @@ async function run(fn: () => Promise<HistoryMutationResult>, okMsg?: string): Pr
   }
 }
 
-const onDelete = (id: string) => run(() => deleteHistory(id))
-const onRecheck = (id: string) => run(() => recheckHistory(id))
+const onDelete = (id: string) => run(() => deleteHistory(id), [id])
+const onRecheck = (id: string) => run(() => recheckHistory(id), [id])
 const onPurgeFailed = () => run(purgeFailedHistory)
-const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
+const onBulkDelete = () => {
+  const ids = [...selected.value]
+  return run(() => bulkDeleteHistory(ids), ids)
+}
+const onBulkRecheck = () => {
+  const ids = [...selected.value]
+  return run(() => bulkRecheckHistory(ids), ids)
+}
 
 const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 </script>
@@ -80,6 +105,14 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
     <header class="history__head">
       <h1>发布历史</h1>
       <div class="history__actions">
+        <button
+          type="button"
+          :disabled="busy || !selected.size"
+          class="bulk-recheck"
+          @click="onBulkRecheck"
+        >
+          重核选中 ({{ selected.size }})
+        </button>
         <button
           type="button"
           :disabled="busy || !selected.size"

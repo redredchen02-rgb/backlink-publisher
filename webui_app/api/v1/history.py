@@ -19,7 +19,7 @@ from flask import jsonify, request
 
 from ..history_api import HistoryAPI
 from . import bp
-from .errors import ApiProblem
+from .errors import ApiProblem, require_ids
 
 _api = HistoryAPI()
 
@@ -31,16 +31,6 @@ def _require_id(data: dict) -> str:
             422, "Missing id", detail="`id` is required.", error_class="invalid_request"
         )
     return item_id
-
-
-def _require_ids(data: dict) -> list[str]:
-    ids = data.get("ids")
-    if not isinstance(ids, list) or not ids:
-        raise ApiProblem(
-            422, "Missing ids", detail="`ids` must be a non-empty array.",
-            error_class="invalid_request",
-        )
-    return [str(i) for i in ids]
 
 
 @bp.get("/history")
@@ -60,7 +50,7 @@ def history_delete() -> Any:
 @bp.post("/history/bulk-delete")
 def history_bulk_delete() -> Any:
     """Delete multiple history entries → refreshed list."""
-    ids = _require_ids(request.get_json(silent=True) or {})
+    ids = require_ids(request.get_json(silent=True) or {})
     result = _api.bulk_delete(ids)
     return jsonify({"items": _api.list(), "message": result.get("flash_msg", "")})
 
@@ -81,5 +71,24 @@ def history_recheck() -> Any:
         raise ApiProblem(
             404, "History item not found", detail=result.get("flash_msg"),
             error_class="not_found",
+        )
+    return jsonify({"items": _api.list(), "message": result.get("flash_msg", "")})
+
+
+@bp.post("/history/bulk-recheck")
+def history_bulk_recheck() -> Any:
+    """Re-verify multiple history entries' link liveness → refreshed list.
+
+    Plan 2026-07-02-001 U3. A per-item verify outcome (e.g. a URL now dead) is
+    data, not an API failure -- ``HistoryAPI.bulk_recheck`` only returns
+    ``ok: False`` for genuine input problems (empty/unmatched ids), which is
+    honestly surfaced as 422 rather than a fake 200.
+    """
+    ids = require_ids(request.get_json(silent=True) or {})
+    result = _api.bulk_recheck(ids)
+    if not result.get("ok"):
+        raise ApiProblem(
+            422, "Bulk recheck failed", detail=result.get("flash_msg"),
+            error_class="invalid_request",
         )
     return jsonify({"items": _api.list(), "message": result.get("flash_msg", "")})

@@ -201,7 +201,9 @@ DEBT_COMMENT_RE = re.compile(r"#\s*debt:\s*(?P<slug>[\w.\-]+)")
 SANDBOX_SENTINEL = "BACKLINK_PUBLISHER_TEST_SANDBOX"
 
 # AST gate: the one allowlisted module that may contain raw home-path primitives.
-_RAW_HOME_ALLOWED_MODULE = "src/backlink_publisher/config/loader.py"
+# U8 reorg: the raw home-path primitives physically live in _util/paths.py
+# (config/loader.py imports _config_dir/_resolve_config_dir from there).
+_RAW_HOME_ALLOWED_MODULE = "src/backlink_publisher/_util/paths.py"
 
 # Sites whose .expanduser() calls on operator-supplied env vars are legitimate
 # (expanding BACKLINK_PUBLISHER_REAL_CHROME_* config, not constructing a raw root).
@@ -228,11 +230,17 @@ GRANDFATHERED_EXPANDUSER_SITES: frozenset[tuple[str, int]] = frozenset(
         # BACKLINK_PUBLISHER_REAL_CHROME_PROFILE_DIR may contain "~"; the
         # default arg now uses _config_dir() (folded in Unit 1) so the raw-root
         # escape is gone — only the env-var expansion remains.
-        # AST lineno 77 = start of the Path(os.environ.get(...)).expanduser()
+        # AST lineno 78 = start of the Path(os.environ.get(...)).expanduser()
         # multi-line expression (AST reports the opening line of the call).
         (
             "src/backlink_publisher/publishing/adapters/instant_web.py",
-            77,
+            78,
+        ),
+        # _parse_velog(): expands an operator-supplied [velog].cookies_path from
+        # config.toml (not an operator-state-root construction).
+        (
+            "src/backlink_publisher/config/loader.py",
+            177,
         ),
     }
 )
