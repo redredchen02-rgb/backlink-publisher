@@ -1,13 +1,31 @@
 <script setup lang="ts">
 // PR opportunity queue — Plan P12 A1 (SPA Phase 3 migration).
+//
+// Plan 2026-07-02-001 U15 B1: `pr_queue` is one of the blueprints
+// LITE_HIDDEN_BLUEPRINTS gates server-side (webui_app/__init__.py's
+// `_lite_surface_gate`) — under LITE edition every call to `/api/pr-queue`
+// 404s, unconditionally and permanently. That 404 is deliberately generic
+// ("uniform with any unmatched path, so it leaks no hidden-route existence" —
+// see the gate's own docstring), so it must NOT be made distinguishable from
+// a real 404 at the HTTP layer. Instead this page checks the same
+// `/app-config` `lite_edition` flag TopBar.vue already reads, and skips the
+// doomed request entirely — showing an accurate "unavailable in this
+// edition" empty state instead of classifyError's generic "出错了" +
+// a retry button that could never succeed.
 import { computed, onMounted, ref } from 'vue'
 import { fetchPrQueue, updatePrStatus, type PrItem } from '../../api/prQueue'
+import { getJson } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
+
+interface AppConfig {
+  lite_edition: boolean
+}
 
 const items = ref<PrItem[]>([])
 const error = ref<Error | null>(null)
 const loading = ref(true)
 const updating = ref<Set<string>>(new Set())
+const liteUnavailable = ref(false)
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'yellow',
@@ -21,14 +39,40 @@ const STATUS_COLORS: Record<string, string> = {
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
   if (loading.value) return 'loading'
   if (error.value) return 'error'
+  if (liteUnavailable.value) return 'empty'
   if (items.value.length === 0) return 'empty'
   return 'ready'
 })
 
+const emptyText = computed(() =>
+  liteUnavailable.value
+    ? 'PR 机会队列在当前版本（LITE）中未开放。'
+    : '暂无 PR 机会。通过 pr-opportunities ingest 导入 HARO/SOS/HaB2BW 摘要。',
+)
+
 const load = async () => {
   loading.value = true
   error.value = null
+  liteUnavailable.value = false
   try {
+    // The LITE check is a best-effort optimization, not a hard gate: a
+    // transient /app-config failure (network hiccup, timeout) must not
+    // block the actual queue fetch in full edition, where /api/pr-queue
+    // itself would have succeeded fine. Fail open to "not LITE" on error —
+    // code review found the original unconditional single try/catch here
+    // coupled pr-queue availability to an unrelated endpoint's health.
+    let isLite = false
+    try {
+      const config = await getJson<AppConfig>('/app-config')
+      isLite = config.lite_edition === true
+    } catch {
+      // Best-effort only — fall through to the real fetch below.
+    }
+    if (isLite) {
+      liteUnavailable.value = true
+      items.value = []
+      return
+    }
     items.value = await fetchPrQueue()
   } catch (e) {
     error.value = e instanceof Error ? e : new Error(String(e))
@@ -68,7 +112,7 @@ onMounted(load)
     <StateBlock
       :state="blockState"
       :error="error"
-      empty-text="暂无 PR 机会。通过 pr-opportunities ingest 导入 HARO/SOS/HaB2BW 摘要。"
+      :empty-text="emptyText"
       @retry="load"
     >
       <div class="data-table-wrap">
