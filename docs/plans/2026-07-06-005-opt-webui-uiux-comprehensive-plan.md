@@ -540,7 +540,11 @@ graph TB
 
 **Verification:** 兩份 blueprint 每一條在 checklist 中標記「已落地(commit 參照)/ 缺口(追蹤項)/ 不再適用(理由)」。
 
-- [ ] **W15: 首跑體驗——never_run 引導式空狀態 + B2 修復〔R15〕**
+- [x] **W15(部分):never_run 後端修復〔R15〕**——前端引導卡延後
+
+〔W15 執行結果,2026-07-06,分支 `fix/w15-never-run-health-projection`〕**只完成後端部分**,前端首頁引導卡明確延後(attention-dashboard 分支正在改首頁路由,避免衝突,待其落地後再做)。`health_projection.py::compute_health_json()` 修法:`never_run`(`last_pipeline_run is None`)改成獨立布林值,不再塞進 `degraded_reasons`;`degraded_reasons` 現在只含真實故障(channel expired/unreachable、scheduler not_running),`healthy = len(degraded_reasons)==0` 邏輯不變但輸入已淨化,所以純 never_run 安裝現在 `healthy: true`(`/api/v1/health` 回 200,不再 503);若 never_run 與真實故障並存,故障仍會讓 `healthy=False`(never_run 不會掩蓋真錯誤,已有專門測試釘住)。回應新增 `never_run`/`never_run_reason` 欄位;legacy `static/js/index.js` 的字串比對邏輯**未動**(範圍外)。19/19 相關測試綠、ruff 乾淨。
+
+**待辦(留給 W15 前端部分,等 attention-dashboard 落地後接手):**
 
 **Goal:** 全新安裝打開 WebUI 看到「下一步:執行第一次發布」引導,而非「系统降级」警告(使用者已裁決 D13)。
 
