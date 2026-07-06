@@ -24,7 +24,6 @@ from backlink_publisher.publishing.adapters.telegraph_api import (
     TelegraphAPIAdapter,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

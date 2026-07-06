@@ -7,14 +7,13 @@ __tier__ = "integration"
 
 import json
 import os
-import tempfile
 from pathlib import Path
+import tempfile
 
 import pytest
 
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.optimization.models import default_state
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

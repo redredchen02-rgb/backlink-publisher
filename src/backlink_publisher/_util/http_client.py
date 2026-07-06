@@ -162,6 +162,16 @@ def get_thread_local_client() -> HttpClient:
     return cast("HttpClient", _local.client)
 
 
-# Module-level default instance for convenience imports
-# Note: This is NOT thread-safe. Use get_thread_local_client() for thread safety.
-http_client = HttpClient()
+# Module-level convenience: wraps get_thread_local_client() so that the
+# singleton pattern ``from ..._util.http_client import http_client`` is
+# thread-safe by default. Each thread gets its own HttpClient instance.
+# Backward compat: all existing import patterns continue to work unchanged.
+class _ThreadLocalProxy:
+    """Proxy that forwards attribute access to a thread-local HttpClient."""
+
+    def __getattr__(self, name: str) -> Any:
+        client = get_thread_local_client()
+        return getattr(client, name)
+
+
+http_client: HttpClient = _ThreadLocalProxy()  # type: ignore[assignment]

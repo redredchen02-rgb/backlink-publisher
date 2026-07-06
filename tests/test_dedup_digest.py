@@ -1,12 +1,14 @@
 """Tests for idempotency._dedup_digest module."""
 
-from __future__ import annotations
 
+from __future__ import annotations
+__tier__ = "unit"
+
+from collections.abc import Generator
 import hashlib
 import hmac
 import os
 from pathlib import Path
-from typing import Generator
 
 import pytest
 
@@ -150,7 +152,7 @@ class TestDigestIntegration:
             pass
         with store2.connect() as conn:
             pass
-        
+
         key = DedupKey(platform="blogger", account="user", target_url="http://example.com")
         digest1 = store1.key_digest(key)
         digest2 = store2.key_digest(key)
@@ -166,7 +168,7 @@ class TestDigestIntegration:
             pass
         with store2.connect() as conn:
             pass
-        
+
         token1 = store1.store_token()
         token2 = store2.store_token()
         # Different stores should have different tokens (different secrets)

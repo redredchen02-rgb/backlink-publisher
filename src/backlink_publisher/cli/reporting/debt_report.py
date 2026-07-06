@@ -7,9 +7,9 @@ and emits each item as a JSONL row on stdout. stderr = diagnostics, exit 0 alway
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import sys
 import tomllib
-from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DEBT_FILE = _REPO_ROOT / "debt_registry.toml"
@@ -20,7 +20,7 @@ def main() -> None:
         print(f"debt-report: {_DEBT_FILE} not found — no debt tracked", file=sys.stderr)
         raise SystemExit(0)
 
-    registry = tomllib.loads(_DEBT_FILE.read_text())
+    registry = tomllib.loads(_DEBT_FILE.read_text(encoding="utf-8"))
     items = registry.get("items", [])
     open_count = sum(1 for i in items if i.get("status") == "open")
     print(f"debt-report: {len(items)} items ({open_count} open)", file=sys.stderr)

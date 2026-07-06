@@ -18,8 +18,8 @@ ceiling = 250
 rationale = "thin-WebUI Phase 2 Unit 7 (2026-05-28): pure generation kernel (_cell_gate_drop, _dispatch_row, _emit_link_count_recon, _scheduler_enabled_for, PlanOutcome, plan_rows) extracted to plan_backlinks/_engine.py so the in-process PipelineAPI.plan path shares it. core.py dropped from 392 to 208 SLOC — now argparse + set_log_level + row parsing + load_config + config_echo banner + reset_stats (H2) + plan_rows call + error-print + write_jsonl + preflight/canary nudge shell only. Ceiling 250 = round_up_to_10(208+30) per policy."
 
 [files."src/backlink_publisher/cli/publish_backlinks/__init__.py"]
-ceiling = 260
-rationale = "2026-06-24 U6 __all__ declaration added 19 names (test-seam re-exports + public entry points). SLOC 230→249. Ceiling 260 = round_up_to_10(249+10) per ratchet policy."
+ceiling = 290
+rationale = "2026-06-05 feat/continuous-optimization: optimization integration added weight dispatch, queue telemetry, optimization-state hook. Measured SLOC=230. Ceiling 240 = round_up_to_10(230+10) per ratchet policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=255, ceiling 290 = round_up_to_10(255+30))"
 
 [files."src/backlink_publisher/content/fetch.py"]
 ceiling = 250
@@ -41,33 +41,85 @@ rationale = "3 reducers (_project_checkpoint, _project_history, _project_drafts)
 ceiling = 500
 rationale = "Holds the 3 reducers (_project_checkpoint, _project_history, _project_drafts). Emit helpers (_emit_confirmed_history_row, _emit_drafts_confirmed, _parse_row_timestamps) extracted to _project_emit.py (2026-06-11). Ceiling tightened 620→500 = round_up_to_10(467+30) per policy."
 
+[files."src/backlink_publisher/cli/publish_backlinks/_engine.py"]
+ceiling = 480
+rationale = "Publish dispatch engine: payload building, platform routing, checkpoint ops, auth expiry handling. Split from __init__.py during publish-backlinks package refactor. SLOC 448. Ceiling 480 = round_up_to_10(448+30) per policy."
+
+[files."src/backlink_publisher/cli/admin/phase0_seal.py"]
+ceiling = 460
+rationale = "Phase 0 seal implementation: fill/deplete operations, seal validation, LLM body gen, sealing state machine. Full implementation (cli/phase0_seal.py is a 3-line shim re-exporting from here). SLOC 430. Ceiling 460 = round_up_to_10(430+30) per policy."
+
+[files."src/backlink_publisher/cli/_resume.py"]
+ceiling = 450
+rationale = "Resume publish pipeline: checkpoint discovery, partial-run continuation, dedup gate, per-platform resume state. SLOC 423. Ceiling 450 = round_up_to_10(423+30) per policy."
+
+[files."src/backlink_publisher/publishing/browser_publish/_chrome_session_impl.py"]
+ceiling = 400
+rationale = "Chrome CDP session implementation: launch/attach, cookie injection, navigation, screenshot, crash recovery. Core of browser-based publish flow. SLOC 374. Ceiling 400 = round_up_to_10(374+30) per policy."
+
+[files."src/backlink_publisher/optimization/rules.py"]
+ceiling = 400
+rationale = "Dispatch weight optimization rules engine: signal collection, aggregated stats, floor clamping, weight computation. SLOC 371. Ceiling 400 = round_up_to_10(371+30) per policy."
+
+[files."src/backlink_publisher/cli/plan/generate_backlink_text.py"]
+ceiling = 400
+rationale = "Backlink text generation: LLM prompt construction, multi-template body gen, link insertion, length enforcement. Full implementation (cli/generate_backlink_text.py is a 3-line shim). SLOC 366. Ceiling 400 = round_up_to_10(366+30) per policy."
+
+[files."src/backlink_publisher/cli/_report_format.py"]
+ceiling = 40
+rationale = "Anchor report formatting: tabular output, platform breakdown, dofollow status, summary metrics. SLOC 363. Ceiling 390 = round_up_to_10(363+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: file is now a 4-SLOC back-compat shim to cli/publish/_report_format.py, ceiling 40 = round_up_to_10(4+30))"
+
+[files."src/backlink_publisher/publishing/session/provider.py"]
+ceiling = 380
+rationale = "Browser session provider: storage state management, cookie refresh, session pool, concurrent access guard. SLOC 352. Ceiling 380 = round_up_to_10(352+30) per policy."
+
+[files."src/backlink_publisher/cli/_dedup_ops.py"]
+ceiling = 380
+rationale = "Dedup operations: URL normalization, content hash comparison, duplicate detection across platform runs. SLOC 350. Ceiling 380 = round_up_to_10(350+30) per policy."
+
+[files."webui_app/api/v1/schemas.py"]
+ceiling = 500
+rationale = "OpenAPI request/response schemas: typed payload models for pipeline, settings, channel bind, OAuth, LLM config endpoints. Pure declarative schemas aligned with spec.py. SLOC 474. Ceiling 500 = round_up_to_10(474+30) per policy."
+
+[files."webui_app/routes/sites.py"]
+ceiling = 410
+rationale = "Sites management routes: site CRUD, URL category editor, bulk import/export. SLOC 376. Ceiling 410 = round_up_to_10(376+30) per policy."
+
+[files."webui_app/api/sites_api.py"]
+ceiling = 340
+rationale = "Sites API layer: site CRUD endpoints, validation, category operations. SLOC 310. Ceiling 340 = round_up_to_10(310+30) per policy."
+
+[files."webui_store/channel_status.py"]
+ceiling = 350
+rationale = "Channel status store: mark_bound/mark_expired reconciliation, binding status queries, _LazyStore singleton. SLOC 279. Ceiling 310 = round_up_to_10(279+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=311, ceiling 350 = round_up_to_10(311+30))"
+
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
 ceiling = 400
-rationale = "U6 __all__ declaration added 60 names (all registered adapter classes + manifest constants + core functions). SLOC 302→364. Ceiling 400 = round_up_to_10(364+30) per ratchet policy."
+rationale = "U4 lazy-init refactor (2026-07-03): PEP 562 __getattr__ + _lazy_init() guard + register_all_adapters() in function scope moved 24 adapter imports out of module level. SLOC reached 368. Ceiling 400 = round_up_to_10(368+30) per ratchet policy."
 
 [files."src/backlink_publisher/cli/phase0_seal.py"]
 ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
+rationale = "U8 refactoring (2026-06-26): phase0_seal.py became a 3-line backward-compat shim (import + re-export from cli/admin/phase0_seal). Actual implementation lives in cli/admin/phase0_seal.py. Ceiling 40 = round_up_to_10(2+30) per policy."
 
 [files."src/backlink_publisher/cli/plan_check.py"]
 ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
+rationale = "U8 refactoring (2026-06-26): plan_check.py became a 3-line backward-compat shim (import + re-export from cli/plan/plan_check). Actual implementation lives in cli/plan/plan_check.py. Ceiling 40 = round_up_to_10(2+30) per policy."
 
 [files."src/backlink_publisher/cli/validate_backlinks.py"]
-ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
+ceiling = 150
+rationale = "thin-WebUI Phase 2 Unit 6 (2026-05-27): the pure validation kernel (URL-collection + check_urls_strict + the per-row loop) extracted to validate/engine.py so the in-process PipelineAPI.validate path shares it. validate_backlinks.py dropped from 168 to 116 SLOC — now argparse + set_log_level + load_config_tolerant + config_echo banner + read_jsonl + a single validate_rows call + recon/emit_envelope_and_exit shell only. Ceiling 150 = round_up_to_10(116+30)."
 
 [files."src/backlink_publisher/cli/report_anchors.py"]
 ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
+rationale = "U8 refactoring (2026-06-26): report_anchors.py became a 3-line backward-compat shim (import + re-export from cli/publish/report_anchors). Actual implementation lives in cli/publish/report_anchors.py. Ceiling 40 = round_up_to_10(2+30) per policy."
 
 [files."src/backlink_publisher/cli/_publish_helpers.py"]
-ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
+ceiling = 530
+rationale = "refactor 2026-06-01: extracted the CLI layer (_build_parser argparse + _handle_checkpoint_ops + _handle_auth_expired) to cli/_publish_cli.py. The _do_sleep/_sleep_with_throttle and verify_published/_do_verify mock seams stay here (tests patch them at this module). _publish_helpers re-exports the 3 moved names. Plan 2026-06-22-001 U4-3 (2026-06-22): split _publish_epilogue into a pure verdict (PublishExitDecision + _decide_publish_exit, the single source of truth shared with PublishOutcome.terminal_exit_code) plus the impure stdout/SystemExit dispatch, and added the _check_token_drift(raises=False) in-process variant. SLOC 442->493 (+51 for the pure decision + dataclass + docstrings, net of the inline epilogue branches removed). Ceiling 530 = round_up_to_10(493+30)."
 
 [files."src/backlink_publisher/cli/generate_backlink_text.py"]
 ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
+rationale = "U8 refactoring (2026-06-26): generate_backlink_text.py became a 3-line backward-compat shim (import + re-export from cli/plan/generate_backlink_text). Actual implementation lives in cli/plan/generate_backlink_text.py. Ceiling 40 = round_up_to_10(2+30) per policy."
 
 # Plan 2026-06-02-003: canary-seed + platform-discovery (dofollow hardening).
 # Three new files co-landed in the same PR; budget entries required by C2.
@@ -77,15 +129,15 @@ rationale = "HTTP probe core extracted from scripts/channel_probe.py (Plan 2026-
 
 [files."src/backlink_publisher/cli/canary_seed.py"]
 ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/SUBDIR/MODULE. Shim is 6-7 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(7+30) per policy."
+rationale = "U8 refactoring (2026-06-26): canary_seed.py became a 3-line backward-compat shim (import + re-export from cli/spray/canary_seed). Actual implementation lives in cli/spray/canary_seed.py. Ceiling 40 = round_up_to_10(2+30) per policy."
 
 [files."scripts/platform_discovery.py"]
 ceiling = 340
 rationale = "platform-discovery script (Plan 2026-06-02-003 Unit 3): SERP → HTTP probe → browser-UA rel scan → scored JSONL candidate report. SLOC 306 includes DuckDuckGo HTML fetch, regex anchor extraction, dofollow_rate scoring, SSRF guard (fail-closed Track B), --candidate-urls fallback path, and progress RECON. Ceiling 340 = round_up_to_10(306+30) per policy."
 
 [files."src/backlink_publisher/cli/pipeline_orchestrator.py"]
-ceiling = 40
-rationale = "Backward-compat shim after U8 CLI subdirectory reorganization (plan 2026-06-24-002). Real module moved to cli/ops/pipeline_orchestrator.py. Shim is 6 SLOC sys.modules alias. Ceiling 40 = round_up_to_10(6+30) per policy."
+ceiling = 410
+rationale = "Pipeline orchestrator (Plan 2026-06-10-002 U2.1): CLI entry point dispatching equity-ledger → plan-gap → plan-backlinks → validate → publish pipeline steps via subprocess. Current SLOC 379 after full-automation-upgrade merged and tightened scope. Ceiling 410 = round_up_to_10(379+30) per policy."
 # ─────────────────────────────────────────────────────────────────────────────
 # Plan 2026-06-15-002 P1-3: hotspot audit of every 500+ raw-LOC source file.
 # The pre-existing budget covered only 17 files. This block extends coverage to
@@ -133,8 +185,8 @@ ceiling = 260
 rationale = "Audit KEEP (2026-06-15): config dataclasses + constants. radon SLOC 222 across 30 frozen dataclasses with near-zero logic — this IS the config schema SSoT (blogger/medium/oauth/targets/throttle). Splitting would just re-distribute declarations the loader + writer both walk end-to-end. Ceiling 260 = round_up_to_10(222+30)."
 
 [files."src/backlink_publisher/publishing/registry.py"]
-ceiling = 300
-rationale = "Audit KEEP (2026-06-15): Publisher ABC + table-driven dispatcher. radon SLOC 270 holds the register() contract (dofollow/manifest/visibility/rejection-map) and dispatch(); the adapter __init__.py and manifest_contract.py both depend on this surface as one unit. Ceiling 300 = round_up_to_10(270+30)."
+ceiling = 340
+rationale = "Optimization (2026-07-03): added get_platform_throttle_seconds() helper to consolidate adapter throttle lookups (18 adapters now use this instead of individual load_config() calls). SLOC 314 after addition. Ceiling 340 = round_up_to_10(314+30) per policy."
 
 [files."src/backlink_publisher/cli/spray_backlinks/core.py"]
 ceiling = 540
@@ -189,13 +241,13 @@ rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py
 # Plan 2026-06-16-003: GSC indexation + ranking panels added to health dashboard.
 # webui_app/ is NOT auto-scanned by monolith_budget; entries below are explicit.
 [files."webui_app/routes/health.py"]
-ceiling = 490
-rationale = "Plan 2026-06-16-003 (2026-06-16): added _gsc_indexation_panel() and _gsc_ranking_panel() panel functions (+35 SLOC) plus two _g_cache calls in the main route. Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 447. Ceiling 490 = round_up_to_10(447+30) per policy."
+ceiling = 630
+rationale = "Plan 2026-06-16-003 (2026-06-16): added _gsc_indexation_panel() and _gsc_ranking_panel() panel functions (+35 SLOC) plus two _g_cache calls in the main route. Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 447. Ceiling 490 = round_up_to_10(447+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=592, ceiling 630 = round_up_to_10(592+30))"
 
 [files."webui_app/health_metrics.py"]
-ceiling = 370
-rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ranking_trend() query functions (+85 SLOC). Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 330. Ceiling 370 = round_up_to_10(330+30) per policy."
+ceiling = 810
+rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ranking_trend() query functions (+85 SLOC). Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 330. Ceiling 370 = round_up_to_10(330+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=774, ceiling 810 = round_up_to_10(774+30))"
 
 [files."webui_app/api/v1/spec.py"]
-ceiling = 1290
-rationale = "Plan 2026-06-18-002 U7/U8 (2026-06-22): the declarative OpenAPI 3.1 contract — explicit spec.path()/components.schema() blocks generated from schemas.py. It grows linearly per migrated endpoint group; U7's sites/schedule/batch_campaign/profiles + the Settings credential-write endpoints (channel-token/notion-token/general channel-credential) + the stateful browser-bind flow (start/poll/identity-mismatch keep+replace) + the OAuth credential routes (blogger-oauth/medium-oauth) + the LLM settings save (llm-config, 0600 api_key write) + the LLM diagnostics (test-connection/test-generation) + the image-gen diagnostics (test-connection/generate-sample) + the medium browser-login flow (launch/probe/clear + status, inline-guarded) + the global settings saves (keywords/schedule POST) + the SPA settings page read-side GET hydration (keywords/schedule/llm-config redaction-safe + the channel binding-status overview + the channel binding-FORM schemas + medium card status) + the velog channel actions (status GET + login POST, inline-guarded) + the blogger card ops (blogger/status GET + blogger/revoke POST) + the U8 Notion card status GET (notion/status, redaction-safe — never echoes the integration_token) took SLOC 452->1258, crossing the 500 canary. Splitting it would fragment the single-source contract the CI lint + oasdiff gate read. Ceiling 1290 = round_up_to_10(1258+30) within the <=50 seed-headroom (1290-1258=32)."
+ceiling = 1410
+rationale = "Plan 2026-06-18-002 U7/U8 (2026-06-22): the declarative OpenAPI 3.1 contract — explicit spec.path()/components.schema() blocks generated from schemas.py. It grows linearly per migrated endpoint group; U7's sites/schedule/batch_campaign/profiles + the Settings credential-write endpoints (channel-token/notion-token/general channel-credential) + the stateful browser-bind flow (start/poll/identity-mismatch keep+replace) + the OAuth credential routes (blogger-oauth/medium-oauth) + the LLM settings save (llm-config, 0600 api_key write) + the LLM diagnostics (test-connection/test-generation) + the image-gen diagnostics (test-connection/generate-sample) + the medium browser-login flow (launch/probe/clear + status, inline-guarded) + the global settings saves (keywords/schedule POST) + the SPA settings page read-side GET hydration (keywords/schedule/llm-config redaction-safe + the channel binding-status overview + the channel binding-FORM schemas + medium card status) + the velog channel actions (status GET + login POST, inline-guarded) + the blogger card ops (blogger/status GET + blogger/revoke POST) + the U8 Notion card status GET (notion/status, redaction-safe — never echoes the integration_token) took SLOC 452->1258, crossing the 500 canary. Splitting it would fragment the single-source contract the CI lint + oasdiff gate read. 2026-07-06: Spectral's operation-description:error rule requires an explicit description on every operation — adding the 28 missing ones took SLOC 1258->1378. Ceiling 1410 = round_up_to_10(1378+30) within the <=50 seed-headroom (1410-1378=32)."

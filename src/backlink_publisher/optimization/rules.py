@@ -22,9 +22,9 @@ import datetime
 import logging
 from typing import Any
 
-from .models import RuleResult, now_iso
+from .models import RuleResult
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # Rule names
 RULE_CANARY_DRIFT = "canary_drift"
@@ -73,19 +73,21 @@ def evaluate_rules(
             continue
         config = rules_config.get(rule_name, {})
         if not config.get("enabled", True):
-            logger.debug("Rule %s is disabled — skipping", rule_name)
+            log.debug("Rule %s is disabled — skipping", rule_name)
             continue
 
         fn = _RULE_REGISTRY.get(rule_name)
         if fn is None:
-            logger.warning("Unknown rule %s — skipping", rule_name)
+            log.warning("Unknown rule %s — skipping", rule_name)
             continue
 
         try:
             rule_results = fn(resolved_state_data, config)
             results.extend(rule_results)
-        except Exception:
-            logger.exception("Rule %s raised unexpectedly — skipping", rule_name)
+        except (ValueError, KeyError, TypeError):
+            # Logged with full traceback (not silenced) then skipped — one
+            # misbehaving rule must not abort evaluation of the others.
+            log.exception("Rule %s raised unexpectedly — skipping", rule_name)
 
     return results
 
@@ -141,7 +143,11 @@ def _rule_canary_drift(
                 if updated_at_str:
                     try:
                         suppressed_dt = datetime.datetime.fromisoformat(updated_at_str)
-                        elapsed = (datetime.datetime.now() - suppressed_dt).total_seconds()
+                        # Handle legacy naive timestamps (stored before P11 optimization).
+                        # Treat them as UTC to match the now-aware comparison.
+                        if suppressed_dt.tzinfo is None:
+                            suppressed_dt = suppressed_dt.replace(tzinfo=datetime.UTC)
+                        elapsed = (datetime.datetime.now(datetime.UTC) - suppressed_dt).total_seconds()
                         if elapsed < cooldown_days * 86400:
                             results.append(
                                 _make_result(
@@ -498,17 +504,28 @@ def apply_results(state: Any, results: list[RuleResult]) -> int:
 
     Only results where ``applied=True`` are persisted. Returns the count of
     applied results.
+
+    Uses batch ``update_many_weights`` when available (P11 optimization) to
+    perform a single load-modify-save cycle instead of N separate calls.
     """
-    count = 0
-    for r in results:
-        if not r.applied:
-            continue
-        state.set_weight(
-            r.platform,
-            r.new_weight,
-            rule=r.rule_name,
-            reason=r.reason,
-            intentional_zero=r.intentional_zero,
-        )
-        count += 1
-    return count
+    applied = [r for r in results if r.applied]
+    if not applied:
+        return 0
+
+    if hasattr(state, "update_many_weights"):
+        updates = [
+            (r.platform, r.new_weight, r.rule_name, r.reason, r.intentional_zero)
+            for r in applied
+        ]
+        state.update_many_weights(updates)
+    else:
+        # Fallback for mock/test objects without the batch method
+        for r in applied:
+            state.set_weight(
+                r.platform,
+                r.new_weight,
+                rule=r.rule_name,
+                reason=r.reason,
+                intentional_zero=r.intentional_zero,
+            )
+    return len(applied)

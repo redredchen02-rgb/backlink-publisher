@@ -8,7 +8,7 @@ excluded, latest-outcome total order, and "no data" vs "0%".
 from __future__ import annotations
 
 __tier__ = "integration"
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 import pytest
 
@@ -217,7 +217,7 @@ def test_broken_channels_filters_to_expired_and_identity_mismatch(monkeypatch):
 
 def test_build_health_assembles_all_aggregates(monkeypatch):
     s = _store()
-    now = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, 12, 0, tzinfo=UTC)
     _append(s, "publish.confirmed", target_url="https://a.com",
             ts_utc="2026-05-20T10:00:00+00:00")
     _append(s, "publish.failed", target_url="https://b.com",
@@ -236,7 +236,7 @@ def test_build_health_assembles_all_aggregates(monkeypatch):
 
 def test_build_health_window_drops_events_before_lookback(monkeypatch):
     s = _store()
-    now = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, 12, 0, tzinfo=UTC)
     _append(s, "publish.confirmed", target_url="https://old.com",
             ts_utc="2026-03-01T10:00:00+00:00")  # ~80 days before now
     monkeypatch.setattr("webui_store.channel_status.list_all", lambda: {})

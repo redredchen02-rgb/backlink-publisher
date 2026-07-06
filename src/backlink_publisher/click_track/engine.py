@@ -5,14 +5,14 @@ Shell layer: :mod:`backlink_publisher.cli.click_track`.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
+import logging
 
 from backlink_publisher.click_track.store import ClickRow
 from backlink_publisher.config import ClickTrackConfig
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Maximum retry attempts for transient GA4 API errors.
 _MAX_RETRIES = 3
@@ -105,8 +105,8 @@ def query_site(
         from google.analytics.data_v1beta.types import (
             DateRange,
             Dimension,
-            FilterExpression,
             Filter,
+            FilterExpression,
             Metric,
             RunReportRequest,
         )
@@ -115,7 +115,7 @@ def query_site(
         return ClickQueryResult(
             target_site=target_site,
             error_class="dependency_missing",
-            error_reason=f"google-analytics-data not installed: {exc}",
+            error_reason=f"google-analytics-data not installed. Install with: pip install backlink-publisher[analytics]: {exc}",
         )
 
     try:
@@ -127,7 +127,7 @@ def query_site(
         else:
             client = BetaAnalyticsDataClient()
 
-        now = end_date or datetime.now(timezone.utc)
+        now = end_date or datetime.now(UTC)
         start = now - timedelta(days=window_days)
         window_start_iso = start.strftime("%Y-%m-%d")
         window_end_iso = now.strftime("%Y-%m-%d")
@@ -161,7 +161,7 @@ def query_site(
         response = client.run_report(request)
         stats = _parse_rows(response, target_site, window_start_iso, window_end_iso)
 
-        _log.info(
+        log.info(
             "query_site(%s, property=%s) — %d rows, window=%dd",
             target_site,
             property_id,
@@ -171,7 +171,7 @@ def query_site(
         return ClickQueryResult(target_site=target_site, stats=stats)
 
     except Exception as exc:
-        _log.warning("query_site(%s) failed: %s", target_site, exc)
+        log.warning("query_site(%s) failed: %s", target_site, exc)
         return ClickQueryResult(
             target_site=target_site,
             error_class=_classify_error(exc),
@@ -250,7 +250,7 @@ def handle_site(
         Query result.
     """
     if opts.dry_run:
-        _log.info("[dry-run] would query target_site=%s property=%s", target_site, property_id)
+        log.info("[dry-run] would query target_site=%s property=%s", target_site, property_id)
         return ClickQueryResult(target_site=target_site)
 
     return query_site(

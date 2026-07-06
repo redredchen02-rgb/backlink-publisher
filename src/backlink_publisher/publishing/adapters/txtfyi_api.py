@@ -43,10 +43,11 @@ from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
+
 from .base import AdapterResult
 from .http_form_post import (
-    DEFAULT_TIMEOUT,
     attach_link_verification,
+    DEFAULT_TIMEOUT,
     extract_hidden_fields,
     fetch_form,
     submit_form,
@@ -194,7 +195,6 @@ class TxtfyiFormPostAdapter(Publisher):
 
         # 2. Publish with tarpit retry.
         base_delay = _submit_delay_seconds()
-        saw_tarpit: bool = False
 
         for attempt in range(1, _TARPIT_RETRY_MAX + 1):
             try:
@@ -206,9 +206,8 @@ class TxtfyiFormPostAdapter(Publisher):
             except ExternalServiceError as exc:
                 is_tarpit = "did not redirect" in str(exc)
                 if is_tarpit:
-                    saw_tarpit = True
                     if attempt < _TARPIT_RETRY_MAX:
-                        log.warn(
+                        log.warning(
                             "txtfyi_tarpit_retry",
                             id=article_id,
                             attempt=attempt,

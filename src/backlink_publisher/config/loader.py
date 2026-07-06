@@ -4,32 +4,23 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 import stat
 import tomllib
-from pathlib import Path
+from typing import cast
 
+from backlink_publisher._util.cache import _ttl_cache_get, _ttl_cache_set
 from backlink_publisher._util.errors import DependencyError
-
-from .tokens import load_medium_integration_token
-from .types import (
-    BloggerOAuthConfig,
-    ClickTrackConfig,
-    Config,
-    GhpagesConfig,
-    GitlabPagesConfig,
-    GscConfig,
-    MastodonConfig,
-    ZennConfig,
-    MediumOAuthConfig,
-    ThreeUrlConfig,
-    VelogConfig,
+from backlink_publisher._util.paths import (
+    _cache_dir,  # noqa: F401 — re-exported for config.__init__
+    _config_dir,  # noqa: F401 — re-exported for config.__init__
+    _resolve_config_dir,
 )
 
 from .parsers.alarm import _parse_anchor_alarm
 from .parsers.anchor import _parse_anchor_proportions
 from .parsers.cells import _parse_cell_assignments
 from .parsers.geo import _parse_geo_probe_provider
-from .parsers.throttle import _parse_platform_throttle
 from .parsers.image_gen import _parse_image_gen
 from .parsers.llm import _llm_provider_from_sidecar, _parse_llm_anchor_provider
 from .parsers.target import (
@@ -42,97 +33,39 @@ from .parsers.three_url import (
     _parse_site_url_categories,
     _parse_target_three_url,
 )
-
-
-def _resolve_config_dir() -> Path:
-    """Indirect lookup so test monkeypatch on
-    ``backlink_publisher.config._config_dir`` intercepts even when called
-    from inside loader.py (where the local ``_config_dir`` would otherwise
-    be a module-internal globals lookup, missed by the package-level patch)."""
-    from backlink_publisher import config as _cfg
-
-    return _cfg._config_dir()
-
-
-_log = logging.getLogger(__name__)
-
-
-_SANDBOX_SENTINEL = "BACKLINK_PUBLISHER_TEST_SANDBOX"
-_FAIL_CLOSED_MSG = (
-    "{override_key} is unset but {sentinel} is set — the test harness "
-    "is active without a sandboxed {desc} directory. "
-    "This usually means a subprocess was spawned without propagating the "
-    "override env var. Fix: pass {override_key} to the child process, or "
-    "unset {sentinel} if you are not running the test suite."
+from .parsers.throttle import _parse_platform_throttle
+from .tokens import load_medium_integration_token
+from .types import (
+    BloggerOAuthConfig,
+    ClickTrackConfig,
+    Config,
+    GhpagesConfig,
+    GitlabPagesConfig,
+    GscConfig,
+    MastodonConfig,
+    MediumOAuthConfig,
+    ThreeUrlConfig,
+    VelogConfig,
+    ZennConfig,
 )
 
-
-def _config_dir() -> Path:
-    """Resolve the config directory.
-
-    Honors ``BACKLINK_PUBLISHER_CONFIG_DIR`` when set so tests, CI, and
-    containers can point at an isolated directory without touching the
-    operator's real ``~/.config/backlink-publisher/``. Falls back to
-    platform defaults otherwise.
-
-    **Test-only fail-closed branch:** if the sentinel
-    ``BACKLINK_PUBLISHER_TEST_SANDBOX`` is set but no override is configured,
-    the call raises ``RuntimeError`` rather than silently resolving to the
-    operator's real home. This catches subprocess spawns inside the test
-    suite that forgot to propagate ``BACKLINK_PUBLISHER_CONFIG_DIR``.
-    Production code is unaffected (the sentinel is never set outside tests).
-    """
-    override = os.environ.get("BACKLINK_PUBLISHER_CONFIG_DIR")
-    if override:
-        return Path(override)
-    # Fail-closed in test-sandbox mode: no override + sentinel set → raise.
-    if os.environ.get(_SANDBOX_SENTINEL):
-        raise RuntimeError(
-            _FAIL_CLOSED_MSG.format(
-                override_key="BACKLINK_PUBLISHER_CONFIG_DIR",
-                sentinel=_SANDBOX_SENTINEL,
-                desc="config",
-            )
-        )
-    if os.name == "nt":
-        base = Path(os.environ.get("APPDATA", Path.home()))
-    else:
-        base = Path.home() / ".config"
-    return base / "backlink-publisher"
-
-
-def _cache_dir() -> Path:
-    """Resolve the cache directory.
-
-    Honors ``BACKLINK_PUBLISHER_CACHE_DIR`` for the same reasons as
-    ``_config_dir`` — keeps ``~/.cache/backlink-publisher/`` (checkpoints,
-    anchor profiles) untouched during tests.
-
-    **Test-only fail-closed branch:** mirrors ``_config_dir()`` — raises when
-    the sentinel is set but no cache override is configured.
-    """
-    override = os.environ.get("BACKLINK_PUBLISHER_CACHE_DIR")
-    if override:
-        return Path(override)
-    # Fail-closed in test-sandbox mode.
-    if os.environ.get(_SANDBOX_SENTINEL):
-        raise RuntimeError(
-            _FAIL_CLOSED_MSG.format(
-                override_key="BACKLINK_PUBLISHER_CACHE_DIR",
-                sentinel=_SANDBOX_SENTINEL,
-                desc="cache",
-            )
-        )
-    if os.name == "nt":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home()))
-    else:
-        base = Path.home() / ".cache"
-    return base / "backlink-publisher"
+log = logging.getLogger(__name__)
 
 
 def load_config(path: Path | None = None) -> Config:
-    """Load config from TOML file. Missing file → empty Config (not an error)."""
+    """Load config from TOML file. Missing file → empty Config (not an error).
+
+    Results are cached for 15 seconds (TTL) to avoid re-parsing TOML on every
+    HTTP request. Call ``_ttl_cache_delete(f"load_config:{path}")`` to force a fresh
+    read (e.g. after saving config via the WebUI).
+    """
+    # Check cache first (TTL-based, thread-safe).
+    # Key by resolved path so tests loading different files don't collide.
     config_path = path or (_resolve_config_dir() / "config.toml")
+    cache_key = f"load_config:{config_path}"
+    cached = _ttl_cache_get(cache_key)
+    if cached is not None:
+        return cast(Config, cached)
     if not config_path.exists():
         # No config.toml, but a WebUI-saved llm-settings.json sidecar (or
         # BACKLINK_LLM_* env) can still configure the provider. Same precedence
@@ -204,7 +137,7 @@ def load_config(path: Path | None = None) -> Config:
     # continue to work; the dispatcher will prefer the work-themed flow.
     for domain_key in target_three_url:
         if domain_key in site_url_categories or domain_key in target_anchor_pools_v2:
-            _log.info(
+            log.info(
                 "[sites.%r] is in maintenance mode; consider migrating to "
                 "[targets.%r] three-URL form",
                 domain_key,
@@ -305,7 +238,7 @@ def load_config(path: Path | None = None) -> Config:
 
     cell_assignments = _parse_cell_assignments(data.get("cells"))
 
-    return Config(
+    result = Config(
         blogger_blog_ids=blog_ids,
         blogger_oauth=blogger_oauth,
         medium_oauth=medium_oauth,
@@ -334,6 +267,9 @@ def load_config(path: Path | None = None) -> Config:
         cell_assignments=cell_assignments,
         platform_throttle=platform_throttle,
     )
+    # Cache the result (15s TTL) so repeated HTTP requests don't re-parse TOML.
+    _ttl_cache_set(cache_key, result, ttl=15.0)
+    return result
 
 
 def _resolve_medium_integration_token(toml_value: str | None) -> str | None:
@@ -387,7 +323,7 @@ def _warn_if_loose_config_permissions(
     except OSError:
         return
     if mode != 0o600:
-        _log.warning(
+        log.warning(
             "config file %s has mode %s and contains credential sections %s; "
             "set permissions to 0600 (chmod 600) to prevent credential leakage",
             config_path,

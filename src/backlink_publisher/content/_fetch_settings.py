@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import os
 
-
 FETCH_TIMEOUT: int = 10
 """Wall-clock budget per single GET attempt."""
 

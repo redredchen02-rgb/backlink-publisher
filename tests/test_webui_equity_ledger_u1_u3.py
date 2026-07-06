@@ -4,6 +4,7 @@ from __future__ import annotations
 __tier__ = "unit"
 
 import json
+
 import pytest
 
 from backlink_publisher.events import EventStore
@@ -41,7 +42,7 @@ def _seed():
 def test_u1_page_title_is_chinese(client):
     """Page renders with Chinese title instead of English."""
     _seed()
-    html = client.get("/ce:equity-ledger").get_data(as_text=True)
+    html = client.get("/ce:equity-ledger/jinja").get_data(as_text=True)
     assert "外链权益台账" in html
     # English title must NOT appear
     assert "Backlink Equity Ledger" not in html
@@ -50,7 +51,7 @@ def test_u1_page_title_is_chinese(client):
 def test_u1_stale_label_uses_chinese(client):
     """Stale label uses Chinese (超过 X 天)."""
     _seed()
-    html = client.get("/ce:equity-ledger?stale_days=7").get_data(as_text=True)
+    html = client.get("/ce:equity-ledger/jinja?stale_days=7").get_data(as_text=True)
     assert "天" in html
     # Old English form must not appear
     assert "stale &gt; 7d" not in html
@@ -58,7 +59,7 @@ def test_u1_stale_label_uses_chinese(client):
 
 def test_u1_stats_bar_element_present(client):
     """Stats bar element (#statsBar) is present in the DOM."""
-    html = client.get("/ce:equity-ledger").get_data(as_text=True)
+    html = client.get("/ce:equity-ledger/jinja").get_data(as_text=True)
     assert "statsBar" in html
 
 
@@ -67,14 +68,14 @@ def test_u1_stats_bar_element_present(client):
 def test_u2_bootstrap_includes_missing_dofollow_platforms(client):
     """Row bootstrap data includes missing_dofollow_platforms list."""
     _seed()
-    html = client.get("/ce:equity-ledger").get_data(as_text=True)
+    html = client.get("/ce:equity-ledger/jinja").get_data(as_text=True)
     assert "missing_dofollow_platforms" in html
 
 
 def test_u2_missing_is_list_of_strings(client):
     """missing_dofollow_platforms is a list of strings in the JSON."""
     _seed()
-    html = client.get("/ce:equity-ledger").get_data(as_text=True)
+    html = client.get("/ce:equity-ledger/jinja").get_data(as_text=True)
     # Extract the bootstrap JSON
     marker = "window.__equityLedgerBootstrap = "
     idx = html.index(marker) + len(marker)
@@ -91,7 +92,7 @@ def test_u2_missing_is_list_of_strings(client):
 
 def test_u3_preset_chips_rendered(client):
     """Template contains preset filter chips with data-preset attributes."""
-    html = client.get("/ce:equity-ledger").get_data(as_text=True)
+    html = client.get("/ce:equity-ledger/jinja").get_data(as_text=True)
     assert 'data-preset="all"' in html
     assert 'data-preset="needs-attention"' in html
     assert 'data-preset="weak"' in html
@@ -100,7 +101,7 @@ def test_u3_preset_chips_rendered(client):
 
 def test_u3_preset_chip_labels_are_chinese(client):
     """Preset chip labels are Chinese."""
-    html = client.get("/ce:equity-ledger").get_data(as_text=True)
+    html = client.get("/ce:equity-ledger/jinja").get_data(as_text=True)
     assert "全部" in html
     assert "需关注" in html or "需关注" in html
     assert "健康" in html

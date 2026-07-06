@@ -11,7 +11,7 @@ const ROW = {
   anchors: 'anchor one\nanchor two',
 }
 
-function mountRow(props: { row?: object; patch?: object } = {}) {
+function mountRow(props: { row?: Record<string, unknown>; patch?: Record<string, unknown> } = {}) {
   return mount(ArticleReviewRow, {
     props: {
       row: props.row ?? ROW,

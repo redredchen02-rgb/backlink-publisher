@@ -17,7 +17,6 @@ from backlink_publisher.config.parsers.three_url import (
 )
 from backlink_publisher.config.types import DEFAULT_WORK_TEMPLATES
 
-
 # ── _parse_work_urls ───────────────────────────────────────────────────────────
 
 

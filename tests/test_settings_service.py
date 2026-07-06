@@ -7,11 +7,11 @@ group_history, load_incomplete_run, token_paste_status, persist_three_tier_confi
 from __future__ import annotations
 
 __tier__ = "unit"
+from datetime import datetime, timedelta
 import json
 import os
-import stat
-from datetime import datetime, timedelta
 from pathlib import Path
+import stat
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -198,7 +198,7 @@ def test_load_incomplete_run_returns_none_on_exception():
 def test_token_paste_status_bound_masks_token():
     import backlink_publisher.publishing.adapters  # noqa: F401 — registration
     cfg = MagicMock()
-    cfg.writeas_token_path = None
+    cfg.token_path.return_value = None
 
     def mock_load(path=None):
         return {"token": "abcdefghijk"}
@@ -213,7 +213,7 @@ def test_token_paste_status_bound_masks_token():
 def test_token_paste_status_unbound():
     import backlink_publisher.publishing.adapters  # noqa: F401 — registration
     cfg = MagicMock()
-    cfg.writeas_token_path = None
+    cfg.token_path.return_value = None
 
     def mock_load(path=None):
         return None
@@ -226,7 +226,7 @@ def test_token_paste_status_unbound():
 def test_token_paste_status_notion_bound():
     import backlink_publisher.publishing.adapters  # noqa: F401 — registration
     cfg = MagicMock()
-    cfg.notion_token_path = None
+    cfg.token_path.return_value = None
 
     def mock_load(path=None):
         return {"integration_token": "tok_secret_abc", "database_id": "db123"}

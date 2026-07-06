@@ -5,11 +5,11 @@ import logging
 from typing import Any
 
 from ..types import (
-    ANCHOR_TYPES,
     _UNSAFE_IN_ANCHOR,
+    ANCHOR_TYPES,
 )
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def _parse_target_anchor_keywords(targets_section: Any) -> dict[str, list[str]]:
@@ -25,7 +25,7 @@ def _parse_target_anchor_keywords(targets_section: Any) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
     for raw_domain, entry in targets_section.items():
         if not isinstance(entry, dict):
-            _log.warning(
+            log.warning(
                 "[targets.%r] is not a table, skipping", raw_domain,
             )
             continue
@@ -33,7 +33,7 @@ def _parse_target_anchor_keywords(targets_section: Any) -> dict[str, list[str]]:
         if keywords is None:
             continue
         if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
-            _log.warning(
+            log.warning(
                 "[targets.%r].anchor_keywords must be a list of strings, skipping",
                 raw_domain,
             )
@@ -68,7 +68,7 @@ def _parse_target_string_list_field(
     result: dict[str, list[str]] = {}
     for raw_domain, entry in targets_section.items():
         if not isinstance(entry, dict):
-            _log.warning(
+            log.warning(
                 "[targets.%r] is not a table, skipping", raw_domain,
             )
             continue
@@ -76,7 +76,7 @@ def _parse_target_string_list_field(
         if values is None:
             continue
         if not isinstance(values, list) or not all(isinstance(v, str) for v in values):
-            _log.warning(
+            log.warning(
                 "[targets.%r].%s must be a list of strings, skipping",
                 raw_domain, field_name,
             )
@@ -116,7 +116,7 @@ def _parse_target_anchor_pools_v2(
         if pools is None:
             continue
         if not isinstance(pools, dict):
-            _log.warning(
+            log.warning(
                 "[sites.%r].anchor_pools must be a table, skipping", raw_domain,
             )
             continue
@@ -127,14 +127,14 @@ def _parse_target_anchor_pools_v2(
             cat_pools: dict[str, list[str]] = {}
             for anchor_type, words in type_table.items():
                 if anchor_type not in ANCHOR_TYPES:
-                    _log.warning(
+                    log.warning(
                         "[sites.%r].anchor_pools.%s.%s is not a known anchor "
                         "type (expected one of %s), skipping",
                         raw_domain, url_cat, anchor_type, ANCHOR_TYPES,
                     )
                     continue
                 if not isinstance(words, list) or not all(isinstance(w, str) for w in words):
-                    _log.warning(
+                    log.warning(
                         "[sites.%r].anchor_pools.%s.%s must be a list of strings, skipping",
                         raw_domain, url_cat, anchor_type,
                     )

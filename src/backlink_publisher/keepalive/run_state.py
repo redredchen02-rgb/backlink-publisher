@@ -24,17 +24,18 @@ Schema (version 1)::
 """
 from __future__ import annotations
 
+from datetime import UTC
 import json
 import logging
 import os
+from pathlib import Path
 import tempfile
 import threading
-from pathlib import Path
 from typing import Any
 
 from backlink_publisher.config.loader import _config_dir
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Default max republish+reverify attempts per target URL before marking exhausted.
 _DEFAULT_MAX_RETRY = 3
@@ -94,13 +95,13 @@ class KeepaliveRunState:
             raw = self._path.read_text(encoding="utf-8")
             data: dict[str, Any] = json.loads(raw)
             if "version" not in data:
-                logger.warning(
+                log.warning(
                     "keepalive_run_state.json missing 'version' — returning defaults"
                 )
                 return _default_state()
             return data
         except (json.JSONDecodeError, OSError) as exc:
-            logger.warning(
+            log.warning(
                 "Failed to load keepalive_run_state.json (%s) — returning defaults",
                 exc,
             )
@@ -155,8 +156,8 @@ class KeepaliveRunState:
                 "platforms_tried": [],
                 "last_outcome": None,
             })
-            from datetime import datetime, timezone
-            entry["last_attempt_at"] = datetime.now(timezone.utc).isoformat(
+            from datetime import datetime
+            entry["last_attempt_at"] = datetime.now(UTC).isoformat(
                 timespec="seconds"
             )
             entry["last_outcome"] = outcome
@@ -178,9 +179,9 @@ class KeepaliveRunState:
     def update_cycle_summary(self, summary: dict[str, Any]) -> None:
         """Persist last_run_at and cycle summary."""
         with self._lock:
-            from datetime import datetime, timezone
+            from datetime import datetime
             data = self.load()
-            data["last_run_at"] = datetime.now(timezone.utc).isoformat(
+            data["last_run_at"] = datetime.now(UTC).isoformat(
                 timespec="seconds"
             )
             data["last_cycle_summary"] = summary

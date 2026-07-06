@@ -16,14 +16,13 @@ import pytest
 from backlink_publisher._util.errors import AuthExpiredError, DependencyError
 from backlink_publisher.publishing._manifest_types import SessionDescriptor
 from backlink_publisher.publishing.session.provider import (
-    DefaultCredentialProvider,
-    _LOADERS,
     _load_blogger_oauth,
     _load_medium_token,
     _load_substack_cookies,
     _load_velog_cookies,
+    _LOADERS,
+    DefaultCredentialProvider,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

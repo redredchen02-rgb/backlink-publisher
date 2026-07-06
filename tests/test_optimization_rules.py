@@ -14,28 +14,26 @@ Covers:
 
 from __future__ import annotations
 
-
 __tier__ = "integration"
 import datetime
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.optimization.models import default_state, now_iso
 from backlink_publisher.optimization.rules import (
+    apply_results,
+    evaluate_rules,
     RULE_AGGREGATED_STATS,
     RULE_CANARY_DRIFT,
     RULE_RECHECK_SURVIVAL,
     RULE_SURVIVAL_THRESHOLD,
-    apply_results,
-    evaluate_rules,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

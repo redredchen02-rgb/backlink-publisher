@@ -22,7 +22,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._manifest_types import BindDescriptor, Policy, ProbeConfig, RefreshConfig, SessionDescriptor, UiMeta
+from ._manifest_types import (
+    BindDescriptor,
+    Policy,
+    ProbeConfig,
+    RefreshConfig,
+    SessionDescriptor,
+    UiMeta,
+)
 
 # ── velog ──────────────────────────────────────────────────────────────────
 #

@@ -13,8 +13,9 @@ dict entry.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.config.types import GeoProbeConfig

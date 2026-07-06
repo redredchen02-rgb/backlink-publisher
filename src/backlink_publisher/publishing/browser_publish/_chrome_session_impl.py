@@ -4,7 +4,7 @@ Plan 2026-05-21-001 Unit 1. Bridges bind (cli/_bind/chrome_backend.py)
 and publish phases on a single Chrome lifecycle abstraction.
 
 Design notes calibrated against Unit 0 spike
-(`docs/spikes/2026-05-21-chrome-lifecycle-spike.md`):
+(`docs/_archive/spikes/2026-05-21-chrome-lifecycle-spike.md`):
 
 - Probe 1: teardown uses ``proc.terminate()`` + ``proc.wait(timeout=5)``;
   ``os.killpg`` raises EPERM from outside the new session leader's lineage
@@ -22,18 +22,18 @@ Design notes calibrated against Unit 0 spike
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from dataclasses import dataclass
 import json
 import os
+from pathlib import Path
 import re
 import shutil
-import socket
 import stat
 import subprocess
 import time
-from contextlib import AbstractContextManager
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING, cast
+from typing import Any, cast, TYPE_CHECKING
 
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config.loader import _config_dir
@@ -233,7 +233,7 @@ def _ensure_profile_perms(profile: Path) -> None:
         if os.name == "nt":  # Windows: no posix perm model
             return
         st = profile.stat()
-        if st.st_uid != os.geteuid():
+        if st.st_uid != os.geteuid():  # type: ignore[attr-defined]  # Windows: no geteuid
             raise ChromeSessionError("chrome_profile_unsafe_perms")
         if stat.S_IMODE(st.st_mode) & 0o077:
             os.chmod(profile, 0o700)
@@ -261,7 +261,7 @@ def _read_pid_file() -> dict | None:
     if not path.exists():
         return None
     try:
-        return cast("dict[Any, Any]", json.loads(path.read_text()))
+        return cast("dict[Any, Any]", json.loads(path.read_text(encoding="utf-8")))
     except (OSError, ValueError):
         return None
 
@@ -501,7 +501,7 @@ class ChromeAttachSession(AbstractContextManager):
             time.sleep(_POLL_INTERVAL_S)
         return None
 
-    def _connect_playwright(self, ws_url: str) -> "Page":
+    def _connect_playwright(self, ws_url: str) -> Page:
         try:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
@@ -569,7 +569,7 @@ def _default_version_probe(base: str, timeout_s: float = 1.0) -> dict | None:
             if resp.status != 200:
                 return None
             raw = resp.read()
-    except (urllib.error.URLError, socket.timeout, ConnectionError):
+    except (TimeoutError, urllib.error.URLError, ConnectionError):
         return None
     except Exception:  # noqa: BLE001
         return None

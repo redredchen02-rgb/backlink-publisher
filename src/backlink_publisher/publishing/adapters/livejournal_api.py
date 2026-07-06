@@ -39,17 +39,16 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
-import time
 from pathlib import Path
+import time
 from typing import Any, cast
 from xmlrpc.client import Fault, ProtocolError, SafeTransport, ServerProxy
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher.config import Config
 from backlink_publisher.persistence import safe_write
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
 from .http_form_post import attach_link_verification
@@ -66,12 +65,11 @@ _LIVEJOURNAL_PUBLISH_DELAY_ENV = "LIVEJOURNAL_PUBLISH_DELAY_S"
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get(_LIVEJOURNAL_PUBLISH_DELAY_ENV)
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="livejournal",
+        env_var="LIVEJOURNAL_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("livejournal")
     if toml_val is not None:
@@ -140,9 +138,8 @@ def store_credentials(config: Config, username: str, password: str) -> Path:
     # Post-write stat re-check (telegraph_api precedent): atomic_write sets the
     # tmp file to 0o600 before replace, but a pre-existing destination written
     # by older code could have left an inode whose mode we must confirm.
-    mode = os.stat(path).st_mode & 0o777
-    if mode != 0o600:
-        os.chmod(path, 0o600)
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(path, label=_CRED_FILENAME)
     log.info("livejournal_credentials_stored username_set=%s", bool(username))
     return path
 
@@ -152,7 +149,7 @@ def _livejournal_credential_saver(
     config: Config,
     validated_fields: dict,
     write_mode: str,
-) -> "Path":
+) -> Path:
     """Registry credential_saver callback for livejournal (Plan 2026-06-01-001 U3a).
 
     Delegates to store_credentials — the single mutation site that handles
@@ -179,13 +176,10 @@ def _load_credentials(config: Config) -> dict[str, str]:
             "Store them with livejournal_api.store_credentials(config, username, "
             "password) — use a throwaway account (the secret is not revocable)."
         )
-    mode = os.stat(path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"{_CRED_FILENAME} must be 0600 (found {oct(mode)})\nRun: chmod 600 {path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(path, label=_CRED_FILENAME)
     try:
-        data = cast("dict[str, str]", json.loads(path.read_text()))
+        data = cast("dict[str, str]", json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         raise DependencyError(
             "Cannot parse LiveJournal credentials: file corrupt or unreadable"

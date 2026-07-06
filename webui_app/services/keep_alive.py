@@ -11,6 +11,7 @@ hosts (``example.com``) are excluded so a new operator isn't misled.
 """
 
 from datetime import datetime
+from typing import Any
 from urllib.parse import urlsplit
 
 from backlink_publisher._util.url import canonicalize_url

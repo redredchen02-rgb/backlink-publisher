@@ -31,9 +31,10 @@ the within-article diversity mechanism described above.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
+from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher.anchor.profile import (
     ProfileState,
     recent_secondary_count_split,
@@ -41,7 +42,6 @@ from backlink_publisher.anchor.profile import (
     recent_url_category_counts,
 )
 from backlink_publisher.config import ANCHOR_TYPES
-from backlink_publisher._util.errors import InputValidationError
 
 # Tie-break order when multiple anchor types share the maximum deficit.
 # Brainstorm v2 R20 + Plan v2 Key Decisions: Branded > Partial > LSI > Exact.

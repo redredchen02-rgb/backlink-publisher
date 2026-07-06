@@ -6,9 +6,9 @@ __tier__ = "integration"
 
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -230,7 +230,6 @@ class TestPipelineRoutes:
         - The index.html template source contains the include in both locations.
         - _shared_config_selects.html is present on disk.
         """
-        from pathlib import Path
 
         # 1. Batch form always renders target_language
         resp = client.get("/")

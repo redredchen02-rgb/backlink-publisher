@@ -21,8 +21,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
-from flask import Blueprint, abort, send_from_directory
+from flask import abort, Blueprint, send_from_directory
 
 bp = Blueprint("spa", __name__)
 
@@ -37,7 +38,7 @@ def _spa_enabled() -> bool:
 @bp.get("/app")
 @bp.get("/app/")
 @bp.get("/app/<path:subpath>")
-def spa(subpath: str = ""):
+def spa(subpath: str = "") -> Any:
     if not _spa_enabled():
         abort(404)
     if not (_SPA_DIR / "index.html").is_file():

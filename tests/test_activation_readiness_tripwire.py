@@ -22,9 +22,9 @@ from __future__ import annotations
 __tier__ = "unit"
 
 import ast
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 

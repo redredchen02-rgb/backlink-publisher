@@ -15,10 +15,10 @@ This mirrors the proven cli/plan_backlinks/_engine.py pattern.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any
 
 from backlink_publisher._util.recon import emit_recon
-
 
 _AUTH_ABORT = "auth_abort"  # sentinel returned to signal epilogue must be skipped
 _ROW_CONTINUE = "continue"  # sentinel: the row was handled, advance to next
@@ -160,7 +160,7 @@ class PublishOutcome:
             return 1
         if self.state.auth_aborted or self.state.dependency_aborted:
             return 3
-        from backlink_publisher.cli.publish._publish_helpers import _decide_publish_exit
+        from backlink_publisher.cli._publish_helpers import _decide_publish_exit
         return _decide_publish_exit(
             self.state.outputs,
             dry_run=self.options.dry_run,
@@ -221,10 +221,12 @@ def publish_rows(
     (scheduler vs /api/v1) is the caller's responsibility via a process-level
     publish lock (plan U5); ``publish_rows`` itself holds no such lock.
     """
-    from datetime import datetime, timezone
-    from backlink_publisher.config import snapshot_token_revs
+    from datetime import datetime
+
     from backlink_publisher._util.logger import publish_logger
-    from backlink_publisher.cli.publish._publish_helpers import _make_banner_emit
+    from backlink_publisher.cli._publish_helpers import _make_banner_emit
+    from backlink_publisher.config import snapshot_token_revs
+
     from ... import checkpoint
 
     if forced_keys is None:
@@ -248,7 +250,7 @@ def publish_rows(
             )
 
     state = PublishRunState(run_id=run_id)
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(UTC).isoformat()
     banner_emit = _make_banner_emit()
     initial_token_revs = snapshot_token_revs()
 
@@ -261,198 +263,37 @@ def publish_rows(
     )
 
 
-def _dispatch_publish(
-    row: dict[str, Any],
-    platform: str,
-    mode: str,
-    config: Any,
-    banner_emit: Any,
-    state: "PublishRunState",
-    ts: str,
-) -> "tuple[Any | None, str | None]":
-    """Live publish with error handling. Returns (result, sentinel) or (None, sentinel)."""
-    from backlink_publisher.cli.publish_backlinks import (
-        adapter_publish,
-        policy_enabled,
-        publish_with_policy,
-        _handle_auth_expired,
-    )
-    from backlink_publisher.cli.publish._publish_helpers import (
-        _record_publish_failure, _error_class,
-    )
-    from backlink_publisher.cli.publish._dedup_gate import record_failure
-    from backlink_publisher._util.errors import (
-        AuthExpiredError, BannerUploadError, ContentRejectedError,
-        DependencyError, ExternalServiceError,
-    )
-    from backlink_publisher._util.logger import publish_logger
-
-    try:
-        if policy_enabled():
-            result = publish_with_policy(
-                platform,
-                payload=row,
-                config=config,
-                mode=mode,
-                banner_emit=banner_emit,
-            )
-        else:
-            result = adapter_publish(
-                payload={**row, "platform": platform},
-                mode=mode,
-                config=config,
-                dry_run=False,
-                banner_emit=banner_emit,
-            )
-    except AuthExpiredError as exc:
-        record_failure(row, platform, error_class="auth_expired", run_id=state.run_id)
-        _handle_auth_expired(exc, state.run_id, row, publish_logger, raises=False)
-        state.auth_error = str(exc)
-        state.auth_error_class = type(exc).__name__
-        return None, _AUTH_ABORT
-    except BannerUploadError as exc:
-        state.fail_count += 1
-        state.run_id = _record_publish_failure(
-            state.outputs, row, platform, ts, state.run_id, exc,
-            "banner_upload", f"banner upload failed: {exc}",
-        )
-        return None, _ROW_CONTINUE
-    except ContentRejectedError as exc:
-        state.fail_count += 1
-        state.run_id = _record_publish_failure(
-            state.outputs, row, platform, ts, state.run_id, exc,
-            "content_rejected", f"content rejected: {exc}",
-        )
-        return None, _ROW_CONTINUE
-    except DependencyError as exc:
-        record_failure(row, platform, error_class="dependency", run_id=state.run_id)
-        state.dependency_error = str(exc)
-        return None, _DEP_ABORT
-    except ExternalServiceError as exc:
-        state.fail_count += 1
-        state.run_id = _record_publish_failure(
-            state.outputs, row, platform, ts, state.run_id, exc,
-            _error_class(exc), f"service error: {exc}",
-        )
-        return None, _ROW_CONTINUE
-    except Exception as exc:  # noqa: BLE001
-        state.fail_count += 1
-        state.run_id = _record_publish_failure(
-            state.outputs, row, platform, ts, state.run_id, exc,
-            "unexpected", f"unexpected error: {exc}",
-        )
-        return None, _ROW_CONTINUE
-
-    return result, None
-
-
-def _handle_publish_outcome(
-    result: Any,
-    row: dict[str, Any],
-    platform: str,
-    state: "PublishRunState",
-    ts: str,
-    args: Any,
-    row_idx: int,
-) -> None:
-    """Record success/failure after a successful live dispatch; emit final recon."""
-    from backlink_publisher.cli.publish._publish_helpers import (
-        _do_verify, _record_publish_path, _try_update_ckpt_failed,
-    )
-    from backlink_publisher.cli.publish._dedup_gate import record_done, record_failure
-    from backlink_publisher._util.logger import publish_logger
-    from ... import checkpoint
-    from datetime import datetime, timezone
-
-    state.outputs.append(result.to_publish_output(row, ts))
-    if result.error:
-        state.fail_count += 1
-        record_failure(row, platform, error_class=None, run_id=state.run_id)
-        _ckpt_error_class = (
-            checkpoint.POLICY_SKIP
-            if result.status in ("skipped_policy", "skipped_circuit_open")
-            else "unexpected"
-        )
-        state.run_id = _try_update_ckpt_failed(
-            state.run_id, row.get("id", ""), str(result.error), _ckpt_error_class
-        )
-    else:
-        state.success_count += 1
-        if result.post_publish_delay_seconds > 0:
-            state.last_medium_success_idx = row_idx
-
-        state.publish_path_drift_count += _record_publish_path(platform, result, row)
-
-        verify_ok, verify_reason = _do_verify(
-            args.no_verify, args.dry_run, result, row
-        )
-        if not verify_ok:
-            state.outputs[-1]["status"] += "_unverified"
-            publish_logger.warn(
-                f"verification failed: id={row.get('id', '')} reason={verify_reason}",
-                extra={"id": row.get("id"), "adapter": result.adapter},
-            )
-
-        record_done(
-            row, platform,
-            live_url=(result.published_url or result.draft_url) or None,
-            verify_ok=verify_ok,
-            run_id=state.run_id,
-        )
-
-        if state.run_id is not None:
-            try:
-                checkpoint.update_item(
-                    state.run_id, row.get("id", ""), "done",
-                    published_url=result.published_url,
-                    article_urls=[u for u in (result.published_url, result.draft_url) if u],
-                    adapter=result.adapter,
-                    completed_at=datetime.now(timezone.utc).isoformat(),
-                    verified=verify_ok,
-                )
-            except Exception as ckpt_exc:
-                publish_logger.warning(f"[WARN] checkpoint update failed: {ckpt_exc}")
-                state.run_id = None
-        publish_logger.info(
-            f"published: id={row.get('id', '')} status={result.status}",
-            extra={"id": row.get("id"), "status": result.status},
-        )
-
-    row_status = "success" if not result.error else "fail"
-    emit_recon("info", command="publish-backlinks", phase="row_result",
-               row=str(row_idx + 1), status=row_status, platform=platform)
-
-
-def _publish_one_row(
+def _check_publish_preconditions(
     row_idx: int,
     row: dict[str, Any],
     state: PublishRunState,
     args: Any,
     config: Any,
     ts: str,
-    banner_emit: Any,
-    forced_keys: set,
     throttle_min: int,
     throttle_max: int,
     initial_token_revs: dict[str, int],
+    forced_keys: set,
 ) -> str | None:
-    """Handle one row in the fresh publish loop.
+    """Run all pre-dispatch gates for one publish row.
 
-    Returns _AUTH_ABORT when an AuthExpiredError requires aborting the run,
-    _ROW_CONTINUE (or None implicitly) otherwise.
+    Returns a sentinel (``_ROW_CONTINUE``, ``_CONFLICT_ABORT``, ``_DEP_ABORT``)
+    or ``None`` to signal "proceed to dispatch".
+
+    Extracted from ``_publish_one_row`` (Plan 2026-06-24-002 U5).
     """
-    # ── Late re-import of loop-called seams from the publish_backlinks namespace.
-    # Tests patch these at backlink_publisher.cli.publish_backlinks.X; re-reading
-    # the name here at call time means every @patch(...publish_backlinks.X) fires.
-    from backlink_publisher.cli.publish_backlinks import adapter_publish
-    from backlink_publisher.cli.publish._publish_helpers import (
-        _build_failure_row, _build_skip_row, _canary_gate,
-        _check_row_reachability, _check_token_drift,
+    from backlink_publisher._util.logger import publish_logger
+    from backlink_publisher.cli._dedup_gate import gate_with_force
+    from backlink_publisher.cli._publish_helpers import (
+        _build_failure_row,
+        _build_skip_row,
+        _canary_gate,
+        _check_row_reachability,
+        _check_token_drift,
         _medium_throttle_sleep,
     )
-    from backlink_publisher.cli.publish._dedup_gate import gate_with_force
+    from backlink_publisher.cli.publish_backlinks import adapter_publish
     from backlink_publisher.schema import supported_platforms
-    from backlink_publisher._util.logger import publish_logger
 
     _medium_throttle_sleep(
         row_idx, state.last_medium_success_idx,
@@ -463,37 +304,41 @@ def _publish_one_row(
 
     platform = args.platform or row.get("platform", "")
     mode = args.mode or row.get("publish_mode", "draft")
-    target_domain = row.get("target_url", row.get("main_domain", "")).split("//")[-1].split("/")[0] if row.get("target_url", row.get("main_domain", "")) else ""
+    target_domain = (row.get("target_url", row.get("main_domain", ""))
+                     .split("//")[-1].split("/")[0]
+                     if row.get("target_url", row.get("main_domain", "")) else "")
     emit_recon("info", command="publish-backlinks", phase="row",
                row=str(row_idx + 1), platform=platform, target=target_domain)
 
+    # ── Canary gate ──────────────────────────────────────────────────────
     canary_skip, canary_reason = _canary_gate(platform, warned=state.canary_warned)
     if canary_skip:
         row_id = row.get("id", "")
-        publish_logger.warn(
+        publish_logger.warning(
             f"[publish-backlinks] row_id={row_id} platform={platform} "
             f"status=skipped_quarantined — {canary_reason}"
         )
         state.skipped_quarantined_count += 1
         return _ROW_CONTINUE
 
+    # ── Reachability gate ────────────────────────────────────────────────
     if not args.dry_run and not args.skip_publish_time_check:
         ok, failing_url = _check_row_reachability(row)
         if not ok:
             row_id = row.get("id", "")
-            publish_logger.warn(
+            publish_logger.warning(
                 f"[publish-backlinks] row_id={row_id} "
                 f"status=skipped_unreachable url={failing_url}"
             )
             state.outputs.append(_build_failure_row(
                 "skipped_unreachable", row, platform,
                 f"target unreachable at publish-time: {failing_url}",
-                ts,
-                failing_url=failing_url,
+                ts, failing_url=failing_url,
             ))
             state.skipped_unreachable_count += 1
             return _ROW_CONTINUE
 
+    # ── Unsupported platform gate ────────────────────────────────────────
     if platform not in supported_platforms():
         state.outputs.append(_build_failure_row(
             "failed", row, platform,
@@ -503,6 +348,7 @@ def _publish_one_row(
         state.fail_count += 1
         return _ROW_CONTINUE
 
+    # ── Dry-run gate ─────────────────────────────────────────────────────
     if args.dry_run:
         result = adapter_publish(
             payload={**row, "platform": platform},
@@ -535,21 +381,17 @@ def _publish_one_row(
         extra={"id": row.get("id"), "platform": platform, "mode": mode},
     )
 
-    # U4-1: mid-run credential rotation aborts the run without SystemExit-ing
-    # inside the loop (keeps publish_rows callable in-process). Same exit-3 abort
-    # semantics as DependencyError — main raises emit_error(3) in the shell.
+    # ── Mid-run credential drift ─────────────────────────────────────────
     drift_msg = _check_token_drift(initial_token_revs, raises=False)
     if drift_msg:
         state.dependency_error = drift_msg
         return _DEP_ABORT
 
+    # ── Dedup gate (conflict / skip / hold) ──────────────────────────────
     verdict, drec = gate_with_force(
         row, platform, run_id=state.run_id, forced_keys=forced_keys, reason=args.reason
     )
     if verdict == "conflict":
-        # U4-1: force on a live "done" key (R11). gate_with_force no longer
-        # SystemExits; abort via a typed sentinel so publish_rows stays callable
-        # in-process. main maps conflict_aborted -> emit_error(exit_code=1).
         state.conflict_error = (
             f"force-manifest conflict: {platform} key is already published "
             "(done); refusing to re-publish — use --forget if truly intended"
@@ -567,14 +409,227 @@ def _publish_one_row(
         return _ROW_CONTINUE
     if verdict == "hold":
         state.dedup_hold_count += 1
-        publish_logger.warn(
+        publish_logger.warning(
             f"dedup hold (uncertain/in-flight): {platform} id={row.get('id', '')}",
             extra={"id": row.get("id"), "platform": platform},
         )
         return _ROW_CONTINUE
 
-    result, sentinel = _dispatch_publish(row, platform, mode, config, banner_emit, state, ts)
-    if sentinel is not None:
-        return sentinel
-    _handle_publish_outcome(result, row, platform, state, ts, args, row_idx)
+    return None  # signal: proceed to dispatch
+
+
+def _dispatch_adapter_publish(
+    row: dict[str, Any],
+    platform: str,
+    mode: str,
+    config: Any,
+    banner_emit: Any,
+    state: PublishRunState,
+    ts: str,
+) -> Any | str:
+    """Call the adapter publish (or reliability policy wrapper), handle errors.
+
+    Returns the adapter result on success, or a sentinel string (``_AUTH_ABORT``,
+    ``_DEP_ABORT``, ``_ROW_CONTINUE``) on handled errors.
+
+    Extracted from ``_publish_one_row`` (Plan 2026-06-24-002 U5).
+    """
+    from backlink_publisher._util.errors import (
+        AuthExpiredError,
+        BannerUploadError,
+        ContentRejectedError,
+        DependencyError,
+        ExternalServiceError,
+    )
+    from backlink_publisher._util.logger import publish_logger
+    from backlink_publisher.cli._dedup_gate import record_failure
+    from backlink_publisher.cli._publish_helpers import (
+        _error_class,
+        _record_publish_failure,
+    )
+    from backlink_publisher.cli.publish_backlinks import (
+        _handle_auth_expired,
+        adapter_publish,
+        policy_enabled,
+        publish_with_policy,
+    )
+
+    try:
+        if policy_enabled():
+            return publish_with_policy(
+                platform,
+                payload=row,
+                config=config,
+                mode=mode,
+                banner_emit=banner_emit,
+            )
+        return adapter_publish(
+            payload={**row, "platform": platform},
+            mode=mode,
+            config=config,
+            dry_run=False,
+            banner_emit=banner_emit,
+        )
+    except AuthExpiredError as exc:
+        record_failure(row, platform, error_class="auth_expired", run_id=state.run_id)
+        _handle_auth_expired(exc, state.run_id, row, publish_logger, raises=False)
+        state.auth_error = str(exc)
+        state.auth_error_class = type(exc).__name__
+        return _AUTH_ABORT
+    except BannerUploadError as exc:
+        state.fail_count += 1
+        state.run_id = _record_publish_failure(
+            state.outputs, row, platform, ts, state.run_id, exc,
+            "banner_upload", f"banner upload failed: {exc}",
+        )
+        return _ROW_CONTINUE
+    except ContentRejectedError as exc:
+        state.fail_count += 1
+        state.run_id = _record_publish_failure(
+            state.outputs, row, platform, ts, state.run_id, exc,
+            "content_rejected", f"content rejected: {exc}",
+        )
+        return _ROW_CONTINUE
+    except DependencyError as exc:
+        record_failure(row, platform, error_class="dependency", run_id=state.run_id)
+        state.dependency_error = str(exc)
+        return _DEP_ABORT
+    except ExternalServiceError as exc:
+        state.fail_count += 1
+        state.run_id = _record_publish_failure(
+            state.outputs, row, platform, ts, state.run_id, exc,
+            _error_class(exc), f"service error: {exc}",
+        )
+        return _ROW_CONTINUE
+    except Exception as exc:
+        state.fail_count += 1
+        state.run_id = _record_publish_failure(
+            state.outputs, row, platform, ts, state.run_id, exc,
+            "unexpected", f"unexpected error: {exc}",
+        )
+        return _ROW_CONTINUE
+
+
+def _process_publish_result(
+    result: Any,
+    row: dict[str, Any],
+    platform: str,
+    row_idx: int,
+    state: PublishRunState,
+    args: Any,
+    ts: str,
+) -> None:
+    """Post-publish processing: output append, verification, checkpoint update.
+
+    Extracted from ``_publish_one_row`` (Plan 2026-06-24-002 U5).
+    """
+    from datetime import datetime
+
+    from backlink_publisher._util.logger import publish_logger
+    from backlink_publisher.cli._dedup_gate import record_done, record_failure
+    from backlink_publisher.cli._publish_helpers import (
+        _do_verify,
+        _record_publish_path,
+        _try_update_ckpt_failed,
+    )
+
+    from ... import checkpoint
+
+    state.outputs.append(result.to_publish_output(row, ts))
+    if result.error:
+        state.fail_count += 1
+        record_failure(row, platform, error_class=None, run_id=state.run_id)
+        _ckpt_error_class = (
+            checkpoint.POLICY_SKIP
+            if result.status in ("skipped_policy", "skipped_circuit_open")
+            else "unexpected"
+        )
+        state.run_id = _try_update_ckpt_failed(
+            state.run_id, row.get("id", ""), str(result.error), _ckpt_error_class
+        )
+    else:
+        state.success_count += 1
+        if result.post_publish_delay_seconds > 0:
+            state.last_medium_success_idx = row_idx
+
+        state.publish_path_drift_count += _record_publish_path(platform, result, row)
+
+        verify_ok, verify_reason = _do_verify(
+            args.no_verify, args.dry_run, result, row
+        )
+        if not verify_ok:
+            state.outputs[-1]["status"] += "_unverified"
+            publish_logger.warning(
+                f"verification failed: id={row.get('id', '')} reason={verify_reason}",
+                extra={"id": row.get("id"), "adapter": result.adapter},
+            )
+
+        record_done(
+            row, platform,
+            live_url=(result.published_url or result.draft_url) or None,
+            verify_ok=verify_ok,
+            run_id=state.run_id,
+        )
+
+        if state.run_id is not None:
+            try:
+                checkpoint.update_item(
+                    state.run_id, row.get("id", ""), "done",
+                    published_url=result.published_url,
+                    article_urls=[u for u in (result.published_url, result.draft_url) if u],
+                    adapter=result.adapter,
+                    completed_at=datetime.now(UTC).isoformat(),
+                    verified=verify_ok,
+                )
+            except Exception as ckpt_exc:
+                publish_logger.warning(f"[WARN] checkpoint update failed: {ckpt_exc}")
+                state.run_id = None
+        publish_logger.info(
+            f"published: id={row.get('id', '')} status={result.status}",
+            extra={"id": row.get("id"), "status": result.status},
+        )
+
+    row_status = "success" if not result.error else "fail"
+    emit_recon("info", command="publish-backlinks", phase="row_result",
+               row=str(row_idx + 1), status=row_status, platform=platform)
+
+
+def _publish_one_row(
+    row_idx: int,
+    row: dict[str, Any],
+    state: PublishRunState,
+    args: Any,
+    config: Any,
+    ts: str,
+    banner_emit: Any,
+    forced_keys: set,
+    throttle_min: int,
+    throttle_max: int,
+    initial_token_revs: dict[str, int],
+) -> str | None:
+    """Handle one row in the fresh publish loop.
+
+    Thin coordinator: preconditions → dispatch → post-publish.
+    Returns a sentinel for loop control (``_AUTH_ABORT``, ``_DEP_ABORT``,
+    ``_CONFLICT_ABORT``, ``_ROW_CONTINUE``) or ``None``.
+
+    Decomposed from CC 35 to ≤ 10 (Plan 2026-06-24-002 U5).
+    """
+    verdict = _check_publish_preconditions(
+        row_idx, row, state, args, config, ts,
+        throttle_min, throttle_max, initial_token_revs, forced_keys,
+    )
+    if verdict is not None:
+        return verdict
+
+    platform = args.platform or row.get("platform", "")
+    mode = args.mode or row.get("publish_mode", "draft")
+
+    result = _dispatch_adapter_publish(
+        row, platform, mode, config, banner_emit, state, ts,
+    )
+    if isinstance(result, str):
+        return result  # sentinel: auth/dependency abort or recoverable error
+
+    _process_publish_result(result, row, platform, row_idx, state, args, ts)
     return None

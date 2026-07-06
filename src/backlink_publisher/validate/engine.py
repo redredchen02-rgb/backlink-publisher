@@ -23,24 +23,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from backlink_publisher._util.errors import InputValidationError
+from backlink_publisher._util.logger import validate_logger
+from backlink_publisher.config import Config, load_config
+from backlink_publisher.linkcheck.http import check_urls_strict
+
 # Importing the adapters package populates the registry via its ``register()``
 # side effects (reject_unsupported_platform / route_tier_for read it). The
 # engine triggers registration itself rather than rely on the caller — mirrors
 # ledger.aggregate's self-population so the engine is correct in-process even if
 # no shell imported adapters first.
 import backlink_publisher.publishing.adapters  # noqa: F401,E402
-from backlink_publisher._util import errors
-from backlink_publisher._util.errors import InputValidationError
-from backlink_publisher._util.logger import validate_logger
-from backlink_publisher.config import Config, load_config
-from backlink_publisher.linkcheck.http import check_urls_strict
 from backlink_publisher.publishing.content_negotiation import route_tier_for
 from backlink_publisher.schema import (
     _is_field_present,
     reject_unsupported_platform,
     validate_and_convert_output,
 )
-
 from backlink_publisher.validate._payload import (
     _enhance_payload,
     _extract_hrefs_from_html,
@@ -88,7 +87,7 @@ def load_config_tolerant() -> Config | None:
     except InputValidationError:
         raise  # cells.py fail-loud contract: unknown channel / overlap must surface
     except Exception as exc:  # noqa: BLE001 — other config-load failures are tolerated
-        validate_logger.warn(
+        validate_logger.warning(
             f"config load failed ({exc}); branded_pool fallback disabled, "
             "relying on payload-emitted snapshots only"
         )

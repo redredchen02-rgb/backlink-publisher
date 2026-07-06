@@ -1,6 +1,8 @@
 """Unit tests for webui_app.services.alerting (Plan 2026-06-10-002 U4.3)."""
 
+
 from __future__ import annotations
+__tier__ = "unit"
 
 from webui_app.services.alerting import AlertRegistry
 

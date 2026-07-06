@@ -8,7 +8,6 @@ here, not silently in production.
 """
 from __future__ import annotations
 
-
 __tier__ = "unit"
 KNOWN_DRIVER_ERROR_CODES = frozenset({
     "bound_predicate_timeout",

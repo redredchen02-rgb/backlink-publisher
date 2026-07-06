@@ -16,13 +16,16 @@ Plan 2026-05-27-006.
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import argparse
 
 from backlink_publisher._util.errors import (
     DependencyError,
+    handle_error,
     PipelineError,
     UsageError,
-    handle_error,
 )
 from backlink_publisher._util.logger import PipelineLogger
 from backlink_publisher.cli._candidates import (
@@ -36,18 +39,21 @@ from backlink_publisher.cli._candidates import (
     _validate_generated_text,
 )
 
+if TYPE_CHECKING:
+    from backlink_publisher.llm.client import LLMClientConfig
+
 generate_logger = PipelineLogger("generate-backlink-text")
 
 
 _OUTPUT_FORMATS = {"jsonl", "json"}
 
 
-# ── Main entry ────────────────────────────────────────────────────────────────
+# ── Parser construction ───────────────────────────────────────────────────────
 
 
-def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-level dispatcher; real logic lives in helpers
+def _build_parser() -> argparse.ArgumentParser:
+    """Construct the argument parser (extracted for cyclomatic-complexity hygiene)."""
     import argparse
-    import os
 
     parser = argparse.ArgumentParser(
         prog="generate-backlink-text",
@@ -133,6 +139,45 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-
 
     from backlink_publisher._util.profiling import add_profile_arg
     add_profile_arg(parser)
+    return parser
+
+
+def _read_input(args: argparse.Namespace) -> str:
+    """Read raw text from --input file or stdin.
+
+    Raises:
+        PipelineError: if --input file cannot be read.
+    """
+    if args.input is not None:
+        try:
+            with open(args.input, encoding="utf-8") as fh:
+                return fh.read()
+        except OSError as exc:
+            raise PipelineError(
+                f"generate-backlink-text: cannot read --input: {exc}"
+            ) from exc
+    return sys.stdin.read()
+
+
+def _emit_summary(output_records: list[dict]) -> None:
+    """Emit a stderr RECON summary for the generation run."""
+    ok_count = sum(1 for r in output_records if r.get("status") == "ok")
+    rejected_count = sum(1 for r in output_records if r.get("status") == "rejected")
+    dry_count = sum(1 for r in output_records if r.get("status") == "dry_run")
+    generate_logger.recon(
+        "generate_summary",
+        total=len(output_records),
+        ok=ok_count,
+        rejected=rejected_count,
+        dry_run=dry_count,
+    )
+
+
+# ── Main entry ────────────────────────────────────────────────────────────────
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = _build_parser()
     args = parser.parse_args(argv)
 
     from backlink_publisher._util.profiling import profile_if_enabled
@@ -146,17 +191,8 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-
                     f"{sorted(_OUTPUT_FORMATS)}; got {args.output_format!r}"
                 )
 
-            # Read raw input ─────────────────────────────────────────────────────
-            if args.input is not None:
-                try:
-                    with open(args.input, encoding="utf-8") as fh:
-                        raw_text = fh.read()
-                except OSError as exc:
-                    raise PipelineError(
-                        f"generate-backlink-text: cannot read --input: {exc}"
-                    ) from exc
-            else:
-                raw_text = sys.stdin.read()
+            # Read raw input.
+            raw_text = _read_input(args)
 
             # Parse input and validate per-record fields (Unit 1).
             raw_candidates = _read_candidates(
@@ -176,30 +212,18 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-
             # Per-record field validation — rejected records continue the batch.
             validated: list[dict] = [_validate_candidate(rec) for rec in raw_candidates]
 
-            # ── Generation (Unit 3+5 will fill this in) ──────────────────────────
-            if args.dry_run:
-                output_records = _run_dry_run(validated, args)
-            else:
-                output_records = _run_generate(validated, args)
+            # ── Generation ──────────────────────────────────────────────────────
+            output_records = (
+                _run_dry_run(validated, args)
+                if args.dry_run
+                else _run_generate(validated, args)
+            )
 
             # Emit output.
             _emit_records(output_records, args.output_format)
 
             # Stderr summary.
-            ok_count = sum(1 for r in output_records if r.get("status") == "ok")
-            rejected_count = sum(
-                1 for r in output_records if r.get("status") == "rejected"
-            )
-            dry_count = sum(
-                1 for r in output_records if r.get("status") == "dry_run"
-            )
-            generate_logger.recon(
-                "generate_summary",
-                total=len(output_records),
-                ok=ok_count,
-                rejected=rejected_count,
-                dry_run=dry_count,
-            )
+            _emit_summary(output_records)
 
         except PipelineError as exc:
             handle_error(exc)
@@ -208,7 +232,7 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901 — argparse top-
 # ── Endpoint resolution + guard ───────────────────────────────────────────────
 
 
-def _resolve_client(args: Any) -> "LLMClientConfig":  # type: ignore[name-defined]
+def _resolve_client(args: Any) -> LLMClientConfig:
     """Resolve LLM endpoint/key/model from CLI flags → env → config.
 
     Resolution order for each field:
@@ -336,10 +360,10 @@ def _run_dry_run(validated: list[dict], args: Any) -> list[dict]:
     per-record ``rejected`` (R4b).  No API key or HTTP required.
     """
     from backlink_publisher.llm.client import (
-        SUPPORTED_MODES,
         _build_article_prompt,
         _build_comment_prompt,
         _sanitize_input,
+        SUPPORTED_MODES,
     )
 
     _PROMPT_FNS = {
@@ -390,8 +414,7 @@ def _run_generate(validated: list[dict], args: Any) -> list[dict]:
     (R8).  Only if that also fails does the record become ``rejected``.
     """
     from backlink_publisher._util.errors import ExternalServiceError
-    from backlink_publisher.llm.client import SUPPORTED_MODES, generate_link_text
-    from backlink_publisher.llm.client import _redact_for_log
+    from backlink_publisher.llm.client import _redact_for_log, generate_link_text, SUPPORTED_MODES
 
     # Short-circuit: if every record is already rejected (e.g. all invalid_record),
     # skip client resolution entirely so no DependencyError fires for an unused LLM.
@@ -430,7 +453,7 @@ def _run_generate(validated: list[dict], args: Any) -> list[dict]:
             output.append(_make_rejected(rec, f"unsupported_mode:{mode}"))
             continue
         except ExternalServiceError as exc:
-            generate_logger.warn(
+            generate_logger.warning(
                 "generate_transport_error",
                 detail=_redact_for_log(str(exc)),
             )
@@ -461,7 +484,7 @@ def _run_generate(validated: list[dict], args: Any) -> list[dict]:
                     )
                 except (ValueError, ExternalServiceError) as exc:
                     if isinstance(exc, ExternalServiceError):
-                        generate_logger.warn(
+                        generate_logger.warning(
                             "generate_corrective_transport_error",
                             detail=_redact_for_log(str(exc)),
                             validation_reason=vresult["reason"],

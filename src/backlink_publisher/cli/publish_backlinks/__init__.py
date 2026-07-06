@@ -2,10 +2,26 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "main",
+    "PublishOptions",
+    "publish_rows",
+]
 import sys
 from typing import Any
 
-from backlink_publisher.cli._resume import _run_resume  # noqa: F401
+from backlink_publisher._util.errors import (
+    AuthExpiredError,
+    BannerUploadError,
+    ContentRejectedError,
+    DependencyError,
+    emit_envelope_and_exit,
+    emit_error,
+    ExternalServiceError,
+)
+from backlink_publisher._util.jsonl import read_jsonl
+from backlink_publisher._util.logger import publish_logger
+from backlink_publisher._util.recon import emit_recon
 from backlink_publisher.cli._dedup_gate import (
     enforce_enabled,
     enforce_precondition_or_exit,
@@ -14,41 +30,17 @@ from backlink_publisher.cli._dedup_gate import (
     record_failure,
 )
 from backlink_publisher.cli._dedup_ops import _handle_dedup_ops, load_force_manifest
-
-from backlink_publisher.config import load_config
-from backlink_publisher._util.errors import (
-    AuthExpiredError,
-    BannerUploadError,
-    ContentRejectedError,
-    DependencyError,
-    ExternalServiceError,
-    emit_envelope_and_exit,
-    emit_error,
-)
-from backlink_publisher._util.jsonl import read_jsonl
-from backlink_publisher._util.logger import publish_logger
-from backlink_publisher._util.recon import emit_recon
-from backlink_publisher.publishing.adapters import publish as adapter_publish, verify_adapter_setup
-from backlink_publisher.publishing.reliability.policy import policy_enabled, publish_with_policy
-# checkpoint is re-exported into this namespace as a test-patch seam: tests patch
-# `...publish_backlinks.checkpoint.create_checkpoint` to simulate checkpoint
-# failures, and publish_rows() (in _engine) calls create_checkpoint on the SAME
-# module object, so the patch applies even though the call site moved (U4-1).
-from ... import checkpoint, config_echo  # noqa: F401 -- checkpoint = patch seam
-from ...schema import reject_unsupported_platform, supported_platforms, validate_publish_payload
-
-from backlink_publisher.cli.publish_backlinks._engine import PublishOptions, publish_rows
 from backlink_publisher.cli._publish_helpers import (
     _acquire_publish_leases,
     _build_failure_row,
     _build_parser,
+    _build_skip_row,
     _canary_gate,
     _check_row_reachability,
     _check_token_drift,
     _do_verify,
     _error_class,
     _handle_auth_expired,
-    _build_skip_row,
     _handle_checkpoint_ops,
     _load_throttle_config,
     _maybe_emit_gate_banner,
@@ -59,6 +51,19 @@ from backlink_publisher.cli._publish_helpers import (
     _record_publish_path,
     _try_update_ckpt_failed,
 )
+from backlink_publisher.cli._resume import _run_resume  # noqa: F401
+from backlink_publisher.cli.publish_backlinks._engine import publish_rows, PublishOptions
+from backlink_publisher.config import load_config
+from backlink_publisher.publishing.adapters import publish as adapter_publish
+from backlink_publisher.publishing.adapters import verify_adapter_setup
+from backlink_publisher.publishing.reliability.policy import policy_enabled, publish_with_policy
+
+# checkpoint is re-exported into this namespace as a test-patch seam: tests patch
+# `...publish_backlinks.checkpoint.create_checkpoint` to simulate checkpoint
+# failures, and publish_rows() (in _engine) calls create_checkpoint on the SAME
+# module object, so the patch applies even though the call site moved (U4-1).
+from ... import checkpoint, config_echo  # noqa: F401 -- checkpoint = patch seam
+from ...schema import reject_unsupported_platform, supported_platforms, validate_publish_payload
 
 
 def _prepare_publish_rows(args: Any) -> tuple[list[dict[str, Any]], set, Any]:

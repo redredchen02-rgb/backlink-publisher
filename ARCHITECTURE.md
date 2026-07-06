@@ -94,6 +94,52 @@ Security posture:
   OAuth callbacks excluded because they verify their own state.
 - Tests may disable CSRF through sanctioned app config paths.
 
+### Vue 3 SPA (primary UI, P12+ migration)
+
+Since v0.5.0, the primary WebUI is a **Vue 3 SPA** served at `/app/*`. The SPA
+is built by Vite from `frontend/` and outputs to `webui_app/spa_dist/`. It
+coexists with legacy Jinja pages in a strangler-fig migration pattern.
+
+Key architectural properties:
+
+- **Single-origin**: Flask serves the SPA bundle (no CORS needed). The SPA reads
+  CSRF tokens from `<meta name="csrf-token">` or the `/api/v1/csrf-token` endpoint.
+- **Dual-stack**: Legacy Jinja routes remain at their original URLs. When a page
+  is migrated to SPA, the old route issues a 302 redirect to `/app/<page-path>`.
+- **Outside static/**: `spa_dist/` lives outside `webui_app/static/` to avoid
+  collision with Flask's `/static` route and asset-versioning.
+- **Flag-gated**: `BACKLINK_PUBLISHER_SPA=0` disables the SPA entirely, falling
+  back to the Jinja-only UI (used by LITE mode).
+
+SPA stack: Vue 3 + Pinia (stores) + Vue Router 5 (client routing) +
+TanStack Vue Query (server-state caching) + Vite 8 (bundler).
+
+### SDK Layer (v0.5.0)
+
+The SDK at `src/backlink_publisher/sdk/` provides an in-process Python API that
+shares the same engine code as the CLI. Four-tier layering:
+
+1. **Facade** (`__init__.py`): lazy `__getattr__` for `plan`, `validate`,
+   `publish`, `dispatch`, `register_all_adapters`.
+2. **PipelineAPI** (`sdk/api.py`): high-level orchestrator methods.
+3. **Engines** (`cli/*/`, `validate/engine.py`, etc): shared computation kernels.
+4. **CLI shells**: argparse wrappers that call the same engines.
+
+The SDK enables embedding the pipeline in scripts and the WebUI without
+subprocess overhead. See `docs/architecture/sdk-layering.md`.
+
+### Optimization Pipeline (v0.5.0)
+
+The optimization subsystem at `src/backlink_publisher/optimization/` manages
+dispatch weights across platforms:
+
+- `OptimizationState` reads/writes `optimization_state.json` and exposes
+  `to_summary()` for the WebUI and `set_weight()` for manual overrides.
+- The optimization CLI (`weights collect`/`optimize`/`show`) drives the
+  rules engine that adjusts weights based on platform health signals.
+- The WebUI displays optimization status at `/app/optimization-status` (SPA)
+  or the legacy `/optimization-status` (Jinja fallback).
+
 ## Architecture Layers
 
 ### Planning

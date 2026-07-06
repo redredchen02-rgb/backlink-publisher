@@ -38,7 +38,7 @@ import backlink_publisher.publishing.adapters  # noqa: F401,E402
 
 from ..ledger.aggregate import _classify, _link_liveness
 from ..ledger.sources import build_target_buckets
-from ..recheck.events_io import STRIP_VERDICTS, derive_strip_counts_by_platform
+from ..recheck.events_io import derive_strip_counts_by_platform, STRIP_VERDICTS
 from ..referral.aggregate import latest_referral_by_channel
 from .model import AXIS_INERT, ChannelScoreRow
 

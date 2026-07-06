@@ -19,8 +19,8 @@ default-pass mock so the production ``verify_urls_batch`` /
 from __future__ import annotations
 
 __tier__ = "e2e"
-import socket
 from io import BytesIO
+import socket
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
@@ -207,7 +207,7 @@ def test_timeout_retried_and_classified():
 
     def _raise(*args, **kwargs):
         call_count["n"] += 1
-        raise socket.timeout("timed out")
+        raise TimeoutError("timed out")
 
     with patch("backlink_publisher.content.fetch._SSRF_OPENER.open", side_effect=_raise):
         ok, reason, _ = verify_url_has_content("https://example.com/")
@@ -226,7 +226,7 @@ def test_dns_failure_classified_as_network_error():
 
 
 def test_url_error_with_timeout_reason_classified_as_timeout():
-    err = URLError(socket.timeout("read timed out"))
+    err = URLError(TimeoutError("read timed out"))
     with patch("backlink_publisher.content.fetch._SSRF_OPENER.open", side_effect=err):
         ok, reason, _ = verify_url_has_content("https://example.com/")
     assert ok is False
@@ -527,7 +527,7 @@ def test_cache_key_falls_back_on_malformed_url_without_raising():
 def test_concurrent_verify_writes_cache_without_corruption():
     """Many threads writing distinct cache entries concurrently must not raise
     or corrupt the shared dict — the ``_CACHE_LOCK`` serializes mutation."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import as_completed, ThreadPoolExecutor
 
     from backlink_publisher.content.fetch import _CACHE
 
@@ -754,8 +754,8 @@ class TestStats:
         assert snap["reason_counts"]["ok"] == 1
 
     def test_stats_record_failure_reasons(self):
-        from urllib.error import HTTPError
         from io import BytesIO
+        from urllib.error import HTTPError
 
         def _raise_404(*args, **kwargs):
             raise HTTPError("https://example.com/", 404, "NF", {}, BytesIO(b""))
@@ -806,234 +806,11 @@ class TestStats:
         assert snap["fetches"] == 0  # invalid URLs short-circuit without HTTP
 
 
+# SSRF defence tests moved to test_content_fetch_ssrf.py (P13 A2 split).
+# Run via: pytest -m real_ssrf_check tests/test_content_fetch_ssrf.py
+
+
 # ═════════════════════════════════════════════════════════════════════════════
-# SSRF defence (port of plan 005 Unit 1 into content_fetch directly)
-# ═════════════════════════════════════════════════════════════════════════════
-
-
-from urllib.error import URLError as _URLError
-from urllib.request import Request
-
-
-@pytest.mark.real_ssrf_check
-class TestSSRFDefense:
-    """Verify _check_url_for_ssrf + _SSRFSafeRedirectHandler reject
-    requests targeting RFC1918 / loopback / link-local / cloud-metadata
-    /  CGNAT / IPv6-tunnel destinations, plus per-redirect-hop
-    re-checks and HTTPS→HTTP downgrade refusal."""
-
-    @pytest.mark.parametrize("blocked_ip", [
-        "127.0.0.1",
-        "127.0.0.53",
-        "10.0.0.5",
-        "10.255.255.1",
-        "172.16.5.10",
-        "172.31.0.1",
-        "192.168.1.1",
-        "169.254.169.254",  # cloud metadata / AWS IMDS / GCP IMDS / Azure IMDS
-        "168.63.129.16",    # Azure wireserver (DHCP, key mgmt) — not link-local, not RFC-1918
-        "100.64.1.2",       # CGNAT
-        "0.0.0.0",
-    ])
-    def test_literal_blocked_ip_in_url_rejected(self, blocked_ip):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-        reason = _check_url_for_ssrf(f"http://{blocked_ip}/")
-        assert reason is not None
-        assert reason.startswith("blocked_ip:"), reason
-
-    @pytest.mark.parametrize("safe_ip", [
-        "8.8.8.8",
-        "1.1.1.1",
-        "151.101.1.140",
-    ])
-    def test_literal_public_ip_passes(self, safe_ip):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-        assert _check_url_for_ssrf(f"http://{safe_ip}/") is None
-
-    @pytest.mark.parametrize("ipv6", [
-        "::1",
-        "fe80::1234",
-        "ff02::1",
-    ])
-    def test_ipv6_blocked_ranges_rejected(self, ipv6):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-        reason = _check_url_for_ssrf(f"http://[{ipv6}]/")
-        assert reason is not None
-        assert reason.startswith("blocked_ip:")
-
-    def test_hostname_resolving_to_blocked_ip_rejected(self, monkeypatch):
-        """An attacker who registers a domain that resolves to 169.254.169.254
-        (or whose CDN includes a stale 10.x record) must still be blocked.
-        """
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-
-        def _fake_getaddrinfo(host, *args, **kwargs):
-            return [(2, 1, 6, "", ("169.254.169.254", 0))]
-
-        monkeypatch.setattr(
-            "backlink_publisher.content.fetch.socket.getaddrinfo",
-            _fake_getaddrinfo,
-        )
-        reason = _check_url_for_ssrf("https://evil.example.com/")
-        assert reason is not None
-        assert reason.startswith("blocked_ip:")
-
-    def test_hostname_resolving_to_public_ip_passes(self, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-
-        def _fake_getaddrinfo(host, *args, **kwargs):
-            return [(2, 1, 6, "", ("8.8.8.8", 0))]
-
-        monkeypatch.setattr(
-            "backlink_publisher.content.fetch.socket.getaddrinfo",
-            _fake_getaddrinfo,
-        )
-        assert _check_url_for_ssrf("https://good.example.com/") is None
-
-    def test_dns_failure_classified_as_network_error(self, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-
-        def _fake_getaddrinfo(host, *args, **kwargs):
-            raise __import__("socket").gaierror("no such host")
-
-        monkeypatch.setattr(
-            "backlink_publisher.content.fetch.socket.getaddrinfo",
-            _fake_getaddrinfo,
-        )
-        assert _check_url_for_ssrf("https://nx.example/") == "dns_failure"
-
-    def test_verify_url_blocked_ssrf_returns_ssrf_blocked(self, monkeypatch):
-        """End-to-end via verify_url_has_content: a literal-IP URL whose IP
-        is in the block list short-circuits before any HTTP attempt and
-        surfaces reason=ssrf_blocked."""
-        # _SSRF_OPENER.open should NOT be invoked — block fires earlier.
-        call_count = {"n": 0}
-
-        def _track(*args, **kwargs):
-            call_count["n"] += 1
-            raise AssertionError("opener must not be reached")
-
-        monkeypatch.setattr(
-            "backlink_publisher.content.fetch._SSRF_OPENER.open", _track,
-        )
-        ok, reason, _ = verify_url_has_content("http://169.254.169.254/")
-        assert ok is False
-        assert reason == "ssrf_blocked"
-        assert call_count["n"] == 0
-
-    def test_verify_url_dns_failure_surfaces_network_error(self, monkeypatch):
-        def _fake_getaddrinfo(host, *args, **kwargs):
-            raise __import__("socket").gaierror("nope")
-
-        monkeypatch.setattr(
-            "backlink_publisher.content.fetch.socket.getaddrinfo",
-            _fake_getaddrinfo,
-        )
-        ok, reason, _ = verify_url_has_content("https://nx.example/")
-        assert ok is False
-        assert reason == "network_error"
-
-    def test_invalid_host_classified_as_invalid_url(self, monkeypatch):
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-        # urlparse with empty netloc → invalid_host. (Note: schemes other
-        # than http/https are already rejected upstream as invalid_url, so
-        # this path is mostly defence-in-depth.)
-        assert _check_url_for_ssrf("http:///path") == "invalid_host"
-
-    def test_redirect_handler_blocks_redirect_to_metadata_ip(self):
-        """Construct the redirect handler directly and assert it raises
-        URLError on a 302 → metadata-IP redirect target. Uses https→https
-        so the downgrade check doesn't preempt the IP check."""
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
-
-        handler = _SSRFSafeRedirectHandler()
-        req = Request("https://good.example.com/")
-        with pytest.raises(_URLError) as excinfo:
-            handler.redirect_request(
-                req, None, 302, "Found", {}, "https://169.254.169.254/",
-            )
-        assert "ssrf_redirect" in str(excinfo.value)
-
-    def test_redirect_handler_blocks_https_to_http_downgrade(self):
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
-
-        handler = _SSRFSafeRedirectHandler()
-        req = Request("https://safe.example.com/")
-        with pytest.raises(_URLError) as excinfo:
-            handler.redirect_request(
-                req, None, 302, "Found", {}, "http://safe.example.com/",
-            )
-        assert "ssrf_https_downgrade" in str(excinfo.value)
-
-    def test_redirect_handler_allows_redirect_to_public_ip(self, monkeypatch):
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
-
-        def _fake_getaddrinfo(host, *args, **kwargs):
-            return [(2, 1, 6, "", ("8.8.8.8", 0))]
-
-        monkeypatch.setattr(
-            "backlink_publisher._util.net_safety.socket.getaddrinfo",
-            _fake_getaddrinfo,
-        )
-        handler = _SSRFSafeRedirectHandler()
-        req = Request("https://from.example/")
-        # Should not raise — falls through to base class. Base class would
-        # build a redirect Request; we only care that no SSRF exception
-        # was raised from our subclass.
-        result = handler.redirect_request(
-            req, None, 302, "Found", {"location": "https://to.example/"},
-            "https://to.example/",
-        )
-        # Base class returns a Request object on success.
-        assert result is not None
-
-    # ── malformed-IPv6 never-raises (Plan 2026-05-27-006 Unit 4, R3b/R3c) ──
-
-    @pytest.mark.parametrize("bad", ["http://[invalid", "http://[::1", "http://["])
-    def test_check_url_for_ssrf_malformed_returns_invalid_host_not_raises(self, bad, monkeypatch):
-        """The urllib SSRF gate must return 'invalid_host' (blocked) on malformed
-        IPv6, never leak ValueError, and never reach DNS. _check_once calls this
-        on untrusted URLs and is contractually never-raises."""
-        from backlink_publisher.content.fetch import _check_url_for_ssrf
-
-        def _boom(*a, **k):
-            raise AssertionError("getaddrinfo must not be called for malformed input")
-
-        monkeypatch.setattr(
-            "backlink_publisher._util.net_safety.socket.getaddrinfo", _boom,
-        )
-        assert _check_url_for_ssrf(bad) == "invalid_host"
-
-    @pytest.mark.parametrize("bad", ["http://[invalid", "http://[::1"])
-    def test_verify_url_malformed_ipv6_returns_invalid_without_network(self, bad, monkeypatch):
-        """End-to-end: a malformed-IPv6 URL short-circuits to invalid_url before
-        any HTTP attempt (fail-closed, never crashes the fetch gate)."""
-        def _track(*a, **k):
-            raise AssertionError("opener must not be reached for malformed input")
-
-        monkeypatch.setattr(
-            "backlink_publisher.content.fetch._SSRF_OPENER.open", _track,
-        )
-        ok, reason, _ = verify_url_has_content(bad)
-        assert ok is False
-        assert reason == "invalid_url"
-
-    @pytest.mark.parametrize("bad", ["http://[invalid", "http://[::1", "http://["])
-    def test_redirect_handler_malformed_location_blocks_not_raises(self, bad, monkeypatch):
-        """A malformed (server-controlled) Location must be a blocked redirect
-        (URLError), never a bare ValueError, never followed, never reaching DNS."""
-        from backlink_publisher._util.net_safety import _SSRFSafeRedirectHandler
-
-        def _boom(*a, **k):
-            raise AssertionError("getaddrinfo must not be called for malformed redirect")
-
-        monkeypatch.setattr(
-            "backlink_publisher._util.net_safety.socket.getaddrinfo", _boom,
-        )
-        handler = _SSRFSafeRedirectHandler()
-        req = Request("https://from.example/")
-        with pytest.raises(_URLError):
-            handler.redirect_request(req, None, 302, "Found", {}, bad)
         # Note: req.full_url itself can never be malformed here — urllib's
         # Request(...) raises at construction on a malformed URL, and the
         # original URL already passed _check_url_for_ssrf. So only `newurl`
@@ -1143,8 +920,9 @@ class TestSoftFourOhFour:
 
 # ── Unit 1 (autoderive v1): timeout/redirect kwargs + body_too_small ──────
 
-from backlink_publisher._util.net_safety import _make_ssrf_opener
 from urllib.request import OpenerDirector
+
+from backlink_publisher._util.net_safety import _make_ssrf_opener
 
 
 class TestVerifyKwargs:

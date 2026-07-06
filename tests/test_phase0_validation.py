@@ -9,12 +9,10 @@ explicit JSON dicts, never empty success.
 """
 from __future__ import annotations
 
-
 __tier__ = "unit"
 import pytest
 
 from backlink_publisher.phase0 import validation as V
-
 
 # ---------------------------------------------------------------------------
 # Marker regex

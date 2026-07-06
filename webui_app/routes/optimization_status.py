@@ -2,13 +2,16 @@
 
 Reads ``optimization_state.json`` and renders platform weight + stats in a
 simple table. Never 500s — any read error renders an honest "unavailable".
+
+GET /optimization-status  → redirects to SPA /app/optimization-status (P13 B2)
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, redirect, request, url_for
 
 from ..helpers.contexts import _render
 
@@ -40,7 +43,14 @@ def _read_platforms() -> list[dict]:
 
 
 @bp.route("/optimization-status", methods=["GET"])
-def optimization_status():
+def optimization_status() -> Any:
+    """Redirect legacy /optimization-status → SPA /app/optimization-status (P13 B2)."""
+    return redirect(url_for("spa.spa", subpath="optimization-status"), 302)
+
+
+@bp.route("/optimization-status/jinja", methods=["GET"])
+def optimization_status_jinja() -> Any:
+    """Legacy Jinja fallback — kept for LITE mode or SPA-disabled setups."""
     message = request.args.get("message", "")
     try:
         from backlink_publisher.optimization import OptimizationState
@@ -61,7 +71,7 @@ def optimization_status():
 
 
 @bp.route("/api/optimization-status", methods=["GET"])
-def optimization_status_json():
+def optimization_status_json() -> Any:
     """Read-only JSON twin of the optimisation page (for the monitor hub, U5/U6).
 
     Shares OptimizationState.to_summary() with the HTML page and command_center —
@@ -75,8 +85,58 @@ def optimization_status_json():
     return jsonify({"ok": True, "platforms": platforms, "all_platforms": _get_platforms()})
 
 
+@bp.route("/api/optimization-status/set-weight", methods=["POST"])
+def api_set_weight() -> Any:
+    """JSON endpoint for setting platform weight (P13 B2 SPA migration)."""
+    data = request.get_json(silent=True) or {}
+    platform = (data.get("platform") or "").strip()
+    weight_raw = data.get("weight")
+
+    if not platform or weight_raw is None:
+        return jsonify({"ok": False, "error": "platform and weight required"}), 400
+
+    try:
+        weight = float(weight_raw)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "weight must be a number"}), 400
+
+    try:
+        from backlink_publisher.optimization import OptimizationState
+        state = OptimizationState()
+        state.set_weight(platform, weight, rule="manual",
+                         reason="manual override via WebUI", force=True)
+        state.lock_weight(platform, locked=True)
+        return jsonify({
+            "ok": True,
+            "message": f"Set {platform} weight to {weight} 🔒 (locked)",
+        })
+    except Exception as exc:
+        _log.warning("api set-weight failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@bp.route("/api/optimization-status/unlock-weight", methods=["POST"])
+def api_unlock_weight() -> Any:
+    """JSON endpoint for unlocking platform weight (P13 B2 SPA migration)."""
+    data = request.get_json(silent=True) or {}
+    platform = (data.get("platform") or "").strip()
+    if not platform:
+        return jsonify({"ok": False, "error": "platform required"}), 400
+    try:
+        from backlink_publisher.optimization import OptimizationState
+        state = OptimizationState()
+        state.lock_weight(platform, locked=False)
+        return jsonify({
+            "ok": True,
+            "message": f"Unlocked {platform} — rules can now manage weight",
+        })
+    except Exception as exc:
+        _log.warning("api unlock-weight failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
 @bp.route("/optimization-status/set-weight", methods=["POST"])
-def set_weight():
+def set_weight() -> Any:
     """Manually override a platform's dispatch weight."""
     platform = request.form.get("platform", "").strip()
     weight_str = request.form.get("weight", "").strip()
@@ -99,7 +159,7 @@ def set_weight():
         from backlink_publisher.optimization import OptimizationState
         state = OptimizationState()
         state.set_weight(platform, weight, rule="manual",
-                         reason=f"manual override via WebUI", force=True)
+                         reason="manual override via WebUI", force=True)
         state.lock_weight(platform, locked=True)
         summary = state.to_summary()
         platforms = summary.get("platforms", [])
@@ -120,7 +180,7 @@ def set_weight():
 
 
 @bp.route("/optimization-status/unlock-weight", methods=["POST"])
-def unlock_weight():
+def unlock_weight() -> Any:
     """Release a platform's manual lock so rules can manage it again."""
     platform = request.form.get("platform", "").strip()
     if not platform:

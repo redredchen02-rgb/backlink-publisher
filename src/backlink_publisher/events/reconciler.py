@@ -19,21 +19,22 @@ Plan: docs/plans/2026-05-28-004-feat-readtime-reconciliation-hub-plan.md
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import json
 import logging
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .._util.url import canonicalize_url as _canonicalize_url_fn
-from ..checkpoint import list_failed_items, update_item as _update_checkpoint_item
+from ..checkpoint import list_failed_items
+from ..checkpoint import update_item as _update_checkpoint_item
 from ..config import _cache_dir, _config_dir
 from ..idempotency import DedupKey, DedupStore
 from ._project_helpers import _HISTORY_FILENAME
 from .store import EventStore
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Sentinal canonical URL for checkpoint items that cannot be canonicalized.
 _UNPARSEABLE_URL = "__unparseable__"
@@ -91,7 +92,7 @@ def _recon_log_path() -> Path:
 def _log_recon_event(event_type: str, **fields: Any) -> None:
     """Append one structured line to RECON.log. Best-effort (never raises)."""
     try:
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = datetime.now(UTC).isoformat()
         line = json.dumps({
             "ts": ts,
             "event": event_type,
@@ -102,7 +103,7 @@ def _log_recon_event(event_type: str, **fields: Any) -> None:
         with open(str(path), "a", encoding="utf-8") as f:
             f.write(line + "\n")
     except Exception as exc:
-        _log.warning("RECON.log write failed: %s", exc)
+        log.warning("RECON.log write failed: %s", exc)
 
 
 # -------------------------------------------------------------------------- #
@@ -117,7 +118,7 @@ def _canonicalize_url(url: str | None) -> str | None:
     try:
         return _canonicalize_url_fn(url)
     except Exception as exc:
-        _log.debug("canonicalize_url failed for %r: %s", url, exc)
+        log.debug("canonicalize_url failed for %r: %s", url, exc)
         return None
 
 
@@ -209,7 +210,7 @@ def _auto_fix_checkpoint(
         _clear_quarantine_by_dedup_key(store, probe.canon)
         summary.cleared += 1
     except Exception as exc:
-        _log.warning(
+        log.warning(
             "reconciler: auto-fix failed for item %s/%s: %s",
             probe.run_id, probe.item_id, exc,
         )
@@ -226,7 +227,7 @@ def _quarantine_if_stale(
     if probe.created_at:
         try:
             age_seconds = (
-                datetime.now(timezone.utc) -
+                datetime.now(UTC) -
                 datetime.fromisoformat(probe.created_at)
             ).total_seconds()
         except (ValueError, TypeError):
@@ -305,7 +306,7 @@ def _reconcile_checkpoints(
     try:
         records = dedup_store.get_many(probe.key for probe in pending)
     except Exception as exc:
-        _log.warning(
+        log.warning(
             "reconciler: batch dedup read failed; skipping cross-reference: %s", exc
         )
         return summary
@@ -337,7 +338,7 @@ def _reconcile_history(
     try:
         history = json.loads(history_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
-        _log.warning("reconciler: could not read history: %s", exc)
+        log.warning("reconciler: could not read history: %s", exc)
         return (0, 0)
 
     # Normalise history to a list of entries.
@@ -376,7 +377,8 @@ def _reconcile_history(
 
             try:
                 key = DedupKey(platform=platform, target_url=canon)
-            except Exception:
+            except (ValueError, TypeError):
+                # debt: reconciler-history-dedupkey-parse-failure
                 continue
 
             probes.append((entry, platform, canon, key))
@@ -387,7 +389,7 @@ def _reconcile_history(
     try:
         records = dedup_store.get_many(key for _, _, _, key in probes)
     except Exception as exc:
-        _log.warning("reconciler: history batch dedup read failed: %s", exc)
+        log.warning("reconciler: history batch dedup read failed: %s", exc)
         _log_recon_event("reconciler_history_summary", checked=checked, gaps=0)
         return 0, checked
 
@@ -446,6 +448,6 @@ def reconcile_all(
         summary.history_checked = checked
 
     except Exception as exc:
-        _log.warning("reconciler: reconcile_all failed (partial result): %s", exc)
+        log.warning("reconciler: reconcile_all failed (partial result): %s", exc)
 
     return summary

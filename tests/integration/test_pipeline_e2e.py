@@ -14,9 +14,9 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 from typing import NamedTuple
 
 import pytest

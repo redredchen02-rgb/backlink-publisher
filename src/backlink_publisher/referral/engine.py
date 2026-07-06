@@ -10,8 +10,8 @@ Shell layer: :mod:`backlink_publisher.cli.referral_attribute`.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
+import logging
 
 from backlink_publisher.click_track.engine import (
     ClickQueryOptions,
@@ -22,7 +22,7 @@ from backlink_publisher.click_track.engine import (
 from backlink_publisher.config import ClickTrackConfig
 from backlink_publisher.referral.channel_map import map_source_to_channel
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -101,7 +101,7 @@ def attribute_site(
         )
 
     channels = aggregate_by_channel(result.stats)
-    _log.info(
+    log.info(
         "attribute_site(%s) — %d channel(s) from %d source row(s)",
         target_site,
         len(channels),

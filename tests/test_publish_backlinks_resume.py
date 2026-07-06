@@ -2,20 +2,20 @@
 from __future__ import annotations
 
 __tier__ = "unit"
+from datetime import datetime, timedelta, timezone, UTC
+from io import StringIO
 import json
 import os
 import sys
-from datetime import datetime, timezone, timedelta
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
-from backlink_publisher.publishing.adapters.base import AdapterResult
-from backlink_publisher.checkpoint import create_checkpoint, update_item, mark_complete
-from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher.checkpoint import create_checkpoint, mark_complete, update_item
+from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.linkcheck.verify import VerificationResult
+from backlink_publisher.publishing.adapters.base import AdapterResult
 
 
 @pytest.fixture(autouse=True)
@@ -336,7 +336,7 @@ def test_resume_throttle_applied_when_elapsed_under_300(mock_pub, mock_verify, m
     mock_cache.return_value = tmp_path / "cache"
     env = {"MEDIUM_THROTTLE_MIN": "10", "MEDIUM_THROTTLE_MAX": "20"}
 
-    recent_ts = (datetime.now(timezone.utc) - timedelta(seconds=200)).isoformat()
+    recent_ts = (datetime.now(UTC) - timedelta(seconds=200)).isoformat()
     rows = [_make_payload(platform="medium", item_id="r0")]
     run_id, _ = create_checkpoint(rows, platform="medium", mode="draft")
     # pre-mark r0 as done with recent medium timestamp; add a new pending r1 via create
@@ -369,7 +369,7 @@ def test_resume_throttle_skipped_when_elapsed_over_300(mock_pub, mock_verify, mo
     """If last Medium done was 400s ago → no sleep for first Medium item."""
     mock_cache.return_value = tmp_path / "cache"
 
-    old_ts = (datetime.now(timezone.utc) - timedelta(seconds=400)).isoformat()
+    old_ts = (datetime.now(UTC) - timedelta(seconds=400)).isoformat()
     rows = [
         _make_payload(platform="medium", item_id="done0"),
         _make_payload(platform="medium", item_id="pend1"),

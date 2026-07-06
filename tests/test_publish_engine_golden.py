@@ -16,9 +16,9 @@ or these goldens flag the CLI exit-code regression.
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest

@@ -19,10 +19,10 @@ from __future__ import annotations
 __tier__ = "integration"
 import ast
 import os
+from pathlib import Path
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 
 import pytest
 

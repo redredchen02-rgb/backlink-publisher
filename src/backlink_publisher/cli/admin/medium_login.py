@@ -24,12 +24,12 @@ binding flow to write ``medium-cookies.json`` + ``medium-meta.json``
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import sys
-from typing import Any, Sequence
+from typing import Any
 
-from backlink_publisher._util.errors import UsageError, handle_error
+from backlink_publisher._util.errors import handle_error, UsageError
 from backlink_publisher.cli import bind_channel
-
 
 _BANNER = "medium-login is an alias for: bind-channel --channel medium"
 

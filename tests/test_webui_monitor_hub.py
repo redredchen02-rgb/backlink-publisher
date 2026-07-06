@@ -31,6 +31,14 @@ def test_hub_view_renders(client):
     assert 'type="module"' in body
 
 
+def test_hub_redirects_to_spa(client):
+    # /monitor-hub now redirects to the SPA; the Jinja fallback
+    # (test_hub_view_renders above) covers the render path.
+    resp = client.get("/monitor-hub")
+    assert resp.status_code == 302
+    assert "/app/monitor" in resp.location
+
+
 def test_hub_json_ok_and_shape(client):
     resp = client.get("/api/monitor-hub")
     assert resp.status_code == 200

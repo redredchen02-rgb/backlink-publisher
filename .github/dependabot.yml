@@ -1,0 +1,48 @@
+# Dependabot 自動依賴更新配置
+# 文件位置：.github/dependabot.yml
+# 參考：https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # Python (pip) 依賴
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    # 每次更新最多開 10 個 PR
+    open-pull-requests-limit: 10
+    # 給這些 PR 打標籤
+    labels:
+      - "dependencies"
+      - "automated"
+    # 版本更新策略
+    versioning-strategy: increase-if-necessary
+    # 忽略特定套件（已知相容性問題）
+    ignore:
+      # Playwright 需要與瀏覽器版本同步，手動升級
+      - dependency-name: "playwright"
+        update-types: ["version-update:semver-major"]
+      # radon pinned 精確版本（SLOC/MCC 快照需同步更新）
+      - dependency-name: "radon"
+      # ruff pinned 精確版本（lint 結果需確定性）
+      - dependency-name: "ruff"
+    # 對特定依賴的更新類型限制
+    allow:
+      # 只允許補丁和小版本更新（大版本需手動審查）
+      - dependency-type: "all"
+    # 為 PR 分配審查者
+    reviewers:
+      - "dexfucius"
+
+  # GitHub Actions 依賴
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"

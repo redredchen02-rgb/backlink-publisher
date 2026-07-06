@@ -16,14 +16,13 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from backlink_publisher.content import _http as scraper_http
 from backlink_publisher._util.errors import ExternalServiceError, InputValidationError
+from backlink_publisher.content import _http as scraper_http
 from backlink_publisher.content.scraper import (
-    WorkMetadata,
     fetch_work_metadata,
     fetch_work_urls_from_list,
+    WorkMetadata,
 )
-
 
 # ── Autouse: silence sleep + default-public DNS ──────────────────────────────
 
@@ -152,7 +151,7 @@ class TestFetchWorkMetadataHappyPath:
             f"<html><head><title>{long_title}</title>"
             f"<meta name='description' content='{long_desc}'>"
             f"</head><body><h1>{long_h1}</h1></body></html>"
-        ).encode("utf-8")
+        ).encode()
         with patch("backlink_publisher.content._http.http_get") as mock_get:
             mock_get.return_value = _make_response(body=html)
             meta = fetch_work_metadata("https://target.example.com/work/1")

@@ -30,32 +30,34 @@ Always runs headed (Medium detects headless aggressively).
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import os
+from pathlib import Path
 import platform
 import tempfile
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     DependencyError,
     ExternalServiceError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.config.loader import _config_dir
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+
+from . import _medium_selectors as sel
 from .base import AdapterResult
 from .link_attr_verifier import required_link_urls, verify_link_attributes
 from .retry import retry_transient_call
-from . import _medium_selectors as sel
 
 try:
-    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 except ImportError:  # pragma: no cover — tested via DependencyError path
     sync_playwright = None  # type: ignore[assignment]
     PlaywrightTimeoutError = Exception  # type: ignore[assignment,misc]
@@ -70,12 +72,11 @@ _SAVE_DRAFT_SETTLE_MS: int = 2_000          # settle after Save Draft click (ms)
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("MEDIUM_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="medium",
+        env_var="MEDIUM_PUBLISH_DELAY_S",
+        default=_DEFAULT_MEDIUM_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("medium")
     if toml_val is not None:
@@ -88,7 +89,7 @@ def _json_log(**kwargs: Any) -> str:
 
 
 def _screenshot_path(config: Config, article_id: str) -> Path:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     shots_dir = config.screenshot_dir
     shots_dir.mkdir(parents=True, exist_ok=True)
     return shots_dir / f"{article_id}-{ts}.png"
@@ -126,18 +127,8 @@ def _load_medium_cookies() -> list[dict[str, Any]]:
             f"(or `bind-channel --channel medium`) to bind your Medium "
             f"session. Pre-Plan-005 storage_state.json is no longer read."
         )
-    try:
-        mode = path.stat().st_mode & 0o777
-    except OSError as exc:
-        raise DependencyError(
-            f"medium-cookies.json at {path} is unreadable: {exc}"
-        ) from exc
-    if mode != 0o600:
-        raise DependencyError(
-            f"medium-cookies.json at {path} has mode {oct(mode)}, expected "
-            f"0o600. Run `chmod 600 {path}` (or re-run `medium-login` "
-            f"which will write 0600)."
-        )
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(path, label="medium-cookies.json")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -166,7 +157,7 @@ def _safe_mark_expired() -> None:
         from webui_store.channel_status import mark_expired
         mark_expired("medium")
     except Exception as exc:  # noqa: BLE001 — defensive
-        log.warn(
+        log.warning(
             f"medium_browser: mark_expired('medium') failed during auth-expired "
             f"propagation: {type(exc).__name__}: {exc}"
         )
@@ -183,7 +174,7 @@ def _refresh_cookies(context: Any) -> None:
         try:
             live_cookies = context.cookies("https://medium.com") or []
         except Exception as exc:
-            log.warning("Failed to extract live cookies from Playwright context: %s: %s" % (type(exc).__name__, exc))
+            log.warning("Failed to extract live cookies from Playwright context", exc_type=type(exc).__name__, exc=str(exc))
             live_cookies = []
         target.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(
@@ -208,7 +199,7 @@ def _refresh_cookies(context: Any) -> None:
                 pass
             raise
     except Exception as exc:  # noqa: BLE001 — best-effort refresh
-        log.warn(
+        log.warning(
             f"medium_browser: failed to refresh medium-cookies.json: "
             f"{type(exc).__name__}: {exc}"
         )
@@ -227,7 +218,7 @@ class MediumBrowserAdapter(Publisher):
     ) -> AdapterResult:
         if sync_playwright is None:
             raise DependencyError(
-                "Playwright is not installed. Run: playwright install chromium"
+                "Playwright is not installed. Install with: pip install backlink-publisher[browser]"
             )
 
         article_id = payload.get("id", "")
@@ -288,7 +279,7 @@ class MediumBrowserAdapter(Publisher):
                         except ExternalServiceError:
                             raise
                         except Exception as exc:
-                            log.debug("Medium CAPTCHA probe failed during timeout: %s" % exc)
+                            log.debug("Medium CAPTCHA probe failed during timeout", error=str(exc))
                         raise  # re-raise PlaywrightTimeoutError for retry_transient_call
 
                     # Plan 2026-05-19-005 Unit 1: detect login redirect;
@@ -347,9 +338,10 @@ class MediumBrowserAdapter(Publisher):
                             page.locator(sel.SAVE_DRAFT).click()
                             page.wait_for_timeout(_SAVE_DRAFT_SETTLE_MS)
                         except Exception as exc:
-                            log.warn(
-                                "Failed to click 'Save Draft' button during fallback: %s. "
-                                "Proceeding with standard wait." % exc
+                            log.warning(
+                                "Failed to click 'Save Draft' button during fallback. "
+                                "Proceeding with standard wait.",
+                                error=str(exc),
                             )
                             page.wait_for_timeout(_PUBLISH_SETTLE_MS)
 
@@ -384,7 +376,7 @@ class MediumBrowserAdapter(Publisher):
                             ratio = attr_check.get("blank_ratio", 1.0)
                             total = attr_check.get("total_anchors", 0)
                             if attr_check.get("verification") == "ok" and total > 0 and ratio < 0.5:
-                                log.warn(
+                                log.warning(
                                     f"Medium stripped target attributes: "
                                     f"{attr_check['blank_anchors']}/{total} anchors "
                                     "retain target=_blank"
@@ -443,4 +435,4 @@ def _save_screenshot(page: Any, config: Config, article_id: str) -> None:
         page.screenshot(path=str(shot_path))
         log.error("screenshot", level="ERROR", screenshot=str(shot_path))
     except Exception as exc:
-        log.debug("Failed to capture diagnostic screenshot: %s" % exc)
+        log.debug("Failed to capture diagnostic screenshot", error=str(exc))

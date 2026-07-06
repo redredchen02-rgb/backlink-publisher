@@ -147,11 +147,12 @@ def _full_payload(item_id="p0", platform="blogger"):
 def test_publish_cli_populates_events_db_end_to_end(mock_pub, mock_verify, mock_vp):
     """End-to-end: a real (non-dry) publish writes its outcome to the
     checkpoint AND projects it into events.db via the U4 wiring."""
-    import sys
     from io import StringIO
-    from backlink_publisher.publishing.adapters.base import AdapterResult
-    from backlink_publisher.linkcheck.verify import VerificationResult
+    import sys
+
     from backlink_publisher.cli.publish_backlinks import main
+    from backlink_publisher.linkcheck.verify import VerificationResult
+    from backlink_publisher.publishing.adapters.base import AdapterResult
 
     mock_pub.return_value = AdapterResult(
         status="drafted", adapter="blogger-api", platform="blogger",
@@ -181,11 +182,12 @@ def test_publish_cli_verification_failure_projects_unverified(mock_pub, mock_ver
     """D5 end-to-end through the real CLI: a publish whose verification FAILS
     writes verified=False to the checkpoint and projects publish.unverified
     (NOT publish.confirmed), and the CLI exits 5."""
-    import sys
     from io import StringIO
-    from backlink_publisher.publishing.adapters.base import AdapterResult
-    from backlink_publisher.linkcheck.verify import VerificationResult
+    import sys
+
     from backlink_publisher.cli.publish_backlinks import main
+    from backlink_publisher.linkcheck.verify import VerificationResult
+    from backlink_publisher.publishing.adapters.base import AdapterResult
 
     mock_pub.return_value = AdapterResult(
         status="drafted", adapter="blogger-api", platform="blogger",
@@ -216,8 +218,9 @@ def test_resume_noop_reemits_unverified_suffix_and_projects(mock_setup):
     """A no-op resume (all items already done) re-emits a prior-resume
     unverified item WITH the _unverified suffix (from the persisted `verified`
     flag, not just this run's transient set) AND projects it (R2 recovery)."""
-    import sys
     from io import StringIO
+    import sys
+
     from backlink_publisher.cli.publish_backlinks import main
 
     run_id = _seed_done_run(verified=False)  # one done item, verified=False

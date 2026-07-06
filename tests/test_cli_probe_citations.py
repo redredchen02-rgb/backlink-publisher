@@ -30,7 +30,6 @@ from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
 from backlink_publisher.geo.engines import ProbeResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

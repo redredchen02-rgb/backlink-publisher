@@ -25,21 +25,22 @@ The CLI in ``bind_channel.py`` is responsible for emitting
 """
 
 from __future__ import annotations
+
 from ._driver_impl import (
-    PlaywrightLaunchError,
-    BoundPredicateTimeout,
-    PersistIOError,
-    IdentityMismatch,
-    ChromeLaunchError,
-    BindResult,
-    BrowserRunner,
-    _emit,
-    _browser_profile_dir,
-    _validate_storage_state_path,
-    _persist_storage_state,
-    run_bind,
-    _promote_last_account_if_pending,
     _apply_host_filter,
+    _browser_profile_dir,
+    _emit,
+    _persist_storage_state,
+    _promote_last_account_if_pending,
+    _validate_storage_state_path,
+    BindResult,
+    BoundPredicateTimeout,
+    BrowserRunner,
+    ChromeLaunchError,
+    IdentityMismatch,
+    PersistIOError,
+    PlaywrightLaunchError,
+    run_bind,
 )
 
 # Default per-bind

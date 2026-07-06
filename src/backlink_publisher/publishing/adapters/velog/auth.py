@@ -7,15 +7,18 @@ localStorage origins, and probe session liveness via GraphQL currentUser query.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import requests
 
 from backlink_publisher._util.errors import AuthExpiredError, DependencyError
-from backlink_publisher._util.logger import opencli_logger as log
 
-from .constants import _PROBE_QUERY, _VELOG_GRAPHQL_ENDPOINT, _VELOG_REQUIRED_HEADERS, _PROBE_TIMEOUT
+from .constants import (
+    _PROBE_QUERY,
+    _PROBE_TIMEOUT,
+    _VELOG_GRAPHQL_ENDPOINT,
+    _VELOG_REQUIRED_HEADERS,
+)
 
 
 def _extract_tokens_from_origins(origins: object, cookies: dict[str, str]) -> None:
@@ -72,15 +75,11 @@ def _load_cookies(cookies_path: Path) -> dict[str, str]:
                 "Run: velog-login"
             )
 
-    mode = os.stat(source_path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"velog-cookies.json must be 0600 (found {oct(mode)})\n"
-            f"Run: chmod 600 {source_path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(source_path, label="velog-cookies.json")
 
     try:
-        raw = json.loads(source_path.read_text())
+        raw = json.loads(source_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise DependencyError(
             f"Cannot read velog cookies: {exc}\n"

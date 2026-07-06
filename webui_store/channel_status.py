@@ -8,10 +8,10 @@ on first access.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import logging
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,10 +19,10 @@ from backlink_publisher._util.errors import UsageError
 from backlink_publisher.cli._bind.channels import CHANNELS
 from backlink_publisher.config.loader import _config_dir
 from backlink_publisher.events._store_sqlite import _retry_sqlite
-from webui_store.base import _LazyStore
+from webui_store.base import _LazyStore, _now_iso
 from webui_store.sqlite_base import BaseSqliteStore, WebUIDatabase
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 _UNBOUND_DEFAULT: dict[str, Any] = {
@@ -88,6 +88,14 @@ class ChannelStatusSqliteStore(BaseSqliteStore):
             "last_verified_at TEXT, "
             "extra_json TEXT)"
         )
+
+    def _indices_sql(self) -> list[str]:
+        return [
+            "CREATE INDEX IF NOT EXISTS channel_status_status "
+            "ON channel_status (status)",
+            "CREATE INDEX IF NOT EXISTS channel_status_verified "
+            "ON channel_status (last_verified_at)",
+        ]
 
     def load(self) -> dict[str, dict[str, Any]]:
         def _op() -> dict[str, dict[str, Any]]:
@@ -190,10 +198,6 @@ def _make_channel_status_store() -> ChannelStatusSqliteStore:
 
 
 channel_status_store: _LazyStore = _LazyStore(_make_channel_status_store)
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _validate_channel(channel: str) -> None:
@@ -418,7 +422,7 @@ def purge_removed_channel_credentials() -> None:
     for slug in _REMOVED_CREDENTIAL_SLUGS:
         path = config_dir / f"{slug}-credentials.json"
         if path.is_symlink():
-            _log.warning(
+            log.warning(
                 "purge_removed_channel_credentials: refusing to follow symlink "
                 "%s (not unlinked)", path,
             )
@@ -429,7 +433,7 @@ def purge_removed_channel_credentials() -> None:
             _validate_storage_state_path(path)  # containment guard
             path.unlink()
         except (OSError, UsageError) as exc:
-            _log.warning(
+            log.warning(
                 "purge_removed_channel_credentials: could not remove %s (%s) — "
                 "stranded 0600 secret; remove manually", path, exc,
             )
@@ -437,7 +441,7 @@ def purge_removed_channel_credentials() -> None:
     try:
         sentinel.write_text(_now_iso())
     except OSError as exc:  # pragma: no cover — startup must not crash
-        _log.warning("purge_removed_channel_credentials: sentinel write failed: %s", exc)
+        log.warning("purge_removed_channel_credentials: sentinel write failed: %s", exc)
 
 
 def credential_age_days(channel: str) -> float | None:
@@ -445,7 +449,6 @@ def credential_age_days(channel: str) -> float | None:
 
     Best-effort: returns None on any parse error.  Used for TTL badge (R8).
     """
-    from datetime import datetime, timezone
 
     rec = get_status(channel)
     raw = rec.get("bound_at")
@@ -454,8 +457,8 @@ def credential_age_days(channel: str) -> float | None:
     try:
         ts = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - ts
+            ts = ts.replace(tzinfo=UTC)
+        delta = datetime.now(UTC) - ts
         return delta.total_seconds() / 86400
     except (ValueError, OverflowError):
         return None

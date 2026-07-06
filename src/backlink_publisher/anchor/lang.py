@@ -22,10 +22,10 @@ Public entry: :func:`check_anchor_language`. Exemption order is:
 from __future__ import annotations
 
 from backlink_publisher.anchor.resolver import (
-    _CJK_BMP_START,
     _CJK_BMP_END,
-    _HANGUL_BMP_START,
+    _CJK_BMP_START,
     _HANGUL_BMP_END,
+    _HANGUL_BMP_START,
 )
 from backlink_publisher.linkcheck.language import SUPPORTED_LANGUAGES
 

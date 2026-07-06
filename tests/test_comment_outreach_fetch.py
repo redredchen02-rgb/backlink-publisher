@@ -95,12 +95,12 @@ def test_200_with_non200_getcode_is_non_200():
 
 
 def test_socket_timeout_is_timeout():
-    with _ssrf_ok(), patch.object(cf._COMMENT_OPENER, "open", side_effect=socket.timeout()):
+    with _ssrf_ok(), patch.object(cf._COMMENT_OPENER, "open", side_effect=TimeoutError()):
         assert cf.fetch_comment_page("https://example.com/").reason == "timeout"
 
 
 def test_urlerror_wrapping_timeout_is_timeout():
-    with _ssrf_ok(), patch.object(cf._COMMENT_OPENER, "open", side_effect=URLError(socket.timeout())):
+    with _ssrf_ok(), patch.object(cf._COMMENT_OPENER, "open", side_effect=URLError(TimeoutError())):
         assert cf.fetch_comment_page("https://example.com/").reason == "timeout"
 
 

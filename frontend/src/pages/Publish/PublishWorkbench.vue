@@ -19,7 +19,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { usePublishStore } from '../../stores/publish'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
+import { classifyError, type Classified } from '../../lib/errors'
 import type { PlanRow } from '../../api/pipeline'
 import type { Profile } from '../../api/profiles'
 import ProfileSelector from '../../components/ProfileSelector.vue'
@@ -82,7 +82,24 @@ function rowOutcome(row: PlanRow): { ok: boolean; text: string } {
   return { ok: false, text: field(row, 'error') || field(row, 'status') || '失败' }
 }
 
-function reportError(e: unknown): void {
+// Persistent, in-page error indicators (in addition to the toast) — a toast
+// alone doesn't identify WHICH stage failed once it's dismissed/superseded by
+// a later one; this keeps a fixed, classifyError-templated message next to
+// the stage that actually failed until that stage is retried (R3 action 6/7).
+type StageKey = 'plan' | 'validate' | 'publish'
+const stageError = ref<{ stage: StageKey; classified: Classified } | null>(null)
+const planError = computed(() => (stageError.value?.stage === 'plan' ? stageError.value.classified : null))
+const validateError = computed(() => (stageError.value?.stage === 'validate' ? stageError.value.classified : null))
+const publishError = computed(() => (stageError.value?.stage === 'publish' ? stageError.value.classified : null))
+
+// Empty-result notice for step 1 — previously a plan call that succeeded but
+// returned zero rows gave no feedback at all (step 2's fieldset just never
+// appears), indistinguishable from "nothing happened". This is the mirror of
+// KeepAlivePage's false-ready empty bug: a legitimate empty result must say so.
+const planEmpty = ref(false)
+
+function reportError(stage: StageKey, e: unknown): void {
+  stageError.value = { stage, classified: classifyError(e) }
   toastError(e)
 }
 
@@ -92,23 +109,28 @@ async function onPlan(): Promise<void> {
     notify.push('请先输入至少一个 URL', 'warning')
     return
   }
+  stageError.value = null
+  planEmpty.value = false
   try {
     await store.runPlan()
+    planEmpty.value = store.plans.length === 0
   } catch (e) {
-    reportError(e)
+    reportError('plan', e)
   }
 }
 
 async function onValidate(): Promise<void> {
+  stageError.value = null
   try {
     await store.runValidate()
   } catch (e) {
-    reportError(e)
+    reportError('validate', e)
   }
 }
 
 async function onPublish(): Promise<void> {
   if (store.publishing) return // belt-and-suspenders with the disabled button
+  stageError.value = null
   try {
     await store.runPublish()
     const r = store.publishResult
@@ -119,19 +141,29 @@ async function onPublish(): Promise<void> {
       )
     }
   } catch (e) {
-    reportError(e)
+    reportError('publish', e)
   }
 }
 
 function onReset(): void {
   urlText.value = ''
+  planEmpty.value = false
+  stageError.value = null
   store.reset()
+}
+
+async function onRetryPlatforms(): Promise<void> {
+  await store.loadPlatforms()
 }
 
 const platformOptions = computed(() =>
   store.availablePlatforms.length
     ? store.availablePlatforms
     : [{ slug: store.config.platform, display_name: store.config.platform }],
+)
+
+const platformsErrorClassified = computed<Classified | null>(() =>
+  store.platformsError ? classifyError(store.platformsError) : null,
 )
 
 // Apply a loaded publish preset onto the shared config. url_mode has no
@@ -157,6 +189,11 @@ function applyProfile(p: Profile): void {
     <!-- Config (shared across stages) -->
     <fieldset class="config">
       <legend>配置</legend>
+      <p v-if="platformsErrorClassified" class="section-error" role="alert">
+        {{ platformsErrorClassified.title }}：{{ platformsErrorClassified.message }}
+        （已回退为默认平台，可正常提交）
+        <button type="button" class="link" @click="onRetryPlatforms">重试加载平台列表</button>
+      </p>
       <label>
         平台
         <select v-model="store.config.platform">
@@ -203,6 +240,10 @@ function applyProfile(p: Profile): void {
       <button type="button" :disabled="store.planning" @click="onPlan">
         {{ store.planning ? '生成中…' : '生成文章计划' }}
       </button>
+      <p v-if="planError" class="section-error" role="alert">{{ planError.title }}：{{ planError.message }}</p>
+      <p v-if="planEmpty" class="empty-notice muted" role="status">
+        未生成任何文章计划，请检查输入的 URL 或稍后重试。
+      </p>
     </fieldset>
 
     <!-- Step 2 — planned -->
@@ -214,6 +255,7 @@ function applyProfile(p: Profile): void {
       <button type="button" :disabled="store.validating" @click="onValidate">
         {{ store.validating ? '验证中…' : '验证' }}
       </button>
+      <p v-if="validateError" class="section-error" role="alert">{{ validateError.title }}：{{ validateError.message }}</p>
     </fieldset>
 
     <!-- Step 3 — preview / edit → confirm publish -->
@@ -237,6 +279,7 @@ function applyProfile(p: Profile): void {
       <button type="button" class="publish-btn" :disabled="store.publishing" @click="onPublish">
         {{ store.publishing ? '發布進行中…' : '確認並發布' }}
       </button>
+      <p v-if="publishError" class="section-error" role="alert">{{ publishError.title }}：{{ publishError.message }}</p>
     </fieldset>
 
     <!-- Step 4 — result -->
@@ -320,6 +363,21 @@ function applyProfile(p: Profile): void {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+.section-error {
+  color: var(--danger);
+  margin: 0;
+}
+.empty-notice {
+  margin: 0;
+}
+button.link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.4rem;
 }
 .publish-busy {
   display: flex;

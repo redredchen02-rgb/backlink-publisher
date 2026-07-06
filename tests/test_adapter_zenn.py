@@ -15,9 +15,9 @@ import pytest
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.adapters.zenn_github import (
-    ZennGitHubAdapter,
     _build_zenn_markdown,
     _slugify,
+    ZennGitHubAdapter,
 )
 
 _PUT = "backlink_publisher.publishing.adapters.zenn_github.http_put"
@@ -30,10 +30,10 @@ _USERNAME = "testuser"
 @pytest.fixture
 def config(tmp_path):
     cfg = MagicMock()
-    cfg.zenn_token_path = tmp_path / "zenn-token.json"
-    tok = cfg.zenn_token_path
+    tok = tmp_path / "zenn-token.json"
     tok.write_text(json.dumps({"token": _TOKEN}))
     os.chmod(tok, 0o600)
+    cfg.token_path.return_value = tok
     cfg.zenn = MagicMock()
     cfg.zenn.github_repo = _REPO
     cfg.zenn.username = _USERNAME
@@ -44,7 +44,7 @@ def config(tmp_path):
 @pytest.fixture
 def config_no_token(tmp_path):
     cfg = MagicMock()
-    cfg.zenn_token_path = tmp_path / "zenn-token.json"
+    cfg.token_path.return_value = tmp_path / "zenn-token.json"
     cfg.zenn = MagicMock()
     cfg.zenn.github_repo = _REPO
     cfg.zenn.username = _USERNAME
@@ -55,7 +55,7 @@ def config_no_token(tmp_path):
 @pytest.fixture
 def config_no_section(tmp_path):
     cfg = MagicMock()
-    cfg.zenn_token_path = tmp_path / "zenn-token.json"
+    cfg.token_path.return_value = tmp_path / "zenn-token.json"
     cfg.zenn = None
     return cfg
 

@@ -5,12 +5,18 @@
     "moduleResolution": "bundler",
     "strict": true,
     "jsx": "preserve",
+    // Plan 2026-07-01-002 U6 — errorCapture.ts imports the plain-JS/ESM
+    // ../../../webui_app/static/js/lib/error-capture-core.js shared with the
+    // legacy capture engine (Unit 4); allowJs lets TS resolve + infer types
+    // for that .js module from its JSDoc without requiring a hand-written
+    // .d.ts or forking the logic into TypeScript.
+    "allowJs": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "noEmit": true,
     "isolatedModules": true,
     "esModuleInterop": true,
-    "types": ["vite/client", "vitest/globals"],
+    "types": ["node", "vite/client", "vitest/globals"],
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts"]

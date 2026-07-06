@@ -21,10 +21,9 @@ from unittest.mock import patch
 
 import pytest
 
-import backlink_publisher.sdk as sdk
-from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.linkcheck.verify import VerificationResult
-
+from backlink_publisher.publishing.adapters.base import AdapterResult
+import backlink_publisher.sdk as sdk
 
 # ── blogger seed (API-tier — no Chrome / subprocess needed) ──────────────────
 

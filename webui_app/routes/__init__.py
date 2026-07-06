@@ -6,47 +6,53 @@ from flask import Flask
 
 
 def register_blueprints(app: Flask) -> None:
-    from .main import bp as main_bp
-    from .pipeline import bp as pipeline_bp, bp_publish as pipeline_publish_bp
-    from .batch import bp as batch_bp
-    from .checkpoint import bp as checkpoint_bp
-    from .history import bp as history_bp
-    from .drafts import bp as drafts_bp
-    from .settings_basic import bp as settings_basic_bp
+    # Plan 2026-06-18-002 U1 — versioned JSON API surface (/api/v1). First
+    # blueprint to use url_prefix; RFC 9457 error handlers wired below.
+    from ..api.v1 import bp as api_v1_bp
+    from ..api.v1 import register_api_error_handlers
+
     # llm_bp deregistered in U8 5b; module kept as patch surface for test_webui_unit3_security.
     from . import llm as _llm_patch_surface  # noqa: F401 — retain module for test patching
-    from .oauth import bp as oauth_bp
-    from .profiles import bp as profiles_bp
-    from .sites import bp as sites_bp
-    from .queue import bp as queue_bp
+    from .batch import bp as batch_bp
+    from .batch_campaign import bp as batch_campaign_bp
+    from .batch_sites import bp as batch_sites_bp
+    from .campaign_progress import bp as campaign_progress_bp
+    from .checkpoint import bp as checkpoint_bp
+    from .command_center import bp as command_center_bp
+
+    # channel_bind_save_bp deregistered in U8 5b — replaced by /api/v1/settings/channels/*/credential
+    from .copilot import bp as copilot_bp
     from .dashboard import bp as dashboard_bp
-    # medium_login_bp, bind_bp, token_paste_bp, image_gen_bp deregistered in U8
-    # (Plan 2026-06-18-002 5b) — replaced by /api/v1/settings/* endpoints.
-    from .url_verify import bp as url_verify_bp
-    from .seo_viz import bp as seo_viz_bp
+    from .drafts import bp as drafts_bp
+    from .equity_batch_recheck import bp as equity_batch_recheck_bp
+    from .equity_gap import bp as equity_gap_bp
     from .equity_ledger import bp as equity_ledger_bp
     from .health import bp as health_bp
     from .health_actions import bp as health_actions_bp
-    # channel_bind_save_bp deregistered in U8 5b — replaced by /api/v1/settings/channels/*/credential
-    from .copilot import bp as copilot_bp
-    from .schedule import bp as schedule_bp
-    from .pr_queue import bp as pr_queue_bp
-    from .metrics import bp as metrics_bp
-    from .batch_campaign import bp as batch_campaign_bp
-    from .campaign_progress import bp as campaign_progress_bp
+    from .history import bp as history_bp
     from .keep_alive import bp as keep_alive_bp
-    from .equity_gap import bp as equity_gap_bp
-    from .equity_batch_recheck import bp as equity_batch_recheck_bp
+    from .main import bp as main_bp
+    from .metrics import bp as metrics_bp
+    from .oauth import bp as oauth_bp
     from .optimization_status import bp as optimization_status_bp
-    from .command_center import bp as command_center_bp
-    from .survival_dashboard import bp as survival_dashboard_bp
-    from .batch_sites import bp as batch_sites_bp
+    from .pipeline import bp as pipeline_bp
+    from .pipeline import bp_publish as pipeline_publish_bp
+    from .pr_queue import bp as pr_queue_bp
+    from .profiles import bp as profiles_bp
     from .publish_defaults import bp as publish_defaults_bp
-    # Plan 2026-06-18-002 U1 — versioned JSON API surface (/api/v1). First
-    # blueprint to use url_prefix; RFC 9457 error handlers wired below.
-    from ..api.v1 import bp as api_v1_bp, register_api_error_handlers
+    from .queue import bp as queue_bp
+    from .schedule import bp as schedule_bp
+    from .seo_viz import bp as seo_viz_bp
+    from .settings_basic import bp as settings_basic_bp
+    from .sites import bp as sites_bp
+
     # Plan 2026-06-18-002 U3 — flag-gated SPA catch-all under /app/*.
     from .spa import bp as spa_bp
+    from .survival_dashboard import bp as survival_dashboard_bp
+
+    # medium_login_bp, bind_bp, token_paste_bp, image_gen_bp deregistered in U8
+    # (Plan 2026-06-18-002 5b) — replaced by /api/v1/settings/* endpoints.
+    from .url_verify import bp as url_verify_bp
 
     for bp in (main_bp, pipeline_bp, pipeline_publish_bp, batch_bp, checkpoint_bp,
                history_bp, drafts_bp, settings_basic_bp, oauth_bp,

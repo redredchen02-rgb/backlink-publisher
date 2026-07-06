@@ -15,7 +15,7 @@ _GEO_API_KEY_ENV_VAR = "BACKLINK_GEO_API_KEY"
 _GEO_BASE_URL_ENV_VAR = "BACKLINK_GEO_BASE_URL"
 _GEO_MODEL_ENV_VAR = "BACKLINK_GEO_MODEL"
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def _parse_geo_probe_provider(

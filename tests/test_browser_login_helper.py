@@ -15,15 +15,15 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
-import sys
 from pathlib import Path
+import sys
 
 import pytest
 
 # Ensure webui_app is importable from repo root.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from webui_app.services.browser_login import SpawnResult, spawn_browser_login  # noqa: E402
+from webui_app.services.browser_login import spawn_browser_login, SpawnResult  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

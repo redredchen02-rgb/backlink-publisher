@@ -7,8 +7,8 @@ import pytest
 
 from backlink_publisher.referral.channel_map import (
     CHANNEL_SOURCE_ALIASES,
-    UNKNOWN_CHANNEL,
     map_source_to_channel,
+    UNKNOWN_CHANNEL,
 )
 
 
@@ -42,8 +42,8 @@ def test_unmatched_source_maps_to_unknown(source):
 def test_aliases_cover_registered_platforms():
     """Every registered platform should have a channel_map entry (no silent
     'unknown' attribution for a platform we actually publish to)."""
-    import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
     from backlink_publisher.publishing import registry
+    import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 
     missing = set(registry.registered_platforms()) - set(CHANNEL_SOURCE_ALIASES)
     assert not missing, f"registered platforms missing a source alias: {sorted(missing)}"

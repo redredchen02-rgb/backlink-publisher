@@ -13,24 +13,24 @@ Locks the contract:
 from __future__ import annotations
 
 __tier__ = "unit"
+from datetime import datetime, timedelta, timezone, UTC
 import json
-import time
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from backlink_publisher.config.loader import _config_dir
 from webui_app import medium_liveness
-import webui_app.services.medium_liveness_service as _svc
 from webui_app.medium_liveness import (
-    LivenessResult,
     _active_probe,
     _load_storage_state_for_probe,
     _storage_state_path,
+    LivenessResult,
     medium_liveness_check,
 )
+import webui_app.services.medium_liveness_service as _svc
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,7 @@ def _mark_bound_with_last_verified(seconds_ago: float | None) -> None:
     if seconds_ago is not None:
         # mark_verified sets to now; we monkey the record to backdate.
         from webui_store import channel_status_store
-        ts = (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat(
+        ts = (datetime.now(UTC) - timedelta(seconds=seconds_ago)).isoformat(
             timespec="seconds"
         )
 

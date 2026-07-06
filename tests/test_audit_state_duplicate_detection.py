@@ -17,7 +17,7 @@ import time
 
 import pytest
 
-from backlink_publisher.audit import DedupAuditRow, StoreSnapshot, find_divergences
+from backlink_publisher.audit import DedupAuditRow, find_divergences, StoreSnapshot
 from backlink_publisher.cli.audit_state import main
 from backlink_publisher.idempotency import DedupKey, DedupStore
 

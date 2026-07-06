@@ -23,16 +23,17 @@ honored — never a frozen ``Path.home()``.
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, UTC
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from backlink_publisher._util.errors import InputValidationError, PipelineError
+import fcntl
+from backlink_publisher._util.errors import DependencyError, InputValidationError, PipelineError
 from backlink_publisher._util.jsonl import atomic_write_jsonl
 from backlink_publisher._util.logger import PipelineLogger
+from backlink_publisher._util.permissions import check_0600
 from backlink_publisher.comment_outreach import schema
 
 status_logger = PipelineLogger("comment-status")
@@ -58,9 +59,9 @@ def _store_path() -> Path:
 def _repair_perms(path: Path) -> None:
     """Tighten *path* to ``0o600`` if it exists and is looser (assert-and-repair)."""
     try:
-        if path.exists() and (path.stat().st_mode & 0o777) != 0o600:
-            os.chmod(path, 0o600)
-    except OSError:  # best-effort hardening; never crash the verb on a chmod failure
+        if path.exists():
+            check_0600(path, label="comment-outreach status store")
+    except (DependencyError, OSError):  # best-effort hardening; never crash the verb on a failure
         pass
 
 
@@ -124,11 +125,11 @@ def set_status(
     target_id: str,
     status: str,
     *,
-    reviewer: Optional[str] = None,
-    comment_url: Optional[str] = None,
-    final_comment_text: Optional[str] = None,
-    result_notes: Optional[str] = None,
-    updated_at: Optional[str] = None,
+    reviewer: str | None = None,
+    comment_url: str | None = None,
+    final_comment_text: str | None = None,
+    result_notes: str | None = None,
+    updated_at: str | None = None,
 ) -> dict[str, Any]:
     """Build, validate, and persist a ``ReviewStatus``. Raises ``InputValidationError`` if
     the assembled record fails schema validation (the CLI validates the status *enum*
@@ -142,7 +143,7 @@ def set_status(
     ):
         if value is not None:
             record[key] = value
-    ts = updated_at or datetime.now(timezone.utc).isoformat()
+    ts = updated_at or datetime.now(UTC).isoformat()
     record["updated_at"] = ts
     record["last_touch"] = ts  # CRM funnel: when we last acted on this contact
 
@@ -160,7 +161,7 @@ def set_status(
     return record
 
 
-def load_status(target_id: str) -> Optional[dict[str, Any]]:
+def load_status(target_id: str) -> dict[str, Any] | None:
     """Return the stored ReviewStatus for *target_id*, or ``None``."""
     for row in _load_all(_store_path()):
         if row.get("target_id") == target_id:

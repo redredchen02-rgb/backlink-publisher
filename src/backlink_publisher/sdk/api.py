@@ -14,8 +14,8 @@ or parse JSONL inline.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
+import json
 from typing import Any, cast
 
 from backlink_publisher._util.error_envelope import parse as _parse_envelope
@@ -27,7 +27,6 @@ from ._cli_runner import (
     strip_cli_diagnostic_banner,
     surface_cli_error,
 )
-
 
 # ── structured result ──────────────────────────────────────────────────────
 
@@ -294,7 +293,7 @@ class PipelineAPI:
         import io
 
         from backlink_publisher._util.jsonl import write_jsonl
-        from backlink_publisher.cli.plan_backlinks._engine import PlanOutcome, plan_rows
+        from backlink_publisher.cli.plan_backlinks._engine import plan_rows, PlanOutcome
         from backlink_publisher.config import load_config
 
         rows = _parse_jsonl_rows(seed_json)

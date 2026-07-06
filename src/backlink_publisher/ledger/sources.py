@@ -21,8 +21,8 @@ Pure read-side: no writes, no network.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
+import json
 from typing import Any, cast
 
 from backlink_publisher._util.url import canonicalize_url

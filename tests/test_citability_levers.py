@@ -27,7 +27,6 @@ from backlink_publisher.cli.plan_backlinks._citability import (
     build_stat_paragraph,
 )
 
-
 # ── build_freshness_line ──────────────────────────────────────────────────────
 
 

@@ -113,5 +113,9 @@
 <script type="module" src="{{ url_for('static', filename='js/equity.js', v=asset_version) }}"></script>
 {% endblock %}
 
-{# Pro Mode Copilot — side panel (Plan U4) #}
+{# Pro Mode Copilot — side panel (Plan U4). LITE hides /copilot/advice
+   server-side (404); the panel must not render either, or the FAB triggers
+   a fetch against a route the edition gate blocks. #}
+{% if not lite_edition %}
 {% include '_copilot_panel.html' %}
+{% endif %}

@@ -18,8 +18,8 @@ from backlink_publisher._schema_input import (
 )
 from backlink_publisher._schema_output import (
     _check_content_html_size,
-    _check_links_structure,
     _check_link_count,
+    _check_links_structure,
     _check_nonempty_text_fields,
     _check_output_one_of_groups,
     _check_output_optional_field_types,
@@ -27,7 +27,6 @@ from backlink_publisher._schema_output import (
     _check_seo_structure,
     validate_output_payload,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

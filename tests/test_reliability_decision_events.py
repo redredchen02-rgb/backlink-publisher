@@ -17,8 +17,8 @@ from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import RELIABILITY_DECISION
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.reliability.events_store import (
-    DECISIONS,
     append_reliability_decision,
+    DECISIONS,
 )
 from backlink_publisher.publishing.reliability.policy import (
     POLICY_ENV,

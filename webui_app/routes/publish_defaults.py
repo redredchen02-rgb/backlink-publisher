@@ -7,8 +7,9 @@ POST /publish/save-defaults — update stored defaults (called after normal publ
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
+from typing import Any
 import uuid
-from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 
@@ -16,7 +17,7 @@ bp = Blueprint("publish_defaults", __name__)
 
 
 @bp.route("/publish/defaults", methods=["GET"])
-def get_publish_defaults():
+def get_publish_defaults() -> Any:
     """Return last-used publish defaults (R12).
 
     Returns 200 + JSON ``{platforms: [...], target_ids: [...]}`` when defaults
@@ -34,7 +35,7 @@ def get_publish_defaults():
 
 
 @bp.route("/publish/quick", methods=["POST"])
-def post_publish_quick():
+def post_publish_quick() -> Any:
     """Start a publish run using stored defaults (R13).
 
     Reads defaults from publish_defaults_store; if none saved returns 400.
@@ -72,7 +73,7 @@ def post_publish_quick():
     task_data = {
         "id": str(uuid.uuid4()),
         "status": "pending",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "config": {"platform": ",".join(platforms)},
         "urls": urls,
         "source": "quick_publish",
@@ -83,7 +84,7 @@ def post_publish_quick():
 
 
 @bp.route("/publish/save-defaults", methods=["POST"])
-def post_save_publish_defaults():
+def post_save_publish_defaults() -> Any:
     """Persist last-used platforms + targets after a successful publish (R12).
 
     Called by the publish pipeline routes after a run is successfully queued.

@@ -48,8 +48,8 @@ def test_gsc_probe_index_and_deduplication(tmp_path: Path) -> None:
     mock_client.search_analytics_query.return_value = mock_gsc_response
 
     with (
-        patch("backlink_publisher.cli.probe_index.load_config", return_value=cfg),
-        patch("backlink_publisher.cli.probe_index.EventStore", return_value=store),
+        patch("backlink_publisher.cli.ops.probe_index.load_config", return_value=cfg),
+        patch("backlink_publisher.cli.ops.probe_index.EventStore", return_value=store),
         patch.object(type(cfg), "config_dir", property(lambda self: tmp_path)),
         patch("backlink_publisher.gsc.client.GscClient", return_value=mock_client),
     ):
@@ -69,8 +69,8 @@ def test_gsc_probe_index_and_deduplication(tmp_path: Path) -> None:
     # Second run: since they were recently probed, candidates list should be empty
     mock_client.search_analytics_query.reset_mock()
     with (
-        patch("backlink_publisher.cli.probe_index.load_config", return_value=cfg),
-        patch("backlink_publisher.cli.probe_index.EventStore", return_value=store),
+        patch("backlink_publisher.cli.ops.probe_index.load_config", return_value=cfg),
+        patch("backlink_publisher.cli.ops.probe_index.EventStore", return_value=store),
         patch.object(type(cfg), "config_dir", property(lambda self: tmp_path)),
         patch("backlink_publisher.gsc.client.GscClient", return_value=mock_client),
     ):
@@ -101,7 +101,7 @@ def test_referral_attribution_integration(tmp_path: Path, capsys) -> None:
         )
 
     db_path = tmp_path / "events.db"
-    
+
     # 1. Dry run test
     with patch("backlink_publisher.referral.engine.handle_site", fake_handle_site):
         referral_cli.main(["--property", "123", "--store-path", str(db_path), "example.com"])
@@ -123,7 +123,7 @@ def test_referral_attribution_integration(tmp_path: Path, capsys) -> None:
     )
     assert len(events) == 2
     payloads = [json.loads(e["payload_json"]) for e in events]
-    
+
     medium_event = next(p for p in payloads if p["channel"] == "medium")
     unknown_event = next(p for p in payloads if p["channel"] == "unknown")
     assert medium_event["sessions"] == 25

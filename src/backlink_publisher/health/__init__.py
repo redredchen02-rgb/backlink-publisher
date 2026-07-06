@@ -7,19 +7,18 @@ Usage:
         print(result.slug, result.status, result.message)
 """
 
+# Auto-import built-in checkers so they register at import time.
+from backlink_publisher.health.checkers import (  # noqa: F401
+    config_checker,
+    credential_checker,
+    disk_checker,
+)
 from backlink_publisher.health.registry import (
     HealthChecker,
     HealthResult,
     register,
     registered_checkers,
     run_all,
-)
-
-# Auto-import built-in checkers so they register at import time.
-from backlink_publisher.health.checkers import (  # noqa: F401
-    config_checker,
-    credential_checker,
-    disk_checker,
 )
 
 __all__ = [

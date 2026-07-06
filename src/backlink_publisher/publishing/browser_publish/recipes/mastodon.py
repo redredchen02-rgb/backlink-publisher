@@ -23,8 +23,8 @@ from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config import load_config
 
 from ..chrome_session import BrowserPublishRecipe
-from . import RECIPES
 from . import _mastodon_selectors as sel
+from . import RECIPES
 
 
 def _resolve_compose_url() -> str:

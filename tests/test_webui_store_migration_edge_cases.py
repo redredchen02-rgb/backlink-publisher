@@ -15,7 +15,6 @@ import pytest
 
 from webui_store.sqlite_base import WebUIDatabase
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _db(tmp_path: Path) -> WebUIDatabase:

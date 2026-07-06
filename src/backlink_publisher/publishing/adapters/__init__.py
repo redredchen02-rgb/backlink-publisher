@@ -22,6 +22,72 @@ Behaviour preserved verbatim:
 
 from __future__ import annotations
 
+__all__ = [
+    "AdapterResult",
+    "Any",
+    "BLOGGER_MANIFEST",
+    "BloggerAPIAdapter",
+    "BrowserPublishDispatcher",
+    "DEVTO_MANIFEST",
+    "DevtoAPIAdapter",
+    "GHPAGES_MANIFEST",
+    "GITLABPAGES_MANIFEST",
+    "GitHubPagesAPIAdapter",
+    "GitLabPagesAPIAdapter",
+    "HACKMD_MANIFEST",
+    "HASHNODE_MANIFEST",
+    "HATENA_MANIFEST",
+    "HackmdAPIAdapter",
+    "HashnodeGraphQLAdapter",
+    "HatenaAtomPubAdapter",
+    "LINKEDIN_MANIFEST",
+    "LIVEJOURNAL_MANIFEST",
+    "LinkedInAPIAdapter",
+    "Literal",
+    "LivejournalAPIAdapter",
+    "MASTODON_MANIFEST",
+    "MATAROA_MANIFEST",
+    "MEDIUM_MANIFEST",
+    "MataroaAPIAdapter",
+    "MediumAPIAdapter",
+    "MediumBraveAdapter",
+    "MediumBrowserAdapter",
+    "NOTESIO_MANIFEST",
+    "NOTION_MANIFEST",
+    "NotesioFormPostAdapter",
+    "NotionAPIAdapter",
+    "Optional",
+    "QIITA_MANIFEST",
+    "QiitaAPIAdapter",
+    "RENTRY_MANIFEST",
+    "RentryAPIAdapter",
+    "SUBSTACK_MANIFEST",
+    "SubstackAPIAdapter",
+    "TELEGRAPH_MANIFEST",
+    "TUMBLR_MANIFEST",
+    "TXTFYI_MANIFEST",
+    "TYPE_CHECKING",
+    "TelegraphAPIAdapter",
+    "TelegraphCdpAdapter",
+    "TumblrAPIAdapter",
+    "TxtfyiFormPostAdapter",
+    "VELOG_MANIFEST",
+    "VelogGraphQLAdapter",
+    "VerifyResult",
+    "WORDPRESSCOM_MANIFEST",
+    "WRITEAS_MANIFEST",
+    "WordpresscomAPIAdapter",
+    "WriteasAPIAdapter",
+    "ZENN_MANIFEST",
+    "ZennGitHubAdapter",
+    "dispatch",
+    "publish",
+    "register",
+    "register_all_adapters",
+    "register_catalog_entries",
+    "registered_platforms",
+    "verify_adapter_setup",
+]
 from typing import Any, Literal, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -54,49 +120,12 @@ from .._manifests import (
     ZENN_MANIFEST,
 )
 from .._verify import VerifyResult
-
-# Import the Unit 4a velog browser recipe module so it can populate
-# RECIPES["velog"] before the registration line below references it.
-# Plan 2026-05-21-001 Unit 4a — registers as auth-missing fallback after
-# VelogGraphQLAdapter (DependencyError → fall through; ExternalServiceError
-# from API path propagates without fall-through, per registry contract).
-from ..browser_publish import BrowserPublishDispatcher
-from ..browser_publish.recipes import devto as _devto_recipe  # noqa: F401
-from ..browser_publish.recipes import mastodon as _mastodon_recipe  # noqa: F401
-from ..browser_publish.recipes import velog as _velog_recipe  # noqa: F401
 from ..registry import dispatch, register, registered_platforms
 from ._nofollow_rationales import NOFOLLOW_RATIONALES as _R
 from ._setup_checks import _verify_offline_setup
 from ._verify_live import _verify_dry_run, _verify_live
 from .base import AdapterResult
-from .blogger_api import BloggerAPIAdapter
-from .devto_api import DevtoAPIAdapter
-from .ghpages import GitHubPagesAPIAdapter
-from .gitlabpages import GitLabPagesAPIAdapter
-from .hackmd_api import HackmdAPIAdapter
-from .hashnode_graphql import HashnodeGraphQLAdapter
-from .hatena_atompub import HatenaAtomPubAdapter
-from .instant_web import (
-    TelegraphCdpAdapter,  # noqa: F401
-)
-from .linkedin_api import LinkedInAPIAdapter
-from .livejournal_api import LivejournalAPIAdapter, _livejournal_credential_saver
-from .mataroa_api import MataroaAPIAdapter
-from .medium_api import MediumAPIAdapter
-from .medium_brave import MediumBraveAdapter
-from .medium_browser import MediumBrowserAdapter
-from .notion_api import NotionAPIAdapter
-from .qiita_api import QiitaAPIAdapter
-from .rentry_api import RentryAPIAdapter
-from .zenn_github import ZennGitHubAdapter
-from .substack_api import SubstackAPIAdapter
-from .telegraph_api import TelegraphAPIAdapter
-from .tumblr_api import TumblrAPIAdapter
-from .notesio_api import NotesioFormPostAdapter
-from .txtfyi_api import TxtfyiFormPostAdapter
-from .velog_graphql import VelogGraphQLAdapter
-from .wordpresscom_api import WordpresscomAPIAdapter
-from .writeas_api import WriteasAPIAdapter
+
 
 # Register the fallback chain per platform. Adding a new platform = one
 # more ``register(...)`` call — no dispatcher changes. Each registration
@@ -115,16 +144,45 @@ from .writeas_api import WriteasAPIAdapter
 def register_all_adapters() -> None:
     """Idempotent, explicit adapter-registry bootstrap.
 
-    Wraps the per-platform ``register(...)`` calls (the registration table stays
-    in THIS module per the CLAUDE.md adapter-registry rule). Auto-invoked once at
-    module import below, so the ~50 CLI entrypoints that rely on importing this
-    package keep working unchanged. Also a named entry the top-level facade calls
-    so a host that only touched ``publishing.registry`` (which does NOT import
-    adapters) can populate an otherwise-empty registry with one call. Idempotent:
-    a second call is a no-op (sentinel: ``blogger`` already registered).
+    Imports are deferred inside this function so importing this module does NOT
+    eagerly load any adapter module (requests, bs4, google-api-python-client, etc.)
+    — only calling this function (or accessing any public name via __getattr__)
+    triggers the full import chain.
     """
     if "blogger" in registered_platforms():
         return
+    # Deferred imports: avoid loading heavy adapter modules at import time.
+    from ..browser_publish import BrowserPublishDispatcher
+    from ..browser_publish.recipes import devto as _devto_recipe  # noqa: F401
+    from ..browser_publish.recipes import mastodon as _mastodon_recipe  # noqa: F401
+    from ..browser_publish.recipes import velog as _velog_recipe  # noqa: F401
+    from .blogger_api import BloggerAPIAdapter
+    from .devto_api import DevtoAPIAdapter
+    from .ghpages import GitHubPagesAPIAdapter
+    from .gitlabpages import GitLabPagesAPIAdapter
+    from .hackmd_api import HackmdAPIAdapter
+    from .hashnode_graphql import HashnodeGraphQLAdapter
+    from .hatena_atompub import HatenaAtomPubAdapter
+    from .instant_web import TelegraphCdpAdapter  # noqa: F401
+    from .linkedin_api import LinkedInAPIAdapter
+    from .livejournal_api import _livejournal_credential_saver, LivejournalAPIAdapter
+    from .mataroa_api import MataroaAPIAdapter
+    from .medium_api import MediumAPIAdapter
+    from .medium_brave import MediumBraveAdapter
+    from .medium_browser import MediumBrowserAdapter
+    from .notesio_api import NotesioFormPostAdapter
+    from .notion_api import NotionAPIAdapter
+    from .qiita_api import QiitaAPIAdapter
+    from .rentry_api import RentryAPIAdapter
+    from .substack_api import SubstackAPIAdapter
+    from .telegraph_api import TelegraphAPIAdapter
+    from .tumblr_api import TumblrAPIAdapter
+    from .txtfyi_api import TxtfyiFormPostAdapter
+    from .velog_graphql import VelogGraphQLAdapter
+    from .wordpresscom_api import WordpresscomAPIAdapter
+    from .writeas_api import WriteasAPIAdapter
+    from .zenn_github import ZennGitHubAdapter
+
     register("blogger", BloggerAPIAdapter, dofollow=True, **BLOGGER_MANIFEST)
     # Phase 1 dofollow truth audit (2026-05-26): every adapter below shipped
     # with bare ``dofollow=True`` and no evidence. Hard server-side
@@ -199,11 +257,7 @@ def register_all_adapters() -> None:
         **MEDIUM_MANIFEST,
     )
     register(
-        "telegraph",
-        TelegraphAPIAdapter,
-        TelegraphCdpAdapter,
-        dofollow=True,
-        **TELEGRAPH_MANIFEST,
+        "telegraph", TelegraphAPIAdapter, TelegraphCdpAdapter, dofollow=True, **TELEGRAPH_MANIFEST
     )
     register(
         "velog",
@@ -212,12 +266,7 @@ def register_all_adapters() -> None:
         dofollow=True,
         **VELOG_MANIFEST,
     )
-    register(
-        "ghpages",
-        GitHubPagesAPIAdapter,
-        dofollow=True,
-        **GHPAGES_MANIFEST,
-    )
+    register("ghpages", GitHubPagesAPIAdapter, dofollow=True, **GHPAGES_MANIFEST)
     register(
         "livejournal",
         LivejournalAPIAdapter,
@@ -319,9 +368,30 @@ def register_all_adapters() -> None:
         **ZENN_MANIFEST,
     )
 
-# Auto-invoke at import so the import-side-effect contract the ~50 CLI entrypoints
-# rely on is preserved; the facade / explicit callers re-invoke harmlessly.
-register_all_adapters()
+
+_INITIALIZED: bool = False
+
+
+def _lazy_init() -> None:
+    global _INITIALIZED
+    if _INITIALIZED:
+        return
+    _INITIALIZED = True
+    register_all_adapters()
+    register_catalog_entries(built_in_dir=_builtin_catalog)
+
+
+def __getattr__(name: str) -> Any:
+    if not name.startswith("_"):
+        _lazy_init()
+        if name in globals():
+            return globals()[name]
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)
 
 
 def publish(
@@ -341,6 +411,7 @@ def publish(
     byte-identical behavior for callers that don't configure
     ``[image_gen]``.
     """
+    _lazy_init()
     return dispatch(payload, mode, config, dry_run=dry_run, banner_emit=banner_emit)
 
 
@@ -349,8 +420,9 @@ def verify_adapter_setup(
     config: Config,
     *,
     mode: Literal["offline", "live", "dry-run"] = "offline",
-    payload: Optional[dict[str, Any]] = None,
-) -> Optional[VerifyResult]:
+    payload: dict[str, Any] | None = None,
+) -> VerifyResult | None:
+    _lazy_init()
     if mode == "live":
         return _verify_live(platform, config)
     if mode == "dry-run":
@@ -361,26 +433,19 @@ def verify_adapter_setup(
 
 from pathlib import Path as _Path
 
-from .catalog.catalog_schema import load_all_entries as _load_catalog_entries
-from .config_driven import ConfigDrivenAdapter as _ConfigDrivenAdapter
-
-
 #: Cache of catalog-derived slugs auto-registered this import.
 #: Tests verify registration via this set.
 _CATALOG_AUTO_REGISTERED: set[str] = set()
 
 
-def register_catalog_entries(
-    built_in_dir: str = "",
-    user_config_dir: str = "",
-) -> None:
+def register_catalog_entries(built_in_dir: str = "", user_config_dir: str = "") -> None:
     """Auto-register catalog YAML entries whose slug is not already claimed.
     Hand-written adapters always win. Tests call with temp dirs."""
+    from .catalog.catalog_schema import load_all_entries as _load_catalog_entries
+    from .config_driven import ConfigDrivenAdapter as _ConfigDrivenAdapter
+
     already = set(registered_platforms())
-    entries = _load_catalog_entries(
-        built_in_dir=built_in_dir,
-        user_config_dir=user_config_dir,
-    )
+    entries = _load_catalog_entries(built_in_dir=built_in_dir, user_config_dir=user_config_dir)
     for slug, entry in entries.items():
         if slug in already or slug in _CATALOG_AUTO_REGISTERED:
             continue
@@ -395,67 +460,14 @@ def register_catalog_entries(
 
 
 _builtin_catalog = str(_Path(__file__).resolve().parent / "catalog")
-register_catalog_entries(built_in_dir=_builtin_catalog)
-
-__all__ = [
-    "BLOGGER_MANIFEST",
-    "DEVTO_MANIFEST",
-    "GHPAGES_MANIFEST",
-    "GITLABPAGES_MANIFEST",
-    "HACKMD_MANIFEST",
-    "HASHNODE_MANIFEST",
-    "HATENA_MANIFEST",
-    "LINKEDIN_MANIFEST",
-    "LIVEJOURNAL_MANIFEST",
-    "MASTODON_MANIFEST",
-    "MATAROA_MANIFEST",
-    "MEDIUM_MANIFEST",
-    "NOTESIO_MANIFEST",
-    "NOTION_MANIFEST",
-    "QIITA_MANIFEST",
-    "RENTRY_MANIFEST",
-    "SUBSTACK_MANIFEST",
-    "TELEGRAPH_MANIFEST",
-    "TUMBLR_MANIFEST",
-    "TXTFYI_MANIFEST",
-    "VELOG_MANIFEST",
-    "WORDPRESSCOM_MANIFEST",
-    "WRITEAS_MANIFEST",
-    "ZENN_MANIFEST",
-    "VerifyResult",
-    "BrowserPublishDispatcher",
-    "dispatch",
-    "register",
-    "registered_platforms",
-    "AdapterResult",
-    "BloggerAPIAdapter",
-    "DevtoAPIAdapter",
-    "GitHubPagesAPIAdapter",
-    "GitLabPagesAPIAdapter",
-    "HackmdAPIAdapter",
-    "HashnodeGraphQLAdapter",
-    "HatenaAtomPubAdapter",
-    "TelegraphCdpAdapter",
-    "LinkedInAPIAdapter",
-    "LivejournalAPIAdapter",
-    "MataroaAPIAdapter",
-    "MediumAPIAdapter",
-    "MediumBraveAdapter",
-    "MediumBrowserAdapter",
-    "NotionAPIAdapter",
-    "QiitaAPIAdapter",
-    "RentryAPIAdapter",
-    "ZennGitHubAdapter",
-    "SubstackAPIAdapter",
-    "TelegraphAPIAdapter",
-    "TumblrAPIAdapter",
-    "NotesioFormPostAdapter",
-    "TxtfyiFormPostAdapter",
-    "VelogGraphQLAdapter",
-    "WordpresscomAPIAdapter",
-    "WriteasAPIAdapter",
-    "register_all_adapters",
-    "publish",
-    "verify_adapter_setup",
-    "register_catalog_entries",
-]
+# Rejected origin's addition here (eager `register_catalog_entries(...)` call +
+# a second `__all__` list): `_lazy_init()` above already calls
+# `register_catalog_entries(built_in_dir=_builtin_catalog)` lazily, and calling
+# it again here at module scope would register catalog entries eagerly at
+# import time — contradicting this module's own documented design
+# (`register_all_adapters()`'s docstring: "importing this module does NOT
+# eagerly load any adapter module... only calling this function... triggers
+# the full import chain"). A second `__all__` here would also silently
+# shadow the complete one already defined near the top of this file (which
+# additionally exports Any/Literal/Optional/TYPE_CHECKING) — origin's version
+# is missing those.

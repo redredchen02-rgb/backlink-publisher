@@ -8,15 +8,14 @@ from unittest.mock import patch
 
 import pytest
 
-from backlink_publisher.config import Config
+from backlink_publisher.anchor.scheduler import ScheduleDecision, SecondaryLink
 from backlink_publisher.cli.plan_backlinks import (
     _build_profile_entries,
     _extract_zh_keyword,
     _plan_zh_short_row,
     _scheduler_enabled_for,
 )
-from backlink_publisher.anchor.scheduler import ScheduleDecision, SecondaryLink
-
+from backlink_publisher.config import Config
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -316,8 +315,8 @@ def test_degrade_path_respects_recent_texts_dedup(profile_cache):
     must apply the same 20-entry text-dedup filter the normal resolver uses,
     so a burst of degrades can't resurrect an anchor that just shipped."""
     from backlink_publisher.anchor.profile import (
-        ProfileEntry,
         now_iso,
+        ProfileEntry,
         record_article,
     )
 

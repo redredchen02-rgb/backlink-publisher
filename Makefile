@@ -4,6 +4,10 @@
 # Usage:
 #   make scaffold PLATFORM=devto [LOGIN_URL=https://dev.to/enter]
 #   make diagnose CHANNEL=velog
+#
+# Windows 用户: 如果使用 Git Bash (GNU Make)，以下目标均可运行。
+#             cmd.exe 用户请使用 scripts/quickstart.bat / scripts/run-full-pipeline.bat 替代。
+#             CMD / PowerShell 下的等效命令见下方注释。
 
 .PHONY: scaffold diagnose reconcile-check
 
@@ -75,6 +79,12 @@ setup-hooks:
 	bash scripts/install-post-merge-hook.sh
 	@echo "Git hooks installed. Set BACKLINK_PUBLISHER_WORKTREE_AUTOREMOVE=1 in shell rc for auto cleanup"
 
+# Windows (cmd.exe) 等效命令:
+#   clean-pyc:  for /d /r . %d in (__pycache__) do @if exist "%d" rmdir /s /q "%d"
+#   clean-all:  for %d in (.pytest_cache .mypy_cache htmlcov .coverage) do @if exist "%d" rmdir /s /q "%d"
+#   restart-webui: restart_webui.bat
+#   quickstart: scripts\quickstart.bat
+#   pipeline:   scripts\run-full-pipeline.bat
 clean-pyc:
 	@find . -type d -name __pycache__ -not -path '*/.venv/*' -exec rm -rf {} + 2>/dev/null || true
 	@find . -name "*.pyc" -not -path '*/.venv/*' -delete 2>/dev/null || true
@@ -105,13 +115,13 @@ mutate:
 .PHONY: check-log
 check-log:
 	@python -c "\
-from backlink_publisher._util.structlog_config import configure_structlog; \
-configure_structlog(); \
-print('structlog configured OK')"
+	from backlink_publisher._util.structlog_config import configure_structlog; \
+	configure_structlog(); \
+	print('structlog configured OK')"
 	@python -c "\
-from backlink_publisher._util.logger import validate_logger; \
-validate_logger.info('PipelineLogger still works'); \
-print('PipelineLogger backward compat OK')"
+	from backlink_publisher._util.logger import validate_logger; \
+	validate_logger.info('PipelineLogger still works'); \
+	print('PipelineLogger backward compat OK')"
 
 # ── Docker targets (F2) ──────────────────────────────────────
 
@@ -125,3 +135,8 @@ docker-run:
 		-v ~/.config/backlink-publisher:/config \
 		-e BACKLINK_PUBLISHER_CONFIG_DIR=/config \
 		backlink-publisher
+
+.PHONY: restart-webui
+# Windows (cmd.exe): 直接运行 restart_webui.bat (位于 workspace root)
+restart-webui:
+	bash ../restart_webui.sh

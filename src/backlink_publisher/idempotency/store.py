@@ -32,17 +32,17 @@ Plan: ``docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md``
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 import hashlib
 import hmac
 import os
+from pathlib import Path
 import secrets as _secrets
 import sqlite3
 import time
-from collections.abc import Iterable
-from contextlib import contextmanager
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterator, Literal, cast
+from typing import cast, Literal
 
 from .._util.url import canonicalize_url
 from ..config import _config_dir
@@ -215,6 +215,9 @@ class DedupStore:
             yield conn
             conn.commit()
         except BaseException:
+            # Deliberately BaseException (not Exception) and always re-raised:
+            # a KeyboardInterrupt/SystemExit mid-transaction must still roll
+            # back before propagating, same as any other failure.
             conn.rollback()
             raise
         finally:
@@ -233,9 +236,11 @@ class DedupStore:
             yield conn
             conn.execute("COMMIT")
         except BaseException:
+            # Deliberately BaseException, always re-raised (see connect() above).
             try:
                 conn.execute("ROLLBACK")
             except sqlite3.Error:
+                # debt: idempotency-store-rollback-failure
                 pass
             raise
         finally:
@@ -262,14 +267,16 @@ class DedupStore:
         try:
             fd = os.open(str(sp), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
-            # Lost the create race: the winner is mid-write. Re-read with a short
-            # backoff until its bytes are visible rather than returning `token`
-            # (which would differ from the persisted secret).
-            for _ in range(50):
+            # Lost the create race: the winner is mid-write. Re-read with
+            # exponential backoff until its bytes are visible rather than
+            # returning `token` (which would differ from the persisted secret).
+            delay = 0.001  # 1ms initial
+            for _ in range(10):
                 won = self._read_secret(sp)
                 if won:
                     return won
-                time.sleep(0.01)
+                time.sleep(delay)
+                delay = min(delay * 2, 0.05)  # cap at 50ms
             return self._read_secret(sp) or token
         try:
             os.write(fd, token)
@@ -349,14 +356,22 @@ class DedupStore:
         def _op() -> dict[tuple[str, str, str], DedupRecord]:
             out: dict[tuple[str, str, str], DedupRecord] = {}
             with self.connect() as conn:
-                for tup in wanted:
-                    row = conn.execute(
-                        f"SELECT {_COLS} FROM dedup_keys "
-                        "WHERE platform = ? AND account = ? AND target_url = ?",
-                        tup,
-                    ).fetchone()
-                    if row is not None:
-                        out[tup] = _row_to_record(row)
+                # Single batch query using VALUES constructor (SQLite 3.15+)
+                # instead of N separate SELECT statements (P12 optimization).
+                placeholders = ",".join(
+                    "(?,?,?)" for _ in wanted
+                )
+                params: list[str] = []
+                for p, a, t in wanted:
+                    params.extend([p, a, t])
+                sql = (
+                    f"SELECT {_COLS} FROM dedup_keys "
+                    f"WHERE (platform, account, target_url) "
+                    f"IN (VALUES {placeholders})"
+                )
+                for row in conn.execute(sql, params).fetchall():
+                    key: tuple[str, str, str] = (row[0], row[1], row[2])
+                    out[key] = _row_to_record(row)
             return out
 
         return cast("dict[tuple[str, str, str], DedupRecord]", _retry_sqlite(_op))

@@ -1,17 +1,18 @@
 """Tests for bilingual weight separation (v1→v2 upgrade + language spaces)."""
 
+
 from __future__ import annotations
+__tier__ = "unit"
 
 import json
-import tempfile
 from pathlib import Path
+import tempfile
 
 import pytest
 
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.optimization.models import default_state
 from backlink_publisher.publishing import registry
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

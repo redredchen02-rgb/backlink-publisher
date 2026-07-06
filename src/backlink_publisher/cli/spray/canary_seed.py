@@ -26,23 +26,23 @@ If the guard is absent, a stderr warning is emitted.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, UTC
 import json
 import sys
 import time
-from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
+
+from backlink_publisher._util.errors import DependencyError, handle_error, PipelineError, UsageError
+from backlink_publisher._util.logger import PipelineLogger, set_log_level
+from backlink_publisher.cli._canary_flip_hint import format_canary_hint
+from backlink_publisher.config import load_config
 
 # Populate the adapter registry so dofollow_status() and registered_platforms()
 # have data before we read them.
 import backlink_publisher.publishing.adapters  # noqa: F401
-
-from backlink_publisher._util.errors import DependencyError, PipelineError, UsageError, handle_error
-from backlink_publisher._util.logger import PipelineLogger, set_log_level
-from backlink_publisher.config import load_config
 from backlink_publisher.publishing.adapters import publish, verify_adapter_setup
 from backlink_publisher.publishing.adapters.link_attr_verifier import inspect_target_anchor
 from backlink_publisher.publishing.registry import dofollow_status, registered_platforms, visibility
-from backlink_publisher.cli._canary_flip_hint import format_canary_hint
 
 canary_logger = PipelineLogger("canary-seed")
 
@@ -63,14 +63,14 @@ def _sleep(seconds: float) -> None:
         time.sleep(seconds)
 
 
-def _validate_post_url_ssrf(url: str) -> Optional[str]:
+def _validate_post_url_ssrf(url: str) -> str | None:
     """Return block reason if SSRF-dangerous, else None. Fail-open when guard absent."""
     if _ssrf_check is None:
         return None  # type: ignore[unreachable]
     return _ssrf_check(url)
 
 
-def _first_target_url(config: Any) -> Optional[str]:
+def _first_target_url(config: Any) -> str | None:
     """Return first configured [target.*].main_url, or None."""
     ttu = getattr(config, "target_three_url", {})
     if ttu:
@@ -101,7 +101,7 @@ def _build_stub_payload(platform: str, target_url: str) -> dict:
 _DELETE_CREDENTIAL_KEYS = ("edit_code", "delete_token", "delete_url", "deletetoken")
 
 
-def _extract_delete_credential(result: Any) -> Optional[dict[str, Any]]:
+def _extract_delete_credential(result: Any) -> dict[str, Any] | None:
     """Pull deletion secrets out of the adapter result's provider metadata.
 
     Returns a dict of the delete-relevant keys present in ``_provider_meta``,
@@ -116,8 +116,8 @@ def _extract_delete_credential(result: Any) -> Optional[dict[str, Any]]:
 
 
 def _build_delete_hint(
-    post_url: str, delete_credential: Optional[dict[str, Any]]
-) -> Optional[str]:
+    post_url: str, delete_credential: dict[str, Any] | None
+) -> str | None:
     """Human delete instruction; appends the delete credential when present."""
     if not post_url:
         return None
@@ -130,7 +130,7 @@ def _build_delete_hint(
     return hint
 
 
-def _map_verdict(anchor: dict) -> tuple[str, bool, Optional[str]]:
+def _map_verdict(anchor: dict) -> tuple[str, bool, str | None]:
     """Return (verdict, needs_browser_check, reason).
 
     verdict = "dofollow" | "nofollow" | "ambiguous"
@@ -238,10 +238,10 @@ def main(argv: list[str] | None = None) -> None:
         t0 = time.monotonic()
         post_url = ""
         verdict = "ambiguous"
-        reason: Optional[str] = None
-        rel_tokens: Optional[list[str]] = None
+        reason: str | None = None
+        rel_tokens: list[str] | None = None
         needs_browser_check = False
-        delete_credential: Optional[dict[str, Any]] = None
+        delete_credential: dict[str, Any] | None = None
 
         try:
             result = publish(payload, "auto", config)
@@ -250,10 +250,10 @@ def main(argv: list[str] | None = None) -> None:
             delete_credential = _extract_delete_credential(result)
         except PipelineError as exc:
             reason = "publish_failed"
-            canary_logger.warn("publish_failed", platform=args.platform, error=str(exc))
+            canary_logger.warning("publish_failed", platform=args.platform, error=str(exc))
         except Exception as exc:  # noqa: BLE001
             reason = "publish_failed"
-            canary_logger.warn("publish_exception", platform=args.platform, error=repr(exc))
+            canary_logger.warning("publish_exception", platform=args.platform, error=repr(exc))
 
         # A3: fetch + inspect anchor
         if not post_url:
@@ -264,7 +264,7 @@ def main(argv: list[str] | None = None) -> None:
             blocked = _validate_post_url_ssrf(post_url)
             if blocked:
                 reason = f"ssrf_blocked:{blocked}"
-                canary_logger.warn("post_url_ssrf_blocked", platform=args.platform, reason=blocked)
+                canary_logger.warning("post_url_ssrf_blocked", platform=args.platform, reason=blocked)
             else:
                 try:
                     anchor = inspect_target_anchor(post_url, target_url)
@@ -273,10 +273,10 @@ def main(argv: list[str] | None = None) -> None:
                     rel_tokens = [t.strip() for t in raw_rel.split() if t.strip()] if raw_rel else []
                 except Exception as exc:  # noqa: BLE001
                     reason = "inspect_failed"
-                    canary_logger.warn("inspect_failed", platform=args.platform, error=repr(exc))
+                    canary_logger.warning("inspect_failed", platform=args.platform, error=repr(exc))
 
         duration_s = round(time.monotonic() - t0, 2)
-        fetched_at = datetime.now(timezone.utc).isoformat()
+        fetched_at = datetime.now(UTC).isoformat()
 
         # A4: emit JSONL
         receipt: dict[str, Any] = {
@@ -325,7 +325,7 @@ def main(argv: list[str] | None = None) -> None:
                 file=sys.stderr,
             )
         except Exception as exc:  # noqa: BLE001 — advisory hint must never break exit 0
-            canary_logger.warn("flip_hint_failed", platform=args.platform, error=repr(exc))
+            canary_logger.warning("flip_hint_failed", platform=args.platform, error=repr(exc))
 
     except PipelineError as exc:
         handle_error(exc)

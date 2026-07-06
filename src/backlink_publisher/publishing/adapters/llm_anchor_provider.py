@@ -28,20 +28,22 @@ layer that catches anything the prompt sandboxing misses.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import logging
 import re
-from dataclasses import dataclass
 from typing import Any, cast
 
-from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
-from backlink_publisher.http import post as http_post
+from requests.exceptions import ConnectionError as ReqConnError
+from requests.exceptions import Timeout as ReqTimeout
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
+from backlink_publisher.http import post as http_post
 from backlink_publisher.llm.client import _redact_for_log, _sanitize_input
+
 from .retry import retry_transient_call
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # Control characters and bidi overrides — same set the anchor_resolver
 # filters on output. Stripping at the prompt boundary means a malicious seed
@@ -108,10 +110,10 @@ class OpenAICompatibleProvider:
             "that naturally incorporates backlinks. "
             "Output ONLY the article body in Markdown format, without title."
         )
-        
+
         anchor0 = anchors[0] if len(anchors) > 0 else domain_label
         anchor1 = anchors[1] if len(anchors) > 1 else domain_label
-        
+
         user_msg = (
             f"Write an article about '{topic or domain_label}'.\n"
             f"Target site: {domain_label} ({main_domain})\n"
@@ -123,7 +125,7 @@ class OpenAICompatibleProvider:
             "4. Content must be unique and pass plagiarism checks.\n"
             "5. Use Markdown formatting (subheadings, lists, etc.)."
         )
-        
+
         body = {
             "model": self.model,
             "messages": [
@@ -132,7 +134,7 @@ class OpenAICompatibleProvider:
             ],
             "temperature": self.temperature,
         }
-        
+
         try:
             data = retry_transient_call(
                 lambda: self._post_chat_completions(body),
@@ -141,7 +143,7 @@ class OpenAICompatibleProvider:
             )
             return str(data["choices"][0]["message"]["content"])
         except Exception as exc:
-            _log.warning(f"LLM article generation failed, falling back to template: {exc}")
+            log.warning(f"LLM article generation failed, falling back to template: {exc}")
             raise
 
     def generate_image_prompt(self, title: str, content: str) -> str:
@@ -154,7 +156,7 @@ class OpenAICompatibleProvider:
             "and visual style. Keep it concise, under 50 words."
         )
         user_msg = f"Title: {title}\nContent Summary: {content[:500]}...\n\nGenerate an image prompt for this article."
-        
+
         body = {
             "model": self.model,
             "messages": [
@@ -163,7 +165,7 @@ class OpenAICompatibleProvider:
             ],
             "temperature": 0.8,
         }
-        
+
         try:
             data = retry_transient_call(
                 lambda: self._post_chat_completions(body),
@@ -172,7 +174,7 @@ class OpenAICompatibleProvider:
             )
             return str(data["choices"][0]["message"]["content"]).strip()
         except Exception as exc:
-            _log.warning(f"Image prompt generation failed: {exc}")
+            log.warning(f"Image prompt generation failed: {exc}")
             return f"Professional article cover for: {title}"
 
     def generate_candidates(self, request: LLMAnchorRequest) -> list[str]:

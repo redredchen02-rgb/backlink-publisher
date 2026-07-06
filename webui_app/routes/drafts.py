@@ -5,6 +5,8 @@ Phase A refactoring: delegates to ``DraftAPI`` for all operations.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, redirect, request, session
 
 from ..api import DraftAPI
@@ -18,11 +20,11 @@ _draft = DraftAPI()
 
 
 @bp.route('/ce:draft/save', methods=['POST'])
-def ce_draft_save():
+def ce_draft_save() -> Any:
     """Save current validated plans as a draft queue item."""
     plans_jsonl = request.form.get('plans', '').strip()
     config = session.get('config', {})
-    platform = request.form.get('platform', config.get('platform', 'blogger'))
+    platform = request.form.get('platform', config.get('platform', 'medium'))
     target_url = config.get('target_url', request.form.get('target_url', 'unknown'))
     language = config.get('target_language', 'zh-CN')
 
@@ -37,7 +39,7 @@ def ce_draft_save():
 
 
 @bp.route('/ce:draft/schedule', methods=['POST'])
-def ce_draft_schedule():
+def ce_draft_schedule() -> Any:
     """Schedule a draft item for publishing at a given datetime."""
     item_id = request.form.get('id', '')
     scheduled_at_str = request.form.get('scheduled_at', '')
@@ -47,7 +49,7 @@ def ce_draft_schedule():
 
 
 @bp.route('/ce:draft/publish-now', methods=['POST'])
-def ce_draft_publish_now():
+def ce_draft_publish_now() -> Any:
     """Immediately schedule a draft item to publish in ~5 seconds."""
     item_id = request.form.get('id', '')
     result = _draft.publish_now(item_id)
@@ -56,7 +58,7 @@ def ce_draft_publish_now():
 
 
 @bp.route('/ce:draft/cancel', methods=['POST'])
-def ce_draft_cancel():
+def ce_draft_cancel() -> Any:
     """Cancel a scheduled draft job."""
     item_id = request.form.get('id', '')
     result = _draft.cancel(item_id)
@@ -65,7 +67,7 @@ def ce_draft_cancel():
 
 
 @bp.route('/ce:draft/delete', methods=['POST'])
-def ce_draft_delete():
+def ce_draft_delete() -> Any:
     """Delete a draft item (cancel job if scheduled)."""
     item_id = request.form.get('id', '')
     result = _draft.delete(item_id)
@@ -77,7 +79,7 @@ def ce_draft_delete():
 
 
 @bp.route('/ce:draft/bulk-delete', methods=['POST'])
-def ce_draft_bulk_delete():
+def ce_draft_bulk_delete() -> Any:
     """Delete multiple drafts by id. Form: ids=<id1>&ids=<id2>..."""
     ids = request.form.getlist('ids')
     result = _draft.bulk_delete(ids)
@@ -86,7 +88,7 @@ def ce_draft_bulk_delete():
 
 
 @bp.route('/ce:draft/bulk-publish-now', methods=['POST'])
-def ce_draft_bulk_publish_now():
+def ce_draft_bulk_publish_now() -> Any:
     """Schedule multiple drafts for near-immediate publish, staggered by 5s."""
     ids = request.form.getlist('ids')
     result = _draft.bulk_publish_now(ids)
@@ -95,7 +97,7 @@ def ce_draft_bulk_publish_now():
 
 
 @bp.route('/ce:draft/bulk-cancel', methods=['POST'])
-def ce_draft_bulk_cancel():
+def ce_draft_bulk_cancel() -> Any:
     """Cancel scheduling for multiple drafts (revert to pending)."""
     ids = request.form.getlist('ids')
     result = _draft.bulk_cancel(ids)

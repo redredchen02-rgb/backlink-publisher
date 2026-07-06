@@ -28,16 +28,17 @@ can stay exit-0. It returns facts only; the verb applies the verdict ladder.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
 import socket
 import ssl
-from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
-from backlink_publisher._util.url import normalize_url_for_fetch, safe_hostname, safe_urlparse
 from backlink_publisher._util.net_safety import _check_url_for_ssrf, _make_ssrf_opener
+from backlink_publisher._util.url import normalize_url_for_fetch, safe_hostname, safe_urlparse
+
 from ._html_utils import extract_title
 from ._soft404 import is_soft_404_title
 
@@ -55,7 +56,8 @@ _MAX_REDIRECTS: int = 5
 PREFLIGHT_BODY_BYTES: int = 768_000
 
 #: Identifies this fetcher distinctly so targets can rate-limit it separately.
-USER_AGENT: str = "backlink-publisher/0.1 preflight-targets"
+#: P14 A5: imported from _util.constants (moved to resolve _util → domain violation).
+from backlink_publisher._util.constants import USER_AGENT
 
 #: Truncate the stored ``X-Robots-Tag`` value — it is untrusted, display-only.
 _X_ROBOTS_MAX_LEN: int = 256
@@ -89,8 +91,8 @@ class PreflightFacts:
     ``reason`` is ``None`` on a clean 200 fetch, else a stable taxonomy string.
     """
 
-    status: Optional[int] = None
-    final_url: Optional[str] = None
+    status: int | None = None
+    final_url: str | None = None
     redirected: bool = False
     host_diff: bool = False
     redirect_capped: bool = False
@@ -99,8 +101,8 @@ class PreflightFacts:
     has_title: bool = False
     has_h1: bool = False
     tls_unverified: bool = False
-    reason: Optional[str] = None
-    x_robots_tag: Optional[str] = None
+    reason: str | None = None
+    x_robots_tag: str | None = None
     #: ``</head>`` was present in the captured body prefix, so the robots
     #: ``<meta>`` scan saw the whole head. ``False`` means the head may have
     #: been truncated — ``noindex=False`` is then indeterminate, not clean.
@@ -173,7 +175,7 @@ def _meta_noindex(body: bytes) -> bool:
     return False
 
 
-def _x_robots_value(headers: Any) -> Optional[str]:
+def _x_robots_value(headers: Any) -> str | None:
     """Join any ``X-Robots-Tag`` header values (case-insensitive lookup via the
     ``email.message.Message`` container), truncated to a fixed length.
     """
@@ -200,7 +202,7 @@ def _ssrf_reason_to_taxonomy(blocked: str) -> str:
     return "ssrf_blocked"
 
 
-def _classify_url_error(exc: URLError) -> "PreflightFacts":
+def _classify_url_error(exc: URLError) -> PreflightFacts:
     """Translate a :class:`URLError` into a :class:`PreflightFacts` reason."""
     reason_obj = getattr(exc, "reason", None)
     if isinstance(reason_obj, str) and reason_obj.startswith("ssrf_"):
@@ -212,7 +214,7 @@ def _classify_url_error(exc: URLError) -> "PreflightFacts":
     return PreflightFacts(reason="network_error")
 
 
-def _build_facts_from_response(resp: Any, normalized: str) -> "PreflightFacts":
+def _build_facts_from_response(resp: Any, normalized: str) -> PreflightFacts:
     """Read *resp* metadata + body and return :class:`PreflightFacts`. Never raises."""
     try:
         status = resp.getcode()
@@ -267,7 +269,7 @@ def _build_facts_from_response(resp: Any, normalized: str) -> "PreflightFacts":
     )
 
 
-def _safe_ssrf_check(url: str) -> Optional[str]:
+def _safe_ssrf_check(url: str) -> str | None:
     """``_check_url_for_ssrf`` wrapper that never raises.
 
     ``_check_url_for_ssrf`` calls ``urlparse(url).hostname``, which raises
@@ -282,7 +284,7 @@ def _safe_ssrf_check(url: str) -> Optional[str]:
         return "invalid_host"
 
 
-def fetch_target(url: str, *, timeout: Optional[float] = None) -> PreflightFacts:
+def fetch_target(url: str, *, timeout: float | None = None) -> PreflightFacts:
     """Fetch ``url`` once and return :class:`PreflightFacts`. Never raises."""
     # 1. Scheme gate — before the SSRF DNS check or any Request.
     if not _is_http_url(url):
@@ -309,7 +311,7 @@ def fetch_target(url: str, *, timeout: Optional[float] = None) -> PreflightFacts
         if 500 <= code < 600:
             return PreflightFacts(status=code, reason="http_5xx")
         return PreflightFacts(status=code, reason=f"http_{code}")
-    except socket.timeout:
+    except TimeoutError:
         return PreflightFacts(reason="timeout")
     except URLError as exc:
         return _classify_url_error(exc)

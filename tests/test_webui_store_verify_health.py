@@ -4,7 +4,9 @@ Per-platform credential-expiry verdict cache: only token_expired/ok mutate
 state; transient verdicts are no-ops.
 """
 
+
 from __future__ import annotations
+__tier__ = "integration"
 
 from pathlib import Path
 
@@ -13,10 +15,10 @@ import pytest
 from webui_store.base import Store
 from webui_store.sqlite_base import WebUIDatabase
 from webui_store.verify_health import (
-    VerifyHealthSqliteStore,
     expired_channels,
     list_all,
     record,
+    VerifyHealthSqliteStore,
 )
 
 

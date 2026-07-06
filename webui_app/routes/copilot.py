@@ -14,8 +14,11 @@ configured LLM.  Requires a bound LLM key in ``llm-settings.json``; returns
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from flask import Blueprint, jsonify, request
+
+from backlink_publisher.llm.http_guard import safe_post_json
 
 from ..helpers.contexts import _load_llm_settings
 from ..helpers.security import (
@@ -25,7 +28,6 @@ from ..helpers.security import (
 from ..services.copilot_advisor import cached_aggregate
 from ..services.copilot_ranking import rank
 from ..services.copilot_recon import log_invocation
-from backlink_publisher.llm.http_guard import safe_post_json
 
 # Control / bidi characters — same regex used by llm.client._sanitize_input
 # but without the XML-attribute escaping (user questions are not spliced into
@@ -46,7 +48,7 @@ def _resolve_stale_days() -> int:
 
 
 @bp.route("/copilot/advice", methods=["GET"])
-def copilot_advice():
+def copilot_advice() -> Any:
     """Ranked, source-traceable advice across the on-render advisory tools."""
     stale_days = _resolve_stale_days()
     page = request.args.get("page") or None
@@ -72,7 +74,7 @@ def copilot_advice():
 
 
 @bp.route("/copilot/run-live", methods=["POST"])
-def copilot_run_live():
+def copilot_run_live() -> Any:
     """Reserved v3 seam: an explicit, operator-initiated live preflight/canary
     run. Not implemented in v1, but ships WITH the orthogonal origin guards
     wired (in addition to the app-level CSRF guard) so v3 inherits a correctly
@@ -99,7 +101,7 @@ def _sanitize_question(text: str, max_len: int = 500) -> str:
 
 
 @bp.route("/copilot/ask", methods=["POST"])
-def copilot_ask():
+def copilot_ask() -> Any:
     """Answer a natural-language question via the configured LLM.
 
     Requires a bound LLM key (``endpoint`` + ``api_key`` in ``llm-settings.json``).

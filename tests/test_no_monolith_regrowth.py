@@ -14,9 +14,9 @@ drift before it silently shifts ceiling math.
 from __future__ import annotations
 
 __tier__ = "unit"
+from pathlib import Path
 import tomllib
 import warnings
-from pathlib import Path
 
 import pytest
 import radon.raw
@@ -29,7 +29,7 @@ WARNING_CANARY_SLOC_THRESHOLD = 500
 
 # Load at module-collection time so pytest's parametrize sees concrete budget keys.
 # Missing/malformed budget file raises during collection -- pytest reports a clear error.
-BUDGET = tomllib.loads(BUDGET_FILE.read_text())
+BUDGET = tomllib.loads(BUDGET_FILE.read_text(encoding="utf-8"))
 MONITORED_PATHS = list(BUDGET["files"].keys())
 
 # SLOC canary: pins radon's counter against a hand-crafted fixture. Re-baseline
@@ -46,7 +46,7 @@ def _measure_sloc(path: Path) -> int:
     Python traceback.
     """
     try:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
     except (FileNotFoundError, IsADirectoryError, PermissionError) as exc:
         pytest.fail(
             f"Monitored file {path} not readable "
@@ -95,13 +95,13 @@ def _scan_for_undeclared_monoliths(
     """
     for path in scan_root.rglob("*.py"):
         try:
-            relative = str(path.relative_to(repo_root))
+            relative = str(path.relative_to(repo_root)).replace("\\", "/")
         except ValueError:
             continue
         if relative in declared_paths:
             continue
         try:
-            sloc = radon.raw.analyze(path.read_text()).sloc
+            sloc = radon.raw.analyze(path.read_text(encoding="utf-8")).sloc
         except (SyntaxError, OSError):
             continue
         if sloc > WARNING_CANARY_SLOC_THRESHOLD:
@@ -256,7 +256,7 @@ def test_radon_sloc_behavior_pinned() -> None:
     pinned version is also treated as a budget edit per origin R6 (re-measure
     every monitored ceiling and update SLOC_CANARY_EXPECTED in the same PR).
     """
-    actual = radon.raw.analyze(SLOC_CANARY_FIXTURE.read_text()).sloc
+    actual = radon.raw.analyze(SLOC_CANARY_FIXTURE.read_text(encoding="utf-8")).sloc
     assert actual == SLOC_CANARY_EXPECTED, (
         f"SLOC fixture expected={SLOC_CANARY_EXPECTED} but radon returned={actual}. "
         f"Counter behavior changed -- re-baseline all 5 monitored ceilings and "

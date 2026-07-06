@@ -21,7 +21,6 @@ import unittest.mock as mock
 
 import pytest
 
-
 # ── Import isolation ──────────────────────────────────────────────────────────
 
 
@@ -90,13 +89,15 @@ def test_webui_route_re_exports_guard():
 
 def test_provider_re_exports_sanitize_redact():
     """llm_anchor_provider re-exports _sanitize_input/_redact_for_log from llm.client."""
-    from backlink_publisher.publishing.adapters.llm_anchor_provider import (
-        _sanitize_input,
-        _redact_for_log,
+    from backlink_publisher.llm.client import (
+        _redact_for_log as client_redact,
     )
     from backlink_publisher.llm.client import (
         _sanitize_input as client_sanitize,
-        _redact_for_log as client_redact,
+    )
+    from backlink_publisher.publishing.adapters.llm_anchor_provider import (
+        _redact_for_log,
+        _sanitize_input,
     )
     # Same function objects (re-imported, not redefined)
     assert _sanitize_input is client_sanitize
@@ -402,7 +403,7 @@ def test_sanitize_strips_bidi_override():
 
 
 def test_sanitize_truncates_to_200():
-    from backlink_publisher.llm.client import _sanitize_input, _INPUT_MAX_LEN
+    from backlink_publisher.llm.client import _INPUT_MAX_LEN, _sanitize_input
     long_text = "a" * 300
     result = _sanitize_input(long_text)
     assert len(result) == _INPUT_MAX_LEN
@@ -425,7 +426,7 @@ def test_redact_api_key_json():
 
 
 def test_redact_truncates_long_text():
-    from backlink_publisher.llm.client import _redact_for_log, _LOG_TRUNCATE_LEN
+    from backlink_publisher.llm.client import _LOG_TRUNCATE_LEN, _redact_for_log
     long_text = "x" * 500
     result = _redact_for_log(long_text)
     assert len(result) <= _LOG_TRUNCATE_LEN + 1  # +1 for ellipsis char

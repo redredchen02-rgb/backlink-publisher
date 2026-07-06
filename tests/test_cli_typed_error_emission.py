@@ -22,8 +22,8 @@ __tier__ = "unit"
 import ast
 import io
 import json
-import sys
 from pathlib import Path
+import sys
 
 import pytest
 

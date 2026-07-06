@@ -1,18 +1,20 @@
 """Tests for idempotency._dedup_query module."""
 
-from __future__ import annotations
 
+from __future__ import annotations
+__tier__ = "unit"
+
+from collections.abc import Generator
+from pathlib import Path
 import sqlite3
 import time
-from pathlib import Path
-from typing import Generator
 from unittest.mock import patch
 
 import pytest
 
 from backlink_publisher.idempotency._dedup_connection import ConnectionMixin
 from backlink_publisher.idempotency._dedup_query import QueryMixin
-from backlink_publisher.idempotency._store_types import DedupKey, DedupRecord, _STALE_TTL_S
+from backlink_publisher.idempotency._store_types import _STALE_TTL_S, DedupKey, DedupRecord
 
 
 class TestQueryStore(ConnectionMixin, QueryMixin):

@@ -2,25 +2,25 @@
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any, cast
 
 import requests
 
-from backlink_publisher.config import Config
-from backlink_publisher.config.types import MEDIUM_API_BASE, MEDIUM_API_TIMEOUT
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     ExternalServiceError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
+from backlink_publisher.config.types import MEDIUM_API_BASE, MEDIUM_API_TIMEOUT
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
+
 from .base import AdapterResult
 from .link_attr_verifier import required_link_urls, verify_link_attributes
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _API_BASE = MEDIUM_API_BASE
 _TIMEOUT = MEDIUM_API_TIMEOUT
@@ -28,17 +28,11 @@ _DEFAULT_MEDIUM_PUBLISH_DELAY_S: int = 30  # 30 s: shared with MEDIUM_THROTTLE_M
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("MEDIUM_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
-    from backlink_publisher.config import load_config
-    toml_val = load_config().platform_throttle.get("medium")
-    if toml_val is not None:
-        return int(toml_val)
-    return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="medium",
+        env_var="MEDIUM_PUBLISH_DELAY_S",
+        default=_DEFAULT_MEDIUM_PUBLISH_DELAY_S,
+    )
 
 
 class _TransientHTTPError(Exception):
@@ -212,7 +206,7 @@ class MediumAPIAdapter(Publisher):
                 ratio = attr_check.get("blank_ratio", 1.0)
                 total = attr_check.get("total_anchors", 0)
                 if attr_check.get("verification") == "ok" and total > 0 and ratio < 0.5:
-                    log.warn(
+                    log.warning(
                         _json_log(
                             adapter="medium-api",
                             phase="attr-warn",

@@ -20,13 +20,12 @@ from __future__ import annotations
 
 import enum
 import json
-import time
 from pathlib import Path
+import time
 from typing import Any, cast
 
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config.loader import _config_dir
-
 
 # Plan 003 Unit 5 / Unit 0 spike output: default OFF until Spike 2
 # confirms headless probe doesn't trip Cloudflare/Datadome on real
@@ -69,13 +68,13 @@ def _load_storage_state_for_probe() -> dict[str, Any] | None:
             if attempt == 1:
                 time.sleep(0.05)
                 continue
-            log.warn(
+            log.warning(
                 "medium_liveness: storage_state.json unreadable after retry; "
                 "treating as needs_recheck"
             )
             return None
         except OSError as exc:
-            log.warn(
+            log.warning(
                 f"medium_liveness: storage_state.json read error: "
                 f"{type(exc).__name__}: {exc}"
             )
@@ -93,7 +92,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        log.warn("medium_liveness: Playwright not installed; needs_recheck")
+        log.warning("medium_liveness: Playwright not installed; needs_recheck")
         return LivenessResult.NEEDS_RECHECK
 
     try:
@@ -105,7 +104,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
                 try:
                     page.goto("https://medium.com/me", timeout=8000)
                 except Exception as exc:  # noqa: BLE001
-                    log.warn(
+                    log.warning(
                         f"medium_liveness: goto failed: "
                         f"{type(exc).__name__}: {exc}"
                     )
@@ -129,13 +128,13 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
             return LivenessResult.EXPIRED
         if "medium.com" in final_url:
             return LivenessResult.LOGGED_IN
-        log.warn(
+        log.warning(
             f"medium_liveness: probe ended on unexpected URL {final_url!r}; "
             f"needs_recheck"
         )
         return LivenessResult.NEEDS_RECHECK
     except Exception as exc:  # noqa: BLE001 — defensive
-        log.warn(
+        log.warning(
             f"medium_liveness: active probe failed: "
             f"{type(exc).__name__}: {exc}"
         )

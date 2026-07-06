@@ -15,8 +15,8 @@ import pytest
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.reliability.events import Outcome
 from backlink_publisher.publishing.reliability.policy import (
-    POLICY_ENV,
     policy_enabled,
+    POLICY_ENV,
     policy_mode,
     publish_with_policy,
 )

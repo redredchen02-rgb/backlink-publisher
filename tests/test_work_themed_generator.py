@@ -15,17 +15,16 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
-from backlink_publisher.anchor.resolver import _passes_work_anchor_filter
-from backlink_publisher.config import DEFAULT_WORK_TEMPLATES, ThreeUrlConfig
 from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher._util.markdown import _format_anchor_html, render_to_html
+from backlink_publisher.anchor.resolver import _passes_work_anchor_filter
+from backlink_publisher.config import DEFAULT_WORK_TEMPLATES, ThreeUrlConfig
 from backlink_publisher.content.scraper import WorkMetadata
 from backlink_publisher.content.themed_gen import (
     Anchors,
     render_work_themed_article,
     select_anchors,
 )
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

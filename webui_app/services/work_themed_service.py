@@ -8,6 +8,7 @@ from routes/sites.py.
 """
 
 import json
+from typing import Any
 
 # In-memory run registry — maps run_id → {main_url, summary, rows}.
 # Evicted FIFO when the cap is exceeded.  Lives here (not in cli_runner) so

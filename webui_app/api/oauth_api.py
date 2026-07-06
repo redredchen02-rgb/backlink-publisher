@@ -24,9 +24,10 @@ no transport concerns — it never touches ``flask.request`` and never aborts.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
+import os
 
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.config import load_config, save_config
 
 
@@ -61,7 +62,8 @@ class OAuthAPI:
                 os.remove(token_file)
             return OAuthResult("success", "Medium OAuth 授权已清除", "channel-medium")
         except Exception as e:
-            return OAuthResult("danger", f"清除失败: {e}", "channel-medium",
+            plan_logger.error("clear_medium_oauth_failed", error=str(e))
+            return OAuthResult("danger", f"清除失败: {type(e).__name__}", "channel-medium",
                                error_class="persistence_failure")
 
     def revoke_blogger(self) -> OAuthResult:
@@ -72,7 +74,8 @@ class OAuthAPI:
             cfg.blogger_token_path.unlink(missing_ok=True)
             return OAuthResult("success", "Blogger 授权已撤销", "channel-blogger")
         except Exception as e:
-            return OAuthResult("danger", f"撤销失败: {e}", "channel-blogger",
+            plan_logger.error("revoke_blogger_oauth_failed", error=str(e))
+            return OAuthResult("danger", f"撤销失败: {type(e).__name__}", "channel-blogger",
                                error_class="persistence_failure")
 
     def blogger_status(self) -> dict:
@@ -113,5 +116,6 @@ class OAuthAPI:
                 "channel-blogger",
             )
         except Exception as e:
-            return OAuthResult("danger", f"保存失败: {e}", "channel-blogger",
+            plan_logger.error("save_blogger_oauth_failed", error=str(e))
+            return OAuthResult("danger", f"保存失败: {type(e).__name__}", "channel-blogger",
                                error_class="persistence_failure")

@@ -13,9 +13,9 @@ import os
 
 import pytest
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from backlink_publisher.cli import spray_backlinks
 from backlink_publisher.cli.spray_backlinks import core as spray_core
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from backlink_publisher.publishing.registry import registered_platforms
 
 

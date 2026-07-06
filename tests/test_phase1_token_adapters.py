@@ -23,15 +23,15 @@ from backlink_publisher._util.errors import DependencyError, ExternalServiceErro
 #  through the shared ``http_post`` wrapper; tumblr goes through
 #  ``http_client.post`` (raise_for_status=False) with per-request OAuth1 auth)
 TOKEN_ADAPTERS = [
-    ("wordpresscom_api", "WordpresscomAPIAdapter", "wordpresscom_token_path",
+    ("wordpresscom_api", "WordpresscomAPIAdapter", "wordpresscom",
      "wordpresscom-token.json", {"token": "t", "site": "myblog.wordpress.com"},
      "http_post"),
-    ("writeas_api", "WriteasAPIAdapter", "writeas_token_path",
+    ("writeas_api", "WriteasAPIAdapter", "writeas",
      "writeas-token.json", {"token": "t"}, "http_post"),
-    ("hashnode_graphql", "HashnodeGraphQLAdapter", "hashnode_token_path",
+    ("hashnode_graphql", "HashnodeGraphQLAdapter", "hashnode",
      "hashnode-token.json", {"personal_access_token": "t", "publication_id": "p"},
      "http_post"),
-    ("tumblr_api", "TumblrAPIAdapter", "tumblr_credentials_path",
+    ("tumblr_api", "TumblrAPIAdapter", "tumblr",
      "tumblr-credentials.json", {"consumer_key": "a", "consumer_secret": "b",
                                  "oauth_token": "c", "oauth_token_secret": "d",
                                  "blog_name": "myblog"}, "http_client.post"),
@@ -43,10 +43,10 @@ def _adapter(module_suffix: str, cls_name: str):
     return getattr(mod, cls_name)
 
 
-def _config(tmp_path, path_attr, filename):
+def _config(tmp_path, platform, filename):
     cfg = MagicMock()
     cfg.config_dir = tmp_path
-    setattr(cfg, path_attr, tmp_path / filename)
+    cfg.token_path.return_value = tmp_path / filename
     return cfg
 
 

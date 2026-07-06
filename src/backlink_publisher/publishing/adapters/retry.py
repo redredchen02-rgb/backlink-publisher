@@ -8,21 +8,22 @@ Enhanced for Stage 1 optimization (Plan 2026-05-28-001):
 
 from __future__ import annotations
 
-import json
+from collections.abc import Callable
+from enum import StrEnum
 import os
 import random
 import re
 import time
-from enum import Enum
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from backlink_publisher._util.errors import (
+    AuthExpiredError,
     DependencyError,
     ExternalServiceError,
-    AuthExpiredError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
-from .base import TransientError, PermanentError, classify_http_status
+
+from .base import PermanentError, TransientError
 
 T = TypeVar("T")
 
@@ -75,7 +76,7 @@ STATUS_BACKOFF_MULTIPLIER: dict[int, float] = {
 }
 
 
-class ErrorClass(str, Enum):
+class ErrorClass(StrEnum):
     TRANSIENT = "transient"
     AUTH_EXPIRED = "auth_expired"
     HTTP_5XX = "http_5xx"
@@ -96,7 +97,6 @@ def classify_exception(exc: Exception) -> ErrorClass:
     Used by the publisher and event projectors to route and store failure reasons.
     """
     from backlink_publisher._util.errors import (
-        AuthExpiredError,
         ContentRejectedError,
         ExternalServiceError,
     )
@@ -263,4 +263,4 @@ def _emit_retry(
     }
     if status_code is not None:
         msg["status_code"] = status_code
-    log.warn(**msg)
+    log.warning(**msg)

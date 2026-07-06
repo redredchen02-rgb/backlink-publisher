@@ -205,6 +205,66 @@ body {
     z-index: 1;
 }
 
+/* ── Light theme overrides ───────────────────────────────────────────────────
+ * The entire design is dark-first; this block is the single source of truth
+ * for every light-mode token value consumed by both the Jinja pages and the
+ * Vue SPA (frontend/src/main.ts imports this same file). Extended 2026-07-01
+ * to go beyond the original "readability safety net" — accent/status/shadow
+ * tokens now have real light-theme values (WCAG 2.2 AA: text ≥4.5:1, UI
+ * components ≥3:1), not just inherited dark-theme literals. */
+[data-theme="light"] {
+  --text-primary: rgba(0, 0, 0, 0.88);
+  --text-secondary: rgba(0, 0, 0, 0.56);
+  --surface-base: #ffffff;
+  --surface-raised: #f3f4f6;
+  --surface-overlay: #e5e7eb;
+  --border: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.28);
+  --glass-bg: rgba(0, 0, 0, 0.03);
+  --glass-bg-fallback: #f3f4f6;
+  --glass-border: rgba(0, 0, 0, 0.10);
+  --gradient-hero: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
+
+  /* Brand / accent — dark theme's --primary (#38bdf8) and --accent-cyan
+   * (#22d3ee) are too light to use as text on light surfaces (~1.9:1 on
+   * --surface-overlay, e.g. SideNav.vue active-link text). Darker/more
+   * saturated shades of the same hues restore ≥4.5:1 on --surface-base and
+   * ≥4.5:1 on --surface-overlay while still reading as "the same accent". */
+  --primary: #0369a1;         /* sky-700 — ~5.9:1 on white, ~4.8:1 on --surface-overlay */
+  --primary-dark: #075985;    /* sky-800 — .btn-primary:hover; kept darker than --primary
+                                * so --on-primary (now light) stays legible on hover too */
+  --accent-cyan: #0e7490;     /* cyan-700 — ~5.4:1 on white, ~4.3:1 on --surface-overlay */
+
+  /* .btn-primary/.skip-link render light text on --primary; dark theme's
+   * near-black --on-primary only works against the light dark-theme
+   * --primary (#38bdf8) — against the new darker light-theme --primary it
+   * must flip to a light colour to stay ≥4.5:1. */
+  --on-primary: #ffffff;
+
+  /* Status TEXT — dark theme's pastel foregrounds (e.g. --danger-text:
+   * #fca5a5) are meant for dark *-soft chip backgrounds and read as
+   * near-invisible on the pale tints those same *-soft tokens produce over
+   * a light surface. *-soft itself is alpha-based and already composites to
+   * a readable pale tint over white/near-white, so it is left unchanged;
+   * only the on-top text needs deep, saturated light-theme values. */
+  --success-text: #065f46;  /* emerald-800 — ~6.6:1 on --success-soft-over-white */
+  --info-text:    #0369a1;  /* sky-700 (matches --primary; --info shares --primary's hue) */
+  --warning-text: #92400e;  /* amber-800 — ~6.3:1 on --warning-soft-over-white */
+  --danger-text:  #991b1b;  /* red-800 — ~6.7:1 on --danger-soft-over-white */
+  --violet-text:  #5b21b6;  /* violet-800 — ~7.4:1 on --violet-soft-over-white */
+
+  /* Elevation — dark theme's shadows are near-black at high alpha (0.4-0.7),
+   * tuned for depth against a near-black floor. The same alpha over a white
+   * floor reads as a harsh, oversized drop-shadow; light-theme shadows use
+   * the conventional lower-alpha treatment. */
+  --shadow-sm:          0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-brand:       0 8px 24px -8px rgba(0, 0, 0, 0.18);
+  --shadow-brand-hover: 0 12px 28px -8px rgba(0, 0, 0, 0.22);
+  --shadow-glass:       0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  color-scheme: light;
+}
+
 /* Keyboard focus ring — shows only for keyboard navigation, not mouse clicks. */
 *:focus-visible {
     outline: none;
@@ -257,4 +317,46 @@ code, kbd, samp, .font-mono {
     color: inherit;
     padding: .1em .35em;
     border-radius: 4px;
+}
+
+/* ── Light theme overrides for the dark-glass component rules above ─────────
+ * .btn-outline-secondary / .alert-warning / .alert-danger above are tuned for
+ * a dark console floor (white-alpha borders, pastel text). On
+ * [data-theme="light"] those same literals would be barely visible (e.g.
+ * near-white border/text on a white page), so give them real light-theme
+ * values here. Higher selector specificity ([data-theme="light"] + class)
+ * plus source order after the base rules guarantees these win under
+ * data-theme="light" regardless of !important vs !important precedence
+ * ties. Applies to both the SPA (5 pages) and legacy Jinja pages — legacy
+ * never had a light-theme version of these three classes before this. */
+[data-theme="light"] .btn-outline-secondary {
+    border-color: rgba(0, 0, 0, 0.22) !important;
+    color: rgba(0, 0, 0, 0.65) !important;
+    background: rgba(0, 0, 0, 0.03) !important;
+}
+[data-theme="light"] .btn-outline-secondary:hover,
+[data-theme="light"] .btn-outline-secondary:focus {
+    background: rgba(0, 0, 0, 0.08) !important;
+    border-color: rgba(0, 0, 0, 0.45) !important;
+    color: #000 !important;
+}
+
+[data-theme="light"] .alert-warning {
+    background: var(--warning-soft) !important;
+    border-color: rgba(245, 158, 11, 0.45) !important;
+    color: var(--warning-text) !important;
+}
+[data-theme="light"] .alert-warning code {
+    background: rgba(0, 0, 0, 0.08);
+    color: inherit;
+}
+
+[data-theme="light"] .alert-danger {
+    background: var(--danger-soft) !important;
+    border-color: rgba(239, 68, 68, 0.45) !important;
+    color: var(--danger-text) !important;
+}
+[data-theme="light"] .alert-danger code {
+    background: rgba(0, 0, 0, 0.08);
+    color: inherit;
 }

@@ -12,10 +12,10 @@ Exit codes:
 
 from __future__ import annotations
 
+from argparse import ArgumentParser
 import json
-import sys
-from argparse import ArgumentParser, Namespace
 from pathlib import Path
+import sys
 
 import yaml
 
@@ -25,7 +25,6 @@ from backlink_publisher.persistence.safe_write import atomic_write
 from backlink_publisher.publishing.adapters.link_attr_verifier import (
     verify_link_attributes,
 )
-
 
 _QUEUE_FILENAME = "verify-queue.jsonl"
 
@@ -47,7 +46,7 @@ def _find_latest_for_slug(
 
     latest_url: str | None = None
     latest_ts: str = ""
-    with open(queue_path, "r") as f:
+    with open(queue_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

@@ -9,8 +9,8 @@ import stat
 import pytest
 
 from backlink_publisher.config.tokens import (
-    save_tumblr_token,
     _TOKEN_FILES,
+    save_tumblr_token,
 )
 
 _TUMBLR_FIELDS = {

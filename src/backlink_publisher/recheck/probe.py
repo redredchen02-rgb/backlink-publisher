@@ -26,8 +26,9 @@ supplied AND the live anchor text could be captured; it is recorded as metadata
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from backlink_publisher.content._preflight_fetch import fetch_target
 from backlink_publisher.publishing.adapters import link_attr_verifier

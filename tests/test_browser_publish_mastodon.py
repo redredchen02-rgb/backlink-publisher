@@ -10,10 +10,10 @@ import pytest
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.publishing.browser_publish import RECIPES
 from backlink_publisher.publishing.browser_publish.recipes import (
-    mastodon as mast_recipe,
+    _mastodon_selectors as sel,
 )
 from backlink_publisher.publishing.browser_publish.recipes import (
-    _mastodon_selectors as sel,
+    mastodon as mast_recipe,
 )
 
 
@@ -131,10 +131,10 @@ class TestRecipeRegistered:
 class TestMastodonChain:
     def test_mastodon_chain_uses_browser_only(self):
         import backlink_publisher.publishing.adapters  # noqa: F401
-        from backlink_publisher.publishing.registry import _REGISTRY
         from backlink_publisher.publishing.browser_publish import (
             BrowserPublishDispatcher,
         )
+        from backlink_publisher.publishing.registry import _REGISTRY
 
         chain = _REGISTRY["mastodon"].publishers
         assert len(chain) == 1

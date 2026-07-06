@@ -10,10 +10,10 @@ import pytest
 
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing.adapters.mataroa_api import (
-    MataroaAPIAdapter,
     _build_post_payload,
     _load_token,
     _required_headers,
+    MataroaAPIAdapter,
 )
 
 _PATCH_TARGET = "backlink_publisher.publishing.adapters.mataroa_api.http_post"
@@ -23,14 +23,14 @@ _PATCH_TARGET = "backlink_publisher.publishing.adapters.mataroa_api.http_post"
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     cfg = MagicMock()
-    cfg.mataroa_token_path = tmp_path / "mataroa-token.json"
+    cfg.token_path.return_value = tmp_path / "mataroa-token.json"
     return cfg
 
 
 @pytest.fixture
 def config_with_token(config):
-    config.mataroa_token_path.write_text(json.dumps({"token": "mat_secret_xyz", "token_rev": 1}))
-    os.chmod(config.mataroa_token_path, 0o600)  # R10: real bind writes 0o600
+    config.token_path.return_value.write_text(json.dumps({"token": "mat_secret_xyz", "token_rev": 1}))
+    os.chmod(config.token_path.return_value, 0o600)  # R10: real bind writes 0o600
     return config
 
 
@@ -57,8 +57,8 @@ class TestLoadToken:
 
     def test_rejects_world_readable_token_file(self, config):
         """R10: a 0o644 token file must be refused."""
-        config.mataroa_token_path.write_text(json.dumps({"token": "x"}))
-        os.chmod(config.mataroa_token_path, 0o644)
+        config.token_path.return_value.write_text(json.dumps({"token": "x"}))
+        os.chmod(config.token_path.return_value, 0o644)
         with pytest.raises(DependencyError, match="0o600"):
             _load_token(config)
 

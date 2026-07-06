@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Any
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
@@ -18,7 +19,6 @@ from bs4 import BeautifulSoup
 from backlink_publisher._util.http_client import http_client
 from backlink_publisher.config import _domain_label
 from backlink_publisher.content import fetch as content_fetch
-
 
 # Import from security — the single source of truth (Unit 3 landed).
 from .security import _TRUTHY_BYPASS  # noqa: F401
@@ -54,7 +54,7 @@ def _verify_urls_or_error(
     return survivors, None
 
 
-def _fetch_page(url, timeout=10):
+def _fetch_page(url: Any, timeout: Any=10) -> Any:
     """Fetch a page for metadata extraction.
 
     Routed through the unified ``http_client`` so SSRF rules
@@ -73,7 +73,7 @@ def _fetch_page(url, timeout=10):
     return BeautifulSoup(resp.text, 'html.parser')
 
 
-def _extract_title(soup):
+def _extract_title(soup: Any) -> Any:
     og = soup.find('meta', property='og:title')
     if og:
         return (og.get('content', '') or '').strip()
@@ -81,7 +81,7 @@ def _extract_title(soup):
     return tag.text.strip() if tag else ''
 
 
-def _extract_description(soup):
+def _extract_description(soup: Any) -> Any:
     og = soup.find('meta', property='og:description')
     if og:
         return (og.get('content', '') or '').strip()
@@ -89,7 +89,7 @@ def _extract_description(soup):
     return (meta.get('content', '') or '').strip() if meta else ''
 
 
-def fetch_url_metadata(url):
+def fetch_url_metadata(url: Any) -> Any:
     try:
         soup = _fetch_page(url, timeout=10)
         title = _extract_title(soup)
@@ -100,7 +100,7 @@ def fetch_url_metadata(url):
                 'status': 'error', 'error': str(e)}
 
 
-def fetch_full_tdk(url):
+def fetch_full_tdk(url: Any) -> Any:
     try:
         soup = _fetch_page(url, timeout=15)
         title = _extract_title(soup)
@@ -125,7 +125,7 @@ def fetch_full_tdk(url):
         return {'status': 'error', 'error': str(e)}
 
 
-def detect_platform(url):
+def detect_platform(url: Any) -> Any:
     # Unknown-domain fallback flipped from 'medium' to 'blogger' per operator
     # preset (2026-05-20); medium/blogger explicit matches preserved.
     parsed = urlparse(url)
@@ -137,7 +137,7 @@ def detect_platform(url):
     return 'blogger'
 
 
-def detect_language(url):
+def detect_language(url: Any) -> Any:
     parsed = urlparse(url)
     domain = parsed.netloc.lower()
     path = parsed.path.lower()
@@ -160,7 +160,7 @@ def detect_language(url):
     return 'zh-CN'
 
 
-def get_main_domain(url):
+def get_main_domain(url: Any) -> Any:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}"
 

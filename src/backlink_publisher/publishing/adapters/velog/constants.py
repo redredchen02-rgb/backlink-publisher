@@ -1,6 +1,6 @@
 """Velog GraphQL adapter constants and configuration."""
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 # ── Endpoint & Headers ────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ _VELOG_DAILY_CAP_INITIAL: int = 5
 _VELOG_DAILY_CAP_PROD: int = 30
 
 # Set to (Unit 4 merge date + 14 days). PR changing this value = unlock event.
-UNLOCK_DATE_UTC: datetime = datetime(2026, 6, 2, 0, 0, tzinfo=timezone.utc)
+UNLOCK_DATE_UTC: datetime = datetime(2026, 6, 2, 0, 0, tzinfo=UTC)
 
 # Jitter window between posts (P0-5b)
 _VELOG_JITTER_MIN_S: int = 60

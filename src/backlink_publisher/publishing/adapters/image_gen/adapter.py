@@ -30,15 +30,17 @@ import logging
 import time
 from typing import Any, cast
 
-from requests.exceptions import ConnectionError as ReqConnError, Timeout as ReqTimeout
-from backlink_publisher.http import get as http_get, post as http_post
+from requests.exceptions import ConnectionError as ReqConnError
+from requests.exceptions import Timeout as ReqTimeout
 
 from backlink_publisher._util.errors import ExternalServiceError
+from backlink_publisher.http import get as http_get
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.adapters.retry import retry_transient_call
 
 from .types import BannerArtifact
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Hard cap on the downloaded banner size.  Provider could theoretically
 #: return a multi-GB image which would OOM the process; reject above
@@ -293,7 +295,7 @@ def _download_with_cap(src_url: str) -> bytes:
             f"image-gen banner exceeds 5MB cap on CDN download "
             f"({len(content)} > {_MAX_RESPONSE_BYTES} bytes)"
         )
-    return content
+    return content  # resp.content is already bytes
 
 
 _MIME_MAGIC: tuple[tuple[bytes, str], ...] = (

@@ -3,10 +3,10 @@ __tier__ = "unit"
 import pytest
 
 from backlink_publisher.publishing.adapters.velog_graphql import (
-    _VELOG_JITTER_MIN_S,
     _VELOG_JITTER_MAX_S,
-    _velog_jitter_min_s,
     _velog_jitter_max_s,
+    _VELOG_JITTER_MIN_S,
+    _velog_jitter_min_s,
 )
 
 
@@ -38,8 +38,8 @@ def test_min_equals_max_is_valid(monkeypatch):
 def test_min_greater_than_max_guard(monkeypatch):
     """min > max is inverted range — _apply_publish_jitter should fall back to defaults."""
     import random
-    from unittest.mock import patch
     import time
+    from unittest.mock import patch
 
     monkeypatch.setenv("VELOG_THROTTLE_MIN_S", "200")
     monkeypatch.setenv("VELOG_THROTTLE_MAX_S", "100")

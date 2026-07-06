@@ -13,7 +13,7 @@ beyond the query layer. The CLI shell lives in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 from backlink_publisher.events.store import EventStore
@@ -110,7 +110,7 @@ def find_gaps(
     ``GapResult`` with a list of ``PipelineGap`` entries.
     """
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     # --- Step 1: collect all distinct target_urls from events.db -----------
     all_targets = store.query(
@@ -239,5 +239,6 @@ def _derive_host(target_url: str) -> str:
         from urllib.parse import urlparse
         parsed = urlparse(target_url)
         return parsed.hostname or target_url
-    except Exception:
+    except (ValueError, TypeError):
+        # debt: gap-derive-host-urlparse-failure
         return target_url

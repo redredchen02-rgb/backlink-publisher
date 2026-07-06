@@ -13,6 +13,8 @@ ahead of time. Mutations return the refreshed ``{items: [...]}`` (SPA-friendly).
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, request
 
 from webui_store import profiles_store as _store
@@ -35,19 +37,19 @@ def _require_name(data: dict) -> str:
 
 
 @bp.get("/profiles")
-def profiles_list():
+def profiles_list() -> Any:
     """All saved campaign profiles."""
     return jsonify({"items": _store.load()})
 
 
 @bp.post("/profiles/save")
-def profiles_save():
+def profiles_save() -> Any:
     """Upsert a campaign profile by name → refreshed list."""
     data = request.get_json(silent=True) or {}
     name = _require_name(data)
     profile_data = {f: str(data.get(f) or _DEFAULTS[f]) for f in _PROFILE_FIELDS}
 
-    def _upsert(profiles):
+    def _upsert(profiles: Any) -> Any:
         for p in profiles:
             if p.get("name") == name:
                 p.update(profile_data)
@@ -60,7 +62,7 @@ def profiles_save():
 
 
 @bp.post("/profiles/delete")
-def profiles_delete():
+def profiles_delete() -> Any:
     """Delete a campaign profile by name → refreshed list."""
     name = _require_name(request.get_json(silent=True) or {})
     _store.update(lambda profiles: [p for p in profiles if p.get("name") != name])

@@ -15,9 +15,9 @@ NOT go through argparse / stdout / SystemExit. The CLI byte-parity net lives in
 from __future__ import annotations
 
 __tier__ = "unit"
+from contextlib import redirect_stderr, redirect_stdout
 import io
 import sys
-from contextlib import redirect_stdout, redirect_stderr
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -28,18 +28,18 @@ from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
 )
-from backlink_publisher.config import load_config
+from backlink_publisher.cli._publish_helpers import (
+    _decide_publish_exit,
+    _publish_epilogue,
+    PublishExitDecision,
+)
 from backlink_publisher.cli.publish_backlinks._engine import (
+    publish_rows,
     PublishOptions,
     PublishOutcome,
     PublishRunState,
-    publish_rows,
 )
-from backlink_publisher.cli._publish_helpers import (
-    PublishExitDecision,
-    _decide_publish_exit,
-    _publish_epilogue,
-)
+from backlink_publisher.config import load_config
 from backlink_publisher.linkcheck.verify import VerificationResult
 from backlink_publisher.publishing.adapters.base import AdapterResult
 

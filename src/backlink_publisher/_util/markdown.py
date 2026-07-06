@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 _mdit_instance = None
 
@@ -282,7 +282,8 @@ def validate_zh_short_payload(
     """
     # Imported locally so the markdown_utils module doesn't acquire a runtime
     # dependency on the resolver — keeps the module graph clean.
-    from backlink_publisher.anchor.resolver import _passes_filters
+    # P14 A4: imported from _util.text_validation (no ratio check needed here).
+    from backlink_publisher._util.text_validation import _passes_filters_with_rule
 
     errors: list[str] = []
 
@@ -307,7 +308,7 @@ def validate_zh_short_payload(
             errors.append(f"missing_target_blank:{anchor_text}")
         if 'rel="noopener noreferrer"' not in attrs:
             errors.append(f"missing_rel_noopener_noreferrer:{anchor_text}")
-        if not _passes_filters(anchor_text):
+        if not _passes_filters_with_rule(anchor_text, None):
             errors.append(f"anchor_failed_filters:{anchor_text}")
         if anchor_text not in expected_set:
             errors.append(f"unexpected_anchor_text:{anchor_text}")

@@ -2,20 +2,19 @@
 from __future__ import annotations
 
 __tier__ = "unit"
-from urllib.parse import unquote
 from unittest.mock import patch
+from urllib.parse import unquote
 
 import pytest
 from werkzeug.datastructures import MultiDict
 
 from backlink_publisher.linkcheck.verify import VerificationResult
 from webui_app.services.recheck import (
-    RecheckSummary,
     recheck_many,
     recheck_one,
+    RecheckSummary,
 )
 from webui_store import history_store
-
 
 # ── recheck_one (pure unit) ─────────────────────────────────────────────────
 
@@ -322,8 +321,8 @@ class TestWebuiRecheckFeedsBadge:
         return json.loads(rows[0]["payload_json"]) if rows else None
 
     def test_persist_updates_badge_and_mirrors_emit_recheck(self, events_store):
-        from webui_app.services.recheck import _persist_recheck_verdict
         from backlink_publisher.events.history_query import get_history_item
+        from webui_app.services.recheck import _persist_recheck_verdict
         aid = _seed_article(events_store, live_url="https://medium.com/p/a",
                             target_url="https://t.example/")
         _persist_recheck_verdict(

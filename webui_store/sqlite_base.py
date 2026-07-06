@@ -12,16 +12,17 @@ Unit 1.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 import json
 import logging
 import os
+from pathlib import Path
 import re
 import sqlite3
 import threading
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Callable, ClassVar, Iterator
+from typing import Any, ClassVar
 
 #: A bare SQL identifier (table name). Enforced on BlobSqliteStore subclasses
 #: because the table name is interpolated into DDL/DML (SQLite cannot bind it).
@@ -33,7 +34,7 @@ from backlink_publisher.events._store_sqlite import (
     _tighten_wal_sidecars,
 )
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Filename for the webui operational state database. Kept here rather than
 #: importing ``_DB_FILENAME`` from ``_store_sqlite`` (which is "events.db").
@@ -52,6 +53,10 @@ class WebUIDatabase:
     it. The path must be derived externally (``_config_dir() / "webui.db"``)
     and passed in; this class must NOT call ``_default_db_path()`` from
     ``_store_sqlite`` (which resolves to ``"events.db"``).
+
+    Connections are opened per-call (same as the original behaviour). The
+    per-thread caching experiment was reverted in P11 because it caused
+    file-lock cleanup issues in test temp-directory teardown.
     """
 
     _DB_FILENAME: str = "webui.db"
@@ -96,6 +101,10 @@ class WebUIDatabase:
             raise
         finally:
             conn.close()
+
+    @classmethod
+    def close_all(cls) -> None:
+        """No-op: connections are not cached (per-call open/close)."""
 
 
 class SqliteStore(ABC):
@@ -326,7 +335,7 @@ class BaseSqliteStore(SqliteStore):
             text = json_path.read_text(encoding="utf-8")
             data = json.loads(text)
         except (json.JSONDecodeError, UnicodeDecodeError, OSError):
-            _log.warning(
+            log.warning(
                 "%s migration: skipping corrupt/unreadable %s",
                 type(self).__name__, json_path,
             )
@@ -338,13 +347,13 @@ class BaseSqliteStore(SqliteStore):
             # Consistency with the read/rename error paths: log + return WITHOUT
             # writing the sentinel, so the next boot retries. save() is
             # idempotent (DELETE + INSERT), so a retry cannot duplicate data.
-            _log.warning("%s migration: save failed: %s", type(self).__name__, exc)
+            log.warning("%s migration: save failed: %s", type(self).__name__, exc)
             return
 
         try:
             json_path.rename(migrated_path)
         except OSError as exc:
-            _log.warning("%s migration: rename failed: %s", type(self).__name__, exc)
+            log.warning("%s migration: rename failed: %s", type(self).__name__, exc)
             return
 
         try:

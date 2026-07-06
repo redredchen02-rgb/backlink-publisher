@@ -18,7 +18,6 @@ import pytest
 
 from backlink_publisher._util.errors import UsageError
 
-
 # ── _FakeProc (copy of canonical pattern) ────────────────────────────────────
 
 class _FakeProc:

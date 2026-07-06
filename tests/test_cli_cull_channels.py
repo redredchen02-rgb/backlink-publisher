@@ -9,13 +9,13 @@ import pytest
 
 from backlink_publisher.cli import cull_channels
 from backlink_publisher.publishing.registry import (
-    Publisher,
-    register,
-    _REGISTRY,
-    _UI_META_BY_PLATFORM,
     _BIND_BY_PLATFORM,
     _POLICY_BY_PLATFORM,
+    _REGISTRY,
+    _UI_META_BY_PLATFORM,
     _VISIBILITY_BY_PLATFORM,
+    Publisher,
+    register,
 )
 
 

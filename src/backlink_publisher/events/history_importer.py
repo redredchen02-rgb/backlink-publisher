@@ -15,7 +15,6 @@ from backlink_publisher.events.publish_writer import (
     map_history_entry,
     write_event,
 )
-from backlink_publisher.events.store import EventStore
 
 log = logging.getLogger(__name__)
 
@@ -31,8 +30,8 @@ def _has_migrated() -> bool:
 
 
 def _mark_migrated() -> None:
-    import datetime
-    _sentinel_path().write_text(datetime.datetime.now().isoformat())
+    from datetime import datetime, UTC
+    _sentinel_path().write_text(datetime.now(UTC).isoformat())
 
 
 def import_history_to_events() -> None:

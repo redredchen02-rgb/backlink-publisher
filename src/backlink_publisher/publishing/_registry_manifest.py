@@ -12,7 +12,7 @@ demands it (per [[flask-g-cache-pattern]]), the cache belongs at the caller.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from backlink_publisher.config import Config
 from backlink_publisher.publishing._manifest_types import (
@@ -22,6 +22,7 @@ from backlink_publisher.publishing._manifest_types import (
     UiMeta,
     Visibility,
 )
+
 
 def _get_registry() -> dict:
     """Lazy import to break circular dependency with registry.py."""

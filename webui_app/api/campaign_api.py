@@ -59,14 +59,17 @@ class CampaignAPI:
             try:
                 statuses = channel_status.list_all()
             except Exception:
+                # debt: campaign-bootstrap-status-fail-soft
                 statuses = {}
             try:
                 from webui_store import verify_health
                 statuses = merge_verify_health(statuses, verify_health.expired_channels())
             except Exception:
+                # debt: campaign-bootstrap-status-fail-soft
                 pass
             return partition_channels_by_connection(dashboard_channels, statuses)
         except Exception:  # noqa: BLE001 — fail-soft to flat list
+            # debt: campaign-bootstrap-status-fail-soft
             return None
 
     # ── write: validate + create ──────────────────────────────────────────
@@ -103,6 +106,7 @@ class CampaignAPI:
                     "platforms": platforms, "mode": mode, "cap": cap, "seed_delay": seed_delay,
                 })
         except Exception:  # noqa: BLE001 — worker dispatch is best-effort
+            # debt: campaign-worker-dispatch-best-effort
             pass
 
         return {"ok": True, "campaign_id": campaign_id}
@@ -133,7 +137,7 @@ class CampaignAPI:
     @staticmethod
     def _parse_seeds(seed_text: str, errors: dict[str, str]) -> list[dict]:
         """Parse the seeds textarea (≤10 JSON lines, each needs ``seed_text``)."""
-        lines = [l.strip() for l in str(seed_text or "").split("\n") if l.strip()]
+        lines = [line.strip() for line in str(seed_text or "").split("\n") if line.strip()]
         if not lines:
             errors["seeds"] = "至少输入一条 seed（每行一条 JSON）"
             return []

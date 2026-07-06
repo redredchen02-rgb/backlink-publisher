@@ -32,7 +32,7 @@ from backlink_publisher.recheck.latest_verdicts import (
     latest_link_verdicts,
 )
 
-from .engine import UNATTRIBUTED, _platform_by_live_url
+from .engine import _platform_by_live_url, UNATTRIBUTED
 
 #: RFC2606 / RFC6761 reserved names. Production events.db contamination is
 #: ``example.com`` (+ subdomains); the rest are defensive and make the unit-test

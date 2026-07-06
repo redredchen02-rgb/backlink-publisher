@@ -55,7 +55,7 @@ jobs:
           BACKLINK_PUBLISHER_CONFIG_DIR: /tmp/bp-ephemeral-config
           BACKLINK_PUBLISHER_CACHE_DIR: /tmp/bp-ephemeral-cache
         run: |
-          pip install schemathesis
+          pip install "schemathesis<4"  # v4 renamed --base-url/--hypothesis-max-examples; workflow flags target v3
           PYTHONPATH=src python webui.py &
           APP_PID=$!
           # wait for liveness

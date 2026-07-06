@@ -5,7 +5,18 @@ import logging
 import os
 from pathlib import Path
 
+from backlink_publisher._util.cache import _ttl_cache_delete as _cache_delete
 from backlink_publisher._util.logger import plan_logger
+
+from ._config_io import _atomic_write_text, _resolve_config_dir, _snapshot_config
+from ._toml_utils import (
+    _emit_target_section,
+    _preserve_unknown_sections,
+    _save_config_known_roots,
+    _toml_str,
+)
+from .loader import load_config
+from .tokens import save_medium_integration_token
 from .types import (
     Config,
     GhpagesConfig,
@@ -15,21 +26,10 @@ from .types import (
     ThreeUrlConfig,
 )
 
-from .loader import load_config
-from ._config_io import _resolve_config_dir, _snapshot_config, _atomic_write_text
-from .tokens import save_medium_integration_token
-from ._toml_utils import (
-    _save_config_known_roots,
-    _emit_target_section,
-    _preserve_unknown_sections,
-    _toml_str,
-    _toml_list,
-)
-
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
-def _emit_ghpages_section(lines: list[str], cfg: "GhpagesConfig | None") -> None:
+def _emit_ghpages_section(lines: list[str], cfg: GhpagesConfig | None) -> None:
     if cfg is None:
         return
     lines.append("[ghpages]")
@@ -40,7 +40,7 @@ def _emit_ghpages_section(lines: list[str], cfg: "GhpagesConfig | None") -> None
 
 
 def _emit_gitlabpages_section(
-    lines: list[str], cfg: "GitlabPagesConfig | None"
+    lines: list[str], cfg: GitlabPagesConfig | None
 ) -> None:
     if cfg is None:
         return
@@ -52,7 +52,7 @@ def _emit_gitlabpages_section(
     lines.append("")
 
 
-def _emit_mastodon_section(lines: list[str], cfg: "MastodonConfig | None") -> None:
+def _emit_mastodon_section(lines: list[str], cfg: MastodonConfig | None) -> None:
     if cfg is None:
         return
     lines.append("[mastodon]")
@@ -60,7 +60,7 @@ def _emit_mastodon_section(lines: list[str], cfg: "MastodonConfig | None") -> No
     lines.append("")
 
 
-def _emit_image_gen_section(lines: list[str], cfg: "ImageGenConfig | None") -> None:
+def _emit_image_gen_section(lines: list[str], cfg: ImageGenConfig | None) -> None:
     if cfg is None:
         return
     lines.append("[image_gen]")
@@ -93,13 +93,13 @@ def _sync_medium_integration_token(token: str) -> None:
 
 
 def _resolve_blogger_merge(
-    config: "Config",
-    existing: "Config",
-    extra_blogger_ids: "dict[str, str] | None",
-    blogger_client_id: "str | None",
-    blogger_client_secret: "str | None",
-    medium_token: "str | None",
-) -> "tuple[dict[str, str], str, str, str]":
+    config: Config,
+    existing: Config,
+    extra_blogger_ids: dict[str, str] | None,
+    blogger_client_id: str | None,
+    blogger_client_secret: str | None,
+    medium_token: str | None,
+) -> tuple[dict[str, str], str, str, str]:
     """Merge caller overrides with on-disk blogger + Medium fields."""
     blog_ids: dict[str, str] = dict(config.blogger_blog_ids)
     if extra_blogger_ids is None:
@@ -122,15 +122,15 @@ def _resolve_blogger_merge(
 
 
 def _resolve_domain_maps(
-    existing: "Config",
-    target_anchor_keywords: "dict | None",
-    target_three_url: "dict | None",
-    target_probe_queries: "dict | None",
-    target_brand_aliases: "dict | None",
-    ghpages_config: "GhpagesConfig | None",
-    gitlabpages_config: "GitlabPagesConfig | None",
-    mastodon_config: "MastodonConfig | None",
-    image_gen_config: "ImageGenConfig | None",
+    existing: Config,
+    target_anchor_keywords: dict | None,
+    target_three_url: dict | None,
+    target_probe_queries: dict | None,
+    target_brand_aliases: dict | None,
+    ghpages_config: GhpagesConfig | None,
+    gitlabpages_config: GitlabPagesConfig | None,
+    mastodon_config: MastodonConfig | None,
+    image_gen_config: ImageGenConfig | None,
 ) -> tuple:
     """Merge caller overrides with on-disk domain maps and optional sections."""
     kws = dict(existing.target_anchor_keywords) if target_anchor_keywords is None else dict(target_anchor_keywords)
@@ -145,7 +145,7 @@ def _resolve_domain_maps(
 
 
 def save_config(
-    config: "Config",
+    config: Config,
     path: Path | None = None,
     extra_blogger_ids: dict[str, str] | None = None,
     medium_token: str | None = None,
@@ -248,7 +248,7 @@ def save_config(
                 frozenset(known_subsections),
             )
         except OSError as exc:
-            plan_logger.warn(
+            plan_logger.warning(
                 "config_preserve_read_failed",
                 path=str(config_path),
                 reason=type(exc).__name__,
@@ -262,3 +262,6 @@ def save_config(
 
     _snapshot_config(config_path)
     _atomic_write_text(config_path, payload)
+    # Invalidate the TTL cache so the next load_config() reads the fresh data.
+    # Key by resolved path to match the cache key used in load_config().
+    _cache_delete(f"load_config:{config_path}")

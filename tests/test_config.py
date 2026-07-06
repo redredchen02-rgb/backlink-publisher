@@ -5,17 +5,16 @@ import os
 
 import pytest
 
+from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config import (
     Config,
     get_anchor_keywords,
-    load_config,
     load_blogger_token,
+    load_config,
     resolve_blog_id,
     save_blogger_token,
     save_config,
 )
-from backlink_publisher._util.errors import DependencyError
-
 
 SAMPLE_TOML = b"""
 [blogger]

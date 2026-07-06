@@ -13,18 +13,18 @@ Two invariants this guards:
 """
 __tier__ = "integration"
 
-import json
 from datetime import datetime, timedelta
+import json
 
 import pytest
 
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import LINK_RECHECKED
 from backlink_publisher.recheck.events_io import (
-    STRIP_VERDICTS,
     derive_strip_counts_by_platform,
+    STRIP_VERDICTS,
 )
-from backlink_publisher.scorecard.engine import UNATTRIBUTED, build_channel_scorecard
+from backlink_publisher.scorecard.engine import build_channel_scorecard, UNATTRIBUTED
 
 NOW = datetime(2026, 6, 5, 12, 0, 0)
 RECENT = (NOW - timedelta(days=1)).isoformat(timespec="seconds")

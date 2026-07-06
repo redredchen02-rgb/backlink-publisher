@@ -35,7 +35,6 @@ from backlink_publisher.publishing.adapters.ghpages import (
     GitHubPagesAPIAdapter,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

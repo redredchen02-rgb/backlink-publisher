@@ -1,31 +1,29 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _HTTP_TIMEOUT_S = 30
 _DEFAULT_POST_PUBLISH_DELAY_S: int = 60  # 60 s: Substack rate-limits aggressive publishing
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("SUBSTACK_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="substack",
+        env_var="SUBSTACK_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("substack")
     if toml_val is not None:

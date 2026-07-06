@@ -30,46 +30,46 @@ plan-backlinks invocation. Operators must either restart the process or call
 from __future__ import annotations
 
 from collections import OrderedDict
+from concurrent.futures import as_completed, ThreadPoolExecutor
 from functools import lru_cache
 import os
 import socket  # noqa: F401 — kept for test patch backward compat
 import ssl
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
 from backlink_publisher._util.logger import opencli_logger
-from backlink_publisher._util.url import normalize_url_for_fetch
 from backlink_publisher._util.net_safety import (
     _check_url_for_ssrf,
     _make_ssrf_opener,
     _SSRF_OPENER,
 )
-from ._soft404 import is_soft_404_title as _is_soft_404_title
-from ._html_utils import read_html_head_window, extract_title
+from backlink_publisher._util.url import normalize_url_for_fetch
+
+from ._disk_cache import disk_cache_clear, disk_cache_get, disk_cache_set  # noqa: F401
+from ._fetch_helpers import _cache_key, _is_transient, _is_valid_http_url
 from ._fetch_settings import (
-    FETCH_TIMEOUT,  # noqa: F401 — re-exported for test imports
-    MAX_RETRIES,  # noqa: F401
-    HEAD_SCAN_BYTES,  # noqa: F401
-    MAX_BODY_BYTES,  # noqa: F401
-    BODY_TOO_SMALL_BYTES,  # noqa: F401
+    _body_too_small_bytes,
     _fetch_timeout,
-    _max_retries,
     _head_scan_bytes,
     _max_body_bytes,  # noqa: F401 — re-exported for test imports
-    _body_too_small_bytes,
+    _max_retries,
+    BODY_TOO_SMALL_BYTES,  # noqa: F401
+    FETCH_TIMEOUT,  # noqa: F401 — re-exported for test imports
+    HEAD_SCAN_BYTES,  # noqa: F401
+    MAX_BODY_BYTES,  # noqa: F401
+    MAX_RETRIES,  # noqa: F401
 )
+from ._html_utils import extract_title, read_html_head_window
+from ._soft404 import is_soft_404_title as _is_soft_404_title
 
 # Stats counters + stateless predicates were extracted to sibling modules for
 # monolith-budget headroom (2026-06-01). ``_STATS`` is imported by reference
 # and mutated in place here; ``reset_stats`` / ``stats_snapshot`` are
 # re-exported so ``content.fetch.<name>`` stays the stable public surface.
-from ._stats import _STATS, _record_reason, reset_stats, stats_snapshot  # noqa: F401
-from ._fetch_helpers import _cache_key, _is_transient, _is_valid_http_url
-from ._disk_cache import disk_cache_get, disk_cache_set, disk_cache_clear  # noqa: F401
+from ._stats import _record_reason, _STATS, reset_stats, stats_snapshot  # noqa: F401
 
 #: User-Agent identifies this fetcher distinctly from ``linkcheck``'s probe so
 #: target sites can rate-limit / allowlist the two independently.
@@ -77,6 +77,7 @@ USER_AGENT: str = "backlink-publisher/0.1 content-fetch"
 
 #: TLS context (environment-gated insecure verification).
 from backlink_publisher._util.ssl_ctx import get_ssl_context
+
 _SSL_CTX: ssl.SSLContext = get_ssl_context()
 
 
@@ -84,7 +85,7 @@ _SSL_CTX: ssl.SSLContext = get_ssl_context()
 # _check_url_for_ssrf and _SSRF_OPENER are imported above.
 
 
-CheckResult = tuple[bool, Optional[str], Optional[str]]
+CheckResult = tuple[bool, str | None, str | None]
 #: ``(ok, reason, title)``. ``reason`` is ``None`` on success and one of the
 #: stable strings documented in the module docstring otherwise. ``title`` is
 #: the extracted text on success (stripped, non-empty) or ``None`` on failure.
@@ -133,7 +134,7 @@ except (ValueError, TypeError):
 #: expire" (CLI default — process is short-lived). Webui startup sets this to
 #: ``BACKLINK_GATE_CACHE_TTL_SECONDS`` (default 900) so a long-running daemon
 #: re-fetches stale results.
-_DEFAULT_MAX_AGE_S: Optional[float] = None
+_DEFAULT_MAX_AGE_S: float | None = None
 
 def reset_cache() -> None:
     """Clear the in-run cache and disk cache. Tests call this between scenarios."""
@@ -144,7 +145,7 @@ def reset_cache() -> None:
         pass
 
 
-def set_default_max_age(seconds: Optional[float]) -> None:
+def set_default_max_age(seconds: float | None) -> None:
     """Set the process-wide TTL for cache entries.
 
     Passing ``None`` disables expiry (CLI default). Webui startup wires this
@@ -177,8 +178,8 @@ def _classify_http_code(code: int) -> str:
 
 def _check_once(
     url: str,
-    timeout_seconds: Optional[float] = None,
-    max_redirects: Optional[int] = None,
+    timeout_seconds: float | None = None,
+    max_redirects: int | None = None,
 ) -> CheckResult:
     """Single GET attempt. Returns the canonical CheckResult; never raises.
 
@@ -215,7 +216,7 @@ def _check_once(
         resp = opener.open(req, timeout=effective_timeout)
     except HTTPError as exc:
         return False, _classify_http_code(exc.code), None
-    except socket.timeout:
+    except TimeoutError:
         return False, "timeout", None
     except URLError as exc:
         reason_obj = getattr(exc, "reason", None)
@@ -267,9 +268,9 @@ def _check_once(
 
 def verify_url_has_content(
     url: str,
-    max_age_seconds: Optional[float] = None,
-    timeout_seconds: Optional[float] = None,
-    max_redirects: Optional[int] = None,
+    max_age_seconds: float | None = None,
+    timeout_seconds: float | None = None,
+    max_redirects: int | None = None,
 ) -> CheckResult:
     """Verify ``url`` returns HTTP 200 and a parseable non-empty title.
 

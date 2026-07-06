@@ -19,10 +19,10 @@ covering all discovered namers also reds it.
 from __future__ import annotations
 
 __tier__ = "integration"
+from collections.abc import Iterator
 import fnmatch
-import re
 from pathlib import Path
-from typing import Iterator
+import re
 
 import pytest
 

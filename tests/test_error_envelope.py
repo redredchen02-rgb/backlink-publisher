@@ -9,8 +9,7 @@ __tier__ = "unit"
 import pytest
 
 from backlink_publisher._util import errors
-from backlink_publisher._util.error_envelope import SENTINEL, ErrorEnvelope, parse
-
+from backlink_publisher._util.error_envelope import ErrorEnvelope, parse, SENTINEL
 
 # --- round-trip -----------------------------------------------------------
 

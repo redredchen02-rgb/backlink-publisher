@@ -2,13 +2,10 @@
 from __future__ import annotations
 
 __tier__ = "unit"
+from datetime import datetime, timedelta, timezone, UTC
 import math
-from datetime import datetime, timedelta, timezone
-
 
 from backlink_publisher.anchor.metrics import (
-    TargetThresholds,
-    WindowMetrics,
     compute_window_metrics,
     detect_breaches,
     exact_match_ratio,
@@ -16,10 +13,11 @@ from backlink_publisher.anchor.metrics import (
     group_by_target_url,
     normalize,
     shannon_entropy,
+    TargetThresholds,
     top_n_concentration,
+    WindowMetrics,
 )
 from backlink_publisher.anchor.profile import ProfileEntry, ProfileState
-
 
 # ── normalize ───────────────────────────────────────────────────────────────
 
@@ -197,7 +195,7 @@ def _entry_at(ts: datetime, *, ty: str = "branded", text: str = "x") -> ProfileE
 
 
 def test_filter_window_includes_only_recent():
-    now = datetime(2026, 5, 14, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 14, 12, 0, 0, tzinfo=UTC)
     entries = [
         _entry_at(now - timedelta(days=100), text="old"),
         _entry_at(now - timedelta(days=89), text="just_in"),
@@ -211,7 +209,7 @@ def test_filter_window_includes_only_recent():
 
 
 def test_filter_window_drops_malformed_ts():
-    now = datetime(2026, 5, 14, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 14, tzinfo=UTC)
     good = _entry_at(now, text="good")
     bad = ProfileEntry(
         ts="not-an-iso-date",

@@ -17,6 +17,8 @@ Error mapping mirrors DraftAPI's own honour-operator-intent semantics:
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import jsonify, request
 
 from ..drafts_api import DraftAPI
@@ -53,18 +55,18 @@ def _raise_if_hard_failure(result: dict) -> None:
     )
 
 
-def _refreshed(result: dict):
+def _refreshed(result: dict) -> Any:
     return jsonify({"items": _api.list_all(), "message": result.get("flash_msg", "")})
 
 
 @bp.get("/drafts")
-def drafts_list():
+def drafts_list() -> Any:
     """Full draft-queue list (newest first)."""
     return jsonify({"items": _api.list_all()})
 
 
 @bp.post("/drafts/schedule")
-def drafts_schedule():
+def drafts_schedule() -> Any:
     """Schedule a draft at an ISO-8601 datetime → refreshed list."""
     data = request.get_json(silent=True) or {}
     item_id = _require_id(data)
@@ -74,7 +76,7 @@ def drafts_schedule():
 
 
 @bp.post("/drafts/publish-now")
-def drafts_publish_now():
+def drafts_publish_now() -> Any:
     """Publish a draft now (schedules ~5s out) → refreshed list."""
     item_id = _require_id(request.get_json(silent=True) or {})
     result = _api.publish_now(item_id)
@@ -83,7 +85,7 @@ def drafts_publish_now():
 
 
 @bp.post("/drafts/cancel")
-def drafts_cancel():
+def drafts_cancel() -> Any:
     """Cancel a scheduled draft (back to pending) → refreshed list."""
     item_id = _require_id(request.get_json(silent=True) or {})
     result = _api.cancel(item_id)
@@ -92,7 +94,7 @@ def drafts_cancel():
 
 
 @bp.post("/drafts/delete")
-def drafts_delete():
+def drafts_delete() -> Any:
     """Delete one draft (cancels its job if scheduled) → refreshed list."""
     item_id = _require_id(request.get_json(silent=True) or {})
     result = _api.delete(item_id)
@@ -101,7 +103,7 @@ def drafts_delete():
 
 
 @bp.post("/drafts/bulk-delete")
-def drafts_bulk_delete():
+def drafts_bulk_delete() -> Any:
     """Delete multiple drafts → refreshed list."""
     data = request.get_json(silent=True) or {}
     ids = data.get("ids")

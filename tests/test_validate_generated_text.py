@@ -19,7 +19,6 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
-
 # Helpers for building word-count-appropriate texts.
 
 def _make_comment_text(link_url: str, link_text: str) -> str:

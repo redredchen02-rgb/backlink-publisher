@@ -2,23 +2,25 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+from typing import Any
+import uuid
 
 from flask import Blueprint, redirect, request, session
 
 from backlink_publisher import checkpoint as _checkpoint_mod
 from backlink_publisher._util.logger import plan_logger
-from ..helpers.contexts import _render
+
 from ..api.pipeline_api import PipelineAPI
-from ..helpers.security import _check_localhost, _validate_webui_run_id
+from ..helpers.contexts import _render
 from ..helpers.history import _parse_publish_results, _push_history_aggregate
+from ..helpers.security import _check_localhost, _validate_webui_run_id
 
 bp = Blueprint("checkpoint", __name__)
 
 
 @bp.route("/checkpoint/resume", methods=["POST"])
-def checkpoint_resume():
+def checkpoint_resume() -> Any:
     _check_localhost()
     run_id = request.form.get("run_id", "")
     _validate_webui_run_id(run_id)
@@ -78,7 +80,7 @@ def checkpoint_resume():
 
 
 @bp.route("/checkpoint/dismiss", methods=["POST"])
-def checkpoint_dismiss():
+def checkpoint_dismiss() -> Any:
     _check_localhost()
     run_id = request.form.get("run_id", "")
     _validate_webui_run_id(run_id)

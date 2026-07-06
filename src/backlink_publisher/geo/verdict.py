@@ -35,16 +35,16 @@ Credit gate (D4) -- pure string matching, zero net I/O:
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import logging
 import re
 import unicodedata
-from dataclasses import dataclass, field
 from urllib.parse import parse_qs, urlsplit
 
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.geo.engines import ProbeResult
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Refusal-phrasing markers (mirrors perplexity adapter for cross-engine reuse)

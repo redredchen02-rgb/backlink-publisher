@@ -21,8 +21,8 @@ rather than round_up_to_10(SLOC+30).
 from __future__ import annotations
 
 __tier__ = "unit"
-import tomllib
 from pathlib import Path
+import tomllib
 
 import pytest
 from radon.complexity import cc_visit
@@ -40,7 +40,7 @@ CC_HEADROOM_MAX = 10
 
 # Load at module-collection time so pytest's parametrize sees concrete budget keys.
 # Missing/malformed budget file raises during collection -- pytest reports a clear error.
-BUDGET = tomllib.loads(BUDGET_FILE.read_text())
+BUDGET = tomllib.loads(BUDGET_FILE.read_text(encoding="utf-8"))
 MONITORED_KEYS = list(BUDGET["functions"].keys())
 MONITORED_TEST_KEYS = list(BUDGET.get("test_files", {}).keys())
 
@@ -87,7 +87,7 @@ def _measure_function_cc(repo_root: Path, key: str) -> int:
     relpath, fullname = _split_key(key)
     full_path = repo_root / relpath
     try:
-        text = full_path.read_text()
+        text = full_path.read_text(encoding="utf-8")
     except (FileNotFoundError, IsADirectoryError, PermissionError) as exc:
         pytest.fail(
             f"Budgeted file {relpath} not readable ({exc.__class__.__name__}: {exc}). "
@@ -138,11 +138,13 @@ def _scan_unlisted_over_backstop(
         except ValueError:
             continue
         try:
-            blocks = _function_blocks(path.read_text())
+            blocks = _function_blocks(path.read_text(encoding="utf-8"))
         except (SyntaxError, OSError):
             continue
         for block in blocks:
-            key = f"{relative}::{block.fullname}"
+            # Normalise to forward slashes so budget entries match across macOS (/) and
+            # Windows (\\) — the budget TOML is authored with POSIX separators.
+            key = f"{relative.replace(chr(92), '/')}::{block.fullname}"
             if key in declared_keys:
                 continue
             if block.complexity > backstop:
@@ -154,11 +156,12 @@ def _scan_unlisted_over_backstop(
 
 
 def test_budget_file_loads_and_has_functions_table() -> None:
-    """The budget file must parse as TOML and contain a non-empty [functions] table."""
+    """The budget file must parse as TOML and contain a [functions] table (may be empty)."""
     assert BUDGET_FILE.exists(), f"{BUDGET_FILE} not found at repo root"
     assert "functions" in BUDGET, "complexity_budget.toml missing top-level [functions] table"
     assert isinstance(BUDGET["functions"], dict)
-    assert len(BUDGET["functions"]) > 0, "complexity_budget.toml has zero monitored functions"
+    # Zero entries is valid — all functions are now under the CC-30 backstop.
+    # See R12 Phase B (sites_save_three_url decomposition).
 
 
 @pytest.mark.parametrize("key", MONITORED_KEYS)
@@ -267,7 +270,7 @@ def test_radon_cc_behavior_pinned() -> None:
     Re-baseline only on a deliberate radon bump -- which is also a budget edit: re-measure
     every monitored ceiling and update CC_CANARY_EXPECTED in the same PR.
     """
-    blocks = _function_blocks(CC_CANARY_FIXTURE.read_text())
+    blocks = _function_blocks(CC_CANARY_FIXTURE.read_text(encoding="utf-8"))
     match = next((b for b in blocks if b.fullname == CC_CANARY_FUNC), None)
     assert match is not None, f"canary function {CC_CANARY_FUNC!r} not found in {CC_CANARY_FIXTURE}"
     assert match.complexity == CC_CANARY_EXPECTED, (
@@ -283,7 +286,7 @@ def test_radon_cc_behavior_pinned() -> None:
 def _sloc_of(path: Path) -> int:
     """Return the logical SLOC (source lines of code) of a Python file."""
     from radon.raw import analyze
-    return analyze(path.read_text()).sloc
+    return analyze(path.read_text(encoding="utf-8")).sloc
 
 
 def test_test_files_budget_exists() -> None:

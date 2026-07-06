@@ -6,21 +6,21 @@ import hashlib
 import re
 from typing import Any
 
-from backlink_publisher.anchor.profile import ProfileEntry
-from backlink_publisher.anchor import profile as anchor_profile
 from backlink_publisher._util import markdown as markdown_utils
-from backlink_publisher.content import scraper as work_scraper, themed_gen as work_themed_generator
-from backlink_publisher.config import ThreeUrlConfig
-from backlink_publisher._util.errors import ExternalServiceError, InputValidationError, emit_error
+from backlink_publisher._util.errors import emit_error, ExternalServiceError, InputValidationError
 from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.anchor import profile as anchor_profile
+from backlink_publisher.anchor.profile import ProfileEntry
+from backlink_publisher.config import ThreeUrlConfig
+from backlink_publisher.content import scraper as work_scraper
+from backlink_publisher.content import themed_gen as work_themed_generator
 
 from .core import (
     _domain_label_of,
+    _ROW_REQUIRED_KINDS,
     _SUPPORTING_POOL,
     _TARGET_PADDED_LINK_COUNT,
-    _ROW_REQUIRED_KINDS,
 )
-
 
 _KIND_REMAP_WORK_THEMED: dict[str, str] = {
     "main_domain": "main_domain",
@@ -163,7 +163,7 @@ def _plan_work_themed_row(
 
     work_urls = work_urls[:count]
     if not work_urls:
-        plan_logger.warn(
+        plan_logger.warning(
             "work-themed run: 0 candidate work URLs (fail-empty)",
             main_domain=main_domain,
             list_url=three_url_cfg.list_url,
@@ -181,7 +181,7 @@ def _plan_work_themed_row(
                 work_url, insecure_tls=three_url_cfg.insecure_tls,
             )
         except InputValidationError as exc:
-            plan_logger.warn(
+            plan_logger.warning(
                 "work-themed: invalid work_url, skipping",
                 main_domain=main_domain, url=work_url, reason=str(exc),
             )
@@ -189,7 +189,7 @@ def _plan_work_themed_row(
             continue
 
         if meta is None:
-            plan_logger.warn(
+            plan_logger.warning(
                 "work-themed: metadata fetch failed (fail-continue), skipping",
                 main_domain=main_domain, url=work_url,
             )

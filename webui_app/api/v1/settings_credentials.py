@@ -27,9 +27,11 @@ from __future__ import annotations
 
 import os
 import stat
+from typing import Any
 
 from flask import current_app, jsonify, request
 
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.config import load_config, save_notion_token
 from backlink_publisher.config.tokens import load_notion_token
 from backlink_publisher.publishing.registry import auth_type as _registry_auth_type
@@ -65,7 +67,7 @@ def _transport_guards_active() -> bool:
 
 
 @bp.post("/settings/channels/<channel>/token")
-def settings_save_channel_token(channel: str):
+def settings_save_channel_token(channel: str) -> Any:
     """Save (or clear) a paste-token channel credential → ``0600`` file.
 
     Body: ``{"token": "..."}`` to save, or ``{"clear": true}`` to remove.
@@ -108,13 +110,14 @@ def settings_save_channel_token(channel: str):
             credential_service.save_token(channel, cfg, token)
     except credential_service.ChannelNotConfigured:
         raise ApiProblem(422, "Channel not configured", error_class="invalid_request")
-    except Exception:
-        raise ApiProblem(502, "Failed to save token", error_class="persistence_failure")
+    except Exception as exc:
+        plan_logger.error("save_channel_token_failed", channel=channel, error=str(exc))
+        raise ApiProblem(502, "Failed to save token", error_class="persistence_failure") from exc
     return jsonify({"ok": True, "message": f"{channel} token 已绑定 ✓"})
 
 
 @bp.post("/settings/notion-token")
-def settings_save_notion_token():
+def settings_save_notion_token() -> Any:
     """Save (or clear) the Notion credential (integration_token + database_id) → ``0600``."""
     # THREAT-3: same inline transport guards as the channel-token endpoint.
     if _transport_guards_active():
@@ -150,13 +153,16 @@ def settings_save_notion_token():
             os.chmod(token_path, 0o600)
     except ApiProblem:
         raise
-    except Exception:
-        raise ApiProblem(502, "Failed to save Notion token", error_class="persistence_failure")
+    except Exception as exc:
+        plan_logger.error("save_notion_token_failed", error=str(exc))
+        raise ApiProblem(
+            502, "Failed to save Notion token", error_class="persistence_failure"
+        ) from exc
     return jsonify({"ok": True, "message": "notion token 已绑定 ✓"})
 
 
 @bp.get("/settings/notion/status")
-def settings_notion_status():
+def settings_notion_status() -> Any:
     """Notion card state: whether a credential is stored + the (non-secret) database_id.
 
     Read-only — the integration_token is NEVER returned, only ``configured``. No

@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 @pytest.fixture(autouse=True)
 def _no_real_subprocess():
-    from unittest.mock import patch
     import subprocess as sp_mod
+    from unittest.mock import patch
 
     def _fake_run(cmd, *_args, **_kwargs):
         result = sp_mod.CompletedProcess(args=cmd, returncode=0)
@@ -70,8 +70,8 @@ def _isolated_webui_state(tmp_path, monkeypatch):
 
 class TestBatchOpsSqliteStore:
     def test_enqueue_many_writes_rows(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.batch_ops import BatchOpsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = BatchOpsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         ids = store.enqueue_many(["https://a.com/", "https://b.com/"], "keep_alive")
         assert len(ids) == 2
@@ -81,8 +81,8 @@ class TestBatchOpsSqliteStore:
         assert all(r["operation"] == "keep_alive" for r in rows)
 
     def test_get_pending_one_returns_oldest(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.batch_ops import BatchOpsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = BatchOpsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         ids = store.enqueue_many(["https://first.com/", "https://second.com/"], "recheck")
         first = store.get_pending_one()
@@ -90,14 +90,14 @@ class TestBatchOpsSqliteStore:
         assert first["site_url"] == "https://first.com/"
 
     def test_get_pending_one_returns_none_when_empty(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.batch_ops import BatchOpsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = BatchOpsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         assert store.get_pending_one() is None
 
     def test_update_row_changes_status(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.batch_ops import BatchOpsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = BatchOpsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         ids = store.enqueue_many(["https://a.com/"], "keep_alive")
         store.update_row(ids[0], "done")
@@ -106,8 +106,8 @@ class TestBatchOpsSqliteStore:
         assert rows[0]["error"] is None
 
     def test_update_row_stores_error(self, tmp_path):
-        from webui_store.sqlite_base import WebUIDatabase
         from webui_store.batch_ops import BatchOpsSqliteStore
+        from webui_store.sqlite_base import WebUIDatabase
         store = BatchOpsSqliteStore(WebUIDatabase(tmp_path / "test.db"))
         ids = store.enqueue_many(["https://a.com/"], "recheck")
         store.update_row(ids[0], "failed", error="timeout")

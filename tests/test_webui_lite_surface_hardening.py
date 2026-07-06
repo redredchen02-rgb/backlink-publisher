@@ -8,6 +8,7 @@ from __future__ import annotations
 __tier__ = "integration"
 
 import pytest
+
 import webui
 
 
@@ -39,7 +40,7 @@ def test_pro_blueprint_post_returns_404_not_403(disable_csrf):
 
 def test_core_route_accessible_in_lite(disable_csrf):
     """GET core route is not blocked by LITE gate."""
-    resp = webui.app.test_client().get("/ce:keep-alive")
+    resp = webui.app.test_client().get("/ce:keep-alive/jinja")
     assert resp.status_code == 200
 
 
@@ -70,6 +71,20 @@ def test_csrf_guard_runs_before_lite_gate():
     assert hooks.index("_global_csrf_guard") < hooks.index("_lite_surface_gate"), (
         "E3 violated: _lite_surface_gate runs before _global_csrf_guard"
     )
+
+
+# ── Copilot panel absent (not just unlinked) ─────────────────────────────────
+
+@pytest.mark.parametrize("url", ["/", "/sites", "/ce:health"])
+def test_copilot_panel_absent_in_lite(url, disable_csrf):
+    """The Copilot FAB/panel must not render in LITE mode: its /copilot/advice
+    route 404s under the LITE gate, so a rendered launcher button would just
+    trigger the client-side 'non-JSON response' error the gate exists to avoid."""
+    resp = webui.app.test_client().get(url)
+    assert resp.status_code == 200, f"{url} -> {resp.status_code}"
+    body = resp.data.decode()
+    assert 'id="copilotToggle"' not in body, f"copilot FAB rendered on {url} in LITE mode"
+    assert 'id="copilotPanel"' not in body, f"copilot panel rendered on {url} in LITE mode"
 
 
 # ── Nav consistency ───────────────────────────────────────────────────────────

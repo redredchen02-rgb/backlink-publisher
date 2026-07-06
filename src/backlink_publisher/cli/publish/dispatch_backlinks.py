@@ -13,15 +13,16 @@ from __future__ import annotations
 
 import sys
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
-from backlink_publisher import config_echo
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import publish_logger as log
 from backlink_publisher.config import load_config
 from backlink_publisher.dispatch import collect_all, route
 from backlink_publisher.dispatch.routing import ENGINE_VERSION
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from webui_store.channel_status import channel_status_store
+
+from ... import config_echo
 
 # Available strategy choices.
 _STRATEGY_CHOICES = ("balanced", "quality", "spread")

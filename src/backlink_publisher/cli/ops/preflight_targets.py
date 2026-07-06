@@ -16,14 +16,14 @@ A ``healthy`` verdict asserts only "reachable + not obviously dead." The receipt
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
-from backlink_publisher._util.errors import PipelineError, UsageError, handle_error
+from backlink_publisher._util.errors import handle_error, PipelineError, UsageError
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import PipelineLogger, set_log_level
 from backlink_publisher._util.url import canonicalize_url
-from backlink_publisher.content._preflight_fetch import PreflightFacts, fetch_target
+from backlink_publisher.content._preflight_fetch import fetch_target, PreflightFacts
 
 preflight_logger = PipelineLogger("preflight-targets")
 
@@ -110,7 +110,7 @@ def _build_receipt(target_url: str, facts: PreflightFacts, source_rows: list[int
         "tls_unverified": facts.tls_unverified,
         "status": facts.status,
         "x_robots_tag": facts.x_robots_tag,
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": datetime.now(UTC).isoformat(),
         "source_rows": source_rows,  # fan-out: 1-based plan row indices pointing here
     }
 

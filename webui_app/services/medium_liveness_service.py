@@ -11,11 +11,11 @@ import concurrent.futures
 
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.publishing.adapters.medium_liveness import (
-    LivenessResult,
-    MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED,
     _active_probe,
     _load_storage_state_for_probe,
     _storage_state_path,
+    LivenessResult,
+    MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED,
 )
 
 # 5-minute cache on last_verified_at — every Settings page load within this

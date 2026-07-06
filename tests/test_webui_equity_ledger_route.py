@@ -36,7 +36,7 @@ def _seed():
 
 def test_page_renders_with_row(client):
     _seed()
-    resp = client.get("/ce:equity-ledger")
+    resp = client.get("/ce:equity-ledger/jinja")
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
     # U1: page title is now Chinese
@@ -46,7 +46,7 @@ def test_page_renders_with_row(client):
 
 
 def test_empty_state_embeds_no_rows(client):
-    resp = client.get("/ce:equity-ledger")
+    resp = client.get("/ce:equity-ledger/jinja")
     assert resp.status_code == 200
     # Plan 007 U5: rows now flow via the window.__equityLedgerBootstrap seam
     # (read once by equity.js) instead of an inline `const ROWS = [...]`.
@@ -58,7 +58,7 @@ def test_empty_state_embeds_no_rows(client):
 def test_equity_ledger_extends_base_layout(client):
     """Plan 007 U5: page is under base layout — one <head>, exactly one
     base-owned csrf-meta, equity.js loaded as a module, no inline engine."""
-    body = client.get("/ce:equity-ledger").get_data(as_text=True)
+    body = client.get("/ce:equity-ledger/jinja").get_data(as_text=True)
     assert body.count("<head>") == 1
     assert body.count('name="csrf-token"') == 1
     assert 'type="module"' in body and "js/equity.js" in body
@@ -67,7 +67,7 @@ def test_equity_ledger_extends_base_layout(client):
 
 def test_stale_days_query_param_reflected(client):
     _seed()
-    resp = client.get("/ce:equity-ledger?stale_days=7")
+    resp = client.get("/ce:equity-ledger/jinja?stale_days=7")
     assert resp.status_code == 200
     # U1: stale label is now Chinese — "超过 7 天未更新"
     assert "7" in resp.get_data(as_text=True)
@@ -79,7 +79,7 @@ def test_matches_cli_engine_for_same_fixture(client, monkeypatch):
     _seed()
     from backlink_publisher.ledger import build_ledger
     engine_rows = build_ledger()
-    resp = client.get("/ce:equity-ledger")
+    resp = client.get("/ce:equity-ledger/jinja")
     html = resp.get_data(as_text=True)
     assert len(engine_rows) == 1
     assert engine_rows[0].target_url in html

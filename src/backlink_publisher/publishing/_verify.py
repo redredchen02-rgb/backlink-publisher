@@ -11,9 +11,10 @@ and ``'dry-run'`` return a ``VerifyResult`` and never raise for auth failures.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import contextlib
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Literal, Optional
+from typing import Any, Literal
 
 VerifyResultLiteral = Literal[
     "ok",
@@ -34,11 +35,11 @@ class VerifyResult:
     """
 
     ok: bool
-    identity: Optional[str] = None
-    last_verified_at: Optional[str] = None  # iso8601 UTC, None if never
+    identity: str | None = None
+    last_verified_at: str | None = None  # iso8601 UTC, None if never
     last_verify_result: VerifyResultLiteral = "never"
     blockers: list[str] = field(default_factory=list)
-    dofollow: Optional[bool] = None  # None = unknown, True/False = confirmed
+    dofollow: bool | None = None  # None = unknown, True/False = confirmed
 
 
 class DryRunInterceptError(Exception):
@@ -74,7 +75,7 @@ def dry_run_intercept() -> Iterator[None]:
             f"dry-run intercept: refusing to {request.method} {request.url}"
         )
 
-    requests.Session.send = _intercepted  # type: ignore[method-assign,assignment]
+    requests.Session.send = _intercepted  # type: ignore[method-assign, assignment]
     try:
         yield
     finally:

@@ -31,21 +31,18 @@ Design choices (mirrors ``devto_api.py``):
 from __future__ import annotations
 
 import json
-import os
-import stat
 import time
 from typing import Any, cast
 
-from backlink_publisher.http import post as http_post
-
-from backlink_publisher.config import Config, load_hackmd_token
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, load_hackmd_token
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 HACKMD_NOTES_API = "https://api.hackmd.io/v1/notes"
 _HTTP_TIMEOUT_S = 30
@@ -53,12 +50,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 30
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("HACKMD_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="hackmd",
+        env_var="HACKMD_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("hackmd")
     if toml_val is not None:
@@ -77,23 +73,21 @@ def _required_headers(token: str) -> dict[str, str]:
 def _require_secure_mode(path: Any) -> None:
     """R10: refuse a group/world-readable token file (mirrors telegraph/livejournal)."""
     if path.exists():
-        mode = os.stat(path).st_mode & 0o777
-        if mode != 0o600:
-            raise DependencyError(
-                f"HackMD token file {path} has mode {oct(mode)}; must be 0o600. "
-                f"Run: chmod 600 {path}"
-            )
+        from backlink_publisher._util.permissions import check_0600
+
+        check_0600(path, label="HackMD token file")
 
 
 def _load_token(config: Config) -> str:
     """Return the API token, raising DependencyError when not configured."""
-    _require_secure_mode(config.hackmd_token_path)
-    data = load_hackmd_token(config.hackmd_token_path)
+    tp = config.token_path("hackmd")
+    _require_secure_mode(tp)
+    data = load_hackmd_token(tp)
     token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "HackMD API token not configured. "
-            f"Write {{\"token\": \"<token>\"}} to {config.hackmd_token_path} "
+            f'Write {{"token": "<token>"}} to {tp} '
             "(chmod 600). Generate at HackMD → Settings → API → Create token."
         )
     return token
@@ -144,7 +138,7 @@ class HackmdAPIAdapter(Publisher):
     @classmethod
     def available(cls, config: Config) -> bool:
         """Return True when hackmd-token.json exists with a non-empty token."""
-        data = load_hackmd_token(config.hackmd_token_path)
+        data = load_hackmd_token(config.token_path("hackmd"))
         if not data:
             return False
         return bool((data.get("token") or "").strip())

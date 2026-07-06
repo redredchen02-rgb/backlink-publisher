@@ -29,16 +29,17 @@ shared abstraction only after a third token file appears (see plan's
 
 from __future__ import annotations
 
-import fcntl
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, UTC
 import json
 import logging
 import os
+from pathlib import Path
 import random
 import time
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Iterator
+
+import fcntl
 
 log = logging.getLogger(__name__)
 
@@ -63,8 +64,9 @@ def frw_token_path() -> Path:
     """
     # Lazy import: avoid an import cycle between ``_util`` (low-level)
     # and ``config`` (high-level) at module load time.
-    from backlink_publisher import config as _cfg
-    return _cfg._config_dir() / "frw-token.json"
+    # P14 A1: imported from _util.paths instead of config.
+    from backlink_publisher._util.paths import _config_dir as _cd
+    return _cd() / "frw-token.json"
 
 
 def _lock_path(token_path: Path) -> Path:
@@ -106,7 +108,7 @@ def load_frw_token() -> str:
         os.chmod(path, 0o600)
 
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise RuntimeError(
             f"frw-token.json malformed at {path}: {exc}\n"
@@ -206,7 +208,10 @@ def _token_lock(token_path: Path) -> Iterator[None]:
     """
     lock_path = _lock_path(token_path)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    # O_NOFOLLOW hardening (refuse symlinked lock files) where the platform
+    # supports it; Windows has no os.O_NOFOLLOW, so degrade to 0 there.
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | nofollow, 0o600)
     try:
         deadline = time.monotonic() + _LOCK_TIMEOUT_S
         while True:
@@ -240,7 +245,7 @@ def _archive_orphan_token(token_path: Path) -> Path | None:
     """
     if not token_path.exists():
         return None
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
     archive = token_path.with_suffix(token_path.suffix + f".orphaned-{stamp}")
     os.replace(token_path, archive)
     os.chmod(archive, 0o600)

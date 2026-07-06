@@ -1,9 +1,9 @@
 """Gate test: no orphan .py files in src/backlink_publisher/."""
 __tier__ = "unit"
 
-import sys
 import os
 import subprocess
+import sys
 
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "scripts", "scan_orphan_code.py")
 
@@ -34,14 +34,14 @@ ALLOWLIST: set[str] = {
     "_util/structlog_config.py",
     # Opt-in throttle module (2026-06-10)
     "publishing/_throttle.py",
-    # U5 backward-compat shim — payload validation moved to validate/_payload.py
-    "cli/_validate_payload.py",
-    # U8 backward-compat shims — old flat paths kept for external callers
+    # U8 CLI shims (2026-06-26) — backward-compat re-exports from subdirs
     "cli/keepalive_run.py",
-    "cli/resume.py",
-    "cli/runs.py",
-    # Extracted module not yet wired into imports (pre-existing orphan)
+    "cli/keepalive_status.py",
+    "cli/report_anchors.py",
     "cli/spray_backlinks/_gates.py",
+    # CLI boilerplate + formatting — imported dynamically
+    "cli/_shared.py",
+    "_util/cli_format.py",
 }
 
 
@@ -50,7 +50,7 @@ def test_no_orphan_code():
         [sys.executable, SCRIPT],
         capture_output=True, text=True, cwd=os.path.dirname(SCRIPT),
     )
-    orphans = [l for l in result.stdout.splitlines() if l.strip()]
+    orphans = [l.replace("\\", "/") for l in result.stdout.splitlines() if l.strip()]
     if not orphans:
         return
 

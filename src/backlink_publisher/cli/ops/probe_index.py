@@ -20,18 +20,18 @@ Contract:
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, timedelta, UTC
 import json
-import sys
-import uuid
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import sys
 from typing import Any
+import uuid
 
+import fcntl
 from backlink_publisher._util.errors import (
     DependencyError,
-    ExternalServiceError,
     emit_error,
+    ExternalServiceError,
     handle_error,
 )
 from backlink_publisher._util.logger import get_logger
@@ -39,9 +39,9 @@ from backlink_publisher.config import load_config
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import GSC_PAGE_SIGNAL, PUBLISH_CONFIRMED
 
-from backlink_publisher import config_echo
+from ... import config_echo
 
-_log = get_logger("probe-index")
+log = get_logger("probe-index")
 
 #: Default URL batch cap per run (GSC quota guard).
 DEFAULT_MAX_URLS = 200
@@ -105,7 +105,7 @@ def _run(args: Any, cfg: Any) -> None:
     candidates = _select_candidates(store, args.max_urls)
 
     if not candidates:
-        _log.recon("probe_index_nothing_to_probe", count=0)
+        log.recon("probe_index_nothing_to_probe", count=0)
         print("probe-index: no unprobed URLs — nothing to do", file=sys.stderr)
         return
 
@@ -118,7 +118,7 @@ def _run(args: Any, cfg: Any) -> None:
     if not args.probe:
         for url in candidates:
             print(json.dumps({"type": "dry_run", "page_url": url}), flush=True)
-        _log.recon("probe_index_dry_run", count=len(candidates))
+        log.recon("probe_index_dry_run", count=len(candidates))
         return
 
     # -- Probe path: require [gsc] config --------------------------------------
@@ -171,7 +171,7 @@ def _probe_and_record(
     client: Any, urls: list[str], store: EventStore, run_id: str
 ) -> None:
     """Query GSC for page impressions and write gsc.page_signal events."""
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     start_date = (today - timedelta(days=30)).isoformat()
     end_date = today.isoformat()
     checked_at = today.isoformat()
@@ -186,7 +186,7 @@ def _probe_and_record(
             }
         )
     except ExternalServiceError as exc:
-        _log.recon("probe_index_gsc_error", error=str(exc))
+        log.recon("probe_index_gsc_error", error=str(exc))
         print(f"probe-index: GSC query failed: {exc}", file=sys.stderr)
         sys.exit(6)
 
@@ -218,7 +218,7 @@ def _probe_and_record(
         print(json.dumps(row_out, ensure_ascii=False), flush=True)
 
     appeared = sum(1 for u in urls if u in gsc_pages)
-    _log.recon(
+    log.recon(
         "probe_index_complete",
         total=len(urls),
         appeared_in_gsc=appeared,

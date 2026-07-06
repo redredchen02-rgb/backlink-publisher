@@ -28,17 +28,18 @@ from __future__ import annotations
 
 import sys
 
-import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
-from backlink_publisher import config_echo
 from backlink_publisher._util.errors import (
-    PipelineError,
     emit_envelope_and_exit,
     handle_error,
+    PipelineError,
 )
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher.config import load_config
 from backlink_publisher.events import EventStore
+import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before config load
 from backlink_publisher.recheck.overlay import apply_discounts, build_discount_map
+
+from ... import config_echo
 
 #: ``--fail-on-dead`` exit code — mirrors ``recheck-backlinks``: 6 is the project's
 #: "advisory domain alarm fired" code, outside the 1–5 error taxonomy.

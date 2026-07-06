@@ -6,16 +6,17 @@ Extracted from ``routes/pipeline.py`` (2026-06-11).  Contains:
 """
 from __future__ import annotations
 
-import json
 from concurrent.futures import ThreadPoolExecutor
-
-from backlink_publisher._util.markdown import render_to_html
-from backlink_publisher._util.logger import plan_logger
+import json
+from typing import Any
 
 from flask import Blueprint, request, session
 
+from backlink_publisher._util.logger import plan_logger
+from backlink_publisher._util.markdown import render_to_html
+
 from ..api import PipelineAPI
-from ..helpers.contexts import _persist_three_tier_config, _render, _get_velog_status
+from ..helpers.contexts import _persist_three_tier_config, _render
 from ..helpers.url_meta import (
     _normalize_url,
     _verify_urls_or_error,
@@ -35,7 +36,7 @@ _api = PipelineAPI()
 
 
 @bp.route('/ce:plan', methods=['POST'])
-def ce_plan():
+def ce_plan() -> Any:
     main_url = _normalize_url(
         request.form.get('main_url') or request.form.get('target_url') or ''
     )
@@ -121,7 +122,7 @@ def ce_plan():
 
 
 @bp.route('/ce:generate', methods=['POST'])
-def ce_generate():
+def ce_generate() -> Any:
     stored_config = session.get('config', {})
     urls_json = request.form.get('urls_json', session.get('urls_json', '[]'))
 
@@ -141,7 +142,7 @@ def ce_generate():
     if not urls:
         return _render('index.html', error="没有有效的连结", config=stored_config)
 
-    platform = request.form.get('platform', stored_config.get('platform', 'blogger'))
+    platform = request.form.get('platform', stored_config.get('platform', 'medium'))
     url_mode = request.form.get('url_mode', stored_config.get('url_mode', 'C'))
     publish_mode = request.form.get('publish_mode',
                                     stored_config.get('publish_mode', 'publish'))
@@ -204,7 +205,7 @@ def ce_generate():
 
 
 @bp.route('/ce:validate', methods=['POST'])
-def ce_validate():
+def ce_validate() -> Any:
     plans = session.get('plans', '') or request.form.get('plans', '')
     config = session.get('config', {})
 
@@ -225,7 +226,7 @@ def ce_validate():
 
 
 @bp.route('/ce:preview', methods=['POST'])
-def ce_preview():
+def ce_preview() -> Any:
     urls_json = request.form.get('urls_json', '[]')
     try:
         urls = json.loads(urls_json)
@@ -236,7 +237,7 @@ def ce_preview():
     seed = {
         'target_url': urls[0],
         'main_domain': get_main_domain(urls[0]),
-        'platform': request.form.get('platform', 'blogger'),
+        'platform': request.form.get('platform', 'medium'),
         'language': request.form.get('target_language', 'zh-CN'),
         'url_mode': request.form.get('url_mode', 'C'),
         'publish_mode': request.form.get('publish_mode', 'publish'),
@@ -257,7 +258,7 @@ def ce_preview():
 
 
 @bp.route('/ce:regen-body', methods=['POST'])
-def ce_regen_body():
+def ce_regen_body() -> Any:
     """Re-generate a single article body via LLM; returns JSON for in-place preview update."""
     from flask import jsonify
     data = request.get_json(silent=True) or {}
@@ -284,7 +285,9 @@ def ce_regen_body():
     domain_label = _domain_label_of(main_domain)
 
     try:
-        from backlink_publisher.publishing.adapters.llm_anchor_provider import OpenAICompatibleProvider
+        from backlink_publisher.publishing.adapters.llm_anchor_provider import (
+            OpenAICompatibleProvider,
+        )
         provider = OpenAICompatibleProvider(
             base_url=cfg.llm_anchor_provider.base_url,
             api_key=cfg.llm_anchor_provider.api_key,

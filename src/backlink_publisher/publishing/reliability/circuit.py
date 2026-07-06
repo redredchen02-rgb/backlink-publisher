@@ -34,18 +34,18 @@ Cooldown: ``BACKLINK_PUBLISHER_CIRCUIT_COOLDOWN_S`` env var (default 300 s).
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, UTC
+from enum import StrEnum
 import json
 import os
-import time
-from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+import time
+from typing import Any, cast, TYPE_CHECKING
 
+import fcntl
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
 from backlink_publisher._util.io import atomic_write_json
-from backlink_publisher._util.logger import opencli_logger as _log
+from backlink_publisher._util.logger import opencli_logger as log
 
 if TYPE_CHECKING:
     from backlink_publisher.config import Config
@@ -63,7 +63,7 @@ _STATE_FILE = "publish-circuit-state.json"
 _LOCK_FILE = "publish-circuit-state.lock"
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half-open"
@@ -145,7 +145,7 @@ def _write_state_unsafe(state_path: Path, state: dict[str, Any]) -> None:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _consecutive_errors_threshold() -> int:
@@ -226,7 +226,7 @@ def is_tripped(platform: str, config: Config) -> bool:
         state = _get_state(platform, config)
         current_state = state.get("state", CircuitState.CLOSED.value)
         tripped_at_iso = state.get("tripped_at_iso")
-        tripped = state.get("tripped", False)
+        _tripped = state.get("tripped", False)
 
         # HALF_OPEN state: transition automatically after cooldown
         if current_state == CircuitState.HALF_OPEN and tripped_at_iso:
@@ -258,7 +258,7 @@ def is_tripped(platform: str, config: Config) -> bool:
 
         return False
     except (OSError, ValueError) as exc:
-        _log.warn(f"circuit state read error for {platform!r} (fail-CLOSED): {exc}")
+        log.warning(f"circuit state read error for {platform!r} (fail-CLOSED): {exc}")
         return True
 
 
@@ -338,7 +338,7 @@ def trip(platform: str, config: Config) -> None:
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
-        _log.info(
+        log.info(
             "circuit_tripped",
             event="circuit_tripped",
             platform=platform,
@@ -380,7 +380,7 @@ def trip_on_error(
                 "tripped_at_iso": _now_iso(),
                 "consecutive_errors": 0,
             }
-            _log.info(
+            log.info(
                 "circuit_tripped",
                 event="circuit_tripped",
                 platform=platform,
@@ -396,7 +396,7 @@ def trip_on_error(
             entry["state"] = CircuitState.CLOSED.value
             entry["tripped"] = False
             state[platform] = entry
-            _log.info(
+            log.info(
                 "circuit_error_counted",
                 event="circuit_error_counted",
                 platform=platform,
@@ -440,7 +440,7 @@ def _transition_to_half_open(platform: str, config: Config) -> None:
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
-        _log.info("circuit_half_open", event="circuit_half_open", platform=platform)
+        log.info("circuit_half_open", event="circuit_half_open", platform=platform)
     finally:
         _release_lock(fd)
 
@@ -460,7 +460,7 @@ def reset_circuit(platform: str, config: Config) -> None:
             "consecutive_errors": 0,
         }
         _write_state_unsafe(_state_path(config), state)
-        _log.info("circuit_reset", event="circuit_reset", platform=platform)
+        log.info("circuit_reset", event="circuit_reset", platform=platform)
     finally:
         _release_lock(fd)
 
@@ -486,7 +486,7 @@ def _auto_reset(platform: str, config: Config) -> None:
             if time.time() - tripped_at >= _cooldown_s():
                 state[platform] = {"tripped": False, "tripped_at_iso": None}
                 _write_state_unsafe(_state_path(config), state)
-                _log.info("circuit_auto_reset", event="circuit_auto_reset", platform=platform)
+                log.info("circuit_auto_reset", event="circuit_auto_reset", platform=platform)
         finally:
             _release_lock(fd)
     except Exception:  # noqa: BLE001

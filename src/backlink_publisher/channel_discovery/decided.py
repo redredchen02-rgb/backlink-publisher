@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 # Resolve the data file relative to this module's location so the module
 # works regardless of the caller's cwd.
@@ -52,7 +52,7 @@ def _entries() -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], _load().get("entries", []))
 
 
-def get_verdict(platform: str) -> Optional[dict]:
+def get_verdict(platform: str) -> dict | None:
     """Return the verdict record for *platform*, or ``None`` if undecided.
 
     Also queries the publishing registry so callers need only one call.

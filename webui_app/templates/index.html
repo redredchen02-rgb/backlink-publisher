@@ -168,8 +168,12 @@
         </div>
     </template>
 
-    {# Pro Mode Copilot — side panel (Plan U4) #}
+    {# Pro Mode Copilot — side panel (Plan U4). LITE hides /copilot/advice
+       server-side (404); the panel must not render either, or the FAB
+       triggers a fetch against a route the edition gate blocks. #}
+    {% if not lite_edition %}
     {% include '_copilot_panel.html' %}
+    {% endif %}
 {% endblock %}
 
 {% block page_data %}

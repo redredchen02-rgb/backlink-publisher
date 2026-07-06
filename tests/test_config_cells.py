@@ -14,11 +14,11 @@ from __future__ import annotations
 __tier__ = "unit"
 import pytest
 
-import backlink_publisher.publishing.adapters  # noqa: F401 — populate registry
 from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher.config.loader import load_config
-from backlink_publisher.config.writer import save_config
 from backlink_publisher.config.parsers.cells import _parse_cell_assignments
+from backlink_publisher.config.writer import save_config
+import backlink_publisher.publishing.adapters  # noqa: F401 — populate registry
 
 # ---------------------------------------------------------------------------
 # Stable fake channel set — monkeypatched into the parser for unit tests

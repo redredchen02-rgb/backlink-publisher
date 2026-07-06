@@ -26,7 +26,6 @@ from typing import Any, cast
 
 import yaml
 
-
 # ── Valid value sets ──────────────────────────────────────────────────────────
 
 VALID_AUTH_TYPES: tuple[str, ...] = ("none", "api_key_header", "api_key_query")

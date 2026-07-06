@@ -18,6 +18,7 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -137,6 +138,7 @@ class TestPersistStorageState:
         assert loaded == {"cookies": [{"name": "x"}], "origins": []} or \
                loaded == {"cookies": [{"name": "x"}]}
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_file_mode_is_0600(self):
         target = _config_dir() / "medium-storage-state.json"
         drv._persist_storage_state(
@@ -205,6 +207,7 @@ class TestRunBindHappyPath:
         assert status["status"] == "bound"
         assert status["storage_state_path"].endswith("medium-storage-state.json")
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_happy_path_storage_state_file_lands(self, capsys):
         recipe = _make_fake_recipe(predicate_outcome="ok")
         drv.run_bind(
@@ -589,6 +592,7 @@ class TestVelogPostPersistRegression:
     canonical path. Regression guard for the velog landing redesign that
     moved bound credentials from storage_state.json to cookies.json."""
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_real_velog_recipe_canonical_path_is_cookies(self, tmp_path, monkeypatch):
         from backlink_publisher.cli._bind.recipes import RECIPES
 

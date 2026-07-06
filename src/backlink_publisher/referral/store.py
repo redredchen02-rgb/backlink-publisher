@@ -7,10 +7,10 @@ field is ``channel`` (see ``events.kinds.REQUIRED_FIELDS``); ``sessions`` and
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
-from backlink_publisher.events.store import EventStore
 from backlink_publisher.events.kinds import REFERRAL_OBSERVED
+from backlink_publisher.events.store import EventStore
 
 
 def append_referral_observed(
@@ -35,6 +35,6 @@ def append_referral_observed(
             "sessions": sessions,
             "window_start": window_start,
             "window_end": window_end,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
         },
     )

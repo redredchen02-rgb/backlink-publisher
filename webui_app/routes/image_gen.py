@@ -11,6 +11,8 @@ shared with the ``/api/v1/settings/image-gen/*`` JSON routes.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify, request
 
 # Re-export for the lift-parity tests: ``patch("...routes.image_gen.http_client.get")``
@@ -24,13 +26,13 @@ bp = Blueprint("image_gen", __name__)
 
 
 @bp.route("/settings/test-image-gen", methods=["POST"])
-def settings_test_image_gen():
+def settings_test_image_gen() -> Any:
     """Probe the configured image-gen endpoint and return connection status."""
     return jsonify(ImageGenDiagnosticsAPI().test_connection().payload), 200
 
 
 @bp.route("/settings/generate-sample-image", methods=["POST"])
-def settings_generate_sample_image():
+def settings_generate_sample_image() -> Any:
     """Generate a real test banner and return it as a base64 data-URL (one API call)."""
     body = request.get_json(silent=True) or {}
     return jsonify(ImageGenDiagnosticsAPI().generate_sample(body).payload), 200

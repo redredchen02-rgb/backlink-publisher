@@ -29,8 +29,8 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-import warnings
 from pathlib import Path
+import warnings
 
 import pytest
 
@@ -58,7 +58,7 @@ ALLOWLIST: dict[str, str] = {
     ),
     # content/fetch.py: _max_body_bytes is imported for the env-var constant
     # surface (re-exported as part of the module's network-config API).
-    "src/backlink_publisher/content/fetch.py:51:unused import '_max_body_bytes'": (
+    "src/backlink_publisher/content/fetch.py:56:unused import '_max_body_bytes'": (
         "Network-config constant imported as part of the fetch module's "
         "documented env-var surface; re-exported, not dead."
     ),

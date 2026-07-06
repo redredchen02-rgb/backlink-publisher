@@ -14,22 +14,21 @@ __tier__ = "integration"
 
 
 import json
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.optimization.rules import (
+    apply_results,
+    evaluate_rules,
     RULE_AGGREGATED_STATS,
     RULE_CANARY_DRIFT,
-    evaluate_rules,
-    apply_results,
 )
 from backlink_publisher.publishing import registry
-
 
 # ---------------------------------------------------------------------------
 # Integration: state → rules → weight override

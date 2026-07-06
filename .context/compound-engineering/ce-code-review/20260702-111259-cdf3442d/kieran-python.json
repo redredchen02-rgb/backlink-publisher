@@ -1,0 +1,29 @@
+{
+  "reviewer": "kieran-python",
+  "findings": [
+    {
+      "title": "PATCH endpoint's two sequential writes share one try/except, so a description write can persist while the status update fails, but the client is told the whole update failed",
+      "why_it_matters": "In update_error_report (webui_app/api/v1/error_reports.py), attach_description() and update_status() are called back-to-back inside a single try block. If attach_description() succeeds and update_status() then raises, the description is already durably persisted, but the handler returns a single 502 persistence_failure problem+json as if nothing was saved. A caller that retries the PATCH (e.g. resubmitting the same description) gets no signal that half the write already landed, and there is no test exercising this split-outcome path -- only whole-call failure (via a mocked ErrorReportSqliteStore.add) is covered for POST, not this two-step PATCH.",
+      "severity": "P3",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 305,
+      "confidence": 0.62,
+      "autofix_class": "manual",
+      "owner": "backend",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Either combine the two mutations into a single store call (e.g. one attach_description_and_status(report_id, description, status) SELECT->merge->UPDATE), or catch each store call's exception separately and report which sub-operation succeeded/failed in the ApiProblem detail, rather than collapsing both into one generic 502."
+    }
+  ],
+  "residual_risks": [
+    "webui_app/api/v1/error_reports.py's _guard_request_size() trusts request.content_length for the 100KB pre-parse rejection; a client using chunked transfer-encoding (no Content-Length header) bypasses the check entirely and Flask will buffer the full body before JSON parsing rejects it. This mirrors an existing accepted pattern elsewhere in the codebase (channel_bind_api.py) rather than being a new regression, but it's worth confirming that precedent's risk acceptance still applies now that this endpoint is reachable by any loopback-capable process without auth.",
+    "list_error_reports()'s limit/offset params are passed straight into Python list slicing (items[offset:], items[:limit]) with no non-negative validation; a negative limit or offset (e.g. from a UI bug or a malformed query string) silently produces Python's negative-slice semantics (e.g. 'last N items') instead of an empty result or a 400 -- surprising but low-severity given this is an internal diagnostics dashboard.",
+    "In webui_app/services/error_report_sanitizer.py, a single unsanitizable leaf anywhere inside a nested list/dict field causes _sanitize_value's exception to propagate out of the whole top-level field, so the entire field (e.g. a 50-frame stack trace array with one bad entry) degrades to one best-effort stringified blob rather than preserving the cleanly-sanitized siblings. This is consistent with the module's documented 'never raise, degrade the field' contract, but the granularity (whole-field vs. per-leaf degrade) is a real trade-off worth confirming is intended for structured fields like stack frames, not just flat string fields.",
+    "All webui_store/*.py stores (including the new ErrorReportSqliteStore) share one physical webui.db file and SQLite allows only one writer at a time; a burst of error-report writes (e.g. a bug firing on every page load across many open tabs) can transiently slow or force retries of unrelated background jobs writing to the same file. This is explicitly documented in the new store's module docstring as an accepted, pre-existing trade-off for this store family."
+  ],
+  "testing_gaps": [
+    "No test exercises GET /api/v1/error-reports with limit/offset query params at all (happy path, zero, negative, or non-numeric) -- the pagination slicing logic in list_error_reports() is entirely untested.",
+    "No test covers the PATCH partial-failure scenario where attach_description() succeeds but the subsequent update_status() call raises -- only whole-call failure for POST (via a fully-mocked store method) is tested.",
+    "No test exercises the sanitizer's degrade path for a nested container (e.g. a list-of-dicts stack trace) containing one unsanitizable leaf, to confirm/document whether the whole array collapses to a stringified blob or only the offending leaf is affected."
+  ]
+}

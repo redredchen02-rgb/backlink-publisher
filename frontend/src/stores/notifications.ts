@@ -18,6 +18,12 @@ export interface Toast {
   message: string
   /** ms before auto-dismiss; 0 = sticky (errors stay until dismissed). */
   timeout: number
+  /** The server-persisted error-report row id (Plan 2026-07-01-002 U3's
+   *  POST /api/v1/error-reports response `id` — NOT the client-minted
+   *  request-side `reportId` correlation marker). Set only on toasts raised
+   *  by an auto-captured, successfully-submitted error report (U6); Unit 7's
+   *  "补充说明" action uses this to PATCH the right row. */
+  reportId?: string
 }
 
 /** Map the legacy server flash_type vocabulary onto Toast severities, so flash
@@ -47,9 +53,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
     message: string,
     severity: Severity = 'info',
     timeout = severity === 'error' ? 0 : 4000,
+    reportId?: string,
   ): number {
     const id = ++_seq
-    toasts.value.push({ id, severity, message, timeout })
+    toasts.value.push({ id, severity, message, timeout, reportId })
     return id
   }
 

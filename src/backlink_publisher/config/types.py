@@ -6,9 +6,9 @@ and ``parsers/`` for those.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from typing import Any  # noqa: F401  (preserved for downstream type hints)
 
 # Anchor profile scheduler (zh-CN short-form) — type & proportion constants.
@@ -425,7 +425,7 @@ class Config:
     required three-URL schema (``main_url`` + ``list_url`` + three non-empty
     pools). Round-tripped by ``save_config(target_three_url=...)``."""
 
-    geo_probe_provider: "GeoProbeConfig | None" = None
+    geo_probe_provider: GeoProbeConfig | None = None
     """Optional OpenAI-compatible AI-engine provider used by the GEO citation
     probe (Plan 2026-05-29-006 Unit 1). ``None`` when the section is absent —
     GEO probing is operator-invoked and the tool is fully runnable without it.
@@ -490,7 +490,7 @@ class Config:
     absent. The PAT lives in a separate 0600 file at
     ``~/.config/backlink-publisher/gitlabpages-token.json`` (per SEC-3)."""
 
-    mastodon: "MastodonConfig | None" = None
+    mastodon: MastodonConfig | None = None
     """Mastodon adapter config (single Fediverse instance URL).
 
     Populated from ``[mastodon]`` in config.toml. ``None`` when section
@@ -499,14 +499,14 @@ class Config:
     in Plan 2026-05-21-001 Unit 4c; multi-instance is a follow-up
     (per-instance worktree with per-instance bind state)."""
 
-    zenn: "ZennConfig | None" = None
+    zenn: ZennConfig | None = None
     """Zenn adapter config (github_repo / username / branch).
 
     Populated from ``[zenn]`` in config.toml. ``None`` when section is
     absent. The GitHub PAT lives in a separate 0600 file at
     ``~/.config/backlink-publisher/zenn-token.json`` (per SEC-3)."""
 
-    click_track: "ClickTrackConfig | None" = None
+    click_track: ClickTrackConfig | None = None
     """GA4 click-track configuration (Plan 2026-06-02-001).
 
     Populated from ``[click_track]`` in config.toml.  ``None`` when section
@@ -520,7 +520,7 @@ class Config:
     separate 0600 file at ``~/.config/backlink-publisher/frw-token.json``
     (per SEC-3); use ``frw-login`` to write it."""
 
-    gsc: "GscConfig | None" = None
+    gsc: GscConfig | None = None
     """GSC Search Console integration (Plan 2026-06-16-003).
 
     Populated from ``[gsc]`` in config.toml. ``None`` when the section is

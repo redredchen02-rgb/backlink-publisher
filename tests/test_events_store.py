@@ -423,8 +423,9 @@ def test_transaction_rolls_back_on_exception(tmp_path):
 def _child_writer(db_path: str, payload_marker: str) -> None:
     """Helper for the cross-process concurrency test (top-level so it can
     be pickled by multiprocessing on macOS spawn start method)."""
-    from backlink_publisher.events.store import EventStore as _ES
     from pathlib import Path as _P
+
+    from backlink_publisher.events.store import EventStore as _ES
 
     s = _ES(path=_P(db_path))
     s.append(

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
-import os
 from abc import ABC, abstractmethod
+import json
 from pathlib import Path
 from typing import Any, cast
 
@@ -46,7 +45,7 @@ class CredentialProvider(ABC):
         self, channel: str, config: Config, descriptor: SessionDescriptor
     ) -> Credential:
         """Load credential data for *channel* from its stored artifact.
-        
+
         Raises ``DependencyError`` when the credential file is missing or
         unreadable, ``AuthExpiredError`` when the stored credential has
         no usable auth data.
@@ -307,15 +306,12 @@ def _load_velog_cookies(
                 "Run: velog-login"
             )
 
-    mode = os.stat(cookies_path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"velog-cookies.json must be 0600 (found {oct(mode)})\n"
-            f"Run: chmod 600 {cookies_path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+
+    check_0600(cookies_path, label="velog-cookies.json")
 
     try:
-        raw = json.loads(cookies_path.read_text())
+        raw = json.loads(cookies_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise DependencyError(
             f"Cannot read velog cookies: {exc}\nRun: velog-login"
@@ -463,15 +459,12 @@ def _load_substack_cookies(
             "Save as 'substack-credentials.json' (chmod 600)."
         )
 
-    mode = os.stat(cookies_path).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"substack-credentials.json must be 0600 (found {oct(mode)})\n"
-            f"Run: chmod 600 {cookies_path}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+
+    check_0600(cookies_path, label="substack-credentials.json")
 
     try:
-        raw = json.loads(cookies_path.read_text())
+        raw = json.loads(cookies_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         raise DependencyError(
             "Cannot read Substack credentials: file missing, corrupt, or unreadable"

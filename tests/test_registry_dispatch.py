@@ -10,26 +10,26 @@ so tests are isolated and do not rely on patching conftest.FakeAdapter.
 from __future__ import annotations
 
 __tier__ = "unit"
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 
 import pytest
 
-import backlink_publisher.publishing.adapters as _adapters_import  # noqa: F401
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.config import Config
 from backlink_publisher.publishing._registry_dispatch import dispatch
+import backlink_publisher.publishing.adapters as _adapters_import  # noqa: F401
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _REGISTRY,
+    Publisher,
     register,
 )
-
 
 # ── Adapter stub builders ────────────────────────────────────────────────────
 

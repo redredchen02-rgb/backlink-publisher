@@ -14,15 +14,16 @@ last_failure_at, last_error_msg) are derived live from EventStore.
 
 from __future__ import annotations
 
-import fcntl
+from collections.abc import Callable
 import json
 import os
-import time
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING, cast
+import time
+from typing import Any, cast, TYPE_CHECKING
 
+import fcntl
 from backlink_publisher._util.io import atomic_write_json
-from backlink_publisher._util.logger import opencli_logger as _log
+from backlink_publisher._util.logger import opencli_logger as log
 
 if TYPE_CHECKING:
     from backlink_publisher.config import Config
@@ -94,7 +95,7 @@ def get(platform: str, config: Config) -> dict[str, Any]:
             "paused": bool(entry.get("paused", False)),
         }
     except Exception as exc:
-        _log.warning(f"platform-health: read error for {platform}: {exc}")
+        log.warning(f"platform-health: read error for {platform}: {exc}")
         return dict(_SAFE_DEFAULTS)
 
 

@@ -32,9 +32,13 @@
 # into a thin shell (CC 9) plus phase helpers, the heaviest being _publish_one_resume_item at
 # CC 23 — all under the CC-30 backstop, so no entry is needed for any of them. Entry removed.
 
-# cli/_validate_payload.py::_enhance_payload moved to validate/_payload.py (Plan 2026-06-24-002 U5):
-# implementation extracted _check_body_language_gate (CC ~11) reducing _enhance_payload CC 31→~16 — under
-# backstop; cli/_validate_payload.py is now a re-export shim (no def). Entry removed.
+# _validate_payload.py::_enhance_payload moved to validate/_payload.py and decomposed
+# (Plan 2026-06-24-002 U5): extracted _resolve_banner_path (CC 5); _enhance_payload CC 32→27
+# — under the CC-30 backstop. Entry removed.
+
+# _engine.py::_publish_one_row decomposed (Plan 2026-06-24-002 U5): extracted
+# _check_publish_preconditions (CC 16), _dispatch_adapter_publish (CC 8),
+# _process_publish_result (CC 12); _publish_one_row CC 35→5 — under backstop. Entry removed.
 
 # _project_checkpoint was extracted into 4 named handlers (_handle_checkpoint_{intent,confirmed,failed,unmapped})
 # on 2026-06-03, dropping CC from 39 to 24 — now under the CC-30 backstop. Entry removed.
@@ -53,14 +57,10 @@
 # removed on rebase onto post-SEC-6 main (the same-PR-bump discipline applied across the merge).
 
 
-[functions."webui_app/routes/sites.py::sites_save_three_url"]
-ceiling = 44
-rationale = "WebUI three-URL form save: validates URL fields, applies gate checks, writes config, and redirects. Ceiling bumped 38→44 after restoring mismerged assert guards (main_url/sched_mod not-None guards were partially folded into adjacent expressions, causing syntax errors; fix plan 2026-06-24-002 U5). Decomposition of the route deferred to a focused PR."
+# All functions are now under the CC-30 backstop. The [functions] section is kept
+# as an empty table so the test harness doesn't KeyError on BUDGET["functions"].
 
-# publish_backlinks/_engine.py::_publish_one_row decomposed (Plan 2026-06-24-002 U5): extracted
-# _dispatch_publish (CC ~8) and _handle_publish_outcome (CC ~9); _publish_one_row CC 35→~12 — under backstop.
-# Entry removed.
-
+[functions]
 
 # spray_backlinks/core.py::main decomposed (Plan 2026-06-24-002 U2): extracted
 # _handle_list_checkpoints (CC 4); main() CC 35→29 — under backstop. Entry removed.
@@ -83,36 +83,49 @@ rationale = "WebUI three-URL form save: validates URL fields, applies gate check
 # rationale update.
 
 [test_files."tests/test_cli_generate_backlink_text.py"]
-ceiling = 1580
-rationale = "CLI generate-backlink-text tests: covers LLM-based text generation with mock provider responses, fallback chains, error handling (timeout, malformed, empty responses), and multi-language support (en/zh-CN/ru). Ceiling raised 1070→1580 to match current 1546 SLOC (2026-06-11); split deferred to focused refactor."
+ceiling = 10
+rationale = "Shim file (4 SLOC): all tests moved to test_cli_generate_backlink_text_split1.py (557 SLOC) and _split2.py (531 SLOC). Window 10 = dust ceiling for the import+pytest.skip placeholder. R12 confirmed split is complete."
 
-[test_files."tests/test_webui_three_url.py"]
-ceiling = 1190
-rationale = "WebUI three-URL form tests: validates the sites-save-three-url route behaviour across every field combination, gate logic, redirect chain, and error path. Ceiling raised 940→1190 to match current 1152 SLOC (2026-06-11); split deferred to focused refactor."
+# test_webui_three_url.py entry removed (D1, 2026-07-02): split into
+# test_webui_three_url.py (route contract, 275 SLOC) + new
+# test_webui_three_url_pool_derivation.py (446 SLOC). Both comfortably below
+# the level that warranted a ceiling entry (cf. test_cli_generate_backlink_text
+# split-offs at 557/531 SLOC, also unlisted) -- neither is monitored.
 
 [test_files."tests/test_plan_backlinks.py"]
-ceiling = 1210
-rationale = "plan-backlinks E2E integration tests: exercises the full deterministic planning pipeline with seed variation across language (en/zh-CN/ru), url_mode (A/B/C), platform (medium/blogger/velog), and banner configuration. Ceiling raised 900→1210 to match current 1179 SLOC (2026-06-11); split deferred to focused refactor."
+ceiling = 320
+rationale = "plan-backlinks core pipeline tests after split refactor (2026-06-26): content-gate tests extracted to test_plan_backlinks_content_gate.py, CSV/sitemap to input_sources.py, prefetch/stats+config-echo to prefetch_and_config.py, helpers to _plan_test_helpers.py. Current 269 SLOC → ceiling 320 provides headroom."
 
 [test_files."tests/test_content_fetch.py"]
-ceiling = 1320
-rationale = "Content fetch tests: full coverage of the content-fetch engine across success paths, HTTP error codes, redirect handling, SSRF defense, cache behavior, timeout handling, and content-type negotiation. Ceiling raised 870→1320 to match current 1284 SLOC (2026-06-11); split deferred to focused refactor."
+ceiling = 800
+rationale = "Content fetch tests (P13 A2 split): SSRF defense extracted to test_content_fetch_ssrf.py (73 SLOC). Core file now 739 SLOC covering success paths, HTTP error codes, redirect handling, cache behavior, soft-404 detection, timeout handling, and body-too-small. Ceiling lowered 1320→800 = round_up_to_10(739+30) per policy."
 
-[test_files."tests/test_cli_plan_check.py"]
-ceiling = 1160
-rationale = "plan-check CLI tests: integrates the full plan-check engine including frontmatter parsing, claim drift detection, schema validation, git-fetch orchestration, and RECON output formatting. Ceiling raised 820→1160 to match current 1126 SLOC (2026-06-11); split deferred to focused refactor."
+[test_files."tests/test_content_fetch_ssrf.py"]
+ceiling = 110
+rationale = "SSRF defense tests (P13 A2 split from test_content_fetch.py): exercises _check_url_for_ssrf + _SSRFSafeRedirectHandler with real IP-routing logic. 73 SLOC. Ceiling 110 = round_up_to_10(73+30) per policy."
+
+# test_cli_plan_check.py entry removed (D1, 2026-07-02): split by
+# sub-function into test_cli_plan_check.py (schema/frontmatter/claims, 195
+# SLOC), test_cli_plan_check_git.py (git subprocess helpers, 238 SLOC), and
+# test_cli_plan_check_cli.py (CLI wiring, 350 SLOC). None warrant a ceiling
+# entry at this size.
 
 [test_files."tests/test_adapter_velog_graphql.py"]
 ceiling = 670
 rationale = "Velog GraphQL adapter tests: covers the writePost mutation lifecycle including cookie auth, retry-on-null, currentUser liveness probe, daily-cap enforcement, and all GraphQL error shapes. Large due to the null-after-retry diagnostics flow which adds 5 probe-variant tests."
 
-[test_files."tests/test_config_three_url.py"]
-ceiling = 890
-rationale = "Three-URL config tests: validates the upgrade-Target-to-three-url migration path, merge_site_url_categories writer, round-trip preservation of legacy sections, and all save_config taxonomy branches for [sites.*] and [targets.*] tables. Ceiling raised 650→890 to match current 851 SLOC (2026-06-11); split deferred to focused refactor."
+# test_config_three_url.py entry removed (D1, 2026-07-02): split by
+# sub-function into test_config_three_url.py (schema parsing + maintenance
+# log, 164 SLOC), test_config_three_url_save.py (save_config round-trip +
+# critical-section preservation, 181 SLOC), and
+# test_config_three_url_upgrade.py (upgrade_target_to_threeurl +
+# merge_site_url_categories, 268 SLOC). None warrant a ceiling entry.
 
-[test_files."tests/test_publish_backlinks.py"]
-ceiling = 860
-rationale = "publish-backlinks integration tests: covers the fresh-publish loop including adapter dispatch, dedup gating, checkpoint creation/update, AuthExpiredError handling, banner upload edge cases, and dry-run mode. Ceiling raised 610→860 to match current 821 SLOC (2026-06-11); split deferred to focused refactor."
+# test_publish_backlinks.py entry removed (D1, 2026-07-02): split by Unit
+# 1/2/3 into test_publish_backlinks.py (adapter dispatch, 197 SLOC),
+# test_publish_backlinks_checkpoint.py (checkpoint integration, 185 SLOC),
+# and test_publish_backlinks_forward_path.py (advisory drift recording, 187
+# SLOC). None warrant a ceiling entry.
 
 [test_files."tests/test_work_scraper.py"]
 ceiling = 730

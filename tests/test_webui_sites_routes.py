@@ -6,9 +6,9 @@ __tier__ = "integration"
 
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -150,6 +150,13 @@ class TestCampaignRoutes:
         resp = client.get("/campaign/nonexistent-campaign-id")
         assert resp.status_code == 404
 
+    def test_campaign_progress_redirects_to_spa(self, client):
+        # /campaign/<id> now redirects to the SPA; the /jinja fallback
+        # (test_campaign_progress_unknown_id_returns_404 above) covers the render path.
+        resp = client.get("/campaign/some-id")
+        assert resp.status_code == 302
+        assert "/app/campaign/some-id" in resp.location
+
     def test_campaign_status_api_unknown_id_returns_404(self, client):
         resp = client.get("/api/campaign/nonexistent-campaign-id/status")
         assert resp.status_code == 404
@@ -160,12 +167,18 @@ class TestCampaignRoutes:
 class TestScheduleRoutes:
     """Contract tests for /schedule and /api/scheduled (Plan 2026-05-29-001 Unit 2)."""
 
-    def test_get_schedule_page(self, client, monkeypatch):
-        """GET /schedule renders HTML."""
+    def test_get_schedule_redirects_to_spa(self, client):
+        """GET /schedule redirects to SPA /app/schedule (Sprint B1)."""
+        resp = client.get("/schedule")
+        assert resp.status_code == 302
+        assert resp.headers["Location"] == "/app/schedule"
+
+    def test_get_schedule_jinja_page(self, client, monkeypatch):
+        """GET /schedule/jinja renders HTML (legacy fallback)."""
         import webui_app.api.scheduled_api as sched_api
 
         monkeypatch.setattr(sched_api, "list_scheduled", lambda: {"ok": True, "items": []})
-        resp = client.get("/schedule")
+        resp = client.get("/schedule/jinja")
         assert resp.status_code == 200
         assert b"html" in resp.data.lower()
 
@@ -195,6 +208,13 @@ class TestPrQueueRoutes:
         assert resp.status_code == 200
         assert b"html" in resp.data.lower()
 
+    def test_get_pr_queue_redirects_to_spa(self, client):
+        # /pr-queue now redirects to the SPA; the /jinja fallback
+        # (test_get_pr_queue_page above) covers the render path.
+        resp = client.get("/pr-queue")
+        assert resp.status_code == 302
+        assert "/app/pr-queue" in resp.location
+
     def test_get_api_pr_queue(self, client, monkeypatch):
         """GET /api/pr-queue returns JSON with ok + items keys."""
         import webui_app.routes.pr_queue as pq_mod
@@ -218,6 +238,7 @@ class TestPrQueueRoutes:
 
 # ── Autopilot routes (Plan 2026-06-09-001 U8) ─────────────────────────────
 
+from datetime import UTC
 import sys
 import types
 
@@ -309,7 +330,7 @@ class TestSitesAutopilot:
     def test_enable_response_includes_next_run_time(self, client, monkeypatch):
         from datetime import datetime, timezone
 
-        dt = datetime(2026, 6, 17, 12, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 6, 17, 12, 0, 0, tzinfo=UTC)
         mock = _make_mock_scheduler()
         mock._scheduler.get_job.return_value.next_run_time = dt
         monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
@@ -371,7 +392,7 @@ class TestSitesAutopilotStatus:
     def test_get_sites_with_scheduler_returns_200(self, client, monkeypatch):
         from datetime import datetime, timezone
 
-        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=UTC)
         mock = _make_mock_scheduler()
         mock._scheduler.get_job.return_value.next_run_time = dt
         monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
@@ -414,7 +435,7 @@ class TestSitesAutopilotStatus:
     @staticmethod
     def _register_site(url="https://example.com/"):
         """Add a minimal ThreeUrlConfig entry so the template renders site rows."""
-        from backlink_publisher.config import ThreeUrlConfig, load_config, save_config
+        from backlink_publisher.config import load_config, save_config, ThreeUrlConfig
         save_config(load_config(), target_three_url={
             url.rstrip("/"): ThreeUrlConfig(
                 main_url=url, list_url=url,
@@ -453,15 +474,16 @@ class TestSitesAutopilotStatus:
 
     def test_html_next_run_time_shows_data_attribute(self, client, monkeypatch):
         """Branch: site.next_run_time_iso → autopilot-next-run span with data-next-run."""
-        import webui_store as _ws
         from datetime import datetime, timezone
+
+        import webui_store as _ws
 
         self._register_site()
         _ws.schedule_store.update(lambda s: {**s, "autopilot_targets": {
             "https://example.com/": {"enabled": True, "interval_seconds": 86400}
         }})
         mock = _make_mock_scheduler()
-        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 6, 17, 15, 0, 0, tzinfo=UTC)
         mock._scheduler.get_job.return_value.next_run_time = dt
         monkeypatch.setitem(sys.modules, "webui_app.scheduler", mock)
         resp = client.get("/sites")

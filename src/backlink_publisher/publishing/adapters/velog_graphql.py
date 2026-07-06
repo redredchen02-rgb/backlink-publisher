@@ -38,19 +38,18 @@ P0-1 correction (R10):
 
 from __future__ import annotations
 
-import fcntl
+from datetime import datetime, UTC
 import json
 import os
+from pathlib import Path
 import random
 import re
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, cast
 
 import requests
 
-from backlink_publisher.config import Config
+import fcntl
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     ContentRejectedError,
@@ -58,11 +57,13 @@ from backlink_publisher._util.errors import (
     ExternalServiceError,
 )
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
+
 from .base import AdapterResult
 from .link_attr_verifier import required_link_urls, verify_link_attributes
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 # ── Module constants ──────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ WRITE_POST_MUTATION = (
 _VELOG_DAILY_CAP_INITIAL: int = 5
 _VELOG_DAILY_CAP_PROD: int = 30
 # Set to (Unit 4 merge date + 14 days). PR changing this value = unlock event.
-UNLOCK_DATE_UTC: datetime = datetime(2026, 6, 2, 0, 0, tzinfo=timezone.utc)
+UNLOCK_DATE_UTC: datetime = datetime(2026, 6, 2, 0, 0, tzinfo=UTC)
 
 # Jitter window between posts (P0-5b: 30 s interval was clean; plan: 60-180 s)
 _VELOG_JITTER_MIN_S: int = 60
@@ -233,7 +234,7 @@ def _probe_session_alive(session: requests.Session) -> tuple[bool, str]:
 # ── Rate-limit lock + count file ──────────────────────────────────────────────
 
 def _effective_cap() -> int:
-    if datetime.now(timezone.utc) >= UNLOCK_DATE_UTC:
+    if datetime.now(UTC) >= UNLOCK_DATE_UTC:
         return _VELOG_DAILY_CAP_PROD
     return _VELOG_DAILY_CAP_INITIAL
 
@@ -284,14 +285,14 @@ def _utc_today_iso() -> str:
     timezones, either blocking publishes for hours after UTC midnight
     or opening an early second quota window.
     """
-    return datetime.now(timezone.utc).date().isoformat()
+    return datetime.now(UTC).date().isoformat()
 
 
 def _read_count(count_path: Path) -> tuple[int, float]:
     """Read ``(count, last_publish_at)`` from *count_path*, resetting on new UTC day."""
     today = _utc_today_iso()
     try:
-        data = json.loads(count_path.read_text())
+        data = json.loads(count_path.read_text(encoding="utf-8"))
         if data.get("date_utc") != today:
             return 0, 0.0
         return int(data.get("count", 0)), float(data.get("last_publish_at", 0.0))
@@ -334,9 +335,10 @@ def _apply_publish_jitter(article_id: str, last_publish_at: float) -> None:
     jitter_max = _velog_jitter_max_s()
     if jitter_min > jitter_max:
         log.warning(
-            "VELOG_THROTTLE_MIN_S (%d) > VELOG_THROTTLE_MAX_S (%d); "
-            "falling back to defaults (%d, %d)"
-            % (jitter_min, jitter_max, _VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S)
+            "VELOG_THROTTLE_MIN_S > VELOG_THROTTLE_MAX_S; "
+            "falling back to defaults",
+            min_s=jitter_min, max_s=jitter_max,
+            default_min=_VELOG_JITTER_MIN_S, default_max=_VELOG_JITTER_MAX_S,
         )
         jitter_min, jitter_max = _VELOG_JITTER_MIN_S, _VELOG_JITTER_MAX_S
     jitter = random.uniform(jitter_min, jitter_max)

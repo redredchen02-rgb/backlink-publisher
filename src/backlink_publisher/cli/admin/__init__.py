@@ -1,3 +1,1 @@
-"""cli.admin — admin commands (plan 2026-06-24-002 U8)."""
-
-__all__: list[str] = []
+"""CLI admin subpackage — reorganized per Plan 2026-06-24-002 U8."""

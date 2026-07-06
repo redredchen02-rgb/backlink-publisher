@@ -40,10 +40,9 @@ from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
 )
-from backlink_publisher.config import Config, BloggerOAuthConfig
+from backlink_publisher.config import BloggerOAuthConfig, Config
 from backlink_publisher.publishing.adapters import publish
 from backlink_publisher.publishing.adapters.base import AdapterResult
-
 
 # ─────────── shared fixtures ────────────────────────────────────────────────
 

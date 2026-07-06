@@ -84,7 +84,7 @@ Prior convergence passes that are now superseded or folded:
 | `docs/plans/2026-06-01-009-…-convergence-closeout-plan.md` | `completed` | 16 stale-active plans flipped; brainstorm triage complete |
 | `docs/plans/2026-06-01-010-…-full-project-convergence-plan.md` | `parked` | Branch-landing scope deferred to merge-swarm; docs scope folded into 011 |
 | `docs/plans/2026-06-01-011-…-decision-surface-plan.md` | `shipped` | This expansion (U1–U5) |
-| `docs/plans/2026-05-26-002-opt-verify-consolidation-REVIEW.md` | moved | Moved to `docs/notes/`; findings addressed by two shipped consolidation plans |
+| `docs/plans/2026-05-26-002-opt-verify-consolidation-REVIEW.md` | archived | Now at `docs/_archive/plans/2026-05-26-002-opt-verify-consolidation-REVIEW.md` (E1, 2026-07-02 — the `docs/notes/` copy was a stray duplicate); findings addressed by two shipped consolidation plans |
 | `SYNTHESIS.md` (planned) | not created | Role fulfilled by this file (consol. R3) |
 
 ---

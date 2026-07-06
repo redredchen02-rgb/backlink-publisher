@@ -6,27 +6,28 @@ compliance: WAL pragma, 0o600 perms, sidecar tighten, lock safety.
 Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 """
 
+
 from __future__ import annotations
+__tier__ = "integration"
 
 import json
 import os
+from pathlib import Path
 import sqlite3
 import threading
 import time
-from pathlib import Path
 
 import pytest
 
+from webui_store.base import Store
 from webui_store.sqlite_base import (
+    _DB_FILENAME,
+    _retry_sqlite,
     BaseSqliteStore,
     BlobSqliteStore,
     SqliteStore,
     WebUIDatabase,
-    _DB_FILENAME,
-    _retry_sqlite,
 )
-from webui_store.base import Store
-
 
 # ── Minimal concrete subclass used throughout these tests ─────────────────────
 

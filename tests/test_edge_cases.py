@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 __tier__ = "unit"
-import json
-import sys
 import copy
 from io import StringIO
+import json
+import sys
 from unittest.mock import patch
 
 import pytest

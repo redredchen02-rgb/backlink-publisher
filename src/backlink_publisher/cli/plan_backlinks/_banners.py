@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.logger import plan_logger
+from backlink_publisher.config import Config
 
 
 def _build_banner_runtime(cfg: Config) -> dict[str, Any] | None:
@@ -19,14 +19,14 @@ def _build_banner_runtime(cfg: Config) -> dict[str, Any] | None:
         from backlink_publisher._util.secrets import load_frw_token
         api_key = load_frw_token()
     except RuntimeError as exc:
-        plan_logger.warn(f"image_gen disabled for this run: {exc}")
+        plan_logger.warning(f"image_gen disabled for this run: {exc}")
         return None
 
+    from backlink_publisher.events.store import EventStore
     from backlink_publisher.publishing.adapters.image_gen import ImageGenAdapter
     from backlink_publisher.publishing.adapters.image_gen.caps import (
         AutoDisableTracker,
     )
-    from backlink_publisher.events.store import EventStore
 
     adapter = ImageGenAdapter(
         base_url=cfg.image_gen.base_url,
@@ -53,13 +53,13 @@ def _generate_banner_for_payload(
     runtime: dict[str, Any],
     llm_provider: Any | None,
 ) -> dict[str, Any]:
+    from backlink_publisher._util.errors import ExternalServiceError
     from backlink_publisher.publishing.adapters.image_gen.caps import (
         check_caps,
         record_cap_hit,
         record_invocation,
     )
     from backlink_publisher.publishing.adapters.image_gen.storage import save_banner
-    from backlink_publisher._util.errors import ExternalServiceError
 
     tracker = runtime["tracker"]
     if tracker.disabled:
@@ -81,7 +81,7 @@ def _generate_banner_for_payload(
         try:
             prompt = llm_provider.generate_image_prompt(title, body)
         except Exception as exc:
-            plan_logger.warn(f"image prompt LLM failed, falling back: {exc}")
+            plan_logger.warning(f"image prompt LLM failed, falling back: {exc}")
             prompt = f"Professional article cover for: {title}"
     else:
         prompt = f"Professional article cover for: {title}"
@@ -98,14 +98,14 @@ def _generate_banner_for_payload(
         tracker.record_failure()
         return {"path": None, "status": "gen_failed"}
     except Exception as exc:
-        plan_logger.warn(f"image_gen unexpected failure: {exc}")
+        plan_logger.warning(f"image_gen unexpected failure: {exc}")
         tracker.record_failure()
         return {"path": None, "status": "gen_failed"}
 
     try:
         saved_path = save_banner(artifact)
     except Exception as exc:
-        plan_logger.warn(f"banner storage failed: {exc}")
+        plan_logger.warning(f"banner storage failed: {exc}")
         return {"path": None, "status": "storage_failed"}
 
     record_invocation(runtime["store"], artifact.prompt_sha)

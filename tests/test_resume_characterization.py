@@ -19,13 +19,13 @@ __tier__ = "unit"
 import contextlib
 from unittest.mock import MagicMock, patch
 
-from backlink_publisher.cli.publish_backlinks import _run_resume
-from backlink_publisher.publishing.adapters import AdapterResult
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     BannerUploadError,
     DependencyError,
 )
+from backlink_publisher.cli.publish_backlinks import _run_resume
+from backlink_publisher.publishing.adapters import AdapterResult
 
 
 class _Args:

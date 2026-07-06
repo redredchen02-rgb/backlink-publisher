@@ -1,29 +1,38 @@
-"""Payload enhancement for the validate-backlinks pipeline.
+"""Payload enhancement helpers — pure validation compute.
 
-Canonical home for _enhance_payload and its helpers.  All helpers live here
-so that validate/engine.py can import them without crossing the domain→cli
-layer boundary.  cli/_validate_payload.py is a thin re-export shim for
-backward-compat (tests that patch backlink_publisher.cli._validate_payload.X
-still work because the shim re-imports from here at module load time).
+Moved from ``cli/_validate_payload.py`` to resolve a layer violation
+(``validate/engine.py`` was importing from ``cli/``). All functions are
+pure validators: they never touch stdin/stdout, argparse, or sys.argv.
+
+Contains ``_enhance_payload`` and all its exclusive helper functions:
+``_HrefCollector``, ``_extract_hrefs_from_html``, ``_check_main_domain_in_html``,
+``_resolve_branded_pool``, ``_nfc_normalize_in_place``, ``_detect_row_body_language``.
+
+cli/_validate_payload.py is a thin re-export shim for backward-compat (tests
+that patch backlink_publisher.cli._validate_payload.X still work because the
+shim re-imports from here at module load time).
+
+(Plan 2026-06-24-002 U5)
 """
 
 from __future__ import annotations
 
-import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Any, cast
+import unicodedata
 from urllib.parse import urlsplit
 
+from backlink_publisher._util.logger import validate_logger
 from backlink_publisher.anchor.lang import check_anchor_language
-from backlink_publisher.config import Config, get_anchor_pool_v2
+from backlink_publisher.config import _config_dir, Config, get_anchor_pool_v2
 from backlink_publisher.linkcheck.language import (
-    SUPPORTED_LANGUAGES,
     detect_language_from_html,
     detect_language_from_markdown,
     language_matches,
+    SUPPORTED_LANGUAGES,
 )
-from backlink_publisher._util.logger import validate_logger
 from ..schema import _is_field_present
 
 
@@ -32,8 +41,13 @@ def _resolve_branded_pool(row: dict[str, Any], config: Config | None) -> list[st
 
     Resolution order (per plan 2026-05-14-001):
     1. ``row.metadata.branded_pool`` snapshot emitted by plan-backlinks.
+       Closes the validate→publish TOCTOU window — the snapshot is what
+       plan-time considered branded.
     2. Live ``get_anchor_pool_v2`` lookup against the loaded config.
-    3. Empty list.
+       Fallback for older JSONL produced before this PR shipped.
+    3. Empty list. The gate proceeds with no exemption; legitimate Latin
+       brand-name anchors will fail R4. Surfaced via a one-time WARN per
+       row so the operator notices.
     """
     metadata = row.get("metadata")
     if isinstance(metadata, dict):
@@ -49,7 +63,13 @@ def _resolve_branded_pool(row: dict[str, Any], config: Config | None) -> list[st
 
 
 class _HrefCollector(HTMLParser):
-    """Stdlib HTML parser subclass that collects ``<a href>`` attribute values."""
+    """Stdlib HTML parser subclass that collects ``<a href>`` attribute values.
+
+    Plan 2026-05-18-006 Unit 6 R3 host-parse + Threat Model anti-injection:
+    extract real href values from ``content_html`` so the main_domain check
+    cannot be bypassed by placing ``main_domain`` inside ``data-*`` attributes,
+    HTML comments, or non-linking text nodes.
+    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -64,7 +84,12 @@ class _HrefCollector(HTMLParser):
 
 
 def _extract_hrefs_from_html(html: str) -> list[str]:
-    """Return a list of all ``<a href>`` attribute values in ``html``."""
+    """Return a list of all ``<a href>`` attribute values in ``html``.
+
+    Stdlib ``html.parser`` is permissive about malformed HTML; the validate
+    gate's job is to inspect the hrefs the parser actually finds, not to
+    validate HTML well-formedness.
+    """
     if not isinstance(html, str) or not html.strip():
         return []
     collector = _HrefCollector()
@@ -78,26 +103,88 @@ def _extract_hrefs_from_html(html: str) -> list[str]:
 
 def _check_main_domain_in_html(html: str, main_domain_normalized: str) -> bool:
     """Plan 2026-05-18-006 Unit 6 R3: verify ``main_domain_normalized`` is the
-    host of at least one ``<a href>`` link in ``html``.
+    host of at least one ``<a href>`` link in ``html``. Closes the
+    subdomain-spoof / userinfo-injection / javascript-href / data-href /
+    Punycode-spoof attack surface.
 
-    Accepts exact host match OR subdomain suffix (e.g. ``blog.example.com``
-    matches ``example.com``).
+    Implementation contract (R3 6-step):
+    1. Parse hrefs via stdlib :class:`HTMLParser` (collected in
+       :class:`_HrefCollector`).
+    2. ``urlsplit`` each href; ValueError → treat as non-matching.
+    3. Pre-IDN-encode rejects: scheme.lower() not in {http, https};
+       userinfo (username / password) set; hostname None or empty;
+       hostname contains ``:`` (IPv6 literals — out of v1); whitespace
+       or control codepoints in hostname.
+    4. IDN-encode hostname to ASCII punycode via stdlib ``encodings.idna``
+       (the encode-failure-on-overflow safety net for label > 63 octets).
+    5. Match rule: ``hostname_ascii == main_domain_normalized`` OR
+       ``hostname_ascii.endswith("." + main_domain_normalized)``. The
+       leading dot prevents ``evil-main-domain.com`` matching
+       ``main-domain.com`` as a suffix.
+    6. Return True if any href matches; else False.
+
+    ``main_domain_normalized`` is the punycode-form host produced by
+    :func:`backlink_publisher.schema._normalize_main_domain` at Unit 1
+    schema-time, stored on the row as ``main_domain_normalized``.
     """
-    hrefs = _extract_hrefs_from_html(html)
-    domain_lower = main_domain_normalized.lower()
-    for href in hrefs:
+    if not main_domain_normalized:
+        return False
+    target_host = main_domain_normalized.strip().lower()
+    target_suffix = "." + target_host
+
+    for href in _extract_hrefs_from_html(html):
         try:
-            parsed = urlsplit(href)
-            host = (parsed.hostname or "").lower()
-            if host == domain_lower or host.endswith("." + domain_lower):
-                return True
+            parsed = urlsplit(href.strip())
         except ValueError:
             continue
+
+        scheme = (parsed.scheme or "").lower()
+        if scheme not in ("http", "https"):
+            continue
+
+        # Userinfo (username/password) reject — closes
+        # `https://main-domain.com@evil.com/` injection
+        if parsed.username or parsed.password:
+            continue
+
+        host = parsed.hostname
+        if host is None or host == "":
+            continue
+
+        # IPv6 detection — urlsplit strips brackets, so check for colon
+        if ":" in host:
+            continue
+
+        # Whitespace / control codepoints in host
+        if any(c.isspace() or unicodedata.category(c).startswith("C") for c in host):
+            continue
+
+        try:
+            hostname_ascii = host.encode("idna").decode("ascii").lower()
+        except UnicodeError:
+            # Label-length overflow / reserved chars — treat as non-matching
+            continue
+
+        if hostname_ascii == target_host or hostname_ascii.endswith(target_suffix):
+            return True
+
     return False
 
 
 def _nfc_normalize_in_place(row: dict[str, Any]) -> None:
-    """Apply NFC normalization to row-resident string fields at validate-time."""
+    """Plan 2026-05-18-006 Unit 6 R13 + Hangul Jamo deferred-question
+    resolution: apply NFC normalization to row-resident string fields at
+    validate-time entry.
+
+    Closes the macOS-NFD risk that splits Hangul Syllables into Jamo
+    codepoints outside ``U+AC00..U+D7AF`` and defeats the ko codepoint
+    short-circuit. ``zh-CN`` / ``en`` / ``ru`` paths unaffected because
+    their codepoint ranges don't decompose.
+
+    Row-level fields normalized: ``content_markdown``, ``content_html``,
+    and each ``link["anchor"]``. ``branded_pool`` / ``anchor_keywords``
+    are config-resident (not on the row) and get NFC at Unit 7 config-load.
+    """
     for field in ("content_markdown", "content_html"):
         value = row.get(field)
         if isinstance(value, str):
@@ -111,11 +198,18 @@ def _nfc_normalize_in_place(row: dict[str, Any]) -> None:
 
 
 def _detect_row_body_language(row: dict[str, Any]) -> tuple[str, str]:
-    """Dispatch body-language detection by source-field presence.
+    """Plan 2026-05-18-006 Unit 6 R15: dispatch body-language detection by
+    source-field presence. Returns ``(detected, source_used)`` where
+    ``source_used`` is one of ``"markdown"``, ``"html"``, ``"both-match"``,
+    ``"both-mismatch:<md>/<html>"``, or ``"absent"``.
 
-    Returns ``(detected, source_used)`` where ``source_used`` is one of
-    ``"markdown"``, ``"html"``, ``"both-match"``, ``"both-mismatch:<md>/<html>"``,
-    or ``"absent"``.
+    Field-presence semantics: a field is present iff non-empty + non-whitespace
+    string (see ``schema._is_field_present``). Whitespace-only strings are
+    treated as absent for dispatch.
+
+    Both-present rule (R3 / R15 strict mode): run both detectors; if they
+    disagree, return ``"unknown"`` and a mismatch tag so the caller can emit
+    a clear validation error. If they agree, return the agreed language.
     """
     md = row.get("content_markdown")
     html = row.get("content_html")
@@ -127,6 +221,9 @@ def _detect_row_body_language(row: dict[str, Any]) -> tuple[str, str]:
         html_lang = detect_language_from_html(cast(str, html))
         if md_lang == html_lang:
             return md_lang, "both-match"
+        # Disagreement: surface as "unknown" so language_matches's escape
+        # valve doesn't accidentally pass; the caller separately emits the
+        # mismatch error using the explicit tag.
         return "unknown", f"both-mismatch:md={md_lang}/html={html_lang}"
 
     if md_present:
@@ -134,6 +231,26 @@ def _detect_row_body_language(row: dict[str, Any]) -> tuple[str, str]:
     if html_present:
         return detect_language_from_html(cast(str, html)), "html"
     return "unknown", "absent"
+
+
+def _resolve_banner_path(banner: dict[str, Any]) -> str | None:
+    """Resolve and validate the banner ``path`` field.
+
+    Returns ``None`` (pass) or an error message string.
+
+    Extracted from ``_enhance_payload`` (Plan 2026-06-24-002 U5).
+    """
+    banner_path = banner.get("path")
+    if not isinstance(banner_path, str) or not banner_path:
+        return None  # absent or status-only dicts pass through
+
+    banner_resolved = Path(banner_path).resolve()
+    allowed = (_config_dir() / "banners").resolve()
+    if not banner_resolved.is_relative_to(allowed):
+        return f"banner_path outside allowed directory: {banner_path}"
+    if not banner_resolved.exists():
+        return f"banner.path points to a file that does not exist: {banner_path}"
+    return None
 
 
 def _check_body_language_gate(
@@ -177,7 +294,7 @@ def _check_body_language_gate(
             if total_latin_plus_cjk > 0:
                 cjk_ratio = (cjk_count + hangul_count) / total_latin_plus_cjk
                 if cjk_ratio >= 0.30:
-                    validate_logger.warn(
+                    validate_logger.warning(
                         f"body language '{detected}' != requested '{requested}', "
                         f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
                         f"downgraded from error to warning"
@@ -204,32 +321,42 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
 
     Contract (R11): ``validation.status`` is ``"failed"`` if any error fired,
     else ``"passed"``. ``validation.errors`` is the structured failure list.
-    ``validation.warnings`` is preserved as an empty list for back-compat.
+    ``validation.warnings`` is preserved as an empty list for back-compat
+    (test_validate_backlinks.py:189 asserts shape).
     """
     errors_list: list[str] = []
     warnings_list: list[str] = []
 
+    # Plan 2026-05-18-006 Unit 6: NFC-normalize row-resident string fields
+    # before any codepoint-dependent gate runs. Closes the macOS-NFD risk
+    # that splits Hangul Syllables outside U+AC00..U+D7AF.
     _nfc_normalize_in_place(row)
 
     requested = row.get("language", "")
 
+    # R3 enum guard — non-enum row.language skips R2/R4 with a WARN.
     if requested not in SUPPORTED_LANGUAGES:
-        validate_logger.warn(
+        validate_logger.warning(
             f"row {row.get('id', '?')}: language '{requested}' outside enum "
             f"{sorted(SUPPORTED_LANGUAGES)}; skipping language and anchor gates"
         )
     else:
+        # R2 / R15: body-language match.
         detected, source_used = _detect_row_body_language(row)
         _check_body_language_gate(row, detected, source_used, requested, errors_list, warnings_list)
 
+        # R4/R5: per-anchor codepoint check for kind in {main_domain, target}.
         branded_pool = _resolve_branded_pool(row, config)
         for idx, link in enumerate(row.get("links", [])):
             anchor = link.get("anchor", "") if isinstance(link, dict) else ""
             kind = link.get("kind", "") if isinstance(link, dict) else ""
             ok, reason = check_anchor_language(anchor, requested, kind, branded_pool)
             if not ok:
-                errors_list.append(f"link[{idx}] anchor {anchor!r} failed: {reason}")
+                errors_list.append(
+                    f"link[{idx}] anchor {anchor!r} failed: {reason}"
+                )
 
+    # Plan 2026-05-18-006 Unit 6 R3: HTML host-parse main_domain check.
     html_present = _is_field_present(row.get("content_html"))
     if html_present:
         main_domain_normalized = row.get("main_domain_normalized", "")
@@ -249,30 +376,16 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
                     f"comments / attributes do not count)"
                 )
 
+    # Plan 2026-05-20-001 Unit 4: validate optional banner field.
     banner = row.get("banner")
     if isinstance(banner, dict):
-        banner_path = banner.get("path")
-        if isinstance(banner_path, str) and banner_path:
-            from pathlib import Path as _P
-            from backlink_publisher.config import _config_dir as _cfg_dir_module
-            banner_resolved = _P(banner_path).resolve()
-            allowed = (_cfg_dir_module() / "banners").resolve()
-            if not banner_resolved.is_relative_to(allowed):
-                errors_list.append(
-                    f"banner_path outside allowed directory: {banner_path}"
-                )
-            elif not banner_resolved.exists():
-                errors_list.append(
-                    f"banner.path points to a file that does not exist: {banner_path}"
-                )
-            elif not banner.exists():  # type: ignore[attr-defined]
-                errors_list.append(
-                    f"banner.path points to a file that does not exist: {banner_path}"
-                )
+        err = _resolve_banner_path(banner)
+        if err is not None:
+            errors_list.append(err)
 
     row["validation"] = {
         "status": "failed" if errors_list else "passed",
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "warnings": warnings_list,
         "errors": errors_list,
     }

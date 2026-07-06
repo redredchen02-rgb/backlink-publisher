@@ -31,7 +31,6 @@ from backlink_publisher.publishing.adapters import publish
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import _REGISTRY
 
-
 # Chain order: API first, CDP second.
 _API_PATH = "backlink_publisher.publishing.adapters.TelegraphAPIAdapter.publish"
 _CDP_PUBLISH_PATH = "backlink_publisher.publishing.adapters.TelegraphCdpAdapter.publish"
@@ -68,7 +67,6 @@ CONFIG = Config()
 def test_telegraph_chain_contains_both_adapters():
     """TelegraphAPIAdapter precedes TelegraphCdpAdapter in the chain."""
     import backlink_publisher.publishing.adapters  # noqa: F401  ensure registry is populated
-
     from backlink_publisher.publishing.adapters.instant_web import TelegraphCdpAdapter
     from backlink_publisher.publishing.adapters.telegraph_api import TelegraphAPIAdapter
 

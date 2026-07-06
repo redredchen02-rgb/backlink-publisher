@@ -16,9 +16,9 @@ The import-isolation invariant is enforced by ``tests/test_llm_client.py``.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
+import re
 
 from requests.exceptions import RequestException
 

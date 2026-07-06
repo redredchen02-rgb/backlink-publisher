@@ -4,7 +4,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-from unittest.mock import MagicMock, call
+from unittest.mock import call, MagicMock
 
 
 def _make_store(query_results: list[list[dict]]) -> MagicMock:

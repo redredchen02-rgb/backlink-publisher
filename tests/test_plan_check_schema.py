@@ -13,20 +13,19 @@ from pathlib import Path
 import pytest
 
 from backlink_publisher.cli._plan_check_schema import (
-    ClaimsBlock,
-    PlanClaimsFrontmatterSchemaError,
-    PlanClaimsFilenameDateMismatch,
-    PlanClaimsGlobUnsupported,
-    PlanClaimsMissingOnPostCutoff,
-    _GRANDFATHER_CUTOFF,
     _check_filename_date_lock,
+    _GRANDFATHER_CUTOFF,
     _grandfathered,
     _parse_frontmatter,
     _read_plan_text,
     _validate_claims_schema,
     _validate_sha_format,
+    ClaimsBlock,
+    PlanClaimsFilenameDateMismatch,
+    PlanClaimsFrontmatterSchemaError,
+    PlanClaimsGlobUnsupported,
+    PlanClaimsMissingOnPostCutoff,
 )
-
 
 # ── _read_plan_text ───────────────────────────────────────────────────────────
 

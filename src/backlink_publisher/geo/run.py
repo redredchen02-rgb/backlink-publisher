@@ -22,9 +22,9 @@ Design notes
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 import time
-from dataclasses import dataclass, field
-from typing import Callable
 
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher.config.types import GeoProbeConfig
@@ -32,9 +32,9 @@ from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
 from backlink_publisher.geo.engines import ProbeResult
 from backlink_publisher.geo.selection import ProbeCandidate
-from backlink_publisher.geo.verdict import VerdictResult, carry_verdict, classify_verdict
+from backlink_publisher.geo.verdict import carry_verdict, classify_verdict, VerdictResult
 
-_log = get_logger("probe-citations")
+log = get_logger("probe-citations")
 
 ProbeCallable = Callable[[str, GeoProbeConfig], ProbeResult]
 
@@ -185,7 +185,7 @@ def probe_many(
             remaining = len(candidates) - index
             summary.deferred += remaining
             summary.cost_cap_hit = True
-            _log.warn(
+            log.warning(
                 "probe_many: cost cap reached",
                 probed=summary.probed,
                 cap=cost_cap,
@@ -198,7 +198,7 @@ def probe_many(
             remaining = len(candidates) - index
             summary.deferred += remaining
             summary.budget_exhausted = True
-            _log.warn(
+            log.warning(
                 "probe_many: wall-clock budget exhausted",
                 budget_s=wall_clock_budget_s,
                 probed=summary.probed,
@@ -219,7 +219,7 @@ def probe_many(
                 engine=engine,
             )
         except Exception as exc:  # noqa: BLE001 — never-raises contract
-            _log.warn(
+            log.warning(
                 "probe_many: probe error for target",
                 target_url=candidate.target_url,
                 query=candidate.query,

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+__tier__ = "unit"
+
 import json
-import stat
 from pathlib import Path
+import stat
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -19,8 +19,8 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import json
-import sqlite3
 from pathlib import Path
+import sqlite3
 from typing import Any
 
 import pytest

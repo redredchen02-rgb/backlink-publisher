@@ -21,20 +21,20 @@ from __future__ import annotations
 
 __tier__ = "e2e"
 
+from io import StringIO
 import json
 import os
-import sys
-from io import StringIO
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
-from backlink_publisher.cli.publish_backlinks import main
-from backlink_publisher.publishing.adapters.base import AdapterResult
-from backlink_publisher.linkcheck.verify import VerificationResult
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
+from backlink_publisher.cli.publish_backlinks import main
+from backlink_publisher.linkcheck.verify import VerificationResult
+from backlink_publisher.publishing.adapters.base import AdapterResult
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures" / "live_publish"
 _TARGET = "https://my.site/article"

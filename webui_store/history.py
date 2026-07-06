@@ -11,10 +11,11 @@ Hybrid mode:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
-import threading
 from pathlib import Path
-from typing import Any, Callable
+import threading
+from typing import Any
 
 
 class HistoryStore:

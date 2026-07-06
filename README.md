@@ -49,15 +49,37 @@ playwright install chromium
 
 ## Embeddable SDK
 
-The pipeline is available as a Python SDK for in-process use — no subprocesses or CLI flags needed. See [docs/sdk-quickstart.md](docs/sdk-quickstart.md) for installation, configuration, and usage examples.
+The pipeline is available as a Python SDK for in-process use — no subprocesses or CLI flags needed. See [docs/sdk-quickstart.md](docs/sdk-quickstart.md) for installation, configuration, and detailed usage examples.
 
 ```python
 from backlink_publisher import sdk
 
-result = sdk.plan({"target_url": "https://example.com/article", ...})
-validated = sdk.validate(result.rows)
-published = sdk.publish(validated.rows)
+# Plan → Validate → Publish (dry-run) in-process
+seed = {
+    "target_url": "https://example.com/article",
+    "main_domain": "https://example.com",
+    "language": "en",
+    "platform": "medium",
+}
+plan_result = sdk.plan(seed)                       # → PipeResult
+validate_result = sdk.validate(plan_result.rows)   # → PipeResult
+publish_result = sdk.publish(validate_result.rows) # → PipeResult
+
+# Each PipeResult carries .success, .exit_code, .error_class, .rows, .stdout
+if not publish_result.success:
+    print(f"Failed: {publish_result.error_class} (exit {publish_result.exit_code})")
+
+# Or use the low-level PipelineAPI for full control:
+from backlink_publisher.sdk import PipelineAPI
+
+api = PipelineAPI()
+plan = api.plan([seed])
 ```
+
+> **Naming constraints (v1 SDK):**
+> - `sdk.publish()` covers **fresh publish** only — it runs API-tier adapters in-process.
+> - **Resume** (publish-backlinks `--resume`) still requires the CLI subprocess — the resume loop has a different epilogue table (exit 0/4/5 vs. fresh's 0/3/4/5) and is not yet in-process.
+> - **Browser-tier** platforms (Medium browser fallback, etc.) are dispatched via a subprocess — the process-internal path raises a typed `DependencyError` explaining the requirement. The existing `publish-backlinks` CLI endpoint continues to handle browser-tier publishing unchanged.
 
 ## Pipeline Commands
 

@@ -17,11 +17,11 @@ from __future__ import annotations
 __tier__ = "integration"
 
 import os
+from pathlib import Path
 import sqlite3
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 
 import pytest
 
@@ -155,8 +155,8 @@ def test_cross_process_update_documents_behavior(tmp_path, monkeypatch):
     update() — the RLock only protects within a single process.
     """
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    from webui_store.sqlite_base import WebUIDatabase
     from webui_store.schedule import ScheduleSqliteStore
+    from webui_store.sqlite_base import WebUIDatabase
 
     db_path = tmp_path / "webui.db"
     # Initialize the store (creates tables)
@@ -196,8 +196,8 @@ def test_cross_process_update_documents_behavior(tmp_path, monkeypatch):
 def test_in_process_sequential_update_no_deadlock(tmp_path, monkeypatch):
     """In-process: two sequential update() calls via RLock → both keys present."""
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    from webui_store.sqlite_base import WebUIDatabase
     from webui_store.schedule import ScheduleSqliteStore
+    from webui_store.sqlite_base import WebUIDatabase
 
     db = WebUIDatabase(tmp_path / "webui.db")
     store = ScheduleSqliteStore(db)
@@ -213,8 +213,8 @@ def test_in_process_sequential_update_no_deadlock(tmp_path, monkeypatch):
 def test_two_instances_sequential_update_both_survive(tmp_path, monkeypatch):
     """Two in-process instances of same store, sequential update → non-conflicting rows."""
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    from webui_store.sqlite_base import WebUIDatabase
     from webui_store.schedule import ScheduleSqliteStore
+    from webui_store.sqlite_base import WebUIDatabase
 
     db_path = tmp_path / "webui.db"
     s1 = ScheduleSqliteStore(WebUIDatabase(db_path))
@@ -248,8 +248,8 @@ def test_same_key_rmw_counter(tmp_path, monkeypatch):
     (counter > 100).
     """
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    from webui_store.sqlite_base import WebUIDatabase
     from webui_store.schedule import ScheduleSqliteStore
+    from webui_store.sqlite_base import WebUIDatabase
 
     db_path = tmp_path / "webui.db"
     # Initialise table and set counter = 0.
@@ -351,8 +351,8 @@ def test_wal_busy_timeout_path(tmp_path, monkeypatch):
     the db file is not corrupt (load() returns a valid dict).
     """
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
-    from webui_store.sqlite_base import WebUIDatabase
     from webui_store.schedule import ScheduleSqliteStore
+    from webui_store.sqlite_base import WebUIDatabase
 
     db_path = tmp_path / "webui.db"
     # Initialise table.

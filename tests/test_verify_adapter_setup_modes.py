@@ -22,11 +22,10 @@ import requests
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config import Config
 from backlink_publisher.publishing._verify import (
+    dry_run_intercept,
     DryRunInterceptError,
     VerifyResult,
-    dry_run_intercept,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

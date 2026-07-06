@@ -12,14 +12,15 @@ All dependencies are injectable so the chain is fully testable without network.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Generator
 import contextlib
+from datetime import datetime
 import logging
-import time
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Generator
+import time
+from typing import Any
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 #: Per-probe timeout (mirrors recheck_backlinks._PER_TARGET_TIMEOUT).
 _PER_TARGET_TIMEOUT = 10.0
@@ -98,7 +99,8 @@ def _default_write_verified_at(store: Any, results: Any) -> None:
 def _default_publish_seed(seed: dict[str, Any]) -> dict[str, Any]:
     """Plan → validate → publish one seed via PipelineAPI (same as keepalive_job)."""
     import json as _json
-    from backlink_publisher.sdk.api import PipelineAPI, parse_publish_results
+
+    from backlink_publisher.sdk.api import parse_publish_results, PipelineAPI
 
     api = PipelineAPI()
     target, platform = seed.get("target_url"), seed.get("platform")
@@ -125,8 +127,9 @@ def _default_publish_seed(seed: dict[str, Any]) -> dict[str, Any]:
 def _default_reverify(result: dict[str, Any], store: Any) -> dict[str, Any]:
     """Probe a freshly published URL; emit + write_verified_at (same as keepalive_job)."""
     from urllib.parse import urlsplit
-    from backlink_publisher.recheck.probe import recheck_link
+
     from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
+    from backlink_publisher.recheck.probe import recheck_link
 
     url = (result.get("published_url") or "").strip()
     target = result.get("target_url")
@@ -174,7 +177,7 @@ def _effective_sticky(runtime_sticky: tuple[str, ...], opt_state: Any = None) ->
         filtered = [p for p in runtime_sticky if opt_state.get_weight(p, default=1.0) > 0.0]
         return filtered
     except Exception as exc:  # noqa: BLE001
-        logger.warning("OptimizationState unavailable, using full sticky list: %s", exc)
+        log.warning("OptimizationState unavailable, using full sticky list: %s", exc)
         return list(runtime_sticky)
 
 
@@ -209,7 +212,7 @@ def _update_opt_stats(platform: str, verdict: str, opt_state: Any = None, langua
                 entry["dofollow_count"] = entry.get("dofollow_count", 0) + 1
             opt_state.save(data)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Failed to update optimization stats for %s: %s", platform, exc)
+        log.warning("Failed to update optimization stats for %s: %s", platform, exc)
 
 
 # ── stage helpers ─────────────────────────────────────────────────────────────
@@ -228,7 +231,7 @@ def _run_recheck_stage(
     deadline = time.monotonic() + _BATCH_BUDGET_S
     for candidate in candidates:
         if time.monotonic() > deadline:
-            logger.warning("keepalive: recheck batch budget exhausted, deferring remaining")
+            log.warning("keepalive: recheck batch budget exhausted, deferring remaining")
             break
         try:
             r = _probe(candidate)
@@ -238,11 +241,11 @@ def _run_recheck_stage(
         try:
             _emit(store, [r])
         except Exception:  # noqa: BLE001
-            logger.debug("emit_recheck failed", exc_info=True)
+            log.debug("emit_recheck failed", exc_info=True)
         try:
             _vat(store, [r])
         except Exception:  # noqa: BLE001
-            logger.debug("write_verified_at failed", exc_info=True)
+            log.debug("write_verified_at failed", exc_info=True)
     _log.recon("keepalive_recheck_done", probed=len(results))
     return results
 
@@ -251,7 +254,7 @@ def _filter_exhausted_seeds(
     seeds_raw: list[Any],
     run_state: Any,
     max_gaps: int | None,
-    summary: "CycleSummary",
+    summary: CycleSummary,
 ) -> list[Any]:
     """Remove exhausted targets and apply the max_gaps cap."""
     seeds = []
@@ -268,7 +271,7 @@ def _filter_exhausted_seeds(
 def _run_publish_step(
     seeds: list[Any],
     run_state: Any,
-    summary: "CycleSummary",
+    summary: CycleSummary,
     _publish: Callable,
     _log: Any,
 ) -> list[dict]:
@@ -302,7 +305,7 @@ def _run_publish_step(
 def _run_reverify_step(
     published_results: list[dict],
     run_state: Any,
-    summary: "CycleSummary",
+    summary: CycleSummary,
     _reverify: Callable,
 ) -> None:
     """Step 5: Reverify newly published URLs; update opt stats on definitive verdicts."""
@@ -416,7 +419,7 @@ def run_cycle(
     with _cycle_lock(config_dir) as acquired:
         if not acquired:
             _log.recon("keepalive_cycle_skipped_locked")
-            logger.info("keepalive: cycle already in progress, skipping")
+            log.info("keepalive: cycle already in progress, skipping")
             return {"skipped": True}
 
         # ── Step 1: Recheck ────────────────────────────────────────────────
@@ -433,7 +436,7 @@ def run_cycle(
         effective = _eff_sticky(RUNTIME_STICKY_PLATFORMS)
         if not effective:
             _log.recon("keepalive_all_platforms_circuit_broken")
-            logger.info("keepalive: all sticky platforms circuit-broken; no gaps to fill")
+            log.info("keepalive: all sticky platforms circuit-broken; no gaps to fill")
             summary_dict = summary.to_dict()
             run_state.update_cycle_summary(summary_dict)
             return summary_dict

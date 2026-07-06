@@ -15,14 +15,12 @@ import json
 import logging
 import subprocess
 import sys
-from pathlib import Path
 from typing import Any, cast
 
 from backlink_publisher.config.loader import _config_dir as _resolve_config_dir
-
 from backlink_publisher.optimization import OptimizationState
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # Exit codes
 EXIT_OK = 0
@@ -93,7 +91,7 @@ def _collect_from_recheck() -> dict[str, Any]:
         return result
 
     # If CLI isn't available, return empty so the merge still works.
-    logger.info("recheck signal source unavailable — skipping")
+    log.info("recheck signal source unavailable — skipping")
     return {"status": "unavailable"}
 
 
@@ -115,13 +113,13 @@ def _collect_from_canary() -> dict[str, Any]:
             data: dict[str, Any] = json.loads(raw)
             return _extract_platform_drift(data)
         except (json.JSONDecodeError, OSError):
-            logger.warning("canary-health.json unreadable — falling back to CLI")
+            log.warning("canary-health.json unreadable — falling back to CLI")
 
     result = _try_cli_collect("canary-targets", ["--json-summary"])
     if result is not None:
         return result
 
-    logger.info("canary signal source unavailable — skipping")
+    log.info("canary signal source unavailable — skipping")
     return {"status": "unavailable"}
 
 
@@ -135,7 +133,7 @@ def _collect_from_equity() -> dict[str, Any]:
     if result is not None:
         return result
 
-    logger.info("equity signal source unavailable — skipping")
+    log.info("equity signal source unavailable — skipping")
     return {"status": "unavailable"}
 
 
@@ -157,11 +155,11 @@ def _try_cli_collect(
             timeout=30,
         )
         if result.returncode != 0:
-            logger.debug("%s exited %d: %s", command, result.returncode, result.stderr[:200])
+            log.debug("%s exited %d: %s", command, result.returncode, result.stderr[:200])
             return None
         return cast(dict[str, Any], json.loads(result.stdout))
     except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
-        logger.debug("Failed to collect from %s: %s", command, exc)
+        log.debug("Failed to collect from %s: %s", command, exc)
         return None
 
 

@@ -5,9 +5,9 @@ __tier__ = "integration"
 
 import pytest
 
-from backlink_publisher.events.store import EventStore
-from backlink_publisher.events.history_query import purge_failed_from_db
 from backlink_publisher.events import kinds as _kinds
+from backlink_publisher.events.history_query import purge_failed_from_db
+from backlink_publisher.events.store import EventStore
 
 
 @pytest.fixture(autouse=True)

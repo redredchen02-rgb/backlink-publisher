@@ -34,12 +34,11 @@ def client(tmp_path, monkeypatch):
 
 
 from webui_app.helpers.history import (
-    _HISTORY_MAX_ITEMS,
-    _REQUIRES_URL_STATUSES,
     _apply_history_cap,
+    _HISTORY_MAX_ITEMS,
     _push_history_aggregate,
+    _REQUIRES_URL_STATUSES,
 )
-
 
 # ── Unit-level helper tests ──────────────────────────────────────────────────
 

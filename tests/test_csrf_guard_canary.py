@@ -17,8 +17,8 @@ mutation; ``TESTING`` is ungated).
 from __future__ import annotations
 
 __tier__ = "unit"
-import pytest
 from flask.testing import FlaskClient
+import pytest
 
 _TOKEN = "canary-csrf-token"
 _MUTATING_METHODS = ("POST", "PUT", "PATCH", "DELETE")

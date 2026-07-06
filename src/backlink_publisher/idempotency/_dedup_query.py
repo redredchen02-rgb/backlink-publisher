@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Iterator, cast
+from typing import cast
 
 from ..events._store_sqlite import _pid_alive, _retry_sqlite
 from ._dedup_schema import _COLS, _row_to_record
-from ._store_types import DedupKey, DedupRecord, State, _STALE_TTL_S, _now
+from ._store_types import _now, _STALE_TTL_S, DedupKey, DedupRecord, State
 
 
 class QueryMixin:

@@ -32,20 +32,20 @@ scopes out (those reducers belong to 005-fix); the writes this module *owns*
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import json
 import logging
+from pathlib import Path
 import sqlite3
 import threading
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 
 from ..config import _config_dir
 from ._project_helpers import _HISTORY_FILENAME, ProjectionError
 from .projector import flush_for
 from .store import EventStore
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # Within-process single-flight: only one /health load projects at a time.
 _PROJECTION_LOCK = threading.Lock()
@@ -85,7 +85,7 @@ def project_on_read(*, store: EventStore | None = None) -> ReadProjectionResult:
         with _PROJECTION_LOCK:
             return _project_all(store)
     except Exception as exc:  # noqa: BLE001 — backstop must never raise to the route
-        _log.warning("health: project-on-read failed (non-fatal): %s", exc)
+        log.warning("health: project-on-read failed (non-fatal): %s", exc)
         return ReadProjectionResult(
             degraded=True, degraded_reason=f"{type(exc).__name__}: {exc}"
         )
@@ -105,14 +105,14 @@ def _project_all(store: EventStore) -> ReadProjectionResult:
             continue
         except (ProjectionError, json.JSONDecodeError, ValueError) as exc:
             # Corrupt / unparseable source: park it, keep projecting the rest.
-            _log.warning("health: quarantining unprojectable source %s: %s", src, exc)
+            log.warning("health: quarantining unprojectable source %s: %s", src, exc)
             _quarantine(store, str(src), f"{type(exc).__name__}: {exc}")
             continue
         except sqlite3.OperationalError as exc:
             # DB-level failure affects every source — stop and degrade.
             degraded = True
             degraded_reason = f"{type(exc).__name__}: {exc}"
-            _log.warning("health: project-on-read degraded mid-flush: %s", exc)
+            log.warning("health: project-on-read degraded mid-flush: %s", exc)
             break
         else:
             events_inserted += result.events_inserted
@@ -194,7 +194,7 @@ def _latest_event_utc(store: EventStore) -> str | None:
             _PUBLISH_KINDS,
         )
     except Exception as exc:  # noqa: BLE001 — freshness is non-critical
-        _log.warning("health: could not read freshness stamp: %s", exc)
+        log.warning("health: could not read freshness stamp: %s", exc)
         return None
     if rows and rows[0]["m"] is not None:
         return str(rows[0]["m"])
@@ -206,7 +206,7 @@ def _open_quarantine_count(store: EventStore) -> int:
     try:
         rows = store.query("SELECT COUNT(*) AS n FROM quarantine_log")
     except Exception as exc:  # noqa: BLE001 — gap count is non-critical
-        _log.warning("health: could not read quarantine count: %s", exc)
+        log.warning("health: could not read quarantine count: %s", exc)
         return 0
     return int(rows[0]["n"]) if rows else 0
 
@@ -226,7 +226,7 @@ def _quarantine(
     by ``dedup_key`` UNIQUE index (reconciler path). Best-effort: a write
     failure must not escape and abort the rest of the pipeline.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     try:
         with store.connect_immediate() as conn:
             existing = conn.execute(
@@ -240,7 +240,7 @@ def _quarantine(
                     (now, source, run_id, reason, None, dedup_key, row_id),
                 )
     except Exception as exc:  # noqa: BLE001 — quarantine bookkeeping is non-critical
-        _log.warning("health: could not quarantine %s: %s", source, exc)
+        log.warning("health: could not quarantine %s: %s", source, exc)
 
 
 def _clear_quarantine(store: EventStore, source: str) -> None:
@@ -250,7 +250,7 @@ def _clear_quarantine(store: EventStore, source: str) -> None:
         with store.connect_immediate() as conn:
             conn.execute("DELETE FROM quarantine_log WHERE source = ?", (source,))
     except Exception as exc:  # noqa: BLE001 — clear is non-critical
-        _log.warning("health: could not clear quarantine for %s: %s", source, exc)
+        log.warning("health: could not clear quarantine for %s: %s", source, exc)
 
 
 def _clear_quarantine_by_dedup_key(store: EventStore, dedup_key: str) -> None:
@@ -264,7 +264,7 @@ def _clear_quarantine_by_dedup_key(store: EventStore, dedup_key: str) -> None:
                 "DELETE FROM quarantine_log WHERE dedup_key = ?", (dedup_key,)
             )
     except Exception as exc:  # noqa: BLE001 — clear is non-critical
-        _log.warning("health: could not clear quarantine by dedup_key %s: %s", dedup_key, exc)
+        log.warning("health: could not clear quarantine by dedup_key %s: %s", dedup_key, exc)
 
 
 def _get_reconciler_quarantine_set(store: EventStore) -> set[str]:
@@ -281,5 +281,5 @@ def _get_reconciler_quarantine_set(store: EventStore) -> set[str]:
             ).fetchall()
             return {r[0] for r in rows if r[0]}
     except Exception as exc:  # noqa: BLE001 — skip-set is advisory
-        _log.warning("health: could not read reconciler quarantine set: %s", exc)
+        log.warning("health: could not read reconciler quarantine set: %s", exc)
         return set()

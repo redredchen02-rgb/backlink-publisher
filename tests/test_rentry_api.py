@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backlink_publisher._util.errors import ExternalServiceError
-from backlink_publisher.publishing.adapters.rentry_api import RentryAPIAdapter
 from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher.publishing.adapters.rentry_api import RentryAPIAdapter
 
 _GET = "backlink_publisher.publishing.adapters.rentry_api.http_client.get"
 _POST = "backlink_publisher.publishing.adapters.rentry_api.http_client.post"

@@ -1,0 +1,27 @@
+{
+  "reviewer": "security",
+  "findings": [
+    {
+      "title": "Request-size guard trusts Content-Length header only — no cap on actual bytes read for error-report POST/PATCH",
+      "severity": "P3",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 145,
+      "confidence": 0.6,
+      "autofix_class": "gated_auto",
+      "owner": "backend",
+      "requires_verification": true,
+      "pre_existing": false,
+      "why_it_matters": "`_guard_request_size()` only rejects a request when `request.content_length > 100_000`; if that header is absent or understated (e.g. a raw HTTP client using chunked Transfer-Encoding, or simply omitting Content-Length), the check is skipped entirely and `request.get_json(silent=True)` will happily buffer an arbitrarily large body into memory with no cap — the app sets no site-wide `MAX_CONTENT_LENGTH` (confirmed absent). The module's own docstring explicitly frames the threat model as 'a non-browser caller that can reach loopback is not bound by the browser fetch/keepalive 64KB limit,' i.e. it anticipates a non-browser client on the same host, but the mitigation only distrusts the browser's transport limit, not a spoofed/missing Content-Length header from that same non-browser caller. Net effect: the stated threat (arbitrary loopback-capable process) can still send an oversized body and force a large in-memory JSON parse, a per-request memory-exhaustion vector this endpoint was specifically designed to close but didn't fully.",
+      "suggested_fix": "Read the body via a bounded stream read (e.g. `request.stream.read(_MAX_REQUEST_BYTES + 1)` and 413 if the returned length exceeds the cap) instead of relying solely on the Content-Length header before calling request.get_json(); avoid a blanket app-wide MAX_CONTENT_LENGTH since other endpoints (e.g. paste-blob credential channels) may need a different ceiling."
+    }
+  ],
+  "residual_risks": [
+    "Layer 3 (`_known_secret_values()` in webui_app/services/error_report_sanitizer.py) can only mask a credential that is ALREADY saved to disk at sanitization time. A rejected/invalid credential value an operator pastes while it is being validated (e.g. a 422 from /settings/llm-config or /settings/channels/<ch>/credential that echoes `result.message` back to the client) is not yet 'known' and would fall through to scrub_text's regex/entropy layer only — which the sanitizer's own docstring documents as blind to short/hex-shaped secrets. This is a narrow, pre-existing gap in the validation-message endpoints (not part of this diff) rather than a bug in the new sanitizer; verified that the concrete validation messages reviewed (llm.py / global_settings.py) return generic text, not the raw submitted value, so no active exploit path was found, but this composition boundary is worth a follow-up audit if new validators are added that could echo raw input.",
+    "The five Vue SPA capture hooks (frontend/src/lib/errorCapture.ts, frontend/src/stores/errorCapturePlugin.ts) and main.ts's QueryCache/MutationCache wiring were reviewed end-to-end: only error objects and query/mutation KEYS (never `variables`/`args`) are forwarded, matching the stated security contract. No violation found.",
+    "The origin-guard coverage test (tests/test_webui_lite_origin_guard_coverage.py) dynamically iterates `app.url_map.iter_rules()` in `test_global_guard_covers_every_mutating_route`, so the three new error-reports mutating routes are provably covered by `_global_origin_guard` at runtime, not merely added to a static inventory list — the 91->96 snapshot bump is informational bookkeeping only, not the actual protection mechanism."
+  ],
+  "testing_gaps": [
+    "No test exercises a POST/PATCH to /api/v1/error-reports with a missing or spoofed Content-Length (e.g. chunked Transfer-Encoding) to confirm the 100KB size guard actually holds under that condition.",
+    "No test asserts that a validation-rejection error message from a credential-write endpoint (llm.py / global_settings.py / channel_bind.py) never echoes a raw submitted secret value back to the client — relevant because the new Vue capture hooks would otherwise forward that message into a persisted error report."
+  ]
+}

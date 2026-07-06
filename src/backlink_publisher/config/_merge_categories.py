@@ -8,7 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from backlink_publisher._util.errors import InputValidationError
-from ._config_io import _resolve_config_dir, _snapshot_config, _atomic_write_text
+
+from ._config_io import _atomic_write_text, _resolve_config_dir, _snapshot_config
 from ._toml_utils import _toml_str
 
 

@@ -22,7 +22,6 @@ import pytest
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher.publishing.adapters import medium_brave as mb
 
-
 pytestmark = pytest.mark.skipif(
     platform.system() != "Darwin",
     reason="medium_brave is macOS-only (AppleScript)",

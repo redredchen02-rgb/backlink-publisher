@@ -32,7 +32,7 @@ def test_post_without_origin_returns_403(client):
 # ── GET with flash params ────────────────────────────────────────────────────
 
 def test_get_renders_flash_alert(client):
-    resp = client.get("/ce:keep-alive?flash_type=success&flash_msg=已核实+3+条")
+    resp = client.get("/ce:keep-alive/jinja?flash_type=success&flash_msg=已核实+3+条")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert "alert-success" in body
@@ -40,7 +40,7 @@ def test_get_renders_flash_alert(client):
 
 
 def test_get_no_flash_shows_no_alert(client):
-    resp = client.get("/ce:keep-alive")
+    resp = client.get("/ce:keep-alive/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     # The flash block has a btn-close dismiss button; staleBanner is always in HTML
@@ -51,7 +51,7 @@ def test_get_no_flash_shows_no_alert(client):
 # ── button not disabled ──────────────────────────────────────────────────────
 
 def test_recheck_button_is_enabled(client):
-    resp = client.get("/ce:keep-alive")
+    resp = client.get("/ce:keep-alive/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     # Button must not carry the disabled attribute.

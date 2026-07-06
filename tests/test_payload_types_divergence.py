@@ -20,7 +20,6 @@ from pydantic import ValidationError
 
 from backlink_publisher._schema_output import validate_output_payload, validate_publish_payload
 
-
 # ── valid base payload helper ─────────────────────────────────────────────────
 
 def _valid_planned(**overrides):

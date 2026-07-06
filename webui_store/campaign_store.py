@@ -25,10 +25,10 @@ Unit 7.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
-import uuid
-from datetime import datetime, timezone
 from typing import Any
+import uuid
 
 from backlink_publisher.events._store_sqlite import _retry_sqlite
 
@@ -51,7 +51,7 @@ _CAMPAIGN_STATUS_VALUES = frozenset({
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _new_campaign_id() -> str:

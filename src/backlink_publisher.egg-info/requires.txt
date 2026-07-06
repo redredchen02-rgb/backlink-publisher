@@ -2,7 +2,6 @@ markdown-it-py>=4.2
 google-api-python-client<3,>=2.196
 google-auth-oauthlib>=1.4
 google-auth-httplib2>=0.2
-playwright<2,>=1.55
 requests<3,>=2.32.4
 websocket-client>=1.9
 beautifulsoup4<5,>=4.13
@@ -12,8 +11,15 @@ apscheduler<4,>=3.11
 apiflask<4,>=3.1
 pydantic>=2.5
 pyyaml>=6.0.3
-google-analytics-data<1,>=0.18
 structlog<26,>=24.1
+flask-compress<2,>=1.14
+waitress<4,>=3.0
+
+[analytics]
+google-analytics-data<1,>=0.18
+
+[browser]
+playwright<2,>=1.55
 
 [dev]
 pytest>=8.4
@@ -24,12 +30,16 @@ pytest-env>=1.6
 pytest-asyncio<2,>=1.1
 pytest-xdist>=3.6
 pytest-cov>=6.0
+pytest-benchmark>=5.1
+pytest-rerunfailures>=14.0
 hypothesis>=6.151
 radon==6.0.1
+ruff<1,>=0.15
 mypy>=1.8
 mutmut>=2.4
 vulture>=2.16
-import-linter>=2.0
+import-linter>=1.6
+pip-audit>=2.7
 
 [dev-webwright]
 webwright @ git+https://github.com/microsoft/Webwright.git@4a46f282ec37f27d6003cc498a977939d62d9015

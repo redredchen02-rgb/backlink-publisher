@@ -16,9 +16,9 @@ The drift assertions live here (test-time), never at module import, per the
 from __future__ import annotations
 
 __tier__ = "unit"
-import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 import pytest
 
+import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 from backlink_publisher.publishing.registry import (
     _AUTH_TYPE_BY_PLATFORM,
     _AUTH_TYPE_VALUES,

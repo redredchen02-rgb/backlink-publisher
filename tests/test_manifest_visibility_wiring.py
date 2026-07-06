@@ -17,12 +17,12 @@ import pytest
 
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.registry import (
-    Publisher,
     _BIND_BY_PLATFORM,
     _POLICY_BY_PLATFORM,
     _REGISTRY,
     _UI_META_BY_PLATFORM,
     _VISIBILITY_BY_PLATFORM,
+    Publisher,
     register,
 )
 
@@ -55,7 +55,6 @@ class TestHiddenFromUiFunction:
     def test_retired_platforms_appear_in_hidden_from_ui(self) -> None:
         # hashnode and writeas were retired in plan 008.
         import backlink_publisher.publishing.adapters  # noqa: F401
-
         from webui_app.binding_status import hidden_from_ui
 
         hidden = hidden_from_ui()
@@ -120,18 +119,16 @@ class TestSaveConfigKnownRootsFunction:
     """_save_config_known_roots() derives from registry — no hand-maintained set."""
 
     def test_contains_fixed_non_platform_roots(self) -> None:
-        import backlink_publisher.publishing.adapters  # noqa: F401
-
         from backlink_publisher.config._toml_utils import _save_config_known_roots
+        import backlink_publisher.publishing.adapters  # noqa: F401
 
         roots = _save_config_known_roots()
         assert "targets" in roots
         assert "image_gen" in roots
 
     def test_contains_active_registered_platforms(self) -> None:
-        import backlink_publisher.publishing.adapters  # noqa: F401
-
         from backlink_publisher.config._toml_utils import _save_config_known_roots
+        import backlink_publisher.publishing.adapters  # noqa: F401
         from backlink_publisher.publishing.registry import active_platforms
 
         roots = _save_config_known_roots()

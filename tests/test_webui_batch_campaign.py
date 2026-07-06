@@ -22,7 +22,6 @@ pytest.importorskip("flask")
 from webui_app import create_app
 from webui_store import campaign_store
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 
@@ -128,7 +127,7 @@ def test_campaign_worker_get_status_before_start():
 
 
 def test_campaign_worker_already_running():
-    from webui_app.campaign_worker import CampaignWorker, AlreadyRunningError
+    from webui_app.campaign_worker import AlreadyRunningError, CampaignWorker
 
     cid1 = _make_campaign(seed="s")
     cid2 = _make_campaign(seed="t")

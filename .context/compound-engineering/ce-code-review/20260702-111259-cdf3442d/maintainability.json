@@ -1,0 +1,26 @@
+{
+  "reviewer": "maintainability",
+  "findings": [
+    {
+      "title": "Literal NUL byte embedded in a comment in frontend/src/lib/errors.ts",
+      "severity": "P2",
+      "file": "frontend/src/lib/errors.ts",
+      "line": 27,
+      "confidence": 0.85,
+      "autofix_class": "safe_auto",
+      "owner": "frontend",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Replace the raw control byte at line 27 with the escaped text '\\x00-\\x1f' (matching how the sibling file webui_app/static/js/ui/errors.js writes the same idea via /[\u0000-\u001f\s]+/g in its own comment), so the file contains only printable characters.",
+      "why_it_matters": "This restored/ported file has an actual raw 0x00 byte inside a `//` comment (byte offset 1347, right where the comment is describing the legacy regex `\x00-\x1f`) instead of the escaped text. This single byte is enough to make git treat the whole file as binary (`git diff` on this branch already reports 'Bin 0 -> 3106 bytes' for it instead of a line diff), which means every future `git diff`/`git blame`/PR review/GitHub file view on this file loses line-level history and readability -- a meaningful ongoing cost for a security-relevant shared module (XSS/error-taxonomy boundary) that the plan says both frontends must keep in sync. The regex itself (`CONTROL_CHARS = /[\x00-\x1f\x7f]+/g`, line 28) is a normal, correct regex literal and is unaffected; only the human-readable comment text is corrupted, so this is a clean, mechanical fix with no logic change."
+    }
+  ],
+  "residual_risks": [
+    "The manual 'report a problem' submission logic is implemented twice with zero shared code: webui_app/static/js/ui/error-report-entry.js (legacy, vanilla JS class ReportPanel) and frontend/src/components/ReportProblemPanel.vue (Vue SPA). Both independently encode the same POST-vs-PATCH contract ('no reportId key at all' for a manual report vs. PATCH .../<reportId> for add-detail). This is called out and justified in both files' doc comments (different notification stacks, no shared Vue<->legacy component layer), but it means any future change to that contract (e.g. a new required field) has to be made in two places by hand with no test tying them together, and could silently drift the way the plan's own docs say webui_app/static/js/ui/errors.js and frontend/src/lib/errors.ts previously drifted.",
+    "The cross-stack self-origination guard (error-capture-core.js's CAPTURE_MODULE_FILENAMES literal list, e.g. 'errorCapture.ts', 'errorCapturePlugin.ts') is explicitly documented as unreliable once Vite bundles to hashed production chunk names. This is an accepted, documented limitation rather than a new one, but it is a real fragility point for the whole 'never let a capture-pipeline bug self-report-loop' safety property on the SPA side in production."
+  ],
+  "testing_gaps": [
+    "No lint/CI check guards against literal control/non-printable bytes being committed into tracked text source files -- the errors.ts NUL-byte issue (see findings) would not have been caught by any existing gate; a cheap 'no NUL bytes in tracked *.ts/*.js files' pre-commit or CI check would catch this class of copy/paste corruption going forward.",
+    "There is no automated contract test asserting that the legacy error-report-entry.js panel and the Vue ReportProblemPanel.vue component send byte-identical request bodies for the manual POST and description PATCH paths -- today that equivalence is only maintained by matching doc comments in both files, which is exactly the drift mode the plan's own module docstrings warn about for the errors.js/errors.ts pair."
+  ]
+}

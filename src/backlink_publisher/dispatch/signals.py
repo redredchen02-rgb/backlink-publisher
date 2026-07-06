@@ -16,10 +16,14 @@ from typing import Any, cast
 from backlink_publisher.canary.store import get_health
 from backlink_publisher.publishing.registry import (
     active_platforms,
-    dispatch_weight as registry_dispatch_weight,
     dofollow_status,
     policy,
     referral_value,
+)
+from backlink_publisher.publishing.registry import (
+    dispatch_weight as registry_dispatch_weight,
+)
+from backlink_publisher.publishing.registry import (
     visibility as registry_visibility,
 )
 

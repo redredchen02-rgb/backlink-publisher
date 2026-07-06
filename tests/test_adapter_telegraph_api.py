@@ -11,15 +11,15 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
-
+from backlink_publisher.config import Config
 
 PAYLOAD = {
     "id": "tg-happy-1",
@@ -104,6 +104,7 @@ def test_happy_draft_mode_returns_draft_url(isolated_config_dir):
     assert result.published_url == ""
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_token_bootstrap_when_no_file_exists(isolated_config_dir):
     """No token file → adapter calls createAccount, writes 0o600, publishes."""
     from backlink_publisher.publishing.adapters.telegraph_api import TelegraphAPIAdapter
@@ -202,6 +203,7 @@ def test_markdown_with_unsupported_html_publishes_via_unwrap(isolated_config_dir
 # ── Token file perms guard ────────────────────────────────────────────────────
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_token_file_with_loose_perms_raises_dependency_error(isolated_config_dir):
     """Token file 0644 → DependencyError suggesting chmod."""
     from backlink_publisher.publishing.adapters.telegraph_api import TelegraphAPIAdapter

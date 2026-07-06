@@ -9,7 +9,7 @@ from __future__ import annotations
 
 __tier__ = "integration"
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
 import pytest
 
@@ -18,7 +18,7 @@ from backlink_publisher.events.kinds import LINK_RECHECKED, PUBLISH_CONFIRMED
 from backlink_publisher.events.survival_query import compute_survival
 from backlink_publisher.recheck import verdicts
 
-NOW = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 5, 12, 0, tzinfo=UTC)
 
 
 @pytest.fixture

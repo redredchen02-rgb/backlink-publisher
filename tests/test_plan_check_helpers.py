@@ -7,16 +7,15 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import datetime
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import call, MagicMock, patch
 
 import pytest
 
-from backlink_publisher.cli.plan_check import (
+from backlink_publisher.cli.plan.plan_check import (
     _emit_error_and_exit,
     _extract_plan_date,
     _resolve_claims,
 )
-
 
 # ── _extract_plan_date ────────────────────────────────────────────────────────
 

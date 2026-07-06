@@ -29,7 +29,6 @@ Design choices:
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any, cast
 
@@ -37,10 +36,10 @@ from backlink_publisher._util.errors import DependencyError, ExternalServiceErro
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_qiita_token
 from backlink_publisher.http import post as http_post
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
 from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _QIITA_ITEMS_API = "https://qiita.com/api/v2/items"
 _HTTP_TIMEOUT_S = 30
@@ -49,12 +48,11 @@ _MAX_TAGS = 5
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("QIITA_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="qiita",
+        env_var="QIITA_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("qiita")
     if toml_val is not None:
@@ -70,7 +68,7 @@ def _required_headers(token: str) -> dict[str, str]:
 
 
 def _load_token(config: Config) -> str:
-    token_path = config.qiita_token_path
+    token_path = config.token_path("qiita")
     data = load_qiita_token(token_path)
     token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
@@ -121,7 +119,7 @@ class QiitaAPIAdapter(Publisher):
 
     @classmethod
     def available(cls, config: Config) -> bool:
-        token_path = config.qiita_token_path
+        token_path = config.token_path("qiita")
         data = load_qiita_token(token_path)
         if not data:
             return False

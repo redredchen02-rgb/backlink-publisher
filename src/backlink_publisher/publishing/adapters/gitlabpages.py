@@ -32,26 +32,24 @@ DOFOLLOW NOTICE:
 from __future__ import annotations
 
 import base64
+from datetime import datetime, UTC
 import html
 import json
-import os
-import stat
 import time
-from datetime import datetime, timezone
-from urllib.parse import quote
 from typing import Any, cast
+from urllib.parse import quote
 
-from backlink_publisher.http import post as http_post, put as http_put
-
-from backlink_publisher.config import Config, load_gitlabpages_token
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, load_gitlabpages_token
+from backlink_publisher.http import post as http_post
+from backlink_publisher.http import put as http_put
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
+
 from .base import AdapterResult
 from .ghpages import _slugify
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
-
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 GITLAB_API = "https://gitlab.com/api/v4"
 _HTTP_TIMEOUT_S = 30
@@ -59,7 +57,7 @@ _ALREADY_EXISTS = "already exists"  # GitLab 400 marker (create-on-existing AND 
 
 
 def _utc_date() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def _required_headers(token: str) -> dict[str, str]:
@@ -77,12 +75,9 @@ def _require_secure_mode(path: Any) -> None:
     land 0o644 (world-readable secret). Fail loud rather than load it silently.
     """
     if path.exists():
-        mode = os.stat(path).st_mode & 0o777
-        if mode != 0o600:
-            raise DependencyError(
-                f"GitLab token file {path} has mode {oct(mode)}; must be 0o600. "
-                f"Run: chmod 600 {path}"
-            )
+        from backlink_publisher._util.permissions import check_0600
+
+        check_0600(path, label="GitLab token file")
 
 
 def _load_token(config: Config) -> str:
@@ -91,13 +86,14 @@ def _load_token(config: Config) -> str:
     The message names the ``pages`` CI-job precondition loudly — committing a
     file does nothing without it.
     """
-    _require_secure_mode(config.gitlabpages_token_path)
-    data = load_gitlabpages_token(config.gitlabpages_token_path)
+    tp = config.token_path("gitlabpages")
+    _require_secure_mode(tp)
+    data = load_gitlabpages_token(tp)
     token: str = cast(str, (data or {}).get("token", "")).strip()
     if not token:
         raise DependencyError(
             "GitLab Pages PAT not configured. "
-            f"Write {{\"token\": \"<pat>\"}} to {config.gitlabpages_token_path} "
+            f'Write {{"token": "<pat>"}} to {tp} '
             "(chmod 600). PAT needs `api` scope. NOTE: the target project must "
             "already have a `pages` CI job emitting public/ — the adapter does "
             "not create .gitlab-ci.yml, and committing a file does not publish "
@@ -183,7 +179,7 @@ class GitLabPagesAPIAdapter(Publisher):
         cfg = config.gitlabpages
         if cfg is None or not cfg.project:
             return False
-        data = load_gitlabpages_token(config.gitlabpages_token_path)
+        data = load_gitlabpages_token(config.token_path("gitlabpages"))
         return bool(data and (data.get("token") or "").strip())
 
     def publish(

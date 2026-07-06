@@ -18,12 +18,14 @@ __tier__ = "unit"
 import base64
 import json
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
+from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config import (
     Config,
     GhpagesConfig,
@@ -31,9 +33,7 @@ from backlink_publisher.config import (
     load_ghpages_token,
     save_ghpages_token,
 )
-from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.publishing._verify import VerifyResult
-
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -96,6 +96,10 @@ class TestGhpagesTokenIO:
         save_ghpages_token({"token": "ghp_xyz"}, path)
         assert load_ghpages_token(path) == {"token": "ghp_xyz", "token_rev": 1}
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows does not enforce Unix 0600 permission semantics",
+    )
     def test_save_sets_0600_permissions(self, tmp_path):
         path = tmp_path / "ghpages-token.json"
         save_ghpages_token({"token": "abc"}, path)
@@ -128,7 +132,7 @@ class TestGhpagesConfig:
     def test_config_ghpages_token_path_is_in_config_dir(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         cfg = Config()
-        assert cfg.ghpages_token_path == tmp_path / "ghpages-token.json"
+        assert cfg.token_path("ghpages") == tmp_path / "ghpages-token.json"
 
 
 # ───────────────────────────────────────────────────────────────────────────────

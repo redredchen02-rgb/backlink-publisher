@@ -1,27 +1,24 @@
+from datetime import datetime, timedelta, UTC
 import json
-import uuid
-from datetime import datetime, timedelta, timezone
 
 from apscheduler.executors.pool import ThreadPoolExecutor as APSThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from backlink_publisher._util.logger import plan_logger
-
+from backlink_publisher.sdk.api import PipelineAPI
 from webui_store import batch_ops_store as _batch_ops_store
 from webui_store import drafts_store as _drafts_store
 from webui_store import history_store as _hist_store
 from webui_store import queue_store as _queue_store
 from webui_store import schedule_store as _sched_store
 
-from backlink_publisher.sdk.api import PipelineAPI
-from .services.keepalive_job import run_keepalive_for_site
 from .helpers.cli_runner import strip_cli_diagnostic_banner
 from .helpers.history import (
     _parse_publish_results,
     _push_history_per_row,
     _push_history_single_failure,
 )
-
+from .services.keepalive_job import run_keepalive_for_site
 
 _RATE_LIMIT_RETRY_DELAY_S: int = 300
 
@@ -32,10 +29,19 @@ _scheduler = BackgroundScheduler(
 
 def _process_queue_job() -> None:
     """轮询队列中的 pending 任务并执行发布，支持 429 自动退避。"""
-    # Use get_runnable() for SQL-filtered retrieval instead of loading all tasks.
+    # Use get_runnable() for SQL-filtered retrieval instead of loading all tasks
+    # (origin's optimization; verified its docstring matches the old loop
+    # semantics exactly). `now` stays naive datetime, not timezone.utc — origin's
+    # commit paired the SQL optimization with a timezone-aware `now` here, but
+    # queue_store.get_runnable() itself still compares against a *naive*
+    # datetime.now() internally; storing an aware isoformat string in
+    # next_retry_at would make that internal comparison raise
+    # "can't compare offset-naive and offset-aware datetimes" the next time
+    # get_runnable() runs. Adopting the SQL optimization without the paired
+    # (and here, incompatible) timezone change avoids that crash.
     pending = _queue_store.get_runnable()
-    now = datetime.now(timezone.utc)
-    
+    now = datetime.now()
+
     if not pending:
         return
 
@@ -47,7 +53,7 @@ def _process_queue_job() -> None:
         config = task['config']
         urls = task['urls']
         target_url = urls[0] if urls else ''
-        
+
         seed = {
             'target_url': target_url,
             'platform': config.get('platform', 'medium'),
@@ -58,7 +64,7 @@ def _process_queue_job() -> None:
             'custom_tags': config.get('custom_tags', ''),
             'extra_urls': urls[1:] if urls else [],
         }
-        
+
         result = PipelineAPI().publish_seed(json.dumps([seed]))
         if result.success:
             _queue_store.update_task(task_id, {
@@ -197,7 +203,7 @@ def _drain_batch_ops() -> None:
     try:
         if operation == "keep_alive":
             # run_keepalive_for_site extracted in U7; raise ImportError until then
-            from .services.keepalive_job import run_keepalive_for_site  # type: ignore[attr-defined]
+            from .services.keepalive_job import run_keepalive_for_site
             run_keepalive_for_site(site_url)
         elif operation == "recheck":
             from .services.recheck import recheck_many
@@ -211,6 +217,23 @@ def _drain_batch_ops() -> None:
     except Exception as exc:
         _batch_ops_store.update_row(row_id, "failed", error=str(exc))
         plan_logger.warn("batch_ops_drain_failed", row_id=row_id, operation=operation, error=str(exc))
+
+
+def _purge_expired_error_reports_job() -> None:
+    """APScheduler job: delete error reports past their retention window.
+
+    Lazy import (mirrors _drain_batch_ops's dispatch imports below) so this
+    module never has a hard top-level dependency on the api.v1 blueprint
+    package. Never lets a purge failure escape to the scheduler thread.
+    """
+    from .api.v1.error_reports import purge_expired_error_reports
+
+    try:
+        removed = purge_expired_error_reports()
+        if removed:
+            plan_logger.info("error_reports_purge_done", removed=removed)
+    except Exception as exc:
+        plan_logger.warn("error_reports_purge_job_failed", error_class=type(exc).__name__)
 
 
 def _restore_scheduled_jobs() -> None:
@@ -232,8 +255,24 @@ def _restore_scheduled_jobs() -> None:
         id='batch_ops_drain',
         replace_existing=True,
     )
-    
-    now = datetime.now(timezone.utc)
+
+    _scheduler.add_job(
+        _purge_expired_error_reports_job,
+        trigger='interval',
+        hours=24,
+        id='error_reports_purge',
+        replace_existing=True,
+    )
+
+    # `now` stays naive datetime here too — origin's version made it
+    # timezone-aware, but `scheduled_at` on drafts (compared against `now`
+    # a few lines below) is stored as a naive isoformat string throughout
+    # this codebase; introducing an aware `now` here without a codebase-wide
+    # naive-to-aware migration would make `run_date < now` raise
+    # "can't compare offset-naive and offset-aware datetimes" the first time
+    # a scheduled draft is restored. Same reasoning as the get_runnable() fix
+    # above in this file.
+    now = datetime.now()
     for item in _drafts_store.load():
         if item.get('status') != 'scheduled':
             continue
@@ -296,7 +335,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
         result_error = result.error
         result_checked = result.checked
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
 
     # Persist history entry with source badge
     entry = {

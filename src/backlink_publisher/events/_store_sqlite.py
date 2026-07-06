@@ -8,13 +8,15 @@ Plan: ``docs/plans/2026-05-26-004-opt-projector-budget-rescue-plan.md``
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import UTC
 import os
+from pathlib import Path
 import sqlite3
 import subprocess
 import sys
 import time
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from ..config import _config_dir
 
@@ -93,20 +95,19 @@ def _set_backup_exclude_xattr(path: Path) -> None:
     Failures are silent (subprocess missing, kernel rejects) — the file
     is still created and usable; backup exclusion is defense-in-depth.
     """
-    if sys.platform != "darwin":
-        return
-    try:
-        subprocess.run(
-            ["xattr", "-w", _XATTR_BACKUP_EXCLUDE, "1", str(path)],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=_XATTR_TIMEOUT_S,
-        )
-    except (FileNotFoundError, subprocess.SubprocessError):
-        # xattr binary missing or subprocess died. Don't crash event-store
-        # init over a backup-hygiene improvement.
-        pass
+    if sys.platform == "darwin":
+        try:
+            subprocess.run(
+                ["xattr", "-w", _XATTR_BACKUP_EXCLUDE, "1", str(path)],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=_XATTR_TIMEOUT_S,
+            )
+        except (FileNotFoundError, subprocess.SubprocessError):
+            # xattr binary missing or subprocess died. Don't crash event-store
+            # init over a backup-hygiene improvement.
+            pass
 
 
 def _is_transient_sqlite_error(exc: sqlite3.OperationalError) -> bool:
@@ -149,9 +150,9 @@ def _retry_sqlite(
 
 def _now_iso_utc() -> str:
     """ISO-8601 UTC timestamp, e.g. ``2026-05-18T12:00:00+00:00``."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _pid_alive(pid: int) -> bool:

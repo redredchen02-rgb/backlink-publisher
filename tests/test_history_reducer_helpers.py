@@ -7,16 +7,15 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import sqlite3
-from unittest.mock import MagicMock, call
+from unittest.mock import call, MagicMock
 
 import pytest
 
+from backlink_publisher.events import kinds
 from backlink_publisher.events._project_emit import (
     _emit_confirmed_history_row,
     _parse_row_timestamps,
 )
-from backlink_publisher.events import kinds
-
 
 # ── _parse_row_timestamps ──────────────────────────────────────────────────────
 

@@ -11,19 +11,18 @@ for the historical incident this file's shape choice is reacting to.
 from __future__ import annotations
 
 __tier__ = "unit"
-import uuid
 from pathlib import Path
+import uuid
 
 from backlink_publisher.config import (
-    MediumOAuthConfig,
     load_config,
+    MediumOAuthConfig,
     save_config,
 )
 from backlink_publisher.config._toml_utils import (
     _toml_heading_path,
     _toml_str,
 )
-
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 

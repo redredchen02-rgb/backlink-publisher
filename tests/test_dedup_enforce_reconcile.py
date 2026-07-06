@@ -8,21 +8,21 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U7).
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import os
 import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
-import backlink_publisher.publishing.adapters  # noqa: F401
-from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.events import EventStore
 from backlink_publisher.idempotency.backfill import run_backfill
 from backlink_publisher.idempotency.reconcile import check_enforce_readiness
 from backlink_publisher.linkcheck.verify import VerificationResult
+import backlink_publisher.publishing.adapters  # noqa: F401
+from backlink_publisher.publishing.adapters.base import AdapterResult
 
 _ENFORCE = "BACKLINK_PUBLISHER_DEDUP_ENFORCE"
 _ACK = "BACKLINK_PUBLISHER_DEDUP_ENFORCE_ACK_QUARANTINE"

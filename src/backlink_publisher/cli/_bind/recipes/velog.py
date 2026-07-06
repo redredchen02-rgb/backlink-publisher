@@ -20,14 +20,13 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import re
 import tempfile
 import time
-from pathlib import Path
 from typing import Any
 
 from . import ChannelRecipe
-
 
 _LOGIN_URL = "https://velog.io/"
 

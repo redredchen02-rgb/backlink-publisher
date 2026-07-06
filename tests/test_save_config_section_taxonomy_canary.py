@@ -39,8 +39,8 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
-import stat
 from pathlib import Path
+import stat
 
 import pytest
 

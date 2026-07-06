@@ -26,18 +26,18 @@ The CLI in ``bind_channel.py`` is responsible for emitting
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import json
 import os
-import tempfile
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Protocol, cast
+import tempfile
+from typing import Any, cast, Protocol
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.cli._bind.channels import CHANNELS, EVENTS
 from backlink_publisher.config.loader import _config_dir
-
 
 # Default per-bind timeout. Playwright accepts ms; 5 minutes lets the operator
 # finish a social-OAuth flow including 2FA without artificial pressure.
@@ -142,7 +142,7 @@ def _emit(event: str, **payload: Any) -> None:
     )
     record: dict[str, Any] = {
         "event": event,
-        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
         **payload,
     }
     print(json.dumps(record, ensure_ascii=False), flush=True)

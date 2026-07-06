@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, jsonify, request, Response
 
 PROBLEM_CONTENT_TYPE = "application/problem+json"
 # Stable, documented type-URI namespace. Opaque to humans, stable for clients.

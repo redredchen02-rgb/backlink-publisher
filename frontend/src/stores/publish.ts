@@ -55,6 +55,11 @@ export const usePublishStore = defineStore('publish', () => {
   const publishResult = ref<api.PublishResult | null>(null)
 
   const availablePlatforms = ref<api.Platform[]>([])
+  // Surfaced (but non-fatal) bootstrap failure — loadPlatforms() itself stays
+  // tolerant (keeps the current default so the form works either way); this
+  // just lets the page show a persistent, in-place indicator instead of the
+  // failure being invisible (R3 action 6/7).
+  const platformsError = ref<unknown>(null)
 
   const planning = ref(false)
   const validating = ref(false)
@@ -88,7 +93,9 @@ export const usePublishStore = defineStore('publish', () => {
   async function loadPlatforms(): Promise<void> {
     try {
       availablePlatforms.value = (await api.boundPlatforms()).platforms
-    } catch {
+      platformsError.value = null
+    } catch (e) {
+      platformsError.value = e
       /* keep whatever we have; the platform field still defaults to 'blogger' */
     }
   }
@@ -178,6 +185,7 @@ export const usePublishStore = defineStore('publish', () => {
     effectivePlans,
     publishResult,
     availablePlatforms,
+    platformsError,
     planning,
     validating,
     publishing,

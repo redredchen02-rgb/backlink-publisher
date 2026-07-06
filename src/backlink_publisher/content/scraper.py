@@ -31,18 +31,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
-from requests import Response
 from bs4 import BeautifulSoup
+from requests import Response
 
 from backlink_publisher._util.errors import ExternalServiceError, InputValidationError
 from backlink_publisher._util.logger import plan_logger
-from ._http import _ResponseTooLarge, _safe_get
 from backlink_publisher._util.url import (
     absolutize,
     is_same_host,
     safe_urlparse,
     strip_fragment_query,
 )
+
+from ._http import _ResponseTooLarge, _safe_get
 
 __all__ = [
     "WorkMetadata",
@@ -117,18 +118,18 @@ def fetch_work_metadata(
     except InputValidationError:
         raise
     except _ResponseTooLarge as exc:
-        plan_logger.warn(
+        plan_logger.warning(
             "work_metadata response too large", url=url, reason=str(exc)
         )
         return None
     except Exception as exc:  # noqa: BLE001 — fail-continue per plan
-        plan_logger.warn(
+        plan_logger.warning(
             "work_metadata fetch failed", url=url, error=type(exc).__name__
         )
         return None
 
     if resp.status_code != 200:
-        plan_logger.warn(
+        plan_logger.warning(
             "work_metadata non-200", url=url, status=resp.status_code
         )
         return None
@@ -136,7 +137,7 @@ def fetch_work_metadata(
     try:
         soup = BeautifulSoup(_decode(body, resp), "html.parser")
     except Exception as exc:  # noqa: BLE001 — fail-continue per plan
-        plan_logger.warn(
+        plan_logger.warning(
             "work_metadata parse failed", url=url, error=type(exc).__name__
         )
         return None
@@ -238,7 +239,7 @@ def fetch_work_urls_from_list(
             blocklist=blocklist,
         )
         if not filtered:
-            plan_logger.warn(
+            plan_logger.warning(
                 "sitemap returned 0 work candidates after filtering",
                 list_url=list_url,
             )
@@ -263,7 +264,7 @@ def fetch_work_urls_from_list(
         )
 
     if resp.status_code != 200:
-        plan_logger.warn(
+        plan_logger.warning(
             "list_url non-200", url=list_url, status=resp.status_code
         )
         return []
@@ -290,7 +291,7 @@ def fetch_work_urls_from_list(
     )
 
     if not filtered:
-        plan_logger.warn(
+        plan_logger.warning(
             "list_url returned 0 work candidates after filtering",
             url=list_url,
         )

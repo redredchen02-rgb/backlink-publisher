@@ -26,14 +26,12 @@ from __future__ import annotations
 __tier__ = "unit"
 from pathlib import Path
 
-
 from backlink_publisher.config import (
     Config,
     GhpagesConfig,
     load_config,
     save_config,
 )
-
 
 # ─── Round-trip without channel kwargs ───────────────────────────────────────
 

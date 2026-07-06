@@ -24,10 +24,10 @@ Classification (from :class:`PreflightFacts`, never raises):
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
-from typing import Callable, cast
+from collections.abc import Callable, Iterable
+from typing import cast
 
-from backlink_publisher.content._preflight_fetch import PreflightFacts, fetch_target
+from backlink_publisher.content._preflight_fetch import fetch_target, PreflightFacts
 from backlink_publisher.gates import verdict as gv
 
 FetchFn = Callable[[str], PreflightFacts]

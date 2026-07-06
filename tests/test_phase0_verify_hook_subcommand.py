@@ -19,9 +19,9 @@ from __future__ import annotations
 __tier__ = "unit"
 import io
 import json
+from pathlib import Path
 import subprocess
 import textwrap
-from pathlib import Path
 
 import pytest
 

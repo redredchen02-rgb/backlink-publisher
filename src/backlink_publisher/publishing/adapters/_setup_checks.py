@@ -9,7 +9,7 @@ credential/binding probe formerly inlined in ``verify_adapter_setup``'s
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from backlink_publisher._util.errors import DependencyError
 from backlink_publisher.config import Config
@@ -20,10 +20,10 @@ from .gitlabpages import GitLabPagesAPIAdapter
 from .hackmd_api import HackmdAPIAdapter
 from .hatena_atompub import HatenaAtomPubAdapter
 from .mataroa_api import MataroaAPIAdapter
-from .qiita_api import QiitaAPIAdapter
-from .zenn_github import ZennGitHubAdapter
 from .notion_api import NotionAPIAdapter
+from .qiita_api import QiitaAPIAdapter
 from .telegraph_api import verify_telegraph_setup
+from .zenn_github import ZennGitHubAdapter
 
 
 def _check_medium_setup(config: Config) -> str | None:
@@ -52,10 +52,11 @@ def _check_ghpages_setup(config: Config) -> str | None:
             'GitHub Pages config missing. Add [ghpages] repo="owner/name" '
             "to ~/.config/backlink-publisher/config.toml"
         )
-    if not config.ghpages_token_path.exists():
+    tp = config.token_path("ghpages")
+    if not tp.exists():
         return (
             "GitHub Pages PAT not stored. Write "
-            f'{{"token": "<pat>"}} to {config.ghpages_token_path} '
+            f'{{"token": "<pat>"}} to {tp} '
             "(chmod 600). PAT needs Contents:Read+Write on the target repo."
         )
     return None
@@ -90,7 +91,7 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
         else (
             "Notion integration token or database_id not configured. "
             f'Write {{"integration_token": "secret_...", "database_id": "..."}} '
-            f"to {c.notion_token_path} (chmod 600). "
+            f"to {c.token_path('notion')} (chmod 600). "
             "Create an Integration at https://www.notion.so/my-integrations."
         )
     ),
@@ -99,7 +100,7 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
         if DevtoAPIAdapter.available(c)
         else (
             "Dev.to API key not configured. "
-            f'Write {{"api_key": "<key>"}} to {c.devto_token_path} '
+            f'Write {{"api_key": "<key>"}} to {c.token_path("devto")} '
             "(chmod 600). Generate at https://dev.to/settings/extensions."
         )
     ),
@@ -108,7 +109,7 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
         if HackmdAPIAdapter.available(c)
         else (
             "HackMD API token not configured. "
-            f'Write {{"token": "<token>"}} to {c.hackmd_token_path} '
+            f'Write {{"token": "<token>"}} to {c.token_path("hackmd")} '
             "(chmod 600). Generate at HackMD → Settings → API → Create token."
         )
     ),
@@ -117,7 +118,7 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
         if MataroaAPIAdapter.available(c)
         else (
             "Mataroa API token not configured. "
-            f'Write {{"token": "<token>"}} to {c.mataroa_token_path} '
+            f'Write {{"token": "<token>"}} to {c.token_path("mataroa")} '
             "(chmod 600). Enable at mataroa.blog → account settings → API."
         )
     ),
@@ -126,7 +127,7 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
         if QiitaAPIAdapter.available(c)
         else (
             "Qiita personal access token not configured. "
-            f'Write {{"token": "<token>"}} to {c.qiita_token_path} '
+            f'Write {{"token": "<token>"}} to {c.token_path("qiita")} '
             "(chmod 600). Generate at qiita.com → Settings → Applications "
             "→ New token (read_qiita + write_qiita scopes)."
         )
@@ -137,7 +138,7 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
         else (
             "Zenn not configured. Requires: (1) [zenn] section in config.toml "
             "with github_repo = \"owner/repo\" and username = \"your-zenn-username\"; "
-            f'(2) {{"token": "<github-pat>"}} at {c.zenn_token_path} '
+            f'(2) {{"token": "<github-pat>"}} at {c.token_path("zenn")} '
             "(chmod 600, contents:write scope on your Zenn-connected repo)."
         )
     ),
@@ -146,7 +147,7 @@ _SETUP_CHECKS: dict[str, Callable[[Config], str | None]] = {
         if GitLabPagesAPIAdapter.available(c)
         else (
             'GitLab Pages not configured. Add [gitlabpages] project="namespace/name" '
-            f'to config.toml and write {{"token": "<pat>"}} to {c.gitlabpages_token_path} '
+            f'to config.toml and write {{"token": "<pat>"}} to {c.token_path("gitlabpages")} '
             "(chmod 600, `api` scope). PRECONDITION: the target project must already "
             "have a `pages` CI job emitting public/ — committing a file does not "
             "publish without it."

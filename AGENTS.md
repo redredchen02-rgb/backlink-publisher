@@ -1,65 +1,119 @@
-# AGENTS.md — backlink-publisher
-
-See `README.md` for project overview and `docs/` for plans, brainstorms, ideation, and solutions.
-
-## Dev Commands
-
-```bash
-# Install
-pip install -e .          # full package
-pip install -e .[dev]     # + dev deps (pytest, radon==6.0.1, etc.)
-
-# Test (PYTHONHASHSEED=0 required — set by pytest-env in pyproject.toml)
-pytest tests/
-pytest tests/test_no_monolith_regrowth.py -k "R4"   # single budget test
-pytest tests/scripts/                               # worktree script tests
-pytest -m real_ssrf_check                           # live SSRF checks (off by default)
-pytest -m real_content_fetch                        # live content fetching (module-wide in test_content_fetch.py)
-
-# Lint (CI uses py_compile + ast.parse, not Black/flake8 — local-only)
-black --check src/
-flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
-
-# SLOC measurement (for monolith budget edits)
-python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan_backlinks is a package; core.py is the monitored file
-
-# WebUI
-python webui.py                                    # start dev server on :8888
-scripts/launcher.command                           # canonical operator launcher (FLASK_DEBUG=0 + pinned SECRET_KEY, crash-restart loop)
-```
-
-> **One launcher (R9):** `scripts/launcher.command` is the single git-tracked launcher. The workspace-root `启动WebUI.command` / `restart_webui.sh` and `make restart-webui` are thin entry points that should resolve to it — keep the security posture (Werkzeug debug off, pinned `SECRET_KEY`) in this one file only.
+	# AGENTS.md — backlink-publisher
+	
+	See `README.md` for project overview and `docs/` for plans, brainstorms, ideation, and solutions.
+	
+	## Dev Commands
+	
+	### macOS / Linux
+	```bash
+	# Install
+	pip install -e .          # full package
+	pip install -e .[dev]     # + dev deps (pytest, radon==6.0.1, etc.)
+	
+	# Test (PYTHONHASHSEED=0 required — set by pytest-env in pyproject.toml)
+	pytest tests/
+	pytest tests/test_no_monolith_regrowth.py -k "R4"   # single budget test
+	pytest tests/scripts/                               # worktree script tests
+	pytest -m real_ssrf_check                           # live SSRF checks (off by default)
+	pytest -m real_content_fetch                        # live content fetching (module-wide in test_content_fetch.py)
+	
+# Lint (CI uses ruff, not Black/flake8 — P12 migration completed)
+ruff check src/ webui_app/ webui_store/
+	
+	# SLOC measurement (for monolith budget edits)
+	python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py  # plan_backlinks is a package; core.py is the monitored file
+	
+	# WebUI
+	python webui.py                                    # start dev server on :8888
+	scripts/launcher.command                           # canonical operator launcher (FLASK_DEBUG=0 + pinned SECRET_KEY, crash-restart loop)
+	```
+	
+	### Windows (PowerShell 5.1+)
+	```batch
+	REM Install
+	.venv\Scripts\python -m pip install -e .[dev]
+	
+	REM Test (PYTHONHASHSEED=0 set by pytest-env in pyproject.toml)
+	.venv\Scripts\python -m pytest tests/
+	.venv\Scripts\python -m pytest tests/test_no_monolith_regrowth.py -k "R4"
+	
+REM Lint (ruff, not Black/flake8)
+.venv\Scripts\python -m ruff check src/ webui_app/ webui_store/
+	
+	REM SLOC measurement
+	.venv\Scripts\python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py
+	
+	REM WebUI
+	.venv\Scripts\python webui.py                                    # dev server on :8888
+	powershell -ExecutionPolicy Bypass -File scripts\launcher.ps1     # canonical operator launcher (Windows)
+	```
+	
+	> **One launcher (R9):** On macOS, `scripts/launcher.command` is the single git-tracked launcher. On Windows, its equivalent is `scripts/launcher.ps1`. The workspace-root `启动WebUI.bat` / `restart_webui.bat` are thin entry points that should resolve to it — keep the security posture (Werkzeug debug off, pinned `SECRET_KEY`) in these files only.
 
 ## Repo Layout
-
-Workspace root (not a git repo) holds `backlink-publisher/` (canonical) and `bp-<topic>/` (`git worktree` checkouts sharing `.git/`). Edit `backlink-publisher/`, never `bp-*/`, unless on that branch.
+	
+	Workspace root (not a git repo) holds `backlink-publisher/` (canonical) and `bp-<topic>/` (`git worktree` checkouts sharing `.git/`). Edit `backlink-publisher/`, never `bp-*/`, unless on that branch.
+	
+	### Windows path orientation
+	
+	| macOS path | Windows path |
+	|---|---|
+	| `.venv/bin/python` | `.venv\Scripts\python.exe` |
+	| `.venv/bin/activate` | `.venv\Scripts\activate` (或 `.venv\Scripts\activate.bat`) |
+	| `~/.config/backlink-publisher/` | `%USERPROFILE%\.config\backlink-publisher\` |
+	| `~/.cache/backlink-publisher/` | `%USERPROFILE%\.cache\backlink-publisher\` |
+	| `scripts/launcher.command` | `scripts\launcher.ps1` (PowerShell) |
+	| `restart_webui.sh` | `restart_webui.bat` |
+	| `启动WebUI.command` | `启动WebUI.bat` |
+	| `PYTHONPATH=src:${PYTHONPATH}` (冒號) | `PYTHONPATH=src;%PYTHONPATH%` (分號) |
+	
+	All `.bat` / `.ps1` Windows-specific files are written fresh per-platform (not git worktree symlinks). Edit the canonical file under `backlink-publisher/scripts/` — workspace-root wrappers (`.bat`, `.command`) are entry-only and should delegate to the canonical script.
 
 ### WebUI
 
-Flask app at `webui_app/` (37 route modules, `create_app()` factory). State persistence at `webui_store/` — eight lazily-resolved `_LazyStore` wrappers in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`) plus the eagerly-imported `channel_status_store` from the `channel_status` submodule. Launcher: `python webui.py`.
+Flask app at `webui_app/` (37 route modules, `create_app()` factory). State persistence at `webui_store/` — **10** `_LazyStore`-backed singletons total (live-recounted 2026-07-02 via `grep -rn "_LazyStore(" webui_store/*.py`, superseding the earlier "9" figure — see also `CLAUDE.md`'s WebUI Layout section for the same count and method): eight declared and exported in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`), plus `channel_status_store` (`webui_store/channel_status.py`, imported eagerly into `__init__.py`'s namespace but itself `_LazyStore`-wrapped like the rest), plus `verify_health_store` (`webui_store/verify_health.py`) — a real, pre-existing `_LazyStore` singleton used by that module's own `record()`/`expired_channels()`/`list_all()` functions, but never re-exported through `webui_store/__init__.py.__all__`, which is why earlier counts missed it. Launcher: `python webui.py`.
 
 App-level CSRF guard `_global_csrf_guard` (PR #143, `webui_app/__init__.py`) enforces a token on every POST/PUT/PATCH/DELETE. Tests opt out via `app.config['CSRF_ENABLED'] = False` (or the legacy `WTF_CSRF_ENABLED` flag — both honored). The `_check_csrf_or_abort` helper has a single production call site inside the global guard; PR #148 removed all inline per-route calls.
 
-### Frontend conventions — zero-build native ES modules (Plan 2026-06-01-007)
+### Frontend — Vue 3 SPA (primary) with legacy Jinja fallback (P12 Phase 3 migration)
 
-No Node / bundler / framework. Browser-native ES modules + Jinja `base.html` + CSS custom-property tokens. Deployment stays "double-click → run".
+The primary UI is a **Vue 3 SPA** at `/app/*`, built with Vite and served by Flask (single-origin, no CORS). The SPA uses Vue Router 5 (`createWebHistory('/app/')`), Pinia stores, and `@tanstack/vue-query` for server-state caching.
 
-**Layer map**
-- `templates/base.html` owns the single `<head>`: Bootstrap/Icons CDN, `<meta name="csrf-token">`, the **classic non-`defer` Bootstrap bundle script**, `tokens.css`, and the blocks `title` / `head_extra` / `content` / `page_data` / `page_module`. Every page `{% extends 'base.html' %}` — never re-declare `<head>`.
-- `static/js/lib/` is the shared ESM layer: `api.js` (`fetchJson`, `readCsrf`, `postJson`/`postForm`), `dom.js` (`on`/`delegate`/`qs` + `esc` + `renderBadge`), `profiles.js` (config-form editor/profile fns). `static/js/package.json` `{type:module}` marks the dir as ESM (browsers ignore it; enables `node`-level unit checks).
-- `static/css/tokens.css` is the single `:root` token source; `index.css`/`settings.css` consume `var(--…)`, no local `:root`.
+**Dual-stack architecture** (strangler-fig migration):
+- SPA routes: `/app/publish`, `/app/monitor`, `/app/history`, `/app/drafts`, `/app/sites`, `/app/schedule`, `/app/batch-campaign`, `/app/settings`, `/app/pr-queue` (P12), `/app/*` catch-all → 404
+- Legacy Jinja pages remain at their original URLs as fallback. When a page is migrated, the Jinja route redirects to `/app/<page>` (e.g., `/settings` → `/app/settings`, `/pr-queue` → `/app/pr-queue`).
+- Remaining Jinja-only pages (being migrated in P12): `health`, `equity_ledger`, `survival_dashboard`, `keep_alive`, `command_center`, `optimization_status`, `pipeline_dashboard`, `campaign_progress` (11 total at P12 start → 10 remaining after pr_queue migration)
 
-**Add a page**: create `templates/<page>.html` → `{% extends 'base.html' %}`; put markup in `{% block content %}`; one `{% block page_module %}<script type="module" src="{{ url_for('static', filename='js/<page>.js', v=asset_version) }}"></script>`; server→client data via a read-once `{% block page_data %}<script>window.__<page>Bootstrap = {{ … | tojson }}</script>` (read once at module top, never for cross-module calls). The `<page>.js` module `import`s from `./lib/*.js`.
+**Build pipeline:**
+```bash
+cd frontend/
+npm ci                              # clean install from lockfile
+npm run typecheck                   # vue-tsc --noEmit (TypeScript check)
+npm run test                        # vitest unit tests (jsdom)
+npm run build                       # Vite production build → webui_app/spa_dist/
+```
+- CI runs all 4 steps via `.github/workflows/frontend.yml` on `frontend/**` changes.
+- Docker multi-stage build: `frontend-builder` stage → runtime imports `spa_dist/`.
+- SPA is gated by `BACKLINK_PUBLISHER_SPA` env var (default `"1"`; `"0"` disables).
+- Dev server: `npm run dev` on `:5173`, proxies `/api` → Flask `:8888`.
 
-**Add a channel card / binding form**: reuse the existing `{% include %}`-with-`{% with channel=… %}` partials (they inherit `csrf_token` via the context processor). **If you ever convert a binding partial to a Jinja `macro`, pass `csrf_token` as an explicit parameter** — macros do NOT inherit context-processor vars, and an empty `csrf_token` → 403 on every bind/save (render tests run `CSRF_ENABLED=False` and won't catch it).
+**SPA architecture:**
+- `frontend/src/router/index.ts` — route definitions (lazy-loaded via `import()`)
+- `frontend/src/pages/` — per-page `.vue` components
+- `frontend/src/api/` — typed API modules (Axios-based `client.ts` + domain modules)
+- `frontend/src/stores/` — Pinia stores (publish, notifications, theme)
+- `frontend/src/layout/` — AppShell, SideNav, TopBar, navItems
+- `frontend/src/components/` — shared components (StateBlock, Toast, etc.)
 
-**Anti-rot rules (do not regress):**
-1. **No inline `on*` handlers, no inline `<script>` logic.** Use `data-action="…"` (+ `data-*` for args) and a delegated `addEventListener` in the page module. `return confirm(...)` guards become `data-confirm="…"` handled by `(e)=>{ if(!confirm(msg)) e.preventDefault(); }`.
-2. **No cross-script `window.*` globals as an API.** Modules `import` from `lib/`; cross-component signals use DOM `CustomEvent` (e.g. `channel-binding.js` → `velog:login` → `settings.js`), never a `typeof window.fn` probe (silently no-ops under module scope).
-3. **No untrusted `${…}` into `innerHTML`.** Build nodes with `createElement` + `textContent`/`el.dataset`, or `esc()` (the 5-char superset incl. single-quote). Untrusted = anything from a server/provider response (LLM model ids, error messages).
-4. **`readCsrf()` reads the `<meta>` per call** (never cache in a module const — a rotated token would 403 the fetch transport). Preserve the dual transport: form field `csrf_token` OR `X-CSRFToken` header.
-5. **Bootstrap stays a classic non-`defer`/non-`module` head script** — that ordering guarantees `window.bootstrap` before any deferred page module.
-6. **Bump `asset_version`** (auto, mtime-derived in `webui_app/__init__.py`) is stamped on every `url_for('static', …, v=asset_version)` ref so a long-lived operator session can't serve stale classic JS against new module HTML. Run any UI walkthrough after a hard refresh.
+**Legacy Jinja pages (not yet migrated):** follow the old patterns below. When adding a new Jinja page, prefer creating an SPA route instead.
+
+**Legacy Jinja conventions (being phased out):**
+- `templates/base.html` owns the single `<head>`: Bootstrap/Icons CDN, `<meta name="csrf-token">`, `tokens.css`
+- `static/js/lib/` is the shared ESM layer: `api.js`, `dom.js`, `profiles.js`
+- `static/css/tokens.css` is the single `:root` token source
+- Server→client data via read-once `{% block page_data %}<script>window.__<page>Bootstrap</script>`
+- No inline `on*` handlers, no cross-script `window.*` globals, no untrusted `${…}` into `innerHTML`
+- `readCsrf()` reads the `<meta>` per call — never cache in a module const
 
 JS interaction is covered by `node --test` for the pure helpers in `static/js/lib/` (`tests/js/test_lib_api.mjs`, `tests/js/test_lib_dom.mjs`, `tests/js/lib_dom_check.mjs`); page-level interaction has no framework and is verified by an adversarial manual walkthrough (silent-fail paths: velog bind, paste-to-derive, synthetic-click bind delegation). pytest covers server-rendered structure + CSRF.
 
@@ -182,17 +236,29 @@ Test fixtures: `fixtures/seed.jsonl` (E2E, at repo root), `tests/fixtures/sloc_c
 
 ## CI (GitHub Actions)
 
-`backlink-publisher/.github/workflows/ci.yml` triggers on push to `main`/`develop`, PRs to `main`. Python 3.11+3.12, all steps blocking (no `|| true`). `PYTHONHASHSEED=0` at job level for footprint regression gate.
+`backlink-publisher/.github/workflows/ci.yml` triggers on push/PR to `main`. `PYTHONHASHSEED=0` set once at workflow-root `env:` level, covering every job. Five jobs as of Phase 3 Sprint C (2026-07-02):
 
-```bash
-pip install -e ".[dev]"
-python -m pytest tests/ -v --tb=short --timeout=30
-python -m py_compile src/backlink_publisher/**/*.py
-# style check (not Black): ast.parse each .py via pathlib.Path("src").rglob("*.py")
-cat fixtures/seed.jsonl | plan-backlinks | validate-backlinks | publish-backlinks --dry-run
-```
+| Job | When | Py / Node | Timeout | Notes |
+|---|---|---|---|---|
+| `unit` | Every push/PR | 3.11+3.12 matrix | 15 min | pip-audit (advisory, `continue-on-error`); **two-step split (C1a)**: "seam" step runs `-m "unit and seam"` with **no** `--reruns` (790/9887 tests as of 2026-07-02 — persistence/IO-heavy modules where a flake is likely a real bug must stay red), then "rest" step runs `-m "unit and not seam"` with `--reruns 2 --reruns-delay 1` (9097/9887 tests, ordinary CI flakiness is the more likely cause there); syntax validation (`py_compile` + `ast.parse` sweep, **A1** re-add); `ruff check src/ webui_app/ webui_store/`; `lint-imports`; fixture verify (`generate_fixtures.py`); `mypy src/backlink_publisher --config-file mypy.ini` (blocking, P12) |
+| `integration` | PR only | 3.12 | 25 min | `-m integration`, full-suite coverage gate (`--cov-fail-under=80`) |
+| `e2e` (job inside `ci.yml`) | PR only | 3.12 | 30 min | `-m e2e`, single-core (no xdist), 120s per-test timeout |
+| `benchmark` (**C2**, new) | Every push/PR | 3.12 | 15 min | Runs `tests/test_benchmarks.py --benchmark-only` (`continue-on-error: true`); publishes a fixed-name `benchmark-baseline` artifact on `main` pushes; on PRs, downloads the latest main baseline and diffs via `scripts/compare_benchmarks.py --threshold-pct 20` — **advisory/warn-only end to end**, the compare script always exits 0 |
+| `frontend-lint` (**C3**, new) | Every push/PR (no path filter) | Node 24 | 10 min | `cd frontend && npm ci && npx tsc --noEmit && npx vite build`. `tsc --noEmit` currently exits red on pre-existing `@types/node` gaps predating this job (tracked separately, not fixed here); `vite build` succeeds and emits `webui_app/spa_dist/`, the path Flask's `/app/*` route serves |
 
-NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (references `core/`, `|| true`). Ignore it — canonical CI is inside the git repo.
+**Seam auto-classification (C1a):** `tests/conftest.py` AST-scans each test module's own `import` statements for the `events.`/`gap.`/`idempotency.`/`ledger.`/`webui_app.api` prefixes (`_SEAM_IMPORT_PREFIXES`) and applies `pytest.mark.seam` automatically — no manual per-file list to maintain. A small, shrink-only `_SEAM_COINCIDENTAL_IMPORT_EXCLUSIONS` list (each entry requires a rationale comment) opts out files whose seam-module import is coincidental (e.g. reads a static constant, no runtime interaction).
+
+Additional workflows (all path-filtered, PR-only unless noted): `frontend.yml` (SPA typecheck + vitest + build on `frontend/**` changes — narrower trigger than `ci.yml`'s `frontend-lint`, which has no path filter and skips the vitest step), `e2e.yml` (Playwright `publish-journey` E2E against a live single-origin Flask instance, triggered by `frontend/**`, `webui_app/api/v1/pipeline.py`, `webui_app/routes/spa.py`, `tests/e2e/**`), `api-contract.yml` (OpenAPI 3.1 spec drift gate + Spectral lint + oasdiff breaking-change check + Schemathesis GET-only conformance fuzz against an ephemeral credential-free instance, triggered by `openapi/**`, `webui_app/api/**`), `plan-claims-gate.yml`, `plan-claims-radar.yml`, `phase0-seal-check.yml`, `plan-redrift-gate.yml`.
+
+**Syntax validation:** `py_compile` + `ast.parse` sweep over every tracked `.py` file, re-added as its own `unit` job step by **A1** (2026-06-30-001) — this is additive to, not a replacement for, `ruff check` (an earlier P11 note here said `ruff` "replaces" the `py_compile`/`ast.parse` check; that is no longer accurate — both run on every push/PR now).
+**Linting:** `ruff check src/ webui_app/ webui_store/`.
+**Type checking:** `mypy src/backlink_publisher` — **blocking** as of P12 (previously advisory with `continue-on-error`).
+**Import boundaries:** `lint-imports` enforces 2 forbidden contracts: `domain → cli` and `_util → domain` (known exceptions explicitly listed).
+**Monolith budgets:** `test_no_monolith_regrowth.py` (SLOC ceilings for 41 files), `test_no_complexity_regrowth.py` (CC 30 backstop). Both carry `__tier__ = "unit"` and ride the seam auto-marker mechanism above — no dedicated CI step.
+**Benchmarks:** `test_no_monolith_regrowth.py`/`test_no_complexity_regrowth.py`-adjacent but distinct — see the `benchmark` job above; warn-only, never gates the build.
+**Coverage:** Branch coverage, 80% fail-under floor, per-unit + full-suite JSON artifacts uploaded.
+
+(The workspace root has no CI — it's not a git repo. All CI lives inside `backlink-publisher/.github/workflows/ci.yml` plus the sibling workflow files listed above.)
 
 ## Environment Variables
 
@@ -248,7 +314,8 @@ NOTE: A stale copy exists at workspace root `./.github/workflows/ci.yml` (refere
 - Exit code table (0-6) is a documented contract, not enforced by `sys.exit()` in CLI code
 - `bp-*/AGENTS.md` are stale copies — update this file, not those
 - `docs/plans/`, `docs/brainstorms/` contain real operator domain names — don't propagate to `docs/solutions/`
-- `develop` branch doesn't exist (locally or remote) despite CI triggering on `branches: [main, develop]`
+	- `develop` branch doesn't exist (locally or remote); CI triggers only on `branches: [main]`
+	- Local branches after the 2026-07-02 branch/PR consolidation: `main` (active, now includes the former `feat/frontend-error-reporting`, `feat/phase3-sprint-b-frontend-stabilization`/`feat/phase3-sprint-e1-docs-archive`, and `fix/webui-theme-nav-layout-cleanup` branches), `fix/u1-test-suite-triage` (active WIP — U1 test-suite triage, not yet merged). 9 landed/stale branches deleted (`chore/v050-doc-archive`, `feat/v050-ui-consistency`, `fix/drafts-store-test-isolation`, `fix/recheck-ledger-liveness-seam` and their remote counterparts, plus remote-only leftovers `refactor/u1-generate-payload`, `feat/webui-console-redesign`, `feat/webui-publish-workbench`, `opt/phase2-test-coverage-exceptions`, and `gitlab/feat/full-automation-upgrade`) — each tagged `archive/<branch-name>` locally before deletion. **Note:** GitHub account access was suspended during this cleanup, so the *actual* remote branches on `origin`/`gitlab` for the deleted-content branches still exist and need manual deletion once access is restored — only local branches and local remote-tracking refs were removed. `feat/phase3-sprint-b-frontend-stabilization`'s branch/worktree deletion was deferred past this consolidation pass — an independent session was actively committing to it (code-review/adversarial-finding fixes) at merge time; its content as of this merge is already in `main`, but the branch itself is left alone until that session finishes.
 - `~/.config/backlink-publisher/llm-settings.json` holds the LLM `api_key`; PR #140 routed writes through `safe_write.atomic_write` so the file lands `0o600`. Files written by pre-#140 code may still be `0644` until the next save.
 - `docs/architecture/deterministic-planning-principle.md` defines the architecture boundary between deterministic planning (pure, testable) and non-deterministic publishing (platform-dependent). Advisory — not CI-enforced.
 

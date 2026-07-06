@@ -1,0 +1,66 @@
+{
+  "reviewer": "correctness",
+  "findings": [
+    {
+      "title": "PATCH /api/v1/error-reports/<id> ignores attach_description()/update_status() return values, producing a false-success 200 with stale data on concurrent delete",
+      "severity": "P2",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 305,
+      "confidence": 0.72,
+      "autofix_class": "gated_auto",
+      "owner": "backend",
+      "requires_verification": false,
+      "pre_existing": false,
+      "why_it_matters": "update_error_report() fetches `existing` once at the top (line 279) to 404 on a genuinely-missing id, then later calls attach_description()/update_status() without checking their boolean return value, and finally falls back to the stale pre-fetch `existing` dict when the post-write get(report_id) returns None (line 330: `updated = error_report_store.get(report_id) or existing`). Both store methods explicitly document returning False (not raising) when the row disappears between check and write -- e.g. a concurrent DELETE from another operator tab in the small window between the initial GET and the attach/update call. In that race, this endpoint silently no-ops the write, then serves back the stale, pre-delete snapshot with a 200 OK, telling the caller its update was applied when in fact the row no longer exists and nothing was persisted. This is exactly the false-success shape this codebase's own UX-Honesty convention (docs/solutions/ux-honesty/webui-false-success-resolution.md), which this same plan explicitly invokes elsewhere in this file's module docstring, warns against. The POST handler in the same module (create_error_report) gets this right -- it checks `if error_report_store.increment_occurrence(existing_id):` and falls through to add() on False -- so the fix is to apply the same pattern here: check the boolean returns of attach_description()/update_status() and raise a 404 ApiProblem (report vanished mid-request) instead of falling back to `existing`.",
+      "suggested_fix": "After calling attach_description()/update_status(), check their boolean return values; if either returns False, raise ApiProblem(404, ...) instead of silently falling through to `error_report_store.get(report_id) or existing` at the end of the function."
+    },
+    {
+      "title": "Vue SPA error-capture engine never flushes accumulated in-window duplicate counts, silently losing occurrence data the legacy JS engine reports",
+      "severity": "P2",
+      "file": "frontend/src/lib/errorCapture.ts",
+      "line": 178,
+      "confidence": 0.78,
+      "autofix_class": "manual",
+      "owner": "frontend",
+      "requires_verification": false,
+      "pre_existing": false,
+      "why_it_matters": "Both frontends share the same `DedupTracker` (webui_app/static/js/lib/error-capture-core.js), whose module docstring explicitly requires that noise-filtering, self-report-loop guarding, severity classification, and fingerprinting must behave IDENTICALLY on both frontends -- this was written specifically to prevent the kind of quiet divergence this codebase already suffered once (errors.js vs errors.ts). The legacy engine (webui_app/static/js/ui/error-capture.js) wires a 30s setInterval that calls tracker.collectPendingUpdates() and re-submits an occurred-N-times update for any fingerprint whose in-window count grew since the last report (lines 236-242, 290-296 of that file). frontend/src/lib/errorCapture.ts constructs the same DedupTracker and calls tracker.record() (line 182) but never calls collectPendingUpdates() anywhere in the file, main.ts, or errorCapturePlugin.ts (confirmed by grep -- zero references to collectPendingUpdates/occurrenceCount in frontend/src). Concretely: if a Vue-side error fires repeatedly within the 60s dedup window and then stops before the window naturally rolls over to a fresh first-occurrence, every occurrence after the first is recorded only in the in-memory tracker Map and is never submitted to the server in any form -- the server-side occurrences counter for that report is never incremented to reflect them, and the count is lost entirely once the window Map entry is later overwritten. This silently understates how often a bug is actually happening for any Vue SPA error that bursts and subsides within a single window, which is the exact failure mode (undercounting/losing occurrence signal) the plan's fingerprint+occurrence design was meant to prevent.",
+      "suggested_fix": "Add a periodic flush (mirroring error-capture.js's FLUSH_INTERVAL_MS/setInterval pattern) in errorCapture.ts that calls tracker.collectPendingUpdates() and re-submits a payload (via the same submitReport()/sendJson() path, keyed by the last-built payload per fingerprint) for every fingerprint whose count grew since the last flush."
+    },
+    {
+      "title": "Request-size guard is bypassed entirely when Content-Length is absent (e.g. chunked transfer-encoding)",
+      "severity": "P2",
+      "file": "webui_app/api/v1/error_reports.py",
+      "line": 153,
+      "confidence": 0.66,
+      "autofix_class": "gated_auto",
+      "owner": "backend",
+      "requires_verification": false,
+      "pre_existing": false,
+      "why_it_matters": "_guard_request_size()'s own docstring states its purpose is to protect against a non-browser caller that can reach loopback and is not bound by the browser fetch/keepalive 64KB limit -- explicitly a defense against a caller that does NOT behave like a normal browser fetch. But the guard only inspects request.content_length (populated from the Content-Length header) and does nothing when that value is None (line 154: `if length is not None and length > _MAX_REQUEST_BYTES`), which is exactly the case a non-standard/adversarial loopback client can trigger by sending the body chunked (Transfer-Encoding: chunked) or otherwise omitting Content-Length. In that case request.get_json(silent=True) proceeds to buffer and parse an arbitrarily large body with no ceiling at all, and the plan's own stated rationale for adding this guard (the site sets no MAX_CONTENT_LENGTH anywhere) is defeated for exactly the caller class it was written to stop.",
+      "suggested_fix": "Set Flask's MAX_CONTENT_LENGTH (globally or via a route-scoped Blueprint/before_request override) so Werkzeug rejects an oversized body regardless of whether Content-Length is present, rather than relying solely on inspecting request.content_length."
+    },
+    {
+      "title": "Frontend types the server-persisted error-report id as number even though the backend always generates a UUID string",
+      "severity": "P3",
+      "file": "frontend/src/stores/notifications.ts",
+      "line": 26,
+      "confidence": 0.66,
+      "autofix_class": "safe_auto",
+      "owner": "frontend",
+      "requires_verification": false,
+      "pre_existing": false,
+      "why_it_matters": "webui_store/error_reports.py's `_new_report_id()` returns `str(uuid.uuid4())`, and the POST/PATCH responses jsonify that string directly as `id` -- confirmed correctly typed as `id: string` in frontend/src/api/errorReports.ts (the module that talks to the dashboard GET/PATCH/DELETE endpoints). But the auto-capture path introduced in this same plan types the identical value as `number` in three places: notifications.ts's `Toast.reportId?: number` (line 26) and push()'s `reportId?: number` parameter, stores/reportPanel.ts's `reportId = ref<number | undefined>`, and lib/errorCapture.ts's `submitReport(): Promise<{ id: number } | null>` / `notifySuccess(message: string, reportId: number)`. Because JavaScript is dynamically typed, the actual UUID string flows through unaffected at runtime today (nothing in the current code path does numeric arithmetic or comparison on it), so this is a type-safety hole rather than an active runtime bug -- but it defeats TypeScript's ability to catch a future misuse (e.g. a numeric comparison, a toFixed() call, or a serialization path that assumes numeric JSON encoding), and it directly contradicts the correct `string` typing used two files away for the exact same server field.",
+      "suggested_fix": "Change reportId's type to `string` (and submitReport's return type to `{ id: string }`) in notifications.ts, reportPanel.ts, and errorCapture.ts to match the UUID string the backend actually returns, consistent with errorReports.ts's `ErrorReportItem.id: string`."
+    }
+  ],
+  "residual_risks": [
+    "DedupTracker's sessionCap (webui_app/static/js/lib/error-capture-core.js) is documented as bounding only immediate first-occurrence submissions; the legacy JS engine's 30s flushPendingUpdates() periodic re-send is not gated by the cap at all, so once the session cap is reached, distinct fingerprints that keep recurring can still generate unbounded periodic-flush network traffic. This appears to be a deliberately narrow, documented scope choice rather than an oversight, but it weakens the plan's framing of the session cap as a last-resort circuit breaker against request floods.",
+    "The daily_cap check in _enforce_daily_cap() is a best-effort check-then-act (not atomic with the following add()), explicitly documented as accepting a small race window under heavy concurrent load; consistent with this store family's already-accepted single-process concurrency posture."
+  ],
+  "testing_gaps": [
+    "No test exercises the PATCH /api/v1/error-reports/<id> race window where the report row is deleted between the initial existence check and the attach_description()/update_status() write -- the existing test suite only covers PATCH-on-existing and PATCH-on-never-existed (404), not PATCH-on-concurrently-deleted.",
+    "No Vue-side (errorCapture.spec.ts) test exercises DedupTracker.collectPendingUpdates()/periodic-flush behavior for repeated same-fingerprint errors within the dedup window, unlike the legacy engine's tests/js/test_ui_error_capture.mjs which does cover it -- this gap is exactly what let the flush-path divergence between the two engines go unnoticed.",
+    "No test sends a POST to /api/v1/error-reports with chunked Transfer-Encoding (no Content-Length header) to verify the request-size guard actually rejects an oversized body in that case."
+  ]
+}

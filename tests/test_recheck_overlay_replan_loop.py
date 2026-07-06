@@ -12,10 +12,10 @@ Pipes the real CLI verbs: ``recheck-overlay`` (reads the sandbox events.db) →
 from __future__ import annotations
 
 __tier__ = "integration"
+from datetime import datetime, timedelta, timezone, UTC
 import io
 import json
 import sys
-from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -26,7 +26,7 @@ from backlink_publisher.events.kinds import LINK_RECHECKED
 from backlink_publisher.gap.engine import active_dofollow_platforms
 from backlink_publisher.recheck import verdicts
 
-NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 TARGET = "https://money.site/landing"
 LIVE_URL = "https://medium.com/@me/the-post"  # the page carrying our backlink
 AD = active_dofollow_platforms()  # real registry roster (>=1 dofollow platform)

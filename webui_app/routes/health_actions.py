@@ -22,6 +22,7 @@ never a 500 — the dashboard stays usable.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from flask import Blueprint, jsonify, request
 
@@ -33,14 +34,14 @@ _log = logging.getLogger(__name__)
 
 
 @bp.before_request
-def _enforce_loopback():
+def _enforce_loopback() -> Any:
     from flask import abort
 
     if request.remote_addr not in _LOOPBACK_HOSTS:
         abort(403)
 
 
-def _config():
+def _config() -> Any:
     from backlink_publisher.config import load_config
 
     return load_config()
@@ -65,7 +66,7 @@ def _platform_arg() -> str:
 
 
 @bp.route("/ce:health/pause", methods=["POST"])
-def pause_platform():
+def pause_platform() -> Any:
     platform = _platform_arg()
     if not _known_platform(platform):
         return jsonify({"ok": False, "platform": platform, "reason": "unknown_platform"}), 400
@@ -83,7 +84,7 @@ def pause_platform():
 
 
 @bp.route("/ce:health/reverify", methods=["POST"])
-def reverify_platform():
+def reverify_platform() -> Any:
     platform = _platform_arg()
     if not _known_platform(platform):
         return jsonify({"ok": False, "platform": platform, "reason": "unknown_platform"}), 400
@@ -105,7 +106,7 @@ def reverify_platform():
 
 
 @bp.route("/ce:health/circuit-reset", methods=["POST"])
-def circuit_reset_platform():
+def circuit_reset_platform() -> Any:
     platform = _platform_arg()
     if not _known_platform(platform):
         return jsonify({"ok": False, "platform": platform, "reason": "unknown_platform"}), 400

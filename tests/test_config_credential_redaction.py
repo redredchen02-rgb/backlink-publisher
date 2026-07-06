@@ -9,7 +9,6 @@ from __future__ import annotations
 __tier__ = "unit"
 from pathlib import Path
 
-
 # =========================================================================
 # RED tests for _redact_toml_credential_values
 # =========================================================================

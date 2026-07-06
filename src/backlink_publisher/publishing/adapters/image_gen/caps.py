@@ -19,11 +19,11 @@ treats ``kind`` as a free-form string.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from backlink_publisher.config import ImageGenConfig
-from backlink_publisher.events.store import EventStore
 from backlink_publisher.events import kinds
+from backlink_publisher.events.store import EventStore
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ def _today_utc_date_str() -> str:
     Indirected so tests can pin without monkeypatching datetime
     globally.
     """
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def _count_today(store: EventStore) -> int:

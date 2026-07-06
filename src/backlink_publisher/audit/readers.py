@@ -21,13 +21,13 @@ real store left byte-identical. Paths resolve through ``config._config_dir`` so
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import hashlib
 import json
+from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from backlink_publisher._util.url import canonicalize_url
@@ -241,7 +241,7 @@ def _read_history(history_path: Path) -> list[dict[str, Any]]:
     if not history_path.exists():
         return []
     try:
-        data = json.loads(history_path.read_text())
+        data = json.loads(history_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise AuditReadError(f"cannot read publish-history.json: {exc}") from exc
     return data if isinstance(data, list) else []

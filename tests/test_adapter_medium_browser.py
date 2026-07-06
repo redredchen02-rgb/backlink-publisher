@@ -24,15 +24,16 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sys
 
-from backlink_publisher.publishing.adapters.medium_browser import MediumBrowserAdapter
-from backlink_publisher.config import Config
-from backlink_publisher.config.loader import _config_dir
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.config import Config
+from backlink_publisher.config.loader import _config_dir
+from backlink_publisher.publishing.adapters.medium_browser import MediumBrowserAdapter
 
 PAYLOAD = {
     "id": "abc123",
@@ -185,6 +186,7 @@ def test_success_refreshes_cookies_json(mock_sync_pw):
     assert payload["cookies"][0]["value"] == "refreshed-sid"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 @patch("backlink_publisher.publishing.adapters.medium_browser.sync_playwright")
 def test_refreshed_cookies_file_is_0600(mock_sync_pw):
     """Plan 005 Unit 1 R3: the refresh must preserve 0o600 mode."""
@@ -216,6 +218,7 @@ def test_cookies_absent_raises_dependency_error():
     assert "medium-login" in str(excinfo.value)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
 def test_cookies_wrong_mode_raises_dependency_error():
     """Plan 005 Unit 1 R3: medium-cookies.json with mode != 0o600 →
     fail-loud DependencyError (don't trust leaky creds)."""

@@ -6,11 +6,10 @@ Extracted from ``writer.py`` in the Unit 2 monolith decomposition.
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
+import re
 
-
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 _CONFIG_HISTORY_MAX: int = 20
 
@@ -62,7 +61,7 @@ def _snapshot_config(path: Path, max_history: int = _CONFIG_HISTORY_MAX) -> None
     try:
         raw = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        _log.warning("Failed to read config for snapshot: %s", exc)
+        log.warning("Failed to read config for snapshot: %s", exc)
         return
 
     redacted = _redact_toml_credential_values(raw)

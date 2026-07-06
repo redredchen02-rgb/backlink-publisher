@@ -5,19 +5,20 @@ optimization_state.json, and exhausted target list.
 """
 from __future__ import annotations
 
+from datetime import UTC
 import json
-import sys
 from pathlib import Path
+import sys
 
 
 def _relative_ts(iso: str | None) -> str:
     if not iso:
         return "never"
     try:
-        from datetime import datetime, timezone
+        from datetime import datetime
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - dt
+        dt = dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+        delta = datetime.now(UTC) - dt
         secs = int(delta.total_seconds())
         if secs < 60:
             return f"{secs}s ago"
@@ -26,7 +27,8 @@ def _relative_ts(iso: str | None) -> str:
         if secs < 86400:
             return f"{secs // 3600}h ago"
         return f"{secs // 86400}d ago"
-    except Exception:
+    except (ValueError, TypeError):
+        # debt: keepalive-status-relative-ts-parse-failure
         return iso or "never"
 
 

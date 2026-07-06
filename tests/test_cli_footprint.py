@@ -15,16 +15,16 @@ __tier__ = "unit"
 import io
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
-from backlink_publisher.cli.footprint import main
 from backlink_publisher.cli._footprint_baseline import _validate_reason
+from backlink_publisher.cli.footprint import main
 from backlink_publisher.footprint import SCHEMA_VERSION
-from backlink_publisher.footprint_corpus import CORPUS_NAMES, compute_fixture_set_id
+from backlink_publisher.footprint_corpus import compute_fixture_set_id, CORPUS_NAMES
 
 
 def test_default_audit_via_stdin_json(monkeypatch, capsys):
@@ -234,7 +234,10 @@ def test_regen_atomicity_no_partial_state_on_failure(tmp_path, monkeypatch):
         (tmp_path / f"footprint_concentration_{corpus_name}.json").write_text('{"stale": true}', encoding="utf-8")
 
     call_count = {"n": 0}
-    from backlink_publisher.cli.reporting import _footprint_baseline as fb
+    # Patch the flat module: this test drives `main` from cli.footprint (line
+    # above), which re-exports _run_regenerate from cli._footprint_baseline —
+    # NOT the cli.reporting duplicate that the console entrypoint uses.
+    from backlink_publisher.cli import _footprint_baseline as fb
 
     real_make = fb.make_corpus
 

@@ -51,6 +51,13 @@ class NotificationStore {
         }
     }
     
+    // notification may carry an optional `reportId` passthrough field (Unit 5,
+    // Plan 2026-07-01-002): when bindErrorCaptureBridge() below calls
+    // notifications.add({..., reportId}), it flows unchanged through this
+    // object spread into the persisted item AND the app:notify detail below —
+    // no structural change to this method was needed. ui/toast.js reads
+    // detail.reportId to render a "补充说明" action and to skip its auto-hide
+    // timer for that toast.
     add(notification) {
         const item = {
             id: Date.now() + Math.random(),
@@ -295,6 +302,42 @@ class NotificationCenter {
     }
 }
 
+// app:error-captured — dispatched by ui/error-capture.js (Unit 4) on `document`
+// ONLY after a report has been persisted server-side; detail.reportId is the
+// server's real row id (safe to PATCH against immediately), detail.message is
+// the error message, and detail.category is classifySeverity()'s output
+// ('warning'|'error') despite the parameter's name there — treated here as
+// the toast's severity/type. Kept as a literal (not imported from
+// ui/error-capture.js) for the same decoupling reason NOTIFY_EVENT is kept as
+// a literal in ui/toast.js: importing would tie this module's execution
+// order to error-capture.js's, and this module must stay safe to init
+// regardless of that script's tag position. Keep this string in sync with
+// ui/error-capture.js's ERROR_CAPTURED_EVENT export.
+//
+// Before this bridge existed, NOTHING consumed this event — Unit 4's
+// auto-captured errors were persisted server-side but never became a visible
+// toast. This listener is that missing link into the existing app:notify /
+// ui/toast.js pipeline.
+const ERROR_CAPTURED_EVENT = 'app:error-captured';
+
+// classifySeverity() (lib/error-capture-core.js) only ever returns 'warning'
+// or 'error'; this defensively maps anything else to 'error' too, since
+// every event on this bus is by definition an error report.
+function mapErrorCaptureCategoryToType(category) {
+    return category === 'warning' ? 'warning' : 'error';
+}
+
+function bindErrorCaptureBridge() {
+    document.addEventListener(ERROR_CAPTURED_EVENT, (e) => {
+        const detail = (e && e.detail) || {};
+        notifications.add({
+            type: mapErrorCaptureCategoryToType(detail.category),
+            message: detail.message,
+            reportId: detail.reportId,
+        });
+    });
+}
+
 // Global instance
 let notifications = null;
 
@@ -308,6 +351,7 @@ function initNotifications() {
     // Other modules subscribe via document.addEventListener('app:notify', ...) — no window.* global.
     // Convert existing Flash messages
     convertFlashMessages();
+    bindErrorCaptureBridge();
 }
 
 // Module export for consumers that need the live center (e.g. to call .success()/.error()).

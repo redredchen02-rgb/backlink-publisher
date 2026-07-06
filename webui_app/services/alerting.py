@@ -26,9 +26,9 @@ Usage::
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import threading
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 
@@ -92,7 +92,7 @@ class AlertRegistry:
     ) -> Alert:
         """Create or update an alert. If *alert_id* already exists and is
         active, its level and message are updated (no duplicate)."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         if not suggestion:
             # Try to find a matching suggestion by prefix
             for key, hint in _SUGGESTIONS.items():
@@ -120,7 +120,7 @@ class AlertRegistry:
 
     def resolve(self, alert_id: str) -> bool:
         """Mark an alert as resolved. Returns True if the alert existed."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with self._lock:
             alert = self._alerts.get(alert_id)
             if alert:
@@ -133,7 +133,7 @@ class AlertRegistry:
 
         Returns the count of resolved alerts.
         """
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         count = 0
         with self._lock:
             for alert in self._alerts.values():

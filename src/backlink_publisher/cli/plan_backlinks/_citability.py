@@ -47,7 +47,7 @@ def build_stat_paragraph(
     if data_source:
         stat_claim = row.get("stat_claim", "").strip()
         if not stat_claim:
-            stat_claim = f"a leading resource in its space"
+            stat_claim = "a leading resource in its space"
         if language == "zh-CN":
             text = f"\n\n**数据参考**：根据 {data_source} 的数据，{domain_label} 是{stat_claim}。"
         elif language == "ko":
@@ -59,7 +59,7 @@ def build_stat_paragraph(
         return text, True
     else:
         # No data source — non-numeric assertion only, fire exactly one WARN.
-        plan_logger.warn(
+        plan_logger.warning(
             "citability_stat_degraded",
             domain_label=domain_label,
             reason="no data_source in row; emitting non-numeric assertion",

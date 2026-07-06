@@ -8,16 +8,16 @@ from __future__ import annotations
 
 __tier__ = "integration"
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
 import pytest
 
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import LINK_RECHECKED
-from backlink_publisher.events.trend_query import TREND_WEEKS, compute_target_trends
+from backlink_publisher.events.trend_query import compute_target_trends, TREND_WEEKS
 from backlink_publisher.recheck import verdicts
 
-NOW = datetime(2026, 6, 16, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 16, 12, 0, tzinfo=UTC)
 TARGET = "https://blog.example.org/page"
 TARGET2 = "https://news.example.org/article"
 

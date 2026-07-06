@@ -40,7 +40,7 @@ _TYPE_ORDER: dict[str, int] = {t: i for i, t in enumerate(_RULES)}
 
 
 def _rule_for(finding_type: str) -> tuple[Severity, str]:
-    return _RULES.get(finding_type, _UNKNOWN_RULE)  # type: ignore[return-value]
+    return _RULES.get(finding_type, _UNKNOWN_RULE)
 
 
 def rank(findings: list[Finding]) -> list[RankedFinding]:

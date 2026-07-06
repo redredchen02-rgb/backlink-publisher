@@ -40,23 +40,23 @@ must not create accounts or enter credentials) and one live canary.
 from __future__ import annotations
 
 import base64
+from datetime import datetime, UTC
 import hashlib
 import json
-import os
 import secrets
 import time
-import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
 from typing import Any
+import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.http_client import http_client
 from backlink_publisher._util.logger import opencli_logger as log
-from backlink_publisher.publishing.registry import Publisher
+from backlink_publisher.config import Config
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+
 from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _HTTP_TIMEOUT_S = 30
 _DEFAULT_POST_PUBLISH_DELAY_S: int = 30
@@ -65,12 +65,11 @@ _CRED_FILENAME = "hatena-credentials.json"
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("HATENA_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="hatena",
+        env_var="HATENA_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("hatena")
     if toml_val is not None:
@@ -94,11 +93,10 @@ def _load_credentials(config: Config) -> tuple[str, str, str]:
             'Write {"hatena_id": "...", "blog_id": "...", "api_key": "..."} '
             "(chmod 600). API key: Hatena Blog → Settings → Advanced → AtomPub."
         )
-    mode = os.stat(cred_file).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(f"{_CRED_FILENAME} must be 0600 (found {oct(mode)})")
+    from backlink_publisher._util.permissions import check_0600
+    check_0600(cred_file, label=_CRED_FILENAME)
     try:
-        raw = json.loads(cred_file.read_text())
+        raw = json.loads(cred_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         raise DependencyError(
             "Cannot read Hatena credentials: file missing, corrupt, or unreadable"
@@ -131,7 +129,7 @@ def _build_wsse_header(
     if nonce is None:
         nonce = secrets.token_bytes(16)
     if created is None:
-        created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        created = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     digest = base64.b64encode(
         hashlib.sha1(nonce + created.encode("utf-8") + api_key.encode("utf-8")).digest()
     ).decode("ascii")

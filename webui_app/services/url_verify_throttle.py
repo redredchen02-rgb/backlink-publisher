@@ -39,7 +39,6 @@ from __future__ import annotations
 import collections
 import threading
 import time
-from typing import Deque, Dict, Optional
 
 __all__ = [
     "try_acquire",
@@ -58,17 +57,17 @@ _RECON_MAX_PER_WINDOW = 1
 _HOST_LOCK_IDLE_PRUNE_SECONDS = 60.0
 
 # ---- module-level state -----------------------------------------------------
-_session_windows: Dict[str, Deque[float]] = {}
-_recon_windows: Dict[str, Deque[float]] = {}
-_recon_suppressed: Dict[str, int] = {}
-_host_locks: Dict[str, threading.Lock] = {}
-_host_last_used: Dict[str, float] = {}
+_session_windows: dict[str, collections.deque[float]] = {}
+_recon_windows: dict[str, collections.deque[float]] = {}
+_recon_suppressed: dict[str, int] = {}
+_host_locks: dict[str, threading.Lock] = {}
+_host_last_used: dict[str, float] = {}
 
 _concurrency_sem = threading.BoundedSemaphore(_CONCURRENCY_CAP)
 _window_locks_guard = threading.Lock()
 
 
-def _evict_old(window: Deque[float], now: float, span: float) -> None:
+def _evict_old(window: collections.deque[float], now: float, span: float) -> None:
     """Drop entries older than ``now - span``. Caller holds the guard."""
     cutoff = now - span
     while window and window[0] <= cutoff:
@@ -99,7 +98,7 @@ def _prune_idle_host_locks(now: float) -> None:
                 lock.release()
 
 
-def try_acquire(session_id: str, host: str) -> Optional[str]:
+def try_acquire(session_id: str, host: str) -> str | None:
     """Reserve a verify slot. Return None on success, else closed-enum reason.
 
     Reasons:
@@ -208,7 +207,7 @@ def should_emit_recon(session_id: str) -> bool:
         return True
 
 
-def flush_recon_digest(session_id: str) -> Optional[int]:
+def flush_recon_digest(session_id: str) -> int | None:
     """Return suppressed-count and reset; or None if zero suppressed."""
     with _window_locks_guard:
         count = _recon_suppressed.get(session_id, 0)

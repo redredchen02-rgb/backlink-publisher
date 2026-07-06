@@ -46,13 +46,13 @@ brittle against timestamps and run-ids.
 from __future__ import annotations
 
 __tier__ = "unit"
-import json
-import os
-import subprocess
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 

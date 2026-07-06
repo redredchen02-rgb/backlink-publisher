@@ -4,7 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-06-23
+### Fixed
+
+- **Test collection errors (R12 Phase A):** 16 test files with `__tier__` assigned before `from __future__ import annotations` — reordered to comply with PEP 236, unblocking 366 tests. 3 additional test files had broken import paths from the U8 CLI reorganization (`keepalive_status`, `plan_check_helpers`, `report_anchors`, `cli_health_check`, `state_backup`) — updated to `cli.ops`, `cli.plan`, `cli.admin` subdirectories. Full suite now collects **11,962 tests with 0 errors**.
+- **Complexity budget zeroed (R12 Phase B):** Decomposed `sites_save_three_url` (CC 38) into `_validate_three_url_fields` (CC 18) + `_derive_three_url_fields` (CC 12) + thin shell (CC 11). Removed the last `[functions]` entry from `complexity_budget.toml` — all functions now under the CC-30 backstop.
+- **TODO/FIXME cleanup (R12 Phase C):** Promoted the sole remaining TODO (`ko-corpus-calibration` in `linkcheck/language.py`) to `debt_registry.toml`. Closed the last active plan (`2026-06-23-001` HistoryPage article_urls column — already implemented).
+
+### Changed
+
+- **CLI test split confirmed:** `test_cli_generate_backlink_text.py` already decomposed into split1 (557 SLOC) and split2 (531 SLOC); budget ceiling lowered to 10.
+- **SPA migration roadmap updated:** Phase 1 and Phase 2 checkboxes marked complete; Jinja-only inventory documented for Phase 3 planning.
+- **Monolith budgets tightened for 5 U8 shim files:** `phase0_seal.py`, `plan_check.py`, `report_anchors.py`, `generate_backlink_text.py`, `canary_seed.py` all became 2-SLOC backward-compat shims; ceilings lowered from 465/260/120/390/230 → 40 each.
+- **Orphan code ALLOWLIST expanded:** Added 7 files to the pre-existing allowlist (U8 shims, cli helpers, formatting utility). Normalized Windows path separator in the scan-to-allowlist comparison.
+
+### Fixed (R12 follow-up)
+
+- **`test_cli_generate_backlink_text_split1` + `split2` (126 → 0 failures):** Updated all private-function import paths (`_run_generate`, `_make_correction_hint`, `_validate_generated_text`, `_read_candidates`, `_validate_candidate`, `_resolve_client`) from the U8 shim (`cli.generate_backlink_text`) to their actual locations (`cli.plan.generate_backlink_text` and `cli._candidates`). Also fixed the subprocess `--help` test to use the real module path.
+- **`test_config.py` state isolation (7 → 0 failures):** Fixed `load_config()` TTL cache key collision — the cache key was the static string `"load_config"` regardless of which file path was passed, causing tests loading different tmp_path files to collide within the 15-second TTL window. Key now includes the resolved path (`f"load_config:{config_path}"`). Also updated `save_config()`'s cache invalidation to use the same path-keyed format.
+- **Monolith warning canaries (2 → 0 warnings):** Fixed Windows backslash path mismatch in `_scan_for_undeclared_monoliths` — `path.relative_to(repo_root)` produced `\` on Windows, but `monolith_budget.toml` uses `/`. Added `.replace("\\", "/")` normalization to the scanner comparison. `spray_backlinks/core.py` was already budgeted with ceiling 540 (≥ current 517 SLOC, headroom 23 < 50). `webui_app/api/v1/spec.py` was also already budgeted — both warnings were false positives from the separator mismatch.
+
+## [0.5.0] - 2026-06-26
 
 ### Added
 
@@ -31,6 +50,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Codebase decoupling (Phase 1–3)**: 7 grandfathered high-CC functions decomposed below CC 30 backstop; `_generate_payload` (50→8), `_run_spray` (48→removed), `run_cycle` (45→18), `_build_links` (36→9), `save_config` (33→15), `_publish_one_row` (35→5), `_enhance_payload` (32→27). All CC budget entries removed. (Plan 2026-06-24-002)
+- **`__all__` declarations**: 50+ subpackages now declare explicit `__all__`, making the public API surface auditable at a glance. Import-linter CI enforcement with 2 forbidden contracts (`domain → cli`, `_util → domain/cli`) — both KEPT. `CHANNELS` moved from `cli/_bind/channels/` to `_util/constants.py` to resolve a root layer violation. (Plans U6–U7)
+- **CLI subdirectory reorganization**: 34 CLI entry points moved from flat `cli/` into 6 functional subdirectories (`plan/`, `publish/`, `spray/`, `admin/`, `reporting/`, `ops/`). Shim modules at original paths and updated `pyproject.toml` console_scripts ensure full backward compatibility. (Plan U8)
+- **Bulk modernization**: ruff (F/E/W/UP/I rules) replaces CI `py_compile`+`ast.parse`; isort-style import reordering across 880+ files; pyupgrade (`datetime.now(UTC)` etc.); thread-safe `http_client` via `_ThreadLocalProxy`; Windows compat layer (`_compat/fcntl` shim, batch scripts, `docs/windows-setup.md`).
+- **make lint-imports** target added; CI pipeline extended with `lint-imports` step.
 - Legacy Settings Jinja page retired; SPA at `/app/settings` replaces it. Six Jinja template files, four route modules (`bind.py`, `channel_bind_save.py`, `medium_login.py`, `token_paste.py`), and five legacy JS/CSS assets deleted.
 - `velog` login response replaces `log_path` filesystem path with `has_log` boolean (path never leaves the server).
 - `pipeline.py` `_EXIT_STATUS`: exit code 1 (conflict/force-manifest abort) now maps to HTTP 422 instead of falling through to 502.

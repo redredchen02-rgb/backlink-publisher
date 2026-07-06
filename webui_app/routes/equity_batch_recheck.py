@@ -7,6 +7,7 @@ with progress polling. In-memory job store (non-persistent).
 from __future__ import annotations
 
 import threading
+from typing import Any
 import uuid
 
 from flask import Blueprint, jsonify, request
@@ -35,9 +36,8 @@ def _resolve_stale_days() -> int:
 
 def _run_batch(job_id: str, target_urls: list[str]) -> None:
     """Background worker: recheck each target, update job state."""
-    from webui_store import history_store
-
     from backlink_publisher.events.history_query import get_history_item
+    from webui_store import history_store
 
     total = len(target_urls)
     checked = 0
@@ -122,7 +122,7 @@ def _select_targets(filter_type: str) -> list[str]:
 
 
 @bp.route("/ce:equity-ledger/batch-recheck", methods=["POST"])
-def batch_recheck_start():
+def batch_recheck_start() -> Any:
     data = request.get_json(silent=True) or {}
     filter_type = data.get("filter", "all")
 
@@ -157,7 +157,7 @@ def batch_recheck_start():
 
 
 @bp.route("/ce:equity-ledger/batch-recheck/<job_id>/status", methods=["GET"])
-def batch_recheck_status(job_id: str):
+def batch_recheck_status(job_id: str) -> Any:
     with _jobs_lock:
         job = _jobs.get(job_id)
     if job is None:

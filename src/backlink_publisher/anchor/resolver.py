@@ -20,19 +20,23 @@ candidate list after filters should trigger degrade).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import lru_cache
 import logging
 import random
 import re
 import unicodedata
 import weakref
-from typing import Callable
 
+from backlink_publisher._util.text_validation import (
+    _passes_filters_with_rule,
+    FORBIDDEN_ANCHOR_TEXTS,
+)
+from backlink_publisher.config import Config, get_anchor_pool_v2
 from backlink_publisher.publishing.adapters.llm_anchor_provider import (
     LLMAnchorRequest,
     OpenAICompatibleProvider,
 )
-from backlink_publisher.config import Config, get_anchor_pool_v2
 
 _log = logging.getLogger(__name__)
 
@@ -42,39 +46,7 @@ _log = logging.getLogger(__name__)
 # requirement R24. New centralised constant lives here because no other module
 # previously enumerated them; if a second consumer needs the list later,
 # promote to a shared module then.
-FORBIDDEN_ANCHOR_TEXTS: frozenset[str] = frozenset({
-    "点击这里",
-    "看这里",
-    "更多",
-    "官网",
-    "入口",
-    "这个网站",
-    "相关页面",
-    "了解更多",
-})
-
-# Character classes rejected from any anchor text — a stricter superset of the
-# legacy ``config._UNSAFE_IN_ANCHOR`` regex. The legacy regex only blocked
-# Markdown/HTML breakage; this one also blocks security-relevant inputs that
-# could survive markdown-it rendering or bidi-reorder the visible anchor:
 #
-#   \x00-\x1f, \x7f       ASCII control chars
-#   U+200B-U+200F         zero-width joiners / direction marks
-#   U+202A-U+202E         legacy bidi overrides (RLO/LRO)
-#   U+2066-U+2069         isolate-direction overrides
-#   <>"'`[]()\\           HTML/Markdown structural punctuation
-#   \n\r                  newlines (would break inline anchor rendering)
-_UNSAFE_ANCHOR_CHARS = re.compile(
-    "["
-    "\x00-\x1f\x7f"
-    "​-‏"
-    "‪-‮"
-    "⁦-⁩"
-    "<>\"'`\\[\\]()\\\\"
-    "\n\r"
-    "]"
-)
-
 # CJK Unified Ideographs — the bulk of common simplified Chinese. We require
 # anchor text to be PREDOMINANTLY (≥50%) CJK so the resolver doesn't surface
 # transliterations or English brand strings the scheduler would mis-bucket as
@@ -89,8 +61,6 @@ _CJK_CHAR = re.compile(f"[\\u{_CJK_BMP_START:04X}-\\u{_CJK_BMP_END:04X}]")
 _HANGUL_BMP_START: int = 0xAC00
 _HANGUL_BMP_END: int = 0xD7AF
 
-_MIN_ANCHOR_LEN: int = 2
-_MAX_ANCHOR_LEN: int = 8
 _MIN_CJK_RATIO: float = 0.5
 
 #: Hangul ratio threshold for the ko branch. Lower than zh-CN's 0.5 because
@@ -196,7 +166,7 @@ _RATIO_RULES: dict[str, Callable[[str], bool]] = {
 # dropped automatically when the Config is garbage-collected (weakref callback),
 # so the cache cannot leak across plan runs.
 _POOL_CACHE: dict[
-    int, tuple["weakref.ref[Config]", dict[tuple[str, str, str], list[str]]]
+    int, tuple[weakref.ref[Config], dict[tuple[str, str, str], list[str]]]
 ] = {}
 
 
@@ -219,7 +189,7 @@ def _cached_anchor_pool(
     else:
         slot_cache = {}
 
-        def _evict(_ref: "weakref.ref[Config]", _key: int = cfg_id) -> None:
+        def _evict(_ref: weakref.ref[Config], _key: int = cfg_id) -> None:
             current = _POOL_CACHE.get(_key)
             if current is not None and current[0] is _ref:
                 del _POOL_CACHE[_key]
@@ -336,30 +306,6 @@ def _resolve_ratio_rule(language: str | None) -> Callable[[str], bool] | None:
     """
     language = language.strip() if language else "zh-CN"
     return _RATIO_RULES.get(language)
-
-
-def _passes_filters_with_rule(
-    text: str, ratio_check: Callable[[str], bool] | None
-) -> bool:
-    """Baseline anchor checks + a pre-resolved ratio rule.
-
-    Shared body of :func:`_passes_filters` and the per-candidate loop in
-    :func:`resolve_anchor`. ``ratio_check`` is the already-resolved rule
-    callable (``None`` skips the ratio check), so the dict lookup happens once
-    per ``resolve_anchor`` call instead of once per candidate.
-    """
-    if not isinstance(text, str):
-        return False  # type: ignore[unreachable]
-    length = len(text)
-    if length < _MIN_ANCHOR_LEN or length > _MAX_ANCHOR_LEN:
-        return False
-    if text in FORBIDDEN_ANCHOR_TEXTS:
-        return False
-    if _UNSAFE_ANCHOR_CHARS.search(text):
-        return False
-    if ratio_check is None:
-        return True
-    return ratio_check(text)
 
 
 # ─── Work-themed anchor filter (Plan 2026-05-13-004 Unit 4) ─────────────────

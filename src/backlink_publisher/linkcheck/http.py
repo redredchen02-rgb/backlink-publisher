@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+from concurrent.futures import as_completed, ThreadPoolExecutor
 from functools import lru_cache
 import os
-import socket
 import ssl
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -85,7 +84,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
         code = resp.getcode()
         if code in ACCEPTABLE_CODES:
             return True, None
-    except (URLError, OSError, socket.timeout):
+    except (TimeoutError, URLError, OSError):
         pass
 
     # Fallback to GET
@@ -97,7 +96,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
         if code in ACCEPTABLE_CODES:
             return True, None
         return False, f"HTTP {code}"
-    except (URLError, OSError, socket.timeout) as exc:
+    except (TimeoutError, URLError, OSError) as exc:
         return False, str(exc)
 
 

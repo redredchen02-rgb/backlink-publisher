@@ -11,12 +11,12 @@ Usage::
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, UTC
 import json
+from pathlib import Path
 import shutil
 import sqlite3
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 
 from backlink_publisher.config.loader import _resolve_config_dir
 
@@ -41,7 +41,7 @@ def _backup_dir() -> Path:
 
 
 def _timestamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
 
 def _find_backups() -> list[Path]:
@@ -107,7 +107,7 @@ def backup_main() -> None:
     # Write metadata
     meta = {
         "timestamp": ts,
-        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "created_utc": datetime.now(UTC).isoformat(),
         "files_backed_up": backed_up,
         "files_missing": missing,
     }

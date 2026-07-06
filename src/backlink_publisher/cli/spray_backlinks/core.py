@@ -13,40 +13,43 @@ kernel lives in ``_engine`` and never touches ``sys.stdout``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime, UTC
 import json
 import os
+from pathlib import Path
 import random
 import sys
 import time
-from collections.abc import Callable
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, cast
 
-# Populate the adapter registry so registered_platforms() is non-empty when
-# argparse help / validation runs.
-import backlink_publisher.publishing.adapters  # noqa: F401
 from backlink_publisher import config_echo
 from backlink_publisher._util.errors import (
-    PipelineError,
-    UsageError,
     emit_envelope_and_exit,
     handle_error,
+    PipelineError,
+    UsageError,
 )
 from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
-from backlink_publisher._util.logger import set_log_level
-from backlink_publisher.config import _cache_dir, load_config
-from backlink_publisher.publishing.registry import registered_platforms
-from backlink_publisher.schema import validate_input_payload
+from backlink_publisher._util.logger import get_logger, set_log_level
 
-from ._audit import AuditReport, audit_batch
-from ._dispatch import dispatch_burst
-from ._draft import _default_rewrite_fn, draft_row
-from ._engine import (
-    SprayCandidate,
+log = get_logger("spray-backlinks")
+from backlink_publisher.config import _cache_dir, load_config  # noqa: E402
+
+# Populate the adapter registry so registered_platforms() is non-empty when
+# argparse help / validation runs.
+import backlink_publisher.publishing.adapters  # noqa: F401, E402
+from backlink_publisher.publishing.registry import registered_platforms  # noqa: E402
+from backlink_publisher.schema import validate_input_payload  # noqa: E402
+
+from ._audit import audit_batch, AuditReport  # noqa: E402
+from ._dispatch import dispatch_burst  # noqa: E402
+from ._draft import _default_rewrite_fn, draft_row  # noqa: E402
+from ._engine import (  # noqa: E402
     expand_seed,
     gate_candidates,
+    SprayCandidate,
     validate_platform_selection,
 )
 
@@ -247,7 +250,7 @@ def _checkpoint_path(run_id: str) -> Path:
 
 def _generate_run_id() -> str:
     """Same pattern as ``backlink_publisher.checkpoint.generate_run_id``."""
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + os.urandom(4).hex()
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S") + "-" + os.urandom(4).hex()
 
 
 def _list_checkpoints() -> list[tuple[str, int, str]]:
@@ -263,8 +266,10 @@ def _list_checkpoints() -> list[tuple[str, int, str]]:
                 total = len(data.get("seeds", []))
                 done = sum(1 for s in data.get("seeds", []) if s.get("status") == "completed")
                 results.append((data.get("run_id", f.stem), done, f"{done}/{total}"))
-            except Exception:
-                pass
+            except (json.JSONDecodeError, OSError, ValueError):
+                # Logged (not silenced) then skipped — one corrupt checkpoint
+                # file must not stop the listing of the others.
+                log.debug("checkpoint_json_corrupt", file=f.name)
     return results
 
 
@@ -280,7 +285,7 @@ def _save_checkpoint(
     cpath = _checkpoint_path(run_id)
     data: dict[str, Any] = {
         "run_id": run_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "args": {
             "platforms": args.platforms,
             "cap": args.cap,

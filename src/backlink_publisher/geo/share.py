@@ -32,15 +32,15 @@ Neither side of the denominator:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, UTC
 import json
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import CITATION_OBSERVED
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants (D10 — set at planning time, not deferred)
@@ -111,7 +111,7 @@ def _parse_ts_utc(ts_str: str | None) -> datetime | None:
         ts_str = ts_str.replace("Z", "+00:00")
         dt = datetime.fromisoformat(ts_str)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, TypeError):
         return None
@@ -219,7 +219,7 @@ def compute_share(
         try:
             payload = json.loads(row["payload_json"])
         except (json.JSONDecodeError, TypeError):
-            _log.warning(
+            log.warning(
                 "geo.share: unparseable payload_json for target %r; skipping",
                 target_url,
             )

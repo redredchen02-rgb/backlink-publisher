@@ -1,10 +1,12 @@
 """Tests for backlink_publisher.gap.events_gap (U1.2)."""
 
+
 from __future__ import annotations
+__tier__ = "integration"
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
-from backlink_publisher.gap.events_gap import GapResult, PipelineGap, find_gaps
+from backlink_publisher.gap.events_gap import find_gaps, GapResult, PipelineGap
 
 
 def _make_store(tmp_path, rows: list[dict]) -> object:
@@ -29,7 +31,7 @@ def _make_store(tmp_path, rows: list[dict]) -> object:
     return store
 
 
-NOW = datetime(2026, 6, 11, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 11, 12, 0, 0, tzinfo=UTC)
 
 
 def _ts(delta_hours: float) -> str:
@@ -145,6 +147,34 @@ class TestFindGaps:
         result = find_gaps(store, now=NOW, intent_stale_hours=24,
                            confirm_stale_hours=168)
         assert len(result.gaps) == 1
+
+    def test_gap_host_and_payload_reflect_the_actual_event(self, tmp_path) -> None:
+        """D2a signal round-trip: no existing test in this file asserts
+        ``PipelineGap.host`` or the carried payload content, only ``gap_type``/
+        ``target_url``. A ``_derive_host``/payload-forwarding regression (e.g.
+        always returning the raw target_url, or dropping the payload) would
+        pass every test above unnoticed — mirrors the
+        language-matches-always-true class of silent no-op bug
+        (docs/solutions/logic-errors/language-matches-always-true-no-op-gate-2026-05-14.md):
+        a gate/derivation function whose output is wrong in every branch but
+        whose only test checks an unrelated field.
+        """
+        store = _make_store(tmp_path, [
+            {"kind": "publish.intent", "target_url": "https://blog.example.org/post-1",
+             "payload": {"target_url": "https://blog.example.org/post-1",
+                         "run_id": "run-xyz"},
+             "ts_utc": _ts(-72)},
+        ])
+        result = find_gaps(store, now=NOW, intent_stale_hours=48,
+                           confirm_stale_hours=168)
+        assert len(result.gaps) == 1
+        gap = result.gaps[0]
+        # Concrete value, not a type/shape check: the real hostname of the
+        # actual stale target, not the raw target_url or a placeholder.
+        assert gap.host == "blog.example.org"
+        assert gap.last_intent_payload == {
+            "target_url": "https://blog.example.org/post-1", "run_id": "run-xyz",
+        }
 
     def test_pipeline_gap_summary(self) -> None:
         """PipelineGap.summary produces expected one-liner."""

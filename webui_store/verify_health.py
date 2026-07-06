@@ -11,7 +11,7 @@ never raises a false reconnect alarm. Backed by a ``verify_health`` table in
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 from backlink_publisher.config.loader import _config_dir
@@ -24,7 +24,7 @@ _OK = "ok"
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class VerifyHealthSqliteStore(BaseSqliteStore):

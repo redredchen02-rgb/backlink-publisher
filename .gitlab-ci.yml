@@ -63,7 +63,7 @@ unit:
     - python generate_fixtures.py
     - test -f fixtures/seed.jsonl
 
-# ── Type check — non-blocking, mirrors the canonical continue-on-error step. ──
+# ── Type check — blocking, mirrors the canonical GitHub Actions step. ────────
 typecheck:
   stage: test
   image: "python:3.12-slim"
@@ -73,7 +73,6 @@ typecheck:
   before_script: *install
   script:
     - python -m mypy src/backlink_publisher --config-file mypy.ini
-  allow_failure: true
 
 # ── Integration tier — touches disk / db / fakes; MR only (matches GitHub
 #    `if: github.event_name == 'pull_request'`). ───────────────────────────────

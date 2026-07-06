@@ -1,23 +1,24 @@
 """Tests for backlink_publisher.cli.health_check (Plan U4.4)."""
 
+
 from __future__ import annotations
+__tier__ = "unit"
 
 import json
 import os
+from pathlib import Path
 import sqlite3
 import tempfile
-from pathlib import Path
 
 import pytest
 
-from backlink_publisher.cli.health_check import (
-    _db_stats,
+from backlink_publisher.cli.ops.health_check import (
+    _check_all,
     _config_file_count,
     _credential_audit,
+    _db_stats,
     _oldest_checkpoint,
-    _check_all,
 )
-
 
 # ── _db_stats ────────────────────────────────────────────────────────────────
 

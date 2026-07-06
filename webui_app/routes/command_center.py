@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import UTC
 import re
+from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, redirect, url_for
 
 from backlink_publisher._util.errors import UsageError
+
 from ..helpers.contexts import _render
 from ..services.keepalive_job import registry as keepalive_registry
 
@@ -18,7 +21,7 @@ def _friendly_error(msg: str) -> str:
     return msg.strip().rstrip(",").strip()
 
 
-def _collect_subsystem_status():
+def _collect_subsystem_status() -> Any:
     """Aggregate a lightweight snapshot from each monitored subsystem.
 
     Returns a dict with top-level keys (keepalive, equity, optimization, history)
@@ -79,13 +82,14 @@ def _collect_subsystem_status():
 
     # ── history (recent publish count) ──────────────────────────────────
     try:
+        from datetime import datetime, timedelta
+
         from webui_store import history_store
-        from datetime import datetime, timezone, timedelta
         hist = history_store.load()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cutoff_24h = (now - timedelta(hours=24)).isoformat()[:16]
         cutoff_7d  = (now - timedelta(days=7)).isoformat()[:10]
-        def _ts(h):
+        def _ts(h: Any) -> Any:
             return h.get("created_at") or h.get("published_at") or ""
         recent_24h = sum(1 for h in hist if _ts(h) >= cutoff_24h)
         recent_7d  = sum(1 for h in hist if _ts(h)[:10] >= cutoff_7d)
@@ -187,7 +191,7 @@ def _build_anomaly_cards(status: dict) -> list[dict]:
     return cards
 
 
-def _card(key, title, severity, headline, detail, deep_link, action):
+def _card(key: Any, title: Any, severity: Any, headline: Any, detail: Any, deep_link: Any, action: Any) -> Any:
     return {
         "key": key, "title": title, "severity": severity,
         "headline": headline, "detail": detail or "",
@@ -196,19 +200,25 @@ def _card(key, title, severity, headline, detail, deep_link, action):
 
 
 @bp.route("/ce:command-center", methods=["GET"])
-def command_center():
+def command_center() -> Any:
     status = _collect_subsystem_status()
     return _render("command_center.html", status=status, active_page="command_center")
 
 
 @bp.route("/monitor-hub", methods=["GET"])
-def monitor_hub():
-    """Console monitor hub — 'today's anomalies first' aggregated card view."""
+def monitor_hub() -> Any:
+    """Redirect legacy /monitor-hub → SPA /app/monitor (P15 B4)."""
+    return redirect(url_for("spa.spa", subpath="monitor"), 302)
+
+
+@bp.route("/monitor-hub/jinja", methods=["GET"])
+def monitor_hub_jinja() -> Any:
+    """Legacy Jinja fallback — kept for LITE mode."""
     return _render("monitor_hub.html", active_page="monitor_hub")
 
 
 @bp.route("/api/monitor-hub", methods=["GET"])
-def monitor_hub_json():
+def monitor_hub_json() -> Any:
     """Single fail-open aggregation feed for the monitor hub (U5).
 
     Extends the existing _collect_subsystem_status() aggregator (keepalive /
@@ -226,7 +236,7 @@ def monitor_hub_json():
 
 
 @bp.route("/ce:command-center/gap-closure", methods=["POST"])
-def trigger_gap_closure():
+def trigger_gap_closure() -> Any:
     """Trigger a full-pipeline gap-closure run in the background."""
     try:
         job = keepalive_registry.start_gap_closure()
@@ -241,7 +251,7 @@ def trigger_gap_closure():
 
 
 @bp.route("/ce:command-center/jobs", methods=["GET"])
-def list_jobs():
+def list_jobs() -> Any:
     """Return all tracked jobs across kinds."""
     jobs_by_kind = {}
     for kind in ("recheck", "republish", "gap_closure"):
@@ -255,7 +265,7 @@ def list_jobs():
 
 
 @bp.route("/ce:command-center/job/<job_id>", methods=["GET"])
-def poll_job(job_id: str):
+def poll_job(job_id: str) -> Any:
     """Poll a specific job by id."""
     result = keepalive_registry.poll(job_id)
     if result is None:

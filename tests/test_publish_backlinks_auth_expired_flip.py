@@ -11,15 +11,15 @@ the publish loop must:
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
-from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher._util.errors import AuthExpiredError
+from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.linkcheck.verify import VerificationResult
 
 
@@ -108,10 +108,10 @@ class TestAuthExpiredFlipMainPath:
     def test_medium_auth_expired_flips_channel_and_exits_3(
         self, mock_pub, mock_verify
     ):
-        from webui_store.channel_status import get_status, mark_bound
-
         # Seed an existing bound record so we can verify bound_at preservation.
         from pathlib import Path
+
+        from webui_store.channel_status import get_status, mark_bound
         fake_path = Path(get_status.__globals__["_config_dir"]()) / "medium-storage-state.json"
         fake_path.parent.mkdir(parents=True, exist_ok=True)
         fake_path.write_text("{}")
@@ -144,8 +144,9 @@ class TestAuthExpiredFlipMainPath:
         self, mock_pub, mock_verify
     ):
         """Isolation: a Blogger AuthExpiredError must not flip Medium's status."""
-        from webui_store.channel_status import get_status, mark_bound
         from pathlib import Path
+
+        from webui_store.channel_status import get_status, mark_bound
 
         fake_dir = Path(get_status.__globals__["_config_dir"]())
         fake_dir.mkdir(parents=True, exist_ok=True)

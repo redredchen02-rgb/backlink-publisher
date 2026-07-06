@@ -10,7 +10,7 @@ live object. Tests that read ``content.fetch._STATS`` or call the re-exported
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 #: Process-wide statistics counters. Updated on every
 #: ``verify_url_has_content`` call. :func:`stats_snapshot` returns a shallow
@@ -54,7 +54,7 @@ def stats_snapshot() -> dict[str, Any]:
     }
 
 
-def _record_reason(reason: Optional[str], ok: bool) -> None:
+def _record_reason(reason: str | None, ok: bool) -> None:
     """Increment the per-reason counter. ``ok=True`` records 'ok'."""
     key = "ok" if ok else (reason or "unknown")
     counts = _STATS["reason_counts"]

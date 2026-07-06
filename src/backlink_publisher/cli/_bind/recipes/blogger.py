@@ -25,7 +25,6 @@ from typing import Any
 
 from . import ChannelRecipe
 
-
 _LOGIN_URL = "https://www.blogger.com/"
 
 _BOUND_URL_PATTERN = re.compile(r"https?://(?:www\.)?blogger\.com/(?:.*)?$")

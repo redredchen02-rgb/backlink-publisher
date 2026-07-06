@@ -27,8 +27,8 @@ def test_config_parser_rejects_unknown_provider(tmp_path, monkeypatch):
         'model = "m1"\n'
         'provider = "unknown_provider"\n'
     )
-    from backlink_publisher.config import load_config
     from backlink_publisher._util.errors import InputValidationError
+    from backlink_publisher.config import load_config
     with pytest.raises((InputValidationError, Exception)):
         load_config()
 
@@ -43,8 +43,8 @@ def test_config_parser_frw_requires_template_id(tmp_path, monkeypatch):
         'provider = "frw"\n'
         '# frw_template_id intentionally omitted\n'
     )
-    from backlink_publisher.config import load_config
     from backlink_publisher._util.errors import InputValidationError
+    from backlink_publisher.config import load_config
     with pytest.raises((InputValidationError, Exception)):
         load_config()
 
@@ -70,8 +70,8 @@ def test_config_parser_frw_full_valid(tmp_path, monkeypatch):
 
 
 def test_image_gen_status_helper_reports_token_presence(tmp_path, monkeypatch):
-    from webui_app.helpers.contexts import _image_gen_status
     from backlink_publisher.config import load_config
+    from webui_app.helpers.contexts import _image_gen_status
 
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
 

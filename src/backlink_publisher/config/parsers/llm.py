@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from ..._util.errors import InputValidationError
+from ..._util.errors import DependencyError, InputValidationError
 from ..types import (
     LLMProviderConfig,
 )
@@ -22,7 +22,7 @@ _LLM_ARTICLE_SYSTEM_PROMPT_ENV_VAR = "BACKLINK_LLM_ARTICLE_SYSTEM_PROMPT"
 _LLM_USE_IMAGE_GEN_ENV_VAR = "BACKLINK_LLM_USE_IMAGE_GEN"
 _LLM_IMAGE_GEN_API_KEY_ENV_VAR = "BACKLINK_LLM_IMAGE_GEN_API_KEY"
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 _BOOL_TRUE_STRINGS: frozenset[str] = frozenset({"1", "true", "yes"})
 
@@ -82,7 +82,7 @@ def _parse_llm_anchor_provider(
     base_url = env_base_url or section.get("base_url")
     model = env_model or section.get("model")
     timeout_s = section.get("timeout_s", 30.0)
-    
+
     temperature = _parse_temperature(env_temp, section.get("temperature"))
     system_prompt = env_system or section.get("system_prompt")
     use_article_gen = _parse_bool_flag(env_use_article, section, "use_article_gen")
@@ -167,17 +167,21 @@ def _self_heal_sidecar_perms(sidecar: Path) -> None:
     (``load_config`` for unrelated pipeline runs would break). A read-only FS or
     foreign-owned file degrades to an info log, not an exception.
     """
+    from backlink_publisher._util.permissions import check_0600
+
     try:
-        mode = os.stat(sidecar).st_mode & 0o777
-        if mode != 0o600:
-            _log.warning(
-                "%s loose perms %s — auto-chmod to 0o600",
-                _LLM_SIDECAR_FILENAME,
-                oct(mode),
-            )
+        check_0600(sidecar, label=_LLM_SIDECAR_FILENAME)
+    except DependencyError:
+        log.warning(
+            "%s loose perms — auto-chmod to 0o600",
+            _LLM_SIDECAR_FILENAME,
+        )
+        try:
             os.chmod(sidecar, 0o600)
+        except OSError:
+            log.info("could not chmod %s to 0o600 (continuing)", _LLM_SIDECAR_FILENAME)
     except OSError:
-        _log.info("could not chmod %s to 0o600 (continuing)", _LLM_SIDECAR_FILENAME)
+        log.info("could not stat %s (continuing)", _LLM_SIDECAR_FILENAME)
 
 
 def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
@@ -209,7 +213,7 @@ def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
     try:
         data = json.loads(sidecar.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        _log.info(
+        log.info(
             "%s present but unreadable/malformed; ignoring (Pro Mode off)",
             _LLM_SIDECAR_FILENAME,
         )
@@ -234,7 +238,7 @@ def _llm_provider_from_sidecar(config_dir: Path) -> LLMProviderConfig | None:
     if not endpoint.startswith("https://"):
         # Same https requirement the TOML parser enforces (prompt-injection /
         # credential-exfiltration posture) — but degrade instead of raising.
-        _log.info(
+        log.info(
             "%s endpoint is not https:// — ignoring (Pro Mode off). Re-save the "
             "LLM settings with an https endpoint to enable it.",
             _LLM_SIDECAR_FILENAME,

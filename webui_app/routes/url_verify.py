@@ -31,20 +31,20 @@ import hashlib
 import os
 import secrets
 import socket
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-from flask import Blueprint, abort, jsonify, request, session
+from flask import abort, Blueprint, jsonify, request, session
 
 from backlink_publisher._util.logger import get_logger
 
 from ..helpers.security import (
-    _LOOPBACK_HOSTS,
     _check_bind_origin_or_abort,
+    _LOOPBACK_HOSTS,
     _refuse_when_allow_network,
 )
 from ..helpers.url_meta import _is_fetch_verify_disabled
 from ..services import url_verify_throttle as throttle
-
 
 bp = Blueprint("url_verify", __name__)
 _logger = get_logger("url-verify")
@@ -65,7 +65,7 @@ def _request_id() -> str:
 
 
 def _session_id() -> str:
-    return session.get("csrf_token", "")
+    return session.get("csrf_token", "")  # type: ignore[no-any-return]
 
 
 def _emit_recon(reason: str, host: str = "", exc_class: str = "") -> None:
@@ -104,7 +104,7 @@ def _enforce_loopback() -> None:
         abort(403)
 
 
-def _parse_and_normalize(raw_url) -> tuple[str | None, str | None, str]:
+def _parse_and_normalize(raw_url: Any) -> tuple[str | None, str | None, str]:
     """Validate + normalize the URL. Returns (clean_url, reject_reason, host).
 
     On success: (clean_url, None, host_ascii).
@@ -134,7 +134,7 @@ def _parse_and_normalize(raw_url) -> tuple[str | None, str | None, str]:
 
 
 @bp.route("/url-verify", methods=["POST"])
-def url_verify():
+def url_verify() -> Any:
     # Guard 2: hard-disable when ALLOW_NETWORK=1
     if os.environ.get("BACKLINK_PUBLISHER_ALLOW_NETWORK") == "1":
         _emit_recon("allow_network_refused")

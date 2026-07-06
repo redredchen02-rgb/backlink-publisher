@@ -6,15 +6,14 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U5a)
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import sys
 import threading
-from io import StringIO
 
 import pytest
 
 from backlink_publisher.cli.publish_backlinks import main
-from backlink_publisher.idempotency import DedupKey, DedupStore
-from backlink_publisher.idempotency import audit_log
+from backlink_publisher.idempotency import audit_log, DedupKey, DedupStore
 
 
 @pytest.fixture(autouse=True)

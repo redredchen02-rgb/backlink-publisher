@@ -8,7 +8,6 @@ from __future__ import annotations
 __tier__ = "unit"
 from webui_app.helpers.cli_runner import strip_cli_diagnostic_banner
 
-
 _BANNER_AND_RUN_ID = (
     "[publish-backlinks] effective config:\n"
     "  config:    /Users/dex/.config/backlink-publisher/config.toml\n"

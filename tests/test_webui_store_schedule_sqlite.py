@@ -6,16 +6,18 @@ idempotency, crash-recovery, and Store protocol compliance.
 Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 """
 
+
 from __future__ import annotations
+__tier__ = "integration"
 
 import json
 from pathlib import Path
 
 import pytest
 
-from webui_store.schedule import ScheduleSqliteStore, _JSON_FILENAME, _SENTINEL_NAME
-from webui_store.sqlite_base import WebUIDatabase
 from webui_store.base import Store
+from webui_store.schedule import _JSON_FILENAME, _SENTINEL_NAME, ScheduleSqliteStore
+from webui_store.sqlite_base import WebUIDatabase
 
 
 def _store(tmp_path: Path) -> ScheduleSqliteStore:

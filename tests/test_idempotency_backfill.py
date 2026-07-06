@@ -10,26 +10,31 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U6).
 from __future__ import annotations
 
 __tier__ = "unit"
-import sys
 from io import StringIO
+import sys
 
 import pytest
 
-import backlink_publisher.publishing.adapters  # noqa: F401  (triggers register())
 from backlink_publisher._util.logger import (
     opencli_logger as _opencli_logger,
+)
+from backlink_publisher._util.logger import (
     plan_logger as _plan_logger,
+)
+from backlink_publisher._util.logger import (
     publish_logger as _publish_logger,
+)
+from backlink_publisher._util.logger import (
     validate_logger as _validate_logger,
 )
 from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.events import EventStore
-from backlink_publisher.idempotency import DedupKey, DedupStore
-from backlink_publisher.idempotency import audit_log
+from backlink_publisher.idempotency import audit_log, DedupKey, DedupStore
 from backlink_publisher.idempotency.backfill import (
     _ADAPTER_STRING_TO_PLATFORM,
     run_backfill,
 )
+import backlink_publisher.publishing.adapters  # noqa: F401  (triggers register())
 from backlink_publisher.publishing.registry import registered_platforms
 
 

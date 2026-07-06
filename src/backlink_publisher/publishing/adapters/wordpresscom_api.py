@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
-from backlink_publisher.http import post as http_post
-
-from backlink_publisher.config import Config, load_wordpresscom_token
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
+from backlink_publisher.config import Config, load_wordpresscom_token
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
-from .retry import RETRYABLE_HTTP_STATUSES, retry_transient_call
+from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
 
+from .base import AdapterResult
+from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 WPCOM_API_BASE = "https://public-api.wordpress.com/rest/v1.1"
 _HTTP_TIMEOUT_S = 30
@@ -22,12 +20,11 @@ _DEFAULT_POST_PUBLISH_DELAY_S: int = 15
 
 
 def _post_publish_delay_s() -> int:
-    env_val = os.environ.get("WORDPRESSCOM_PUBLISH_DELAY_S")
-    if env_val is not None:
-        try:
-            return int(env_val)
-        except (ValueError, TypeError):
-            return _DEFAULT_POST_PUBLISH_DELAY_S
+    return get_platform_throttle_seconds(
+        platform="wordpresscom",
+        env_var="WORDPRESSCOM_PUBLISH_DELAY_S",
+        default=_DEFAULT_POST_PUBLISH_DELAY_S,
+    )
     from backlink_publisher.config import load_config
     toml_val = load_config().platform_throttle.get("wordpresscom")
     if toml_val is not None:
@@ -40,7 +37,7 @@ class WordpresscomAPIAdapter(Publisher):
 
     @classmethod
     def available(cls, config: Config) -> bool:
-        data = load_wordpresscom_token(config.wordpresscom_token_path)
+        data = load_wordpresscom_token(config.token_path("wordpresscom"))
         if not data:
             return False
         return bool((data.get("token") or "").strip() and (data.get("site") or "").strip())
@@ -55,12 +52,13 @@ class WordpresscomAPIAdapter(Publisher):
         article_id = payload.get("id", "")
         log.info(json.dumps(dict(adapter="wordpresscom", phase="start", id=article_id)))
 
-        token_data = load_wordpresscom_token(config.wordpresscom_token_path)
+        tp = config.token_path("wordpresscom")
+        token_data = load_wordpresscom_token(tp)
         if not token_data:
             raise DependencyError(
                 "WordPress.com token not configured. "
-                f"Write {{\"token\": \"<access_token>\", \"site\": \"<site>\"}} "
-                f"to {config.wordpresscom_token_path} (chmod 600). "
+                f'Write {{"token": "<access_token>", "site": "<site>"}} '
+                f"to {tp} (chmod 600). "
                 "Get a token via WP.com OAuth2 flow."
             )
         access_token = (token_data.get("token") or "").strip()

@@ -9,7 +9,6 @@ Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 
 from __future__ import annotations
 
-
 __tier__ = "integration"
 import json
 import os
@@ -21,9 +20,9 @@ from backlink_publisher.config.loader import _config_dir
 from webui_store import channel_status_store
 from webui_store.base import Store
 from webui_store.channel_status import (
-    ChannelStatusSqliteStore,
     _JSON_FILENAME,
     _SENTINEL_NAME,
+    ChannelStatusSqliteStore,
     get_status,
     list_all,
     mark_bound,

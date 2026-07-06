@@ -98,7 +98,7 @@ class AuthExpiredError(DependencyError):
     event. See plan §Key Technical Decisions.
 
     Construction validates ``channel`` against the
-    ``cli._bind.channels.CHANNELS`` frozenset; ``UsageError`` is raised
+    ``_util.constants.CHANNELS`` frozenset; ``UsageError`` is raised
     for unknown / traversal payloads (defense-in-depth against supply-
     chain adapters injecting ``channel="../evil"``).
     """
@@ -106,7 +106,10 @@ class AuthExpiredError(DependencyError):
     exit_code = 3
 
     def __init__(self, *, channel: str, reason: str | None = None) -> None:
-        from backlink_publisher._util.channels import CHANNELS
+        # Local import avoids a top-level cycle (errors.py is imported
+        # very early in package init; cli._bind.channels is leaf-level
+        # but importing the whole cli package here would be premature).
+        from backlink_publisher._util.constants import CHANNELS
 
         if not channel or channel not in CHANNELS:
             raise UsageError(
@@ -199,6 +202,7 @@ def _emit_error_envelope(error_class: str, exit_code: int, message: str) -> None
             flush=True,
         )
     except Exception:  # pragma: no cover - envelope emission is best-effort
+        # debt: errors-emit-envelope-broad-catch
         pass
 
 

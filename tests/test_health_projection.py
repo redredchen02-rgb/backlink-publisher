@@ -9,15 +9,14 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import json
+from pathlib import Path
 import sqlite3
 import threading
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-from backlink_publisher.events import EventStore
-from backlink_publisher.events import reconcile
+from backlink_publisher.events import EventStore, reconcile
 
 
 @pytest.fixture(autouse=True)

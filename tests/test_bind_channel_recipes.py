@@ -12,11 +12,12 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import dataclasses
+import sys
 
 import pytest
 
 from backlink_publisher.cli._bind.channels import CHANNELS
-from backlink_publisher.cli._bind.recipes import RECIPES, ChannelRecipe
+from backlink_publisher.cli._bind.recipes import ChannelRecipe, RECIPES
 
 
 class TestRecipeRegistry:
@@ -261,6 +262,7 @@ class TestMediumLastAccountFile:
         )
         assert self._read() == "alice"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_write_creates_tentative_with_mode_0600(self):
         from backlink_publisher.config.loader import _config_dir
         cfg = _config_dir()
@@ -393,8 +395,9 @@ class TestMediumPostPersistConversion:
     no Playwright involved — feeds a fake storage_state file in."""
 
     def test_writes_cookies_json_extracted_from_storage_state(self, tmp_path, monkeypatch):
-        from backlink_publisher.cli._bind.recipes.medium import _medium_post_persist
         import json
+
+        from backlink_publisher.cli._bind.recipes.medium import _medium_post_persist
 
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         storage_state = tmp_path / "medium-storage-state.json"
@@ -410,6 +413,7 @@ class TestMediumPostPersistConversion:
             "cookies": [{"name": "sid", "value": "abc", "domain": "medium.com"}]
         }
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_cookies_json_is_0600(self, tmp_path, monkeypatch):
         from backlink_publisher.cli._bind.recipes.medium import _medium_post_persist
 
@@ -467,8 +471,9 @@ class TestMediumMetaTentativeFromPage:
     UA + chromium_version from a live page (page.evaluate)."""
 
     def test_writes_meta_with_extracted_chromium_version(self, tmp_path, monkeypatch):
-        from backlink_publisher.cli._bind.recipes.medium import _write_meta_tentative
         import json
+
+        from backlink_publisher.cli._bind.recipes.medium import _write_meta_tentative
 
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
 
@@ -484,8 +489,9 @@ class TestMediumMetaTentativeFromPage:
         assert "T" in meta["login_at"]  # ISO timestamp
 
     def test_writes_meta_with_blank_chromium_version_on_unknown_ua(self, tmp_path, monkeypatch):
-        from backlink_publisher.cli._bind.recipes.medium import _write_meta_tentative
         import json
+
+        from backlink_publisher.cli._bind.recipes.medium import _write_meta_tentative
 
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
 
@@ -509,6 +515,7 @@ class TestMediumMetaTentativeFromPage:
         _write_meta_tentative(_FakePage())
         assert not (tmp_path / "medium-meta.json.tentative").exists()
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_meta_tentative_is_0600(self, tmp_path, monkeypatch):
         from backlink_publisher.cli._bind.recipes.medium import _write_meta_tentative
 

@@ -1,6 +1,9 @@
 """Unit 8: /sites/run POST and /sites/run/<id>/result GET redirect to keep-alive."""
 
+
+__tier__ = "unit"
 import pytest
+
 import webui
 
 

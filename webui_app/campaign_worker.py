@@ -8,9 +8,9 @@ Plan: docs/plans/2026-06-02-001-feat-batch-optimization-plan.md U5.
 
 from __future__ import annotations
 
+from concurrent.futures import Future, ThreadPoolExecutor
 import json
 import logging
-from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
 _log = logging.getLogger(__name__)

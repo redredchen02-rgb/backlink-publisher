@@ -1,24 +1,26 @@
 """Tests for cli.state_backup module."""
 
-from __future__ import annotations
 
+from __future__ import annotations
+__tier__ = "unit"
+
+from collections.abc import Generator
 import json
+from pathlib import Path
 import sqlite3
 import sys
-from pathlib import Path
-from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backlink_publisher.cli.state_backup import (
-    _STATE_FILES,
+from backlink_publisher.cli.admin.state_backup import (
     _backup_db,
-    _backup_file,
     _backup_dir,
+    _backup_file,
     _config_dir,
     _find_backups,
     _is_sqlite,
+    _STATE_FILES,
     _timestamp,
 )
 
@@ -28,7 +30,7 @@ def config_dir(tmp_path: Path) -> Generator[Path, None, None]:
     """Create a temporary config directory."""
     cfg_dir = tmp_path / "config"
     cfg_dir.mkdir(parents=True, exist_ok=True)
-    with patch("backlink_publisher.cli.state_backup._resolve_config_dir", return_value=cfg_dir):
+    with patch("backlink_publisher.cli.admin.state_backup._resolve_config_dir", return_value=cfg_dir):
         yield cfg_dir
 
 
@@ -179,7 +181,7 @@ class TestBackupMain:
         backups = _find_backups()
         assert len(backups) == 1
         backup_path = backups[0]
-        
+
         # Verify metadata
         meta_file = backup_path / "backup_meta.json"
         assert meta_file.exists()

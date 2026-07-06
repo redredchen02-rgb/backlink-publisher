@@ -39,7 +39,6 @@ Design summary:
 
 from __future__ import annotations
 
-import fcntl
 import json
 import logging
 import mimetypes
@@ -47,27 +46,30 @@ import os
 import random
 import time
 
+import fcntl
+
 mimetypes.add_type("image/webp", ".webp")
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
-from typing import Any, Iterator, cast
+from typing import Any, cast
 
 from requests.exceptions import RequestException
-from backlink_publisher.http import post as http_post
 
-from backlink_publisher.config import Config
 from backlink_publisher._util.errors import (
     BannerUploadError,
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.config import Config
+from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.adapters.telegraph_node import (
     markdown_to_telegraph_nodes,
 )
 from backlink_publisher.publishing.registry import Publisher
-from .base import AdapterResult
 
+from .base import AdapterResult
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +150,7 @@ def _load_token(config: Config) -> dict[str, str]:
     if not primary.exists() and legacy.exists():
         # One-time migration.
         try:
-            data = json.loads(legacy.read_text())
+            data = json.loads(legacy.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as exc:
             raise DependencyError(
                 f"Cannot read legacy telegraph-phase0-token.json: {exc}"
@@ -172,15 +174,12 @@ def _load_token(config: Config) -> dict[str, str]:
             "or place a token file there manually."
         )
 
-    mode = os.stat(primary).st_mode & 0o777
-    if mode != 0o600:
-        raise DependencyError(
-            f"telegraph-token.json must be 0600 (found {oct(mode)})\n"
-            f"Run: chmod 600 {primary}"
-        )
+    from backlink_publisher._util.permissions import check_0600
+
+    check_0600(primary, label="telegraph-token.json")
 
     try:
-        data = cast("dict[str, str]", json.loads(primary.read_text()))
+        data = cast("dict[str, str]", json.loads(primary.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError) as exc:
         raise DependencyError(
             f"Cannot parse telegraph token: {exc}"
@@ -212,9 +211,9 @@ def _write_token_atomic(path: Path, data: dict[str, str]) -> None:
     # Belt-and-suspenders: confirm perms survived rename (replace preserves
     # the source file's mode on POSIX, but verify in case of a future
     # cross-filesystem move).
-    mode = os.stat(path).st_mode & 0o777
-    if mode != 0o600:
-        os.chmod(path, 0o600)
+    from backlink_publisher._util.permissions import check_0600
+
+    check_0600(path, label="telegraph-token.json")
 
 
 # ── Rotation lock ────────────────────────────────────────────────────────────
@@ -279,7 +278,7 @@ def _archive_orphan_token(token_path: Path) -> Path | None:
     # ``os.replace`` silently overwrite the first archive and lose the
     # orphaned access_token (review finding: adversarial + security +
     # reliability triple-flagged).
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
     archive = token_path.with_suffix(token_path.suffix + f".orphaned-{stamp}")
     os.replace(token_path, archive)
     os.chmod(archive, 0o600)

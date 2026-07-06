@@ -9,20 +9,20 @@ Strategies
 from __future__ import annotations
 
 __tier__ = "unit"
+from datetime import datetime, timezone, UTC
+
 import pytest
-from datetime import datetime, timezone
 
 from backlink_publisher.click_track.engine import (
+    _classify_error,
+    _parse_rows,
     ClickQueryOptions,
     ClickQueryResult,
     ClickStats,
-    _classify_error,
-    _parse_rows,
     handle_site,
     query_site,
 )
 from backlink_publisher.config import ClickTrackConfig
-
 
 # ── mock helpers ────────────────────────────────────────────────────────
 
@@ -181,7 +181,7 @@ class TestClickQueryOptions:
         assert opts.dry_run is False
 
     def test_custom_options(self):
-        dt = datetime(2026, 6, 2, tzinfo=timezone.utc)
+        dt = datetime(2026, 6, 2, tzinfo=UTC)
         opts = ClickQueryOptions(window_days=14, end_date=dt, dry_run=True)
         assert opts.window_days == 14
         assert opts.end_date == dt

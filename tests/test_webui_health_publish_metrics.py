@@ -6,13 +6,16 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 import pytest
 
 from backlink_publisher.events import EventStore, kinds
 
-NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+# Relative to real wall-clock time (not a fixed calendar date) so the fixture
+# events stay inside publish_success_rate()'s rolling 30-day window
+# regardless of when the test suite runs.
+NOW = datetime.now(UTC)
 
 
 @pytest.fixture

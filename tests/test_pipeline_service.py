@@ -15,7 +15,6 @@ from webui_app.services.pipeline_service import (
     validate_plan_inputs,
 )
 
-
 # ── normalize_language ────────────────────────────────────────────────────────
 
 class TestNormalizeLanguage:

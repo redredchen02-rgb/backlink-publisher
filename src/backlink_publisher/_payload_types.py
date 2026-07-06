@@ -264,7 +264,7 @@ class PlannedPayload(BaseModel):
     @classmethod
     def _check_nonempty(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError(f"must not be empty")
+            raise ValueError("must not be empty")
         return v
 
     @field_validator("content_html")

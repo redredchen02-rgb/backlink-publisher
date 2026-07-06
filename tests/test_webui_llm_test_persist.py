@@ -9,10 +9,10 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
+from datetime import datetime
 import json
 import os
 import stat
-from datetime import datetime
 from unittest.mock import patch
 
 import pytest

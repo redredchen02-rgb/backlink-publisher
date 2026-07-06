@@ -2,26 +2,25 @@
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
 from backlink_publisher.anchor.profile import (
+    now_iso,
     ProfileEntry,
     ProfileState,
-    now_iso,
     record_article,
 )
-from backlink_publisher.cli.report_anchors import (
+from backlink_publisher.cli._report_format import (
     _build_profile_report,
     _build_report,
     _format_profile_report_markdown,
-    main,
 )
-
+from backlink_publisher.cli.publish.report_anchors import main
 
 # ---------------------------------------------------------------------------
 # Helpers

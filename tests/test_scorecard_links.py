@@ -11,7 +11,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
 import pytest
 
@@ -19,14 +19,14 @@ from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.events import EventStore
 from backlink_publisher.events.kinds import LINK_RECHECKED
 from backlink_publisher.recheck import verdicts
-import backlink_publisher.scorecard.links as links_mod
 from backlink_publisher.scorecard.engine import UNATTRIBUTED
+import backlink_publisher.scorecard.links as links_mod
 from backlink_publisher.scorecard.links import (
-    LinkVerdictRow,
     derive_links_by_channel,
+    LinkVerdictRow,
 )
 
-NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 REAL = "https://51acgs.com/comic/528/"
 
 

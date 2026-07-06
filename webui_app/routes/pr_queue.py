@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 bp = Blueprint("pr_queue", __name__)
 
@@ -36,6 +36,13 @@ def _load() -> list[dict[str, Any]]:
 
 @bp.get("/pr-queue")
 def pr_queue_page() -> Any:
+    """Redirect legacy /pr-queue → SPA /app/pr-queue (P12 A1 migration)."""
+    return redirect(url_for("spa.spa", subpath="pr-queue"), 302)
+
+
+@bp.get("/pr-queue/jinja")
+def pr_queue_jinja() -> Any:
+    """Legacy Jinja fallback — kept for LITE mode or SPA-disabled setups."""
     items = _load()
     for item in items:
         item["_status_color"] = _STATUS_COLORS.get(item.get("status", "pending"), "gray")

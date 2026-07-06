@@ -6,9 +6,9 @@ __tier__ = "integration"
 
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -97,7 +97,6 @@ class TestQueueDashboardRoutes:
 
     def test_dashboard_html_template_removed(self):
         """Plan 012 Unit 2 — dashboard.html template file deleted."""
-        from pathlib import Path
         tpl = Path(__file__).resolve().parents[1] / "webui_app" / "templates" / "dashboard.html"
         assert not tpl.exists(), f"dashboard.html should be deleted but exists at {tpl}"
 
@@ -144,6 +143,13 @@ class TestKeepAliveRoutes:
 
     def test_get_keep_alive_renders(self, client):
         assert client.get("/ce:keep-alive").status_code == 200
+
+    def test_get_keep_alive_redirects_to_spa(self, client):
+        # /ce:keep-alive now redirects to the SPA (P15 A1); the Jinja fallback
+        # (test_get_keep_alive_renders above) covers the LITE-mode render path.
+        resp = client.get("/ce:keep-alive")
+        assert resp.status_code == 302
+        assert "/app/keep-alive" in resp.location
 
     def test_action_routes_covered(self, client):
         # Route-coverage gate: hit each action route once (guards + state
@@ -306,6 +312,13 @@ class TestOptimizationStatusRoutes:
         assert resp.status_code == 200
         assert b"Optimization Status" in resp.data or b"optimisation" in resp.data.lower()
 
+    def test_get_optimization_status_redirects_to_spa(self, client):
+        # /optimization-status now redirects to the SPA; the Jinja fallback
+        # (test_get_optimization_status_page above) covers the render path.
+        resp = client.get("/optimization-status")
+        assert resp.status_code == 302
+        assert "/app/optimization-status" in resp.location
+
     def test_post_set_weight_missing_csrf_returns_403(self, csrf_client):
         """POST /optimization-status/set-weight without CSRF token returns 403."""
         resp = csrf_client.post("/optimization-status/set-weight", data={
@@ -318,6 +331,32 @@ class TestOptimizationStatusRoutes:
         resp = client.post("/optimization-status/unlock-weight", data={"platform": "blogger"})
         assert resp.status_code in (200, 302, 400)
 
+    def test_post_api_set_weight_json_returns_200(self, client):
+        """POST /api/optimization-status/set-weight (JSON twin the SPA calls,
+        Sprint B2 audit gap — see docs/plans/2026-06-30-001 B2) returns 200."""
+        resp = client.post("/api/optimization-status/set-weight", json={
+            "platform": "blogger", "weight": 0.5,
+        })
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_post_api_set_weight_json_missing_fields_is_400(self, client):
+        resp = client.post("/api/optimization-status/set-weight", json={"platform": "blogger"})
+        assert resp.status_code == 400
+        assert resp.get_json()["ok"] is False
+
+    def test_post_api_unlock_weight_json_returns_200(self, client):
+        """POST /api/optimization-status/unlock-weight (JSON twin the SPA calls,
+        Sprint B2 audit gap) returns 200."""
+        resp = client.post("/api/optimization-status/unlock-weight", json={"platform": "blogger"})
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_post_api_unlock_weight_json_missing_platform_is_400(self, client):
+        resp = client.post("/api/optimization-status/unlock-weight", json={})
+        assert resp.status_code == 400
+        assert resp.get_json()["ok"] is False
+
 
 
 class TestSurvivalDashboardRoutes:
@@ -326,6 +365,13 @@ class TestSurvivalDashboardRoutes:
         resp = client.get("/survival-dashboard")
         assert resp.status_code == 200
         assert "存活率".encode() in resp.data
+
+    def test_get_survival_dashboard_redirects_to_spa(self, client):
+        # /survival-dashboard now redirects to the SPA; the Jinja fallback
+        # (test_get_survival_dashboard_page above) covers the render path.
+        resp = client.get("/survival-dashboard")
+        assert resp.status_code == 302
+        assert "/app/survival" in resp.location
 
 
 

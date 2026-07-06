@@ -2,19 +2,27 @@
 
 Flask app factory at repo root (not under `src/`). `create_app()` in `__init__.py` returns configured app with blueprints, scheduler, and CSRF guard.
 
+Since v0.5.0 this app serves **two frontends**: the legacy Jinja templates below (`templates/`, `static/`) and a Vue 3 SPA at `/app/*` built from the sibling `frontend/` directory (Vite output lands in `webui_app/spa_dist/`, served outside `static/` to avoid route collision). The SPA is flag-gated by `BACKLINK_PUBLISHER_SPA` (default `"1"`). New pages should generally be added to the SPA rather than as new Jinja templates — see `CLAUDE.md → Dual-frontend` and `ARCHITECTURE.md → Vue 3 SPA` for the full migration state and which legacy routes still lack an `/app/*` redirect.
+
 ## Structure
 
 ```
 webui_app/
 ├── __init__.py          # create_app() factory — CSRF guard, scheduler, blueprint registration
-├── routes/              # 20 route modules, registered via register_blueprints()
-├── services/            # 5 modules: bind_job, browser_login, recheck, seo_viz, url_verify_throttle
-├── helpers/             # 8 modules: _request_cache, channel_probes, cli_runner, contexts, history, security, url_meta
+├── routes/              # 36 route modules, registered via register_blueprints() (count stale before 2026-07-02 recount — was previously documented as 20)
+├── api/                 # /api/v1/* seam layer — 19 top-level modules (spec.py is the SSoT for the 63
+│                         # registered endpoints) plus a v1/ subpackage; scanned by D2/C1b for bare-except cleanup
+├── services/            # 22 modules incl. bind_job, browser_login, recheck/keep_alive/keepalive_job,
+│                         # 4 copilot_* advisory modules, credential/oauth services, health_projection,
+│                         # settings_service, survival, seo_viz, medium_liveness_service, pipeline_service,
+│                         # work_themed_service, url_verify_throttle (count stale before 2026-07-02 — was "5")
+├── helpers/             # 9 modules: _request_cache, channel_probes, channel_tiers, cli_runner, contexts, edition, history, security, url_meta
 ├── binding_status.py    # Channel binding badge state
 ├── medium_liveness.py   # Medium session health check
 ├── medium_login.py      # Medium login flow
 ├── scheduler.py         # APScheduler + job restore
-└── templates/           # Jinja2 templates
+├── spa_dist/             # Vite production build output for the /app/* SPA (generated, not hand-edited)
+└── templates/           # Jinja2 templates (legacy frontend, being migrated to the SPA page by page)
 ```
 
 ## Where to look

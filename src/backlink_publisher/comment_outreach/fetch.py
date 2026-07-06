@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import socket
 import ssl
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request
@@ -68,7 +68,7 @@ class FetchResult(NamedTuple):
     ``oversized`` / ``network_error``.
     """
 
-    html: Optional[bytes]
+    html: bytes | None
     reason: str
 
 
@@ -86,7 +86,7 @@ def _is_http_url(url: str) -> bool:
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-def _safe_hostname(url: str) -> Optional[str]:
+def _safe_hostname(url: str) -> str | None:
     """``urlparse(url).hostname`` that never raises (malformed IPv6 → None)."""
     try:
         return urlparse(url).hostname
@@ -94,7 +94,7 @@ def _safe_hostname(url: str) -> Optional[str]:
         return None
 
 
-def _safe_ssrf_check(url: str) -> Optional[str]:
+def _safe_ssrf_check(url: str) -> str | None:
     """``_check_url_for_ssrf`` wrapper that never raises; a malformed URL (which would
     raise inside ``urlparse(url).hostname``) is treated as ``invalid_host``, never
     fetched. Mirrors ``_preflight_fetch._safe_ssrf_check``."""
@@ -125,7 +125,7 @@ def _read_body_capped(resp: Any, max_bytes: int) -> tuple[bytes, bool]:
     return bytes(buf[:max_bytes]), oversized
 
 
-def fetch_comment_page(url: str, *, timeout: Optional[float] = None) -> FetchResult:
+def fetch_comment_page(url: str, *, timeout: float | None = None) -> FetchResult:
     """Fetch ``url`` once and return its body. Never raises."""
     # 1. Scheme gate — before the SSRF DNS check or any Request.
     if not _is_http_url(url):
@@ -144,10 +144,10 @@ def fetch_comment_page(url: str, *, timeout: Optional[float] = None) -> FetchRes
 
     try:
         resp = _COMMENT_OPENER.open(req, timeout=effective_timeout)
-    except HTTPError as exc:
+    except HTTPError:
         # Any 3xx-over-cap / 4xx / 5xx — detection only cares that it is not a clean 200.
         return FetchResult(html=None, reason="non_200")
-    except socket.timeout:
+    except TimeoutError:
         return FetchResult(html=None, reason="timeout")
     except URLError as exc:
         reason_obj = getattr(exc, "reason", None)

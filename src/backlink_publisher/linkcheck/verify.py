@@ -17,11 +17,11 @@ pass ``max_wait`` (default 30s) to allow polling with backoff.
 
 from __future__ import annotations
 
-import time
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
-from urllib.request import Request, urlopen
 import ssl
+import time
+from urllib.request import Request, urlopen
 
 from backlink_publisher._util.net_safety import _check_url_for_ssrf
 from backlink_publisher._util.url import normalize_url_for_fetch
@@ -61,7 +61,7 @@ def _get_body(url: str) -> tuple[int, str]:
     except Exception as exc:  # noqa: BLE001 — log programming errors
         from backlink_publisher._util.logger import opencli_logger
         opencli_logger.warning(
-            "linkcheck/verify: unexpected error for %s: %s %s", url, type(exc).__name__, exc
+            f"linkcheck/verify: unexpected error for {url}: {type(exc).__name__} {exc}"
         )
         return 0, str(exc)
 

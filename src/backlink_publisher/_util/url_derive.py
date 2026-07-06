@@ -13,7 +13,6 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse, urlunparse
 
-
 #: Pure-letter category token: 3-15 chars, letters ONLY (no digits, no hyphens).
 #: Used at path depth >= 2 to decide whether the trailing segment looks like
 #: a category landing page (e.g. ``/about``, ``/comic``, ``/archive``) versus a
@@ -69,7 +68,7 @@ def derive_path_tiers(raw_url: str) -> dict:
         return none_result
     try:
         parsed = urlparse(raw_url)
-    except Exception:  # noqa: BLE001 — urlparse is permissive but defend.
+    except ValueError:  # urlparse raises ValueError on malformed input (e.g. bad IPv6/port).
         return none_result
     if parsed.scheme not in {"http", "https"}:
         return none_result

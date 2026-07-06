@@ -10,23 +10,14 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U2).
 from __future__ import annotations
 
 __tier__ = "unit"
+from io import StringIO
 import json
 import os
 import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
-from backlink_publisher.publishing.adapters.base import AdapterResult
-from backlink_publisher.publishing.adapters.retry import RETRYABLE_HTTP_STATUSES
-from backlink_publisher._util.logger import (
-    opencli_logger as _opencli_logger,
-    plan_logger as _plan_logger,
-    publish_logger as _publish_logger,
-    validate_logger as _validate_logger,
-)
-from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     BannerUploadError,
@@ -34,9 +25,23 @@ from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher._util.logger import (
+    opencli_logger as _opencli_logger,
+)
+from backlink_publisher._util.logger import (
+    plan_logger as _plan_logger,
+)
+from backlink_publisher._util.logger import (
+    publish_logger as _publish_logger,
+)
+from backlink_publisher._util.logger import (
+    validate_logger as _validate_logger,
+)
+from backlink_publisher.cli.publish_backlinks import main
 from backlink_publisher.idempotency import DedupKey, DedupStore
 from backlink_publisher.linkcheck.verify import VerificationResult
-
+from backlink_publisher.publishing.adapters.base import AdapterResult
+from backlink_publisher.publishing.adapters.retry import RETRYABLE_HTTP_STATUSES
 
 _TARGET = "https://example.com/article"
 
@@ -445,7 +450,7 @@ def test_fresh_policy_skip_sets_policy_skip_error_class(mock_policy_pub, _mock_p
 def test_resume_skips_policy_skip_items(mock_pub, _mv, _ms, mock_cache, tmp_path):
     """policy_skip items are excluded from the resume to_process list — a deliberate
     policy-gate decision must not be retried blindly on --resume."""
-    from backlink_publisher.checkpoint import create_checkpoint, update_item, POLICY_SKIP
+    from backlink_publisher.checkpoint import create_checkpoint, POLICY_SKIP, update_item
 
     mock_cache.return_value = tmp_path / "cache"
     rows = [_checkpoint_payload(platform="blogger", item_id="r0")]

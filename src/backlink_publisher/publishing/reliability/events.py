@@ -12,14 +12,14 @@ Design constraints:
 
 from __future__ import annotations
 
+from enum import StrEnum
 import time
-from enum import Enum
 from typing import Any
 
-from backlink_publisher._util.logger import opencli_logger as _log
+from backlink_publisher._util.logger import opencli_logger as log
 
 
-class Outcome(str, Enum):
+class Outcome(StrEnum):
     SUCCESS = "success"
     AUTH_EXPIRED = "auth_expired"
     AUTH_BANNED = "auth_banned"
@@ -73,7 +73,7 @@ def emit_attempt(
         if error_class is not None:
             payload["error_class"] = error_class
         payload.update(extra)
-        _log.info(payload)  # type: ignore[arg-type]
+        log.info(payload)  # type: ignore[arg-type]
     except Exception:  # noqa: BLE001
         pass
 

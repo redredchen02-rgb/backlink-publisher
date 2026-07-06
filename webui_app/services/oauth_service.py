@@ -6,8 +6,9 @@ the full OAuth round-trip). This module is import-safe under any context.
 """
 from __future__ import annotations
 
-import os
 from contextlib import contextmanager
+import os
+from typing import Any
 from urllib.parse import urlparse
 
 _OAUTH_ENV_VAR = "OAUTHLIB_INSECURE_TRANSPORT"
@@ -36,7 +37,7 @@ def is_loopback_uri(uri: str) -> bool:
 
 
 @contextmanager
-def oauthlib_insecure_transport(callback_uri: str):
+def oauthlib_insecure_transport(callback_uri: str) -> Any:
     """Scope OAUTHLIB_INSECURE_TRANSPORT to a single OAuth handler.
 
     Refuses to enable the bypass when *callback_uri* is not a loopback host —

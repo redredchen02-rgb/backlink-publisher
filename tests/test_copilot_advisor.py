@@ -9,7 +9,6 @@ from backlink_publisher.ledger import LedgerRow
 from webui_app.services import copilot_advisor as adv
 from webui_app.services.copilot_models import ToolResult
 
-
 # --- equity-ledger adapter -----------------------------------------------------
 
 

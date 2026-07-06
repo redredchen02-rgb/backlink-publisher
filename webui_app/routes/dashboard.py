@@ -9,18 +9,20 @@ is still reachable directly at `/ce:history?section=in-progress`.
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify, redirect, request
 
 bp = Blueprint("dashboard", __name__)
 
 
 @bp.route('/ce:dashboard', methods=['GET'])
-def ce_dashboard():
+def ce_dashboard() -> Any:
     return redirect('/ce:health', code=302)
 
 
 @bp.route("/dashboard/autopilot-alert/dismiss", methods=["POST"])
-def dashboard_autopilot_alert_dismiss():
+def dashboard_autopilot_alert_dismiss() -> Any:
     """Clear alert_pending for a site (Plan 2026-06-09-001 U8 R4).
 
     Does NOT disable autopilot — only clears the alert flag.
@@ -33,7 +35,7 @@ def dashboard_autopilot_alert_dismiss():
     if not site_url:
         return jsonify({"error": "missing site_url"}), 400
 
-    def _clear_alert(settings):
+    def _clear_alert(settings: Any) -> Any:
         targets = dict(settings.get("autopilot_targets", {}))
         if site_url in targets:
             site_cfg = dict(targets[site_url])

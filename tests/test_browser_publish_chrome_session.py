@@ -13,13 +13,12 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import os
-import stat
 from pathlib import Path
+import stat
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-import backlink_publisher.publishing.browser_publish._chrome_session_impl as _cs_impl
 
 from backlink_publisher.publishing.browser_publish import (
     BrowserPublishRecipe,
@@ -27,7 +26,7 @@ from backlink_publisher.publishing.browser_publish import (
     ChromeSessionError,
 )
 from backlink_publisher.publishing.browser_publish import chrome_session as cs
-
+import backlink_publisher.publishing.browser_publish._chrome_session_impl as _cs_impl
 
 # ---------------------------------------------------------------------------
 # Shared path helpers
@@ -154,6 +153,7 @@ class TestListenerIdentity:
 
 
 class TestEnsureProfilePerms:
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_creates_dir_and_chmods(self, tmp_path):
         profile = tmp_path / "profile"
         # Don't pre-create — _ensure_profile_perms handles mkdir.
@@ -161,6 +161,7 @@ class TestEnsureProfilePerms:
         assert profile.exists()
         assert stat.S_IMODE(profile.stat().st_mode) == 0o700
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_tightens_loose_perms(self, tmp_path):
         profile = tmp_path / "profile"
         profile.mkdir()
@@ -168,6 +169,7 @@ class TestEnsureProfilePerms:
         cs._ensure_profile_perms(profile)
         assert stat.S_IMODE(profile.stat().st_mode) == 0o700
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_raises_chrome_profile_unsafe_perms_when_owner_mismatch(self, tmp_path):
         profile = tmp_path / "profile"
         profile.mkdir()
@@ -188,6 +190,7 @@ class TestPidFile:
         record = cs._read_pid_file()
         assert record == {"pid": 54321, "start_time": 1700000000.123}
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not enforce Unix 0600 permission semantics")
     def test_pid_file_is_0600(self, monkeypatch, tmp_path):
         monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
         cs._write_pid_file(11, 0.0)
@@ -472,6 +475,7 @@ class TestChromeAttachSession:
         proc.terminate.assert_called()
         assert cs._pid_file_path().exists() is False
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix process group management is not applicable on Windows")
     def test_teardown_uses_terminate_not_killpg(
         self, monkeypatch, tmp_path, stub_page, chrome_bin, profile
     ):

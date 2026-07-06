@@ -3,13 +3,15 @@ edge-case validation.
 
 Extracted from ``test_cli_generate_backlink_text.py`` (Plan 2026-06-23-005 U4).
 """
+
 from __future__ import annotations
+__tier__ = "unit"
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -54,7 +56,7 @@ def test_run_generate_calls_generate_link_text(monkeypatch):
     import argparse
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 
@@ -98,7 +100,7 @@ def test_run_generate_external_service_error_produces_rejected(monkeypatch):
     import unittest.mock as mock
 
     from backlink_publisher._util.errors import ExternalServiceError
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-api-key-value")
 
@@ -146,7 +148,7 @@ def test_run_generate_external_service_error_produces_rejected(monkeypatch):
 
 def test_make_correction_hint_known_reasons_not_none():
     """Known failure reasons return a non-empty correction hint string."""
-    from backlink_publisher.cli.generate_backlink_text import _make_correction_hint
+    from backlink_publisher.cli._candidates import _make_correction_hint
 
     for reason in ("missing_link", "missing_anchor", "length_out_of_bounds", "unsafe_chars"):
         hint = _make_correction_hint(reason)
@@ -157,14 +159,14 @@ def test_make_correction_hint_known_reasons_not_none():
 
 def test_make_correction_hint_refusal_returns_none():
     """llm_refusal returns None — no re-prompt is attempted for refusals."""
-    from backlink_publisher.cli.generate_backlink_text import _make_correction_hint
+    from backlink_publisher.cli._candidates import _make_correction_hint
 
     assert _make_correction_hint("llm_refusal") is None
 
 
 def test_make_correction_hint_unknown_reason_returns_none():
     """Unknown reason returns None (no re-prompt for novel failure categories)."""
-    from backlink_publisher.cli.generate_backlink_text import _make_correction_hint
+    from backlink_publisher.cli._candidates import _make_correction_hint
 
     assert _make_correction_hint("bogus_reason") is None
 
@@ -177,7 +179,7 @@ def test_corrective_reprompt_succeeds_on_second_attempt(monkeypatch):
     import argparse
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
 
@@ -224,7 +226,7 @@ def test_corrective_reprompt_hint_appended_to_payload(monkeypatch):
     import argparse
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
 
@@ -276,7 +278,7 @@ def test_corrective_reprompt_both_fail_produces_rejected(monkeypatch):
     import argparse
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
 
@@ -318,7 +320,7 @@ def test_corrective_reprompt_skipped_for_refusal(monkeypatch):
     import argparse
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "test-key-value")
 
@@ -368,7 +370,7 @@ def test_transport_error_produces_rejected_and_no_bearer_in_stderr(
     import unittest.mock as mock
 
     from backlink_publisher._util.errors import ExternalServiceError
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     sentinel = "test-bearer-sentinel-do-not-log"
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", sentinel)
@@ -415,7 +417,7 @@ def test_output_records_contain_no_credentials(monkeypatch):
     import argparse
     import unittest.mock as mock
 
-    from backlink_publisher.cli.generate_backlink_text import _run_generate
+    from backlink_publisher.cli.plan.generate_backlink_text import _run_generate
 
     monkeypatch.setenv("BACKLINK_LLM_API_KEY", "super-secret-key-value")
 
@@ -628,7 +630,7 @@ def test_userinfo_endpoint_secret_not_in_stderr(monkeypatch, capsys):
 
 def test_validate_generated_text_length_out_of_bounds_article_too_long():
     """Article body > 400 words → length_out_of_bounds (TST-001)."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     filler_word = "word"
     filler = (" ".join([filler_word] * 210) + " ")
@@ -645,7 +647,7 @@ def test_validate_generated_text_length_out_of_bounds_article_too_long():
 
 def test_validate_generated_text_length_out_of_bounds_comment_too_long():
     """Comment body > 80 words → length_out_of_bounds (TST-002)."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     filler_word = "word"
     filler = " ".join([filler_word] * 44)
@@ -664,6 +666,7 @@ def test_cli_dry_run_no_http_call(capsys, monkeypatch):
     """--dry-run: HTTP must never be called regardless of valid input (TST-003)."""
     import io
     import unittest.mock as mock
+
     from backlink_publisher.cli.generate_backlink_text import main
 
     record = json.dumps({
@@ -689,7 +692,7 @@ def test_cli_dry_run_no_http_call(capsys, monkeypatch):
 
 def test_validate_generated_text_multiple_extra_links_stripped():
     """Multiple extra links to different domains → all stripped; stripped_extra_links counts them (TST-004)."""
-    from backlink_publisher.cli.generate_backlink_text import _validate_generated_text
+    from backlink_publisher.cli._candidates import _validate_generated_text
 
     base_text = _make_comment_text("https://example.com/", "example anchor")
     extra1 = "[spam1](https://spam1.com/a)"
@@ -715,7 +718,7 @@ def test_cli_help_banner_subprocess():
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
     )
     result = subprocess.run(
-        [sys.executable, "-m", "backlink_publisher.cli.generate_backlink_text", "--help"],
+        [sys.executable, "-m", "backlink_publisher.cli.plan.generate_backlink_text", "--help"],
         capture_output=True,
         text=True,
         env=env,

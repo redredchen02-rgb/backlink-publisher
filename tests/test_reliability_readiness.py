@@ -7,7 +7,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
 import pytest
 
@@ -17,15 +17,15 @@ from backlink_publisher.events.kinds import (
     RELIABILITY_DECISION,
 )
 from backlink_publisher.scorecard.reliability_readiness import (
+    channel_readiness,
     DEFAULT_MIN_ATTEMPTS,
     DEFAULT_MIN_DAYS_OBSERVED,
     VERDICT_INSUFFICIENT,
     VERDICT_POINTLESS,
     VERDICT_WORTHWHILE,
-    channel_readiness,
 )
 
-_T0 = datetime(2026, 6, 1, tzinfo=timezone.utc)
+_T0 = datetime(2026, 6, 1, tzinfo=UTC)
 _T0_ISO = _T0.isoformat()
 
 

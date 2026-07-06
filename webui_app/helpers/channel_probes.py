@@ -8,11 +8,15 @@ from typing import Any
 import json
 import os
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
+import json
+import os
+from typing import Any
 
 from google.oauth2.credentials import Credentials
 
 from backlink_publisher.config import load_blogger_token, load_config
+
 from ._request_cache import _g_cache
 
 
@@ -44,7 +48,7 @@ def _image_gen_status(cfg: Any) -> dict:
     if token_present:
         try:
             token_mtime = _dt.datetime.fromtimestamp(
-                token_path.stat().st_mtime, tz=_dt.timezone.utc
+                token_path.stat().st_mtime, tz=_dt.UTC
             ).strftime("%Y-%m-%d %H:%M UTC")
         except OSError:
             token_mtime = None
@@ -74,10 +78,10 @@ def _get_blogger_token_status() -> dict:
             return {'state': 'expired', 'label': 'Token 无效', 'days_left': 0}
         if creds.expiry is None:
             return {'state': 'ok', 'label': 'Token 有效', 'days_left': None}
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expiry = creds.expiry
         if expiry.tzinfo is None:
-            expiry = expiry.replace(tzinfo=timezone.utc)
+            expiry = expiry.replace(tzinfo=UTC)
         days = (expiry - now).days
         if days < 0:
             if creds.refresh_token:
@@ -209,8 +213,8 @@ def _get_medium_browser_status(cfg: Any, *, session: Any=None) -> dict:
     no network call.  ``logged_in`` state is set only via flask.session after
     a successful probe_login_status() invocation.
     """
+    from datetime import datetime
     import platform as _plat
-    from datetime import datetime, timezone
 
     try:
         from backlink_publisher.publishing.adapters.medium_browser import (
@@ -233,9 +237,9 @@ def _get_medium_browser_status(cfg: Any, *, session: Any=None) -> dict:
     if profile_has_cookies:
         try:
             mtime = cookies_path.stat().st_mtime
-            dt = datetime.fromtimestamp(mtime, tz=timezone.utc)
+            dt = datetime.fromtimestamp(mtime, tz=UTC)
             cookies_mtime = dt.isoformat()
-            cookies_age_days = (datetime.now(timezone.utc) - dt).days
+            cookies_age_days = (datetime.now(UTC) - dt).days
         except OSError:
             cookies_age_days = 0
 

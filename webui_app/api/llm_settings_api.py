@@ -23,10 +23,11 @@ checkbox semantics gap (form = key-presence means checked; JSON = a real bool).
 
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+import json
 
+from backlink_publisher._util.logger import plan_logger
 from backlink_publisher.persistence.safe_write import atomic_write
 
 from ..helpers.contexts import _llm_settings_file, _load_llm_settings
@@ -181,7 +182,10 @@ class LlmSettingsAPI:
                 _write_llm_settings(dict(_LLM_DEFAULTS))
                 return LlmSaveResult("success", "LLM 配置已清除")
             except Exception as e:
-                return LlmSaveResult("danger", f"清除失败: {e}", error_class="persistence_failure")
+                plan_logger.error("llm_settings_clear_failed", error=str(e))
+                return LlmSaveResult(
+                    "danger", f"清除失败: {type(e).__name__}", error_class="persistence_failure"
+                )
 
         existing = _load_llm_settings()
         try:
@@ -252,4 +256,7 @@ class LlmSettingsAPI:
             )
             return LlmSaveResult("success", "LLM 设定已保存")
         except Exception as e:
-            return LlmSaveResult("danger", f"保存失败: {e}", error_class="persistence_failure")
+            plan_logger.error("llm_settings_save_failed", error=str(e))
+            return LlmSaveResult(
+                "danger", f"保存失败: {type(e).__name__}", error_class="persistence_failure"
+            )

@@ -13,11 +13,11 @@ in re-emitted events would drift, breaking historical correlation).
 
 from __future__ import annotations
 
+from functools import lru_cache
 import hashlib
 import os
-import sys
-from functools import lru_cache
 from pathlib import Path
+import sys
 
 from ..config import _config_dir
 

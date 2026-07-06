@@ -9,11 +9,10 @@ import stat
 import pytest
 
 from backlink_publisher.config.tokens import (
+    _TOKEN_FILES,
     load_hatena_token,
     save_hatena_token,
 )
-from backlink_publisher.config.tokens import _TOKEN_FILES
-
 
 _CRED = {"hatena_id": "testuser", "blog_id": "testuser.hatenablog.com", "api_key": "abc123"}
 

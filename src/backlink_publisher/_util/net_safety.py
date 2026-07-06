@@ -8,14 +8,11 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from typing import Any, Optional
+from typing import Any
 from urllib.error import URLError
-from urllib.request import HTTPRedirectHandler, OpenerDirector, build_opener
-
-from urllib.request import Request
+from urllib.request import build_opener, HTTPRedirectHandler, OpenerDirector, Request
 
 from backlink_publisher._util.url import safe_urlparse
-
 
 _BLOCKED_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
     ipaddress.ip_network("10.0.0.0/8"),
@@ -58,7 +55,7 @@ _PRIVATE_OK_NETWORKS: frozenset[ipaddress.IPv4Network | ipaddress.IPv6Network] =
 )
 
 
-def _is_blocked_ip(ip_text: str, allow_private: bool = False) -> Optional[str]:
+def _is_blocked_ip(ip_text: str, allow_private: bool = False) -> str | None:
     try:
         ip = ipaddress.ip_address(ip_text)
     except ValueError:
@@ -73,14 +70,15 @@ def _is_blocked_ip(ip_text: str, allow_private: bool = False) -> Optional[str]:
     return None
 
 
-def _resolve_host_ips(host: str) -> tuple[list[str], Optional[str]]:
+def _resolve_host_ips(host: str) -> tuple[list[str], str | None]:
     if not host:
         return [], "invalid_host"
     try:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror:
         return [], "dns_failure"
-    except Exception:
+    except OSError:
+        # debt: net-safety-dns-resolve-oserror
         return [], "dns_failure"
     ips: list[str] = []
     for fam, _typ, _proto, _canon, sockaddr in infos:
@@ -92,7 +90,7 @@ def _resolve_host_ips(host: str) -> tuple[list[str], Optional[str]]:
     return ips, None
 
 
-def _check_url_for_ssrf(url: str, allow_private: bool = False) -> Optional[str]:
+def _check_url_for_ssrf(url: str, allow_private: bool = False) -> str | None:
     # Never-raises: a malformed authority (unterminated IPv6) parses to None and
     # is treated as a *blocked* "invalid_host" (fail-closed) — _check_once calls
     # this on untrusted URLs and must never leak a ValueError. Plan 006 R3b.

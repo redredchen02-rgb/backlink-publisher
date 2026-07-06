@@ -12,7 +12,6 @@ as a diagnostic flag but is always True in practice.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 from urllib.parse import urljoin
 
 import requests
@@ -24,9 +23,10 @@ _SSRF_GUARD_ACTIVE = True
 
 # Real verifier UA imported live so probes match what the pipeline's
 # link_attr_verifier preflight fetch actually sends.
+# P14 A5: imported from _util.constants instead of content._preflight_fetch.
 try:
-    from backlink_publisher.content._preflight_fetch import USER_AGENT as _PREFLIGHT_UA
-except Exception:  # noqa: BLE001
+    from backlink_publisher._util.constants import PREFLIGHT_UA as _PREFLIGHT_UA
+except ImportError:
     _PREFLIGHT_UA = "backlink-publisher/0.1 preflight-targets"
 
 GOOGLEBOT_UA = (
@@ -63,7 +63,7 @@ def _get_session() -> requests.Session:
 @dataclass
 class Hit:
     ua: str
-    status: Optional[int]
+    status: int | None
     final_url: str = ""
     redirected: bool = False
     server: str = ""
@@ -79,7 +79,7 @@ class UrlResult:
     hits: list[Hit] = field(default_factory=list)
 
 
-def _validate_url_ssrf(url: str) -> Optional[str]:
+def _validate_url_ssrf(url: str) -> str | None:
     """Return blocked reason if URL is SSRF-dangerous, else None."""
     return _ssrf_check(url)
 

@@ -21,6 +21,7 @@ from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
 )
+from backlink_publisher.publishing import registry as reg_mod
 from backlink_publisher.publishing.adapters.base import AdapterResult
 from backlink_publisher.publishing.browser_publish import (
     BrowserPublishDispatcher,
@@ -28,8 +29,6 @@ from backlink_publisher.publishing.browser_publish import (
     RECIPES,
 )
 from backlink_publisher.publishing.browser_publish import dispatcher as disp_mod
-from backlink_publisher.publishing import registry as reg_mod
-
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -201,7 +200,7 @@ class TestPublish:
 
         with patch(
             "webui_store.channel_status.mark_expired",
-            side_effect=IOError("disk full"),
+            side_effect=OSError("disk full"),
         ):
             with pytest.raises(AuthExpiredError):
                 dispatcher.publish({}, "publish", fake_config)

@@ -14,11 +14,11 @@ import pytest
 import requests.exceptions
 
 from backlink_publisher.cli._bind.chrome_backend import (
-    RealChromeBrowserRunner,
     _chrome_binary,
     _chrome_port,
     _chrome_profile_dir,
     _websocket_available,
+    RealChromeBrowserRunner,
 )
 
 

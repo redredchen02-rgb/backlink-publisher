@@ -9,19 +9,19 @@ Plan: ``docs/plans/2026-05-26-004-opt-projector-budget-rescue-plan.md``
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
 import json
 import logging
+from pathlib import Path
 import re
 import sqlite3
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
 from .._util.url import canonicalize_url
 from .store import EventStore
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class ProjectionError(RuntimeError):
@@ -96,15 +96,15 @@ def split_iso_with_offset(value: str) -> tuple[str, str]:
     """Checkpoint ``started_at`` / ``completed_at`` form (ISO with offset)."""
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return value, parsed.astimezone(timezone.utc).isoformat()
+        parsed = parsed.replace(tzinfo=UTC)
+    return value, parsed.astimezone(UTC).isoformat()
 
 
 def split_local_naive(value: str) -> tuple[str, str]:
     """History / drafts ``YYYY-MM-DD HH:MM`` form — assume operator local."""
     parsed = datetime.strptime(value, "%Y-%m-%d %H:%M")
     local = parsed.astimezone()
-    return value, local.astimezone(timezone.utc).isoformat()
+    return value, local.astimezone(UTC).isoformat()
 
 
 # ── JSON read ───────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ def read_json(path: Path) -> Any | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        _log.warning("projector: failed to parse %s: %s", path, exc)
+        log.warning("projector: failed to parse %s: %s", path, exc)
         return None
 
 
@@ -156,13 +156,13 @@ def write_quarantines(store: EventStore, pending: list[dict[str, Any]]) -> None:
     for q in pending:
         try:
             store.quarantine(**q)
-            _log.warning(
+            log.warning(
                 "RECON projector: quarantined [%s] %s (run=%s id=%s)",
                 q.get("failure_type"), q.get("reason"),
                 q.get("run_id"), q.get("record_identity"),
             )
         except Exception as exc:  # noqa: BLE001
-            _log.error(
+            log.error(
                 "RECON projector: FAILED to quarantine [%s] %s (run=%s id=%s): "
                 "%s — continuing",
                 q.get("failure_type"), q.get("reason"),

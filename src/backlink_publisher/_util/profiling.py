@@ -10,15 +10,15 @@ Profiles are saved under the project cache directory with timestamped filenames.
 
 from __future__ import annotations
 
-import cProfile
-import os
-import pstats
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime
+import cProfile
+from datetime import datetime, UTC
 from pathlib import Path
-from typing import Any, Iterator
+import pstats
+from typing import Any
 
-from backlink_publisher.config.loader import _cache_dir
+from backlink_publisher._util.paths import _cache_dir
 
 
 def _get_profile_dir() -> Path:
@@ -52,7 +52,7 @@ def profile_if_enabled(args: object | None = None) -> Iterator[None]:
     finally:
         profiler.disable()
         profile_dir = _get_profile_dir()
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         prof_path = profile_dir / f"profile-{timestamp}.prof"
         profiler.dump_stats(str(prof_path))
 

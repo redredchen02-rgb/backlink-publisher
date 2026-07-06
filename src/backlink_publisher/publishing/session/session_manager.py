@@ -22,12 +22,12 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing._manifest_types import SessionDescriptor
 
-from .credential import Credential
-from .provider import CredentialProvider
-
 # Module-level name so tests can patch it via
 # "...session.session_manager.get_descriptor"
 from backlink_publisher.publishing._registry_manifest import session as get_descriptor  # noqa: E402
+
+from .credential import Credential
+from .provider import CredentialProvider
 
 
 class SessionManager:

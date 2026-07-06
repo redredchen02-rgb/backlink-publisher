@@ -9,8 +9,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from ._project_helpers import article_payload, host_of, split_local_naive
 from . import kinds
+from ._project_helpers import article_payload, host_of, split_local_naive
 from .store import EventStore
 
 
@@ -62,7 +62,6 @@ def _emit_confirmed_history_row(
     events = 0
     articles = 0
     skipped = 0
-    emitted_any = False
     for live_url in article_urls:
         if not isinstance(live_url, str) or not live_url:
             continue
@@ -107,7 +106,6 @@ def _emit_confirmed_history_row(
             pending_quarantines=pending_quarantines,
         )
         events += 1
-        emitted_any = True
     return events, articles, skipped, False
 
 

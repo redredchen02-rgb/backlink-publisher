@@ -1,6 +1,31 @@
 # backlink-publisher configuration
 # Copy to: ~/.config/backlink-publisher/config.toml
 # Then fill in your values.
+#
+# Quick Start:
+#   1. Copy this file to ~/.config/backlink-publisher/config.toml
+#   2. Uncomment and fill in [blogger] or [medium] section (at least one platform)
+#   3. Add [targets."https://your-site.com"] with anchor pools (see Work-Themed section)
+#   4. Run: plan-backlinks | validate-backlinks | publish-backlinks --mode draft
+#
+# Full documentation: https://github.com/your-org/backlink-publisher/blob/main/README.md
+#
+# Sections in this file:
+#   [blogger]              — Blogger platform config
+#   [medium]               — Medium platform config (OAuth / Integration Token)
+#   [gsc]                  — Google Search Console integration
+#   [targets]              — Target sites with anchor pools (Work-Themed recommended)
+#   [anchor.proportions]   — Anchor type distribution (branded/partial/exact/lsi)
+#   [anchor_alarm]         — Anchor distribution breach alerts
+#   [llm.anchor_provider]  — LLM for dynamic anchor generation (optional)
+#   [ghpages]              — GitHub Pages adapter
+#   [gitlabpages]          — GitLab Pages adapter
+#   [image_gen]            — AI banner image generation
+#   [mastodon]             — Mastodon/Fediverse publishing
+#   [cells]                — Blast-radius channel restrictions
+#   [canary.*]             — Per-platform canary monitoring
+#   [throttle.*]           — Per-platform post-publish delays
+#   [error_reports]        — Frontend error reporting
 
 # ────────────────────────────────────────────────────────────
 # Blogger: map each target main_domain to its Blogger blog_id
@@ -19,14 +44,13 @@ client_secret = "your-client-secret"
 # ────────────────────────────────────────────────────────────
 # Medium
 # ────────────────────────────────────────────────────────────
-# ────────────────────────────────────────────────────────────
-# WordPress.com — REST API v1.1 (Phase 1 P0)
-# ────────────────────────────────────────────────────────────
-# Token stored at: ~/.config/backlink-publisher/wordpresscom-token.json
-# Format: {"token": "<oauth2-access-token>", "site": "<site-domain-or-blog-id>"}
-# Get an OAuth2 token by registering a WP.com app at:
-#   https://developer.wordpress.com/apps/
-# [wordpresscom]
+# Two authentication methods (in priority order):
+#   1. OAuth 2.0 (recommended) — authorize via WebUI Settings page
+#   2. Integration Token — manual token from medium.com/me/settings/security
+#   3. Browser fallback — Playwright-headed Chrome (auto when no token)
+#
+# Token stored at: ~/.config/backlink-publisher/medium-token.json
+# OAuth credentials: register at https://medium.com/settings/applications
 
 [medium]
 # Integration Token — obtain at: medium.com/me/settings/security → Integration tokens
@@ -38,14 +62,20 @@ client_secret = "your-client-secret"
 # Defaults to: ~/.config/backlink-publisher/chrome-profile-default/
 # user_data_dir = "/path/to/your/chrome/profile"
 
-# ────────────────────────────────────────────────────────────
-# Medium OAuth 2.0 (推荐)
-# ────────────────────────────────────────────────────────────
-# 通过 WebUI Settings 页面授权，无需手动填写
-# OAuth Token 会自动保存到: ~/.config/backlink-publisher/medium-token.json
+# Medium OAuth 2.0 (recommended)
+# Authorize via WebUI Settings page — no manual token entry needed.
 # [medium.oauth]
 # client_id     = "your-medium-client-id"
 # client_secret = "your-medium-client-secret"
+
+# ────────────────────────────────────────────────────────────
+# WordPress.com — REST API v1.1
+# ────────────────────────────────────────────────────────────
+# Token stored at: ~/.config/backlink-publisher/wordpresscom-token.json
+# Format: {"token": "<oauth2-access-token>", "site": "<site-domain-or-blog-id>"}
+# Get an OAuth2 token by registering a WP.com app at:
+#   https://developer.wordpress.com/apps/
+# [wordpresscom]
 
 # ────────────────────────────────────────────────────────────
 # Google Search Console (GSC) — indexation check & ranking snapshot
@@ -486,3 +516,19 @@ client_secret = "your-client-secret"
 #
 # [throttle.mataroa]
 # delay_s = 20.0
+
+# ─── Error reporting & diagnostics dashboard (Plan 2026-07-01-002) ─────────
+#
+# Frontend error-capture + persistence: any unexpected error on either
+# WebUI frontend (legacy Jinja/JS pages, or the Vue SPA) is sanitized and
+# stored in webui.db so it survives a restart, then browsed/triaged via the
+# in-app dashboard. Both settings below are optional -- omit the whole
+# section (or either key) to accept the built-in defaults.
+#
+# [error_reports]
+# daily_cap = 200        # max NEW reports/day (a fingerprint match that only
+#                        # increments an existing report's occurrence count
+#                        # does NOT count against this); omit, or <0, for
+#                        # unlimited
+# retention_days = 30    # the periodic purge job (webui_app/scheduler.py)
+#                        # deletes reports older than this many days

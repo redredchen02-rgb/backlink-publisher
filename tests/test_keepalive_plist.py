@@ -5,8 +5,8 @@ __tier__ = "integration"
 
 
 import os
-import plistlib
 from pathlib import Path
+import plistlib
 
 import pytest
 
