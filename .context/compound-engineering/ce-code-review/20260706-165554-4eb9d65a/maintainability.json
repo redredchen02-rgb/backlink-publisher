@@ -1,0 +1,12 @@
+{
+  "reviewer": "maintainability",
+  "findings": [],
+  "residual_risks": [
+    "Icon.vue's ICONS map hand-transcribes SVG path data from bootstrap-icons v1.11.0; if that upstream library is later bumped elsewhere (e.g. the CDN removal in v0.6.0 U8 mentioned in comments), nothing enforces the inline paths stay in sync with a newer icon set version — drift would be silent since there's no build-time extraction step.",
+    "ConfirmDialog's Escape handler is registered in the capture phase and calls stopPropagation specifically to out-race useSidenavDrawer's bubble-phase listener; this ordering contract is documented only in comments, not in a test or shared constant, so a future refactor of the drawer's listener phase could silently break the 'topmost dialog closes first' guarantee.",
+    "BloggerCard's doRevoke is designed to never reject (errors are caught internally and routed to toastError) so that ConfirmDialog's inline-error path is effectively dead code for this call site; this is intentional per the inline comment, but a future maintainer wiring a new confirm callback by copying BloggerCard's pattern may not realize the dialog's own error-recovery path exists and is exercised elsewhere (KeepAlivePage does not use it either — flashMessage is used instead)."
+  ],
+  "testing_gaps": [
+    "No test appears to cover ConfirmDialog's focus-trap Tab/Shift+Tab cycling or focus-restoration-to-trigger-element behavior directly in ConfirmDialog.spec.ts scope beyond what was skimmed; given the a11y guarantees are a documented contract (focus trap, Escape capture ordering vs. sidenav drawer), a dedicated interaction test with a real sidenav drawer mounted alongside would give higher confidence the capture-phase/stopPropagation contract holds across both components simultaneously, not just in isolation."
+  ]
+}

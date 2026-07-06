@@ -62,7 +62,7 @@ def _resolve_config_dir() -> Path:
     from inside loader.py (where the local ``_config_dir`` would otherwise
     be a module-internal globals lookup, missed by the package-level patch).
     Kept in ``_util.paths``; ``config/loader`` imports it from here."""
-    from backlink_publisher._util.paths import _config_dir as _cd
+    from backlink_publisher.config import _config_dir as _cd
 
     return _cd()
 

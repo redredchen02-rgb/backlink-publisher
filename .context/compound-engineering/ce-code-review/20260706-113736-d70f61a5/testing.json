@@ -1,0 +1,85 @@
+{
+  "reviewer": "testing",
+  "findings": [
+    {
+      "title": "15s AbortController timeout path never actually exercised",
+      "severity": "P2",
+      "file": "frontend/src/api/prQueue.ts",
+      "line": 37,
+      "why_it_matters": "The whole point of B3 is that a hung backend must not leave the caller stuck forever; the mechanism that delivers that guarantee is setTimeout(() => ctrl.abort(), _TIMEOUT_MS) at prQueue.ts:37. No test in prQueue.spec.ts ever lets that timer fire (via vi.useFakeTimers()/advanceTimersByTime) or makes the mocked fetch actually react to ctrl.signal being aborted. The two timeout-labeled tests only check that a signal object is passed to fetch, and that a manually-thrown AbortError propagates unchanged -- the latter would pass identically for a plain, un-timed-out fetch(url, init) call, since it never advances time or ties the thrown error to the timer. A regression that breaks the timer (wrong duration, timer never scheduled, clearTimeout fired too early/late, wrong AbortController instance captured) would ship with all tests green.",
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Add a vi.useFakeTimers() test: mock fetch to return a promise that only rejects when its init.signal fires an abort event (mirroring real fetch semantics), call fetchPrQueue(), vi.advanceTimersByTime(15000), and assert the call rejects with an AbortError. Also confirm no stray abort after a normal resolved response by advancing timers past 15s post-resolution.",
+      "confidence": 0.78,
+      "evidence": [
+        "prQueue.ts:35-39 defines _fetchWithTimeout with const timer = setTimeout(() => ctrl.abort(), _TIMEOUT_MS).",
+        "prQueue.spec.ts test passes an AbortSignal to fetch only asserts init.signal instanceof AbortSignal -- no time advancement.",
+        "prQueue.spec.ts test propagates an AbortError instead of hanging throws a DOMException directly from the mocked fetch synchronously -- it never lets _TIMEOUT_MS elapse, so it does not test the timer itself, only that fetchPrQueue re-throws whatever fetch throws."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "_csrf() network fallback branch untested despite diff touching it",
+      "severity": "P2",
+      "file": "frontend/src/api/prQueue.ts",
+      "line": 46,
+      "why_it_matters": "The diff changed _csrf's network call from fetch(...) to _fetchWithTimeout(...) (prQueue.ts:46-49), but every updatePrStatus test in prQueue.spec.ts sets document.head.innerHTML to a meta tag with a csrf token before invoking, which makes _csrf() return at line 45 (if meta, return meta) before ever reaching the modified fetch call. The exact code the diff changed in this function is therefore never executed by any test, so a bug in the new timeout wiring for this path (wrong URL, wrong headers, thrown/timeout error not surfaced) would go undetected.",
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Add an updatePrStatus test that leaves document.head.innerHTML empty (no csrf meta tag), asserts the mocked fetch is called with /api/v1/csrf-token first, and that the resulting token flows into the X-CSRFToken header of the follow-up POST. Add a companion case where that csrf fetch rejects/times out and assert updatePrStatus rejects rather than silently proceeding.",
+      "confidence": 0.72,
+      "evidence": [
+        "prQueue.ts:41-52 _csrf(): the meta-tag short-circuit returns before the _fetchWithTimeout call to /api/v1/csrf-token at lines 46-49.",
+        "All three updatePrStatus tests in prQueue.spec.ts set the csrf meta tag before calling, so none reaches the network branch of _csrf()."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "B4 test skips the fetch-in-flight race it claims to prove",
+      "severity": "P2",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.spec.ts",
+      "line": 127,
+      "why_it_matters": "The B4 bug description is that a slower earlier request could overwrite a newer, faster request's fresher data -- i.e. two overlapping fetchPrQueue() calls, with the earlier one resolving after the later one. But in this test both markStatus clicks fire back-to-back before any await, so load(A)'s continuation (config-check resolves first) finds itself already stale at PrQueuePage.vue:83, before it ever calls fetchPrQueue(), and returns. Only load(B) ever reaches the network. That means PrQueuePage.vue:90 (the generation guard right after fetchPrQueue resolves, superseded while fetching the queue), the checkpoint that most directly matches the bug's own description, is never reached by any test in this diff. Reverting only that specific line (while leaving the config-check guard at line 83 intact) would not be caught by this suite. Similarly, no test drives a stale call's fetchPrQueue() to reject (exercising the catch-block guard at line 93) or checks blockState/loading.value mid-race (exercising the finally-block guard at lines 95-99) -- both are new conditionals introduced by this diff with no direct assertion.",
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Add a scenario with two independently-controlled deferred promises for fetchPrQueue: start load A and let it get past /app-config and into its own in-flight fetchPrQueue call, then start load B and resolve B's fetchPrQueue first, then resolve A's afterward with different data -- assert A's data never overwrites items.value (exercises line 90). Add a case where the stale call's fetchPrQueue rejects and assert error.value stays null (exercises line 93). Optionally assert blockState stays loading while the current (B) request is still pending even though the stale (A) request has already unwound through its finally block (exercises lines 95-99).",
+      "confidence": 0.76,
+      "evidence": [
+        "PrQueuePage.spec.ts:149-150 fires the won-button-for-A click then the skip-button-for-B click synchronously, before either awaits -- both markStatus calls suspend at their own await updatePrStatus(...) first, so both load() calls' generation is fixed before either reaches getJson's resolution.",
+        "PrQueuePage.vue:83's generation guard fires for load(A) before it ever calls fetchPrQueue(), because getJson resolves for A's call before B's load() call has even started incrementing loadGeneration a second time in this specific interleaving -- meaning the network-response race guard at PrQueuePage.vue:90 is structurally never exercised by this test.",
+        "PrQueuePage.vue:93 (catch-block stale-error guard) and lines 95-99 (finally-block stale-loading guard) have no corresponding assertion anywhere in PrQueuePage.spec.ts."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "B5 test asserts a literal count, not the guard's position",
+      "severity": "P3",
+      "file": "tests/test_webui_feedback_states.py",
+      "line": 224,
+      "why_it_matters": "test_health_bar_fetch_resolution_rechecks_dismiss_before_showing asserts _INDEX_JS.count(guard_string) == 2 against the whole file rather than confirming the second occurrence sits specifically inside the health fetch's then-callback body (between the .then( open and the bar.classList.remove d-none line it is meant to guard). A structurally-misplaced duplicate of the identical string anywhere else in index.js would satisfy this assertion while leaving the actual race unfixed. This is a lower-severity version of a pattern already used elsewhere in the same file (a sibling monitor_hub concurrency test does a similar whole-file count check), so it's consistent with this suite's existing JS-runtime-less conventions rather than a novel regression, but it is still weaker than it needs to be for the one thing this specific test exists to pin down.",
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Extract the substring between the then-callback's open brace and its closing catch, and assert the dismiss-check string is found within that substring specifically, rather than counting occurrences across the whole file.",
+      "confidence": 0.62,
+      "evidence": [
+        "test_webui_feedback_states.py:224-226 asserts _INDEX_JS.count of the dismiss-guard string equals 2, a whole-file count with no positional anchor to the then-callback."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "frontend/src/api/prQueue.ts's 15s AbortController timeout has no test that actually advances time past it (fake timers) or makes the mock fetch honor the abort signal -- a regression in the timer wiring itself would ship undetected.",
+    "_csrf()'s network fallback fetch (no cached meta tag) is entirely unexercised by prQueue.spec.ts even though the diff changed that exact call from fetch to _fetchWithTimeout.",
+    "PrQueuePage.spec.ts's B4 test relies on an implicit, undocumented assumption about FIFO microtask ordering between two structurally-identical mocked async calls (updatePrStatus for A then for B) to establish which load() is stale vs current -- correct under current Vue/Vitest/Node semantics, but the test doesn't comment on or guard this ordering assumption the way it documents the click-ordering rationale."
+  ],
+  "testing_gaps": [
+    "No fake-timer test verifies prQueue.ts's 15s AbortController timeout actually fires/aborts a hung request (only plumbing -- signal passed, generic AbortError propagation -- is tested).",
+    "No test exercises _csrf()'s network fallback (missing meta csrf tag) despite the diff touching that exact fetch call.",
+    "PrQueuePage.spec.ts's B4 test only covers supersession at the /app-config checkpoint (PrQueuePage.vue:83); the fetchPrQueue-in-flight race (line 90, the scenario B4 is literally about), the stale-error catch guard (line 93), and the stale-loading finally guard (lines 95-99) have no dedicated coverage.",
+    "test_webui_feedback_states.py's B5 regression test checks a literal string count across the whole file rather than confirming the guard is positioned inside the then-callback specifically."
+  ]
+}

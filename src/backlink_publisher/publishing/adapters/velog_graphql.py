@@ -39,6 +39,7 @@ P0-1 correction (R10):
 from __future__ import annotations
 
 from datetime import datetime, UTC
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -49,7 +50,6 @@ from typing import Any, cast
 
 import requests
 
-import fcntl
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     ContentRejectedError,
@@ -61,7 +61,7 @@ from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .link_attr_verifier import required_link_urls, verify_link_attributes
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
@@ -316,12 +316,6 @@ def _write_count(count_path: Path, count: int, last_publish_at: float) -> None:
 
 # ── Adapter ───────────────────────────────────────────────────────────────────
 
-class _TransientHTTPError(Exception):
-    def __init__(self, status_code: int) -> None:
-        self.status_code = status_code
-        super().__init__(f"HTTP {status_code}")
-
-
 def _apply_publish_jitter(article_id: str, last_publish_at: float) -> None:
     """Sleep a random interval if the last publish was too recent.
 
@@ -360,7 +354,7 @@ def _execute_write_post(
     """POST *gql_payload* via *session*, retrying only on 429.
 
     Non-idempotent: network errors are NOT retried — a stale duplicate would
-    result. Only a 429 pre-create rejection (``_TransientHTTPError``) is safe
+    result. Only a 429 pre-create rejection (``TransientError``) is safe
     to retry. Mirrors the ``medium_api`` / ``http_form_post`` create-once rule.
 
     *label* is appended to error messages to distinguish the first attempt from
@@ -375,20 +369,20 @@ def _execute_write_post(
             timeout=_TIMEOUT,
         )
         if resp.status_code in RETRYABLE_HTTP_STATUSES:
-            raise _TransientHTTPError(resp.status_code)
+            raise TransientError(resp.status_code)
         return resp
 
     try:
         return retry_transient_call(
             _once,
-            is_retryable=lambda exc: isinstance(exc, _TransientHTTPError),
+            is_retryable=lambda exc: isinstance(exc, TransientError),
             adapter="velog-graphql",
         )
     except requests.RequestException:
         raise ExternalServiceError(
             f"velog GraphQL endpoint unreachable{label}"
         ) from None
-    except _TransientHTTPError as exc:
+    except TransientError as exc:
         raise ExternalServiceError(
             f"velog writePost returned HTTP {exc.status_code} after retries{label}"
         ) from None

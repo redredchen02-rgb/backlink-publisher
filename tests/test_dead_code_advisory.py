@@ -58,7 +58,7 @@ ALLOWLIST: dict[str, str] = {
     ),
     # content/fetch.py: _max_body_bytes is imported for the env-var constant
     # surface (re-exported as part of the module's network-config API).
-    "src/backlink_publisher/content/fetch.py:56:unused import '_max_body_bytes'": (
+    "src/backlink_publisher/content/fetch.py:53:unused import '_max_body_bytes'": (
         "Network-config constant imported as part of the fetch module's "
         "documented env-var surface; re-exported, not dead."
     ),
@@ -70,7 +70,7 @@ ALLOWLIST: dict[str, str] = {
     ),
     # livejournal write_mode param: part of the adapter's published() signature
     # mirroring the cross-adapter contract; consumed by the dispatcher.
-    "src/backlink_publisher/publishing/adapters/livejournal_api.py:154:unused variable 'write_mode'": (
+    "src/backlink_publisher/publishing/adapters/livejournal_api.py:151:unused variable 'write_mode'": (
         "Adapter publish() signature param mirroring the cross-adapter contract "
         "the dispatcher calls; kept for signature parity across adapters."
     ),
@@ -79,7 +79,12 @@ ALLOWLIST: dict[str, str] = {
 
 def _key(path: Path, finding: str) -> str:
     """Build the allowlist key for a finding: '<relpath>:<lineno>:<message>'."""
-    rel = str(path.relative_to(REPO_ROOT))
+    # Normalise to forward slashes so allowlist keys match across macOS/Linux
+    # (/) and Windows (\\) — ALLOWLIST is authored with POSIX separators.
+    # Mirrors the same-bug-class fix in
+    # tests/test_no_monolith_regrowth.py::_scan_for_undeclared_monoliths
+    # (`str(path.relative_to(repo_root)).replace("\\", "/")`).
+    rel = str(path.relative_to(REPO_ROOT)).replace("\\", "/")
     return f"{rel}:{finding}"
 
 

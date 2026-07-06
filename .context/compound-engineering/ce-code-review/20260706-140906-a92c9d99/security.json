@@ -1,0 +1,34 @@
+{
+  "reviewer": "security",
+  "findings": [
+    {
+      "title": "bind-channel's scrub_text() fix covers the stdout JSONL path but not the parallel stderr path in the same exception handler",
+      "confidence": 0.62,
+      "severity": "medium",
+      "file": "src/backlink_publisher/cli/admin/bind_channel.py",
+      "lines": "128-156",
+      "description": "In cli/admin/bind_channel.py::main(), both catch-all arms (`except PipelineError` and `except Exception`) now correctly scrub_text() the exception text before it is embedded in the `channel.bind.failed` JSONL event's `message` field (lines 138/148). However, immediately afterward, the SAME unscrubbed `str(exc)` (or `exc.message`) is printed a second time via `handle_error(exc)` / `handle_unexpected_error(exc)` (src/backlink_publisher/_util/errors.py:250-269), which write the raw text to stderr AND pass it, still raw, into `_emit_error_envelope()` (errors.py:184-206) which also writes to stderr. The commit's own rationale describes bind_channel.py's emit call as 'the actual unfiltered stdout->WebUI exit point' and treats scrubbing it as closing the gap, but the identical raw exception text is written to a second channel (stderr) in the exact same handler, unscrubbed. Today this is not reachable through the WebUI: webui_app/services/bind_job.py's `_drain_stdout()` only iterates `proc.stdout` and never reads `proc.stderr` (confirmed by reading the full file), so the stderr copy is currently inert (sits in the OS pipe buffer until the subprocess exits). But a sibling module in the same package, webui_app/services/keepalive_job.py (lines 249-250), already does exactly the pattern that would reactivate this leak: it reads `proc.stderr` and folds it into an operator-visible diagnostic string. If bind_job.py is ever extended the same way (a very plausible future change, since it already mirrors keepalive_job.py's subprocess-driving shape), any credential-adjacent exception text (repr()'d cookies, session tokens) reaching this handler would bypass scrub_text() entirely via the stderr channel, even though the stdout channel is now fixed.",
+      "recommendation": "Route handle_error()/handle_unexpected_error()'s message text through scrub_text() as well (or pass the already-scrubbed `cleaned_message` into them instead of re-deriving from `exc`), so both output channels carry the same sanitized text. At minimum, add a code comment on bind_job.py's `_drain_stdout()` and on keepalive_job.py's stderr-surfacing pattern warning that bind-channel's stderr is intentionally unscrubbed and must not be wired into any future WebUI-facing diagnostic view without also scrubbing it."
+    }
+  ],
+  "residual_risks": [
+    {
+      "title": "_persist_storage_state's scrub_text() call is confirmed pure defense-in-depth with zero current exposure",
+      "detail": "Traced run_bind() (src/backlink_publisher/cli/_bind/_driver_impl.py:348-367): the `except PersistIOError:` arm discards the caught exception entirely and returns a BindResult with only the fixed literal error_code='persist_io_error' -- PersistIOError's own message (scrubbed or not) is never read by any caller. grep confirms `_persist_storage_state` has exactly one call site (run_bind itself). So the D3 commit's severity='high' classification for this entry describes a hypothetical future-refactor risk, not a live one. This matches the commit's own stated reasoning ('one refactor away from reaching a log line') -- flagging for awareness only, not action."
+    },
+    {
+      "title": "RealChromeBrowserRunner / chrome_backend.py is not currently wired into any production code path",
+      "detail": "grep across src/ and webui_app/ shows `RealChromeBrowserRunner` is only ever referenced by its own class definition and __all__ export in chrome_backend.py, plus tests. `run_bind()`'s default (`_browser_runner or _PlaywrightBrowserRunner()`) always selects the Playwright backend; nothing in bind_channel.py or driver.py selects the Chrome/CDP backend at runtime. This means ChromeLaunchError (and the fixed error_code/detail split) is currently only reachable from test harnesses, not real operator binds -- the D3 fix is correct and should stay in place for whenever this backend is wired up, but the severity='high' framing implies a currently-exploitable path that in practice isn't reachable yet."
+    },
+    {
+      "title": "velog.py's bound predicate calls page.context.cookies() with no url argument; chrome_backend.py's _CdpContext.cookies(url) requires one",
+      "detail": "If RealChromeBrowserRunner is ever wired up for the velog channel, `_velog_bound_predicate`'s `page.context.cookies()` call (velog.py:114) would raise TypeError against `_CdpContext.cookies(self, url: str)` (chrome_backend.py:371) on every iteration. This is caught by velog's own fail-closed except block (degrades to `cookies = []`), so it cannot flip bound=True falsely -- it is a reliability/functional gap (velog bind would never succeed via cookie detection under the CDP backend, only via signed-in-UI DOM text), not a security vulnerability. Noted since it touches the same functions this review was asked to verify as fail-closed."
+    }
+  ],
+  "testing_gaps": [
+    {
+      "title": "No test asserts bind-channel's stderr diagnostic output is free of secret-shaped text",
+      "detail": "tests/test_bind_channel_cli.py covers scrub_text() being applied to the `channel.bind.failed` stdout JSONL `message` field (test_unenumerated_runtimeerror_message_is_scrubbed, test_pipelineerror_message_is_scrubbed) but there is no equivalent test capturing stderr output of `main()` and asserting it does not contain the raw/adversarial secret-shaped text that the stdout tests already exercise. Given handle_error()/handle_unexpected_error() print the raw exc text to stderr in the same code path, this gap should at least be documented as an accepted/known scope boundary, or covered by a test that pins 'stderr is diagnostics-only, never machine-consumed, so is exempt from scrub_text()' as an explicit, reviewed decision rather than an implicit one."
+    }
+  ]
+}

@@ -55,7 +55,7 @@ def _bounded_summary(html: bytes, limit: int) -> str:
     truncated to *limit*. Untrusted input — kept bounded by construction."""
     try:
         soup = BeautifulSoup(html, "html.parser")
-    except Exception:  # noqa: BLE001 — never break the exit-0 contract on parse failure
+    except Exception:
         return ""
     for tag in soup(["script", "style", "noscript", "template"]):
         tag.decompose()

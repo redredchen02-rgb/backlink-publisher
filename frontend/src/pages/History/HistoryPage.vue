@@ -15,6 +15,7 @@ import { computed, ref } from 'vue'
 import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import {
   bulkDeleteHistory,
+  bulkRecheckHistory,
   deleteHistory,
   listHistory,
   purgeFailedHistory,
@@ -22,9 +23,9 @@ import {
   type HistoryMutationResult,
 } from '../../api/history'
 import DataTable from '../../components/DataTable.vue'
+import Icon from '../../components/Icon.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const PAGE_SIZE = 50
 
@@ -47,8 +48,19 @@ function reportError(e: unknown): void {
   toastError(e)
 }
 
-/** Run a mutation, refetch this page, clamp offset if deletion overflowed it. */
-async function run(fn: () => Promise<HistoryMutationResult>): Promise<void> {
+/**
+ * Run a mutation, refetch this page, clamp offset if deletion overflowed it.
+ *
+ * `idsToDeselect` (code review): only the ids this specific call acted on are
+ * removed from `selected` on success -- not a blanket clear. Without this, a
+ * user who changes their selection WHILE a bulk action is in flight has that
+ * reselection silently wiped out when the in-flight call resolves, even though
+ * it had nothing to do with the completed action.
+ */
+async function run(
+  fn: () => Promise<HistoryMutationResult>,
+  idsToDeselect?: string[],
+): Promise<void> {
   if (busy.value) return
   busy.value = true
   try {
@@ -60,7 +72,11 @@ async function run(fn: () => Promise<HistoryMutationResult>): Promise<void> {
       offset.value = Math.max(0, Math.floor((newTotal - 1) / PAGE_SIZE) * PAGE_SIZE)
       await query.refetch()
     }
-    selected.value = new Set()
+    if (idsToDeselect?.length) {
+      const remaining = new Set(selected.value)
+      for (const id of idsToDeselect) remaining.delete(id)
+      selected.value = remaining
+    }
   } catch (e) {
     reportError(e)
   } finally {
@@ -68,14 +84,21 @@ async function run(fn: () => Promise<HistoryMutationResult>): Promise<void> {
   }
 }
 
-const onDelete = (id: string) => run(() => deleteHistory(id))
-const onRecheck = (id: string) => run(() => recheckHistory(id))
+const onDelete = (id: string) => run(() => deleteHistory(id), [id])
+const onRecheck = (id: string) => run(() => recheckHistory(id), [id])
 // purge-failed acts on the FULL set (server-side), not just this page, so its
 // availability isn't gated on whether the *visible* page happens to contain a
 // failed row -- the backend already no-ops gracefully (200, not an error) when
 // there's nothing to purge.
 const onPurgeFailed = () => run(purgeFailedHistory)
-const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
+const onBulkDelete = () => {
+  const ids = [...selected.value]
+  return run(() => bulkDeleteHistory(ids), ids)
+}
+const onBulkRecheck = () => {
+  const ids = [...selected.value]
+  return run(() => bulkRecheckHistory(ids), ids)
+}
 </script>
 
 <template>
@@ -83,6 +106,14 @@ const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
     <header class="history__head">
       <h1>发布历史</h1>
       <div class="history__actions">
+        <button
+          type="button"
+          :disabled="busy || !selected.size"
+          class="bulk-recheck"
+          @click="onBulkRecheck"
+        >
+          重核选中 ({{ selected.size }})
+        </button>
         <button
           type="button"
           :disabled="busy || !selected.size"
@@ -123,7 +154,7 @@ const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
         <td class="col-status"><span class="status" :data-status="row.status">{{ row.status }}</span></td>
         <td class="col-url target" :title="row.target_url">
           <a :href="row.target_url" target="_blank" rel="noopener" class="url-link">
-            {{ row.target_url }}<i class="bi bi-box-arrow-up-right ext-icon"></i>
+            {{ row.target_url }}<Icon name="box-arrow-up-right" class="ext-icon" />
           </a>
         </td>
         <td>{{ row.platform }}</td>
@@ -131,7 +162,7 @@ const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
           <template v-if="row.article_urls?.length">
             <div v-for="(url, i) in row.article_urls" :key="i" class="article-url-row">
               <a :href="url" target="_blank" rel="noopener" :title="url" class="article-link">
-                <i class="bi bi-box-arrow-up-right me-1"></i>{{ url }}
+                <Icon name="box-arrow-up-right" class="me-1" />{{ url }}
               </a>
             </div>
             <div v-if="row.verified_at" class="verified-at">

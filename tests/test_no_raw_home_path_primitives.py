@@ -254,11 +254,11 @@ def _source_files() -> list[Path]:
 @pytest.mark.parametrize(
     "path",
     _source_files(),
-    ids=lambda p: str(p.relative_to(_REPO_ROOT)),
+    ids=lambda p: p.relative_to(_REPO_ROOT).as_posix(),
 )
 def test_no_raw_home_path_primitive(path: Path) -> None:
     """No file outside ``config/loader.py`` may construct a home-path primitive."""
-    relpath = str(path.relative_to(_REPO_ROOT))
+    relpath = path.relative_to(_REPO_ROOT).as_posix()
     tree = ast.parse(path.read_text(encoding="utf-8"))
     violations, _expanduser_sites = collect_raw_home_primitives(tree, relpath)
     assert not violations, (
@@ -270,7 +270,7 @@ def test_no_raw_home_path_primitive(path: Path) -> None:
 
 def test_scanner_recurses_into_webui_and_adapters() -> None:
     """The scan must reach webui_app/, webui_store/, and the adapters sub-package."""
-    scanned = {str(p.relative_to(_REPO_ROOT)) for p in _source_files()}
+    scanned = {p.relative_to(_REPO_ROOT).as_posix() for p in _source_files()}
     assert any(p.startswith("webui_app/") for p in scanned), scanned
     assert any(p.startswith("webui_store/") for p in scanned), scanned
     assert any("publishing/adapters/" in p for p in scanned), scanned
@@ -285,7 +285,7 @@ def test_grandfathered_expanduser_sites_still_exist() -> None:
     """
     all_expanduser: set[tuple[str, int]] = set()
     for path in _source_files():
-        relpath = str(path.relative_to(_REPO_ROOT))
+        relpath = path.relative_to(_REPO_ROOT).as_posix()
         tree = ast.parse(path.read_text(encoding="utf-8"))
         _violations, expanduser_sites = collect_raw_home_primitives(tree, relpath)
         all_expanduser.update(expanduser_sites)

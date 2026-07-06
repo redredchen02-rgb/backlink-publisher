@@ -23,7 +23,12 @@ def client(tmp_path, monkeypatch):
 
 
 def test_hub_view_renders(client):
-    resp = client.get("/monitor-hub")
+    # Plan 2026-07-06-004 Unit 4 / K7: /monitor-hub itself now redirects to
+    # the SPA (covered by test_hub_redirects_to_spa below, since Monitor moved
+    # from '/monitor' to '/'); this test keeps covering the Jinja fallback
+    # route (/monitor-hub/jinja, see monitor_hub_jinja()), which still renders
+    # directly and isn't exercised anywhere else in this file.
+    resp = client.get("/monitor-hub/jinja")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "监控聚合" in body
@@ -32,11 +37,13 @@ def test_hub_view_renders(client):
 
 
 def test_hub_redirects_to_spa(client):
-    # /monitor-hub now redirects to the SPA; the Jinja fallback
-    # (test_hub_view_renders above) covers the render path.
+    # /monitor-hub now redirects to the SPA homepage (Unit 4 changed its
+    # target from '/app/monitor' to '/app/' since Monitor is now the
+    # homepage); the Jinja fallback (/monitor-hub/jinja) covers the render
+    # path.
     resp = client.get("/monitor-hub")
     assert resp.status_code == 302
-    assert "/app/monitor" in resp.location
+    assert resp.location == "/app/"
 
 
 def test_hub_json_ok_and_shape(client):
@@ -91,3 +98,46 @@ def test_no_anomalies_yields_only_ok_info():
     }
     cards = cc._build_anomaly_cards(status)
     assert all(c["severity"] in ("ok", "info") for c in cards)
+
+
+# ── _any_subsystem_error (Plan 2026-07-06-004 Unit 1, R18) ────────────────────
+#
+# The aggregator's top-level `degraded` flag must reflect ANY subsystem's own
+# caught error, not just a total aggregator crash — see webui_app/api/v1/
+# monitor.py::monitor_summary(), which calls this alongside _build_anomaly_cards.
+
+def test_any_subsystem_error_false_when_all_healthy():
+    status = {
+        "credentials": {"failed": [], "failed_count": 0, "n_bound": 3},
+        "keepalive": {"stripped": 0, "alive": 5, "n_targets": 5, "unknown": 0},
+        "equity": {"low_weight_count": 0, "total_rows": 10},
+        "history": {"total": 0, "recent_24h": 0, "recent_7d": 0, "last_published_at": None},
+    }
+    assert cc._any_subsystem_error(status) is False
+
+
+def test_any_subsystem_error_false_on_empty_status():
+    assert cc._any_subsystem_error({}) is False
+
+
+def test_any_subsystem_error_true_when_one_subsystem_caught_an_exception():
+    """A subsystem degrading to its own 'unavailable' card (via the existing
+    per-subsystem try/except) must still flip the top-level flag — this is
+    the R18 gap: previously only a *total* aggregator crash set degraded."""
+    status = {
+        "credentials": {"failed": [], "failed_count": 0, "n_bound": 3},
+        "keepalive": {"error": "boom"},
+    }
+    assert cc._any_subsystem_error(status) is True
+
+
+def test_any_subsystem_error_true_even_if_only_subsystem_failed():
+    status = {"jobs": {"error": "registry unavailable"}}
+    assert cc._any_subsystem_error(status) is True
+
+
+def test_any_subsystem_error_ignores_non_dict_values():
+    # "jobs" is a list on the healthy path — must not be mistaken for an
+    # error-shaped dict.
+    status = {"jobs": [{"job_id": "x"}], "credentials": {"failed_count": 0}}
+    assert cc._any_subsystem_error(status) is False

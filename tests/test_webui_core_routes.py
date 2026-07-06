@@ -131,13 +131,35 @@ def test_every_route_has_at_least_one_contract_test():
 
 
 class TestGetRoutes:
-    def test_root_returns_200(self, client):
+    def test_root_redirects_to_spa(self, client):
+        """Plan 2026-07-06-004 Unit 4 — bare '/' now redirects to the SPA
+        homepage ('/app/'), matching the pattern used by the 8 other
+        migrated legacy routes. The Jinja render itself moved to '/jinja'
+        (test_root_jinja_returns_200 below covers that render path)."""
         resp = client.get("/")
+        assert resp.status_code == 302
+        assert resp.headers["Location"] == "/app/"
+
+    def test_root_jinja_returns_200(self, client):
+        resp = client.get("/jinja")
         assert resp.status_code == 200
+
+    def test_settings_redirects_to_spa(self, client):
+        """/settings 302s to the SPA page (P13 B1 migration)."""
+        resp = client.get("/settings")
+        assert resp.status_code == 302
+        assert "/app/settings" in resp.headers["Location"]
+
+    def test_api_admin_errors_loopback_smoke(self, client):
+        """Loopback-only error baseline endpoint answers the test client
+        (remote_addr 127.0.0.1) with a JSON payload."""
+        resp = client.get("/api/admin/errors")
+        assert resp.status_code == 200
+        assert resp.is_json
 
     def test_homepage_has_mode_toggle(self, client):
         """Plan 012 Unit 5 — single/batch toggle DOM present on home page."""
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode("utf-8", errors="ignore")
         assert 'id="modeToggleBar"' in body
@@ -149,7 +171,7 @@ class TestGetRoutes:
     def test_homepage_loads_mode_toggle_script(self, client):
         """Plan 012 Unit 5 — mode toggle is wired up. Plan 007 U6: mode_toggle.js
         is now imported by the index.js ES module (no separate <script> tag)."""
-        resp = client.get("/")
+        resp = client.get("/jinja")
         body = resp.data.decode("utf-8", errors="ignore")
         assert "js/index.js" in body and 'type="module"' in body
         # Server-side hint must be injected so the JS can read batch_tab flag
@@ -158,7 +180,7 @@ class TestGetRoutes:
 
     def test_nav_tabs_reduced_to_two(self, client):
         """Plan 012 Unit 6 — batch-tab nav button removed; nav now has 2 tabs."""
-        resp = client.get("/")
+        resp = client.get("/jinja")
         body = resp.data.decode("utf-8", errors="ignore")
         assert 'id="batch-tab"' not in body
         assert 'id="new-tab"' in body
@@ -166,7 +188,7 @@ class TestGetRoutes:
 
     def test_batch_panel_still_renders_for_toggle_access(self, client):
         """Plan 012 Unit 6 — #batchPanel tab-pane DOM stays (toggle activates it)."""
-        resp = client.get("/")
+        resp = client.get("/jinja")
         body = resp.data.decode("utf-8", errors="ignore")
         assert 'id="batchPanel"' in body
         assert 'action="/ce:batch"' in body
@@ -209,8 +231,8 @@ class TestGetRoutes:
         assert "applyBodyModeClass" in contents, "applyBodyModeClass helper missing"
 
     def test_mode_toggle_tab_deep_link_route_accessible(self, client):
-        """Plan 013 U1 — GET /?tab=batch returns 200 (server-side hint injected)."""
-        resp = client.get("/?tab=batch")
+        """Plan 013 U1 — GET /jinja?tab=batch returns 200 (server-side hint injected)."""
+        resp = client.get("/jinja?tab=batch")
         assert resp.status_code == 200
         body = resp.data.decode("utf-8", errors="ignore")
         # The page still renders; JS handles the deep-link client-side
@@ -218,7 +240,7 @@ class TestGetRoutes:
 
     def test_sticky_step_bar_css_scoped_to_single_mode(self, client):
         """Plan 013 U3 — step-bar sticky rule scoped to body.mode-single only."""
-        resp = client.get("/")
+        resp = client.get("/jinja")
         body = resp.data.decode("utf-8", errors="ignore")
         # Scoped sticky rules must appear in the inlined CSS
         assert "mode-single" in body, "mode-single CSS scope missing from rendered page"
@@ -255,7 +277,7 @@ class TestGetRoutes:
         # by the path redirect, but it must start empty.
         assert ws.drafts_store.load() == []
 
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert resp.status_code == 200
 
     # test_settings_returns_200, test_settings_with_flash_query_renders,

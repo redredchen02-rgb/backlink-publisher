@@ -1,0 +1,48 @@
+{
+  "reviewer": "testing",
+  "findings": [
+    {
+      "title": "Single-flight lock test proves recursion, not real concurrency",
+      "severity": "P2",
+      "file": "tests/test_webui_api_v1_bulk_ops.py",
+      "line": 661,
+      "why_it_matters": "The test forces the 'second concurrent request' to run synchronously, INSIDE the mocked bulk_publish_now callback, on the same call stack/thread as the outer request that holds the lock. That proves the acquire/release bookkeeping and the 409/already_running error mapping are wired correctly, but it never exercises the lock across two real OS threads under Flask's actual threaded request-dispatch model -- the exact scenario (a double-click firing two genuinely concurrent HTTP requests) the guard exists to protect against. Because threading.Lock's non-blocking acquire is itself an atomic stdlib primitive, the functional risk of the current implementation is low, but the test provides materially less assurance than the codebase's own established pattern for this class of guard, and would not catch a refactor that broke correctness only under real thread scheduling (e.g. moving the acquire outside the critical section, swapping the Lock for a non-atomic flag, or a check-then-act race introduced later).",
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Add a companion test using threading.Thread + threading.Barrier (matching the pattern already used in tests/test_idempotency_store.py::test_concurrent_intent_write_exactly_one_wins and tests/test_url_verify_throttle.py's concurrent-acquire tests) that issues two genuinely concurrent POST /api/v1/drafts/bulk-publish-now requests against the running Flask test app and asserts exactly one returns 200 and the other 409/already_running, rather than relying solely on the same-thread recursive simulation.",
+      "confidence": 0.72,
+      "evidence": [
+        "tests/test_webui_api_v1_bulk_ops.py:661-679 -- test_webui_drafts_bulk_publish_now_double_submit_returns_409 defines `_slow_bulk_publish` which calls `client.post('/api/v1/drafts/bulk-publish-now', ...)` recursively from inside itself, i.e. on the same thread as the outer call that still holds `_bulk_publish_lock`; no `threading.Thread` or `threading.Barrier` is used.",
+        "tests/test_idempotency_store.py:169-192 (test_concurrent_intent_write_exactly_one_wins) and tests/test_url_verify_throttle.py:151-171 (test_three_concurrent_same_host_first_wins_others_host_busy) show this codebase's established pattern for proving single-flight/race guards: `threading.Barrier` + real `threading.Thread` workers, asserting exactly one winner across genuinely concurrent execution.",
+        "webui_app/api/v1/drafts.py:139-155 (drafts_bulk_publish_now) -- the guard is `_bulk_publish_lock.acquire(blocking=False)` around `_api.bulk_publish_now(ids)`; its correctness under real concurrent threads rests entirely on `threading.Lock`'s atomicity, which the new test does not exercise via actual multi-threaded execution."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "409 test omits busy/disabled UI-state reset assertion",
+      "severity": "P3",
+      "file": "frontend/src/pages/Drafts/DraftsPage.spec.ts",
+      "line": 113,
+      "why_it_matters": "The new double-submit test only asserts that an error toast with severity 'error' appears; it never checks that `.bulk-publish-now` becomes re-enabled (or that `selected` is preserved) after the rejection. `run()`'s `finally { busy.value = false }` is what allows the operator to retry after a 409, which is precisely the UX this endpoint's single-flight guard is meant to produce (reject-and-let-the-user-retry, not silently queue). If a future change to `run()` or its catch/finally ordering left `busy` stuck `true` after a rejection, this test would still pass (a toast still fires) while the bulk-publish button remained permanently disabled, and no test in this diff would catch that regression.",
+      "autofix_class": "safe_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "After the existing `await flushPromises()` in the 409 test, add `expect((w.find('.bulk-publish-now').element as HTMLButtonElement).disabled).toBe(false)` (selection is still present in `selected`) to confirm the button is re-enabled and the operator can retry.",
+      "confidence": 0.65,
+      "evidence": [
+        "frontend/src/pages/Drafts/DraftsPage.spec.ts:113-125 -- the 409 test's only assertion is `expect(notify.toasts.some((t) => t.severity === 'error')).toBe(true)`; there is no assertion on the `.bulk-publish-now` button's `disabled` property or on `selected` state after the rejection.",
+        "frontend/src/pages/Drafts/DraftsPage.vue -- `run()`'s `finally { busy.value = false }` is the sole mechanism re-enabling `:disabled=\"busy || !selected.size\"`; this shared function is reused unchanged for the new bulk actions but its post-error recovery is not verified by the new test."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "The bulk-publish-now single-flight guard's correctness under genuine multi-threaded request handling relies on threading.Lock's stdlib atomicity guarantee rather than on an app-level test that exercises two real concurrent HTTP requests; a subtle refactor of the acquire/release placement would not be caught by the existing (same-thread recursive) test.",
+    "The facade-level rollback logic for DraftAPI.bulk_publish_now / bulk_cancel (scheduler-job and store-state rollback on partial failure) is exercised only by pre-existing tests (tests/test_drafts_bulk_routes.py) via the legacy route, not by the new /api/v1 wrapper tests, which monkeypatch the facade's return value directly; a bug introduced only in the new wrapper's error-code-to-status mapping (`_INFRA_FAILURE_CODES`) is covered, but a bug in the facade's actual rollback mechanics would only surface via the legacy-route tests."
+  ],
+  "testing_gaps": [
+    "No test exercises the lock-release-on-exception path of drafts_bulk_publish_now: if `_api.bulk_publish_now` itself raised an exception (rather than returning an `ok: False` dict), the `try/finally` would still release `_bulk_publish_lock`, but this is unverified and a future refactor that moved the release out of the `finally` could deadlock all subsequent bulk-publish requests without any test catching it.",
+    "The plain empty-ids 422 tests for history/bulk-recheck and drafts/bulk-cancel assert only status code and Content-Type, not `error_class`/detail text, in contrast to the more thorough assertions in the 409/502 tests -- a minor inconsistency, not unique to this diff's endpoints (matches the pre-existing bulk-delete test convention)."
+  ]
+}

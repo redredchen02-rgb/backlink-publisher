@@ -41,14 +41,14 @@ def compute_health_json() -> dict[str, Any]:
     try:
         raw = _list_all_channels()
         channels = {ch: rec.get("status", "unbound") for ch, rec in raw.items()}
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     # ── scheduler state ───────────────────────────────────────────────
     try:
         scheduler_running: bool = bool(_scheduler.running)
         scheduler_job_count: int = len(_scheduler.get_jobs())
-    except Exception:  # noqa: BLE001
+    except Exception:
         scheduler_running = False
         scheduler_job_count = 0
 
@@ -77,7 +77,7 @@ def compute_health_json() -> dict[str, Any]:
             ]
             if successful_ts:
                 last_successful_pipeline_run = max(successful_ts) or None
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     # ── degraded reasons ──────────────────────────────────────────────

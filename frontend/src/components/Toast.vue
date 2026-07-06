@@ -9,6 +9,12 @@
 // auto-captured error report — see notifications.ts's Toast doc). Clicking
 // it opens the shared ReportProblemPanel (stores/reportPanel.ts) pre-filled
 // with that report's id, switching its submit path to PATCH.
+//
+// Plan 2026-07-06-004 Unit 6 adds a second, independent action: a toast
+// carrying `undoAction` renders its own button (e.g. "撤销" after the monitor
+// dashboard's mark-resolved). It fires the caller-supplied `onClick`
+// directly — this component has no opinion on what "undo" means, unlike the
+// reportId button's hardcoded ReportProblemPanel wiring.
 import { watch, onUnmounted } from 'vue'
 import { useNotificationsStore, type Toast } from '../stores/notifications'
 import { useReportPanelStore } from '../stores/reportPanel'
@@ -63,6 +69,12 @@ onUnmounted(() => { timers.forEach(clearTimeout); timers.clear() })
           class="toast__detail"
           @click="reportPanel.open(t.reportId)"
         >补充说明</button>
+        <button
+          v-if="t.undoAction"
+          type="button"
+          class="toast__undo"
+          @click="t.undoAction.onClick()"
+        >{{ t.undoAction.label }}</button>
         <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">×</button>
       </div>
     </div>
@@ -82,6 +94,12 @@ onUnmounted(() => { timers.forEach(clearTimeout); timers.clear() })
           class="toast__detail"
           @click="reportPanel.open(t.reportId)"
         >补充说明</button>
+        <button
+          v-if="t.undoAction"
+          type="button"
+          class="toast__undo"
+          @click="t.undoAction.onClick()"
+        >{{ t.undoAction.label }}</button>
         <button type="button" class="toast__close" aria-label="关闭" @click="store.dismiss(t.id)">×</button>
       </div>
     </div>
@@ -136,7 +154,8 @@ onUnmounted(() => { timers.forEach(clearTimeout); timers.clear() })
   line-height: 1;
   padding: 0;
 }
-.toast__detail {
+.toast__detail,
+.toast__undo {
   background: none;
   border: none;
   color: var(--info);

@@ -5,12 +5,12 @@ Extracted from ``plan_check.py``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import os
+from pathlib import Path
 import subprocess
 import time
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 # ---------------------------------------------------------------------------
 # Unit 2: Git subprocess helpers — origin/main resolution + freshness
@@ -31,7 +31,7 @@ from typing import Literal, Optional
 # functions on exit-128 paths. Unit 3 may surface this via the CLI; tests and
 # downstream callers can also inspect it for diagnostics. Reset on each call
 # that probes a git subprocess so a stale value never leaks across calls.
-_last_git_error: Optional[str] = None
+_last_git_error: str | None = None
 
 
 _GIT_ENV: dict[str, str] = {"LC_ALL": "C", "LANG": "C"}
@@ -63,8 +63,8 @@ class FetchOutcome:
     """
 
     fetched: bool
-    fetch_head_age_seconds: Optional[int]
-    skip_reason: Optional[Literal["network", "auth", "no_remote", "other"]]
+    fetch_head_age_seconds: int | None
+    skip_reason: Literal["network", "auth", "no_remote", "other"] | None
 
 
 def _fetch_head_age_seconds() -> float:
@@ -184,7 +184,7 @@ def _maybe_fetch_origin_main(threshold_seconds: int = 300) -> FetchOutcome:
     # Non-zero exit — classify and return without raising (D16).
     reason = _classify_fetch_stderr(proc.stderr or "")
     final_age = _fetch_head_age_seconds()
-    age_field: Optional[int]
+    age_field: int | None
     if final_age == float("inf"):
         age_field = None
     else:

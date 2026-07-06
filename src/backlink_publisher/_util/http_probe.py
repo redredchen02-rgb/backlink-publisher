@@ -12,7 +12,6 @@ as a diagnostic flag but is always True in practice.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from urllib.parse import urljoin
 
 import requests
 
@@ -234,7 +233,7 @@ def probe_url(url: str) -> dict:
             "ssrf_guard_active": bool,
         }
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import as_completed, ThreadPoolExecutor
 
     if not url.startswith(("http://", "https://")):
         url = "https://" + url

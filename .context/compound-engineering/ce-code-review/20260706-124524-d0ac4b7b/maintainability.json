@@ -1,0 +1,67 @@
+{
+  "reviewer": "maintainability",
+  "findings": [
+    {
+      "title": "Single-flight lock only covers the new /api/v1 route, not the legacy sibling",
+      "severity": "P2",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 35,
+      "why_it_matters": "The module-level _bulk_publish_lock is scoped to webui_app/api/v1/drafts.py alone, so it only serializes calls that arrive through /api/v1/drafts/bulk-publish-now. The pre-existing legacy route webui_app/routes/drafts.py::ce_draft_bulk_publish_now (registered unconditionally alongside the v1 blueprint, per webui_app/routes/__init__.py) reaches the exact same DraftAPI.bulk_publish_now mutation (staggered APScheduler job creation + store writes) through its own separate DraftAPI() instance, with zero locking. A user with the SPA drafts page and the legacy /?tab=draft page open at once (both are simultaneously live today; the plan doc's own K5 constraint says the legacy route is deliberately kept until a later redirect/retire unit) can trigger two concurrent bulk-publish-now calls that are NOT mutually exclusive, defeating the single-flight guarantee the code and tests describe. The in-code comment claims this mirrors routes/keep_alive.py's start_recheck() guard, but that guard is backed by a shared keepalive_registry singleton reachable from multiple route modules (keep_alive.py, command_center.py), which is a materially different, actually-centralized mechanism, so the claimed parity overstates what this new lock actually achieves, which could mislead a future maintainer into assuming the race is fully closed.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Move the single-flight guard down into DraftAPI.bulk_publish_now itself (or a small shared singleton importable by both webui_app/api/v1/drafts.py and webui_app/routes/drafts.py), so it protects every caller of the mutation, not just the v1 HTTP entry point. If the legacy route's exposure window is considered acceptable until it is redirected/retired per the plan's K5 sequencing, say so explicitly in the comment instead of citing keep_alive.py as an equivalent precedent.",
+      "confidence": 0.72,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:35 declares _bulk_publish_lock = threading.Lock() as a module-level object local to this file only.",
+        "webui_app/routes/drafts.py:15 creates its own separate _draft = DraftAPI() instance, and lines 90-96 (ce_draft_bulk_publish_now) call _draft.bulk_publish_now(ids) with no lock or 409 handling at all.",
+        "webui_app/routes/__init__.py registers both drafts_bp (legacy, line 26/58) and api_v1_bp (line 67) unconditionally in the same register_blueprints() call, neither is gated by BACKLINK_PUBLISHER_SPA, so both routes are simultaneously reachable.",
+        "docs/plans/2026-07-02-001-opt-v060-uiux-pipeline-upgrade-plan.md K5 constraint states the sequence is batch-parity(U3) then redirect(U4) then retire(U9), and that doing redirect first would delete the legacy page's bulk-publish-now/cancel/recheck/purge-failed functionality, confirming the legacy route stays live past this unit.",
+        "webui_app/routes/keep_alive.py:65 shows the guard this PR's comment claims to mirror is actually backed by keepalive_registry.start_recheck(), a shared object also used from webui_app/routes/command_center.py, i.e. genuinely centralized, unlike the new per-module Lock."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "_require_ids helper duplicated verbatim across drafts.py and history.py",
+      "severity": "P3",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 54,
+      "why_it_matters": "This diff extracts a new _require_ids() helper into drafts.py (used by bulk-delete, bulk-publish-now and bulk-cancel) whose body is byte-for-byte identical to the _require_ids() already defined in the sibling module webui_app/api/v1/history.py. Both modules already import from the same .errors module, so there was a natural place to centralize this. Any future change to the ids-validation contract (e.g. adding a max-length check, or trimming whitespace ids) has to be remembered and applied in two places; missing one is an easy, silent drift.",
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": false,
+      "suggested_fix": "Move _require_ids (and the near-identical _require_id) into the shared webui_app/api/v1/errors.py module (or a new small _common.py in the same package) and import it from both drafts.py and history.py instead of keeping two copies.",
+      "confidence": 0.6,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:54-61 defines _require_ids(data: dict) -> list[str] with body: check isinstance(ids, list) and ids, else raise ApiProblem(422, Missing ids, ...), else [str(i) for i in ids].",
+        "webui_app/api/v1/history.py:36-43 defines a function with the identical name, signature, and body (same error message, same error_class invalid_request)."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "Module docstring's error-mapping table omits the new 502/409 codes",
+      "severity": "P3",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 9,
+      "why_it_matters": "The file-level docstring is the prose contract a future maintainer reads first; it enumerates exactly one 502 case (PERSISTENCE_FAILURE) and no 409 case. After this diff, _INFRA_FAILURE_CODES also maps BULK_SCHEDULER_FAILURE and BULK_CANCEL_FAILURE to 502, and drafts_bulk_publish_now can now return 409 for a concurrent call, none of which is reflected in the header comment, so a reader skimming just the docstring would under-count the response surface this file actually produces.",
+      "autofix_class": "safe_auto",
+      "owner": "review-fixer",
+      "requires_verification": false,
+      "suggested_fix": "Add a line to the docstring's error-mapping list covering BULK_SCHEDULER_FAILURE/BULK_CANCEL_FAILURE (502) and the single-flight 409 case, mirroring the level of detail already given for SCHEDULER_SYNC_FAILED.",
+      "confidence": 0.6,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:9-15 module docstring still reads PERSISTENCE_FAILURE maps to 502 problem+json (nothing changed) as the only 502 case and has no mention of a 409 response, despite _INFRA_FAILURE_CODES (line 40) now including BULK_SCHEDULER_FAILURE and BULK_CANCEL_FAILURE, and drafts_bulk_publish_now (lines 146-151) now raising a 409 ApiProblem."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "_bulk_publish_lock is a per-process threading.Lock; if the WebUI is ever run under multiple worker processes (e.g. a future gunicorn -w N deployment) instead of the current single-process app.run(), each worker gets its own Lock instance and the single-flight guarantee silently stops holding across workers, with nothing to catch that regression.",
+    "webui_app/routes/drafts.py's legacy /ce:draft/bulk-publish-now route reaches the same DraftAPI.bulk_publish_now mutation with no single-flight guard at all; per the plan's own K5 sequencing note it is deliberately kept live until a later unit redirects/retires it, so the SPA and legacy pages can race against each other unprotected until then.",
+    "HistoryAPI.bulk_recheck (pre-existing, unchanged by this diff) performs its liveness checks synchronously inside the request/response cycle, and webui.py's app.run() has no threaded=True; the new bulk-recheck button is a more discoverable trigger for a large synchronous batch than the legacy route was, so response-time regressions under a big selection are more likely to surface now."
+  ],
+  "testing_gaps": [
+    "No test exercises a race between the new /api/v1/drafts/bulk-publish-now single-flight lock and the legacy /ce:draft/bulk-publish-now route calling the same facade concurrently -- the existing double-submit test only exercises two calls to the same v1 endpoint in-process.",
+    "No frontend test covers a scenario where the legacy Jinja drafts page and the new SPA drafts page are both open and issue overlapping bulk-publish-now requests."
+  ]
+}

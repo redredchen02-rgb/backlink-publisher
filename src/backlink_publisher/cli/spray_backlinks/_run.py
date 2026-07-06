@@ -26,10 +26,12 @@ from ._args import _parse_platforms
 from ._audit import audit_batch, AuditReport
 from ._draft import draft_row
 from ._engine import (
+    _seed_main_domain as _main_domain_of,
+)
+from ._engine import (
     expand_seed,
     gate_candidates,
     SprayCandidate,
-    _seed_main_domain as _main_domain_of,
 )
 from ._gates import _save_checkpoint, _write_per_seed_file
 

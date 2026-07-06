@@ -34,7 +34,7 @@ def test_index_main_js_served(client):
 
 def test_bootstrap_var_present_in_page(client):
     """GET / includes window.__indexBootstrap with plans_list, profiles, platform_slugs."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert "window.__indexBootstrap" in body
@@ -49,7 +49,7 @@ def test_bootstrap_var_present_in_page(client):
 
 def test_no_jinja_interpolation_in_page_js(client):
     """GET / response body must not contain Jinja-style plans_list or profiles interpolations."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert "let _plansData = " not in body, "Jinja-rendered _plansData found inline"
@@ -60,7 +60,7 @@ def test_bootstrap_null_plans_list_no_error(app):
     """GET / with plans_list=None in context renders without error (JS falls back to [])."""
     with app.test_client() as c:
         # Default render with no active pipeline should have plans_list=None or []
-        resp = c.get("/")
+        resp = c.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode()
         # The bootstrap var should serialize plans_list as null or [] when absent
@@ -69,7 +69,7 @@ def test_bootstrap_null_plans_list_no_error(app):
 
 def test_bootstrap_empty_platforms_renders_without_error(client):
     """GET / renders without error even when platform_slugs would be empty."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     m = re.search(r'window\.__indexBootstrap\s*=\s*(\{.*?\});', body, re.DOTALL)
@@ -87,7 +87,7 @@ def test_bootstrap_equivalence_plans_list(tmp_path, monkeypatch):
     app.config["TESTING"] = True
     app.config["CSRF_ENABLED"] = False
     with app.test_client() as c:
-        resp = c.get("/")
+        resp = c.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode()
         m = re.search(r'window\.__indexBootstrap\s*=\s*(\{.*?\});', body, re.DOTALL)

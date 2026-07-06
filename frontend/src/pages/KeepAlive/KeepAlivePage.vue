@@ -20,6 +20,7 @@ import {
 } from '../../api/keepAlive'
 import StateBlock from '../../components/StateBlock.vue'
 import { usePolledQuery } from '../../composables/usePolledQuery'
+import ConfirmDialog from '../../components/ConfirmDialog.vue'
 
 const RECHECK_TERMINAL = new Set(['completed', 'done', 'cancelled', 'error'])
 const REPUBLISH_TERMINAL = new Set(['completed', 'done', 'error'])
@@ -400,22 +401,26 @@ onMounted(load)
           </div>
         </div>
 
-        <!-- S4: Confirm modal overlay -->
-        <div v-if="actionState === 'confirming'" class="ka__confirm-overlay">
-          <div class="ka__confirm-modal">
-            <h5>确认重新发布</h5>
-            <p class="text-danger">此操作将重新发布以下链接，不可撤销。</p>
-            <ul>
-              <li v-for="k of Array.from(selectedGaps)" :key="k">
-                <code>{{ k.split(':')[0] }}</code> — {{ k.split(':')[1] }}
-              </li>
-            </ul>
-            <div class="d-flex gap-2">
-              <button class="btn btn-danger" @click="doRepublish">确认重新发布</button>
-              <button class="btn btn-outline-secondary" @click="cancelConfirm">取消</button>
-            </div>
-          </div>
-        </div>
+        <!-- S4: Confirm modal — shared ConfirmDialog (W3). Controlled mode:
+             `open` derives from the 7-state machine (actionState === 'confirming');
+             `:confirm="doRepublish"` advances the machine to 'publishing' itself,
+             which closes the dialog exactly like the old overlay's v-if did.
+             Errors keep flowing to flashMessage inside doRepublish (unchanged). -->
+        <ConfirmDialog
+          :open="actionState === 'confirming'"
+          danger
+          title="确认重新发布"
+          :confirm-label="`确认重新发布（${selectedGaps.size} 条）`"
+          :confirm="doRepublish"
+          @cancel="cancelConfirm"
+        >
+          <p class="text-danger">此操作将重新发布以下链接，不可撤销。</p>
+          <ul>
+            <li v-for="k of Array.from(selectedGaps)" :key="k">
+              <code>{{ k.split(':')[0] }}</code> — {{ k.split(':')[1] }}
+            </li>
+          </ul>
+        </ConfirmDialog>
 
         <!-- S5: Republish progress -->
         <div v-if="actionState === 'publishing'" class="ka__progress card p-3">
@@ -449,15 +454,7 @@ onMounted(load)
 }
 .ka__head h1 { margin: 0; }
 .ka__actions { display: flex; gap: 0.5rem; }
-.ka__confirm-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-  display: flex; align-items: center; justify-content: center; z-index: 1050;
-}
-.ka__confirm-modal {
-  background: var(--surface-raised);
-  border-radius: 12px; padding: 1.5rem; max-width: 500px; width: 90%;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-}
+/* S4 confirm overlay/modal styles moved into the shared ConfirmDialog (W3). */
 /* "Needs attention" row highlight — Bootstrap's table-warning only paints via
    a selector requiring an ancestor .table class, which the .data-table
    migration removed from this page's <table>. Use the console's own token

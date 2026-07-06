@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"decay-alert: {count} new decay.alert event(s) emitted", file=sys.stderr)
         else:
             print("decay-alert: no new decay alerts", file=sys.stderr)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"decay-alert: error — {exc}", file=sys.stderr)
         sys.exit(1)
 

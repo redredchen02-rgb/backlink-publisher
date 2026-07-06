@@ -270,7 +270,7 @@ def pipeline_regen_body() -> Any:
 
     try:
         cfg = load_config()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         # debt: pipeline-regen-body-config-load-error
         raise ApiProblem(
             422, "Config load failed", detail=type(exc).__name__, error_class="invalid_request"
@@ -307,7 +307,7 @@ def pipeline_regen_body() -> Any:
             topic=topic,
             language=language,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         # debt: pipeline-regen-body-llm-call-error-redacted
         from backlink_publisher.llm.client import _redact_for_log
 

@@ -190,6 +190,39 @@ class MonitorActionSchema(Schema):
     href = fields.String(required=True)
 
 
+class MonitorCardItemSchema(Schema):
+    """One individual item inside a hybrid monitor card's ``items`` list.
+
+    Hybrid cards (error-reports backlog, schedule/queue backlog — Plan
+    2026-07-06-004 Unit 2 K1) carry an aggregate headline plus the first N
+    individual items for later per-item action (Unit 3/6). The shape is a
+    deliberate superset across the three item_type values (error_report,
+    scheduled_draft, queue_task) rather than three separate schemas — the
+    SPA switches on ``item_type``; fields that don't apply to a given
+    item_type are simply blank/absent rather than null-padded per key.
+    """
+
+    id = fields.String(required=True)
+    item_type = fields.String(
+        required=True,
+        metadata={"description": "error_report | scheduled_draft | queue_task."},
+    )
+    status = fields.String(
+        metadata={
+            "description": (
+                "Item's own bucket: open (error_report) | overdue | upcoming | "
+                "unscheduled (scheduled_draft) | pending | failed | other (queue_task)."
+            )
+        }
+    )
+    headline = fields.String(required=True)
+    detail = fields.String(required=True)
+    severity = fields.String(
+        allow_none=True, metadata={"description": "error_report only; free-form."}
+    )
+    occurrences = fields.Integer(allow_none=True, metadata={"description": "error_report only."})
+
+
 class MonitorCardSchema(Schema):
     """One subsystem card. Severity + gap computed server-side (plan R3)."""
 
@@ -204,6 +237,25 @@ class MonitorCardSchema(Schema):
         required=True, metadata={"description": "Legacy page to drill into."}
     )
     action = fields.Nested(MonitorActionSchema, allow_none=True)
+    items = fields.List(
+        fields.Nested(MonitorCardItemSchema),
+        metadata={
+            "description": (
+                "First-N individual items (hybrid cards only: error_reports, "
+                "schedule_queue). Absent on the 4 original aggregate-only cards."
+            )
+        },
+    )
+    failed_channels = fields.List(
+        fields.String(),
+        metadata={
+            "description": (
+                "Raw channel-name list backing the credentials card's failure "
+                "detail, for a per-channel retry action. Only the credentials "
+                "card carries this field; absent on every other card."
+            )
+        },
+    )
 
 
 class MonitorSummarySchema(Schema):
@@ -271,6 +323,25 @@ class HistoryIdsRequestSchema(Schema):
     """Multi-id mutation body (bulk-delete)."""
 
     ids = fields.List(fields.String(), required=True)
+
+
+# ── queue-task retry — Plan 2026-07-06-004 Unit 3 ───────────────────────────
+
+
+class QueueRetryResultSchema(Schema):
+    """Outcome of ``HistoryAPI.retry_task()`` (Unit 1's atomic conditional
+    UPDATE), unchanged shape — no request body; ``task_id`` is a path param."""
+
+    ok = fields.Boolean(required=True)
+    error_code = fields.String(
+        allow_none=True,
+        metadata={
+            "description": "NOT_FOUND | TASK_PROCESSING | MISSING_PARAM. Absent on success."
+        },
+    )
+    flash_type = fields.String(metadata={"description": "success | warning | danger."})
+    flash_msg = fields.String(metadata={"description": "Human-readable outcome message."})
+    message = fields.String(metadata={"description": "Same text as flash_msg."})
 
 
 # ── draft queue — Plan 2026-06-18-002 U7 ────────────────────────────────────

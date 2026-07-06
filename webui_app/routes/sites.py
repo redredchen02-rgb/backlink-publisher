@@ -5,7 +5,6 @@ the keep-alive flow — both redirect to /ce:keep-alive.
 """
 
 from __future__ import annotations
-from typing import Any
 
 from datetime import UTC
 from typing import Any
@@ -461,5 +460,5 @@ def _citation_share_alert() -> dict | None:
             return None
         data = json.loads(path.read_text(encoding="utf-8"))
         return {"ts": data.get("ts", "")}
-    except Exception:  # noqa: BLE001 — fail-open
+    except Exception:
         return None

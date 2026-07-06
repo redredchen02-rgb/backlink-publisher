@@ -40,7 +40,7 @@ def test_emit_attempt_never_raises_on_bad_input(monkeypatch):
     def boom(*a, **kw):
         raise RuntimeError("logger exploded")
 
-    monkeypatch.setattr(ev._log, "info", boom)
+    monkeypatch.setattr(ev.log, "info", boom)
     # Should NOT raise
     emit_attempt("medium", Outcome.SUCCESS, 1.0)
 

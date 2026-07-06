@@ -53,12 +53,17 @@ def test_import_is_lazy_no_eager_adapter_registration() -> None:
     adapter graph — the registry stays empty until ``register_all_adapters()`` /
     an explicit adapter import. Proves the facade is lazy (no cycle, no eager
     side effects)."""
+    # NOTE: probe the private ``_REGISTRY`` dict, not ``registered_platforms()``
+    # — the public accessor now performs lazy init itself (it would populate
+    # the registry as a side effect of the measurement).
     result = _python_subprocess(
         "import sys, backlink_publisher; "
-        "from backlink_publisher.publishing.registry import registered_platforms; "
-        "n = len(registered_platforms()); "
-        "print('REGISTERED:', n); "
-        "sys.exit(0 if n == 0 else 1)"
+        "from backlink_publisher.publishing import registry; "
+        "n = len(registry._REGISTRY); "
+        "graph = [m for m in sys.modules if m.startswith("
+        "'backlink_publisher.publishing.adapters.')]; "
+        "print('REGISTERED:', n, 'ADAPTER_MODULES:', graph); "
+        "sys.exit(0 if n == 0 and not graph else 1)"
     )
     assert result.returncode == 0, (
         f"`import backlink_publisher` eagerly registered adapters (registry not "
@@ -84,21 +89,43 @@ def test_error_classes_carry_exit_codes() -> None:
 
 def test_dispatch_delegates_to_adapters_publish() -> None:
     """``backlink_publisher.dispatch`` IS the low-level single-payload adapter
-    publisher — zero reimplementation."""
-    import backlink_publisher as bp
-    from backlink_publisher.publishing.adapters import publish as adapters_publish
+    publisher — zero reimplementation.
 
-    assert bp.dispatch is adapters_publish
+    Cold subprocess: the physical ``backlink_publisher.dispatch`` subpackage
+    (routing/signals) shadows the lazy facade attribute once any earlier test
+    imports it (Python sets the submodule attr on the parent, and PEP 562
+    ``__getattr__`` only fires for missing attributes) — in-process the check
+    is test-order-dependent."""
+    result = _python_subprocess(
+        "import backlink_publisher as bp; "
+        "from backlink_publisher.publishing.adapters import publish as ap; "
+        "assert bp.dispatch is ap, 'facade dispatch is not adapters.publish'; "
+        "print('OK')"
+    )
+    assert result.returncode == 0, (
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    assert "OK" in result.stdout
 
 
 def test_pipeline_entry_points_delegate_to_sdk() -> None:
-    """``plan``/``validate``/``publish`` at the root ARE the sdk thin wrappers."""
-    import backlink_publisher as bp
-    from backlink_publisher import sdk
+    """``plan``/``validate``/``publish`` at the root ARE the sdk thin wrappers.
 
-    assert bp.plan is sdk.plan
-    assert bp.validate is sdk.validate
-    assert bp.publish is sdk.publish
+    Cold subprocess for the same shadowing reason as above — the physical
+    ``backlink_publisher.validate`` subpackage (engine/_payload) overwrites the
+    facade attribute as soon as any test imports it."""
+    result = _python_subprocess(
+        "import backlink_publisher as bp; "
+        "from backlink_publisher import sdk; "
+        "assert bp.plan is sdk.plan, 'plan'; "
+        "assert bp.validate is sdk.validate, 'validate'; "
+        "assert bp.publish is sdk.publish, 'publish'; "
+        "print('OK')"
+    )
+    assert result.returncode == 0, (
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    assert "OK" in result.stdout
 
 
 def test_unknown_attribute_raises_attribute_error() -> None:

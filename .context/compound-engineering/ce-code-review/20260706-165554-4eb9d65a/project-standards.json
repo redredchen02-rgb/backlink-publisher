@@ -1,0 +1,9 @@
+{
+  "reviewer": "project-standards",
+  "findings": [],
+  "residual_risks": [
+    "Icon.vue's ICONS registry only warns via console.warn on unknown names and silently renders nothing (v-if=\"paths\") — not a standards violation per se, but worth noting since no CLAUDE.md rule mandates a build-time check for icon-name typos.",
+    "webui_app/templates/base.html now serves bootstrap-icons from self-hosted vendor path while Bootstrap core CSS/JS remain on the jsdelivr CDN with SRI integrity attributes — consistent with the stated deferral of Bootstrap-CDN removal to v0.6.0 U8, not a defect in this diff."
+  ],
+  "testing_gaps": []
+}

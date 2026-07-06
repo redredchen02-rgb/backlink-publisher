@@ -48,7 +48,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.config.loader import _config_dir
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
 from . import _medium_selectors as sel
 from .base import AdapterResult
@@ -156,7 +156,8 @@ def _safe_mark_expired() -> None:
     try:
         from webui_store.channel_status import mark_expired
         mark_expired("medium")
-    except Exception as exc:  # noqa: BLE001 — defensive
+    # debt: medium-browser-mark-expired-swallow-accepted
+    except Exception as exc:
         log.warning(
             f"medium_browser: mark_expired('medium') failed during auth-expired "
             f"propagation: {type(exc).__name__}: {exc}"
@@ -173,6 +174,7 @@ def _refresh_cookies(context: Any) -> None:
         # Apex-only filter (matches recipe host filter — defense in depth).
         try:
             live_cookies = context.cookies("https://medium.com") or []
+        # debt: medium-browser-cookie-refresh-best-effort-accepted
         except Exception as exc:
             log.warning("Failed to extract live cookies from Playwright context", exc_type=type(exc).__name__, exc=str(exc))
             live_cookies = []
@@ -191,6 +193,7 @@ def _refresh_cookies(context: Any) -> None:
             )
             os.chmod(tmp_path, 0o600)
             os.replace(tmp_path, target)
+        # debt: medium-browser-cookie-refresh-best-effort-accepted
         except Exception:
             try:
                 if tmp_path.exists():
@@ -198,7 +201,8 @@ def _refresh_cookies(context: Any) -> None:
             except OSError:
                 pass
             raise
-    except Exception as exc:  # noqa: BLE001 — best-effort refresh
+    # debt: medium-browser-cookie-refresh-best-effort-accepted
+    except Exception as exc:
         log.warning(
             f"medium_browser: failed to refresh medium-cookies.json: "
             f"{type(exc).__name__}: {exc}"
@@ -278,6 +282,7 @@ class MediumBrowserAdapter(Publisher):
                                 )
                         except ExternalServiceError:
                             raise
+                        # debt: medium-browser-captcha-probe-reraise-accepted
                         except Exception as exc:
                             log.debug("Medium CAPTCHA probe failed during timeout", error=str(exc))
                         raise  # re-raise PlaywrightTimeoutError for retry_transient_call
@@ -329,6 +334,7 @@ class MediumBrowserAdapter(Publisher):
                                 tag_input.type(tag)
                                 page.keyboard.press("Enter")
                                 page.wait_for_timeout(_TAG_INPUT_SETTLE_MS)
+                        # debt: medium-browser-tag-insertion-best-effort-accepted
                         except Exception as e:
                             log.debug(f"tag insertion failed (optional): {e}")  # tags are optional
                         page.locator(sel.PUBLISH_BUTTON).click()
@@ -338,12 +344,19 @@ class MediumBrowserAdapter(Publisher):
                             page.locator(sel.SAVE_DRAFT).click()
                             page.wait_for_timeout(_SAVE_DRAFT_SETTLE_MS)
                         except Exception as exc:
-                            log.warning(
-                                "Failed to click 'Save Draft' button during fallback. "
-                                "Proceeding with standard wait.",
-                                error=str(exc),
-                            )
-                            page.wait_for_timeout(_PUBLISH_SETTLE_MS)
+                            # debt: medium-browser-save-draft-false-success-fixed
+                            # 2026-07-06 D2 fix: this used to log-and-continue,
+                            # falling through to `status="drafted"` with no
+                            # signal the draft was never confirmed saved (named
+                            # a "critical silent swallow" in
+                            # docs/solutions/correctness/adapter-silent-exceptions-resolution.md).
+                            # There is no independent recheck of "was the draft
+                            # actually saved" (K8 step 3), so this must raise
+                            # instead of reporting a false success.
+                            raise ExternalServiceError(
+                                "Medium Save Draft click failed; draft status is "
+                                f"unconfirmed: {type(exc).__name__}: {exc}"
+                            ) from exc
 
                     final_url = page.url
                     elapsed = int((time.monotonic() - t0) * 1000)
@@ -414,6 +427,7 @@ class MediumBrowserAdapter(Publisher):
                     context.close()
                     browser.close()
                     raise
+                # debt: medium-browser-publish-boilerplate-wrap-accepted
                 except Exception as exc:
                     _save_screenshot(page, config, article_id)
                     context.close()
@@ -434,5 +448,6 @@ def _save_screenshot(page: Any, config: Config, article_id: str) -> None:
         shot_path = _screenshot_path(config, article_id)
         page.screenshot(path=str(shot_path))
         log.error("screenshot", level="ERROR", screenshot=str(shot_path))
+    # debt: medium-browser-screenshot-diagnostic-swallow-accepted
     except Exception as exc:
         log.debug("Failed to capture diagnostic screenshot", error=str(exc))

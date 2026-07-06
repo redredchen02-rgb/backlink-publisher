@@ -34,7 +34,7 @@ def _render_index(tmp_path, monkeypatch, with_llm=True):
     app.config["TESTING"] = True
     app.config["CSRF_ENABLED"] = False
     with app.test_client() as client:
-        resp = client.get("/")
+        resp = client.get("/jinja")
         return resp.get_data(as_text=True)
 
 

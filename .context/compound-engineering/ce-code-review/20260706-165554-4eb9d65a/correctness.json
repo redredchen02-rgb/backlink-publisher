@@ -1,0 +1,25 @@
+{
+  "reviewer": "correctness",
+  "findings": [
+    {
+      "title": "Vendored bootstrap-icons.min.css header claims v1.10.5 while comments/plan say 1.11.0 (self-hosting the CDN version being replaced)",
+      "severity": "P3",
+      "file": "webui_app/static/vendor/bootstrap-icons/bootstrap-icons.min.css",
+      "line": 2,
+      "confidence": 0.55,
+      "autofix_class": "manual",
+      "owner": "unassigned",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Re-vendor from bootstrap-icons 1.11.0 (matching the CDN link it replaces in base.html/index.html comments) so any icon class added between 1.10.5 and 1.11.0 that a legacy Jinja template relies on doesn't silently fail to resolve."
+    }
+  ],
+  "residual_risks": [
+    "ConfirmDialog's async `confirm` inline-error/retry UX (busy revert on reject) is effectively dead code at both real call sites: KeepAlivePage's doRepublish and BloggerCard's doRevoke both swallow their own errors internally (flashMessage/toast) and never reject, so the dialog always takes the 'resolve' path. This is intentional per in-code comments (preserves pre-W3 error routing) but means the reject/inline-error branch is currently only exercised by unit tests with a synthetic rejecting confirm callback, not by any production caller.",
+    "In KeepAlivePage, `doRepublish` sets `actionState.value = 'publishing'` synchronously as the first line, which flips ConfirmDialog's `:open` prop to false while the internal `onConfirmClick` async function (busy=true) is still in-flight awaiting `executeRepublish`. The dialog unmounts itself via the reactive prop before the confirm promise settles; this appears to be intentional (comment: 'confirm 回调自行推进状态机'), and no user-visible defect was found, but it is a subtle interaction worth a second look if the dialog's teardown/focus-restore logic is ever changed."
+  ],
+  "testing_gaps": [
+    "No test exercises ConfirmDialog with a confirm callback that itself flips the controlling `open` prop to false mid-await (the actual KeepAlivePage pattern) — existing async-confirm tests use a caller-independent Promise resolved externally, not a callback that also mutates the parent's own open-state before resolving.",
+    "No test verifies the self-hosted bootstrap-icons.min.css actually renders every `bi-*` class currently used across webui_app/templates/*.html (i.e., no automated check that the vendored icon-font version covers all glyphs the legacy Jinja pages reference)."
+  ]
+}

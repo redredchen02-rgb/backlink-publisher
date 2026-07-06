@@ -287,6 +287,7 @@ class GitLabPagesAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: gitlabpages-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"GitLab Pages publish failed ({type(exc).__name__}): {exc}"

@@ -56,10 +56,11 @@ def _check_ghpages_setup(config: Config) -> str | None:
             "GitHub Pages config missing. Add [ghpages] repo=\"owner/name\" "
             "to ~/.config/backlink-publisher/config.toml"
         )
-    if not config.ghpages_token_path.exists():
+    token_path = config.token_path("ghpages")
+    if not token_path.exists():
         return (
             "GitHub Pages PAT not stored. Write "
-            f"{{\"token\": \"<pat>\"}} to {config.ghpages_token_path} "
+            f"{{\"token\": \"<pat>\"}} to {token_path} "
             "(chmod 600). PAT needs Contents:Read+Write on the target repo."
         )
     return None

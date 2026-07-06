@@ -44,7 +44,7 @@ def _registered_platforms() -> list[str]:
     ``from ... import ...`` inside the function body) keeps the symbol
     patchable by ``monkeypatch.setattr`` in tests.
     """
-    from backlink_publisher.publishing.registry import (  # noqa: PLC0415
+    from backlink_publisher.publishing.registry import (
         registered_platforms,
     )
     return list(registered_platforms())

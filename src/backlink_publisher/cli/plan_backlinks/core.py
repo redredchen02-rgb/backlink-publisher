@@ -298,7 +298,7 @@ def main(argv: list[str] | None = None) -> None:
                 degraded_platforms=",".join(degraded),
                 hint="canary 偵測到上述平台契約漂移;發布前請複查 adapter 或重新 seed canary",
             )
-    except Exception as exc:  # noqa: BLE001 — advisory must never break plan generation
+    except Exception as exc:
         import logging as _logging
         _logging.getLogger("plan-backlinks").debug(
             "canary nudge skipped: %s", exc, exc_info=True

@@ -70,7 +70,7 @@ def dry_run_intercept() -> Iterator[None]:
 
     original_send = requests.Session.send
 
-    def _intercepted(self: Any, request: Any, **kwargs: Any) -> None:  # noqa: ARG001
+    def _intercepted(self: Any, request: Any, **kwargs: Any) -> None:
         raise DryRunInterceptError(
             f"dry-run intercept: refusing to {request.method} {request.url}"
         )

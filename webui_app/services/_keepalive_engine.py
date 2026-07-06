@@ -229,21 +229,21 @@ def run_keepalive_for_site(site_url: str) -> KeepAliveResult:
         for cand in candidates:
             try:
                 result = _default_probe(cand)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 result = {**cand, "verdict": _PROBE_ERROR, "reason": f"probe error: {exc}"}
                 errors += 1
             try:
                 emit_recheck(store, [result])
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             try:
                 write_verified_at(store, [result])
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             checked += 1
 
         return KeepAliveResult(success=True, checked=checked, errors=errors)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return KeepAliveResult(success=False, checked=0, errors=0, error=str(exc))
     finally:
         lock.release()

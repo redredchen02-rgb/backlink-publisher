@@ -1,0 +1,53 @@
+{
+  "reviewer": "correctness",
+  "findings": [
+    {
+      "title": "bulk_cancel has no rollback on mid-batch failure, contradicting plan claim",
+      "severity": "P2",
+      "file": "webui_app/api/drafts_api.py",
+      "line": 394,
+      "why_it_matters": "The new /api/v1/drafts/bulk-cancel endpoint (webui_app/api/v1/drafts.py:160-166) wraps DraftAPI.bulk_cancel 1:1 and the plan justifies skipping per-row ok/error reporting on the premise that the existing bulk_publish_now/bulk_cancel facades use all-or-nothing atomic rollback protecting against split-state. That premise is true for bulk_publish_now (it tracks store_rollbacks and reverses both scheduler jobs and store writes on exception) but false for bulk_cancel: bulk_cancel only tracks completed_cancels for the success-count message, never replays it to undo store/job state when a later item in the same batch raises. Given ids of a and b where a succeeds (job removed, drafts_store flips a to status=pending) and b then raises RuntimeError, the whole call returns ok:False with a flash_msg claiming the operation was aborted, which is literally false: a was already mutated and stays mutated. The SPA run() helper in DraftsPage.vue only writes the query cache on the success path, so on this 502 the UI keeps showing the stale pre-call list (item a still shown as scheduled) while the actual persisted state for a is now pending, a real display/server desync that surfaces exactly the fake-state class of bug this codebase's own ux-honesty doc set out to eliminate, and it undermines the stated rationale for omitting per-row reporting on the new endpoint.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Give bulk_cancel the same store_rollbacks bookkeeping bulk_publish_now already has (record each item pre-mutation status/scheduled_at before calling _remove_scheduled_job/update_item, and on exception loop back over the ids in completed_cancels re-adding jobs / restoring status), or change bulk_cancel's contract to keep processing remaining ids and report true per-item results instead of aborting the whole batch on the first failure.",
+      "confidence": 0.8,
+      "evidence": [
+        "webui_app/api/drafts_api.py lines 381-411: bulk_cancel's except block (402-409) returns BULK_CANCEL_FAILURE without ever undoing entries already appended to completed_cancels (398) or their _drafts_store.update_item calls (400), unlike bulk_publish_now (320-379) which explicitly maintains store_rollbacks and reverses both scheduler state and _drafts_store.update_item on exception.",
+        "docs/solutions/ux-honesty/webui-false-success-resolution.md section 3.2.A.2 only documents the atomic-rollback design for bulk_publish_now; it has no equivalent section for bulk_cancel, confirming the rollback was never built for that method.",
+        "tests/test_drafts_bulk_routes.py lines 191-215 (test_bulk_cancel_reports_genuine_failure_count) only forces the failure on the FIRST processed id, so it never exercises, and never asserts store state for, the case where an earlier id in the same batch already completed before a later one fails; the split-state path is untested.",
+        "frontend/src/pages/Drafts/DraftsPage.vue run() only calls qc.setQueryData on the success branch, so a 502 from bulk-cancel leaves the previously-fetched (now stale) list displayed to the operator."
+      ],
+      "pre_existing": true
+    },
+    {
+      "title": "Single-flight lock only covers new route, not legacy bulk-publish-now",
+      "severity": "P2",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 35,
+      "why_it_matters": "The new _bulk_publish_lock is a module-level threading.Lock() defined only in webui_app/api/v1/drafts.py and acquired only by the new POST /api/v1/drafts/bulk-publish-now handler. The pre-existing, still-registered legacy route POST /ce:draft/bulk-publish-now (webui_app/routes/drafts.py lines 90-96, blueprint registered in webui_app/routes/__init__.py) calls DraftAPI.bulk_publish_now directly through a separate DraftAPI() instance with no locking at all. Both instances ultimately mutate the same module-level _drafts_store/_scheduler singletons inside drafts_api.py, so a request that hits the legacy route while the new route's handler is mid-flight (or two overlapping legacy requests, which were always unprotected) is not rejected with 409, it runs concurrently against the same unsynchronized read-modify-write sequence that bulk_publish_now performs with no lock of its own. Concretely this means the single-flight guarantee described in the plan (a concurrent call gets 409 rather than double-scheduling) only holds for double-clicks within the new SPA button; a stale legacy Jinja tab or a direct POST can still race the SPA-issued call, and if one of the two racing calls then fails and rolls back using its own captured original_status/original_scheduled_at snapshot, it can clobber a legitimate write made by the other in-flight call (a lost-update), not just double-schedule a job.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Move the single-flight guard down into DraftAPI.bulk_publish_now itself (or a shared module-level lock both webui_app/routes/drafts.py and webui_app/api/v1/drafts.py import), so every ingress path to that facade method is covered, not just the new /api/v1 route.",
+      "confidence": 0.65,
+      "evidence": [
+        "webui_app/api/v1/drafts.py line 35 defines _bulk_publish_lock as a private module-level Lock used only by drafts_bulk_publish_now (lines 138-157) in that same module.",
+        "webui_app/routes/drafts.py lines 90-96 (ce_draft_bulk_publish_now) calls _draft.bulk_publish_now(ids) directly with no lock, and webui_app/routes/__init__.py line 26 registers this drafts_bp blueprint unconditionally, so the route remains live regardless of the SPA migration.",
+        "webui_app/api/drafts_api.py's bulk_publish_now (lines 320-379) has no internal locking/synchronization of its own, it relies entirely on the caller to serialize access.",
+        "webui.py line 113 calls app.run(...) without threaded=True, so real-world exploitability of true multi-threaded interleaving depends on the actual production WSGI deployment, which is not visible in this diff."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "Whether the production deployment actually serves requests with multiple worker threads/processes (vs. the single-threaded werkzeug dev server started via webui.py's app.run with no threaded=True) is not visible in this diff; this affects how exploitable both the cross-route lock gap and any genuine data race in the shared drafts_store/scheduler singletons are in practice.",
+    "bulk_publish_now and bulk_cancel silently skip ids that do not resolve to an eligible item (not found, or wrong status) and still return ok:True with an accurate-but-possibly-zero processed count (for example a message saying 0 items are being published); this is pre-existing, already covered by an existing partial-match test, and evidently an accepted design choice, but a full-selection-gone-stale case (all selected rows transition away from eligibility between fetch and submit, plausible given bulk-publish-now's own staggered auto-fire) is not covered by tests and results in an unremarkable success toast for zero real work done.",
+    "HistoryAPI.bulk_recheck (called by the new /api/v1/history/bulk-recheck) has no try/except around recheck_many or the per-item _history_store.update_item calls; an exception there would propagate as an unhandled 500 rather than a problem+json response. This mirrors the pre-existing single-item recheck's identical gap and is not newly introduced by this diff, but the new endpoint inherits it."
+  ],
+  "testing_gaps": [
+    "No test asserts drafts_store state (or job-removal state) for items that completed successfully in a bulk_cancel batch before a later item in the same batch triggers BULK_CANCEL_FAILURE; the existing test_bulk_cancel_reports_genuine_failure_count only forces failure on the first-processed id, so the split-state / no-rollback bug is never exercised.",
+    "No test exercises a concurrent call to the legacy POST /ce:draft/bulk-publish-now racing against the new POST /api/v1/drafts/bulk-publish-now while the latter holds _bulk_publish_lock; only same-endpoint re-entrancy is tested (test_webui_drafts_bulk_publish_now_double_submit_returns_409).",
+    "No test drives HistoryAPI.bulk_recheck (or recheck_many) into raising mid-batch to confirm what status code/body POST /api/v1/history/bulk-recheck actually returns in that case."
+  ]
+}

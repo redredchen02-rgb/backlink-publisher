@@ -1,0 +1,91 @@
+{
+  "reviewer": "adversarial",
+  "findings": [
+    {
+      "title": "Single-flight lock guards only one of two live bulk-publish routes",
+      "severity": "P1",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 146,
+      "why_it_matters": "The new _bulk_publish_lock is presented (in code comments, the frontend API comment, and the double-submit test) as a hard no-double-scheduling guarantee, but it is a module-level lock scoped to a single Flask view function in webui_app/api/v1/drafts.py. The pre-existing, unconditionally-registered legacy route POST /ce:draft/bulk-publish-now (webui_app/routes/drafts.py:90-96) calls the exact same underlying DraftAPI.bulk_publish_now() against the same singleton _drafts_store (SQLite) and singleton _scheduler (APScheduler) via its own separate DraftAPI() instance, and never touches _bulk_publish_lock. Two near-simultaneous requests -- one to /api/v1/drafts/bulk-publish-now and one to /ce:draft/bulk-publish-now (e.g. an operator with the legacy Jinja page and the new SPA page open in two tabs, or any direct HTTP client) -- both proceed concurrently through the non-atomic get-item/update-item/add-job sequence, defeating the single-flight guarantee the plan explicitly designed and tested for. The interleaving can corrupt per-item rollback bookkeeping (see the duplicate-id finding) or leave the two batches' scheduler add_job(..., replace_existing=True) calls silently clobbering each other's run_date/state for overlapping ids.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Move the single-flight guard into DraftAPI.bulk_publish_now() itself (or a shared module both routes import) so every entry point -- new and legacy -- serializes on the same lock; alternatively, deprecate/redirect the legacy /ce:draft/bulk-publish-now route now that the SPA has parity, so only one live entry point remains.",
+      "confidence": 0.85,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:29-35 -- _api = DraftAPI() and _bulk_publish_lock = threading.Lock() are both local to this module; the lock is acquired only inside drafts_bulk_publish_now() (line 146) in this same file.",
+        "webui_app/routes/drafts.py:14-15 -- _draft = DraftAPI() is a SEPARATE instance created in the legacy blueprint module.",
+        "webui_app/routes/drafts.py:90-96 -- ce_draft_bulk_publish_now() calls _draft.bulk_publish_now(ids) directly, with no lock, no 409 path, and no awareness of webui_app.api.v1.drafts._bulk_publish_lock.",
+        "webui_app/routes/__init__.py:26,58 -- drafts_bp (the legacy blueprint containing the unguarded route) is registered unconditionally, not gated behind BACKLINK_PUBLISHER_SPA, so the bypass route is live in every deployment mode including the default (SPA-on) mode.",
+        "DraftAPI has no instance state (no locks, no queues) of its own -- both DraftAPI() instances read/write the same module-level _drafts_store and _scheduler singletons imported from webui_app/scheduler.py, so two different facade instances still share the exact same race-prone mutable state.",
+        "tests/test_webui_api_v1_bulk_ops.py's test_webui_drafts_bulk_publish_now_double_submit_returns_409 only proves reentrancy protection via a synchronous NESTED call to the same endpoint from inside the mocked function body -- it never exercises a concurrent call to the sibling legacy route, so the bypass is untested."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "Duplicate ids in bulk-publish-now corrupt rollback, orphan a draft as scheduled",
+      "severity": "P2",
+      "file": "webui_app/api/drafts_api.py",
+      "line": 330,
+      "why_it_matters": "_require_ids() (webui_app/api/v1/drafts.py) does not deduplicate the ids array before handing it to DraftAPI.bulk_publish_now(), and that facade method captures each item's original state for rollback via a fresh _drafts_store.get_item(item_id) call INSIDE the per-id loop rather than from a single upfront snapshot. If the same id appears twice (e.g. [a,a,b], trivially producible by any raw HTTP client even though the SPA's own selection UI can't emit it) and a later id in the batch (b) throws during scheduling, the exception handler's rollback replays store_rollbacks in append order -- so the SECOND entry for a (captured AFTER the first iteration already mutated it to scheduled) overwrites the true original state. Concretely: the rollback's job-removal loop successfully removes the job APScheduler now holds for a, but the rollback's STORE loop re-applies the stale mid-batch scheduled snapshot as the restored state. The draft is left with status=scheduled and a stale scheduled_at in the past/near-future, but with NO backing scheduler job -- it will never fire and will show as permanently scheduled in the UI, even though the response claims all changes were rolled back.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Deduplicate ids in _require_ids() (or at the top of bulk_publish_now/bulk_cancel) before processing, and/or capture each item's original state once via a single upfront batch read rather than per-iteration get_item calls inside the mutate loop.",
+      "confidence": 0.7,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:54-61 -- _require_ids() only checks isinstance(ids, list) and ids, then does [str(i) for i in ids] with no set()/dedup step.",
+        "webui_app/api/drafts_api.py:330-345 -- inside the for i, item_id in enumerate(ids) loop, item = _drafts_store.get_item(item_id) is re-fetched every iteration and store_rollbacks.append((item_id, original_status, original_scheduled)) captures whatever the store currently holds -- for a repeated id this is the state left by the PRIOR iteration's own update_item call two lines above, not the true pre-batch state.",
+        "webui_app/api/drafts_api.py:357-370 -- on exception, the rollback iterates completed_jobs (which for a repeated id contains the same job id twice) calling _scheduler.remove_job(job_id), then separately iterates store_rollbacks (which for a repeated id contains two DIFFERENT captured states) calling _drafts_store.update_item(item_id, status=status, scheduled_at=sched_at) -- the later, corrupted entry wins as the restored state.",
+        "_scheduler.add_job(..., id=item_id, replace_existing=True) at drafts_api.py:347-354 means a repeated id's second add_job call silently replaces (not duplicates) the first schedule, so even the happy-path (no failure) response overcounts completed_jobs in the batch-count message relative to the number of distinct drafts actually affected."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "Unbounded ids array holds bulk-publish lock for duration proportional to N",
+      "severity": "P2",
+      "file": "webui_app/api/v1/drafts.py",
+      "line": 145,
+      "why_it_matters": "Neither _require_ids() nor DraftAPI.bulk_publish_now() caps the size of the ids array. A legitimate select-all action on a large draft queue (or a careless/scripted client) can pass thousands of ids; the entire per-id loop (one SQL SELECT, one SQL UPDATE, and one _scheduler.add_job() call per id) executes synchronously INSIDE the request handler while _bulk_publish_lock is held for the whole loop. Every other call to /api/v1/drafts/bulk-publish-now -- including a legitimate operator's accidental double-click, or a retry after a transient failure -- is rejected with 409 for the entire duration of that one oversized batch, with no way for the caller to know how long the in-progress state will last. This turns the new safety guard into a self-inflicted, input-size-controlled availability gap on the very feature it protects.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Cap ids length in _require_ids() (422 above a documented max, mirroring how other bulk endpoints in this codebase bound batch size), or move long-running batch scheduling off the request thread entirely (background job + poll, matching the keep_alive.py recheck pattern already in this codebase).",
+      "confidence": 0.72,
+      "evidence": [
+        "webui_app/api/v1/drafts.py:54-61 -- _require_ids() has no upper bound check on len(ids).",
+        "webui_app/api/drafts_api.py:320-379 -- bulk_publish_now() iterates every id synchronously (SQL get + SQL update + _scheduler.add_job), and this entire call happens inside the try/finally that holds webui_app/api/v1/drafts.py's _bulk_publish_lock (lines 146-155), so lock-hold duration scales linearly with len(ids) regardless of server threading model.",
+        "The sibling history/bulk-recheck and drafts/bulk-cancel endpoints share the same unbounded-ids pattern via the same _require_ids() helper, so the same class of problem is reachable from all three new endpoints, not just bulk-publish-now."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "Cross-endpoint race: bulk-cancel result can be reverted by a concurrent rollback",
+      "severity": "P2",
+      "file": "webui_app/api/drafts_api.py",
+      "line": 381,
+      "why_it_matters": "bulk_cancel() has no single-flight lock at all (unlike bulk_publish_now), and both bulk operations perform non-atomic read-then-write sequences against the same shared draft rows. If a bulk-cancel call and a bulk-publish-now call race on an overlapping draft id, and the publish-now batch later fails on a DIFFERENT id (triggering its rollback path), the rollback in bulk_publish_now restores its own PRE-RACE snapshot of the shared item -- overwriting the cancel's legitimate pending write with a stale scheduled state, while the rollback also removes the scheduler job it had itself just added. The net result: the draft is left showing status=scheduled in the store with NO backing scheduler job (it can never fire on its own), even though both concurrent requests reported success. _publish_draft_job's own status re-check at fire time (webui_app/scheduler.py:105) prevents the more severe phantom-publish-after-cancel variant of this race, but the state-integrity/false-success-message variant survives.",
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Route bulk-cancel through the same coordination primitive as bulk-publish-now (or a per-item lock keyed on draft id) so the two mutating operations cannot interleave on overlapping ids; alternatively make each facade method re-verify current store state immediately before its rollback/final write rather than trusting a snapshot captured earlier in the request.",
+      "confidence": 0.62,
+      "evidence": [
+        "webui_app/api/drafts_api.py:381-411 -- bulk_cancel() acquires no lock (module-level or otherwise) before mutating _drafts_store/_scheduler, unlike bulk_publish_now which is at least guarded (only against itself, and only via the new API route) by _bulk_publish_lock.",
+        "webui_app/api/drafts_api.py:366-370 -- the rollback loop in bulk_publish_now's except-block writes _drafts_store.update_item(item_id, status=status, scheduled_at=sched_at) from a snapshot captured before the batch started, with no re-check of whether another request (e.g. a concurrent bulk_cancel) has since legitimately mutated that same row.",
+        "webui_app/scheduler.py:102-106 -- _publish_draft_job re-checks item.get('status') != 'scheduled' at fire time, which mitigates the reverse (worse) ordering where a stray job would otherwise publish a draft the user believed was cancelled -- so this finding is scoped to the state-integrity/orphan-status outcome, not an unwanted publish."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "The new _bulk_publish_lock is a plain threading.Lock(), which only coordinates threads within a single OS process. No Dockerfile/gunicorn/wsgi config in this worktree shows evidence of a multi-worker-process deployment today (Dockerfile CMD is python serve.py; webui.py's __main__ calls Werkzeug's app.run() directly, a single process) -- so this specific risk currently appears moot. However, this codebase has previously had to solve the identical class of problem with a stronger primitive: src/backlink_publisher/publishing/adapters/medium_auth.py explicitly notes its in-process threading.Lock() is only for gunicorn --threads safety and layers a separate cross-process fcntl.flock sidecar lock for the guarantee that actually needs to survive multiple workers. If this app's deployment model ever adds multi-process workers, the new _bulk_publish_lock's 409 guarantee would silently stop working with no test able to catch the regression.",
+    "DraftAPI.bulk_publish_now/bulk_cancel/bulk_delete all perform multi-step, non-transactional store+scheduler mutations (read state, mutate store, mutate scheduler) with no encompassing lock or DB transaction; every additional concurrent entry point added in the future (beyond the two identified here) inherits the same class of interleaving risk."
+  ],
+  "testing_gaps": [
+    "No test exercises a concurrent call to the legacy /ce:draft/bulk-publish-now route while /api/v1/drafts/bulk-publish-now holds _bulk_publish_lock -- the only double-submit test simulates reentrancy on the SAME endpoint via a nested synchronous call, not a true race against the sibling unguarded route.",
+    "No test sends a duplicate id within a single ids array to /api/v1/drafts/bulk-publish-now or /api/v1/drafts/bulk-cancel, so the rollback-corruption and message-miscount behavior described above is unverified.",
+    "No test asserts an upper bound (or absence of one) on ids array length for any of the three new bulk endpoints.",
+    "No test interleaves bulk-cancel and bulk-publish-now on an overlapping draft id to verify the final store/scheduler state stays self-consistent."
+  ]
+}
