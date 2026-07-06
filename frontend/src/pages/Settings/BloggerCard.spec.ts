@@ -116,16 +116,37 @@ describe('BloggerCard', () => {
     }
   })
 
-  it('revokes authorization after confirm → success toast', async () => {
-    vi.stubGlobal('confirm', vi.fn(() => true))
+  it('revokes authorization after confirming in the shared ConfirmDialog → success toast', async () => {
+    // W3: native window.confirm was migrated to ConfirmDialog — same semantics
+    // (confirm → revoke), now rendered as an in-page modal.
     vi.mocked(api.getBloggerStatus).mockResolvedValue(statusValue({ authorized: true }))
     vi.mocked(api.revokeBlogger).mockResolvedValue({ ok: true, message: 'Blogger 授权已撤销' })
     const w = mountCard()
     await flushPromises()
+
     await btn(w, '撤销授权')!.trigger('click')
+    const dialog = w.find('[role="dialog"]')
+    expect(dialog.exists()).toBe(true)
+    expect(dialog.text()).toContain('下次发布前需重新登入')
+    expect(api.revokeBlogger).not.toHaveBeenCalled() // nothing happens before confirm
+
+    await btn(w, '确认撤销')!.trigger('click')
     await flushPromises()
     expect(api.revokeBlogger).toHaveBeenCalled()
     const notify = useNotificationsStore()
     expect(notify.toasts.at(-1)?.severity).toBe('success')
+    expect(w.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  it('cancelling the revoke dialog performs no revoke (window.confirm(false) semantics)', async () => {
+    vi.mocked(api.getBloggerStatus).mockResolvedValue(statusValue({ authorized: true }))
+    const w = mountCard()
+    await flushPromises()
+
+    await btn(w, '撤销授权')!.trigger('click')
+    expect(w.find('[role="dialog"]').exists()).toBe(true)
+    await btn(w, '取消')!.trigger('click')
+    expect(w.find('[role="dialog"]').exists()).toBe(false)
+    expect(api.revokeBlogger).not.toHaveBeenCalled()
   })
 })

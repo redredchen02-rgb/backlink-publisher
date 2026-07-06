@@ -189,7 +189,7 @@ def _discover_unclassified_sites() -> frozenset[tuple[str, int]]:
 # freshly introduced violation; that always means fix it or classify it.
 GRANDFATHERED_BARE_EXCEPT_SITES: frozenset[tuple[str, int]] = frozenset(
     {
-        ("src/backlink_publisher/idempotency/audit_log.py", 46),
+        ("src/backlink_publisher/idempotency/audit_log.py", 45),
         ("src/backlink_publisher/ledger/aggregate.py", 68),
     }
 )
