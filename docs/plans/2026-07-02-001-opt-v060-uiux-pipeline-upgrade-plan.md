@@ -547,7 +547,7 @@ graph TB
 
 **Verification:** History/Drafts 在 >200 列資料下分頁可用；KeepAlive/CampaignProgress 無裸 setTimeout（grep 為證）。
 
-- [ ] **U6: `/ce:health` 叢集移植到 SPA〔R6〕**
+- [x] **U6: `/ce:health` 叢集移植到 SPA〔R6〕**
 
 **Goal:** 唯一完全未遷移的資料表面（健康主控台：scorecard、publish-metrics、recheck、pause/reverify/circuit-reset）成為 SPA 頁面 + `/api/v1` 契約。
 
@@ -585,6 +585,19 @@ graph TB
 - Integration：oasdiff/Spectral/Schemathesis（GET-only）全綠;SPA 頁在單 panel degraded 時其餘 panel 有資料呈現（組合情境）。
 
 **Verification:** SPA Health 頁功能對等清單逐項打勾（scorecard 鑽取、metrics、recheck、三個動作）；legacy `/ce:health` 同期仍 200（穩定窗）。
+
+**執行記錄（2026-07-06，分支 `feat/u6-health-dashboard-spa`，worktree `bp-u6-health-dashboard`，base main@f43dda73）：**
+- **範圍澄清（動工前使用者決策）**：計畫文件的「6 個 panel」大幅低估了 `routes/health.py::ce_health()` 實際聚合的資料面（約 20 個獨立 fail-open 資料來源：scorecard/publish-metrics/canary/forward-path/storage/GSC 之外還有 reconciliation gaps、decay counts、geo citation-share、pipeline summary、platform health、autopilot alerts、weights snapshot、decay alerts、GSC indexation/ranking、publish-index latency、index-rate-by-channel、impression/ranking-lift/referral 分析、cost metrics、decisions-by-platform）。詢問使用者後採**全量對等**（不縮減範圍）——本 unit 的 backend/frontend 範圍因此比計畫文件字面描述大上數倍。
+- Backend（`webui_app/api/v1/health_dashboard.py`，新檔）：`GET /health/summary` 聚合全部 ~20 個 panel，每個 panel 各自 `{data, degraded}` 信封，靠通用 `_panel(cache_key, fn, fallback)` wrapper（非 legacy 巢狀 closure——那些是 `ce_health()` 內的私有函式，物理上無法 import，改為在本檔重新定義同名的 module-level 版本，呼叫「同一組」底層 `health_metrics.py`/`backlink_publisher.*` 函式）。`_health_agg()`（projection+health）沿用 legacy 自己的 fail-open 設計（自身不 raise，靠回傳值裡的 `projection.degraded` 自我回報），其餘 panel 則靠 `_panel()` 的例外捕捉。資料暴露：新增 `_sanitize_reason()`，把 `events.reconcile` 內部設定的 `f"{type(exc).__name__}: {exc}"` 格式截斷成只留類別名；所有本檔自己的 log 呼叫帶完整例外訊息（僅寫入伺服器端日誌，不進 JSON body）。
+- 動作（`POST /health/actions/{pause,reverify,circuit-reset}`）：逐 view 呼叫新增的 `_enforce_loopback_addr()`（鏡射 `bind.py` 的既有寫法——api_v1 是單一共享 blueprint，無法繼承 `health_actions.py` blueprint-scoped 的 `before_request`）；不呼叫 `_check_bind_origin_or_abort()`（比照 legacy `health_actions.py` 本身的邊界設計——這 3 個動作只需 loopback + app-level CSRF/Origin guard，outbound-probe 才需要 inline origin 檢查）。`POST /health/scorecard/recheck-link`：inline `_check_bind_origin_or_abort()` + anti-SSRF membership gate（`_published_candidate`，探測目標永遠是**儲存的** `live_url`，不是客戶端字串）。
+- Schema/spec：`webui_app/api/v1/schemas.py` 新增 8 個 schema（`HealthSummarySchema`/`HealthPanelSchema`/`HealthProjectionSchema` 等；~20 個 panel 形狀差異大，用 `fields.Raw`/`Dict`（本檔既有慣例）而非 20 份近乎重複的巢狀 schema）；`spec.py` 新增 5 條路徑宣告。
+- **SLOC ceiling 調升（同 PR 內，附 rationale）**：`spec.py` 1426→1529（ceiling 1460→1560）；`schemas.py` 474→526（ceiling 500→560）。
+- **`_CSRF_ONLY_SNAPSHOT_COUNT` ratchet 調升**（`tests/test_webui_lite_origin_guard_coverage.py`）：99→102（+3，本 unit 的 3 個 loopback-only 動作，比照 U3 的既有調升模式，附安全 rationale 註解）。
+- 意外發現並修復：`_known_platform()`（逐字複製自 legacy）有一個 unclassified bare `except Exception: return False`，觸發 `tests/test_seam_except_classification.py` 的既有靜態掃描 gate——加上 `_log.debug(...)` 呼叫即符合分類規則。
+- Frontend：`frontend/src/api/health.ts`（型別化 API client，涵蓋全部 ~20 panel + 4 個動作）；`frontend/src/pages/Health/HealthPage.vue`（單檔，未拆子元件——scorecard 鑽取 + 重核、canary/forward-path 表格、platform 狀態表 + 3 個動作按鈕（暫停/恢復、重新校驗、重置熔斷器——熔斷器按鈕在未跳閘時停用）、其餘 ~15 個次要 telemetry panel 收在 `<details>`「更多指標」摺疊區，用通用「從物件 key 推導欄位」表格渲染，不為每個次要 panel 各寫一份客製化 widget——這些是唯讀資料，操作者掃視而非操作，通用渲染是合理的工程取捨而非偷工）。無自動輪詢（比照 legacy Jinja 頁本身無前端自動刷新，且本頁聚合成本高於一般輪詢頁——只有手動刷新按鈕）。
+- 路由/導覽：`frontend/src/router/index.ts` 新增 `/health`；`frontend/src/layout/navItems.ts` 新增「发布健康看板」（`monitoring` 分組，緊跟在保活看板之後）。
+- 測試：`tests/test_webui_api_v1_health_dashboard.py`（新，48 個測試——快樂路徑、全部 ~20 個 panel 的 fail-open 參數化測試、資料暴露不外洩、recheck-link 的 SSRF/origin/probe-target 驗證、3 個動作的快樂路徑/未知平台/loopback gate/X-Forwarded-For 偽裝防護、pause↔resume 往返一致性）；`frontend/src/pages/Health/HealthPage.spec.ts`（新，11 個測試）。
+- 驗證：前端 285/285、typecheck/build 乾淨；後端本 unit 相關測試 406/406（health_dashboard 48 + api_v1 contract + monolith/complexity budget + seam-except + origin-guard-coverage + legacy health routes 86 個全綠 + CSRF ordering + bind security）；`gen_openapi.py --check` 無 drift；legacy `/ce:health`／`/ce:health/pause`／`/ce:health/reverify`／`/ce:health/circuit-reset`／`/ce:health/scorecard/*` 全部既有測試不變、未觸碰；`ruff check` clean。全量後端套件跑過一次確認除了已知的 pre-existing Windows-only（chmod/NTFS 權限位元、`/bin/ls` 路徑）與少數並發/timing 相關 flaky 測試（stash 比對驗證 baseline 上同樣會失敗，非本次引入）外無新增回歸。
 
 - [ ] **U7: command-center 併入 `/app/monitor`〔R7〕**
 
