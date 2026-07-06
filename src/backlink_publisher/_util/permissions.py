@@ -38,7 +38,7 @@ def check_0600(
     mode = os.stat(path).st_mode & 0o777
     if mode != 0o600:
         name = label or os.path.basename(str(path))
-        msg = f"{name} must be 0o600 (found {oct(mode)})\nRun: chmod 600 {path}"
+        msg = f"{name} must be 0o600 (found {oct(mode)})\nRun: chmod 0600 {path}"
         if extra:
             msg += f"\n{extra}"
         raise DependencyError(msg)
