@@ -321,7 +321,7 @@ graph TB
 
 **Verification:** 手動走四條路由 + SPA 停用模式；`pytest tests/ -m "unit"` 綠。
 
-- [ ] **U5: DataTable 元件 + 分頁 + 輪詢統一〔R5〕**
+- [x] **U5: DataTable 元件 + 分頁 + 輪詢統一〔R5〕**
 
 **Goal:** 把 `.data-table` CSS 約定升級為共享元件、為大列表補分頁、把輪詢統一到 vue-query 範式——U6/U7 的移植地基。
 
@@ -349,6 +349,15 @@ graph TB
 - Integration：oasdiff 無 breaking；`data-table-adoption.spec.ts` guard 在 5 頁全過;unmount 中斷 in-flight 請求不留 console 錯誤。
 
 **Verification:** History/Drafts 在 >200 列資料下分頁可用；KeepAlive/CampaignProgress 無裸 setTimeout（grep 為證）。
+
+**執行記錄（2026-07-06，分支 `feat/u5-datatable-pagination-polling`）：**
+- Backend（`128f1ab1`）：`webui_app/api/v1/errors.py` 新增 `MAX_PAGE_LIMIT=500`/`parse_pagination()`/`paginate()`；`history.py`/`drafts.py` 的 list 端點接入；`spec.py`/`openapi/backlink-api.yaml` 同步更新 query 參數 + 400 回應。不帶 `limit` 回原始整表 envelope（K6 相容不破）；帶 `limit` 回 `{items,total,limit,offset}`。13 個新測試全過。
+- `DataTable.vue`（`00bd63d8`）：`<script setup generic="T extends {id:string}">` 泛型元件，包 `StateBlock` 四態 + `head`/`row` scoped slot + checkbox 選取（含全選）+ opt-in 分頁 footer（`limit`+`total` 同時給才顯示）。換頁清空選取（`goToOffset()` 一併 emit `update:selected(new Set())`）。15 個新測試全過。
+- `usePolledQuery.ts`（`b973f10e`）：包 `useQuery` 的 `refetchInterval`+`keepPreviousData`；退避邏輯抽成純函式 `computeBackoffIntervalMs()`（0 次失敗=基礎間隔，每次失敗倍增，`maxIntervalMs` 封頂，預設 8× 基礎間隔）方便無 timer 測試；`isTerminal` callback 終態即停；`enabled` 選項支援 job-triggered 輪詢（id 為空時不輪詢）。tab-hidden 暫停與 unmount 取消**非自訂邏輯**——vue-query `refetchIntervalInBackground` 預設 `false` 且內建監聽 `visibilitychange`，unmount 時 query observer 自行拆卸。6 個新測試（含 fake-timer 驗證 interval/backoff/終態）全過、連跑 3 次無 flaky。
+- `HistoryPage.vue`/`DraftsPage.vue`（`ec86b6ad`）：改用 `DataTable`（History 原生 `<table>`、Drafts 原生 `<ul>/<li>` 皆改為 head/row slot），固定 `PAGE_SIZE=50`。Mutation 端點仍回全表（契約不動）——不再嘗試把全表回應塞進分頁 envelope，改為 mutation 後 `query.refetch()` 拉當頁，並在 `offset >= newTotal` 時 clamp 回末頁再 refetch 一次。`purge-failed` 不再用「當頁是否有 failed 列」判斷是否可點——該動作作用於伺服器端全集，當頁看不到不代表沒有，後端本來就對「無可清除」優雅 no-op（200）。11 個新/改測試全過。
+- `KeepAlivePage.vue`/`CampaignProgressPage.vue`（`dfd29d6d`）：CampaignProgress 是單一 `usePolledQuery`（campaignId 空時 `enabled:false` 不發request）。KeepAlive 較複雜——兩條獨立、由使用者動作觸發的 job 輪詢（recheck、republish），改為「設定 job id 就讓 `enabled` 變 true 觸發首次 fetch」取代原本顯式 `startXPolling()`；原本內嵌在 `poll()` callback 裡的副作用（狀態機轉換、flash 訊息、重載 scorecard）搬到 `watch(query.data, ...)`。`onUnmounted` 手動 `clearTimeout` 整段刪除（vue-query 自行拆卸）。14 個新測試（CampaignProgress 原本零覆蓋）。
+- 驗證：前端 275/275、typecheck/build 乾淨；後端 pagination 11/11、`gen_openapi.py --check` 無 drift；`data-table-adoption.spec.ts`（另一計畫的 guard，5 頁其中僅 KeepAlive 與本 unit 重疊，其 scorecard table 本 unit 未觸碰，維持通過不需修改）；`grep setTimeout` 確認 KeepAlive/CampaignProgress 僅剩註解提及，無裸輪詢殘留。
+- 未做（明確排除，Scope Boundaries 內）：排序功能；跨頁全選。
 
 - [ ] **U6: `/ce:health` 叢集移植到 SPA〔R6〕**
 
