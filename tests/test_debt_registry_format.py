@@ -57,7 +57,7 @@ STATUS_REQUIRES_RESOLVED_DATE = {"resolved", "mitigated"}
 # A `location` entry must look like "some/relative/path.py:123".
 _LOCATION_ENTRY_RE = re.compile(r"^[\w./\-]+\.py:\d+$")
 
-REGISTRY = tomllib.loads(REGISTRY_FILE.read_text())
+REGISTRY = tomllib.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
 ITEMS = REGISTRY.get("items", [])
 
 # ── D2b scan roots ───────────────────────────────────────────────────────────

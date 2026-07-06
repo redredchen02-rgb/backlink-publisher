@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_FILE = REPO_ROOT / "debt_registry.toml"
 CI_FILE = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
-REGISTRY = tomllib.loads(REGISTRY_FILE.read_text())
+REGISTRY = tomllib.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
 ITEMS = {it["slug"]: it for it in REGISTRY.get("items", [])}
 
 

@@ -35,7 +35,7 @@ def test_sdk_facade_symbols_resolve() -> None:
 
 
 def _console_scripts() -> list[tuple[str, str, str]]:
-    data = tomllib.loads(_PYPROJECT.read_text())
+    data = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     rows: list[tuple[str, str, str]] = []
     for cmd, target in data["project"]["scripts"].items():
         mod, _, func = target.partition(":")
