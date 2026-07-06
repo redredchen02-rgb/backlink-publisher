@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
-from typing import Any  # noqa: F401  (preserved for downstream type hints)
+from typing import Any, ClassVar  # noqa: F401  (preserved for downstream type hints)
 
 # Anchor profile scheduler (zh-CN short-form) — type & proportion constants.
 ANCHOR_TYPES: tuple[str, ...] = ("branded", "partial", "exact", "lsi")
@@ -545,6 +545,34 @@ class Config:
     Validated at load time: unknown channel names and cross-cell overlap
     both raise ``InputValidationError`` (fail-loud, not skip-with-warning).
     See ``config/parsers/cells.py`` and Blast-radius Phase 1 R7-minimal."""
+
+    # Platform name → token filename mapping (single table-driven lookup
+    # behind ``token_path()``; the per-platform ``*_token_path`` properties
+    # below remain as the legacy accessor surface).
+    _TOKEN_FILE_NAMES: ClassVar[dict[str, str]] = {
+        "blogger": "blogger-token",
+        "devto": "devto-token",
+        "ghpages": "ghpages-token",
+        "gitlabpages": "gitlabpages-token",
+        "hackmd": "hackmd-token",
+        "hashnode": "hashnode-token",
+        "linkedin": "linkedin-token",
+        "mataroa": "mataroa-token",
+        "notion": "notion-token",
+        "qiita": "qiita-token",
+        "tumblr": "tumblr-credentials",
+        "wordpresscom": "wordpresscom-token",
+        "writeas": "writeas-token",
+        "zenn": "zenn-token",
+        "frw": "frw-token",
+    }
+
+    def token_path(self, platform: str) -> Path:
+        """Return the token file path for *platform*.
+
+        Raises ``KeyError`` if *platform* is not in the mapping.
+        """
+        return self._token_path(self._TOKEN_FILE_NAMES[platform])
 
     def _token_path(self, name: str) -> Path:
         """Factory method for token file paths."""

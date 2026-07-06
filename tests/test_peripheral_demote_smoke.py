@@ -20,10 +20,10 @@ _AGENTS = Path(__file__).resolve().parents[1] / "AGENTS.md"
 
 # Entrypoints that transitively keep each peripheral package non-orphan.
 _REQUIRED_SCRIPTS = {
-    "probe-citations": "backlink_publisher.cli.probe_citations:main",   # imports geo
+    "probe-citations": "backlink_publisher.cli.ops.probe_citations:main",   # imports geo
     "pr-opportunities": "backlink_publisher.cli.pr_opportunities:main",  # imports pr_outreach
     "click-track": "backlink_publisher.cli.click_track:main",
-    "debt-report": "backlink_publisher.cli.debt_report:main",
+    "debt-report": "backlink_publisher.cli.reporting.debt_report:main",
 }
 
 
