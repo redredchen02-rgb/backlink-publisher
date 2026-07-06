@@ -9,12 +9,55 @@
 // Dual-stack wayfinding: each card's deep_link / action.href is a legacy Jinja
 // page, so they are plain <a href> (full navigation OUT of the SPA, marked ↪) —
 // not RouterLinks — until those pages are migrated.
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import { monitorSummary } from '../../api/monitor'
 import StateBlock from '../../components/StateBlock.vue'
+import { useNotificationsStore } from '../../stores/notifications'
 
 const POLL_MS = 30_000
+
+// Flash-message bridge (Plan 2026-07-06-004 Unit 5): checkpoint.py/drafts.py
+// (and anything else redirecting to bare '/') carry flash_type/flash_msg
+// through main.py's '/' → '/app/' redirect (Unit 4) as query params on this,
+// the new homepage. Read once on mount, surface as a toast, then strip the
+// two params from the URL so a refresh doesn't re-show the same toast.
+// `tab`/`campaign_id` are deliberately NOT read here — legacy-only params,
+// out of scope for the new homepage (see plan's Scope Boundaries).
+const route = useRoute()
+const router = useRouter()
+const notifications = useNotificationsStore()
+
+// Independent client-side safety net — mirrors webui_app/helpers/security.py's
+// _FLASH_MSG_MAX_LEN cap. Don't fully trust that the server-side sanitizer
+// always ran (e.g. a future call site that forgets to use it); strip control
+// characters and cap length so a pathological flash_msg can't break toast
+// layout.
+const FLASH_MSG_MAX_LEN = 200
+
+function firstQueryValue(v: unknown): string {
+  const s = Array.isArray(v) ? v[0] : v
+  return typeof s === 'string' ? s : ''
+}
+
+function sanitizeFlashMsg(raw: string): string {
+  // Strip C0/C1 control characters (CR/LF/tabs included) and cap length.
+  return raw.replace(/[\x00-\x1F\x7F-\x9F]/g, ' ').trim().slice(0, FLASH_MSG_MAX_LEN)
+}
+
+onMounted(() => {
+  const flashMsg = sanitizeFlashMsg(firstQueryValue(route.query.flash_msg))
+  const flashType = firstQueryValue(route.query.flash_type)
+  if (!flashMsg && !flashType) return
+
+  notifications.pushFlash(flashMsg, flashType || undefined)
+
+  // Clear flash_type/flash_msg from the query string so a page refresh
+  // doesn't re-trigger the same toast; leave any other query params intact.
+  const { flash_type: _flashType, flash_msg: _flashMsg, ...rest } = route.query
+  router.replace({ query: rest })
+})
 
 const query = useQuery({
   queryKey: ['monitor-summary'],
