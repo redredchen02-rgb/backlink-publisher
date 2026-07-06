@@ -41,6 +41,7 @@
     --surface-base:    #0b0f17;    /* app background floor */
     --surface-raised:  #141a24;    /* panels / cards */
     --surface-overlay: #1b2330;    /* popovers / toast / drawers */
+    --backdrop: rgba(8, 12, 19, 0.6);  /* modal/dialog backdrop scrim (ConfirmDialog) */
 
     /* Background — near-flat dark (console, not nebula). Kept as gradient token
      * name so body{} and any page using --gradient-hero cascade. */
@@ -223,6 +224,7 @@ body {
   --glass-bg: rgba(0, 0, 0, 0.03);
   --glass-bg-fallback: #f3f4f6;
   --glass-border: rgba(0, 0, 0, 0.10);
+  --backdrop: rgba(15, 23, 42, 0.45);  /* lighter scrim over a light floor */
   --gradient-hero: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
 
   /* Brand / accent — dark theme's --primary (#38bdf8) and --accent-cyan

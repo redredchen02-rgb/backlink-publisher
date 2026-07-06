@@ -266,7 +266,9 @@ graph TB
 
 ### Phase B — 破壞性操作安全
 
-- [ ] **W3: ConfirmDialog 共享元件 + 破壞性操作分級〔R3〕**
+- [x] **W3: ConfirmDialog 共享元件 + 破壞性操作分級〔R3〕**
+
+〔W3 執行結果,2026-07-06,分支 `feat/w3-confirm-dialog`(基於 main ad24fb1a)〕已完成:`ConfirmDialog.vue`(受控 open、danger 變體、async confirm busy+防雙擊、reject 保持開啟+inline 錯誤、aria-modal/labelledby/aria-live、Escape capture 階段與 drawer 分派、focus 歸還;D3 分級規則成文於文檔注釋;backdrop 點擊不關閉——破壞性確認需顯式取消)+ 11 測試;KeepAlivePage 7 態機遷移(行為不變,確認鈕文案依 D3 加筆數)+ 3 流程測試;BloggerCard `window.confirm` 遷移 + 取消路徑測試;tokens.css 新增 `--backdrop` token(dark/light)。vitest 256 全綠、vue-tsc 零錯誤。附帶發現 pre-existing bug:KeepAlivePage 的 `${target_url}:${platform}` gap key 對含 `https://` 的 URL split 錯誤——範圍外未修,待另開追蹤。
 
 **Goal:** 一個可表達現有最複雜用例(KeepAlive 7 態機)的 modal 元件,取代三種 ad-hoc 確認;分級規則(D3)成文。
 
