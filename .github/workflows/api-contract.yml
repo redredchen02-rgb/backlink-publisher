@@ -55,7 +55,7 @@ jobs:
           BACKLINK_PUBLISHER_CONFIG_DIR: /tmp/bp-ephemeral-config
           BACKLINK_PUBLISHER_CACHE_DIR: /tmp/bp-ephemeral-cache
         run: |
-          pip install "schemathesis<4"  # v4 renamed --base-url/--hypothesis-max-examples; workflow flags target v3
+          pip install schemathesis  # v4+: spec is OpenAPI 3.1, which v3 cannot load
           PYTHONPATH=src python webui.py &
           APP_PID=$!
           # wait for liveness
@@ -67,8 +67,8 @@ jobs:
           # points at the ephemeral instance. GET-only until mutating endpoints
           # exist and a write-safe fuzz harness is in place.
           schemathesis run openapi/backlink-api.yaml \
-            --base-url http://127.0.0.1:8888 \
-            --checks all --hypothesis-max-examples 25 \
-            --exclude-method POST --exclude-method PUT --exclude-method PATCH --exclude-method DELETE \
+            --url http://127.0.0.1:8888 \
+            --checks all --max-examples 25 \
+            --include-method GET \
             || { kill $APP_PID; exit 1; }
           kill $APP_PID
