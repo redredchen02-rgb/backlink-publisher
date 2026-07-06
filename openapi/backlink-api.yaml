@@ -69,6 +69,8 @@ paths:
     get:
       operationId: getPlatforms
       summary: Full registered-platform list.
+      description: 'Read-only registry dump: every registered platform''s slug and
+        display name, regardless of binding state. No secrets, no guard.'
       tags:
       - bootstrap
       responses:
@@ -82,6 +84,8 @@ paths:
     get:
       operationId: getBoundPlatforms
       summary: Bound + manifest-visible platforms (publish-form filter).
+      description: 'Subset of /platforms: only channels that are credential-bound
+        and manifest-visible, i.e. what the publish form may offer. Read-only.'
       tags:
       - bootstrap
       responses:
@@ -95,6 +99,8 @@ paths:
     get:
       operationId: getProStatus
       summary: Pro-Mode visibility summary (redaction-safe).
+      description: "Booleans/labels describing Pro-Mode visibility only \u2014 the\
+        \ api_key itself is never returned. Read-only, no guard."
       tags:
       - bootstrap
       responses:
@@ -140,6 +146,8 @@ paths:
     post:
       operationId: previewBacklink
       summary: Single-article preview (plan one seed, return first row).
+      description: Plans exactly one seed through the same generator as /pipeline/plan
+        and returns the first row, or null when nothing was produced. Stateless.
       tags:
       - pipeline
       requestBody:
@@ -171,6 +179,9 @@ paths:
     post:
       operationId: validateBacklinks
       summary: Validate plan rows (URL checks skipped server-side).
+      description: Runs the CLI validate step's schema/content checks over the posted
+        plan rows, mirroring /ce:validate; URL liveness probes are skipped server-side.
+        Stateless.
       tags:
       - pipeline
       requestBody:
@@ -241,6 +252,8 @@ paths:
     get:
       operationId: getHistory
       summary: Full publish-history list.
+      description: 'Read-only: every publish-history entry from events.db, normalised
+        for display. No pagination yet.'
       tags:
       - history
       responses:
@@ -254,6 +267,8 @@ paths:
     post:
       operationId: deleteHistoryItem
       summary: "Delete one history entry \u2192 refreshed list."
+      description: Removes the entry with the given `id` and returns the refreshed
+        list so the SPA re-renders without a second GET.
       tags:
       - history
       requestBody:
@@ -279,6 +294,8 @@ paths:
     post:
       operationId: bulkDeleteHistory
       summary: "Delete multiple history entries \u2192 refreshed list."
+      description: Removes every entry whose id appears in `ids`, then returns the
+        refreshed list plus a flash-style `message`.
       tags:
       - history
       requestBody:
@@ -304,6 +321,8 @@ paths:
     post:
       operationId: purgeFailedHistory
       summary: "Delete every 'failed' entry \u2192 refreshed list."
+      description: "Removes all entries whose status is `failed`. Idempotent \u2014\
+        \ nothing to purge is still a 200 with the refreshed list. No request body."
       tags:
       - history
       responses:
@@ -317,6 +336,8 @@ paths:
     post:
       operationId: recheckHistoryItem
       summary: "Re-verify one history entry's link liveness \u2192 refreshed list."
+      description: Re-runs the link-liveness check for one entry and updates its status,
+        returning the refreshed list plus a flash-style `message`.
       tags:
       - history
       requestBody:
@@ -348,6 +369,8 @@ paths:
     get:
       operationId: getDrafts
       summary: Full draft-queue list (newest first).
+      description: 'Read-only: every draft in the queue with its status (pending/scheduled),
+        newest first.'
       tags:
       - drafts
       responses:
@@ -361,6 +384,8 @@ paths:
     post:
       operationId: scheduleDraft
       summary: "Schedule a draft at an ISO-8601 datetime \u2192 refreshed list."
+      description: Sets the draft's publish time from `datetime` and registers the
+        scheduler job, then returns the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -392,6 +417,8 @@ paths:
     post:
       operationId: publishDraftNow
       summary: "Publish a draft now (schedules ~5s out) \u2192 refreshed list."
+      description: 'Reuses the scheduler path rather than publishing inline: the draft
+        is scheduled ~5 seconds out, then the refreshed list is returned.'
       tags:
       - drafts
       requestBody:
@@ -423,6 +450,8 @@ paths:
     post:
       operationId: cancelDraft
       summary: "Cancel a scheduled draft (back to pending) \u2192 refreshed list."
+      description: Unschedules the draft's job and returns it to pending, then returns
+        the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -454,6 +483,8 @@ paths:
     post:
       operationId: deleteDraft
       summary: "Delete one draft (cancels its job if scheduled) \u2192 refreshed list."
+      description: Deletes the draft, first cancelling its scheduler job if one exists,
+        then returns the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -485,6 +516,8 @@ paths:
     post:
       operationId: bulkDeleteDrafts
       summary: "Delete multiple drafts \u2192 refreshed list."
+      description: Deletes every draft whose id appears in `ids` (cancelling any scheduled
+        jobs), then returns the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -516,6 +549,8 @@ paths:
     get:
       operationId: getSites
       summary: All configured sites with live autopilot status.
+      description: 'Read-only: every configured site joined with its live autopilot
+        (scheduler) status.'
       tags:
       - sites
       responses:
@@ -529,6 +564,8 @@ paths:
     get:
       operationId: getSitesWidgets
       summary: 'Read-only side panels: plan-gap weekly + citation-share alert.'
+      description: 'Aggregate for the sites page''s side panels: the weekly plan-gap
+        summary and the citation-share alert. No mutation.'
       tags:
       - sites
       responses:
@@ -542,6 +579,9 @@ paths:
     get:
       operationId: getSiteForm
       summary: Edit-prefill for an existing site (?domain=), or null.
+      description: "Returns the edit-prefill payload for the site named by the `domain`\
+        \ query param, or a null envelope when unknown \u2014 the SPA then renders\
+        \ a blank creation form."
       tags:
       - sites
       responses:
@@ -1126,6 +1166,9 @@ paths:
     post:
       operationId: testLlmGeneration
       summary: Generate an article/anchor preview from the stored LLM settings.
+      description: "Runs a real generation call against the stored LLM settings and\
+        \ returns the diagnostic envelope, NOT problem+json \u2014 a failed generation\
+        \ is a successful call."
       tags:
       - settings
       requestBody:
@@ -1341,6 +1384,8 @@ paths:
     get:
       operationId: getKeywordPools
       summary: Hydrate the keyword-pool editor (target domains + pools).
+      description: 'Read-only hydration: known target domains plus each domain''s
+        current anchor-keyword pool. No secrets, no guard.'
       tags:
       - settings
       responses:
@@ -1386,6 +1431,8 @@ paths:
     get:
       operationId: getScheduleSettings
       summary: Hydrate the publish-cadence form.
+      description: 'Read-only hydration: the current min_interval_hours and jitter_minutes
+        from schedule-settings.json. No secrets, no guard.'
       tags:
       - settings
       responses:
@@ -1431,6 +1478,8 @@ paths:
     post:
       operationId: clearMediumOauth
       summary: Revoke a stored Medium OAuth token (delete medium-token.json).
+      description: "Deletes the stored medium-token.json. Idempotent \u2014 an already-absent\
+        \ token is still a 200. No request body."
       tags:
       - settings
       responses:
@@ -1450,6 +1499,8 @@ paths:
     get:
       operationId: getProfiles
       summary: All saved campaign profiles (publish presets).
+      description: "Read-only: every saved campaign profile \u2014 named publish presets\
+        \ the SPA offers on the workbench."
       tags:
       - profiles
       responses:
@@ -1463,6 +1514,8 @@ paths:
     post:
       operationId: saveProfile
       summary: "Upsert a campaign profile by name \u2192 refreshed list."
+      description: Creates or overwrites the profile with the given name, then returns
+        the refreshed profile list.
       tags:
       - profiles
       requestBody:
@@ -1488,6 +1541,7 @@ paths:
     post:
       operationId: deleteProfile
       summary: "Delete a campaign profile by name \u2192 refreshed list."
+      description: Deletes the named profile and returns the refreshed profile list.
       tags:
       - profiles
       requestBody:
@@ -1513,6 +1567,8 @@ paths:
     get:
       operationId: getCampaignForm
       summary: 'Creation-form bootstrap: platforms + connection partition.'
+      description: 'Read-only bootstrap for the campaign-creation form: the platform
+        list partitioned by connection state (connected vs. needs-binding).'
       tags:
       - campaigns
       responses:
@@ -1584,6 +1640,9 @@ paths:
     post:
       operationId: regenArticleBody
       summary: Re-generate one article body via the configured LLM.
+      description: Calls the configured LLM to produce a fresh body (markdown + html)
+        for one planned article. Versioned binding of the legacy /ce:regen-body route;
+        400 when no LLM is configured.
       tags:
       - pipeline
       requestBody:
