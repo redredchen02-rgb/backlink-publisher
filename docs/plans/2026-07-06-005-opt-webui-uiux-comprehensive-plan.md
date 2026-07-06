@@ -280,7 +280,11 @@ graph TB
 
 **Verification:** KeepAlive 與 Blogger 兩處遷移後行為不變;三種 ad-hoc 確認歸一。
 
-- [ ] **W4: soft-delete 資料層——deleted_at + 讀路徑 filter + 延遲 purge〔R4〕**
+- [x] **W4: soft-delete 資料層——deleted_at + 讀路徑 filter + 延遲 purge〔R4〕**
+
+〔W4 執行結果,2026-07-06,分支 `feat/w4-history-soft-delete`〕已完成,**範圍縮窄為 History(events.db)only,Drafts undo 明確 defer**(裁決見上方 turf 對照表新增項)。`schema.py` SCHEMA_VERSION 4→5(`events`/`articles` 加 nullable `deleted_at`,含 migration);`_history_mutations.py` DELETE→UPDATE soft-delete + `undelete_from_db` + 逾時物理 purge(具名常數 `CLIENT_UNDO_WINDOW_SECONDS=15`/`PURGE_WINDOW_SECONDS=30`,purge 資格嚴格是 client 視窗的 2 倍);`history_query.py` 讀路徑預設 filter 掉 soft-deleted,新增 `include_deleted="window"` 參數(CLI 讀取路徑經 22 個測試證實永不傳此參數,含真實 CLI 呼叫的 integration 測試,非 mock);`webui_app/api/history_api.py` + `api/v1/history.py` 新增 undelete 端點(對不存在/已 purge 的 id 回 404,不靜默成功)+ bulk delete 回報 `deleted`/`skipped` 計數;oasdiff 契約只增不改(`openapi/backlink-api.yaml`/`schemas.py`/`spec.py`);`monolith_budget.toml` 3 個 ceiling 依實測調升並附 rationale。**dual-write 決策**:legacy `_history_store` 的 `bulk_delete` 呼叫直接移除(no-op shim)——理由是舊的雙寫會讓 undelete 復原 events.db 但 JSON 鏡像已消失、產生無法修復的分歧,拿掉後 bulk-delete 與 single-delete(本就不碰 legacy store)行為一致,且該 store 本身文件也承認自己只是「過期讀取備援」而非 soft-delete 的真相來源。新增 `tests/test_history_soft_delete.py`(22 測試全綠,含 CLI 不可見性的真實 integration 測試、purge 後 undelete 404、bulk 部分失敗計數等全部核心不變量)。
+
+**驗證紀律(本 unit 風險最高,做了完整回歸比對)**:合併最新 main(`68fc7121`)後跑全套 pytest 比對——W4 分支的失敗清單與同版本 main 自身的失敗清單經 `comm` 逐項 diff 完全一致,僅剩的差異(`test_events_persona.py` 兩個 salt 檔案測試、`test_geo_run.py` 一個 wall-clock 測試)經單獨重跑證實是**既有的隨機性 flaky**(persona salt 隨機位元組若剛好含 `0x0A` 會被 Windows 文字模式寫入轉成 33 bytes 觸發 CorruptSaltError,與具體哪個測試無關;wall-clock timing 單獨跑即通過),與本次改動的檔案完全無關(`persona.py`/`geo_run` 均未被 W4 觸碰)。過程中發現並修正一項真實問題:新測試檔原本直接設 `webui.app.config["WTF_CSRF_ENABLED"]`(錯誤的 config key,且繞過專用 fixture),已改用 `disable_csrf` 這個 conftest 認可的唯一合法 mutation 點。ruff 乾淨、budget gates 綠。
 
 **Goal:** History 刪除從硬 DELETE 變 soft-delete,undo 視窗內可真實復原,逾時物理 purge。
 

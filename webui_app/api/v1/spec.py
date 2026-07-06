@@ -377,10 +377,29 @@ def build_spec() -> APISpec:
                 "summary": "Full publish-history list.",
                 "description": (
                     "Read-only: every publish-history entry from events.db, "
-                    "normalised for display. No pagination yet."
+                    "normalised for display. No pagination yet. "
+                    "`?include_deleted=window` (W4/D18) instead returns "
+                    "soft-deleted rows still within the undo window, each "
+                    "with `deleted_at` populated; any other value 422s."
                 ),
                 "tags": ["history"],
-                "responses": {"200": _ok("History list.", HistoryListSchema)},
+                "parameters": [
+                    {
+                        "name": "include_deleted",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["window"]},
+                        "description": (
+                            "W4/D18: when 'window', return in-window "
+                            "soft-deleted rows instead of the live list. "
+                            "CLI callers never send this parameter."
+                        ),
+                    }
+                ],
+                "responses": {
+                    "200": _ok("History list.", HistoryListSchema),
+                    "422": _problem_response("Invalid include_deleted value."),
+                },
             }
         },
     )
@@ -389,10 +408,11 @@ def build_spec() -> APISpec:
         operations={
             "post": {
                 "operationId": "deleteHistoryItem",
-                "summary": "Delete one history entry → refreshed list.",
+                "summary": "Soft-delete one history entry → refreshed list.",
                 "description": (
-                    "Removes the entry with the given `id` and returns the refreshed "
-                    "list so the SPA re-renders without a second GET."
+                    "Soft-deletes the entry with the given `id` (undo-able within "
+                    "the purge window via POST /history/undelete) and returns the "
+                    "refreshed list so the SPA re-renders without a second GET."
                 ),
                 "tags": ["history"],
                 "requestBody": _body(HistoryIdRequestSchema),
@@ -404,14 +424,38 @@ def build_spec() -> APISpec:
         },
     )
     spec.path(
+        path="/api/v1/history/undelete",
+        operations={
+            "post": {
+                "operationId": "undeleteHistoryItem",
+                "summary": "Restore a soft-deleted history entry → refreshed list.",
+                "description": (
+                    "W4: clears `deleted_at` for the given `id` if it is currently "
+                    "soft-deleted and within the purge window. 404s (never a "
+                    "silent 200) when the id doesn't exist, was never deleted, or "
+                    "has already been physically purged."
+                ),
+                "tags": ["history"],
+                "requestBody": _body(HistoryIdRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", HistoryMutationResultSchema),
+                    "404": _problem_response("Item not found, not deleted, or already purged."),
+                    "422": _problem_response("Missing id."),
+                },
+            }
+        },
+    )
+    spec.path(
         path="/api/v1/history/bulk-delete",
         operations={
             "post": {
                 "operationId": "bulkDeleteHistory",
-                "summary": "Delete multiple history entries → refreshed list.",
+                "summary": "Soft-delete multiple history entries → refreshed list.",
                 "description": (
-                    "Removes every entry whose id appears in `ids`, then returns the "
-                    "refreshed list plus a flash-style `message`."
+                    "Soft-deletes every entry whose id appears in `ids`, then "
+                    "returns the refreshed list plus a flash-style `message` and "
+                    "`deleted`/`skipped` counts (ids that don't exist or are "
+                    "already deleted are skipped, not treated as a hard failure)."
                 ),
                 "tags": ["history"],
                 "requestBody": _body(HistoryIdsRequestSchema),

@@ -238,6 +238,16 @@ class HistoryItemSchema(Schema):
     target_dofollow = fields.String(
         metadata={"description": "dofollow | dofollow_lost | stripped | unverified."}
     )
+    deleted_at = fields.String(
+        allow_none=True,
+        metadata={
+            "description": (
+                "W4 soft-delete (D18): ISO-8601 UTC deletion timestamp. Only "
+                "populated when the item was read via `?include_deleted=window`; "
+                "absent on the normal (live) list."
+            )
+        },
+    )
 
 
 class HistoryListSchema(Schema):
@@ -251,10 +261,21 @@ class HistoryMutationResultSchema(Schema):
 
     items = fields.List(fields.Nested(HistoryItemSchema), required=True)
     message = fields.String()
+    deleted = fields.Integer(
+        metadata={"description": "W4: count of rows soft-deleted (bulk-delete only)."}
+    )
+    skipped = fields.Integer(
+        metadata={
+            "description": (
+                "W4: count of requested ids that didn't exist or were "
+                "already deleted (bulk-delete only)."
+            )
+        }
+    )
 
 
 class HistoryIdRequestSchema(Schema):
-    """Single-id mutation body (delete / recheck)."""
+    """Single-id mutation body (delete / recheck / undelete)."""
 
     id = fields.String(required=True)
 
