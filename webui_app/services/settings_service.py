@@ -275,7 +275,7 @@ def token_paste_status(cfg: Any, channel: str, load_fn: Any, *, token_field: str
     token = (data or {}).get(token_field, "") if isinstance(data, dict) else ""
     bound = bool(token)
     if bound:
-        from .helpers.security import _mask_token
+        from ..helpers.security import _mask_token
         masked = _mask_token(token)
     else:
         masked = ""
@@ -298,7 +298,7 @@ def token_paste_status_notion(cfg: Any, load_fn: Any) -> dict:
     database_id = (data or {}).get("database_id", "") if isinstance(data, dict) else ""
     bound = bool(integration_token and database_id)
     if bound:
-        from .helpers.security import _mask_token
+        from ..helpers.security import _mask_token
         masked = _mask_token(integration_token)
     else:
         masked = ""

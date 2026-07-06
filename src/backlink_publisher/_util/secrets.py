@@ -208,7 +208,10 @@ def _token_lock(token_path: Path) -> Iterator[None]:
     """
     lock_path = _lock_path(token_path)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    # O_NOFOLLOW hardening (refuse symlinked lock files) where the platform
+    # supports it; Windows has no os.O_NOFOLLOW, so degrade to 0 there.
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | nofollow, 0o600)
     try:
         deadline = time.monotonic() + _LOCK_TIMEOUT_S
         while True:

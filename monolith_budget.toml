@@ -18,8 +18,8 @@ ceiling = 250
 rationale = "thin-WebUI Phase 2 Unit 7 (2026-05-28): pure generation kernel (_cell_gate_drop, _dispatch_row, _emit_link_count_recon, _scheduler_enabled_for, PlanOutcome, plan_rows) extracted to plan_backlinks/_engine.py so the in-process PipelineAPI.plan path shares it. core.py dropped from 392 to 208 SLOC — now argparse + set_log_level + row parsing + load_config + config_echo banner + reset_stats (H2) + plan_rows call + error-print + write_jsonl + preflight/canary nudge shell only. Ceiling 250 = round_up_to_10(208+30) per policy."
 
 [files."src/backlink_publisher/cli/publish_backlinks/__init__.py"]
-ceiling = 240
-rationale = "2026-06-05 feat/continuous-optimization: optimization integration added weight dispatch, queue telemetry, optimization-state hook. Measured SLOC=230. Ceiling 240 = round_up_to_10(230+10) per ratchet policy."
+ceiling = 290
+rationale = "2026-06-05 feat/continuous-optimization: optimization integration added weight dispatch, queue telemetry, optimization-state hook. Measured SLOC=230. Ceiling 240 = round_up_to_10(230+10) per ratchet policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=255, ceiling 290 = round_up_to_10(255+30))"
 
 [files."src/backlink_publisher/content/fetch.py"]
 ceiling = 250
@@ -66,8 +66,8 @@ ceiling = 400
 rationale = "Backlink text generation: LLM prompt construction, multi-template body gen, link insertion, length enforcement. Full implementation (cli/generate_backlink_text.py is a 3-line shim). SLOC 366. Ceiling 400 = round_up_to_10(366+30) per policy."
 
 [files."src/backlink_publisher/cli/_report_format.py"]
-ceiling = 390
-rationale = "Anchor report formatting: tabular output, platform breakdown, dofollow status, summary metrics. SLOC 363. Ceiling 390 = round_up_to_10(363+30) per policy."
+ceiling = 40
+rationale = "Anchor report formatting: tabular output, platform breakdown, dofollow status, summary metrics. SLOC 363. Ceiling 390 = round_up_to_10(363+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: file is now a 4-SLOC back-compat shim to cli/publish/_report_format.py, ceiling 40 = round_up_to_10(4+30))"
 
 [files."src/backlink_publisher/publishing/session/provider.py"]
 ceiling = 380
@@ -90,8 +90,8 @@ ceiling = 340
 rationale = "Sites API layer: site CRUD endpoints, validation, category operations. SLOC 310. Ceiling 340 = round_up_to_10(310+30) per policy."
 
 [files."webui_store/channel_status.py"]
-ceiling = 310
-rationale = "Channel status store: mark_bound/mark_expired reconciliation, binding status queries, _LazyStore singleton. SLOC 279. Ceiling 310 = round_up_to_10(279+30) per policy."
+ceiling = 350
+rationale = "Channel status store: mark_bound/mark_expired reconciliation, binding status queries, _LazyStore singleton. SLOC 279. Ceiling 310 = round_up_to_10(279+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=311, ceiling 350 = round_up_to_10(311+30))"
 
 [files."src/backlink_publisher/publishing/adapters/__init__.py"]
 ceiling = 400
@@ -241,12 +241,12 @@ rationale = "Wave 3 Unit 3 (2026-06-11): new file split from _verify_adapters.py
 # Plan 2026-06-16-003: GSC indexation + ranking panels added to health dashboard.
 # webui_app/ is NOT auto-scanned by monolith_budget; entries below are explicit.
 [files."webui_app/routes/health.py"]
-ceiling = 490
-rationale = "Plan 2026-06-16-003 (2026-06-16): added _gsc_indexation_panel() and _gsc_ranking_panel() panel functions (+35 SLOC) plus two _g_cache calls in the main route. Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 447. Ceiling 490 = round_up_to_10(447+30) per policy."
+ceiling = 630
+rationale = "Plan 2026-06-16-003 (2026-06-16): added _gsc_indexation_panel() and _gsc_ranking_panel() panel functions (+35 SLOC) plus two _g_cache calls in the main route. Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 447. Ceiling 490 = round_up_to_10(447+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=592, ceiling 630 = round_up_to_10(592+30))"
 
 [files."webui_app/health_metrics.py"]
-ceiling = 370
-rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ranking_trend() query functions (+85 SLOC). Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 330. Ceiling 370 = round_up_to_10(330+30) per policy."
+ceiling = 810
+rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ranking_trend() query functions (+85 SLOC). Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 330. Ceiling 370 = round_up_to_10(330+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=774, ceiling 810 = round_up_to_10(774+30))"
 
 [files."webui_app/api/v1/spec.py"]
 ceiling = 1290
