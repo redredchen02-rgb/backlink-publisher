@@ -1,0 +1,15 @@
+{
+  "reviewer": "correctness",
+  "findings": [],
+  "residual_risks": [
+    {
+      "description": "chrome_backend.py's RealChromeBrowserRunner/ChromeLaunchError (the D3 error_code/detail contract fix) is only ever constructed in test files (tests/test_bind_channel_chrome_backend.py, tests/test_chrome_backend_host_filter.py); driver.run_bind() only catches PlaywrightLaunchError (raised solely by _PlaywrightBrowserRunner with fixed literal codes), never ChromeLaunchError. bind_channel.py::main()'s _browser_runner injection point is documented as a test seam only. So the chrome_backend.py fix is internally correct and well-tested at the unit boundary, but is not currently exercised by any reachable production code path (the 'Real Chrome/CDP' backend appears not yet wired in). Low risk today since nothing leaks either way, but the commit's narrative ('webui_app/services/bind_job.py treats [error_code] as a closed enum') describes a path that isn't actually reachable in production yet.",
+      "confidence": 0.55
+    },
+    {
+      "description": "In cli/admin/bind_channel.py::main(), the third failure path (result.success is False, from run_bind()'s enumerated internal failures) still emits `error_code=result.error_code or \"unknown\"` unscrubbed (unchanged by this commit). This is currently safe because every BindResult.error_code value produced by run_bind() today is a fixed literal (verified by reading _driver_impl.py's run_bind()), so no exception text reaches it. But this is a convention enforced only by code review discipline, not a type/structural guarantee — a future PlaywrightLaunchError or BindResult construction that passes raw exception text as error_code would reintroduce the exact leak class D3 fixes elsewhere, without scrub_text() coverage at this specific emission site.",
+      "confidence": 0.45
+    }
+  ],
+  "testing_gaps": []
+}
