@@ -320,7 +320,10 @@ graph TB
 
 **Verification:** 全套 history 相關測試綠;oasdiff gate 綠(只增不改);budget gates 綠。
 
-- [ ] **W5: History/Drafts undo UX + per-row busy 互斥〔R4、R5〕**
+- [x] **W5: History undo UX + per-row busy 互斥〔R4、R5〕**(Drafts 明確排除,見 D17)
+
+〔W5 執行結果,2026-07-06,分支 `feat/w5-history-undo-ux`〕已完成,範圍限定 History-only。使用實際的 W4 API(非計畫原文猜測的名稱):`GET /history`(即時清單)+ `GET /history?include_deleted=window`(undo 視窗內軟刪行,帶 `deleted_at`)+ `POST /history/undelete`(404 於已 purge/從未刪除)。狀態機以 `liveItems`/`deletedItems` 雙 query 為基礎,`pendingIds`(本地即時 + 伺服器真相聯集)+ `rowSnapshots`(凍結資料避免行從畫面消失又出現)+ `displayRows`(實際渲染來源)實作 D5;`rowBusy`/`bulkBusy` 實作 D6 互斥矩陣;refetch 使已勾選但真正消失(非軟刪)的行自動修剪選取集。完整狀態表寫在元件檔頂部注釋。**偏離記錄**:D3 提到的「undo toast」只做了行內「已刪除・撤銷」控制(D5 明文要求的部分),沒有在 toast 上加撤銷按鈕——因為現有 `Toast.vue`/notifications store 沒有 action-button 概念,擴充它超出本次範圍;行內控制已完整滿足撤銷功能,toast 版本留待未來若有需求再做。purge-failed(唯一真正不可逆的操作)走 ConfirmDialog + 開啟時凍結計數快照(D4)。vitest 51 檔 343 測試全綠(HistoryPage 本身 16 個)、vue-tsc 零錯誤。
+
 
 **Goal:** 刪除即時生效但可撤銷(undo toast);mutation 回饋精確到列;選取/分頁/refetch/undo 的狀態機成文。
 

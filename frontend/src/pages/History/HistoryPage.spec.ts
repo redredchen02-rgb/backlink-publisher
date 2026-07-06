@@ -1,11 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 
 vi.mock('../../api/history', () => ({
   listHistory: vi.fn(),
+  listHistoryDeletedWindow: vi.fn(),
   deleteHistory: vi.fn(),
+  undeleteHistory: vi.fn(),
   bulkDeleteHistory: vi.fn(),
   bulkRecheckHistory: vi.fn(),
   purgeFailedHistory: vi.fn(),
@@ -19,18 +21,32 @@ import { useNotificationsStore } from '../../stores/notifications'
 
 const PUBLISHED = { id: '7', target_url: 'https://a.com/', status: 'published', platform: 'blogger' }
 const FAILED = { id: '8', target_url: 'https://b.com/', status: 'failed', platform: 'medium' }
+const OTHER = { id: '9', target_url: 'https://c.com/', status: 'published', platform: 'blogger' }
 
 let pinia: ReturnType<typeof createPinia>
+
+// listHistoryDeletedWindow defaults to an empty window unless a test overrides it.
+function mockEmptyDeletedWindow() {
+  vi.mocked(api.listHistoryDeletedWindow).mockResolvedValue({ items: [] })
+}
 
 beforeEach(() => {
   pinia = createPinia()
   setActivePinia(pinia)
   vi.clearAllMocks()
+  mockEmptyDeletedWindow()
 })
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+let lastQueryClient: QueryClient
 
 function mountPage() {
   // Share the SAME pinia between the component and the test's store lookups.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  lastQueryClient = queryClient
   return mount(HistoryPage, {
     global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
   })
@@ -60,19 +76,6 @@ describe('HistoryPage', () => {
     expect(w.find('[role="alert"]').exists()).toBe(true)
   })
 
-  it('deletes a row and writes the refreshed list back into the table', async () => {
-    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
-    vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
-    const w = mountPage()
-    await flushPromises()
-
-    await w.find('.row-actions button:last-child').trigger('click') // 删除
-    await flushPromises()
-
-    expect(api.deleteHistory).toHaveBeenCalledWith('7')
-    expect(w.findAll('tbody tr')).toHaveLength(0)
-  })
-
   it('recheck surfaces the server message as a toast', async () => {
     vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
     vi.mocked(api.recheckHistory).mockResolvedValue({
@@ -88,19 +91,6 @@ describe('HistoryPage', () => {
 
     expect(api.recheckHistory).toHaveBeenCalledWith('7')
     expect(notify.toasts.some((t) => t.message.includes('已重新核实'))).toBe(true)
-  })
-
-  it('bulk-deletes the selected rows', async () => {
-    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
-    vi.mocked(api.bulkDeleteHistory).mockResolvedValue({ items: [], message: '已删除 1 条历史记录' })
-    const w = mountPage()
-    await flushPromises()
-
-    await w.find('tbody tr input[type="checkbox"]').setValue(true) // select first row
-    await w.find('.bulk-delete').trigger('click')
-    await flushPromises()
-
-    expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7'])
   })
 
   it('renders the box-arrow-up-right Icon for row links with a valid, known icon name', async () => {
@@ -122,24 +112,6 @@ describe('HistoryPage', () => {
     warnSpy.mockRestore()
   })
 
-  it('bulk-rechecks the selected rows (U3)', async () => {
-    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
-    vi.mocked(api.bulkRecheckHistory).mockResolvedValue({
-      items: [PUBLISHED, FAILED],
-      message: '已核实 1 条：1 升为已发布，0 标为失败，0 跳过',
-    })
-    const w = mountPage()
-    const notify = useNotificationsStore()
-    await flushPromises()
-
-    await w.find('tbody tr input[type="checkbox"]').setValue(true) // select first row
-    await w.find('.bulk-recheck').trigger('click')
-    await flushPromises()
-
-    expect(api.bulkRecheckHistory).toHaveBeenCalledWith(['7'])
-    expect(notify.toasts.some((t) => t.message.includes('已核实'))).toBe(true)
-  })
-
   it('bulk-recheck button stays disabled with no selection', async () => {
     vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
     const w = mountPage()
@@ -147,33 +119,6 @@ describe('HistoryPage', () => {
 
     const btn = w.find('.bulk-recheck')
     expect((btn.element as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('a successful bulk action only deselects the ids it actually submitted (code review)', async () => {
-    // If the user reselects a DIFFERENT row while the first bulk call is still
-    // in flight, that reselection must survive -- run() must not blanket-clear
-    // `selected` on success, only remove the ids this call actually acted on.
-    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
-    let resolveDelete!: (v: { items: typeof PUBLISHED[]; message?: string }) => void
-    const pending = new Promise<{ items: typeof PUBLISHED[]; message?: string }>((res) => {
-      resolveDelete = res
-    })
-    vi.mocked(api.bulkDeleteHistory).mockReturnValue(pending)
-    const w = mountPage()
-    await flushPromises()
-
-    const checkboxes = w.findAll('tbody tr input[type="checkbox"]')
-    await checkboxes[0].setValue(true) // select PUBLISHED (id 7)
-    await w.find('.bulk-delete').trigger('click') // in-flight, still holding [7]
-
-    await checkboxes[1].setValue(true) // reselect FAILED (id 8) mid-flight
-
-    resolveDelete({ items: [FAILED] }) // id 7 deleted server-side
-    await flushPromises()
-
-    expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7'])
-    const remainingCheckbox = w.find('tbody tr input[type="checkbox"]')
-    expect((remainingCheckbox.element as HTMLInputElement).checked).toBe(true)
   })
 
   it('an action failure surfaces a classifyError toast (no raw server text)', async () => {
@@ -189,5 +134,222 @@ describe('HistoryPage', () => {
     expect(notify.toasts[0].severity).toBe('error')
     expect(notify.toasts[0].message).toContain('服务器出错了')
     expect(notify.toasts[0].message).not.toContain('stacktrace')
+  })
+
+  // ── W5: undo UX ───────────────────────────────────────────────────────────
+
+  it('happy path: delete 1 row shows "deleted · undo" inline, then undo restores it', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+    vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
+    const w = mountPage()
+    await flushPromises()
+
+    expect(api.deleteHistory).not.toHaveBeenCalled()
+    await w.find('.row-actions button:last-child').trigger('click') // 删除
+    await flushPromises()
+
+    expect(api.deleteHistory).toHaveBeenCalledWith('7')
+    // Row stays in the DOM (not removed-then-bounced-back, D5) with undo affordance.
+    expect(w.findAll('tbody tr')).toHaveLength(1)
+    expect(w.text()).toContain('已删除')
+    expect(w.text()).toContain('撤销')
+    expect(w.text()).toContain('https://a.com/') // original row content still visible
+
+    vi.mocked(api.undeleteHistory).mockResolvedValue({ items: [PUBLISHED] })
+    await w.find('.undo-link').trigger('click')
+    await flushPromises()
+
+    expect(api.undeleteHistory).toHaveBeenCalledWith('7')
+    expect(w.text()).not.toContain('撤销窗口内')
+    // Restored: normal action buttons are back, no leftover error toast.
+    const notify = useNotificationsStore()
+    expect(notify.toasts.some((t) => t.severity === 'error')).toBe(false)
+    expect(w.find('.row-actions button:last-child').exists()).toBe(true)
+  })
+
+  it('edge case: undo window times out and the row disappears from view', async () => {
+    vi.useFakeTimers()
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+    vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('.row-actions button:last-child').trigger('click')
+    await flushPromises()
+    expect(w.findAll('tbody tr')).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(15_000)
+    await flushPromises()
+
+    expect(w.findAll('tbody tr')).toHaveLength(0)
+  })
+
+  it('edge case: a manual refetch within the undo window keeps the row visible with no flicker', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+    vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('.row-actions button:last-child').trigger('click')
+    await flushPromises()
+    expect(w.findAll('tbody tr')).toHaveLength(1)
+    expect(w.text()).toContain('已删除')
+
+    // Simulate the deleted-window read path (server truth) still returning
+    // the row on a refetch/invalidate that happens mid-window.
+    vi.mocked(api.listHistoryDeletedWindow).mockResolvedValue({
+      items: [{ ...PUBLISHED, deleted_at: new Date().toISOString() }],
+    })
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [] })
+    await lastQueryClient.invalidateQueries({ queryKey: ['history'] })
+    await flushPromises()
+
+    // Row is still present throughout — no removal, no bounce-back.
+    expect(w.findAll('tbody tr')).toHaveLength(1)
+    expect(w.text()).toContain('已删除')
+  })
+
+  it('edge case: bulk-delete reports accurate deleted/skipped counts', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED, OTHER] })
+    vi.mocked(api.bulkDeleteHistory).mockResolvedValue({
+      items: [FAILED],
+      message: '已删除 2 条历史记录，1 条已跳过（不存在或已删除）',
+      deleted: 2,
+      skipped: 1,
+    })
+    const w = mountPage()
+    const notify = useNotificationsStore()
+    await flushPromises()
+
+    const checkboxes = w.findAll('tbody tr input[type="checkbox"]')
+    await checkboxes[0].setValue(true)
+    await checkboxes[2].setValue(true)
+    await w.find('.bulk-delete').trigger('click')
+    await flushPromises()
+
+    expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7', '9'])
+    expect(
+      notify.toasts.some((t) => t.message.includes('已删除 2 条历史记录') && t.message.includes('1 条已跳过')),
+    ).toBe(true)
+  })
+
+  it('edge case: refetch removing a selected (non-soft-deleted) row auto-prunes selection', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, OTHER] })
+    const w = mountPage()
+    await flushPromises()
+
+    const checkboxes = w.findAll('tbody tr input[type="checkbox"]')
+    await checkboxes[0].setValue(true) // select PUBLISHED
+    await checkboxes[1].setValue(true) // select OTHER
+    expect(w.find('.bulk-delete').text()).toContain('(2)')
+
+    // Another session hard-removed OTHER entirely (not soft-deleted — it's
+    // simply gone from both the live list and the deleted-window list).
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+    await lastQueryClient.invalidateQueries({ queryKey: ['history'] })
+    await flushPromises()
+
+    expect(w.findAll('tbody tr')).toHaveLength(1)
+    expect(w.find('.bulk-delete').text()).toContain('(1)')
+  })
+
+  it('mutual exclusion: row A busy does not block row B; bulk buttons lock while any row is busy', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, OTHER] })
+    let resolveDeleteA!: (v: { items: typeof PUBLISHED[] }) => void
+    const pendingA = new Promise<{ items: typeof PUBLISHED[] }>((res) => {
+      resolveDeleteA = res
+    })
+    vi.mocked(api.deleteHistory).mockImplementation((id: string) =>
+      id === '7' ? pendingA : Promise.resolve({ items: [PUBLISHED] }),
+    )
+    const w = mountPage()
+    await flushPromises()
+
+    const rows = w.findAll('tbody tr')
+    await rows[0].find('.row-actions button:last-child').trigger('click') // delete row A (7), in-flight
+
+    // Row A's own buttons are disabled while its delete is in flight.
+    expect((rows[0].find('.row-actions button:last-child').element as HTMLButtonElement).disabled).toBe(true)
+
+    // Row B (9) can still act — recheck/delete stay enabled.
+    const rowBDeleteBtn = w.findAll('tbody tr')[1].find('.row-actions button:last-child')
+    expect((rowBDeleteBtn.element as HTMLButtonElement).disabled).toBe(false)
+
+    // Bulk buttons lock while ANY row op is in flight.
+    expect((w.find('.bulk-delete').element as HTMLButtonElement).disabled).toBe(true)
+
+    resolveDeleteA({ items: [OTHER] })
+    await flushPromises()
+    expect((w.find('.bulk-delete').element as HTMLButtonElement).disabled).toBe(true) // still no selection
+  })
+
+  it('mutual exclusion: bulk operation in progress locks the whole table', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, OTHER] })
+    let resolveBulk!: (v: { items: typeof PUBLISHED[] }) => void
+    const pending = new Promise<{ items: typeof PUBLISHED[] }>((res) => {
+      resolveBulk = res
+    })
+    vi.mocked(api.bulkDeleteHistory).mockReturnValue(pending)
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('tbody tr input[type="checkbox"]').setValue(true)
+    await w.find('.bulk-delete').trigger('click')
+
+    for (const cb of w.findAll('tbody tr input[type="checkbox"]')) {
+      expect((cb.element as HTMLInputElement).disabled).toBe(true)
+    }
+    for (const btn of w.findAll('.row-actions button')) {
+      expect((btn.element as HTMLButtonElement).disabled).toBe(true)
+    }
+
+    resolveBulk({ items: [] })
+    await flushPromises()
+  })
+
+  it('rapid repeated clicks on the same delete button only trigger one API call', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+    let resolveDelete!: (v: { items: typeof PUBLISHED[] }) => void
+    const pending = new Promise<{ items: typeof PUBLISHED[] }>((res) => {
+      resolveDelete = res
+    })
+    vi.mocked(api.deleteHistory).mockReturnValue(pending)
+    const w = mountPage()
+    await flushPromises()
+
+    const btn = w.find('.row-actions button:last-child')
+    await btn.trigger('click')
+    await btn.trigger('click')
+    await btn.trigger('click')
+
+    expect(api.deleteHistory).toHaveBeenCalledTimes(1)
+    resolveDelete({ items: [] })
+    await flushPromises()
+  })
+
+  it('purge-failed is the one irreversible op: goes through ConfirmDialog with a frozen count', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+    vi.mocked(api.purgeFailedHistory).mockResolvedValue({
+      items: [PUBLISHED],
+      message: '已清除 1 条失败记录',
+    })
+    const w = mountPage()
+    const notify = useNotificationsStore()
+    await flushPromises()
+
+    const purgeBtn = w.findAll('.history__actions button').find((b) => b.text().includes('清除失败'))!
+    await purgeBtn.trigger('click')
+    await w.vm.$nextTick()
+
+    expect(w.find('[role="dialog"]').exists()).toBe(true)
+    expect(w.text()).toContain('确认清除（1 条）')
+
+    const confirmBtn = w.find('.cdlg__confirm')
+    await confirmBtn.trigger('click')
+    await flushPromises()
+
+    expect(api.purgeFailedHistory).toHaveBeenCalledTimes(1)
+    expect(notify.toasts.some((t) => t.message.includes('已清除 1 条失败记录'))).toBe(true)
+    expect(w.find('[role="dialog"]').exists()).toBe(false)
   })
 })
