@@ -27,7 +27,7 @@ import sys
 from typing import Any
 import uuid
 
-from backlink_publisher._compat import fcntl
+import fcntl
 from backlink_publisher._util.errors import (
     DependencyError,
     emit_error,

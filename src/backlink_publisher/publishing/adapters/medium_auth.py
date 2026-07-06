@@ -23,7 +23,7 @@ import threading
 import time
 from typing import Any, cast
 
-from backlink_publisher._compat import fcntl
+import fcntl
 from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher.config import Config
 

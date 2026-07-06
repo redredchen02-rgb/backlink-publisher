@@ -49,7 +49,7 @@ from typing import Any, cast
 
 import requests
 
-from backlink_publisher._compat import fcntl
+import fcntl
 from backlink_publisher._util.errors import (
     AuthExpiredError,
     ContentRejectedError,

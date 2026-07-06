@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from backlink_publisher._compat import fcntl
+import fcntl
 from backlink_publisher._util.jsonl import atomic_write_jsonl
 
 STORE_FILENAME = "pr-opportunities.jsonl"

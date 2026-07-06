@@ -29,7 +29,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from backlink_publisher._compat import fcntl
+import fcntl
 from backlink_publisher._util.errors import DependencyError, InputValidationError, PipelineError
 from backlink_publisher._util.jsonl import atomic_write_jsonl
 from backlink_publisher._util.logger import PipelineLogger

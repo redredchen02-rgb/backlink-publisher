@@ -39,7 +39,7 @@ from pathlib import Path
 import random
 import time
 
-from backlink_publisher._compat import fcntl
+import fcntl
 
 log = logging.getLogger(__name__)
 
