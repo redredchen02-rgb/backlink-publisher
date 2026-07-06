@@ -1,0 +1,51 @@
+{
+  "reviewer": "julik-frontend-races",
+  "findings": [
+    {
+      "title": "Dismiss handler's delegate() args swapped — button never fires",
+      "severity": "P2",
+      "file": "webui_app/static/js/index.js",
+      "line": 344,
+      "why_it_matters": "The health bar's close button (`[data-action=\"health-bar-dismiss\"]`) is wired via `delegate(bar, '[data-action=\"health-bar-dismiss\"]', 'click', handler)`, but `delegate()` in lib/dom.js is `delegate(root, type, selector, handler, opts)` — every other call site in this file passes `(root, eventType, selector, handler)` in that order, but this one passes `(root, selectorString, 'click', handler)`. That registers a listener for a bogus event type (the literal string `[data-action=\"health-bar-dismiss\"]`) and, even if it fired, would do `event.target.closest('click')` which never matches any element. The close button has therefore never worked since it was introduced. This directly undercuts the intent of the new B2 fix: the 'pending' (never-published) banner is meant to read as a soft, dismissible nudge for a fresh install, but users can never actually dismiss it for the session — it is stuck exactly like the old 'degraded' banner was.",
+      "autofix_class": "gated_auto",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Swap the middle two arguments: `delegate(bar, 'click', '[data-action=\"health-bar-dismiss\"]', () => { ... });` — matching every other delegate() call in this file. Add a regression test that clicks the button and asserts both the `d-none` class and the sessionStorage key.",
+      "confidence": 0.87,
+      "evidence": [
+        "webui_app/static/js/lib/dom.js: `export function delegate(root, type, selector, handler, opts) { ... root.addEventListener(type, listener, opts); }`",
+        "webui_app/static/js/index.js:344: `delegate(bar, '[data-action=\"health-bar-dismiss\"]', 'click', () => { ... })` — args 2/3 are swapped relative to the signature",
+        "Every other delegate() call in the same file (lines 63, 67, 71, 76, 79) uses the correct `(root, type, selector, handler)` order, confirming this one is an outlier/bug rather than an alternate valid form",
+        "git log shows this exact call unchanged since the original commit 075aa6bb (2026-06-09) that introduced _initHealthBar(); the 2026-07-06 diff only touches lines inside the fetchJson().then() callback above it"
+      ],
+      "pre_existing": true
+    },
+    {
+      "title": "Fetch resolution can silently un-dismiss the health bar",
+      "severity": "P3",
+      "file": "webui_app/static/js/index.js",
+      "line": 329,
+      "why_it_matters": "`_initHealthBar()` checks `sessionStorage.getItem(DISMISS_KEY)` exactly once, synchronously, before the fetch even starts. Inside the `fetchJson('/health').then(...)` callback — which can resolve arbitrarily late on a slow connection — the code unconditionally does `bar.classList.remove('d-none')` with no re-check of the dismiss flag. If a user dismisses the bar while the request is still in flight, the eventual response re-shows it and overwrites the user's action for the rest of the session, with no further chance to dismiss inside that render. This is currently masked in practice by the delegate() bug above (the dismiss button doesn't fire at all today), but it is an independent latent race: fixing the delegate bug alone would make this immediately reproducible.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Re-check `sessionStorage.getItem(DISMISS_KEY)` (or a local `let dismissed = false` flag flipped by the dismiss handler) at the top of the `.then()` callback and bail out early if the user already dismissed the bar during the request.",
+      "confidence": 0.65,
+      "evidence": [
+        "index.js:314: the DISMISS_KEY check runs once, before `fetchJson('/health')` is called",
+        "index.js:329: `bar.classList.remove('d-none')` inside `.then()` runs unconditionally, with no re-check of DISMISS_KEY or a dismissed flag",
+        "The dismiss handler (line 344-347) only sets sessionStorage/adds d-none at click time; nothing in the .then() callback observes that state"
+      ],
+      "pre_existing": true
+    }
+  ],
+  "residual_risks": [
+    "Accessibility timing: `#health-summary-bar` starts as `d-none` with empty icon/text, and the same synchronous callback both removes `d-none` and sets `textContent` on the `role=\"status\" aria-live=\"polite\"` region. Simultaneous unhide+populate of a live region that wasn't previously participating in the accessibility tree is announced inconsistently across screen readers (some announce, some don't) — worth a manual VoiceOver/NVDA check, but this is unchanged by the diff and not a new regression, so kept low-confidence/advisory only.",
+    "`.health-summary-bar.pending` (new CSS rule) only sets `background`, not `border-color`, unlike `.healthy`/`.degraded` which set both — leaves a transparent border for the new state. Static styling gap, not a timing/race issue, noted only for completeness per the reviewer's remit."
+  ],
+  "testing_gaps": [
+    "No test clicks the health-bar dismiss button and asserts both the `d-none` class is added and `sessionStorage.healthBarDismissed` is set — such a test would have caught the swapped delegate() args immediately.",
+    "No test simulates a delayed `/health` response racing against a dismiss click to confirm the bar stays hidden once dismissed.",
+    "No test covers `degraded_reasons` containing `pipeline:never_run` *alongside* another real reason (e.g. an expired channel) to confirm the banner correctly falls back to the alarming 'degraded' treatment rather than being misclassified as `neverPublished` (the current `reasons.length === 1` guard should handle this, but it's the one branch most worth locking down with a test given it's the whole point of the B2 fix)."
+  ]
+}

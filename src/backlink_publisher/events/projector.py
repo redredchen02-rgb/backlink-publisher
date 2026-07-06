@@ -100,7 +100,8 @@ def record_projection_health(
                 state["last_quarantine_ratio"] = quarantine_ratio
                 state["degraded"] = quarantine_ratio >= _QUARANTINE_DEGRADED_RATIO
             cursor_save(conn, _HEALTH_SOURCE, state, mtime=None)
-    except Exception as exc:  # noqa: BLE001 — health recording is best-effort
+    # debt: projector-record-health-self-protect-accepted
+    except Exception as exc:
         log.warning("projector: could not record projection health: %s", exc)
 
 
@@ -127,7 +128,8 @@ def project_run_safe(
         )
         record_projection_health(store, ok=True, quarantine_ratio=ratio)
         return result
-    except Exception as exc:  # noqa: BLE001 — projection must never fail publish
+    # debt: projector-run-safe-inline-flush-open-medium
+    except Exception as exc:
         log.warning(
             "projector: projection after run %s failed (non-fatal): %s",
             run_id, exc,

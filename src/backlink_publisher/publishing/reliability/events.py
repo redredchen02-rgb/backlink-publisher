@@ -74,7 +74,7 @@ def emit_attempt(
             payload["error_class"] = error_class
         payload.update(extra)
         log.info(payload)  # type: ignore[arg-type]
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
 

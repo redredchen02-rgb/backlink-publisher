@@ -1,0 +1,26 @@
+{
+  "reviewer": "project-standards",
+  "scope": {
+    "base_sha": "f835820e",
+    "head_sha": "698ac012",
+    "branch": "fix/pr-queue-lite-error-message-2",
+    "standards_files_read": [
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "changed_files": [
+      "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "frontend/src/pages/PrQueue/PrQueuePage.spec.ts",
+      "docs/audits/2026-07-03-webui-feature-error-backlog.md",
+      "docs/plans/2026-07-02-001-opt-v060-uiux-pipeline-upgrade-plan.md"
+    ],
+    "note": "No directory-scoped AGENTS.md/CLAUDE.md exist under frontend/ or docs/ (only tests/AGENTS.md and webui_app/AGENTS.md exist elsewhere in the repo, neither an ancestor of the changed paths), so only the two repo-root standards files govern this diff."
+  },
+  "findings": [],
+  "residual_risks": [
+    "docs/plans/2026-07-02-001-...plan.md: the diff edits pre-existing prose in the 'Scope Boundaries' and 'Sources & References' sections (changing the cited status of docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md from '（active，互補不重疊）' to '（completed，U14/U15 的資料來源依賴）', and appending to the Origin bullet) rather than being purely additive/appended annotations. This is a minor mismatch with the stated task intent ('did not change any existing checkbox or requirement text'), though it is not a violation of any written rule in AGENTS.md/CLAUDE.md — no rule restricts editing existing prose in an active plan-doc, and the updated status claim was independently verified accurate (docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md's own frontmatter status is indeed 'completed'). Flagged for awareness, not as a standards violation.",
+    "The plan-doc's own YAML frontmatter (status: active, claims: paths including broad directories like frontend/, docs/, tests/) is unchanged by this diff, so the post-2026-05-20 claims-contract and status-vocabulary rules (AGENTS.md 'Plan-doc claims contract' / 'Status vocabulary canon') remain satisfied; no drift was introduced by this change."
+  ],
+  "testing_gaps": [],
+  "summary": "Reviewed the diff against AGENTS.md and CLAUDE.md. PrQueuePage.vue's fix reads the existing '/app-config' lite_edition flag via the same getJson() pattern already used by TopBar.vue (frontend/src/layout/TopBar.vue), preserves the project's established StateBlock 'error before empty' precedence (AGENTS.md 'Relevant Code and Patterns': blockState order per HistoryPage.vue, '錯誤先於空態'), and does not touch any of the CLAUDE.md 'Frontend anti-rot' items (inline on* handlers / window.* globals / untrusted innerHTML / cached readCsrf) — those rules target the legacy Jinja static/js layer's raw-DOM patterns, not Vue SFC template directives like @click, so they don't apply here and aren't at risk of regression. PrQueuePage.spec.ts adds a regression test consistent with AGENTS.md's bugfix-discipline evidence requirements (repro + root cause + smallest-safe-fix rationale, all written out at length in the plan-doc's U15 status entry). docs/audits/2026-07-03-webui-feature-error-backlog.md is a new read-only audit doc; no written rule in AGENTS.md/CLAUDE.md governs docs/audits/ naming or frontmatter (unlike docs/plans/*.md), so no findings there. docs/plans/2026-07-02-001-...plan.md keeps its frontmatter status at the valid canon token 'active' and its existing claims: block (broad directory paths, no SHAs) untouched, so the post-cutoff claims contract and the closed status-vocabulary set (AGENTS.md 'Status vocabulary canon': active/completed/shipped/parked) are both still satisfied. No violations of the project's written standards were found in this diff at the high- or moderate-confidence threshold."
+}

@@ -1,0 +1,64 @@
+{
+  "search_context": {
+    "feature_task": "PrQueuePage.vue checks lite_edition flag from /app-config before calling the PR-queue API, to distinguish 'feature unavailable in this edition' from a real error in the shared StateBlock/classifyError system.",
+    "keywords_used": [
+      "lite_edition", "LITE edition", "StateBlock", "classifyError", "app-config",
+      "PrQueue", "error taxonomy", "feature unavailable", "gating", "SPA route",
+      "request cache", "config load", "typed error", "UX honesty"
+    ],
+    "files_scanned": 68,
+    "relevant_matches": 4
+  },
+  "critical_patterns_file_present": false,
+  "findings": [
+    {
+      "rank": 1,
+      "title": "WebUI Config Loading — Per-Request Memoization and Write-Handler Exclusion Rule",
+      "file": "C:\\Users\\user\\Dexfucius\\backlink-publisher-69\\bp-pr-queue-fix\\docs\\solutions\\best-practices\\webui-config-request-cache-governance-2026-06-03.md",
+      "module": "webui",
+      "problem_type": "best_practice",
+      "severity": "medium",
+      "date": "2026-06-03",
+      "relevance": "Backend-side precedent for the exact class of bug this PR's approach risks on the frontend. The doc's rule is: read-only config fetches inside a request/session should reuse the already-established shared cache mechanism instead of independently re-fetching, or you get redundant I/O and a CI gate exists specifically to catch handlers that skip the shared cache. In this diff, TopBar.vue already fetches /app-config via TanStack Query with queryKey ['app-config'] (frontend/src/layout/TopBar.vue:32-33), but PrQueuePage.vue performs its own raw getJson('/app-config') call (frontend/src/pages/PrQueue/PrQueuePage.vue:58) instead of reusing useQuery(['app-config']). That bypasses TanStack Query's cache/dedup, causing a second network round-trip to an endpoint already fetched on every page load, and desyncs from whatever cache-invalidation behavior TopBar's query has.",
+      "key_insight": "When a config/bootstrap value is already fetched once per session/page elsewhere in the app via an established cache mechanism (backend: _g_cache; frontend: TanStack Query queryKey), new call sites reading the same value should join that mechanism rather than issuing an independent fetch — the redundant round-trip is not just wasteful but can drift from the cached value's invalidation semantics. Recommend PrQueuePage.vue use useQuery(['app-config']) (or a shared useAppConfig() composable) instead of a bespoke getJson call."
+    },
+    {
+      "rank": 2,
+      "title": "Blueprint: WebUI False-Success & Exception Swallowing Resolution (UX Honesty)",
+      "file": "C:\\Users\\user\\Dexfucius\\backlink-publisher-69\\bp-pr-queue-fix\\docs\\solutions\\ux-honesty\\webui-false-success-resolution.md",
+      "module": "backlink-publisher / webui",
+      "problem_type": "inferred (no problem_type field; category folder is ux-honesty)",
+      "severity": "not specified",
+      "date": "unspecified (referenced PR #-era, predates 2026-06)",
+      "relevance": "This is the only doc in the ux-honesty category and it is the closest philosophical precedent to what this PR is doing: never let the UI present a state that misleads the operator about what actually happened. That doc's target was backend routes silently swallowing failures or returning generic 500s; this PR is the mirror-image case — a generic classifyError('unknown') + retry button on a 404 that can never succeed is itself a form of dishonest UX (implies a retry might help when the endpoint is permanently and intentionally gated). The PR's inline comment (PrQueuePage.vue:7-14) makes this reasoning explicit and correctly ties it back to why the retry-driven generic error path is wrong here.",
+      "key_insight": "Distinguishing 'this will never succeed by design' from 'this failed and a retry might help' is a recurring UX-honesty axis in this codebase, previously applied to backend flash messages/error codes, now correctly extended to a frontend feature-availability gate. Worth confirming a follow-up doc captures this frontend instance so the pattern (check a known bootstrap flag before calling a permanently-gated endpoint, rather than relying on generic error classification) is discoverable for the next LITE-gated SPA page."
+    },
+    {
+      "rank": 3,
+      "title": "LITE Release Accepted Deferrals — R7/R8/R10 (plan 010 Unit 5)",
+      "file": "C:\\Users\\user\\Dexfucius\\backlink-publisher-69\\bp-pr-queue-fix\\docs\\solutions\\architecture-patterns\\2026-06-05-lite-accepted-deferrals.md",
+      "module": "backlink_publisher",
+      "problem_type": "architecture_decision",
+      "severity": "low",
+      "date": "2026-06-05",
+      "relevance": "General LITE-edition scoping context (single-operator, deliberately reduced surface area) rather than a direct precedent for this specific frontend check. Useful background for reviewers unfamiliar with why LITE hides entire feature surfaces (pr_queue among them, per LITE_HIDDEN_BLUEPRINTS referenced in the PR's own code comment) rather than degrading them gracefully. No conflict with the current diff; nothing here needs updating.",
+      "key_insight": "LITE-edition decisions in this codebase are tracked as explicit accepted-deferral entries with resume triggers rather than silently absorbed. If the pr_queue LITE-gating decision (server-side 404 gate + frontend pre-check) hasn't already been captured this way, it fits this doc's pattern and could be added as a new R-item or sibling doc."
+    },
+    {
+      "rank": 4,
+      "title": "Typed-error envelope on stderr beats stderr[:N] truncation for CLI to UI error branching",
+      "file": "C:\\Users\\user\\Dexfucius\\backlink-publisher-69\\bp-pr-queue-fix\\docs\\solutions\\best-practices\\typed-error-envelope-over-stderr-truncation-2026-05-27.md",
+      "module": "_util/error_envelope.py + _util/errors.py + webui_app bridge",
+      "problem_type": "best_practice",
+      "severity": "medium",
+      "date": "2026-05-27",
+      "relevance": "Different layer (CLI-to-WebUI-bridge, not frontend-to-API), but the same design principle underlies both: branch on a structured error CLASS/flag rather than sniffing generic error shape/text. classifyError's fixed-category taxonomy (frontend/src/lib/errors.ts) is the frontend descendant of this same philosophy. Included as background precedent, not a direct actionable finding for this diff — no conflict, no action needed.",
+      "key_insight": "The team has a recurring convention of preferring explicit, additive, structured signals (typed error envelope; here, the lite_edition boolean from /app-config) over inferring intent from generic/opaque signals (raw stderr slicing; here, a bare 404 fed through classifyError). This PR is consistent with that convention."
+    }
+  ],
+  "no_direct_precedent_found_for": [
+    "No prior docs/solutions entry specifically documents the StateBlock four-state matrix or classifyError taxonomy design (frontend/src/components/StateBlock.vue, frontend/src/lib/errors.ts) — those conventions exist in code/comments (citing Plan 2026-06-18-001 U4/R4) but are not captured in docs/solutions.",
+    "No prior incident involving PrQueuePage.vue specifically was found in docs/solutions.",
+    "No prior docs/solutions entry documents a frontend pattern of pre-checking a bootstrap/app-config flag before calling a permanently edition-gated endpoint — this PR appears to be establishing that pattern for the first time in a documented sense; worth a /ce-compound entry once this lands, since PrQueuePage.vue's inline comment already contains the full rationale and would compress well into a docs/solutions/architecture-patterns entry."
+  ]
+}

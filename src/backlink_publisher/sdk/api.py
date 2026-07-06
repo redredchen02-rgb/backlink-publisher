@@ -300,7 +300,7 @@ class PipelineAPI:
 
         try:
             cfg = load_config()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return PipeResult(
                 success=False,
                 error=f"config load failed: {exc}",
@@ -495,7 +495,7 @@ class PipelineAPI:
 
         try:
             cfg = load_config()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return PipeResult(
                 success=False,
                 error=f"config load failed: {exc}",
@@ -505,7 +505,7 @@ class PipelineAPI:
 
         try:
             outcome = report_from_profile(profile, cfg, as_json=as_json)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return PipeResult(
                 success=False,
                 error=f"report-anchors failed: {exc}",

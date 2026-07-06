@@ -1,0 +1,24 @@
+{
+  "reviewer": "kieran-typescript",
+  "findings": [
+    {
+      "title": "trapTab casts document.activeElement to HTMLElement without narrowing",
+      "file": "frontend/src/components/ConfirmDialog.vue",
+      "line": 105,
+      "classification": "Primary",
+      "confidence": 0.5,
+      "detail": "`const active = document.activeElement as HTMLElement | null` is an unchecked assertion (document.activeElement is Element | null, not necessarily HTMLElement — could be an SVGElement etc.). It's only used for reference-equality checks against a known HTMLElement[] so it's behaviorally safe here, and the same file demonstrates the correct pattern two lines away in onOpen() (`document.activeElement instanceof HTMLElement ? ... : null`). Low risk but inconsistent with the safer idiom already used in the same file; suppressed below the confidence bar.",
+      "suppressed": true
+    }
+  ],
+  "residual_risks": [
+    "KeepAlivePage's gap key is built as `${target_url}:${platform}` and re-split on ':' in doRepublish — a target_url containing a scheme (https://...) would split incorrectly. This is pre-existing behavior untouched by this PR (acknowledged in the new KeepAlivePage.spec.ts test comment with a colon-free fixture chosen specifically to dodge it), not introduced by ConfirmDialog/Icon migration, but the confirm-dialog migration is the first place that makes users cognitively commit to 'confirm reload' via this key, so a future url-with-scheme regression would silently republish/parse the wrong platform.",
+    "ConfirmDialog's confirm-prop contract is 'never reject if you want the pre-existing (toast-on-error) UX' — both call sites (KeepAlivePage.doRepublish, BloggerCard.doRevoke) currently honor this by catching internally, but nothing in the type system enforces it; a future consumer passing a naively-throwing async function would get the dialog's own inline-error path instead of a toast, which may not match that call site's existing conventions. This is a documentation-only contract, not a type-level one.",
+    "Icon.vue's ICONS map is manually hand-copied SVG path data from bootstrap-icons; correctness of `d` attributes is only checked by the spec asserting non-empty strings, not by rendering fidelity against the original icon — a bad copy-paste of path data would pass tests silently while rendering a wrong glyph."
+  ],
+  "testing_gaps": [
+    "No test exercises ConfirmDialog with an `open` prop that starts `true` on mount (immediate watcher branch) — all specs mount with `open` starting false and flip it via a trigger click. The immediate-watch-on-mount path (onOpen firing before the dialog's DOM subtree exists, relying on nextTick) is exercised implicitly by every test's `await w.find('.trigger').trigger('click')` sequence rather than directly by an initial-open mount, so a regression specific to true-on-mount timing wouldn't be caught.",
+    "No test covers two ConfirmDialog instances (or a ConfirmDialog + a real drawer instance, not the synthetic bubble listener in the spec) open simultaneously to confirm z-index/focus-trap layering in practice beyond the synthetic capture/bubble Escape-ordering test.",
+    "Icon.spec.ts checks each icon renders a non-empty `d`, but doesn't snapshot/visually validate the path data matches the source bootstrap-icons glyph — a transcription bug in ICONS would not be caught by any test."
+  ]
+}

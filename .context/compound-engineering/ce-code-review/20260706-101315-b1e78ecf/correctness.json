@@ -1,0 +1,12 @@
+{
+  "reviewer": "correctness",
+  "findings": [],
+  "residual_risks": [
+    "If a truly fresh install also happens to have its APScheduler not yet running at first load (health_projection.py appends 'scheduler:not_running' before 'pipeline:never_run'), degraded_reasons would have length 2 and the new neverPublished check (which requires exactly one reason equal to 'pipeline:never_run') would fall through to the alarming red 'degraded' banner instead of the intended neutral 'pending' one, even though the underlying situation is still just a brand-new install. Whether the scheduler autostarts on a fresh boot was not confirmed in this review (scheduler.py start logic not inspected in depth) so this is unconfirmed, not a finding.",
+    "'.health-summary-bar.pending' does not set an explicit border-color the way '.healthy' and '.degraded' do, so it inherits the base rule's 'border: 1px solid transparent'. This is very likely intentional (info tint is meant to be subtler) but is a minor visual-consistency question worth a quick design confirmation, not a functional bug."
+  ],
+  "testing_gaps": [
+    "No automated test exists for the new never-published vs. degraded vs. healthy branching logic in _initHealthBar (webui_app/static/js/index.js) — verification was manual-browser only per the stated intent, since this legacy static/js/ code has no test harness (unlike the Vue SPA's vitest suite). A jsdom-based unit test (similar to tests/js/test_ui_states.mjs) exercising all three data.degraded_reasons shapes (empty, exactly ['pipeline:never_run'], and a multi-reason array containing it) would guard against regression if this function is refactored later.",
+    "No test confirms the /ce:history route path (webui_app/routes/history.py -> index.html) actually renders and executes the same _initHealthBar behavior end-to-end (only manual verification via the '/' route was described in the intent)."
+  ]
+}

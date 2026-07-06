@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from backlink_publisher._util.errors import ExternalServiceError
+from backlink_publisher._util.errors import DependencyError, ExternalServiceError
 from backlink_publisher._util.logger import get_logger
 from backlink_publisher._util.permissions import check_0600
 
@@ -54,7 +54,12 @@ class GscClient:
                 "GSC credential file not found — check [gsc].credential_path in config.toml"
             )
 
-        check_0600(cred_path, label="GSC credentials")
+        # Warn-only by contract (see docstring): GSC keys are often provisioned
+        # by external tooling; a loose mode should not block read-only queries.
+        try:
+            check_0600(cred_path, label="GSC credentials")
+        except DependencyError as exc:
+            log.warning(f"gsc: {exc}")
 
         self._credential_path = str(cred_path)
         self._property_url = property_url

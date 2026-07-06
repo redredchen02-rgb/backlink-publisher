@@ -60,7 +60,7 @@ def _probe_indexability(
     fetch: Callable[..., Any] = fetch_fn if fetch_fn is not None else fetch_target
     try:
         facts = fetch(live_url, timeout=timeout)
-    except Exception as exc:  # noqa: BLE001 — never-raise; indeterminate => unknown
+    except Exception as exc:
         log.warning("indexability probe error url=%s: %s", live_url, exc)
         return indexability.UNKNOWN, None
     return indexability.classify_indexability(facts)
@@ -120,7 +120,7 @@ def probe_liveness(
             timeout=timeout,
             capture_anchor_text=bool(baseline_anchor),
         )
-    except Exception as exc:  # noqa: BLE001 — never-raise; structured probe_error
+    except Exception as exc:
         log.warning("recheck probe error url=%s: %s", live_url, exc)
         out["verdict"] = verdicts.PROBE_ERROR
         out["reason"] = f"probe_exception:{exc.__class__.__name__}"

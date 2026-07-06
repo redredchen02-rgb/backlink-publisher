@@ -1,0 +1,29 @@
+{
+  "reviewer": "maintainability",
+  "findings": [
+    {
+      "title": "Frontend hardcodes backend's 'pipeline:never_run' string literal",
+      "severity": "P2",
+      "file": "webui_app/static/js/index.js",
+      "line": 328,
+      "why_it_matters": "index.js now decides whether to show the friendly 'never published' banner or the alarming 'degraded' banner by string-matching the literal 'pipeline:never_run' against health_projection.py's degraded_reasons array — but that string exists only as a bare literal in health_projection.py:91, with no shared constant or contract test tying the two together. If a future change renames or splits that reason code (a very plausible refactor given the file's other reason strings like channel:{ch}:{st}), the JS match will silently stop firing and every fresh install will regress straight back to the alarming red/degraded treatment this PR was written to fix — with zero test failure to flag it, since there is no frontend test framework and no existing test asserts the JS-side string against the backend string.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Add a lightweight regression test (e.g., extend tests/test_webui_health_routes.py to assert the reason string equals the literal the frontend depends on, with a comment cross-referencing index.js:328) so a rename in health_projection.py is caught. Longer-term, consider exposing a dedicated boolean in the /health payload (e.g. pipeline_never_run) so the frontend doesn't need to parse an internal reason code string.",
+      "confidence": 0.68,
+      "evidence": [
+        "webui_app/static/js/index.js:328 — const neverPublished = !healthy && reasons.length === 1 && reasons[0] === 'pipeline:never_run';",
+        "webui_app/services/health_projection.py:91 — degraded_reasons.append(\"pipeline:never_run\") is the sole producer of this literal; no shared constant exists between the Python and JS sides",
+        "No file under tests/ asserts the frontend's string match against the backend literal, and no JS test file for static/js/index.js exists in the repo"
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "The 'never published' detection is a hardcoded string match with no automated coverage; any future rename of the 'pipeline:never_run' reason code in health_projection.py will silently regress this exact fix with no test signal."
+  ],
+  "testing_gaps": [
+    "No test (Python or otherwise) exercises _initHealthBar's neverPublished branch end-to-end (healthy=false, degraded_reasons=['pipeline:never_run'] -> 'pending' class + info copy) versus the genuinely-degraded branch (multiple/other reasons -> 'degraded' class + alarming copy); the repo has no JS test framework, so this logic is currently untested by any automated suite."
+  ]
+}

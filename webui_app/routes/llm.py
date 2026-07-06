@@ -16,8 +16,11 @@ import requests  # noqa: F401 — retained as the patch surface for the SSRF red
 # ``_safe_post_json`` resolve from routes.llm, and test_webui_unit3_security.py
 # imports ``_safe_get_json`` / ``_safe_post_json`` here. The SSRF helpers' canonical
 # home is http_guard; _safe_get_json lives in the diagnostics facade.
-from backlink_publisher.llm.http_guard import (  # noqa: F401
-    guard_llm_endpoint as _guard_llm_endpoint,
+from backlink_publisher.llm.http_guard import (
+    guard_llm_endpoint as _guard_llm_endpoint,  # noqa: F401
+)
+from backlink_publisher.llm.http_guard import (
+    safe_post_json as _safe_post_json,  # noqa: F401
 )
 
 from ..api.llm_diagnostics_api import _safe_get_json, LlmDiagnosticsAPI  # noqa: F401

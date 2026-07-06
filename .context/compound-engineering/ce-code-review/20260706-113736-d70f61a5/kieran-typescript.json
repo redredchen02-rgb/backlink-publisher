@@ -1,0 +1,30 @@
+{
+  "reviewer": "kieran-typescript",
+  "findings": [
+    {
+      "title": "loadGeneration hand-rolls a race-guard vue-query gives for free",
+      "severity": "P3",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "line": 62,
+      "why_it_matters": "load() now carries a manually-incremented `loadGeneration` counter checked at three separate points (after the /app-config await, after the fetchPrQueue await, and in the catch/finally) to stop a slower, earlier request from clobbering a faster, later one's result. This is implemented correctly and is well-tested, but it reinvents a problem class that TanStack Query (`@tanstack/vue-query`) already solves by identity of query key: SitesPage.vue and HistoryPage.vue in this same frontend already load their primary data via `useQuery`, which dedupes/cancels overlapping fetches for the same key without any hand-written generation counter. PrQueuePage.spec.ts even wires up `QueryClient`/`VueQueryPlugin` in its test harness even though PrQueuePage.vue itself never touches vue-query, which reads like a page that hasn't (yet) been brought in line with its siblings. The three-checkpoint manual guard is a legitimate short-term fix for a backlog bug, but it adds a second, bespoke idiom for 'discard stale async response' in a codebase that already has one, increasing the surface a future reader/maintainer has to learn and keep in sync if either idiom's edge cases are found to be subtly wrong later.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Consider migrating PrQueuePage.vue's items/loading/error refs and the loadGeneration counter to `useQuery` (queryFn wrapping the /app-config + fetchPrQueue sequence), matching SitesPage.vue/HistoryPage.vue, and call `refetch()`/`invalidateQueries` from markStatus instead of a raw `load()` call. If that migration is deliberately out of scope for this targeted bug fix, a one-line comment noting the divergence from the vue-query convention (and why) would help the next reader.",
+      "confidence": 0.62,
+      "evidence": [
+        "frontend/src/pages/PrQueue/PrQueuePage.vue:62-99 — `let loadGeneration = 0` plus three separate `if (generation !== loadGeneration) return` checkpoints inside load().",
+        "frontend/src/pages/Sites/SitesPage.vue:38-39 — `const sitesQuery = useQuery({ queryKey: SITES_KEY, queryFn: listSites })`; frontend/src/pages/History/HistoryPage.vue:30 — same pattern via `useQuery({ queryKey: QKEY, queryFn: listHistory })`. Both get stale-response protection from the library instead of a bespoke counter.",
+        "frontend/src/pages/PrQueue/PrQueuePage.spec.ts:4,48-49 — `import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'` and `mount(PrQueuePage, { global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] } })`, even though PrQueuePage.vue itself never calls `useQuery` — the test harness is already set up for a vue-query-based page."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "frontend/src/api/prQueue.ts:35-39's new `_fetchWithTimeout(url, init)` does `{ ...init, signal: ctrl.signal }`, which silently discards any `signal` a caller's `init` might already carry rather than composing with it. No current call site (fetchPrQueue, updatePrStatus, _csrf) passes a signal, and the identical contract already exists unchanged in client.ts's private `fetchWithTimeout`, so this is an inherited design choice rather than a new hole — but the `RequestInit` type gives no compile-time signal that `init.signal` is a no-op if supplied, so a future caller could pass one and have it quietly ignored.",
+    "prQueue.spec.ts's `const [, init] = fetchMock.mock.calls[0]` destructuring (and the same pattern already used in errorCapturePlugin.spec.ts/ReportProblemPanel.spec.ts/errorReports.spec.ts elsewhere in this repo) compiles cleanly under the project's actual tsconfig.json, but fails under `noUncheckedIndexedAccess` (verified locally) since `mock.calls[0]` would then be `T | undefined`. Not a live issue today since that flag isn't enabled project-wide, and it's a pre-existing convention rather than something unique to this diff."
+  ],
+  "testing_gaps": [
+    "frontend/src/api/prQueue.ts's `_csrf()` fallback branch (the `_fetchWithTimeout('/api/v1/csrf-token', ...)` call taken when no `<meta name=\"csrf-token\">` tag is present) has zero test coverage in the new prQueue.spec.ts — every updatePrStatus test sets `document.head.innerHTML` with the meta tag first, so the new timeout-wrapped fetch call added to this specific branch by B3 is never actually exercised."
+  ]
+}

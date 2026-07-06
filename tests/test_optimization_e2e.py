@@ -253,7 +253,7 @@ class TestCLIPipeline:
         webui.app.config["TESTING"] = True
         webui.app.config["WTF_CSRF_ENABLED"] = False
         client = webui.app.test_client()
-        resp = client.get("/optimization-status")
+        resp = client.get("/optimization-status/jinja")
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
         assert "blogger" in body

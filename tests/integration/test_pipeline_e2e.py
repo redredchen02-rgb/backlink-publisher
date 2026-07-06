@@ -11,7 +11,10 @@ an isolated BACKLINK_PUBLISHER_CONFIG_DIR so operator state is never touched.
 """
 from __future__ import annotations
 
-__tier__ = "unit"
+__tier__ = "integration"  # A2 fix: was mis-tagged "unit" — this module spawns real CLI
+# subprocesses (subprocess.run) and does real disk I/O (config dirs, publish-history.json);
+# it never hits real network/browser (BACKLINK_NO_FETCH_VERIFY=1, --dry-run), so
+# "integration" (touches disk/external process) is correct, not "e2e".
 import json
 import os
 from pathlib import Path

@@ -225,6 +225,92 @@ class TestMediumUsernameScrape:
         assert self.scrape(page) is None
 
 
+class TestMediumBoundPredicateFailClosed:
+    """Plan D3 (R9) red-path security test: medium's bound predicate cookie
+    read (line ~492) must NEVER let an exception flip the loop from
+    'still polling' to 'bound'. A cookie-read exception degrades to an empty
+    cookie list, which _cookie_sanity_passes([]) always rejects — the
+    predicate must keep waiting (eventually BoundPredicateTimeout), never
+    return normally."""
+
+    def setup_method(self):
+        from backlink_publisher.cli._bind.recipes.medium import (
+            _medium_bound_predicate,
+        )
+        self.predicate = _medium_bound_predicate
+
+    def test_cookie_read_exception_never_declares_bound(self, monkeypatch):
+        import backlink_publisher.cli._bind.recipes.medium as medium_mod
+        from backlink_publisher.cli._bind.driver import BoundPredicateTimeout
+
+        monkeypatch.setattr(medium_mod, "_ABSOLUTE_TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(medium_mod, "_IDLE_TIMEOUT_SECONDS", 999.0)
+
+        page = _MediumMatchedPageRaisingCookies()
+        with pytest.raises(BoundPredicateTimeout):
+            self.predicate(page)
+
+    def test_spike7_fallback_scan_exception_never_declares_bound(self, monkeypatch):
+        """The Spike-7 fallback (scanning page.context.pages) must not let a
+        per-page or whole-scan exception surface as a false match either."""
+        import backlink_publisher.cli._bind.recipes.medium as medium_mod
+        from backlink_publisher.cli._bind.driver import BoundPredicateTimeout
+
+        monkeypatch.setattr(medium_mod, "_ABSOLUTE_TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(medium_mod, "_IDLE_TIMEOUT_SECONDS", 999.0)
+
+        page = _MediumPageWaitTimeoutRaisingPagesScan()
+        with pytest.raises(BoundPredicateTimeout):
+            self.predicate(page)
+
+
+class _MediumPWTimeoutRaiser:
+    def on(self, event, callback):
+        pass
+
+    def wait_for_url(self, pattern, timeout=1000):
+        from playwright.sync_api import TimeoutError as PWTimeoutError
+        raise PWTimeoutError("no match yet")
+
+
+class _MediumFakeSubPage:
+    """A page.context.pages[] entry whose .url matches the bound pattern."""
+
+    def __init__(self, url: str):
+        self.url = url
+
+
+class _MediumFakeContextRaisingCookies:
+    def cookies(self, url):
+        raise RuntimeError("cookie read failed")
+
+
+class _MediumMatchedPageRaisingCookies(_MediumPWTimeoutRaiser):
+    """Primary wait_for_url times out; Spike-7 scan finds one matching
+    sub-page whose cookies() call then raises."""
+
+    context = type(
+        "Ctx", (), {"pages": [_MediumFakeSubPage("https://medium.com/@someone")]}
+    )()
+
+    def __init__(self):
+        # matched_page (the sub-page found by the Spike-7 scan) is what
+        # actually calls .context.cookies(...) — attach the raising context
+        # to that sub-page instance, not to this outer fake.
+        self.context.pages[0].context = _MediumFakeContextRaisingCookies()
+
+
+class _MediumPageWaitTimeoutRaisingPagesScan(_MediumPWTimeoutRaiser):
+    """Primary wait_for_url times out; iterating page.context.pages itself
+    raises (whole-scan failure) on every call."""
+
+    class _RaisingPages:
+        def __iter__(self):
+            raise RuntimeError("context.pages access failed")
+
+    context = type("Ctx", (), {"pages": _RaisingPages()})()
+
+
 class TestMediumLastAccountFile:
     """_read_last_account + _write_last_account_tentative round-trip.
 
@@ -372,6 +458,140 @@ class TestVelogBoundPattern:
     def test_rejects_suffix_confusion_host(self):
         # ``velog.io.attacker.tld`` must not satisfy the predicate.
         assert self.pat.match("https://velog.io.attacker.tld/") is None
+
+
+class TestVelogBoundPredicateFailClosed:
+    """Plan D3 (R9) red-path security test: velog's bound predicate (lines
+    ~106/114/127) must NEVER let an exception during the URL/cookie/signed-in
+    -UI scan flip `authed` to True or otherwise cause the predicate to return
+    (declare bound). Every scan exception degrades toward 'keep polling';
+    the only observable exit here is BoundPredicateTimeout, never a normal
+    return."""
+
+    def setup_method(self):
+        from backlink_publisher.cli._bind.recipes.velog import (
+            _velog_bound_predicate,
+        )
+        self.predicate = _velog_bound_predicate
+
+    def test_page_url_read_exception_never_declares_bound(self, monkeypatch):
+        import backlink_publisher.cli._bind.recipes.velog as velog_mod
+        from backlink_publisher.cli._bind.driver import BoundPredicateTimeout
+
+        # Tight absolute timeout so the (intentionally infinite) polling
+        # loop terminates quickly in the test — the only allowed exit here.
+        monkeypatch.setattr(velog_mod, "_ABSOLUTE_TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(velog_mod, "_IDLE_TIMEOUT_SECONDS", 999.0)
+
+        page = _RaisingUrlPage()
+        with pytest.raises(BoundPredicateTimeout):
+            self.predicate(page)
+        # If the exception had ever been mistaken for "bound", the predicate
+        # would have returned normally instead of timing out.
+
+    def test_cookie_read_exception_never_declares_bound(self, monkeypatch):
+        import backlink_publisher.cli._bind.recipes.velog as velog_mod
+        from backlink_publisher.cli._bind.driver import BoundPredicateTimeout
+
+        monkeypatch.setattr(velog_mod, "_ABSOLUTE_TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(velog_mod, "_IDLE_TIMEOUT_SECONDS", 999.0)
+
+        # URL matches (so the code reaches the cookie-read block), but both
+        # cookies() and evaluate() raise on every call.
+        page = _MatchingUrlRaisingCookiesPage()
+        with pytest.raises(BoundPredicateTimeout):
+            self.predicate(page)
+
+    def test_signed_in_ui_evaluate_exception_never_declares_bound(self, monkeypatch):
+        import backlink_publisher.cli._bind.recipes.velog as velog_mod
+        from backlink_publisher.cli._bind.driver import BoundPredicateTimeout
+
+        monkeypatch.setattr(velog_mod, "_ABSOLUTE_TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(velog_mod, "_IDLE_TIMEOUT_SECONDS", 999.0)
+
+        # URL matches, cookies() returns a clean empty list (no auth cookie),
+        # but evaluate() (signed-in-UI probe) raises on every call.
+        page = _MatchingUrlEmptyCookiesRaisingEvaluatePage()
+        with pytest.raises(BoundPredicateTimeout):
+            self.predicate(page)
+
+    def test_happy_path_still_binds_via_cookie(self, monkeypatch):
+        """Sanity control: with a real auth cookie and no exceptions, the
+        predicate DOES return (declares bound) — proves the fail-closed
+        tests above aren't passing merely because the predicate is broken
+        end-to-end."""
+        import backlink_publisher.cli._bind.recipes.velog as velog_mod
+
+        monkeypatch.setattr(velog_mod, "_ABSOLUTE_TIMEOUT_SECONDS", 5.0)
+        monkeypatch.setattr(velog_mod, "_IDLE_TIMEOUT_SECONDS", 999.0)
+
+        page = _MatchingUrlAuthedCookiePage()
+        self.predicate(page)  # returns normally — no exception raised
+
+
+class _FakeContextRaisingCookies:
+    def cookies(self):
+        raise RuntimeError("cookie read failed")
+
+
+class _FakeContextEmptyCookies:
+    def cookies(self):
+        return []
+
+
+class _FakeContextAuthedCookies:
+    def cookies(self):
+        return [{"domain": "velog.io", "name": "access_token"}]
+
+
+class _RaisingUrlPage:
+    """page.url raises on every access; cookies/evaluate are never reached
+    because the URL never matches the bound-URL pattern."""
+
+    context = _FakeContextEmptyCookies()
+
+    @property
+    def url(self):
+        raise RuntimeError("page navigated away, url unreadable")
+
+    def on(self, event, callback):
+        pass
+
+    def evaluate(self, expr):
+        return False
+
+
+class _MatchingUrlRaisingCookiesPage:
+    context = _FakeContextRaisingCookies()
+    url = "https://velog.io/"
+
+    def on(self, event, callback):
+        pass
+
+    def evaluate(self, expr):
+        raise RuntimeError("evaluate failed")
+
+
+class _MatchingUrlEmptyCookiesRaisingEvaluatePage:
+    context = _FakeContextEmptyCookies()
+    url = "https://velog.io/"
+
+    def on(self, event, callback):
+        pass
+
+    def evaluate(self, expr):
+        raise RuntimeError("evaluate failed")
+
+
+class _MatchingUrlAuthedCookiePage:
+    context = _FakeContextAuthedCookies()
+    url = "https://velog.io/"
+
+    def on(self, event, callback):
+        pass
+
+    def evaluate(self, expr):
+        return False
 
 
 class TestMediumPostPersistHookWired:

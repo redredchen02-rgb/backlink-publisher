@@ -21,7 +21,40 @@ Phase 3（`docs/plans/2026-06-30-001-opt-phase3-post-v050-iteration-plan.md`，a
 
 **⚠️ 併發修改警示（沿用 Phase 3 已直接證實的教訓）**：這個 workspace 有多個 session 同時操作的直接證據。本文件引用的所有具體數字（檔案行數、測試數、except 數、SLOC）都是 2026-07-02 規劃當下的快照，**執行任何 unit 前務必用即時指令重新查證**，不要沿用本文件的靜態數字。
 
-## Problem Frame（問題框架：2026-07-02 全面現況分析）
+## 2026-07-06 全面對帳與執行順序重排〔本次修訂〕
+
+> 本節是 2026-07-06 的 bug 重分析 + pipeline 軌重排,由雙 agent 研究(repo 現況 delta + institutional learnings 掃描)支撐。原則沿用 `late-plan-revisions-skip-code` 教訓:逐項標注「已落地 vs 待辦」,不假裝計畫文字=程式碼現實。
+
+### 現況地圖(2026-07-06,main @ ad24fb1a;本地 main 落後 origin/main **12** 個 commit——PR #65/#66 加 dependabot 合併 #58/#60/#61(含 CI artifact actions 升版,可能影響 CI 行為)只在 origin;此數字寫下即開始過期,動工前一律 `git fetch` 重查)
+
+- **已進 main**:reconcile PR #56、spray-split #62、doc-drift #63、api-audit #64(這三個是 Phase 4 計畫的 U6/U7/U8,**不是本計畫的 U6-U8**——單元編號撞名,判讀時注意);U1 的稽核文件與部分 test repoints 也經 reconcile 進了 main。
+- **已完成但停在未合併分支**:U2(`fix/u2-docker-healthcheck-switch`)、U3(`feat/u3-batch-ops-api-parity`)、U12(`chore/u12-frontend-toolchain-ci` @ 942d94c9)、U10-parked 記錄(`docs/u10-measurement-gate-parked`)——全部在 `integration/fleet-preview-2026-07-06`(51484e22,領先 main 44 commits)驗證過;PR #67(U12)/#68(U10 parked)已開。U14/U15 第一批在 `fix/pr-queue-lite-error-message-2`(**不在 preview 內**)。
+- **preview 未涵蓋**:U1 triage 分支、U15/B-fix 分支(-2)、cp950 修復、attention-dashboard、ci-red-sweep、origin-only 的 #65/#66 內容。
+- **分支現況更新〔doc-review 修正,原「空標籤」判斷已過期〕**:`feat/u5-datatable-pagination-polling` 目前有 2 個真實 commit(DataTable 元件 + 分頁後端,晚於本次對帳的初始快照時間點推入)——U5 動工前務必先查這支分支的實際內容,不要當作空分支略過或重做;`fix/pr-queue-lite-error-message`(無 -2 後綴,現已切回 main,非目前 checkout 分支)是被 -2 取代的舊樹分支,不要從它續作。
+- **本計畫檔案本身有三個分歧版本**:工作樹(本次修訂所在)、`docs/u10-measurement-gate-parked`(U10 park 段落)、`fix/pr-queue-lite-error-message-2`(U15 勾選+B 狀態)。本次修訂已把後兩者的內容語意上併入本檔;真實合併時以本檔為準對帳,重複註記擇一保留即可(內容相容,不互斥)。
+
+### Bug 佇列(依序修復——本次重排的核心產出)
+
+修復順序按「解鎖面積 × 實證嚴重度」排,且第一步永遠是 supersession 掃描(`scan-parallel-prs-before-blocker` 教訓:先查 8 條 fleet 分支/preview 是否已修,不重工):
+
+| 序 | 項目 | 內容 | 狀態/去向 |
+|---|------|------|-----------|
+| 0 | ~~分支落地(前置瓶頸)~~ **〔2026-07-06 再對帳,已解除〕** | U2/U3/U12 已由併發的收斂工作(`docs/convergence-006-bookkeeping`,fleet preview 全量合併進 main)實際落地 main——`Dockerfile`、`webui_app/api/v1/history.py`、`frontend/eslint.config.js` 均已現地確認。此列不再是前置瓶頸 | 剩餘未落地:U15 分支(`fix/pr-queue-lite-error-message-2`,含 backlog 文件)、`fix/u1-test-suite-triage` 淨殘值——U16/U17 仍需這兩支落地,但範圍已比原「全部分支」小很多 |
+| 1 | **U1 收尾:real-CI 驗證** | gh 已恢復(帳號解停)——push `fix/u1-test-suite-triage` 殘值 + 在 ubuntu CI 實測 unit gate;確認 ~90 殘餘的 Windows-假象判定 | 新 U16(a) |
+| 2 | **U1 的 2 個真 bug** | (1) `backlink_publisher/__init__.py` PEP 562 facade 被實體 `dispatch/`/`validate/` 子套件永久遮蔽(順序依賴失敗;需架構命名決策);(2) `test_benchmarks.py` benchmark payload 與 schema 漂移(`link_count` 6–8、缺 `seo` 欄位) | 新 U16(b) |
+| 3 | **功能錯誤第二批** | B6/B7(記錄於 -2 分支 `f5ebca14`)+ U14 殘餘走查缺口(`/campaign/:id`、legacy equity-ledger/keep-alive、`/publish/defaults` 204、oauth/llm/image_gen 頁、「有真實發佈歷史」的渲染路徑) | 新 U17(U15 的延續) |
+| 4 | **發現 #4(儀表板擷取盲區)** | StateBlock 受控錯誤態繞過全部 5 個擷取掛點 | 已於 -2 分支決策 parked 為獨立後續計畫(`090f54d6`),本計畫不擴 scope;修法方向依 learnings 走 typed error envelope + server-side 聚合,不另建擷取通道 |
+| 5 | **Windows 本機套件可信度** | main 全套件在本機 ~258–261 failed/10 errors(preview 以 ID set-diff 驗證與 main 同集)——本機驗證訊噪比過低,遮蔽真回歸 | 列入 Deferred(修法=mock/pin 而非 skip,比照 `ci-test-isolation-failures` 教訓);觸發點:real-CI 綠燈確認後,若本機開發仍受阻再立項 |
+
+### Pipeline 軌重排(全方位迭代優化的現實版)
+
+依 `architecture-health-audit-2026-06-01` 教訓(「真瓶頸是收斂執行,不是更多優化計畫」),pipeline 軌**不開新 scope**,改為收斂既有單元:
+
+1. **U10 維持 parked**,但 park 記錄升級為標準 accepted-deferral 格式(數字化恢復觸發條件)——見 U10 條目的〔2026-07-06〕註記。
+2. **U11 是當下唯一可推進的 pipeline 實作單元**,並依 learnings 補上兩個已知失敗接縫的硬規格(uncertain→confirmed promotion 寫回路徑、fresh+resume 雙序列化器 emit 接縫)與三件套交付物——見 U11 條目的〔2026-07-06〕註記。
+3. **產生 telemetry 的路是真實使用,不是程式碼**:U10 的恢復依賴 operator 真實跑 publish(canary 軌的 (b)/(c) track 執行本身就會累積 telemetry)——pipeline 軌的執行順序因此是 U11 先、U10 等資料。
+4. 註冊表現況已漂移:9 True / 10 False / **10** uncertain / 2 retired(計畫原文 7/9/8 過期;U11 的「uncertain 清零」目標基數以此為準)。
+5. **〔doc-review 新增,product-lens 高信心發現〕零 telemetry 本身是產品訊號,不只是技術缺口**:本機 events.db/webui.db 目前 0 events/0 articles/0 tasks——代表這套工具近期沒有真實跑過 publish。本計畫（U16/U17/分支落地）整輪都是 meta-work,對「實際存活的 dofollow 反鏈產出量」這個 repo 自己認定的唯一業務瓶頸零貢獻。**建議在本輪內執行至少 1 次真實 publish campaign**(對已確認 `dofollow=True` 的平台),其產出同時餵給三處:(a) U10 的恢復觸發 telemetry、(b) U17「有真實發佈歷史」渲染路徑測試所需的資料、(c) 錯誤儀表板的真實壓力測試。若 operator 決定本輪不執行,應明確記錄理由——這個決定本身會重新定型整份計畫的優先序。
 
 ### 技術棧
 
@@ -53,7 +86,7 @@ Phase 3（`docs/plans/2026-06-30-001-opt-phase3-post-v050-iteration-plan.md`，a
 
 | 需求 | 內容 | 對應 Unit |
 |------|------|-----------|
-| R1 | main 的 unit CI gate 恢復綠色（既存失敗測試清理） | U1 |
+| R1 | main 的 unit CI gate 恢復綠色（既存失敗測試清理） | U1、U16(收尾)〔2026-07-06〕 |
 | R2 | 部署健康檢查脫離 legacy 路由 | U2 |
 | R3 | SPA 與 legacy 的功能對等（批次操作），先對等再切換 | U3 |
 | R4 | 四條 dual-live 路由收斂到 SPA（含主入口 `/`） | U4 |
@@ -67,6 +100,9 @@ Phase 3（`docs/plans/2026-06-30-001-opt-phase3-post-v050-iteration-plan.md`，a
 | R12 | 前端工具鏈與 CI 缺口（ESLint、path-filter 盲區、GitLab CI 漂移） | U12 |
 | R13 | E2E 擴充（health console、workbench、分頁旅程） | U13 |
 | R14 | 全程不與 active 計畫（Phase 3、error-reporting）重工，遵守既有守則（anti-rot、budgets、claims、adapter recipe） | 全部 unit |
+| R15〔2026-07-03 擴充〕 | 以既有錯誤回報儀表板（`webui_store/error_reports.py` + `/api/v1/error-reports`，已完成上線）為資料來源，建立涵蓋 legacy 37 個 route 模組與 SPA 15 個頁面的逐功能驗證與優先序修復流程，把「功能常態性報錯但無法追蹤」轉成可視化、按優先序清理的常態工作流 | U14、U15、U17〔2026-07-06〕 |
+
+〔2026-07-06〕R1 的收尾工作(real-CI 驗證 + 2 個真 bug)由 U16 承接——R1 的驗收條件不變,U16 是其執行載體。
 
 ## Scope Boundaries（範圍邊界）
 
@@ -87,6 +123,7 @@ Phase 3（`docs/plans/2026-06-30-001-opt-phase3-post-v050-iteration-plan.md`，a
 - **`webui_app/routes/llm.py`、`image_gen.py` 測試 patch 目標遷移**：兩檔是刻意保留的 patch 對象（Phase 3 B1 已查證非死碼），遷移其測試是獨立工作，不併入 U9 退役。
 - **無人值守排程 recheck**（`docs/solutions/architecture-patterns/2026-06-05-lite-accepted-deferrals.md` 記錄的 G5b restart-durable rehydrate + per-probe timeout）：其恢復觸發條件是「引入無人值守/排程 recheck」——本計畫不引入，維持 deferral。
 - **`webui_store` 跨行程同鍵 RMW 丟失（~44/100，無 flock）**：U10 的平行化不新增跨行程並發寫者（intra-run、單行程），此 deferral 維持；若未來做跨行程並行，先解這條。
+- **U14 backlog 中未納入 U15 第一批的項目**〔2026-07-03 擴充〕：留待後續迭代（下一輪 `/ce:work` 或另開追蹤項），不在本計畫本輪窮盡；恢復觸發點——U15 第一批完成後，依剩餘 backlog 規模決定是否開 U16+ 或另立獨立計畫。〔2026-07-06〕此決策已落定:U15 第一批完成後,第二批(B6/B7 + 走查缺口)以本計畫內的新 U17 承接,不另立獨立計畫——本條由 deferral 轉為在計畫內的排程工作。
 
 ## Context & Research（脈絡與研究）
 
@@ -146,6 +183,11 @@ Phase 3（`docs/plans/2026-06-30-001-opt-phase3-post-v050-iteration-plan.md`，a
 | K20 | **Bootstrap 終局 = CDN 移除**（`frontend/index.html`），17 檔 class 全替換成 token 系統 | 只清 5 頁孤兒 class 是無終局的 churn；離線運行也受益 |
 | K21 | **SPA-vs-零建置的守則衝突解法**：Vite SPA 是既定現實（CI 已有 frontend.yml），零建置 anti-rot 規則只約束殘存 legacy 層直到 U9 退役；workspace 根 CLAUDE.md 的過時描述由 Phase 3 E2 同步，本計畫不重工 | `2026-06-01` 架構審計與根 CLAUDE.md 早於 SPA 路線圖；repo `AGENTS.md` 已明定「新頁面一律 SPA」 |
 | K22 | **spec.py 餘裕（1258/1290，doc-review 即時量測已到 1289——執行前重測）處理 = 同 PR 帶 rationale 調高 ceiling**；**〔doc-review 修正〕負責者=實際第一個碰 spec.py 的 unit（名義上是 U3，但 U3/U5 在依賴圖上可並行——哪個先落地哪個帶 ceiling 調升，調升量一次涵蓋本計畫全部四個 unit 的預估總量）** | 檔案已宣告為不可拆分的單源 OpenAPI 契約；把「第一個」寫死成 U3 會在 U5 先落地時讓 choreography 斷裂（coherence review 發現）；另注意並行的 error-reporting 計畫可能同期消耗同一餘裕，調升前先查其進度 |
+| K23〔2026-07-03 擴充〕 | **U14/U15 與既有 U1–U13 的去重原則**：U14 盤點時，若某筆錯誤回報或走查發現的根因已經是既有某 unit 明確要處理的範圍（例：批次操作按鈕無反應屬於 U3），標記「併入該 unit」而非在 U15 另開修復；只有真正落在既有 13 個 unit 範圍外的根因才進 U15 的獨立修復佇列 | 不去重會讓同一個根因在計畫裡有兩份互相不知情的修復規劃（本計畫 U3–U9 已經逐頁列了大量已知缺口），造成重工或修復順序衝突 |
+| K24〔2026-07-03 擴充〕 | **U14 是唯讀盤點單元，不改任何原始碼**；發現的修復全部留給 U15（或併入既有 unit） | 盤點與修復分離，才能在盤點完成前就先知道 backlog 規模，避免邊盤點邊修導致範圍失控；也讓 backlog 文件本身可以先被審查 |
+| K25〔2026-07-06 對帳〕 | **任何 bug 修復動工前先做 supersession 掃描**——掃描以操作定義(`git fetch` 後查 `git log main..origin/main`、`git branch -a --no-merged`、開放 PR 清單),不以本文件列舉的 PR 編號為準(清單寫下即過期);已被兄弟分支修掉的不重修 | 本 workspace 已證實同一 bug 會在多條世系被獨立修復(PrQueuePage、CLI shims 兩案);`scan-parallel-prs-before-blocker` 教訓 |
+| K26〔2026-07-06 對帳〕 | **pipeline 軌執行順序 = U11 先、U10 等資料**;U10 的恢復觸發是數字化 telemetry 條件,不是日曆時間 | 量測閘門實測零 telemetry;U11 的真實執行是唯一自然的 telemetry 來源;`architecture-health-audit` 教訓——收斂既有單元優於開新優化 scope |
+| K27〔2026-07-06 對帳〕 | **本計畫檔的三方版本分歧,已於 2026-07-06 用本次修訂統一收斂**;`docs/u10-measurement-gate-parked` 與 `-2` 分支的計畫檔編輯內容已語意併入本檔;之後另一併發 session 亦已將 U2/U3/U12 的落地執行記錄直接寫回 main 上的本檔——本次修訂在合併衝突時採「兩邊皆保留」策略(main 的執行記錄優先於前、本次分析性內容綴於後),而非單邊擇一 | 三方分歧的實質內容彼此相容不互斥;merge 時保留兩邊證據優於任一方單獨宣稱權威 |
 
 ## Open Questions（開放問題）
 
@@ -200,6 +242,13 @@ graph TB
     U10[U10 發佈引擎 lane 平行化]
     U11[U11 canary 渠道轉換]
     U12[U12 前端工具鏈/CI]
+    U14[U14 錯誤儀表板盤點<br/>+ 走查補齊 + backlog] --> U15[U15 高優先序<br/>功能錯誤修復第一批]
+    U1 -.-> U14
+    U0((U15/U1 殘值分支落地<br/>範圍已縮小,見對帳)) --> U16[U16 U1 收尾<br/>real-CI + 2 真 bug]
+    U0 --> U17[U17 錯誤修復第二批<br/>+ 走查收尾]
+    U15 --> U17
+    U16 -.-> U17
+    U11 -.->|telemetry| U10
 ```
 
 （U2 無依賴可立即執行；U5 只依賴 U1 使 CI 可信；U10/U11/U12 與 UI 軌並行。）
@@ -213,6 +262,14 @@ graph TB
 **Goal:** main 上 `pytest -m "unit"` 全綠，CI unit job 恢復可信 gate。
 
 **Dependencies:** 無（最先執行）。
+
+〔U1 執行結果，2026-07-02，分支 `fix/u1-test-suite-triage`（worktree `bp-u1-triage`，釘在 baseline SHA `56b98084`）〕基準量測（xdist 關閉）：367 failed / 9448 passed / 44 skipped / 19 errors / 2158 deselected。已修復並提交 6 個 commit：(1) 12 個正典 CLI 模組補 `__all__`，修復裸 `import *` 掉底線符號的主叢集（約 250 個失敗）；(2) 23 個 flat shim 補 `if __name__ == "__main__"` guard；(3) 約 20 個測試從 patch flat shim（無效 mock）改 patch 正典模組；(4) 修復途中發現的真實 bug：`report_anchors.py` 的 `cli.report_engine`舊路徑、`verify_dofollow.py` 的 built-in-catalog 路徑少一層、`_resolve_config_dir()` 自我 import 導致 monkeypatch 失效、`webui_app/routes/llm.py` 漏 import `_safe_post_json`、`detect_platform()` 每個分支都回 `'medium'`、`pyproject.toml` 死 entry point；(5) SPA 遷移（`782833e1`）後過時的測試（~140 個案例，9 個檔案）改指向 `/jinja` fallback 或 302 斷言，並補回被連帶破壞的 route-coverage gate；(6) `tests/test_cli_shim_reexports.py` 新 guard test（已驗證紅→綠）。
+
+**殘餘**（詳見 `docs/audits/2026-07-02-u1-residual-failures.md`）：本地 Windows 量測顯示 90–94 failed（2–3 個為時鐘精度導致的 flaky，非確定性回歸）、10 errors。root-cause 逐條追蹤後，殘餘壓倒性集中在 Windows-only 假象——NTFS chmod 語意、`_compat/fcntl.py` 的 EACCES→EAGAIN 轉譯落差、path-separator 字串比對、時鐘精度造成的 timestamp 碰撞——經 `.github/workflows/ci.yml` 確認 CI 全部跑在 `ubuntu-latest`，這些類別預期在真實 CI 上不會重現，但**本環境無法實測驗證**（GitHub 帳號目前被停權，`gh`/CI 無法連線）。另外發現 2 個非 Windows-specific 的真實 bug，因修復需要架構層級決策（重新命名 `dispatch`/`validate` facade 屬性或子套件）或需要熟悉目前 schema 的人重寫 benchmark payload，此輪刻意不動——已記錄在殘餘清單而非猜測性修復。未套用 K3 shrink-only 隔離清單（未加任何 xfail/skip）：判斷殘餘屬於本機環境假象而非需要豁免的真實 CI 失敗，但這個判斷未經真實 CI 驗證。
+
+**建議下一步：** push 此分支並在真實 CI（ubuntu-latest）上跑一次確認 unit gate 實際狀態；若確認綠燈（或僅剩已知的 2 個真實 bug），可將此 checkbox 打勾並把 2 個真實 bug 轉為獨立追蹤項；若 CI 上仍有 Windows 假象未涵蓋到的意外失敗，回頭深挖。
+
+〔2026-07-06 對帳〕gh 帳號已恢復、PR 通道重開——上述「無法實測驗證」的阻塞已解除。U1 內容出現雙世系:稽核文件+部分 test repoints 已經由 reconcile PR #56/#66 進 main,而 `fix/u1-test-suite-triage`(4e6c5cd9,領先 main 5 commits)仍未合併——收尾時先 diff 該分支對 main 的**淨殘值**再決定 cherry-pick 或棄置,不要整支盲合。收尾工作(real-CI 驗證 + 2 個真 bug)已立為 U16,本 checkbox 的勾選條件不變(CI 綠 = 勾)。
 
 **Files:**
 - Modify: `src/backlink_publisher/cli/` 下的 re-export shim 檔（實測定位，已知例：`src/backlink_publisher/cli/plan/plan_check.py` 缺 `SCHEMA_VERSION` re-export）
@@ -240,7 +297,7 @@ graph TB
 
 **Verification:** `PYTHONPATH=src pytest tests/ -m "unit"` 於 main 分支全綠——殘餘若無法全修，透過 K3 例外的 shrink-only 隔離清單達成 gate 綠，且清單逐條有根因與追蹤項（「gate 綠」是硬條件，「零殘餘」不是）；guard test 進 CI。
 
-- [ ] **U2: Docker healthcheck 切換到 `/api/v1/health`〔R2〕**
+- [x] **U2: Docker healthcheck 切換到 `/api/v1/health`〔R2〕** ✅ 2026-07-06:分支 `fix/u2-docker-healthcheck-switch`(f8ccc93f)。〔2026-07-06 再對帳〕已確認**落地 main**(`Dockerfile`/`docker-compose.yml` 三處 curl 目標現況即 `/api/v1/health`)——原「待經 PR 落地」判斷已過期,分支落地已由併發的收斂工作完成，見下方執行記錄。
 
 **Goal:** 容器健康檢查脫離 legacy Jinja 路由，為 U9 退役解除部署面依賴。
 
@@ -260,11 +317,141 @@ graph TB
 - (b) 容器確認**起不來**（Docker 路徑已死）→ 驗證改為：三處 curl 目標的 config diff 已指向 `/api/v1/health`；本地 `python webui.py` + `curl http://127.0.0.1:8888/api/v1/health` 回 200；degraded 情境對本地行程驗證；綁定姿態決策已記錄——compose 級驗證明確延到未來的容器復活任務。
 - 兩分支皆須：`/ce:health` 在 U9 之前仍照常 200。
 
+**執行記錄（2026-07-06，分支 `fix/u2-docker-healthcheck-switch`）：** 綁定姿態查證確認分支 (b)——容器路徑**已死，而且比 deepening 發現的更嚴重**：`Dockerfile` 兩個 stage 的 `CMD ["python", "serve.py"]` 指向的 `serve.py` 在整個 repo（含 git 全history）從未存在過，從 `69c2d9be`（Dockerfile 首次加入的 commit）就是這樣——容器連 entrypoint 都找不到，尚未走到會撞上 `BIND_HOST=0.0.0.0` vs `_resolve_bind_host()` 無條件 loopback-only 強制那一步。兩個死因均記錄在案，均超出 U2 範圍，本輪不修。已完成：三處 curl 目標（`docker-compose.yml` 一處、`Dockerfile` 兩處 HEALTHCHECK）改為 `/api/v1/health`。分支 (b) 驗證：`webui_app/api/v1/__init__.py` 的 `health()` 確認為純 liveness（無條件回 `{"status":"ok",...}`，無 degraded 分支）；本地 `python webui.py`（全新 config dir，模擬未發布過的降級情境）+ `curl http://127.0.0.1:8899/api/v1/health` 回 200；同一行程 `curl /health`（legacy）回 503 + `degraded_reasons:["pipeline:never_run"]`，證實兩者語意確實不同——`/api/v1/health` 不會因應用降級而 503，符合 K4 liveness 要求；`curl /ce:health` 回 200，U9 之前不受影響。容器級（`docker compose up`）驗證明確延後至未來的「容器復活」任務（需要先補 `serve.py` 或改回 `webui.py` 當 entrypoint，並處理 loopback 綁定與反代層面問題）。
+---
+
+### Phase 0.5 — WebUI 錯誤回報驅動之逐功能驗證與修復〔2026-07-03 擴充〕
+
+> 編號延續本計畫既有 U1–U13（依建立順序），物理位置放在 Phase 0.5 是因為這兩個 unit 屬於「先取得全站可信的問題清單」的地基工作，性質上與 Phase 1 的既定 UX 迭代（U3–U9）不同——U3–U9 修的是**已知**缺口，U14/U15 要先找出**未知**但真實發生的功能性錯誤。
+
+- [ ] **U14: 錯誤回報儀表板資料盤點 + 全功能走查補齊 + 優先序 backlog〔R15〕**
+
+**Goal:** 把「功能常態性報錯但無法追蹤」轉成一份有實證依據、按優先序排列的修復佇列；不臆測哪裡壞，先用既有的自動擷取＋走查取得完整資料再排序。
+
+**Dependencies:** 無強依賴（純資料盤點，不改動程式碼）；建議在 U1 gate 可信後執行，讓走查過程中若順手發現的問題有測試基線可信（見上方 mermaid 圖的虛線）。
+
+〔U14 執行結果（第一輪，curl-only），2026-07-03〕產出物已寫入 `docs/audits/2026-07-03-webui-feature-error-backlog.md`。完成資料來源 1（儀表板現況：0 筆）與**部分**資料來源 2/3（對 legacy 頁面、SPA 依賴的 API、SPA bundle 資產做了唯讀 HTTP/curl 掃描，全部 200 且無伺服器端錯誤標記）。第 3 步（瀏覽器層地毯式走查）當時被 `claude-in-chrome` 的多瀏覽器安全規則擋下（4 台已連線 Chrome，工具要求先取得使用者確認才能選）。
+
+〔U14 執行結果（第二輪，瀏覽器層），2026-07-03〕使用者確認用 Browser 2（Windows、本機）後，完成全部 22 個 URL 的實際瀏覽器走查（console/network 檢查 + 畫面渲染確認）。**找到兩個真實、可重現、使用者可見的錯誤畫面**（backlog 文件發現 #2/#3），並發現一個比任何單一 bug 都更根本的問題：**兩個錯誤畫面都沒有被錯誤回報儀表板記錄到**（走查前後 `/api/v1/error-reports` 皆為 `total:0`）——StateBlock 呈現的「受控錯誤狀態」不會觸發任何一個既有擷取掛點，因為它們攔截的是未預期例外，不是正常程式碼路徑渲染的錯誤 UI。這個落差已記錄為發現 #4，超出本次擴充的 Scope Boundaries（K：不修改儀表板本身的擷取邏輯），需要使用者決定是否另開任務。
+
+第 4/5 步（去重＋backlog 排序）產出 2 個條目：B1（`/app/pr-queue` 在 LITE 版下的錯誤訊息分類遺漏，獨立 bug，可直接進 U15）、B2（首頁「系统降级」橫幅在正常「從未發佈過」情境下持續顯示，高可見度但需要使用者先做產品決策才能動工）。**checkbox 保留不勾**——本輪仍有已知覆蓋缺口（無真實發佈歷史/campaign 的渲染路徑、`/ce:equity-ledger` 與 `/ce:keep-alive` 的 legacy 版本、`/publish/defaults` 204 語意），且發現 #4 的範圍決定尚未拍板；詳細發現、逐路由結果、待辦清單見 backlog 文件本身。
+
+〔2026-07-06 對帳〕backlog 文件目前只存在於兩條 pr-queue 分支(main 與 preview 都沒有)——分支落地時務必攜帶。發現 #4 已拍板:parked 為獨立後續計畫(-2 分支 commit 090f54d6),本計畫不擴 scope。殘餘走查缺口移交新 U17 收尾;本 checkbox 的勾選條件改為「U17 完成走查補齊後」。
+
+**Files:**
+- Create: `docs/audits/2026-07-03-webui-feature-error-backlog.md`（產出物：優先序 backlog，格式比照既有 `docs/audits/2026-05-27-recurring-trap-eradication-audit.md` 的條列式稽核文件慣例）
+- 不修改任何原始碼（K24：本 unit 是唯讀盤點；發現的修復進 U15 或併入既有 unit）
+
+**Approach:**
+1. **資料來源 1——既有儀表板現況**：`GET /api/v1/error-reports`（無 filter，全表）拉出目前所有 `open`/`acknowledged` 報告；`ErrorReportStore`（`webui_store/error_reports.py`）寫入時已用 `find_by_fingerprint` + `increment_occurrence` 做伺服器端去重計數，每筆報告的 `occurrence_count` 欄位可直接讀，不需要另外實作分組邏輯——依 `occurrence_count` 與 `severity` 排序即可得到「發生頻率 × 嚴重度」的初步排名。
+2. **資料來源 2——完整功能清單 × 現況比對**：列出 legacy `webui_app/routes/*.py`（37 個模組）與 `frontend/src/router/index.ts` 的 SPA 頁面路由（15 個實際頁面，不含 wildcard 與 `/campaign/:id`、`/error-reports/:id` 這類明細子路由），逐一比對第 1 步的分組結果——標出「零報告」的功能面（可能代表沒問題，也可能代表沒人測過，兩者在這一步無法區分，留給第 3 步）。
+3. **地毯式走查補齊零報告功能面**：對第 2 步標出的「零報告」功能，逐一實際造訪頁面＋觸發主要互動（送出表單、點擊主要按鈕），讓既有五個擷取掛點（`window` error/`unhandledrejection`/Vue `errorHandler`/`router.onError`/query-mutation cache/Pinia `$onAction`，legacy 頁面則透過 `webui_app/static/js/lib/` 的擷取模組）自然捕捉問題，不需要新建任何擷取機制。走查順序依「使用頻率」排：主要業務流程（`/`、`/history`、`/drafts`、`/sites`、`/settings`）優先於低頻管理頁。
+4. **去重既有 unit 範圍（K23）**：走查/儀表板發現的每個根因，先比對是否已落在 U3/U4/U5/U6/U7/U8/U9 的既有範圍內——命中則在 backlog 條目標記「併入 <Uxx>」，不重複規劃修復；只有真正落在既有 13 個 unit 之外的根因才進第 5 步的獨立佇列。
+5. **產出優先序 backlog**：依「發生次數 → 是否阻斷主要流程（vs 邊角案例） → 修復成本粗估（簡單/中/複雜，走查當下肉眼判斷，不深挖根因）」三軸排序；每條目記錄：報告 ID/fingerprint（若有）、路由、症狀摘要、初步根因假說（若走查當下就能判斷）、去重狀態（獨立進 U15 / 併入既有 Uxx / 走查後確認無異常）。
+
+**Execution note:** 特徵化先行——本 unit 全程不改程式碼，只量測與記錄；比照 U1「先量測聚類再規劃修復」的既有紀律，只是量測對象從測試失敗換成使用者可見的執行期錯誤。
+
+**Patterns to follow:** U1 的 triage 方法論（先聚類再排序，`sweep-tasks-run-pytest-before-planning` 學習同樣適用）；既有 `docs/audits/` 稽核文件的條列格式。
+
+**Test scenarios:**
+- Test expectation: none——本 unit 是唯讀資料盤點與文件產出，無程式碼行為改變。
+
+**Verification:** backlog 文件存在且每條目有「報告來源、優先序、去重狀態」三個欄位；37 個 legacy route 模組與 15 個 SPA 頁面在文件中全部被至少提及一次（有報告，或明確標記「已走查、無異常」）。
+
+- [x] **U15: 高優先序功能錯誤修復迴圈（第一批）〔R15〕** ✅ 2026-07-06:第一批於分支 `fix/pr-queue-lite-error-message-2` 全數完成(a341bfa9 收尾):B1(698ac012+11b3aee6)、B2(0d5ced34+4e188a17——「系统降级」橫幅在從未發佈情境的誤報,根因 `webui_app/services/health_projection.py` `/health` 503)、B3/B4/B5 timeout+request-generation guards(86aa6583、71e19232,測試 ad0fa1a0);新發現 B6/B7 記入 backlog(f5ebca14);發現 #4 parked 為獨立計畫(090f54d6)。**分支未合併 main**——落地屬 bug 佇列序 0;B6/B7 與殘餘缺口由新 U17 接手。
+
+**Goal:** 依 U14 backlog 的優先序，修復第一批真正獨立於既有 unit 範圍的功能錯誤（本輪範圍：backlog 中所有「阻斷主要流程」等級的項目；確切條目數 N 待 U14 完成後依實際 backlog 大小決定，不預先假設規模），並在儀表板上標記已解決。
+
+**Dependencies:** U14（backlog 是輸入）；若某條目所在檔案剛好是 U3/U5/U6/U7 即將大幅改版的對象（如 `HistoryPage.vue` 之於 U5 的 DataTable 改版），與該 unit 協調執行順序或直接併入，避免修完馬上被覆寫重工。
+
+〔狀態，2026-07-03〕U14 第二輪（瀏覽器層）完成後，backlog 有 2 個條目：**B1**（`/app/pr-queue` LITE 版錯誤訊息分類遺漏）已經是可以直接動工的獨立小 bug；**B2**（首頁「系统降级」橫幅在從未發佈過的正常情境下持續顯示）使用者可見度高，但修法需要先有產品決策（見 backlog 文件發現 #2），在拍板前不強行動工。
+
+〔B1 執行結果，2026-07-03，分支 `fix/pr-queue-lite-error-message`，baseline SHA `f835820e`〕已修復。不改後端 404 gate 的回應形狀（`_lite_surface_gate` 刻意設計成「跟任何未匹配路徑一樣的通用 404，不洩漏隱藏路由存在」，這條安全決策維持不動），也不改共用的 `classifyError` 分類法（會影響全站所有用 `StateBlock` 的頁面，超出 B1 範圍）。改法是讓 `PrQueuePage.vue` 自己讀 `/app-config` 的 `lite_edition` 旗標（沿用 `TopBar.vue` 已有的同款 `getJson('/app-config')` 讀法，`api/client.ts` 的 GET 去重層讓兩處呼叫共享同一次網路請求）——LITE 版下直接跳過必然 404 的 `fetchPrQueue()` 呼叫，改用 `StateBlock` 的 `empty` 狀態顯示「PR 机会队列在当前版本（LITE）中未开放。」，而不是 `error` 狀態的通用「出错了／發生未知錯誤」加一個永遠不會成功的重試按鈕。新增 `frontend/src/pages/PrQueue/PrQueuePage.spec.ts`（4 個案例：LITE 下顯示正確空態且不呼叫 API、非 LITE 正常渲染、非 LITE 下真正空佇列仍顯示原本文案、非 LITE 下真實 500 錯誤仍走原本 error+重試路徑，確保沒有把真正的錯誤悄悄吞掉）。`npm test`（244/244）與 `vue-tsc --noEmit`（3 個既有、無關的 pre-existing 錯誤在 KeepAlivePage.vue/ArticleReviewRow.spec.ts，與本次改動無關）皆確認過。
+
+〔B1 code review 修正，2026-07-03，同分支追加 commit `11b3aee6`〕`ce-code-review`（mode:autofix，10 reviewer）跑完後，correctness／reliability／kieran-typescript 三方獨立收斂到同一個問題：初版把 `/app-config` 讀取與 `fetchPrQueue()` 包在同一個 try/catch，導致 `/app-config` 瞬斷會誤擋住原本健康的 `/api/pr-queue`（在非 LITE、多數使用者實際情境下反而是新退步）。已修正為 best-effort、fail-open（`/app-config` 失敗時預設非 LITE，照常嘗試 `fetchPrQueue()`），並補兩個測試（`/app-config` 失敗時的 fail-open 路徑、`lite_edition` 欄位缺失視為非 LITE）。測試最終 6 案例，`npm test` 246/246、typecheck 乾淨。審查另外發現兩個**既存**（B1 之前就有，已比對 base SHA `f835820e` 確認非本次引入）缺陷，記錄為 backlog 文件的 B3（`fetchPrQueue`/`updatePrStatus` 無 timeout）與 B4（`load()` 無 request-generation 防護、並發呼叫時後 resolve 的覆蓋先 resolve 的）——不阻擋本次修復，獨立追蹤。B2 與發現 #4 仍待使用者決策，未動工。
+
+**Files:**
+- Modify: 依 backlog 條目而定，逐條目在各自檔案內修復（無法在規劃階段預先列舉——見 Deferred to Implementation）
+- Test: 每條修復對應至少一個新增或修正的既有測試（unit/vitest，依受影響層而定）
+
+**Approach:**
+- 逐條目走系統化除錯紀律（先重現症狀、再定根因、再修，不臆測式修法）。
+- 每條修復完成後：(a) 呼叫既有 `PATCH /api/v1/error-reports/<id>` 標記 `resolved`（儀表板既有動作，不需新 API）；(b) 補一個回歸測試釘住該修復；(c) 在 U14 的 backlog 文件對應條目標記「已修復＋commit 參照」。
+- 修復批次大小以「一次 PR 可審查」為界，不是一次修完整份 backlog——backlog 剩餘條目留給後續迭代（見 Scope Boundaries 的 Deferred to Separate Tasks），不在本 unit 硬性窮盡。
+- 若某條目走查後發現根因其實已在既有 unit 範圍內（U14 第 4 步的去重判斷在此複核一次，因為走查與實際修復之間可能有時間差、程式碼已變動），改標記併入而不強修。
+
+**Execution note:** 每個獨立條目先寫一個能重現症狀的失敗測試（characterization 或直接的回歸測試），再修——比照本計畫 U1/U3 已確立的契約先行紀律。
+
+**Patterns to follow:** `webui-false-success-resolution`（UX-Honesty 慣例，修復不可用「假裝正常」掩蓋）；既有各 unit 的錯誤契約（`{ok, error_code, ...}`）與 `StateBlock` 四態呈現，若修復涉及前端錯誤呈現。
+
+**Test scenarios:**
+- Happy path：backlog 中每條「本輪納入」的項目，修復後對應回歸測試綠燈。
+- Integration：修復後重新走查一次原觸發路徑，確認儀表板不再新增相同 fingerprint 的報告（或既有報告的 `occurrence_count` 在修復後的走查中不再遞增）。
+- 說明：逐條目的具體測試場景無法在規劃階段預先列舉（根因未知），依系統化除錯紀律於實作時為每條目補對應場景——這是刻意的規劃期留白，不是遺漏。
+
+**Verification:** 本輪範圍內的 backlog 條目在儀表板全部標記 `resolved`；對應回歸測試進 CI 且綠；backlog 文件更新反映實際完成狀態，剩餘條目明確列為後續迭代範圍。
+
+- [ ] **U16: U1 收尾——real-CI 驗證 + 兩個真 bug 修復〔R1;2026-07-06 新增〕**
+
+**Goal:** 把 U1 從「本機判定、未經 CI 驗證」推到終局:ubuntu CI 實測 unit gate 狀態,並修掉 U1 診斷出的 2 個非 Windows 真 bug。
+
+**Dependencies:** 〔2026-07-06 再對帳〕原「分支落地」前置已大幅解除(U2/U3/U12 落地 main);僅剩 `fix/u1-test-suite-triage` 淨殘值與 main 對齊;gh 已恢復,無外部阻塞。
+
+**Files:**
+- Modify: `src/backlink_publisher/__init__.py`(PEP 562 facade 遮蔽——實際改法依架構決策,可能涉及 `dispatch/`/`validate/` 子套件或 facade 屬性重新命名)
+- Modify: `tests/test_benchmarks.py`(benchmark payload 對齊現行 schema:`link_count` 6–8、補 `seo` 欄位)
+- Test: 兩個修復各自的回歸測試(facade 遮蔽需要一個順序無關的 import 斷言;benchmark 修復以該測試本身復綠為準)
+
+**Approach:**
+1. 先 push/對齊 U1 淨殘值(diff `fix/u1-test-suite-triage` vs 現行 origin/main,cherry-pick 淨值,不整支盲合——U1 內容有雙世系),在 ubuntu CI 跑 `-m "unit"`:確認 ~90 殘餘的「Windows 假象」判定;意外失敗回頭深挖。
+2. **PEP 562 facade 遮蔽是架構決策先行**:實體子套件 vs lazy facade 屬性撞名,兩個方向(改名子套件 / 改 facade 協定)各有 import 半徑——先 grep 全部消費者再選,決策與 rationale 記回本檔。
+3. benchmark payload 直接對齊 schema,屬機械修復。
+4. CI 綠(或殘餘=已記錄的 shrink-only 清單)→ 回頭勾 U1 checkbox。
+
+**Execution note:** 修 facade 遮蔽前先寫一個能重現順序依賴失敗的最小測試(characterization),再動架構。
+
+**Patterns to follow:** U1 的聚類/審計方法論;`tests/test_cli_shim_reexports.py` guard 模式。
+
+**Test scenarios:**
+- Happy path:ubuntu CI `-m "unit"` 綠;兩個修復的回歸測試綠。
+- Edge case(facade):以相反 import 順序各跑一次(先 `import backlink_publisher.dispatch` vs 先觸發 facade attr)→ 兩序皆綠。
+- Error path:benchmark payload 故意缺 `seo` → schema 驗證紅(證明測試真的在驗 schema,不是又一次靜默漂移)。
+
+**Verification:** CI unit gate 狀態有真實 run 佐證(URL/run id 記錄回本檔);U1 checkbox 依其原勾選條件處置;2 個真 bug 從殘餘清單移除。
+
+- [ ] **U17: 功能錯誤修復第二批 + 走查覆蓋收尾〔R15;2026-07-06 新增〕**
+
+**Goal:** 承接 U15 第一批:修 B6/B7,補完 U14 的殘餘走查缺口,讓「37 legacy + 15 SPA 全覆蓋」的 R15 目標閉環。
+
+**Dependencies:** U15 分支(-2)落地 main(B 系列修復與 backlog 文件都在該分支);建議在 U16 的 CI 可信之後。
+
+**Files:**
+- Modify: `docs/audits/2026-07-03-webui-feature-error-backlog.md`(續寫:B6/B7 修復記錄 + 殘餘缺口走查結果)
+- Modify: 依 B6/B7 與走查發現而定(規劃期無法預列——與 U15 同一條刻意留白)
+- Test: 每條修復至少一個回歸測試(與 U15 同紀律)
+
+**Approach:**
+1. 動手前先做 supersession 掃描(fleet 分支/preview/origin PR #65-#69 是否已修)——`scan-parallel-prs-before-blocker` 教訓。
+2. 補走查:`/campaign/:id`、legacy `/ce:equity-ledger`/`/ce:keep-alive`、`/publish/defaults` 204 語意、oauth/llm/image_gen 頁、**「有真實發佈歷史」的渲染路徑**(需先造一筆真實/擬真 history 資料——這是第一輪 curl+瀏覽器走查都蓋不到的類)。
+3. B6/B7 與新發現逐條走 U15 的既有紀律(重現 → 根因 → 修 → 儀表板標 resolved → 回歸測試)。
+4. K23 去重原則照舊:根因落在 U3-U9 範圍者標「併入」不重工。
+
+**Execution note:** 與 U15 相同——每條目先寫重現失敗測試再修。
+
+**Patterns to follow:** U15 的逐條紀律;`webui-false-success-resolution`;typed error envelope(`_util/error_envelope.py`)——若涉及錯誤呈現,消費/延伸 envelope,不另建通道。
+
+**Test scenarios:**
+- Happy path:B6/B7 修復後回歸測試綠;走查後 backlog 文件全功能面覆蓋(每面至少一筆:報告 / 已修 / 已走查無異常)。
+- Integration:修復後重走原觸發路徑,儀表板同 fingerprint 不再遞增。
+- 說明:逐條具體場景依實作時根因而定(與 U15 同一條規劃期留白)。
+
+**Verification:** R15 的覆蓋率指標(37+15 全部至少一筆記錄)達成;B6/B7 在儀表板 `resolved`;backlog 文件反映終態。
+
 ---
 
 ### Phase 1 — UI/UX 迭代
 
-- [ ] **U3: 批次操作 API 對等 + SPA 呈現〔R3〕**
+- [x] **U3: 批次操作 API 對等 + SPA 呈現〔R3〕** ✅ 2026-07-06:分支 `feat/u3-batch-ops-api-parity`(ea7f2e81,含 code-review 修正 1ba43546;後端 126a917f、前端 c750dfe4),收尾時記錄 6 條 deferred backlog 項。〔2026-07-06 再對帳〕已確認**落地 main**(`bulk-recheck` 等端點現存於 `webui_app/api/v1/history.py`)——spec.py ceiling 三方解法見下方執行記錄。
 
 **Goal:** SPA 補齊 legacy `/` 頁面獨有的批次能力：bulk-publish-now、bulk-cancel、bulk-recheck、purge-failed——這是 U4 能安全 redirect 的前置。
 
@@ -297,11 +484,23 @@ graph TB
 
 **Verification:** 4 個批次操作在 SPA History/Drafts 可用且行為與 legacy 對等；API contract workflow 全綠。
 
+**執行記錄（2026-07-06，分支 `feat/u3-batch-ops-api-parity`）：** 執行前重盤點確認〔deepening 校正〕屬實——3 個新端點：`POST /api/v1/history/bulk-recheck`、`POST /api/v1/drafts/bulk-publish-now`（新增 module-level `threading.Lock` single-flight 防護，並發呼叫回 409 而非排隊，比照 `routes/keep_alive.py` 的 `start_recheck()` 慣例）、`POST /api/v1/drafts/bulk-cancel`；`purge-failed` 確認已有端點只缺 SPA 呈現。契約先行：先寫 `tests/test_webui_api_v1_bulk_ops.py`（11 案例）確認全部因 404 失敗，再實作。`spec.py`／`openapi/backlink-api.yaml`／`monolith_budget.toml`（1290→1340）／CSRF-only snapshot（96→99）均已更新，OpenAPI diff 純新增（0 刪除行）。前端：`frontend/src/api/{history,drafts}.ts` 新增 3 個 client 方法，`HistoryPage.vue`／`DraftsPage.vue` 各新增對應按鈕，沿用既有 `run()` busy/cache-write/toast 慣例。`ce-code-review`（13 位 reviewer：correctness/testing/maintainability/project-standards/agent-native/learnings/security/api-contract/reliability/adversarial/kieran-python/kieran-typescript/julik-frontend-races）跑過一輪，7 項發現已修復（詳見 `.context/compound-engineering/ce-code-review/20260706-124524-d0ac4b7b/summary.md`）：`BULK_CANCEL_FAILURE` 誤用「無變更」502 語意（實際 `bulk_cancel` 無 rollback，改為 200+refreshed list+警告）、`_require_ids` 重複程式碼抽成共用 `errors.require_ids()` 並加上 `MAX_BULK_IDS=500` 上限、兩頁的 bulk 成功後會整批清空 `selected`（in-flight 期間的重新選取會被吃掉，已改為只清掉本次實際送出的 id）、single-flight lock 的測試只驗證同執行緒遞迴（已補 `threading.Barrier` 真實多執行緒測試）、409 測試的 mock 型別不符慣例（已改用真正的 `ApiError`）。`npx vitest run` 248/248、後端 `api_v1/bulk/drafts/history` 相關測試 615/620（5 個既有無關 Windows chmod 失敗）。
+
+**未修復、記錄為後續追蹤（均超出本 unit 宣告的檔案範圍，或需要橫跨新舊端點的政策決策）：**
+- **U3-B1**〔P1，maintainability/correctness/adversarial 三方收斂〕`_bulk_publish_lock` 只保護新的 `/api/v1/drafts/bulk-publish-now`，legacy `/ce:draft/bulk-publish-now`（`webui_app/routes/drafts.py`）呼叫同一個 `DraftAPI.bulk_publish_now` 完全沒有鎖保護——需要把鎖下移到 facade 層或兩個路由共用同一個鎖，在 U9 legacy 退役前這個缺口都在。已加註解說明；目前風險較低（`webui.py` 的 `app.run()` 沒有 `threaded=True`，此開發伺服器本來就無法真正並發處理請求）。
+- **U3-B2**〔P1，reliability〕single-flight lock 沒有 timeout——若底層呼叫真的 hang 住，鎖永遠不會釋放，整個端點永久卡死直到重啟行程。需要架構決策（background job + poll，或帶 timeout 的 executor）。
+- **U3-B3**〔P1，security〕`bulk-publish-now` 會觸發真實對外發佈，但沒有比照 `settings_credentials.py` 加 `_refuse_when_allow_network()` 硬擋——同樣缺口也存在於既有單筆 `/drafts/publish-now`，只修新端點會造成新舊不一致，需要橫跨兩者的政策決策。
+- **U3-B4**〔P2，adversarial〕`bulk_publish_now` 的 `ids` 若含重複值，可能弄亂 rollback 記錄邏輯（facade 層問題，`webui_app/api/drafts_api.py`，超出本 unit 檔案範圍）。
+- **U3-B5**〔P2，api-contract〕新的 `bulk-recheck` 在「ids 未匹配任何記錄」時回 422，但既有 `bulk_delete`／`bulk_publish_now`／`bulk_cancel` facade 對同情境是靜默回 200 + 0 筆訊息——四個 bulk 端點的「零匹配」語意不一致，需要一次性決定統一策略。
+- **U3-B6**〔P2，adversarial，信心較低〕`bulk-cancel` 與 `bulk-publish-now` 對同一筆 draft id 沒有共用協調機制，理論上可交錯執行。
+
 - [ ] **U4: dual-live 路由收斂（`/`、`/sites`、`/batch-campaign`、`/schedule`）〔R4〕**
 
 **Goal:** 四條雙軌路由 302 到 SPA，主入口動線統一。
 
 **Dependencies:** U3（批次對等先行——K5 硬約束）。
+
+〔2026-07-06 對帳〕**目前狀態 = BLOCKED**:分支 `feat/u4-dual-live-route-convergence` 只有一個 docs-only commit(8ae97eb3)記錄「既有稽核已發現高風險回歸」而封鎖。解鎖前置:(1) fleet 分支(尤其 U3)落地 main;(2) 與 attention-dashboard 計畫(2026-07-06-004,其分支直接改首頁 Monitor↔Publish 版位)協調 `/` 的歸屬——兩計畫都動主入口,不協調會互相覆寫;(3) 重讀封鎖 commit 引用的稽核,逐項解除或接受風險。
 
 **Files:**
 - Modify: `webui_app/routes/main.py`、`webui_app/routes/sites.py`、`webui_app/routes/batch_campaign.py`、schedule 對應 route 模組
@@ -468,11 +667,18 @@ graph TB
 
 ### Phase 2 — Pipeline 升級
 
-- [ ] **U10: 發佈引擎 per-platform-lane 平行化〔R10〕**
+- [ ] **U10: 發佈引擎 per-platform-lane 平行化〔R10〕**〔**PARKED 2026-07-06**，量測閘門未通過，見下〕
+
+**Measurement gate result（2026-07-06，依本 unit Approach 第一段執行）：** 對本機全部遙測來源做了量測——`%APPDATA%acklink-publisher\events.db`（live）：`events` 0 列、`articles` 0 列（無任何 run_id/platform 記錄）；`%APPDATA%acklink-publisher\webui.db`（live）：`tasks` 0 列；repo `instance/webui.db`：`tasks` 0 列（僅 campaign 定義 11 筆）。結論：本機**不存在任何真實 publish run 的歷史記錄**，遑論混平台 run——「intra-run 混平台並行」的收益前提（同一 run 內共存多個 API-tier 平台且阻塞顯著）完全沒有資料佐證。依本 unit 自身的閘門條款降級為 **parked**。恢復觸發點：累積 ≥2–3 次真實混平台 run 的遙測（events.db `articles` 按 run_id 分組出現多平台），且序列阻塞（如 Medium 節流 sleep）在單 run 內佔比顯著時，重新評估。閘門量測分支：`docs/u10-measurement-gate-parked`。
 
 **Goal:** 一次 `publish_rows` 呼叫內，不同平台的列並行發佈（每平台一條 lane、lane 內序列），同平台節流語意不變;吞吐從「全序列」升級為「以最慢平台為界」。
 
 **Dependencies:** U1（golden 測試要在可信 gate 上重構）。
+
+〔2026-07-06 對帳——PARKED(accepted deferral)〕量測閘門於 2026-07-06 執行並**未通過**:live `%APPDATA%` events.db 0 events/0 articles、webui.db 0 tasks——本機零 publish-run telemetry,「混平台 run 的吞吐痛點」前提無任何資料支撐。依本 unit 的閘門條款降級為 parked(記錄分支 `docs/u10-measurement-gate-parked` @ aac803e8,PR #68)。比照 `2026-06-05-lite-accepted-deferrals` 的 accepted-deferral 格式:
+- **Deferral**:intra-run lane 平行化全部設計(K10–K15 與下方 Approach/Technical design 保留為未來規格,不動工)。
+- **恢復觸發(數字化,〔doc-review 修正〕改為可從既有 events.db 欄位直接計算,不需新增 instrumentation)**:telemetry 中累積 **≥3 次真實混平台 publish run**(同一 `run_id` 下 `COUNT(DISTINCT platform) ≥ 2`,可直接 `SELECT` 得出);且其中至少 1 次的「序列化等待」以 **同平台連續事件的 `ts_utc` 間隔總和 ÷ 該 run 總 wall-clock(`max(ts_utc) - min(ts_utc)`)** 估算 ≥25%(此為近似值,間隔亦包含 adapter/verify 延遲,不是純 sleep 時間,但無需修改 `_sleep_with_throttle` 或新增任何 emit 事件即可算出)——屆時重開本 unit 並以該數據為 baseline。若既有欄位證實無法算出可用近似值,退回「operator 記錄的 wall-clock 觀察」為第二判準。
+- **資料從哪來**:不寫新程式碼——U11 canary track (b)/(c) 的真實執行與 operator 日常 publish 自然累積 events.db;U11 因此在 pipeline 軌排序上先於 U10。
 
 **Files:**
 - Modify: `src/backlink_publisher/cli/publish_backlinks/_engine.py`（主改動）
@@ -543,7 +749,20 @@ merge(lanes) -> PublishRunState:
 
 **Goal:** `dofollow="uncertain"` 存量清零或明確定案;retired 收尾;catalog 通道有定義的使用路徑。
 
-**Dependencies:** U1;各 track 互相獨立。
+**Dependencies:** 〔doc-review 修正,adversarial+product-lens 兩方一致〕**track (a)/(b)/(d) 不依賴 U1/U16**——retired 文檔、匿名軌 canary-seed、catalog 通道文檔與 CI gate 是否綠無關,可立即動工;僅 track (c) 的 operator 拋棄帳號準備同樣不需等 U1,應優先啟動(前置時間長:帳號申請、cookie 取得、anti-bot 特徵化)。track (b)/(c) 的 flip PR 本身(涉及 registry 真實變更)建議在 U1/U16 gate 可信後再合併,但**準備工作不等待**。各 track 互相獨立。
+
+〔track (a) 執行結果,2026-07-06,commit `72b88d1d`〕hashnode/writeas 補齊 `docs/notes/retired-platforms/` 文件與 README 索引——已落地 main。
+
+〔track (b) 執行結果,2026-07-06〕執行過程中發現並修復一個真 bug(commit `aeb62a06`,已落地 main):`dofollow_status()`/`is_registered()`/`visibility()` 等多個 registry accessor 讀 `_REGISTRY` 前不觸發 lazy adapter init,導致乾淨行程下 `canary-seed` CLI 對每個平台都誤判為「不在 uncertain 佇列」而拒絕執行——這正是 track (b)/(c) 長期停滯的技術根因之一,不只是 operator 未執行。修復後對 txtfyi 與 notesio 各跑了一次真實 canary-seed(target-url 由使用者確認為其合法網站):
+- txtfyi:貼文 `https://txt.fyi/cf61e8b0126d7416`,verdict=`ambiguous`(`anchor_not_found`,curl-based 驗證器需要瀏覽器層才能確認 rel 屬性)——維持 `dofollow="uncertain"` 不變,未 flip。
+- notesio:貼文 `https://notes.io/e3c4C`,同樣 verdict=`ambiguous`(`anchor_not_found`)——維持 `dofollow="uncertain"` 不變,未 flip。
+- 兩篇canary 貼文目前仍公開存在(CLI 有給 `delete_hint`,尚未執行手動刪除——待下一步決定是否瀏覽器複檢或直接刪除清理)。
+- 下一步(尚未執行,留待後續):用瀏覽器層(如 claude-in-chrome)重新檢視這兩篇貼文的實際 rel 屬性以解除 ambiguous;或視為維持現狀,兩平台繼續留在 canary-pending 佇列等下次視窗。
+
+〔2026-07-06 對帳——規格強化,依 learnings 掃描〕本 unit 現在是 pipeline 軌唯一可推進的實作單元(U10 parked 等它產生 telemetry)。基數更新:registry 現況 9 True / 10 False / **10 uncertain** / 2 retired(原文 7/9/8 過期)。另補三條硬規格,對應兩個**已經失敗過一次**的接縫:
+1. **Promotion 寫回路徑端到端**(`2026-06-05-001-live-dofollow-undercounting-triple-gap` 教訓——uncertain 平台的 dofollow 確認曾被靜默丟棄而非升級):flip 流程必須驗證 uncertain→confirmed 的完整寫回鏈(probe 結果 → `verified_at` 落盤 → recheck 排程納入 → 統計計入),測試打真 DB 路徑,不只注入 history。
+2. **雙序列化器 emit 接縫**(`dofollow-canary-verdict-dropped-at-publish-output-seam` 教訓——canary verdict 曾被 fresh(`AdapterResult.to_publish_output()`)與 resume(`cli/_resume.py`)兩條路徑同時丟掉):本 unit 若新增任何 canary/telemetry 欄位,必須枚舉全部 emit 接縫並加 both-paths presence 斷言。
+3. **三件套是一級交付物**:`docs/solutions/dofollow-platform-shortlist.md`、`docs/discovery/canary-pending.md`、`tests/test_canary_pending_deadline.py` 三者與 registry flag 同 PR 更新——不是事後文件工。
 
 **Files:**
 - Track (a): `docs/notes/retired-platforms/`（補 hashnode、writeas 條目——現況缺漏是狀態不一致）
@@ -565,13 +784,13 @@ merge(lanes) -> PublishRunState:
 - Edge case：`ambiguous` verdict 的重測政策記錄;gitlabpages 掛回 pending 有明確 flip 證據需求。
 - Integration：flip 後 `tests/test_canary_pending_deadline.py` 期限表同步更新。
 
-**Verification:** uncertain 清單從 8（實質 6）縮到 ≤2（gitlabpages + 未定案者），每個都有記錄的 verdict 或證據需求;retired-platforms 文檔完備。
+**Verification:** uncertain 清單從 **10**（2026-07-06 重測基數,取代原文 8/實質 6）縮到 ≤2（gitlabpages + 未定案者），每個都有記錄的 verdict 或證據需求;retired-platforms 文檔完備。
 
 ---
 
 ### Phase 3 — 工具鏈與驗證
 
-- [ ] **U12: 前端工具鏈與 CI 缺口〔R12〕**
+- [x] **U12: 前端工具鏈與 CI 缺口〔R12〕** ✅ 2026-07-06:分支 `chore/u12-frontend-toolchain-ci`(942d94c9),PR #67。ESLint flat config(vue essential + ts recommended,刻意不含 formatting tier 以免攪動 fleet 正在編輯的頁面)、11 個基線錯誤修畢、frontend.yml 加 lint step + `webui_app/api/**` path filter;`.gitlab-ci.yml` **KEEP** 決策已記錄(當時 GitHub 停權、GitLab 是 live CI——gh 恢復後此決策可於 U16 重審)。驗證:eslint --max-warnings 0、vue-tsc、240/240 vitest、vite build。已知與 U3 分支在 DraftsPage/HistoryPage `toggle()` 有預期小衝突(preview 已解)。〔2026-07-06 再對帳〕已確認**落地 main**(`frontend/eslint.config.js` 現存)。
 
 **Goal:** SPA 有 lint;後端 PR 弄壞前端能被抓到;CI 定義單源化。
 
@@ -633,12 +852,15 @@ merge(lanes) -> PublishRunState:
 | **〔deepening〕Docker 部署與 loopback-only 安全模型矛盾**：`BIND_HOST=0.0.0.0`（Dockerfile/compose）會被 `_resolve_bind_host` 無條件拒絕，容器路徑疑似現在就起不來;若有人用放寬 bind 檢查「修好」，published-port 流量的 `remote_addr` 非 loopback，U6 動作端點會永久 403 | 高（安審讀碼證實） | 中 | U2 驗證並記錄容器綁定姿態決策;明令禁止放寬 `_resolve_bind_host` 作為修法 |
 | **〔deepening〕raw `str(exc)` 洩漏已部分上線**（`/api/v1/monitor/summary` 經 `_friendly_error` 穿透 Windows 路徑/hostname） | 高（現況即如此） | 中 | U6/U7 的 `type(exc).__name__`/reason-code 規則 + 哨兵測試;U7 擴充該端點時一併修正存量 |
 | **〔deepening〕dedup fail-closed 在多 lane 競爭下把瞬時 `database is locked` 誤判成 hold（可能演成 all_held exit 3）** | 中 | 中 | U10 Integration 增列 `DEDUP_ENFORCE=1` 競爭壓力測試;既有 5s busy timeout 為第一道緩衝 |
+| ~~〔2026-07-06〕分支落地卡關讓已完成工作(U2/U3/U12/U15)持續漂在未合併分支上~~ **〔2026-07-06 再對帳,已大幅緩解〕** | 原「高」 →低 | 原「高」→低 | U2/U3/U12 已由併發收斂工作落地 main;僅剩 U15 分支(-2)與 U1 淨殘值待落地,範圍遠小於原評估;preview 的衝突解法(spec.py ceiling 三方解、toggle() 衝突)已記錄可重用 |
+| **〔2026-07-06〕`/` 主入口被兩個計畫同時修改(本計畫 U4 vs attention-dashboard 計畫)** | 高 | 中 | U4 解鎖前置第 (2) 條:先協調歸屬;不協調不動工 |
+| **〔2026-07-06〕本地 main 落後 origin 6 commits,「已合併」判定過期** | 中 | 中 | 任何 unit 動工前 `git fetch` 後重查(併發修改警示的既有紀律,具體化到 fetch) |
 
 ## Success Metrics（成功指標）
 
 | 指標 | 現況（2026-07-02 快照，執行前重測） | 目標 |
 |------|------|------|
-| main `pytest -m "unit"` | ~366 失敗 | **0 失敗**（或殘餘個位數且有記錄） |
+| main `pytest -m "unit"` | ~366 失敗〔2026-07-06:本機全套件 258–261 failed/10 errors,壓倒性為 Windows 假象類;ubuntu CI 實測值待 U16〕 | **ubuntu CI 0 失敗**（或殘餘個位數且有記錄;本機 Windows 數字不作為驗收基準） |
 | Docker healthcheck 目標 | `/ce:health`（legacy） | **`/api/v1/health`** |
 | dual-live 無 redirect 路由 | 4（含 `/`） | **0** |
 | 無 SPA 對應的資料表面 | `/ce:health` 叢集 + command-center | **0** |
@@ -649,10 +871,15 @@ merge(lanes) -> PublishRunState:
 | 裸 setTimeout 輪詢 | 2 頁 | **0（統一 composable）** |
 | Bootstrap 依賴 | CDN + 17 檔 class | **0** |
 | 發佈吞吐模型 | 全序列 | **per-platform lanes（intra-run），且代表性混平台 run 實測 wall-clock 有可量化下降（X→≤Y 分鐘，X 由 U10 量測閘門記錄）——或閘門判 parked 並記錄數據** |
-| `dofollow="uncertain"` 平台 | 8（實質 6 待處理） | **≤2 且各有記錄的 verdict/證據需求** |
+| `dofollow="uncertain"` 平台 | 8（實質 6 待處理）〔2026-07-06 重測:**10**〕 | **≤2 且各有記錄的 verdict/證據需求** |
 | retired 平台文檔 | hashnode/writeas 缺條目 | **完備** |
 | 前端 lint | 無 | **ESLint 進 CI** |
 | E2E 旅程 | 1 | **3** |
+| 錯誤回報儀表板 `open`/`acknowledged` 報告數〔2026-07-03 擴充〕 | 待 U14 實測（儀表板剛上線，推測累積量少） | U14 完成盤點；U15 第一批（阻斷主要流程等級）全部轉為 `resolved` |
+| 功能面走查覆蓋率（37 legacy route + 15 SPA 頁）〔2026-07-03 擴充〕 | 0（尚未系統性走查過）〔2026-07-06:大部分已走查,殘餘缺口見 U14 註記〕 | 100%（每個功能面至少有一筆真實使用報告，或已被 U14/U17 走查標記「無異常」） |
+| ubuntu CI unit gate 實測(U16)〔2026-07-06 新增〕 | 未經真實 CI 驗證(判定基於本機推論) | 有 CI run URL 佐證的綠燈,或 K3 shrink-only 清單逐條有根因 |
+| U1 診斷之 2 個真 bug(U16)〔2026-07-06 新增〕 | 已診斷未修 | 修復 + 回歸測試進 CI |
+| 本輪真實 publish campaign 次數(業務產出訊號)〔2026-07-06 新增,product-lens〕 | 0(本機 events.db 零紀錄) | ≥1,或 operator 明確記錄「本輪不執行」的理由 |
 
 ## Documentation / Operational Notes
 
@@ -660,6 +887,8 @@ merge(lanes) -> PublishRunState:
 - U9 退役是 operator 可見的行為變更（`…/jinja` 逃生口消失）——退役前在 CHANGELOG 的 unreleased 段記錄 + 穩定窗內公告。
 - U11 track (c) 需要 operator 提供拋棄式帳號憑證——這是計畫中唯一的人工外部依賴，提前準備可避免 track 停等。
 - 完成後 `status: active → shipped`（不改 `date:`）;towncrier 條目隨各 PR。
+- 〔2026-07-06 對帳〕本次修訂內容:U2/U3/U12/U15 勾選(附分支/commit 證據)、U4 標注 BLOCKED、U10 park 升級為 accepted-deferral(數字化恢復觸發)、U11 補三條硬規格、新增 U16/U17、K25–K27、bug 佇列總表(見「2026-07-06 全面對帳」節)。修訂在工作樹進行,該檔另有兩個分支版本(K27 記錄合併策略)。
+- 〔2026-07-06〕`docs/solutions/` 自 2026-06-05 後零新增——fleet/reconcile/U10-U12 這一個月的教訓未擷取;fleet 分支落地後建議跑一次 `/ce-compound` 補上(尤其:fleet 多分支整合、量測閘門 park、三方 plan-file 分歧的處理)。
 
 ## Sources & References
 

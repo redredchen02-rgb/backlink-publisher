@@ -1,0 +1,44 @@
+{
+  "reviewer": "maintainability",
+  "findings": [
+    {
+      "id": "M1",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "line": "24-70",
+      "title": "liteUnavailable is a fourth independently-mutable boolean whose mutual exclusivity with loading/error/items is enforced only by the ordering of resets inside load(), not by the type system",
+      "description": "The component now tracks state via four separately-declared refs (loading, error, items, liteUnavailable) and derives the actual UI state through a priority-ordered if-chain in blockState. Correctness today depends entirely on load() resetting error.value and liteUnavailable.value at the top of every call, in the right order, every time a new branch is added. This works and is internally consistent right now, but it is the classic 'boolean soup' shape: each new flag doubles the space of representable-but-invalid combinations (e.g. error set AND liteUnavailable set) that the code must avoid by discipline rather than by construction. A discriminated status ref (e.g. type Status = 'loading' | 'ready' | 'empty' | 'lite-unavailable' | 'error', or a tagged union carrying the error/items payload) would make invalid combinations statically unrepresentable and remove the implicit ordering dependency in load(). This is a real but modest structural cost — the file is small, the branch count is still only 4, and the same collapsed-flags idiom (isPending/isError/items.length) already exists in sibling pages (HistoryPage.vue, SchedulePage.vue), so this addition is consistent with, not a departure from, the existing codebase convention. Flagging as a forward-looking concern rather than a must-fix: the next added flag (e.g. a 'stale-config' or 'permission-denied' case) is where this would start to actually hurt.",
+      "severity": "low",
+      "confidence": 0.6,
+      "category": "state-modeling / premature-complexity"
+    },
+    {
+      "id": "M2",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue, frontend/src/layout/TopBar.vue",
+      "line": "PrQueuePage.vue:20-22, TopBar.vue:23-27",
+      "title": "Second inline `interface AppConfig` + `getJson('/app-config')` call — the YAGNI call is defensible at n=2 but the two definitions can now silently drift from the real backend contract with no compiler check",
+      "description": "TopBar.vue already had `interface AppConfig { lite_edition, llm_configured, pro_status }` co-located with its own getJson('/app-config') call via useQuery. This diff adds a second, structurally-different local interface `interface AppConfig { lite_edition: boolean }` in PrQueuePage.vue for the same endpoint. Two occurrences is below the conventional 'rule of three' extraction threshold, and the PR's own reasoning (documented in the file header comment) — 'only consumer besides TopBar, and TopBar itself doesn't share one either' — is a reasonable YAGNI call for right now; I would not block on it. The concrete risk worth naming: there is no single source of truth for the `/app-config` response shape. If the backend renames or removes `lite_edition`, TypeScript has nothing to check across the two files — each is just a type assertion on an untyped JSON response (`getJson<AppConfig>(...)`), not a runtime-validated schema. The two call sites also have subtly different caching semantics (TopBar's is wrapped in vue-query's useQuery with query-key caching; PrQueuePage's is a bare getJson call re-invoked by load(), sharing only the API client's blanket 5s in-flight dedup window) — so 'the same pattern' is actually two related-but-not-identical patterns, which is itself a small piece of latent confusion for the next reader who assumes they behave the same. Recommend: treat the next (third) consumer as the actual trigger for extracting a shared `useAppConfig()` composable + exported `AppConfig` type, per the codebase's own stated intent; don't extract preemptively now.",
+      "severity": "low",
+      "confidence": 0.55,
+      "category": "duplication / premature-abstraction-avoidance"
+    },
+    {
+      "id": "M3",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "line": "53-70",
+      "title": "load() re-fetches the (effectively session-static) lite_edition flag on every invocation, including after every markStatus mutation",
+      "description": "load() is called on mount, on manual 'refresh' clicks, and — via markStatus's success and catch paths — after every single won/skipped status update. Each of those calls now re-issues a GET to /app-config (subject only to the API client's blanket 5s dedup TTL, which is unrelated to this endpoint's actual volatility), even though lite_edition reflects a server/edition configuration that cannot change within a session. This isn't a bug and the request is cheap, but it does mean load() now conflates two conceptually different concerns — 'am I even allowed to see this page' and 'refresh the queue rows' — and re-pays the permission-check cost on every data refresh instead of gating it once. A minor structural smell worth naming even though the runtime cost is negligible today.",
+      "severity": "low",
+      "confidence": 0.5,
+      "category": "coupling / mixed-responsibility"
+    }
+  ],
+  "residual_risks": [
+    "blockState/emptyText computed additions (2 new branches total: liteUnavailable in blockState, a 2-way ternary in emptyText) do not read as excessive branching for a single component — they're consistent in shape and priority-ordering (error before empty) with the existing convention already established in HistoryPage.vue/SchedulePage.vue's blockState computeds. Not flagged as a finding.",
+    "The header comment block (lines 2-14) encodes a real backend security invariant (the /pr-queue 404 must stay indistinguishable from any other unmatched route) directly into a frontend file. This is appropriate documentation of a cross-cutting constraint, not scope creep, but it does mean a future editor of webui_app/__init__.py's _lite_surface_gate needs to know this frontend comment exists and may go stale if the gate's behavior changes without a matching frontend update pass.",
+    "AppConfig's fields are asserted via a generic type parameter on getJson<T>(), not runtime-validated (pre-existing pattern from TopBar.vue, not introduced by this diff) — a malformed/renamed backend response would fail silently as `undefined` reads rather than a caught type error, for both consumers."
+  ],
+  "testing_gaps": [
+    "No test exercises getJson('/app-config') itself rejecting (e.g. network failure hitting /app-config rather than fetchPrQueue) — the spec file covers a fetchPrQueue 500 rejection but not an /app-config fetch failure, even though that is the new failure surface this diff introduces ahead of the existing fetchPrQueue call. Should fall through to the same generic error+retry state, but that specific path (error thrown from the new getJson call, not the pre-existing fetchPrQueue call) is untested.",
+    "No test covers markStatus's interaction with the LITE-gated load() path (e.g., a status update completing while liteUnavailable is true) — likely unreachable in practice since no rows render in that state, so low priority, but worth a one-line acknowledgement/comment if intentionally out of scope."
+  ]
+}

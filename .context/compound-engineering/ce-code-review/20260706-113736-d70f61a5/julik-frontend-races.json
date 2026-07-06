@@ -1,0 +1,54 @@
+{
+  "reviewer": "julik-frontend-races",
+  "findings": [
+    {
+      "title": "updatePrStatus can chain two 15s timeouts to ~30s, not 15s",
+      "severity": "P3",
+      "file": "frontend/src/api/prQueue.ts",
+      "line": 46,
+      "why_it_matters": "_csrf() calls _fetchWithTimeout('/api/v1/csrf-token', ...) as its own independently-timed fetch before updatePrStatus() ever issues its own _fetchWithTimeout('/api/pr-queue/status', ...) call -- two sequential 15s AbortController windows, not one shared one. The SPA served index.html (webui_app/routes/spa.py, a static send_from_directory with no Jinja templating) never injects a meta csrf-token tag -- that meta tag only exists on legacy server-rendered pages -- so _csrf() document.querySelector check misses in practice and it always falls through to the live network fetch. If the backend is slow or hanging on both the CSRF-token endpoint and the status-update endpoint, a user clicking mark as won or skip can be stuck for close to 30 seconds before the row spinner clears with an error, roughly double the 15s the code comment states as the bound copied from client.ts DEFAULT_TIMEOUT_MS. This is a real improvement over the pre-B3 unbounded hang, but the documented single-15s guarantee does not hold on this code path, and none of prQueue.spec.ts updatePrStatus tests exercise it uncached because every one stubs the meta tag, sidestepping the live-fetch branch entirely.",
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Thread a single shared AbortController or deadline through both the CSRF-token fetch and the status-update fetch in updatePrStatus (e.g. compute one Date.now() + _TIMEOUT_MS deadline and pass the remaining budget into _csrf), or explicitly document and accept that updatePrStatus true worst case is about 2x _TIMEOUT_MS and size _TIMEOUT_MS accordingly. Either is a small, local change -- no need to reach for a heavier request-budget library.",
+      "confidence": 0.68,
+      "evidence": [
+        "frontend/src/api/prQueue.ts:41-52 _csrf(): falls through to await _fetchWithTimeout('/api/v1/csrf-token', ...), its own independent 15s AbortController, whenever no meta csrf-token tag is present.",
+        "frontend/src/api/prQueue.ts:65-82 updatePrStatus(): awaits _csrf() (line 74) inside the headers object passed to a second, separately-timed _fetchWithTimeout('/api/pr-queue/status', ...) call -- the two 15s windows run sequentially, not concurrently, and not under one shared budget.",
+        "webui_app/routes/spa.py:41-53 spa(): serves the SPA index.html via send_from_directory, a static file with no Jinja render_template, unlike webui_app/templates/base.html:8 which does inject the csrf_token into a meta tag for legacy Jinja pages only -- confirming client.ts own comment that the SPA has no server-rendered meta applies to prQueue.ts _csrf() too, so its meta-tag fast path is dead code in production.",
+        "frontend/src/api/prQueue.spec.ts:111-139 describe(updatePrStatus): every test sets document.head.innerHTML to include a meta csrf-token tag before calling updatePrStatus, so none of them exercise the live-CSRF-fetch-then-status-fetch sequential-timeout path that is actually hit in the deployed SPA."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "PrQueuePage.vue has no onUnmounted cancellation for in-flight load()",
+      "severity": "P3",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "line": 118,
+      "why_it_matters": "load() relies entirely on prQueue.ts internal 15s AbortController ceiling (via fetchPrQueue()/updatePrStatus() _fetchWithTimeout) for eventual cleanup -- nothing in PrQueuePage.vue cancels that request when the component itself unmounts, e.g. the user navigates to a different /app/* route mid-request. The in-flight fetch and its setTimeout keep running against the backend for up to 15 more seconds after the user has left the page, and if it resolves, the abandoned load() call still writes to that now-orphaned instance items/error/loading refs. In Vue reactivity model this is harmless to the live DOM, since a disconnected component refs do not affect what is rendered, but it is real wasted backend/network work with no cleanup hook, and it diverges from this codebase own convention: two sibling SPA pages that run comparable deferred/recurring async work on mount, KeepAlivePage.vue and CampaignProgressPage.vue, both register an onUnmounted hook to tear it down; PrQueuePage.vue registers none.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Either accept the current bounded (max ~15s) resource cost as acceptable for this low-traffic admin page, or add an onUnmounted hook that aborts the in-flight request, which requires prQueue.ts fetchPrQueue()/updatePrStatus() to accept an optional AbortSignal parameter that PrQueuePage.vue can supply from its own AbortController, created in onMounted and aborted in onUnmounted. A small, local addition -- not a reason to pull in a request-management library.",
+      "confidence": 0.62,
+      "evidence": [
+        "frontend/src/pages/PrQueue/PrQueuePage.vue:1-119 (full file): only onMounted(load) at line 118 -- no onUnmounted import or hook anywhere in the file, and prQueue.ts exported functions (fetchPrQueue/updatePrStatus) take no signal/cancellation parameter the page could use even if it wanted to cancel early.",
+        "frontend/src/pages/CampaignProgress/CampaignProgressPage.vue:64-66 registers onUnmounted to clearTimeout(pollTimer), and the equivalent onUnmounted hook exists in frontend/src/pages/KeepAlive/KeepAlivePage.vue:247 -- the established codebase convention for pages running deferred async work is to clear it on unmount; PrQueuePage.vue has no equivalent.",
+        "frontend/src/api/prQueue.ts:35-39 _fetchWithTimeout: the AbortController is created fresh inside each call and is entirely private and internal to prQueue.ts -- PrQueuePage.vue has no handle on it to cancel early, only prQueue.ts own internal 15s ceiling eventually tears it down."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "B4 loadGeneration guard was traced end-to-end, including a hypothetical third overlapping load(), and holds up: every generation-mismatch check in frontend/src/pages/PrQueue/PrQueuePage.vue load() (lines 83, 90, 93, 96) is immediately followed by its guarded write with no await in between, so no interleaving window exists between check and write -- only the most-recently-started call generation ever survives to write shared state, regardless of resolve order. No finding raised here; this is a genuinely solid, minimal fix, a counter rather than a heavier state machine, which is the right-sized tool for this specific ordering problem.",
+    "B5 dismiss recheck inside the /health fetch .then() callback (webui_app/static/js/index.js:324) is a genuine fix, not just a narrowed window: the entire callback from the sessionStorage recheck through the classList mutations (lines 324-344) executes synchronously with no await in between, and JS single-threaded run-to-completion model means the dismiss click handler cannot execute in between those two statements -- there is no residual race in the specific scenario this fix targets.",
+    "webui_app/static/js/lib/api.js fetchJson, used by _initHealthBar for /health, has no timeout or AbortController at all, unlike the freshly-added prQueue.ts timeout in the same backlog cleanup -- a hung /health endpoint just leaves the health bar permanently absent, failing open silently rather than being shown incorrectly, so it is not itself a race, but it is an inconsistency in timeout diligence across the two files this cleanup pass touched.",
+    "PrQueuePage.vue markStatus() catch block (lines 108-110) still discards the actual updatePrStatus() error, including a newly-possible AbortError from the B3 timeout, and silently calls load() again with no user-visible surfacing of the failure. This sits just outside this persona timing and race lens, but B3 makes this pre-existing silent-failure path newly reachable via a slow backend rather than only a malformed request."
+  ],
+  "testing_gaps": [
+    "No test drives prQueue.ts _fetchWithTimeout real setTimeout to actually fire (e.g. vi.useFakeTimers() plus vi.advanceTimersByTime(15000)) and confirms ctrl.abort() is invoked and clearTimeout runs on the success path -- prQueue.spec.ts abort test and its AbortSignal-presence test both infer the timer wiring from mocked or synthetic rejections rather than exercising the timer itself.",
+    "No test in prQueue.spec.ts exercises updatePrStatus() without a stubbed csrf-token meta tag, so the sequential CSRF-fetch-then-status-fetch timeout path, the one actually reachable in the deployed SPA per webui_app/routes/spa.py, has no coverage at all.",
+    "test_health_bar_fetch_resolution_rechecks_dismiss_before_showing in tests/test_webui_feedback_states.py only asserts the recheck string appears twice in source; it does not functionally simulate a fetch that resolves after a dismiss click, e.g. via a controllable or deferred fetch mock, to prove the recheck is actually reached and short-circuits at runtime.",
+    "PrQueuePage.spec.ts new B4 test only exercises the /app-config checkpoint, since both overlapping load() calls resolve their config check before either fetchPrQueue() call could race -- the second checkpoint, a slow fetchPrQueue() response arriving after a faster later one already rendered, which is the scenario the B4 backlog description most directly names, is structurally never reached by the superseded call in this test setup, so it remains functionally unexercised by this suite."
+  ]
+}

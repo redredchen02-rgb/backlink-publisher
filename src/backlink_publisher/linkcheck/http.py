@@ -169,7 +169,7 @@ def _record_perf_stats(sink: dict[str, Any], *, pool_size: int, n_tasks: int) ->
         sink["pool_size_requested"] = pool_size
         sink["actual_workers_spawned"] = min(pool_size, n_tasks)
         sink["queue_depth"] = max(0, n_tasks - pool_size)
-    except Exception:  # noqa: BLE001 - telemetry must never break the batch
+    except Exception:
         opencli_logger.debug("linkcheck perf_stats sink rejected updates")
 
 
@@ -228,7 +228,7 @@ def check_urls(
             c = futures[fut]
             try:
                 _, reachable, error = fut.result()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 # _check_url_with_retry shouldn't raise, but treat any escape
                 # as unreachable for this canonical rather than dropping it.
                 reachable, error = False, str(e)

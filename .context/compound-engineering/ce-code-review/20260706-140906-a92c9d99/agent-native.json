@@ -1,0 +1,35 @@
+{
+  "reviewer": "agent-native",
+  "run_id": "20260706-140906-a92c9d99",
+  "gaps": [
+    {
+      "id": "d3-error-shape-parity-confirmed",
+      "severity": "observation",
+      "confidence": 0.85,
+      "classification": "Primary",
+      "title": "D3's scrub_text() redaction preserves the bind-job poll API's JSON shape -- no agent parity regression on the live Playwright bind path",
+      "locations": [
+        "src/backlink_publisher/cli/admin/bind_channel.py:124-152",
+        "webui_app/services/bind_job.py:143-210",
+        "src/backlink_publisher/events/scrubber.py:151-200"
+      ],
+      "description": "Traced the full path an agent driving the WebUI programmatically would hit: bind-channel subprocess (src/backlink_publisher/cli/admin/bind_channel.py::main) emits a 'channel.bind.failed' JSONL event on any exception outside run_bind's five enumerated types; webui_app/services/bind_job.py::_drain_stdout appends every JSONL line verbatim to BindJob.events and separately copies error_code/reason; poll() returns {job_id, channel, status, started_at, events, error_code, error_message}. Before D3 the two 'main()' catch-alls used message=str(exc) (raw, unscrubbed); after D3 they use message=scrub_text(str(exc))[0]. Confirmed via diff that this changes only the *content* of the existing 'message' string field (secret-shaped substrings -> '<REDACTED>'), not the key set, nesting, or types of the emitted event or the poll response -- so an agent parsing this JSON structurally sees an identical shape and only loses content that is a credential/token/high-entropy string, which is the intended trade-off. error_code remains a fixed-literal enum in both the PipelineError branch (type(exc).__name__) and the catch-all branch ('unexpected'); BIND_ERROR_MESSAGES.get(error_code, f'bind failed: {error_code}') still supplies a human/agent-readable fallback even for codes not in the dict. No orphan/parity gap found on this path.",
+      "recommendation": "No action required -- confirmed as a non-regression."
+    },
+    {
+      "id": "chrome-launch-error-detail-orphaned",
+      "severity": "observation",
+      "confidence": 0.75,
+      "classification": "Secondary",
+      "title": "ChromeLaunchError.detail (new in D3) is write-only today -- no consumer forwards it to any log line, JSONL event, or the bind_job poll API",
+      "locations": [
+        "src/backlink_publisher/cli/_bind/chrome_backend.py:57-66",
+        "src/backlink_publisher/cli/_bind/_driver_impl.py:87-105",
+        "src/backlink_publisher/cli/_bind/_driver_impl.py:303-321"
+      ],
+      "description": "D3's fix correctly stops ChromeLaunchError from stuffing raw exception text into the error_code enum, and moves the (scrubbed) diagnostic text to a new `detail` attribute instead. But nothing in the codebase currently reads `.detail`: grep across src/, webui_app/, webui_store/ finds only the attribute assignment (_driver_impl.py:104) and direct unit-test assertions on the raised exception object (tests/test_bind_channel_chrome_backend.py) -- no log.warning/log.debug call, no _emit() payload field, and no bind_job.py read. Separately, run_bind()'s except clauses (driver_impl.py:315-346) only catch PlaywrightLaunchError / BoundPredicateTimeout / IdentityMismatch, not ChromeLaunchError, so a ChromeLaunchError raised from chrome_backend.py's _chrome_profile_dir()/_launch_or_connect() would propagate uncaught past run_bind entirely, land in admin/bind_channel.py's generic 'except Exception' catch-all, and surface as error_code='unexpected' with message=str(exc) == the fixed literal 'chrome_not_available' (str() of a RuntimeError only returns its first positional arg, not the detail= kwarg) -- i.e. the enriched diagnostic the fix was designed to preserve would still never reach an operator or an agent polling the WebUI. In practice this is currently inert: RealChromeBrowserRunner (chrome_backend.py) is not wired as the production runner anywhere -- webui_app/services/bind_job.py always subprocesses `bind-channel --channel <channel>` which defaults `_browser_runner=None` -> `_PlaywrightBrowserRunner()`; RealChromeBrowserRunner is only ever constructed from tests via the `_browser_runner` injection seam. So there is no live human-vs-agent asymmetry today (neither surface gets the detail text), and this does not block the current sweep. Flagging so the detail plumbing gets finished (either a debug log line at the catch site, or an explicit `except ChromeLaunchError` branch in run_bind that forwards both error_code and detail into BindResult.extras) before/when this backend is ever wired into the real bind-channel flow -- otherwise the redaction-only intent of D3 quietly regresses into redaction-plus-total-loss for this one exception type.",
+      "recommendation": "When RealChromeBrowserRunner is wired into production `run_bind`, add an explicit `except ChromeLaunchError as exc:` branch (mirroring PlaywrightLaunchError's handling) that sets BindResult.error_code=exc.error_code and threads exc.detail through BindResult.extras (or at minimum a log.warning at the raise site) so the scrubbed diagnostic text an operator/agent needs to debug 'why didn't Chrome launch' is not silently dropped."
+    }
+  ],
+  "notes": "Scope: 12-unit internal hidden-debt hardening sweep (budget TOML entries, dead #noqa comment removal, except-Exception classification into debt_registry.toml, a handful of real silent-failure fixes, read-only audit docs, benchmark additions) -- not a user-facing feature, no new UI actions or endpoints. Ran the standard triage: no new agent tools/system-prompt surface was expected or found (this app's agent-facing surface, where it exists at all, is the WebUI's HTTP API consumed by scripts/agents, not an LLM-tool-calling layer -- out of scope for this sweep). Focused the noun/action review on the one path the sweep explicitly touches that an agent could parse programmatically: the bind-channel CLI's JSONL error events -> webui_app/services/bind_job.py's in-memory registry -> its poll() API, per the D3 unit (fix(bind): classify 46 except-Exception sites, scrub credential-adjacent exception text). Confirmed the live Playwright-backed bind path's poll response shape (keys/types) is unchanged by the scrub_text() redaction -- same JSON structure, only secret-shaped substrings replaced, applied identically regardless of whether the poll API is consumed by a human's browser or an agent's HTTP client. The one artifact worth tracking is a dormant design gap (ChromeLaunchError.detail is set but never read by any consumer) in a Real-Chrome/CDP bind backend (chrome_backend.py) that is not currently wired into production -- recorded as a Secondary/observation-severity note for whoever activates that backend, not as a live regression from this sweep. No Critical or Warning findings; verdict PASS."
+}

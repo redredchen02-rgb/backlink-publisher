@@ -64,12 +64,46 @@
 
 # spray_backlinks/core.py::main decomposed (Plan 2026-06-24-002 U2): extracted
 # _handle_list_checkpoints (CC 4); main() CC 35→29 — under backstop. Entry removed.
+# Further decomposed (Plan 2026-07-06-003 U6, 2026-07-06): seed loop moved to
+# _run.py (_run_seed_loop CC 14, _process_seed CC 11, _run_burst CC 12); shell
+# epilogue split into _read_seed_rows (CC 6) / _finish_run (CC 8); main() CC 29→4.
+# Package-wide max is now CC 14 — comfortably under the backstop; no entry needed.
 # spray_backlinks/_engine.py::_run_spray was dead code (never called by main()); deleted.
 # Entry removed.
+# Re-added below (Plan 2026-07-06-002 Unit B1): main() sits at CC 29, only 1 point under
+# the backstop, so it gets an explicit tracked ceiling rather than relying on the shared
+# backstop.
 
 # keepalive/chain.py::run_cycle decomposed (Plan 2026-06-24-002 U3): extracted
 # _run_recheck_stage (CC 6), _filter_exhausted_seeds (CC 4), _run_publish_step (CC 9),
 # _run_reverify_step (CC 12); run_cycle CC 45→18 — under backstop. Entry removed.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Plan 2026-07-06-002 Unit B1: hidden-debt hardening sweep — CC budget
+# completeness pass. These 3 functions are all D-graded (CC 27-29) and sit
+# just under the CC-30 backstop, but none currently exceed it, so no entry
+# is strictly required by rule (b). They are seeded here anyway so a future
+# unrelated minor edit doesn't silently fall onto the shared backstop and
+# hard-fail an unrelated PR. Because current CC is below the backstop (unlike
+# every removed entry above, which was seeded at exact-current-CC only once
+# already over the backstop), the "exact current CC, zero headroom" seed
+# convention does not apply here — test_seeded_ceiling_above_backstop requires
+# ceiling > 30 for any listed entry. Ceiling 31 = backstop(30)+1, the schema's
+# own documented minimum valid seed floor, used uniformly for all three below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# spray_backlinks/core.py::main entry (ceiling 31, sweep Unit B1) removed at fleet
+# integration (2026-07-06): plan 2026-07-06-003 U6 decomposed main() to CC 4 in the
+# same merge window, far below the CC-30 backstop — a dedicated entry would carry
+# 27 points of dead headroom and trips test_seeded_cc_drift.
+
+[functions."src/backlink_publisher/publishing/adapters/medium_brave.py::MediumBraveAdapter.publish"]
+ceiling = 31
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1): MediumBraveAdapter.publish is CC 27 (D grade) — the AppleScript/Brave publish flow branches across tab-identity resolution, editor-ready waits, title/body fill, and the publish-menu click sequence, each with its own failure handling. Ceiling 31 = backstop(30)+1, the schema's minimum valid seed floor for a below-backstop function newly given its own tracked ceiling, providing 4 points of headroom over the measured CC 27."
+
+[functions."src/backlink_publisher/cli/_seal_init.py::_handle_init"]
+ceiling = 31
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1): _handle_init is CC 27 (D grade) — the phase0-seal init subcommand handler branches across comment-URL parsing, routine vs manual verdict-ref construction, git-sha lookup, and post-push verification outcomes. Ceiling 31 = backstop(30)+1, the schema's minimum valid seed floor for a below-backstop function newly given its own tracked ceiling, providing 4 points of headroom over the measured CC 27."
 
 
 # Test-file SLOC budgets (enforced by test_no_complexity_regrowth.py).

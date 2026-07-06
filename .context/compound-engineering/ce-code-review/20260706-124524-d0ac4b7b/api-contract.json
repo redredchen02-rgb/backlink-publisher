@@ -1,0 +1,35 @@
+{
+  "reviewer": "api-contract",
+  "findings": [
+    {
+      "title": "New bulk-recheck 422s on no-match; sibling bulk ops silently 200",
+      "severity": "P2",
+      "file": "webui_app/api/history_api.py",
+      "line": 207,
+      "why_it_matters": "HistoryAPI.bulk_recheck (new in this diff) explicitly treats 'ids provided but none matched a real record' as a hard failure -> the route raises 422 problem+json. Every sibling bulk endpoint in the exact same PR/plan -- DraftAPI.bulk_publish_now, DraftAPI.bulk_cancel, and the pre-existing HistoryAPI.bulk_delete -- silently no-ops the same scenario and returns 200 with a refreshed list and a '0 items' message. A generic bulk-operation consumer (or a future SPA feature that reuses one error-handling code path for all four 'select rows, click bulk action' buttons) cannot assume uniform behavior for the same edge case across this family of otherwise-parallel endpoints. The docstring added for bulk_recheck even flags the sibling behavior as a 'fake 200' it deliberately avoids, showing the author was aware of the inconsistency but only fixed it in one of the four bulk endpoints.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Decide one intended semantic for 'ids array non-empty but zero records matched' across the whole bulk-ops family (either all four return 422, or all four return a soft 200 with a 0-count message), then align bulk_publish_now/bulk_cancel/bulk_delete with bulk_recheck's new behavior (or revert bulk_recheck to match them) and document the chosen policy once in a shared docstring/spec description rather than per-endpoint.",
+      "confidence": 0.68,
+      "evidence": [
+        "webui_app/api/history_api.py:207-213 -- bulk_recheck: `items = self._all_items_by_id(ids)` then `if not items: return {\"ok\": False, \"flash_msg\": \"未匹配到记录\"}` -> routed to 422 by webui_app/api/v1/history.py's `if not result.get('ok'): raise ApiProblem(422, ...)`.",
+        "webui_app/api/drafts_api.py:320-334 -- bulk_publish_now: loops ids, `if not item: continue` (silently skips unmatched ids, no ok:False path for zero-match), then unconditionally `return {\"ok\": True, \"flash_msg\": f\"正在批量发布 {len(completed_jobs)} 项...\"}` even when completed_jobs is empty.",
+        "webui_app/api/drafts_api.py:381-411 -- bulk_cancel: same silent-skip pattern (`if not item or item.get('status') != 'scheduled': continue`), unconditional ok:True return.",
+        "webui_app/api/history_api.py:132-138 -- pre-existing bulk_delete: `removed = bulk_delete_from_db(ids)` then unconditional `return {\"ok\": True, \"flash_msg\": f\"已删除 {removed} 条历史记录\"}` regardless of whether removed is 0.",
+        "webui_app/api/v1/history.py:88-104 -- new history_bulk_recheck route docstring explicitly states 'HistoryAPI.bulk_recheck only returns ok: False for genuine input problems (empty/unmatched ids), which is honestly surfaced as 422 rather than a fake 200' -- acknowledging the sibling pattern as a 'fake 200' without changing it."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "The OpenAPI diff to openapi/backlink-api.yaml was manually re-verified line-by-line (git diff -U10 763d0280 HEAD): all changed hunks in that file are pure additions (95 insertions, 0 deletions per git diff --stat; no '-' lines touch any existing path/schema block). This corroborates the 'purely additive' claim, but oasdiff itself could not be executed in this environment (Docker unavailable), so the actual CI breaking-change gate has not run against this diff -- structural nuances oasdiff checks (e.g. requestBody/response media-type or nullability changes) are not independently confirmed beyond this manual read.",
+    "POST /api/v1/drafts/bulk-publish-now's 409 'already_running' single-flight guard is a module-level `threading.Lock()` (webui_app/api/v1/drafts.py:35), which only provides the documented single-flight contract within one process. The app currently runs via `app.run(...)` (webui.py:113), i.e. single-process, so the guarantee holds today; if the deployment model ever changes to a multi-process WSGI server (e.g. gunicorn with >1 worker), the 409 exclusivity promise in the OpenAPI doc ('A bulk publish is already in progress') would silently stop being enforced across workers with no test to catch the regression.",
+    "The 409 payload for bulk-publish-now does carry a distinguishing `error_class: 'already_running'` field (same generic ProblemDetails schema used API-wide), and frontend/src/api/drafts.ts's comment documents this, but no actual frontend code path (DraftsPage.vue's run()/classifyError) branches on it -- classifyError buckets 409 into its generic 'unknown' category identically to any other unexpected error. In the rare cross-tab/multi-session race the comment anticipates, the user sees the same generic '出错了/发生未知错误，请重试' toast as a real failure, even though nothing is actually wrong. This matches the app's existing fixed-copy error-taxonomy convention (not a new pattern), so it is not flagged as a defect, but the comment's framing ('to avoid surfacing that as a user-facing error unnecessarily') slightly overstates what the code actually does for the non-same-tab case."
+  ],
+  "testing_gaps": [
+    "tests/test_webui_api_v1_bulk_ops.py covers the drafts/bulk-publish-now 409 (double-submit) and 502 paths, and DraftsPage.spec.ts has a matching UI-level test asserting a 409 rejection surfaces a generic error toast without crashing. History's bulk-recheck has no equivalent UI-level (HistoryPage.spec.ts) test for its new 422 'no items matched' failure path -- only the backend contract test (test_webui_history_bulk_recheck_no_match_is_ok_false_but_422) exercises it, so a regression in how the SPA surfaces that specific 422 would not be caught by the frontend suite.",
+    "No test exercises the drafts bulk-publish-now / bulk-cancel 'ids provided but zero match a real record' scenario at all (unlike history's bulk-recheck, which has an explicit test for it) -- so the silent-200-with-0-count behavior called out in the finding above is asserted nowhere and could regress or be 'fixed' inconsistently without any test noticing.",
+    "No test asserts on the actual generated openapi/backlink-api.yaml being run through oasdiff (or an equivalent breaking-change linter) in this environment -- the additive-diff claim is manually verified here but the CI gate itself has not executed against this branch."
+  ]
+}

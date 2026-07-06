@@ -370,16 +370,23 @@ def test_batch_campaign_post_with_cap_and_delay(client):
 
 
 def test_campaign_progress_page_valid(client):
-    """Visit campaign progress for an existing campaign."""
+    """Visit campaign progress for an existing campaign.
+
+    /campaign/<id> now 302s to the SPA (P13 B3); the Jinja page lives at
+    /campaign/<id>/jinja.
+    """
     cid = _make_campaign()
     resp = client.get(f"/campaign/{cid}")
+    assert resp.status_code == 302
+    assert f"/app/campaign/{cid}" in resp.location
+    resp = client.get(f"/campaign/{cid}/jinja")
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
     assert cid[:8] in html or "批量" in html
 
 
 def test_campaign_progress_page_invalid(client):
-    resp = client.get("/campaign/nonexistent-id")
+    resp = client.get("/campaign/nonexistent-id/jinja")
     assert resp.status_code == 404
 
 

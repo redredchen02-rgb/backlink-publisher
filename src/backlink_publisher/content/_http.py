@@ -122,7 +122,7 @@ def _safe_get(
         # Apparent_encoding inspects the body, so set it now for callers.
         try:
             resp.encoding = resp.apparent_encoding or resp.encoding
-        except Exception:  # noqa: BLE001 — defensive: never crash on encoding probe
+        except Exception:
             pass
         return resp, body
 

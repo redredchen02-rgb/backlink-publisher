@@ -19,7 +19,7 @@ from typing import Any
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
-from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
 from .base import AdapterResult
 from .http_form_post import attach_link_verification, submit_form

@@ -20,6 +20,7 @@ from backlink_publisher.cli._bind.chrome_backend import (
     _websocket_available,
     RealChromeBrowserRunner,
 )
+from backlink_publisher.cli._bind.driver import ChromeLaunchError
 
 
 class TestStaticHelpers:
@@ -337,3 +338,84 @@ class TestRealChromeBrowserRunner:
         cdp._dispatch_event("Network.requestWillBeSent", {})
         cdp._dispatch_event("Unknown.event", {})
         assert True
+
+
+class TestChromeProfileDirErrorCodeContract:
+    """Plan D3 (R9) red-path security test: chrome_backend.py:60 used to do
+    ``raise ChromeLaunchError(str(exc)) from exc``, stuffing the wrapped
+    exception's own free-text message into ``error_code`` — a field
+    webui_app/services/bind_job.py treats as a closed enum via
+    ``BIND_ERROR_MESSAGES.get(error_code, ...)``. This proves the fix: no
+    matter what text the wrapped ``_ChromeSessionError`` carries (including
+    adversarial text shaped to look like a plausible alternate error_code, or
+    text containing cookie/secret-shaped content), ``error_code`` is always
+    the fixed literal ``"chrome_not_available"`` and the raw wrapped text
+    never appears there — it is only reachable via the separate ``detail``
+    attribute, which the WebUI's enum lookup never reads.
+    """
+
+    def test_unexpected_exception_yields_fixed_error_code(self, monkeypatch):
+        from backlink_publisher.cli._bind import chrome_backend as cb
+
+        def _boom():
+            from backlink_publisher.publishing.browser_publish.chrome_session import (
+                ChromeSessionError,
+            )
+            raise ChromeSessionError("totally_unexpected_free_text_payload")
+
+        monkeypatch.setattr(cb, "_shared_chrome_profile_dir", _boom)
+
+        with pytest.raises(ChromeLaunchError) as excinfo:
+            _chrome_profile_dir()
+
+        assert excinfo.value.error_code == "chrome_not_available"
+        assert "totally_unexpected_free_text_payload" not in excinfo.value.error_code
+
+    def test_error_code_never_carries_adversarial_enum_lookalike_text(self, monkeypatch):
+        """Even if the wrapped exception's text is crafted to look like a
+        plausible-but-wrong enum value (e.g. mimicking a real BIND_ERROR_MESSAGES
+        key), error_code must still be the module's own fixed literal, never
+        text derived from the exception."""
+        from backlink_publisher.cli._bind import chrome_backend as cb
+        from webui_app.services.bind_job import BIND_ERROR_MESSAGES
+
+        def _boom():
+            from backlink_publisher.publishing.browser_publish.chrome_session import (
+                ChromeSessionError,
+            )
+            raise ChromeSessionError("bound_predicate_timeout")  # looks like a real key
+
+        monkeypatch.setattr(cb, "_shared_chrome_profile_dir", _boom)
+
+        with pytest.raises(ChromeLaunchError) as excinfo:
+            _chrome_profile_dir()
+
+        # error_code is still the fixed literal this call site always uses —
+        # not accidentally "promoted" to a real BIND_ERROR_MESSAGES key just
+        # because the wrapped exception's text happened to spell one out.
+        assert excinfo.value.error_code == "chrome_not_available"
+        assert excinfo.value.error_code in BIND_ERROR_MESSAGES  # fixed literal is a valid closed value
+        # The raw wrapped text is preserved only on `detail`, never on error_code.
+        assert excinfo.value.detail == "bound_predicate_timeout"
+
+    def test_detail_is_scrubbed_when_wrapped_text_looks_like_a_secret(self, monkeypatch):
+        """Constraint #3-style defense in depth: even the escape-hatch `detail`
+        field must not leak cookie/session-token-shaped text verbatim."""
+        from backlink_publisher.cli._bind import chrome_backend as cb
+
+        def _boom():
+            from backlink_publisher.publishing.browser_publish.chrome_session import (
+                ChromeSessionError,
+            )
+            raise ChromeSessionError(
+                "config error: Set-Cookie: sid=abcdef0123456789abcdef0123456789; Path=/"
+            )
+
+        monkeypatch.setattr(cb, "_shared_chrome_profile_dir", _boom)
+
+        with pytest.raises(ChromeLaunchError) as excinfo:
+            _chrome_profile_dir()
+
+        assert excinfo.value.error_code == "chrome_not_available"
+        assert "abcdef0123456789abcdef0123456789" not in (excinfo.value.detail or "")
+        assert "<REDACTED>" in (excinfo.value.detail or "")

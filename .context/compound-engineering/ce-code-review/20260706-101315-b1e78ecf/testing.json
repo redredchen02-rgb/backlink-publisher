@@ -1,0 +1,51 @@
+{
+  "reviewer": "testing",
+  "findings": [
+    {
+      "title": "New pending/degraded branch shipped with zero automated tests",
+      "severity": "P2",
+      "file": "webui_app/static/js/index.js",
+      "line": 328,
+      "why_it_matters": "The safety-relevant distinction this diff exists to make -- \"never published\" (info tint) vs. a real multi-cause degraded state (unweakened alarming red) -- has no automated regression guard. If a future refactor loosens `reasons.length === 1 && reasons[0] === 'pipeline:never_run'` to something looser (e.g. `reasons.includes('pipeline:never_run')`), a genuinely degraded system with an additional real failure would silently render the soft info banner instead of the alarming one, defeating the exact safety requirement this diff was written to satisfy, and nothing in CI would catch it. This is not the generic \"legacy JS has no test framework\" gap -- tests/test_webui_feedback_states.py already reads this exact file (`_INDEX_JS`) as source text and asserts on other branches of index.js (e.g. `test_index_error_path_routes_through_classify_error`), so the established, zero-new-tooling pattern for covering this kind of change already exists in-repo and simply wasn't applied to the new branch.",
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Add 2-3 assertions to tests/test_webui_feedback_states.py (which already loads _INDEX_JS) locking the new branch: assert the exact condition string `\"reasons.length === 1 && reasons[0] === 'pipeline:never_run'\"` is present, assert `\"bar.classList.toggle('pending', neverPublished)\"` and `\"bar.classList.toggle('degraded', !healthy && !neverPublished)\"` are present, and add a CSS-side assertion (index.css read as text, same style as test_webui_css_no_raw_colors.py) that `.health-summary-bar.pending` exists with `background: var(--info-soft)`. This mirrors the existing source-text-assertion idiom already used for index.js/monitor_hub.js/errors.js in that same test file, so it introduces no new tooling.",
+      "confidence": 0.82,
+      "evidence": [
+        "Diff touches only webui_app/static/css/index.css and webui_app/static/js/index.js -- no test file is added or modified in this change.",
+        "tests/test_webui_feedback_states.py:34-37 already does `_INDEX_JS = (_JS_DIR / 'index.js').read_text(...)` and at line 164-169 asserts specific substrings of index.js's error-handling branch (`test_index_error_path_routes_through_classify_error`), establishing the exact low-cost pattern that would cover this new branch.",
+        "The new safety-relevant condition `const neverPublished = !healthy && reasons.length === 1 && reasons[0] === 'pipeline:never_run';` (index.js:328) and its three class/icon/text toggles (index.js:330-339) have no corresponding assertion anywhere in tests/."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "'pipeline:never_run' literal duplicated across JS/backend with no test lock",
+      "severity": "P3",
+      "file": "webui_app/static/js/index.js",
+      "line": 328,
+      "why_it_matters": "index.js hardcodes the string `'pipeline:never_run'` to match webui_app/services/health_projection.py's own hardcoded reason literal (health_projection.py:91), but nothing asserts the two stay in sync. Because health_projection.py is intentionally frozen for this fix (the /health contract must not regress for monitoring), the risk is speculative today -- but if that literal is ever renamed on the backend side for unrelated reasons, the frontend's neverPublished detection silently stops matching, the multi-reason vs. single-reason distinction fails closed (degrades gracefully to the alarming banner, not a security bypass), and no test in either file's suite would fail to reveal it.",
+      "autofix_class": "advisory",
+      "owner": "review-fixer",
+      "requires_verification": false,
+      "suggested_fix": "Add a small cross-file test (e.g. in tests/test_webui_feedback_states.py or test_webui_health_routes.py) that reads webui_app/services/health_projection.py's source, extracts the `degraded_reasons.append(\"pipeline:never_run\")` literal, and asserts the same literal string appears in index.js's neverPublished check -- so a rename on either side fails CI instead of silently drifting.",
+      "confidence": 0.65,
+      "evidence": [
+        "webui_app/services/health_projection.py:91: `degraded_reasons.append(\"pipeline:never_run\")`",
+        "webui_app/static/js/index.js:328: `reasons[0] === 'pipeline:never_run'` -- independently hardcoded, no shared constant or generated value.",
+        "grep across the repo shows only these two source occurrences plus test fixtures that hardcode the same literal as test data (tests/test_webui_health_routes.py:147,226) -- no assertion ties the JS and Python literals together."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "`.health-summary-bar.pending` (index.css:935) sets only `background: var(--info-soft)` and omits `border-color`, unlike the sibling `.healthy`/`.degraded` rules which set both -- it will fall back to the base rule's `border: 1px solid transparent`. Likely intentional (quieter treatment for the info state) but no visual-regression test exists either way to confirm intent.",
+    "The manual browser verification described in the task intent (fresh-install-only case and synthetic multi-reason case) is real but not repeatable/automated; any future change to _initHealthBar or the CSS rule has no safety net short of redoing that manual pass."
+  ],
+  "testing_gaps": [
+    "No automated test locks the exact neverPublished condition (`!healthy && reasons.length === 1 && reasons[0] === 'pipeline:never_run'`) in webui_app/static/js/index.js -- a refactor that broadens or narrows this condition (e.g. switching to `.includes()`) would not be caught by any existing test.",
+    "No test asserts the `.health-summary-bar.pending` CSS rule exists or that it resolves to `var(--info-soft)` (index.css:935) -- test_webui_css_no_raw_colors.py only checks a raw-literal ceiling, it does not assert specific selectors/rules exist.",
+    "No test exercises the icon/text branch for the pending state (`ℹ️` / '尚未发布任何内容 · 完成渠道设置后即可开始发布') the way test_webui_feedback_states.py exercises other index.js text branches via source-string assertions.",
+    "Cross-file coupling between health_projection.py's 'pipeline:never_run' literal and index.js's hardcoded match string has no test pinning them together (see finding above)."
+  ]
+}

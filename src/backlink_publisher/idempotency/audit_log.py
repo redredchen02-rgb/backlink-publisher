@@ -20,13 +20,12 @@ Plan: docs/plans/2026-05-27-005-feat-cross-run-publish-idempotency-plan.md (U5a)
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 from pathlib import Path
 import time
 from typing import Any
-
-import fcntl
 
 from ..config import _config_dir
 

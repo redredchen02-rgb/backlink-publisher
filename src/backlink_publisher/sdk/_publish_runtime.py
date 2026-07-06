@@ -88,7 +88,7 @@ class _PublishLeaseGuard:
         for plat in self._acquired:
             try:
                 self._store.release_lease(plat, self._pid)
-            except Exception as exc:  # noqa: BLE001 — release is best-effort
+            except Exception as exc:
                 publish_logger.warning(f"Failed to release lease on {plat!r}: {exc}")
         self._acquired = []
 

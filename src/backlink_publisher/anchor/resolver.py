@@ -107,9 +107,13 @@ def _passes_zh_cn_ratio(text: str) -> bool:
     return cjk_count / len(text) >= _MIN_CJK_RATIO
 
 
-@lru_cache(maxsize=1024)
 def _passes_ko_ratio(text: str) -> bool:
     """ko Hangul-ratio check (plan 2026-05-18-006 Unit 4 R13).
+
+    NOT lru_cached: the borderline diagnostic below is deliberately emitted on
+    every borderline call ("recurrent borderline hits signal recalibration") —
+    memoization would swallow repeat hits. No production caller exists yet
+    (preparatory-only in v1), so there is nothing to cache anyway.
 
     Applies NFC normalization at entry — macOS NFD-decomposed Hangul defeats
     the ``U+AC00..U+D7AF`` range check by splitting syllables into Jamo

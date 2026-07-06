@@ -39,7 +39,7 @@ def build_survival_view(*, store: EventStore | None = None, now: datetime | None
     try:
         data = compute_survival(store, now=now)
         return _display_fields(data)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return {
             "state": "empty",
             "survival_rate": None,
