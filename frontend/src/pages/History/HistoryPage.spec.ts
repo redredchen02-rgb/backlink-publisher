@@ -14,6 +14,7 @@ vi.mock('../../api/history', () => ({
 
 import * as api from '../../api/history'
 import HistoryPage from './HistoryPage.vue'
+import Icon from '../../components/Icon.vue'
 import { useNotificationsStore } from '../../stores/notifications'
 
 const PUBLISHED = { id: '7', target_url: 'https://a.com/', status: 'published', platform: 'blogger' }
@@ -100,6 +101,25 @@ describe('HistoryPage', () => {
     await flushPromises()
 
     expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7'])
+  })
+
+  it('renders the box-arrow-up-right Icon for row links with a valid, known icon name', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.mocked(api.listHistory).mockResolvedValue({
+      items: [{ ...PUBLISHED, article_urls: ['https://c.com/article'] }],
+    })
+    const w = mountPage()
+    await flushPromises()
+
+    const icons = w.findAllComponents(Icon)
+    expect(icons.length).toBeGreaterThan(0)
+    for (const icon of icons) {
+      const svg = icon.find('svg')
+      expect(svg.exists()).toBe(true)
+      expect(svg.findAll('path').length).toBeGreaterThan(0)
+    }
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
   })
 
   it('bulk-rechecks the selected rows (U3)', async () => {

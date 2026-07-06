@@ -1,0 +1,54 @@
+{
+  "reviewer": "julik-frontend-races",
+  "findings": [
+    {
+      "id": "julik-1",
+      "title": "startConfirm has no re-entrancy or staleness guard: a slow or double-clicked token fetch can snap the state machine back to confirming after it already advanced",
+      "file": "frontend/src/pages/KeepAlive/KeepAlivePage.vue",
+      "lines": "155-168",
+      "classification": "Primary",
+      "confidence": 0.75,
+      "description": "startConfirm is triggered by the republish-gap-count button, which is only disabled when selectedGaps.size is 0; it stays clickable and rendered for the entire duration of the awaited getRepublishToken call (no busy flag, no v-if removal like doRecheck gets). Two overlapping invocations (double click, or a slow first request plus an impatient second click) both resolve independently and each unconditionally does republishToken.value equals token then actionState.value equals confirming. If the first call wins the race and the user proceeds through confirm and doRepublish (which flips actionState to publishing, then result, and resets selectedGaps to an empty Set in finishRepublish), a later-resolving stale second call can still land and set actionState back to confirming with a stale token, silently re-opening ConfirmDialog after the flow already completed, with selectedGaps now empty. This is a classic overwritten-async-response race: no AbortController, no request-sequence token, no ignore-if-stale check.",
+      "recommendation": "Guard startConfirm with the same synchronous-flag pattern already used for doRecheck (set a confirmPending ref before the await, ignore clicks while pending), and stamp each call with an incrementing request id and drop responses that do not match the latest id when they resolve."
+    },
+    {
+      "id": "julik-2",
+      "title": "Focus restore to trigger element races the same-tick unmount of that trigger when doRepublish flips actionState synchronously before its await",
+      "file": "frontend/src/components/ConfirmDialog.vue",
+      "lines": "139-163",
+      "classification": "Primary",
+      "confidence": 0.65,
+      "description": "onOpen captures prevFocusEl as document.activeElement (the republish trigger button) and onClose later calls prevFocusEl.focus(). In KeepAlivePage.vue, doRepublish sets actionState.value to publishing synchronously as the very first statement, before its await on executeRepublish. That synchronous mutation causes the open binding derived from actionState equals confirming to flip to false in the same reactive flush that the watch on props.open inside ConfirmDialog runs onClose in, but it is also the same flush in which the KeepAlivePage template removes the gap-selection panel (v-if idle/selecting) containing prevFocusEl. Depending on watcher and render job ordering, onClose focus call can land on a node being unmounted in the same tick, which typically drops focus to document.body rather than anywhere meaningful, an a11y regression exactly at the confirming-to-publishing transition, the moment a screen-reader user most needs an announced focus target.",
+      "recommendation": "When the dialog closes due to the parent state-machine transition rather than a user cancel, move focus explicitly to a stable landmark (e.g. the progress card heading) instead of relying on the generic prevFocusEl restore in ConfirmDialog; or keep the trigger button rendered (visually hidden) through the publishing transition so the restore target is not removed out from under the focus call."
+    },
+    {
+      "id": "julik-3",
+      "title": "The async confirm/busy/reject-inline-error contract in ConfirmDialog is bypassed at both call sites because confirm is written to never reject",
+      "file": "frontend/src/pages/KeepAlive/KeepAlivePage.vue",
+      "lines": "176-196",
+      "classification": "Secondary",
+      "confidence": 0.55,
+      "description": "Both consumers of the confirm prop on ConfirmDialog (doRepublish here, and doRevoke in BloggerCard.vue) swallow every error internally and never rethrow, so awaiting props.confirm inside ConfirmDialog always resolves, meaning the reject branch (keep dialog open, show inline error, re-enable button) that the component was explicitly built for is dead code at both integration points; only the KeepAlivePage-specific flashMessage and BloggerCard toast paths carry errors. This appears to be a designed and tested trade-off per the code comments and KeepAlivePage.spec.ts, so it is not a bug, but the inline-error UX that ConfirmDialog advertises has zero real usage in this codebase, and any future regression in that path would only be caught by isolated unit tests of ConfirmDialog itself, never by an integration test.",
+      "recommendation": "None required if intentional; consider a doc note on ConfirmDialog itself so a future consumer does not assume the inline-error path is exercised end-to-end anywhere in production usage."
+    },
+    {
+      "id": "julik-4",
+      "title": "The unconditional unlockScroll in useSidenavDrawer can clobber the ConfirmDialog scroll lock when both are open and the drawer closes via resize",
+      "file": "frontend/src/composables/useSidenavDrawer.ts",
+      "lines": "99-127",
+      "classification": "Pre-existing",
+      "confidence": 0.55,
+      "description": "ConfirmDialog.vue explicitly restores document.body.style.overflow to whatever it was before opening so it does not clobber a drawer lock, and has its own test for that. This shows the author was aware drawer plus dialog is a supported combo (the Escape capture and bubble ordering test exists for exactly the drawer-and-dialog-both-open scenario). But close in useSidenavDrawer unconditionally sets document.body.style.overflow to an empty string, with no concept of a nested lock. If the drawer is open on a narrow viewport, the user opens a ConfirmDialog on top of it, and then a resize or orientation change crosses DRAWER_BREAKPOINT_PX while the dialog is still open, handleResize calls close, which calls unlockScroll and sets overflow to empty even though ConfirmDialog is still displayed and expects the page to stay scroll-locked underneath it.",
+      "recommendation": "Not blocking for this PR since useSidenavDrawer.ts is unmodified, but worth a follow-up: either useSidenavDrawer should snapshot and restore like ConfirmDialog does, or the two should share a single reference-counted lock utility instead of each independently reading and writing document.body.style.overflow."
+    }
+  ],
+  "residual_risks": [
+    "The capture-phase stopPropagation Escape design is a deliberate, tested layering hack (dialog wins over drawer) rather than a generalized z-index-aware key-dispatch stack; if a third layered overlay is added later (e.g. a toast with its own Escape-to-dismiss, or a second nested dialog), the same ad-hoc capture and bubble ordering trick will need to be re-reasoned about rather than composing automatically.",
+    "prevBodyOverflow, keydownListener, and prevFocusEl are plain module-scope closures rather than an explicit state machine, fine for a single dialog instance, but the pattern is duplicated (not shared) between ConfirmDialog.vue and useSidenavDrawer.ts; a future refactor that tries to reuse one for the other should not assume they compose safely (see julik-4)."
+  ],
+  "testing_gaps": [
+    "No test exercises rapid or double-clicking the republish trigger button before getRepublishToken resolves, so the stale-response race in julik-1 is unverified either way.",
+    "No test asserts document.activeElement across the confirming-to-publishing transition in KeepAlivePage; only the ConfirmDialog unit tests check focus restore, and only for the cancel and Escape paths where the trigger element is not simultaneously being unmounted by the parent.",
+    "No test covers ConfirmDialog plus useSidenavDrawer mounted together with a resize event crossing DRAWER_BREAKPOINT_PX while both are open (only the Escape-ordering and body-overflow-preservation cases are covered independently)."
+  ]
+}

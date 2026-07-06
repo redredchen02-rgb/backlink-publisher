@@ -1,0 +1,36 @@
+{
+  "reviewer": "testing",
+  "findings": [
+    {
+      "title": "Icon.vue integration on HistoryPage/SurvivalDashboardPage is untested",
+      "confidence": 0.65,
+      "severity": "low",
+      "classification": "primary",
+      "description": "HistoryPage.vue and SurvivalDashboardPage.vue replace <i class=\"bi bi-*\"> with <Icon name=\"...\"> (box-arrow-up-right, shield-check, exclamation-triangle-fill). HistoryPage.spec.ts exists but was not modified to assert the Icon component renders (no assertion on Icon presence, rendered <path>, or absence of the Icon 'unknown name' console.warn). SurvivalDashboardPage.vue has no spec file at all (git diff --name-only confirms no SurvivalDashboardPage.spec.ts exists). Icon.vue's own unit tests cover the ICONS table correctness in isolation, but nothing verifies these two call sites pass valid, in-table icon names — a typo in the `name` prop would silently render an empty icon (Icon.vue swallows unknown names via a console.warn) and no test would catch the regression at these specific integration points.",
+      "files": [
+        "frontend/src/pages/History/HistoryPage.vue",
+        "frontend/src/pages/SurvivalDashboard/SurvivalDashboardPage.vue"
+      ]
+    },
+    {
+      "title": "BloggerCard revoke failure path (revokeBlogger rejecting) has no test",
+      "confidence": 0.55,
+      "severity": "low",
+      "classification": "secondary",
+      "description": "doRevoke() catches revokeBlogger() rejection and routes it to toastError(e) rather than letting ConfirmDialog's own reject-handling (inline error + reopen) fire — by design, per the code comment, so the dialog always closes on confirm regardless of API outcome. BloggerCard.spec.ts adds tests for the success and cancel paths but no test exercises revokeBlogger() rejecting, so the still-open control-flow claim ('doRevoke therefore never rejects' / dialog closes, toast shows error) is asserted only in a comment, not in a test. This is a modified integration point (native window.confirm → ConfirmDialog's async-confirm contract) whose failure-path behavior is architecturally significant (silently converts rejection into resolve) and deserves a regression test.",
+      "files": [
+        "frontend/src/pages/Settings/BloggerCard.vue",
+        "frontend/src/pages/Settings/BloggerCard.spec.ts"
+      ]
+    }
+  ],
+  "residual_risks": [
+    "webui_app/templates/base.html swaps the bootstrap-icons CDN <link> for a self-hosted vendor path using the existing asset_version cache-busting convention; no Python-side test (e.g. test_webui_base_layout.py) was added to assert the CDN reference is gone or that the vendored bootstrap-icons.min.css/woff/woff2 files are served with correct paths/content-type. Static-asset-only change with low behavioral risk, but a future accidental revert to the CDN link would go undetected.",
+    "KeepAlivePage's doRepublish sets actionState.value = 'publishing' synchronously before its internal try/await, which flips ConfirmDialog's `open` prop to false immediately on confirm click — meaning ConfirmDialog's busy-state/inline-error-on-reject machinery is effectively bypassed for this call site (errors surface via the page's flashMessage, not the dialog). This is intentional and is explicitly tested/documented in KeepAlivePage.spec.ts ('a failed executeRepublish surfaces via flashMessage ... NOT kept inside the dialog'), so it is not a gap, but it does mean the ConfirmDialog async-confirm contract has only one true integration test (BloggerCard) exercising the busy/reject path end-to-end outside of ConfirmDialog's own unit tests."
+  ],
+  "testing_gaps": [
+    "No integration test asserts that HistoryPage/SurvivalDashboardPage pass valid Icon `name` props (i.e., that the migration from bi-* classes to <Icon> didn't introduce a name typo that would silently render nothing).",
+    "No test covers BloggerCard's revokeBlogger() rejection path through the new ConfirmDialog-based revoke flow.",
+    "No test (Python or otherwise) asserts the legacy Jinja base.html no longer references the bootstrap-icons CDN or that the self-hosted vendor assets resolve correctly."
+  ]
+}
