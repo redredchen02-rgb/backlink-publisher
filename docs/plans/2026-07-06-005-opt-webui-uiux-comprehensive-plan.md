@@ -75,7 +75,7 @@ claims: {}
 - R1. 全站刷新行為顯式化、可預測(QueryClient defaultOptions + 刷新來源盤點)— W1
 - R2. Settings 編輯中的資料永不被背景刷新覆蓋;未儲存離開有警告 — W2
 - R3. 不可逆破壞性操作一律二次確認(共享 ConfirmDialog,含明示筆數)— W3
-- R4. History/Drafts 刪除可撤銷(soft-delete + 延遲 purge,使用者已裁決)— W4、W5
+- R4. History 刪除可撤銷(soft-delete + 延遲 purge,使用者已裁決;〔2026-07-06 縮窄〕Drafts undo 明確排除,見 D17)— W4、W5
 - R5. mutation 期間回饋精確到列/按鈕,非全頁鎖 — W5
 - R6. Settings 表單體系統一(validation、save 慣例、dirty 呈現)— W6
 - R7. 圖示自托管統一、離線可用 — W7
@@ -106,6 +106,7 @@ claims: {}
 - **job-poll 三套模式統一抽象**(遺漏項 J):v0.6.0 U5 的 `usePolledQuery` 只管 query 輪詢;job-progress 輪詢抽象留待輪詢模式證明不足時與 SSE 決策一併重審。
 - **`history_store` 索引化**:soft-delete filter(W4)先以現有 load-all 模式實作;儲存格式改造沿用 attention-dashboard 的同項 defer。
 - **i18n、手機響應式、legacy 視覺**:如上。
+- **Drafts soft-delete/undo**〔2026-07-06 doc-review 裁決〕:`webui_store/drafts.py` 是與 events.db 完全獨立的 JSON store,W4 只涵蓋 History(events.db);R4 縮窄為 History-only,Drafts 刪除維持現況(硬刪、無 undo),留待後續獨立任務評估是否值得為其另建 soft-delete 層。
 
 ## Context & Research
 
@@ -152,6 +153,10 @@ claims: {}
 | D14 | **W16 Prettier/stylelint 前置條件 = 無 in-flight frontend 分支**,寫成可執行檢查(腳本查 `git branch -r` + `bp-*/` worktrees)而非口頭約定 | U12 記錄在案的 defer 理由(mass reformat 衝突)只在該條件下解除 |
 | D15 | **W1 排最前**:QueryClient defaultOptions 顯式化是 W2/W3/W5/W6 全部狀態機的共同地基 | refetchOnWindowFocus 隱性全域開啟是 Settings 覆蓋 bug、選取 stale、undo 閃爍的共同誘因 |
 | D16 | **KeepAlivePage 既有 7 態機作為 ConfirmDialog API 的驗收用例** | 元件 API 若表達不了最複雜的既有用例,它會永遠留在自製 overlay,元件化失敗 |
+| D17〔2026-07-06 doc-review 裁決,使用者確認〕 | **W4 範圍縮窄為 History-only**(events.db);Drafts undo 明確不做,列 Deferred to Separate Tasks | Drafts 是獨立 JSON store,同步做兩套 soft-delete 會讓 W4 膨脹;History 是主要痛點(硬刪+無確認的組合) |
+| D18〔同上〕 | **D5 機制 = `include_deleted=window` 查詢參數**:list 端點加此選填參數,WebUI 傳、CLI 永不傳;回傳的 soft-deleted 行帶 `deleted_at` 供前端渲染「已刪除・撤銷」狀態 | 解決 D5 與預設 filter 的矛盾;CLI 永不傳保證看不到已刪資料,不會有回流風險 |
+| D19〔同上〕 | **W5 先在現頁(HistoryPage/DraftsPage)實作,不等 U5**;U5 落地後再遷移進 DataTable 元件 | 使用者確認接受重工風險,換取 R4/R5 不用無限期等待 U5 進度不明的落地時間 |
+| D20〔同上〕 | **W8 明確延後,前置條件加上「`feat/webui-attention-dashboard` 的 PR #77 已合併」** | 該分支正活躍開發且同時觸碰 SideNav/TopBar/首頁路由,現在動工會與其他 session 的進行中工作衝突 |
 
 ## Open Questions
 
@@ -294,7 +299,7 @@ graph TB
 - Modify: `webui_app/api/v1/` 對應 endpoint(oasdiff 增量安全:新欄位/新端點,不改既有形狀)
 - Test: `tests/test_history_soft_delete.py`(新)+ 受影響既有測試
 
-**Approach:** (1) 第一步 `rg` 盤點全部 history 讀取點(WebUI + CLI + projector),產出 filter 清單;(2) events + articles 兩表加 `deleted_at`(nullable);(3) 讀路徑預設 filter 掉 soft-deleted;(4) undelete 端點(undo 視窗內);(5) purge:逾時物理刪除(機制留實作定);(6) 狀態欄位設計遵守 quarantine-not-silent-else 原則。**注意 spec.py budget 餘裕先重測**(K22 同款問題)。
+**Approach:** (1) 第一步 `rg` 盤點全部 history 讀取點(WebUI + CLI + projector),產出 filter 清單;(2) events + articles 兩表加 `deleted_at`(nullable;**同 PR 內 bump `SCHEMA_VERSION` 並在 `maybe_upgrade_schema` 加對應 ALTER 步驟**——見 Open Questions 的 schema 升級發現,多 worktree 並存時舊分支會撞 `SchemaTooNewError`,動工前公告);(3) 讀路徑預設 filter 掉 soft-deleted,**新增選填查詢參數 `include_deleted=window`**(D18)供 WebUI list 端點在 undo 視窗內回傳仍帶 `deleted_at` 的行,CLI 讀取路徑永不傳此參數;(4) undelete 端點(undo 視窗內);(5) purge:逾時物理刪除,**server purge 資格 = `deleted_at` 早於(client undo 視窗秒數 × 2)**,client 視窗是由此導出的 UI 常數、永不相等(避免使用者點「撤銷」卻拿到 404);(6) 狀態欄位設計遵守 quarantine-not-silent-else 原則;(7) **範圍明確為 History(events.db)only,不涵蓋 Drafts**(D17)——`webui_store/drafts.py` 是獨立 JSON store,維持現況硬刪。**注意 spec.py budget 餘裕先重測**(K22 同款問題)。**開工前先查證 `_history_store`(legacy JSON 鏡像,若 fleet 尚未移除其雙寫路徑)的處置方式**——no-op shim / 同步 soft-delete / 明確記錄容忍分歧,三選一並記錄理由。
 
 **Execution note:** 契約先行——先寫 soft-delete 不變量的失敗測試(deleted 行對 list 端點不可見、對 CLI plan 不可見、undelete 後可見),再動 mutation。
 
@@ -381,7 +386,7 @@ graph TB
 
 **Goal:** SPA SideNav 不再是 legacy 的降級版:加 icon(用 W7 元件)、anomaly badge(消費 attention-dashboard aggregator)、nav 分組與路由完整性對齊。
 
-**Dependencies:** W7;attention-dashboard 的 aggregator API 落地(跨計畫依賴,動工前確認其進度)。
+**Dependencies:** W7(已完成);**`feat/webui-attention-dashboard` 分支的 PR #77 合併進 main**(D20,硬前置——該分支正活躍開發且同時觸碰 SideNav/TopBar/首頁路由,現在動工有真實並發衝突風險;aggregator API `/api/monitor-hub` 本身已存在於 main,不是卡點,卡點是檔案層級的並發修改)。動工前重新確認 PR #77 狀態。
 
 **Files:**
 - Modify: `frontend/src/layout/SideNav.vue`、`frontend/src/layout/navItems.ts`
@@ -592,6 +597,14 @@ graph TB
 - fleet 整合:`integration/fleet-preview-2026-07-06` @ ba29a04e(合併衝突解法與驗證記錄見該分支)
 
 ## Deferred / Open Questions
+
+### Resolved 2026-07-06(繼 W3/W7 合併後,規劃剩餘 14 unit 時裁決)
+
+- 「Drafts undo 無後端」(P1, feasibility)→ D17:W4 縮窄為 History-only,Drafts 明確 defer。
+- 「D5 與預設 filter 矛盾」(P1, adversarial+feasibility)→ D18:`include_deleted=window` 參數。
+- 「W5-before-U5 重工風險」(P2, adversarial)→ D19:使用者確認接受重工,先在現頁做。
+- 「W8 依賴懸空」(P2, product-lens,部分適用)→ D20:W8 明確等 attention-dashboard PR #77 合併;其餘 R9/R11/R12(W9/W11)因 v0.6.0 U5/U8 進度不明,維持凍結,escalation 條款留待這批 unit 完成後視情況觸發。
+- 「schema 升級」「server/client purge 視窗不變量」兩項已併入上方 W4 Approach 段落成為具體步驟,不再是開放問題。
 
 ### From 2026-07-06 review
 
