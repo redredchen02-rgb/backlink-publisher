@@ -365,7 +365,9 @@ graph TB
 
 **Verification:** 10 段全部走統一慣例;無兩套 save 模式並存。
 
-- [ ] **W7: 自托管圖示系統〔R7〕**
+- [x] **W7: 自托管圖示系統〔R7〕**(部分:TopBar emoji 替換延後,見執行結果)
+
+〔W7 執行結果,2026-07-06,分支 `feat/w7-self-hosted-icons`(堆疊於 W3)〕已完成:`Icon.vue`(inline SVG,path 內聯自 bootstrap-icons 1.11.0/MIT,`fill=currentColor`+`1em`,預設 aria-hidden、label 模式、未知 name warn+空渲染)+ 6 測試;HistoryPage/SurvivalDashboard 全部 `bi-*` 替換(SPA 盤點僅此兩檔);guard test `no-cdn-icon-usage.spec.ts`(紅色路徑已驗證);`templates/base.html` icons CDN → 自托管 `webui_app/static/vendor/bootstrap-icons/`(css+woff2+woff;注意上游 1.11.0 包內 css banner 誤標 1.10.5,已驗證內容為 1.11);`frontend/index.html` icons CDN 行移除(orchestrator 裁定:SPA 零 bi- 用法後屬 W7 地盤)。vitest 263 全綠、vue-tsc 零錯誤、vite build 綠。**遺留:** TopBar emoji(☰🌙☀️)替換因 attention-dashboard 分支正在改 TopBar.vue 而延後(turf-check 命中),待其落地後補;Bootstrap 本體 CDN 兩行+preconnect 歸 v0.6.0 U8;「版面完整 offline」為 W7+U8 聯合驗收(依 2026-07-06 審查修正)。
 
 **Goal:** SPA 圖示統一為自托管 inline SVG 元件;TopBar emoji 替換;legacy base.html icon font 改自托管——離線完整可用,並為 v0.6.0 U8 的 CDN 移除解除前置阻塞。
 

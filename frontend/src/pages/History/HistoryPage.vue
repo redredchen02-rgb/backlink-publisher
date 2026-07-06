@@ -18,6 +18,7 @@ import {
   type HistoryMutationResult,
 } from '../../api/history'
 import StateBlock from '../../components/StateBlock.vue'
+import Icon from '../../components/Icon.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError } from '../../lib/errors'
@@ -125,7 +126,7 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
               <td class="col-status"><span class="status" :data-status="row.status">{{ row.status }}</span></td>
               <td class="col-url target" :title="row.target_url">
                 <a :href="row.target_url" target="_blank" rel="noopener" class="url-link">
-                  {{ row.target_url }}<i class="bi bi-box-arrow-up-right ext-icon"></i>
+                  {{ row.target_url }}<Icon name="box-arrow-up-right" class="ext-icon" />
                 </a>
               </td>
               <td>{{ row.platform }}</td>
@@ -133,7 +134,7 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
                 <template v-if="row.article_urls?.length">
                   <div v-for="(url, i) in row.article_urls" :key="i" class="article-url-row">
                     <a :href="url" target="_blank" rel="noopener" :title="url" class="article-link">
-                      <i class="bi bi-box-arrow-up-right me-1"></i>{{ url }}
+                      <Icon name="box-arrow-up-right" class="me-1" />{{ url }}
                     </a>
                   </div>
                   <div v-if="row.verified_at" class="verified-at">
