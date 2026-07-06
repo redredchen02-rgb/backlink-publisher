@@ -346,3 +346,369 @@ discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
 location = ["webui_app/api/v1/pipeline.py:312"]
+
+# ── D2 (plan 2026-07-06-002-opt-hidden-debt-hardening-sweep, publishing/adapters/ ──
+# except-Exception classification, 2026-07-06). Live re-grep of
+# `grep -c "except Exception" publishing/adapters/*.py` confirmed the
+# deepening-pass snapshot of 56 sites across 28 files (plus one tuple-form
+# `except (ValueError, Exception):` at _verify_live.py:276, called out
+# separately by the plan as belonging to the same classification pass) —
+# 57 individual call sites total, clustered below into 35 entries per the
+# same-file/same-function-or-sibling-functions rule (Phase 3 D2/D2b
+# precedent: campaign-bootstrap-status-fail-soft, image-gen-* above).
+
+[[items]]
+slug = "medium-browser-save-draft-false-success-fixed"
+severity = "critical"
+rationale = "medium_browser.py's Save Draft click handler used to catch any click failure, log a warning, and fall through to return AdapterResult(status='drafted', draft_url=final_url, ...) with zero signal the draft was never confirmed saved — docs/solutions/correctness/adapter-silent-exceptions-resolution.md named this a critical silent swallow. K8 step 3 applied (no independent recheck of draft-save success exists, and the fix is a local change to the handler's own control flow): the except now raises ExternalServiceError('...draft status is unconfirmed...') instead, verified red-then-green in tests/test_adapter_medium_browser.py::test_save_draft_click_failure_raises_instead_of_reporting_drafted."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-07-06"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:347"]
+
+[[items]]
+slug = "medium-browser-captcha-probe-reraise-accepted"
+severity = "low"
+rationale = "medium_browser.py's post-timeout CAPTCHA-iframe probe (inside the PlaywrightTimeoutError handler) narrows a bare except around page.locator(...).count() and only logs; the enclosing bare `raise` still re-raises the ORIGINAL PlaywrightTimeoutError regardless of whether the probe itself succeeded or errored, so a probe failure can never mask the timeout signal retry_transient_call needs — locked in by tests/test_adapter_medium_browser.py::test_captcha_probe_failure_still_propagates_original_timeout (K8-accepted per the plan's named classification)."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:285"]
+
+[[items]]
+slug = "medium-browser-tag-insertion-best-effort-accepted"
+severity = "low"
+rationale = "medium_browser.py's Publish-mode tag-insertion loop narrows a bare except around typing each tag into the Medium tags input and logs 'tag insertion failed (optional)'. Tags are non-authoritative metadata (not the status/published_url output field), so a failure here must not abort an otherwise-successful publish — locked in by tests/test_adapter_medium_browser.py::test_tag_insertion_failure_is_best_effort_and_publish_still_succeeds (K8-accepted per the plan's named classification)."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:337"]
+
+[[items]]
+slug = "medium-browser-mark-expired-swallow-accepted"
+severity = "low"
+rationale = "medium_browser.py::_safe_mark_expired narrows a bare except around webui_store.channel_status.mark_expired('medium') and only logs a warning. The caller is already about to raise AuthExpiredError regardless of whether the bookkeeping call succeeds, so a secondary filesystem failure here (disk full, permission denied) must not mask the primary auth-expired signal — the docstring already documents this intent; this entry formalizes it under D2's classification pass."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:159"]
+
+[[items]]
+slug = "medium-browser-cookie-refresh-best-effort-accepted"
+severity = "low"
+rationale = "medium_browser.py::_refresh_cookies keeps three cascading except-Exception sites (extracting live cookies from the Playwright context, the tmp-file-cleanup-then-reraise around the atomic write, and the outer function-level catch) that all degrade to leaving medium-cookies.json un-refreshed rather than failing the publish. The function's own docstring documents this is best-effort: a stale-but-still-valid cookie file is a low-consequence outcome versus aborting an already-successful publish over a bookkeeping refresh."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/medium_browser.py:177",
+    "src/backlink_publisher/publishing/adapters/medium_browser.py:196",
+    "src/backlink_publisher/publishing/adapters/medium_browser.py:204",
+]
+
+[[items]]
+slug = "medium-browser-publish-boilerplate-wrap-accepted"
+severity = "low"
+rationale = "medium_browser.py::publish's outermost except Exception (after the AuthExpiredError/ExternalServiceError/PlaywrightTimeoutError-specific handlers) is the standard type-translation boilerplate: it saves a diagnostic screenshot, closes the browser/context, and re-raises as ExternalServiceError(f'Medium browser automation failed: {exc}') from exc. This is the safe, already-established pattern (Phase 3 D2 methodology) — the caller sees an explicit failure, never a fabricated success."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:430"]
+
+[[items]]
+slug = "medium-browser-screenshot-diagnostic-swallow-accepted"
+severity = "low"
+rationale = "medium_browser.py::_save_screenshot narrows a bare except around capturing a diagnostic screenshot (filesystem write) to a debug log. This is purely a debugging aid invoked from within other exception handlers that are already propagating the real failure; a screenshot write failure (disk full, permission denied) must not shadow or replace the original exception being handled."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:451"]
+
+[[items]]
+slug = "link-attr-verifier-fetch-classify-never-raises-accepted"
+severity = "low"
+rationale = "link_attr_verifier.py's verify_link_attributes/inspect_target_anchor/_fetch_body_via_preflight/_canonicalize_for_match all keep except-Exception sites that degrade to an EXPLICIT non-authoritative sentinel (verification='skipped'+reason, a None canonicalization, or a per-tag loop 'continue') rather than fabricating a false 'ok' verdict — independently re-reviewed per K8's doc-review addendum (not deferred on the assumption that recheck/probe.py provides independent coverage, since that probe calls back into this same module's inspect_target_anchor/_fetch_body_via_preflight and would share any systemic blind spot). The module docstring itself documents the contract: 'Never raises... fire-and-forget after publish succeeds — failures are logged but never surface as publish failures.' These sites feed only _provider_meta (informational), never AdapterResult.status/published_url."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/link_attr_verifier.py:364",
+    "src/backlink_publisher/publishing/adapters/link_attr_verifier.py:390",
+    "src/backlink_publisher/publishing/adapters/link_attr_verifier.py:419",
+    "src/backlink_publisher/publishing/adapters/link_attr_verifier.py:485",
+    "src/backlink_publisher/publishing/adapters/link_attr_verifier.py:497",
+    "src/backlink_publisher/publishing/adapters/link_attr_verifier.py:500",
+]
+
+[[items]]
+slug = "verify-live-degrade-to-blocked-result-accepted"
+severity = "low"
+rationale = "_verify_live.py's per-platform verify functions (telegraph/github/blogger/velog token-load and response-JSON-parse sites, including the tuple-form except (ValueError, Exception) in _verify_velog_live) all narrow to returning a VerifyResult(ok=False, ...) sentinel — never raising, never silently returning ok=True. This is a read-only liveness/health-check helper consumed by the verify-health dashboard, entirely outside the publish path, so degrading to an explicit not-verified result on any token-read or JSON-decode failure is the correct, already-intended contract; the embedded str(exc)/str(e) text is always a local file-read or JSON-decode error, never a remote response body, so there is no credential-echo risk."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/_verify_live.py:85",
+    "src/backlink_publisher/publishing/adapters/_verify_live.py:112",
+    "src/backlink_publisher/publishing/adapters/_verify_live.py:172",
+    "src/backlink_publisher/publishing/adapters/_verify_live.py:190",
+    "src/backlink_publisher/publishing/adapters/_verify_live.py:224",
+    "src/backlink_publisher/publishing/adapters/_verify_live.py:281",
+]
+
+[[items]]
+slug = "llm-anchor-provider-generation-methods-accepted"
+severity = "low"
+rationale = "llm_anchor_provider.py's four sibling generation methods (generate_article_body, generate_image_prompt, generate_candidates, generate_comment_draft) each keep an except Exception around their retry_transient_call(...)-wrapped chat-completions request. Two log-then-reraise or degrade to a non-authoritative fallback string (image prompt text, not a status field); the other two already route through the module's established _redact_for_log helper (documented safe pattern, see pipeline-regen-body-llm-call-error-redacted) before constructing DependencyError, so no raw response body or Bearer token can reach AdapterResult.error."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/llm_anchor_provider.py:146",
+    "src/backlink_publisher/publishing/adapters/llm_anchor_provider.py:178",
+    "src/backlink_publisher/publishing/adapters/llm_anchor_provider.py:194",
+    "src/backlink_publisher/publishing/adapters/llm_anchor_provider.py:350",
+]
+
+[[items]]
+slug = "http-form-post-safe-error-construction-accepted"
+severity = "low"
+rationale = "http_form_post.py's _host() helper (best-effort urlparse for error messages) and its two sibling network wrappers (fetch_form/submit_form) all construct error text using only type(exc).__name__ and the extracted host — never the raw exception string or response body — matching the module's own documented contract ('Any raw network error surfaces as ExternalServiceError (body-free)'). This is already the safest pattern in the adapters package and requires no redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:76",
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:127",
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:196",
+]
+
+[[items]]
+slug = "medium-auth-file-lock-cleanup-reraise-accepted"
+severity = "low"
+rationale = "medium_auth.py::_FileLock.__enter__ narrows a bare except around the flock-acquire-then-write-PID sequence to release the module-level thread lock before re-raising unchanged via bare `raise`. This is cleanup-then-reraise, not a swallow: the original exception (including the ExternalServiceError raised on lock-acquire timeout) always propagates to the caller."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/medium_auth.py:99"]
+
+[[items]]
+slug = "medium-auth-probe-cookie-load-degrade-accepted"
+severity = "low"
+rationale = "medium_auth.py's probe_login_status helper (_load_cookies_for_probe degrading to [] on read/parse failure, and the sibling ctx.add_cookies() best-effort pass) both belong to the read-only login-status probe, not the publish/bind path — a cookie-load failure here degrades to probing medium.com/me without cookies, which correctly reports 'not logged in' rather than fabricating a false logged-in result."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/medium_auth.py:168",
+    "src/backlink_publisher/publishing/adapters/medium_auth.py:232",
+]
+
+[[items]]
+slug = "medium-liveness-probe-fail-closed-recheck-accepted"
+severity = "low"
+rationale = "medium_liveness.py::_active_probe's three except-Exception sites (page.goto failure, browser.close() cleanup, and the outer whole-probe catch) all degrade to LivenessResult.NEEDS_RECHECK — never LOGGED_IN. This module is a read-only liveness probe (thread-pooled, timeout-wrapped) consumed by the health dashboard; fail-closed to 'needs recheck' on any probe error is the correct contract, matching the sibling probe_login_status/verify-live probes' fail-closed design across this same risk family."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/medium_liveness.py:106",
+    "src/backlink_publisher/publishing/adapters/medium_liveness.py:117",
+    "src/backlink_publisher/publishing/adapters/medium_liveness.py:138",
+]
+
+[[items]]
+slug = "medium-brave-applescript-preflight-checks-accepted"
+severity = "low"
+rationale = "medium_brave.py's AppleScript/Brave-automation preflight sites (the editor-ready polling probe in _wait_for_editor, whose caller explicitly checks `if not _wait_for_editor(...)` and raises on timeout; and the Brave-liveness check in publish() that translates any failure into a clear DependencyError-style ExternalServiceError) are macOS-only browser-automation checks, not the final published/drafted status field — a probe failure either retries within budget or surfaces as an explicit, loud failure, never a fabricated success."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/medium_brave.py:247",
+    "src/backlink_publisher/publishing/adapters/medium_brave.py:357",
+]
+
+[[items]]
+slug = "blogger-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "blogger_api.py::publish keeps two type-translation except-Exception sites (session/auth acquisition, and the outer publish-call wrapper) that convert any unexpected failure into ExternalServiceError with `from exc`, the safe Phase 3 D2 pattern. Security check: the same function's HTTP-error raise at line 149 embeds resp.text[:200] into the error message; Blogger's OAuth Bearer token travels in the Authorization header and Google's Blogger v3 API returns structured {'error': {...}} JSON on failure that never echoes request headers, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/publishing/adapters/blogger_api.py:99",
+    "src/backlink_publisher/publishing/adapters/blogger_api.py:166",
+]
+
+[[items]]
+slug = "config-driven-api-post-boilerplate-accepted"
+severity = "low"
+rationale = "config_driven.py's generic multi-platform POST executor keeps a type-translation except Exception that constructs ExternalServiceError using only _host(endpoint) and type(exc).__name__ — never the raw exception string or a response body — matching http_form_post.py's safest-pattern convention. The preceding except ExternalServiceError branch deliberately preserves the SSRF block_reason message rather than masking it, which is intentional and does not carry response text either."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/config_driven.py:328"]
+
+[[items]]
+slug = "devto-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "devto_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same publish() function embeds resp.text[:200] into two ExternalServiceError raises (422 validation body and generic HTTP-status body). Dev.to authenticates via a custom api-key header (never Authorization: Bearer) and its documented error bodies are {'error': str} or {'errors': {...}} validation JSON that never echoes request headers, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/devto_api.py:260"]
+
+[[items]]
+slug = "ghpages-publish-boilerplate-accepted"
+severity = "low"
+rationale = "ghpages.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern) after DependencyError/ExternalServiceError-specific re-raises. Unlike its sibling adapters this module's HTTP-error raises never embed resp.text into the error message (only type(exc).__name__), so there is no redaction concern to address for this file."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/ghpages.py:527"]
+
+[[items]]
+slug = "gitlabpages-publish-boilerplate-accepted"
+severity = "low"
+rationale = "gitlabpages.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into two ExternalServiceError raises (POST and PUT contents-API failures). GitLab authenticates via the PRIVATE-TOKEN header (never echoed in GitLab's documented {'message': str} JSON error bodies), so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/gitlabpages.py:290"]
+
+[[items]]
+slug = "hackmd-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "hackmd_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into an ExternalServiceError raise; the module's own docstring already documents the R9 policy ('never log the token or the Authorization header; only response bodies (resp.text[:200]), which do not carry the credential') — HackMD's Bearer token travels in the Authorization header and is never echoed in its JSON error bodies, so this is accepted as an already-reviewed safe pattern."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/hackmd_api.py:219"]
+
+[[items]]
+slug = "hashnode-graphql-publish-boilerplate-accepted"
+severity = "low"
+rationale = "hashnode_graphql.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into an ExternalServiceError raise. Hashnode's PAT travels via the Authorization: Bearer header and its GraphQL error responses are {'errors': [{'message': ...}]} envelopes that never echo request headers, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/hashnode_graphql.py:169"]
+
+[[items]]
+slug = "hatena-atompub-publish-boilerplate-accepted"
+severity = "low"
+rationale = "hatena_atompub.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern) after the PR #323 non-idempotent-create contract's DependencyError/ExternalServiceError re-raises. This module's HTTP-error raise never embeds resp.text into the error message (only the bare status code), and its WSSE authentication header is a one-time nonce/digest rather than a static reusable secret, so there is no redaction concern to address for this file."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/hatena_atompub.py:259"]
+
+[[items]]
+slug = "instant-web-telegraph-cdp-boilerplate-accepted"
+severity = "low"
+rationale = "instant_web.py's Telegraph-CDP adapter keeps a standard type-translation except Exception (safe Phase 3 D2 pattern) around the Chrome-DevTools-Protocol browser-automation publish flow. There is no HTTP response body in this code path (it drives a real browser via CDP, not a REST call), so `{exc}` in the raised ExternalServiceError is a Playwright/CDP error string, never a remote response — no redaction concern."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/instant_web.py:221"]
+
+[[items]]
+slug = "linkedin-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "linkedin_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into two ExternalServiceError raises (a 403-specific message using data.get('message') or resp.text, and the generic HTTP-status message). LinkedIn's OAuth token travels via the Authorization: Bearer header and its documented error envelopes never echo request headers, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/linkedin_api.py:198"]
+
+[[items]]
+slug = "mataroa-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "mataroa_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into an ExternalServiceError raise; the module's own docstring already documents the R9 policy of never logging the token or Authorization header. Mataroa's Bearer token travels via the Authorization header and is never echoed in its JSON error bodies, so this is accepted as an already-reviewed safe pattern."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/mataroa_api.py:190"]
+
+[[items]]
+slug = "notion-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "notion_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into two ExternalServiceError raises (400 and generic HTTP-status bodies). Notion's integration token travels via the Authorization: Bearer header and its documented {'object':'error', 'message':...} error envelope never echoes request headers, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/notion_api.py:293"]
+
+[[items]]
+slug = "retry-transient-call-exhausted-reraise-accepted"
+severity = "low"
+rationale = "retry.py::retry_transient_call's except Exception (used for the default is_retryable classification path) stores last_exc and re-raises unchanged via bare `raise` on either a non-retryable exception or attempt exhaustion — it never constructs a new message or swallows the failure. The function's own docstring already states the contract explicitly: 'No response bodies, headers, or credentials are emitted' by this retry wrapper itself, since it never touches exc's string representation."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/retry.py:215"]
+
+[[items]]
+slug = "rentry-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "rentry_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: this same function's raises embed post_resp.text[:200], but Rentry.co is an anonymous, no-authentication pastebin (available() always returns True, 'no auth required') — there is no credential of any kind in play, only a per-request CSRF token and session cookie scoped to the single paste-creation call, so this is trivially safe with no redaction fix needed."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/rentry_api.py:170"]
+
+[[items]]
+slug = "substack-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "substack_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into an ExternalServiceError raise. Substack authenticates via Playwright-exported session cookies (not a bearer token in a header we construct), and no legitimate web application echoes a caller's own Cookie header back in its error body, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/substack_api.py:156"]
+
+[[items]]
+slug = "telegraph-api-markdown-conversion-boilerplate-accepted"
+severity = "low"
+rationale = "telegraph_api.py::publish keeps a type-translation except Exception around markdown_to_telegraph_nodes(md) — a LOCAL markdown-to-node-tree conversion with no network call in this try block, so `{exc}` is a Python parsing exception, never a remote response body or credential. This is the safest possible shape for this pattern and requires no redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/telegraph_api.py:486"]
+
+[[items]]
+slug = "tumblr-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "tumblr_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into an ExternalServiceError raise. Tumblr authenticates via signed OAuth1 (consumer key/secret + oauth token/secret via requests_oauthlib), and Tumblr's documented {'meta': {...}, 'response': [...]} error envelope never echoes the OAuth1 Authorization header it received, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/tumblr_api.py:184"]
+
+[[items]]
+slug = "wordpresscom-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "wordpresscom_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into an ExternalServiceError raise. WordPress.com's OAuth token travels via the Authorization: Bearer header and its documented JSON error envelope never echoes request headers, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/wordpresscom_api.py:139"]
+
+[[items]]
+slug = "writeas-api-publish-boilerplate-accepted"
+severity = "low"
+rationale = "writeas_api.py::publish keeps a standard type-translation except Exception (safe Phase 3 D2 pattern). Security check: the same execute() closure embeds resp.text[:200] into an ExternalServiceError raise. Write.as authenticates via the X-Writeas-Token header (not Authorization: Bearer) and its documented {'code':..., 'error_msg':...} error envelope never echoes request headers, so no credential can reach this text — accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/writeas_api.py:137"]
+
+[[items]]
+slug = "zenn-github-file-sha-lookup-degrade-accepted"
+severity = "low"
+rationale = "zenn_github.py::_get_file_sha narrows a bare except around the pre-flight GitHub Contents API GET (used only to decide create-vs-update semantics) and returns None on any failure, causing the caller to attempt a PUT without a sha. If the file actually exists, GitHub's Contents API then rejects that PUT with an explicit 422/409 surfaced via the existing status-code checks in execute() — never a silent overwrite or false success. Security check: that same execute() closure separately embeds resp.text[:200] into its generic-HTTP-status ExternalServiceError; the GitHub PAT travels via the Authorization: Bearer header and GitHub's documented {'message':..., 'documentation_url':...} error body never echoes request headers, so no credential can reach this text — both aspects accepted without a redaction fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = ["src/backlink_publisher/publishing/adapters/zenn_github.py:139"]

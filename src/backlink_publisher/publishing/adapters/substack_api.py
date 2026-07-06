@@ -153,6 +153,7 @@ class SubstackAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: substack-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Substack publish failed ({type(exc).__name__}): {exc}"

@@ -143,6 +143,7 @@ class OpenAICompatibleProvider:
                 adapter="llm-article-provider",
             )
             return str(data["choices"][0]["message"]["content"])
+        # debt: llm-anchor-provider-generation-methods-accepted
         except Exception as exc:
             log.warning(f"LLM article generation failed, falling back to template: {exc}")
             raise
@@ -174,6 +175,7 @@ class OpenAICompatibleProvider:
                 adapter="llm-image-prompt-generator",
             )
             return str(data["choices"][0]["message"]["content"]).strip()
+        # debt: llm-anchor-provider-generation-methods-accepted
         except Exception as exc:
             log.warning(f"Image prompt generation failed: {exc}")
             return f"Professional article cover for: {title}"
@@ -189,6 +191,7 @@ class OpenAICompatibleProvider:
             )
         except (ExternalServiceError, DependencyError):
             raise
+        # debt: llm-anchor-provider-generation-methods-accepted
         except Exception as exc:
             raise DependencyError(
                 f"LLM provider call failed: {_redact_for_log(str(exc))}"
@@ -344,6 +347,7 @@ class OpenAICompatibleProvider:
             )
         except (ExternalServiceError, DependencyError):
             raise
+        # debt: llm-anchor-provider-generation-methods-accepted
         except Exception as exc:
             raise DependencyError(
                 f"LLM comment draft call failed: {_redact_for_log(str(exc))}"

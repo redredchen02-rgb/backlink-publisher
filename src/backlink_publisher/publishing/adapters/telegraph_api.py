@@ -483,6 +483,7 @@ class TelegraphAPIAdapter(Publisher):
         md = payload.get("content_markdown") or payload.get("content_md") or ""
         try:
             nodes, stats = markdown_to_telegraph_nodes(md)
+        # debt: telegraph-api-markdown-conversion-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Telegraph markdown conversion failed: {exc}"

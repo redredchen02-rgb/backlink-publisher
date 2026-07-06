@@ -195,6 +195,7 @@ class LinkedInAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: linkedin-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"LinkedIn publish failed ({type(exc).__name__}): {exc}"

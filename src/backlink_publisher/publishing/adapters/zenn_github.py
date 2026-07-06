@@ -136,6 +136,7 @@ def _get_file_sha(repo: str, path: str, branch: str, headers: dict) -> str | Non
         if resp.status_code == 200:
             return cast("str | None", cast("dict[str, Any]", resp.json()).get("sha"))
         return None
+    # debt: zenn-github-file-sha-lookup-degrade-accepted
     except Exception:
         return None
 

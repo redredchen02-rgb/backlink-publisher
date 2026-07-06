@@ -216,6 +216,7 @@ class HackmdAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: hackmd-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"HackMD publish failed ({type(exc).__name__}): {exc}"

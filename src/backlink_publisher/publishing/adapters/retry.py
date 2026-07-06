@@ -212,6 +212,7 @@ def retry_transient_call(
             # These must never be retried — re-raise immediately via bare raise
             # so the caller's except block sees the original type.
             raise
+        # debt: retry-transient-call-exhausted-reraise-accepted
         except Exception as exc:
             last_exc = exc
             if not is_retryable(exc):

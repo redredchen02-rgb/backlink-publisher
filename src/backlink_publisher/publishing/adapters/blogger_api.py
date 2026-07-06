@@ -96,6 +96,7 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
             )
         except (DependencyError, AuthExpiredError):
             raise
+        # debt: blogger-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Blogger authentication failed: {exc}"
@@ -162,6 +163,7 @@ class BloggerAPIAdapter(BaseAdapter, Publisher):
             ) from exc
         except (AuthExpiredError, ExternalServiceError):
             raise
+        # debt: blogger-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Blogger publish failed ({type(exc).__name__}): {exc}"

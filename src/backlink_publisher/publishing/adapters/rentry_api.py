@@ -167,6 +167,7 @@ class RentryAPIAdapter(Publisher):
                 published_url = f"{RENTRY_BASE}/{url_id}"
         except (ExternalServiceError):
             raise
+        # debt: rentry-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Rentry publish failed ({type(exc).__name__}): {exc}"

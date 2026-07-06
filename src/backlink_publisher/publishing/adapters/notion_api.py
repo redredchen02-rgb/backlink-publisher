@@ -290,6 +290,7 @@ class NotionAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: notion-api-publish-boilerplate-accepted
         except Exception as exc:
             log.error("Notion publish failed")
             raise ExternalServiceError(

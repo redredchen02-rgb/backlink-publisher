@@ -166,6 +166,7 @@ class HashnodeGraphQLAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: hashnode-graphql-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Hashnode publish failed ({type(exc).__name__}): {exc}"

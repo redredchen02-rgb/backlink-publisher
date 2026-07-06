@@ -361,6 +361,7 @@ def inspect_target_anchor(
 
     try:
         canonical_target = _canonicalize_for_match(target_url)
+    # debt: link-attr-verifier-fetch-classify-never-raises-accepted
     except Exception:
         canonical_target = None
 
@@ -386,6 +387,7 @@ def inspect_target_anchor(
             try:
                 if _canonicalize_for_match(effective) != canonical_target:
                     continue
+            # debt: link-attr-verifier-fetch-classify-never-raises-accepted
             except Exception:
                 continue
             rel = _tag_rel(tag)
@@ -414,6 +416,7 @@ def _canonicalize_for_match(href: str) -> str | None:
         return None
     try:
         return canonicalize_url(href)
+    # debt: link-attr-verifier-fetch-classify-never-raises-accepted
     except Exception:
         return None
 
@@ -479,6 +482,7 @@ def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tupl
 
     try:
         resp = _pf._PREFLIGHT_OPENER.open(req, timeout=effective_timeout)
+    # debt: link-attr-verifier-fetch-classify-never-raises-accepted
     except Exception as exc:
         return b"", _classify_fetch_error(exc)
 
@@ -490,8 +494,10 @@ def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tupl
         finally:
             try:
                 resp.close()
+            # debt: link-attr-verifier-fetch-classify-never-raises-accepted
             except Exception:
                 pass
+    # debt: link-attr-verifier-fetch-classify-never-raises-accepted
     except Exception:
         return b"", "network_error"
 

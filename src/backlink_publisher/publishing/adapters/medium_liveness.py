@@ -103,6 +103,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
                 page = context.new_page()
                 try:
                     page.goto("https://medium.com/me", timeout=8000)
+                # debt: medium-liveness-probe-fail-closed-recheck-accepted
                 except Exception as exc:
                     log.warning(
                         f"medium_liveness: goto failed: "
@@ -113,6 +114,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
             finally:
                 try:
                     browser.close()
+                # debt: medium-liveness-probe-fail-closed-recheck-accepted
                 except Exception:
                     pass
 
@@ -133,6 +135,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
             f"needs_recheck"
         )
         return LivenessResult.NEEDS_RECHECK
+    # debt: medium-liveness-probe-fail-closed-recheck-accepted
     except Exception as exc:
         log.warning(
             f"medium_liveness: active probe failed: "

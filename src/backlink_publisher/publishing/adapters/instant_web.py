@@ -218,6 +218,7 @@ class TelegraphCdpAdapter(Publisher):
             )
         except DependencyError:
             raise
+        # debt: instant-web-telegraph-cdp-boilerplate-accepted
         except Exception as exc:
             log.error("Telegraph CDP publish failed")
             raise ExternalServiceError(f"Telegraph CDP publish failed: {exc}") from exc

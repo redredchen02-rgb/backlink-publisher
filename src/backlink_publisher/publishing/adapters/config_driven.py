@@ -325,6 +325,7 @@ class ConfigDrivenAdapter(Publisher):
             # SSRF block / connection failure already a domain error — keep its
             # message (e.g. the SSRF block_reason) rather than masking it.
             raise
+        # debt: config-driven-api-post-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"API POST to {_host(endpoint)} failed "

@@ -82,6 +82,7 @@ def _verify_telegraph_live(config: Config) -> VerifyResult:
 
     try:
         token_data = _load_token(config)
+    # debt: verify-live-degrade-to-blocked-result-accepted
     except Exception as e:
         return _never(f"telegraph token file unreadable: {e}")
 
@@ -108,6 +109,7 @@ def _verify_telegraph_live(config: Config) -> VerifyResult:
 
     try:
         body = resp.json()
+    # debt: verify-live-degrade-to-blocked-result-accepted
     except Exception:
         return _non_json("telegraph")
 
@@ -167,6 +169,7 @@ def _verify_ghpages_live(config: Config) -> VerifyResult:
 
     try:
         body = resp.json()
+    # debt: verify-live-degrade-to-blocked-result-accepted
     except Exception:
         return _non_json("GitHub /user")
 
@@ -184,6 +187,7 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
 
     try:
         token_data = load_blogger_token(config.token_path("blogger"))
+    # debt: verify-live-degrade-to-blocked-result-accepted
     except Exception as e:
         return _never(f"blogger token file unreadable: {e}")
 
@@ -217,6 +221,7 @@ def _verify_blogger_live(config: Config) -> VerifyResult:
 
     try:
         body = resp.json()
+    # debt: verify-live-degrade-to-blocked-result-accepted
     except Exception:
         return _non_json("blogger")
 
@@ -273,6 +278,7 @@ def _verify_velog_live(config: Config) -> VerifyResult:
 
     try:
         body = resp.json()
+    # debt: verify-live-degrade-to-blocked-result-accepted
     except (ValueError, Exception):
         return _non_json("velog")
 
