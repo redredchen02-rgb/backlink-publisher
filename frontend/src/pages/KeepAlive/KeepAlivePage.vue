@@ -1,7 +1,17 @@
 <script setup lang="ts">
 // Keep-alive status screen — Plan P15 A1 (SPA migration).
 // State machine: S0 (scorecard) → S1 (recheck) → S2 (healthy) → S3 (gap select) → S4 (confirm) → S5 (republish progress) → S6/S7 (result)
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+//
+// Plan 2026-07-02-001 U5: both job-status polls (recheck, republish) migrated
+// to usePolledQuery, fixing the un-backed-off fixed-2s setTimeout retry loop
+// this unit's plan named directly. Each poll is gated on its job id being set
+// (usePolledQuery's `enabled`) rather than an explicit startPolling() call --
+// vue-query auto-fires the first fetch the moment `enabled` flips true, and
+// stops entirely (no setTimeout chain to clear on unmount) once `isTerminal`
+// sees a completed/cancelled/error status. The side effects that used to live
+// inline in each hand-rolled poll() callback (state-machine transition, flash
+// message, reloading the scorecard) now live in a `watch` on the query's data.
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   fetchSummary, startRecheck, pollRecheck, cancelRecheck,
   getRepublishToken, executeRepublish, pollRepublish,
@@ -9,6 +19,10 @@ import {
   type KeepAliveSummary, type KeepAliveGap, type RepublishResult,
 } from '../../api/keepAlive'
 import StateBlock from '../../components/StateBlock.vue'
+import { usePolledQuery } from '../../composables/usePolledQuery'
+
+const RECHECK_TERMINAL = new Set(['completed', 'done', 'cancelled', 'error'])
+const REPUBLISH_TERMINAL = new Set(['completed', 'done', 'error'])
 
 // ── State machine ──────────────────────────────────────────────────────────
 type PageState = 'loading' | 'error' | 'empty' | 'stale' | 'ready'
@@ -29,7 +43,6 @@ const recheckJobId = ref('')
 const recheckProgress = ref(0)
 const recheckTotal = ref(0)
 const recheckMessage = ref('')
-let recheckTimer: ReturnType<typeof setTimeout> | null = null
 
 // Republish state
 const selectedGaps = ref<Set<string>>(new Set())
@@ -37,7 +50,6 @@ const republishToken = ref('')
 const republishJobId = ref('')
 const republishStage = ref('')
 const republishMessage = ref('')
-let republishTimer: ReturnType<typeof setTimeout> | null = null
 
 // Cycle status
 const cycleStatus = ref<{ running: boolean; stage?: string; status?: string } | null>(null)
@@ -92,38 +104,39 @@ const doRecheck = async () => {
   actionState.value = 'rechecking'
   try {
     const result = await startRecheck()
+    // Setting a truthy job id flips usePolledQuery's `enabled` -- vue-query
+    // fires the first poll on its own, no explicit "start" call needed.
     recheckJobId.value = result.job_id ?? ''
-    startRecheckPolling()
   } catch (e) {
     flashMessage.value = `启动巡检失败: ${e instanceof Error ? e.message : String(e)}`
     actionState.value = 'idle'
   }
 }
 
-const startRecheckPolling = () => {
-  const poll = async () => {
-    if (!recheckJobId.value) return
-    try {
-      const status = await pollRecheck(recheckJobId.value)
-      recheckProgress.value = status.progress ?? 0
-      recheckTotal.value = status.total ?? 0
-      recheckMessage.value = status.message ?? ''
-      if (status.status === 'completed' || status.status === 'done') {
-        actionState.value = 'idle'
-        await load()
-      } else if (status.status === 'cancelled' || status.status === 'error') {
-        actionState.value = 'idle'
-        flashMessage.value = status.message ?? '巡检已取消'
-        await load()
-      } else {
-        recheckTimer = setTimeout(poll, 2000)
-      }
-    } catch {
-      recheckTimer = setTimeout(poll, 2000)
-    }
+const recheckQuery = usePolledQuery({
+  queryKey: computed(() => ['keepalive-recheck', recheckJobId.value]),
+  queryFn: () => pollRecheck(recheckJobId.value),
+  intervalMs: 2000,
+  isTerminal: (data) => !!data && RECHECK_TERMINAL.has(data.status),
+  enabled: computed(() => !!recheckJobId.value),
+})
+
+watch(recheckQuery.data, (status) => {
+  if (!status) return
+  recheckProgress.value = status.progress ?? 0
+  recheckTotal.value = status.total ?? 0
+  recheckMessage.value = status.message ?? ''
+  if (status.status === 'completed' || status.status === 'done') {
+    actionState.value = 'idle'
+    recheckJobId.value = ''
+    load()
+  } else if (status.status === 'cancelled' || status.status === 'error') {
+    actionState.value = 'idle'
+    flashMessage.value = status.message ?? '巡检已取消'
+    recheckJobId.value = ''
+    load()
   }
-  poll()
-}
+})
 
 const doCancelRecheck = async () => {
   if (!recheckJobId.value) return
@@ -186,36 +199,37 @@ const doRepublish = async () => {
       actionState.value = 'idle'
       return
     }
+    // Setting a truthy job id flips usePolledQuery's `enabled` -- vue-query
+    // fires the first poll on its own, no explicit "start" call needed.
     republishJobId.value = result.job_id ?? ''
-    startRepublishPolling()
   } catch (e) {
     flashMessage.value = `发布失败: ${e instanceof Error ? e.message : String(e)}`
     actionState.value = 'idle'
   }
 }
 
-const startRepublishPolling = () => {
-  const poll = async () => {
-    if (!republishJobId.value) return
-    try {
-      const status = await pollRepublish(republishJobId.value)
-      republishStage.value = status.status
-      republishMessage.value = status.message ?? ''
-      if (status.status === 'completed' || status.status === 'done') {
-        actionState.value = 'result'
-        await load()
-      } else if (status.status === 'error') {
-        flashMessage.value = status.message ?? '发布过程出错'
-        actionState.value = 'idle'
-      } else {
-        republishTimer = setTimeout(poll, 2000)
-      }
-    } catch {
-      republishTimer = setTimeout(poll, 2000)
-    }
+const republishQuery = usePolledQuery({
+  queryKey: computed(() => ['keepalive-republish', republishJobId.value]),
+  queryFn: () => pollRepublish(republishJobId.value),
+  intervalMs: 2000,
+  isTerminal: (data) => !!data && REPUBLISH_TERMINAL.has(data.status),
+  enabled: computed(() => !!republishJobId.value),
+})
+
+watch(republishQuery.data, (status) => {
+  if (!status) return
+  republishStage.value = status.status
+  republishMessage.value = status.message ?? ''
+  if (status.status === 'completed' || status.status === 'done') {
+    actionState.value = 'result'
+    republishJobId.value = ''
+    load()
+  } else if (status.status === 'error') {
+    flashMessage.value = status.message ?? '发布过程出错'
+    actionState.value = 'idle'
+    republishJobId.value = ''
   }
-  poll()
-}
+})
 
 const finishRepublish = () => {
   actionState.value = 'idle'
@@ -244,10 +258,6 @@ const refreshCycleStatus = async () => {
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(load)
-onUnmounted(() => {
-  if (recheckTimer) clearTimeout(recheckTimer)
-  if (republishTimer) clearTimeout(republishTimer)
-})
 </script>
 
 <template>

@@ -15,10 +15,11 @@
 // Unmount cancellation is likewise vue-query's own behavior: the interval
 // stops the moment the component unmounts and the query observer is torn
 // down, with no separate teardown needed here.
+import type { ComputedRef } from 'vue'
 import { keepPreviousData, useQuery, type QueryKey, type UseQueryReturnType } from '@tanstack/vue-query'
 
 export interface UsePolledQueryOptions<T> {
-  queryKey: QueryKey
+  queryKey: QueryKey | ComputedRef<QueryKey>
   queryFn: (context: { signal: AbortSignal }) => Promise<T>
   /** Poll interval (ms) while healthy (zero consecutive failures). */
   intervalMs: number
@@ -26,6 +27,8 @@ export interface UsePolledQueryOptions<T> {
   maxIntervalMs?: number
   /** When true for the current data, polling stops entirely (e.g. campaign done). */
   isTerminal?: (data: T | undefined) => boolean
+  /** Skip fetching/polling entirely while false (e.g. a required id is empty). */
+  enabled?: boolean | ComputedRef<boolean>
 }
 
 /**
@@ -50,6 +53,7 @@ export function usePolledQuery<T>(
   return useQuery({
     queryKey: opts.queryKey,
     queryFn: opts.queryFn,
+    enabled: opts.enabled ?? true,
     placeholderData: keepPreviousData, // no skeleton flash on each poll tick
     refetchInterval: (query) => {
       if (opts.isTerminal?.(query.state.data as T | undefined)) return false
