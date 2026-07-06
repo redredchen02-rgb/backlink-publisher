@@ -4,6 +4,7 @@ type: feat
 status: parked
 date: 2026-07-06
 origin: docs/audits/2026-07-03-webui-feature-error-backlog.md
+claims: {}
 ---
 
 # feat: Capture StateBlock gracefully-handled errors in the error-reporting dashboard

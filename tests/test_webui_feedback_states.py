@@ -169,6 +169,50 @@ def test_index_error_path_routes_through_classify_error():
     assert "onRetry: () => window.location.reload()" in _INDEX_JS
 
 
+# ── health bar: "never published yet" vs a real degraded state (Plan 2026-07-02-001 U15 B2) ──
+
+def test_health_bar_distinguishes_never_published_from_real_degraded():
+    """_initHealthBar shows the neutral 'pending' state (not the alarming
+    'degraded' state) ONLY when degraded_reasons is exactly ['pipeline:never_run'].
+    Any other or additional reason must still render as 'degraded' -- the safe
+    case is allowlisted, not the dangerous case denylisted, so an unrecognized
+    future reason code defaults to the alarming treatment rather than silently
+    being treated as safe (see docs/solutions/logic-errors/
+    projector-silent-drop-status-vocabulary-drift-2026-05-26.md for why the
+    inverse would be unsafe)."""
+    assert "reasons.length === 1 && reasons[0] === 'pipeline:never_run'" in _INDEX_JS
+    assert "bar.classList.toggle('pending', neverPublished)" in _INDEX_JS
+    assert "bar.classList.toggle('degraded', !healthy && !neverPublished)" in _INDEX_JS
+
+
+def test_health_bar_pending_state_has_distinct_icon_and_copy():
+    """The pending state gets its own icon/copy -- never falls back to the
+    alarming "系统降级" text used for a genuine failure."""
+    assert "icon.textContent = healthy ? '✅' : (neverPublished ? 'ℹ️' : '⚠️')" in _INDEX_JS
+    assert "尚未发布任何内容" in _INDEX_JS
+    assert "系统降级" in _INDEX_JS  # the alarming copy still exists for real degraded states
+
+
+def test_health_bar_pending_css_reuses_info_soft_token():
+    """.pending reuses the existing --info-soft token -- no new raw color literal,
+    so tests/test_webui_css_no_raw_colors.py's ceiling budget is untouched."""
+    css = (_JS_DIR.parent / "css" / "index.css").read_text(encoding="utf-8")
+    assert ".health-summary-bar.pending" in css
+    assert "background: var(--info-soft);" in css
+
+
+def test_health_bar_never_run_literal_matches_backend():
+    """index.js's neverPublished check hardcodes the same 'pipeline:never_run'
+    string health_projection.py emits for an empty publish history. If either
+    side is ever renamed without the other, this test fails loudly instead of
+    the presentational fix silently regressing to always showing 'degraded'."""
+    backend_src = (
+        Path(__file__).resolve().parents[1] / "webui_app" / "services" / "health_projection.py"
+    ).read_text(encoding="utf-8")
+    assert '"pipeline:never_run"' in backend_src
+    assert "reasons[0] === 'pipeline:never_run'" in _INDEX_JS
+
+
 # test_settings_error_path_routes_through_classify_error removed — settings.js
 # retired in U8 (Plan 2026-06-18-002).
 

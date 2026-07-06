@@ -341,7 +341,7 @@ function _initHealthBar() {
   }).catch(() => { /* fail-open: no bar shown on error */ });
 
   // Dismiss handler
-  delegate(bar, '[data-action="health-bar-dismiss"]', 'click', () => {
+  delegate(bar, 'click', '[data-action="health-bar-dismiss"]', () => {
     bar.classList.add('d-none');
     try { sessionStorage.setItem(DISMISS_KEY, '1'); } catch (_) { /* ignore */ }
   });
