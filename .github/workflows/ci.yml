@@ -123,29 +123,29 @@ jobs:
       - name: Validate syntax (py_compile + ast.parse)
         run: |
           python -c "
-import py_compile, ast, sys, pathlib
-root = pathlib.Path('.')
-errors = 0
-for f in sorted(root.rglob('*.py')):
-    if any(p in f.parts for p in ('__pycache__', '.venv', 'node_modules', '.mypy_cache', '.pytest_cache')):
-        continue
-    # py_compile
-    try:
-        py_compile.compile(f, doraise=True)
-    except py_compile.PyCompileError as e:
-        print(f'[FAIL] py_compile: {e}')
-        errors += 1
-    # ast.parse (catches syntax errors py_compile might miss)
-    try:
-        ast.parse(f.read_text(encoding='utf-8'))
-    except SyntaxError as e:
-        print(f'[FAIL] ast.parse: {f}: {e}')
-        errors += 1
-if errors:
-    sys.exit(f'❌ {errors} file(s) failed syntax validation')
-else:
-    print(f'✅ All {len(list(root.rglob(\"*.py\")))} Python files passed syntax validation')
-"
+          import py_compile, ast, sys, pathlib
+          root = pathlib.Path('.')
+          errors = 0
+          for f in sorted(root.rglob('*.py')):
+              if any(p in f.parts for p in ('__pycache__', '.venv', 'node_modules', '.mypy_cache', '.pytest_cache')):
+                  continue
+              # py_compile
+              try:
+                  py_compile.compile(f, doraise=True)
+              except py_compile.PyCompileError as e:
+                  print(f'[FAIL] py_compile: {e}')
+                  errors += 1
+              # ast.parse (catches syntax errors py_compile might miss)
+              try:
+                  ast.parse(f.read_text(encoding='utf-8'))
+              except SyntaxError as e:
+                  print(f'[FAIL] ast.parse: {f}: {e}')
+                  errors += 1
+          if errors:
+              sys.exit(f'❌ {errors} file(s) failed syntax validation')
+          else:
+              print(f'✅ All {len(list(root.rglob(\"*.py\")))} Python files passed syntax validation')
+          "
 
       - name: Check code style (ruff)
         run: |
