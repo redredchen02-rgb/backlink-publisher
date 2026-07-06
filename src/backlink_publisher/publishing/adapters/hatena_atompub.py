@@ -256,6 +256,7 @@ class HatenaAtomPubAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: hatena-atompub-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Hatena publish failed ({type(exc).__name__}): {exc}"

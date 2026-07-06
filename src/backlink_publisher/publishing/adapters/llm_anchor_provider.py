@@ -41,6 +41,7 @@ from backlink_publisher._util.errors import DependencyError, ExternalServiceErro
 from backlink_publisher.http import post as http_post
 from backlink_publisher.llm.client import _redact_for_log, _sanitize_input
 
+from .base import TransientError
 from .retry import retry_transient_call
 
 log = logging.getLogger(__name__)
@@ -142,6 +143,7 @@ class OpenAICompatibleProvider:
                 adapter="llm-article-provider",
             )
             return str(data["choices"][0]["message"]["content"])
+        # debt: llm-anchor-provider-generation-methods-accepted
         except Exception as exc:
             log.warning(f"LLM article generation failed, falling back to template: {exc}")
             raise
@@ -173,6 +175,7 @@ class OpenAICompatibleProvider:
                 adapter="llm-image-prompt-generator",
             )
             return str(data["choices"][0]["message"]["content"]).strip()
+        # debt: llm-anchor-provider-generation-methods-accepted
         except Exception as exc:
             log.warning(f"Image prompt generation failed: {exc}")
             return f"Professional article cover for: {title}"
@@ -188,6 +191,7 @@ class OpenAICompatibleProvider:
             )
         except (ExternalServiceError, DependencyError):
             raise
+        # debt: llm-anchor-provider-generation-methods-accepted
         except Exception as exc:
             raise DependencyError(
                 f"LLM provider call failed: {_redact_for_log(str(exc))}"
@@ -205,11 +209,11 @@ class OpenAICompatibleProvider:
         resp = http_post(url, json=body, headers=headers, timeout=self.timeout_s)
         if resp.status_code == 429:
             # Surface as a transient error so retry_transient_call retries.
-            raise _TransientHTTPError(429, _redact_for_log(resp.text))
+            raise TransientError(429, _redact_for_log(resp.text))
         if 500 <= resp.status_code < 600:
             # 5xx is also transient for this endpoint — anchor candidate
             # generation is read-only, so duplicate calls are safe.
-            raise _TransientHTTPError(resp.status_code, _redact_for_log(resp.text))
+            raise TransientError(resp.status_code, _redact_for_log(resp.text))
         if resp.status_code >= 400:
             raise DependencyError(
                 f"LLM provider returned HTTP {resp.status_code}: "
@@ -343,7 +347,8 @@ class OpenAICompatibleProvider:
             )
         except (ExternalServiceError, DependencyError):
             raise
-        except Exception as exc:  # noqa: BLE001
+        # debt: llm-anchor-provider-generation-methods-accepted
+        except Exception as exc:
             raise DependencyError(
                 f"LLM comment draft call failed: {_redact_for_log(str(exc))}"
             ) from exc
@@ -358,18 +363,10 @@ class OpenAICompatibleProvider:
 # ── helpers (module-private, exposed for testing) ─────────────────────────
 
 
-class _TransientHTTPError(Exception):
-    """Internal marker so ``_is_retryable`` recognises retry-worthy HTTP errors."""
-
-    def __init__(self, status: int, body: str) -> None:
-        super().__init__(f"transient HTTP {status}: {body}")
-        self.status = status
-
-
 def _is_retryable(exc: Exception) -> bool:
     if isinstance(exc, (ExternalServiceError, DependencyError)):
         return False
-    if isinstance(exc, _TransientHTTPError):
+    if isinstance(exc, TransientError):
         return True
     if isinstance(exc, (ReqTimeout, ReqConnError)):
         return True

@@ -33,7 +33,7 @@ from backlink_publisher.linkcheck.http import check_urls_strict
 # engine triggers registration itself rather than rely on the caller — mirrors
 # ledger.aggregate's self-population so the engine is correct in-process even if
 # no shell imported adapters first.
-import backlink_publisher.publishing.adapters  # noqa: F401,E402
+import backlink_publisher.publishing.adapters  # noqa: F401
 from backlink_publisher.publishing.content_negotiation import route_tier_for
 from backlink_publisher.schema import (
     _is_field_present,
@@ -86,7 +86,7 @@ def load_config_tolerant() -> Config | None:
         return load_config()
     except InputValidationError:
         raise  # cells.py fail-loud contract: unknown channel / overlap must surface
-    except Exception as exc:  # noqa: BLE001 — other config-load failures are tolerated
+    except Exception as exc:
         validate_logger.warning(
             f"config load failed ({exc}); branded_pool fallback disabled, "
             "relying on payload-emitted snapshots only"

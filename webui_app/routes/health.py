@@ -48,7 +48,7 @@ def ce_health_scorecard_links(channel: str) -> Any:
         by_channel = _g_cache("scorecard_links", _links)
         rows = by_channel.get(channel, [])
         return jsonify({"ok": True, "links": [r.to_dict() for r in rows]})
-    except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
+    except Exception as exc:
         _log.warning("health: scorecard links read failed for %s: %s", channel, exc)
         return jsonify({"ok": False, "links": []})
 
@@ -89,7 +89,7 @@ def ce_health_publish_metrics() -> Any:
                 "enforce_channels": sorted(enforce_allowlist()),
             }
         )
-    except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
+    except Exception as exc:
         _log.warning("health: publish-metrics read failed: %s", exc)
         return jsonify(
             {
@@ -184,7 +184,7 @@ def ce_health_scorecard_recheck_link() -> Any:
 
         result = recheck_link(record, probe=True, timeout=5.0)
         events_io.emit_recheck(store, [result])
-    except Exception as exc:  # noqa: BLE001 — honest failure, never 500, no half-write
+    except Exception as exc:
         _log.warning("health: scorecard recheck-link failed for %s: %s", live_url, exc)
         return jsonify({"ok": False, "error_code": "probe_failed"}), 200
 
@@ -226,7 +226,7 @@ def _reconciliation_gaps() -> Any:
         )
         gaps = int(rows[0][0]) if rows else 0
         return {"pending_checkpoints": pending, "quarantine_gaps": gaps}
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: reconciliation gap check failed: %s", exc)
         return {}
 
@@ -247,7 +247,7 @@ def _geo_panel() -> dict:
 
         rows = geo_citation_share(EventStore())
         return {"targets": rows} if rows else {}
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: geo citation-share read failed: %s", exc)
         return {}
 
@@ -261,7 +261,7 @@ def _decay_counts() -> Any:
         from ..health_metrics import decay_counts
 
         return decay_counts()
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: decay count read failed: %s", exc)
         return {}
 
@@ -278,7 +278,7 @@ def _gsc_indexation_panel() -> list[dict]:
         from ..health_metrics import indexation_status
 
         return indexation_status(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: gsc indexation panel read failed: %s", exc)
         return []
 
@@ -295,7 +295,7 @@ def _gsc_ranking_panel() -> list[dict]:
         from ..health_metrics import ranking_trend
 
         return ranking_trend(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: gsc ranking panel read failed: %s", exc)
         return []
 
@@ -305,7 +305,7 @@ def _publish_index_latency() -> list[dict]:
         from backlink_publisher.events import EventStore
         from ..health_metrics import publish_to_index_latency
         return publish_to_index_latency(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: publish-index latency read failed: %s", exc)
         return []
 
@@ -315,7 +315,7 @@ def _index_rate_by_channel() -> list[dict]:
         from backlink_publisher.events import EventStore
         from ..health_metrics import index_rate_by_channel
         return index_rate_by_channel(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: index rate by channel read failed: %s", exc)
         return []
 
@@ -325,7 +325,7 @@ def _impression_analysis() -> list[dict]:
         from backlink_publisher.events import EventStore
         from ..health_metrics import impression_analysis
         return impression_analysis(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: impression analysis read failed: %s", exc)
         return []
 
@@ -335,7 +335,7 @@ def _ranking_lift_analysis() -> list[dict]:
         from backlink_publisher.events import EventStore
         from ..health_metrics import ranking_lift_analysis
         return ranking_lift_analysis(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: ranking lift analysis read failed: %s", exc)
         return []
 
@@ -345,7 +345,7 @@ def _referral_conversion() -> list[dict]:
         from backlink_publisher.events import EventStore
         from ..health_metrics import referral_conversion
         return referral_conversion(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: referral conversion read failed: %s", exc)
         return []
 
@@ -355,7 +355,7 @@ def _cost_metrics() -> dict:
         from backlink_publisher.events import EventStore
         from ..health_metrics import cost_metrics
         return cost_metrics(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: cost metrics read failed: %s", exc)
         return {}
 
@@ -365,7 +365,7 @@ def _decisions_by_platform() -> list[dict]:
         from backlink_publisher.events import EventStore
         from ..health_metrics import decisions_by_platform
         return decisions_by_platform(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: decisions by platform read failed: %s", exc)
         return []
 
@@ -398,7 +398,7 @@ def _decay_alerts() -> list[dict]:
             {"target_url": r["target_url"], "lost_count": r["lost_count"], "ts": r["ts_utc"]}
             for r in rows
         ]
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: decay alerts read failed: %s", exc)
         return []
 
@@ -459,7 +459,7 @@ def _pipeline_summary() -> Any:
             result["last_recheck"] = None
 
         return result
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _log.warning("health: pipeline summary failed: %s", exc)
         return {}
 
@@ -518,7 +518,7 @@ def _storage_health() -> Any:
                     articles_rows = con.execute(
                         "SELECT COUNT(*) FROM articles"
                     ).fetchone()[0]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             _log.debug("health: events.db row count failed: %s", exc)
 
         return {
@@ -532,7 +532,7 @@ def _storage_health() -> Any:
                 or events_rows > _EVENTS_WARN_ROWS
             ),
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _log.warning("health: storage health failed: %s", exc)
         return {}
 
@@ -554,7 +554,7 @@ def ce_health() -> Any:
         projection = project_on_read()
         try:
             health = build_health()
-        except Exception as exc:  # noqa: BLE001 — R5: degrade, never 500 the page
+        except Exception as exc:
             _log.warning("health: aggregation failed, rendering degraded: %s", exc)
             health = Health(
                 window_days=DEFAULT_WINDOW_DAYS,
@@ -594,7 +594,7 @@ def ce_health() -> Any:
                     "last_drift_at": rec.get("last_drift_at"),
                 })
             return rows
-        except Exception as exc:  # noqa: BLE001 — never 500 the page on canary
+        except Exception as exc:
             _log.warning("health: canary read failed: %s", exc)
             return []
 
@@ -621,7 +621,7 @@ def ce_health() -> Any:
                     "last_drift_at": rec.get("last_drift_at"),
                 })
             return rows
-        except Exception as exc:  # noqa: BLE001 — never 500 the page
+        except Exception as exc:
             _log.warning("health: forward-path read failed: %s", exc)
             return []
 
@@ -638,7 +638,7 @@ def ce_health() -> Any:
             from backlink_publisher.scorecard import build_channel_scorecard
 
             return [r.to_jsonl_dict() for r in build_channel_scorecard()]
-        except Exception as exc:  # noqa: BLE001 — never 500 the page on scorecard
+        except Exception as exc:
             _log.warning("health: channel scorecard read failed: %s", exc)
             return []
 
@@ -648,7 +648,7 @@ def ce_health() -> Any:
             from backlink_publisher.health.aggregate import build_platform_health
             cfg = _g_cache('config', load_config)
             return build_platform_health(cfg)
-        except Exception as exc:  # noqa: BLE001 — never 500 the page
+        except Exception as exc:
             _log.warning("health: platform_health build failed: %s", exc)
             return {}
 
@@ -662,7 +662,7 @@ def ce_health() -> Any:
                 for url, cfg in targets.items()
                 if cfg.get("alert_pending")
             ]
-        except Exception:  # noqa: BLE001
+        except Exception:
             return []
 
     def _weights_snapshot() -> Any:
@@ -719,7 +719,7 @@ def ce_health() -> Any:
             decisions_by_platform=decisions,
             active_page='health',
         )
-    except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500
+    except Exception as exc:
         _log.error("health: dashboard render failed, serving minimal fallback: %s", exc)
         return _FALLBACK_HTML, 200
 
@@ -841,6 +841,6 @@ def api_admin_errors():
             "server_side_24h": fivexx_equiv,
             "decision_distribution": decision_dist,
         })
-    except Exception as exc:  # noqa: BLE001 — internal error endpoint must not 500 itself
+    except Exception as exc:
         _log.warning("admin/errors read failed: %s", exc)
         return jsonify({"ok": False, "error": str(exc)}), 200

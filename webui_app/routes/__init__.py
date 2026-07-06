@@ -12,7 +12,7 @@ def register_blueprints(app: Flask) -> None:
     from ..api.v1 import register_api_error_handlers
 
     # llm_bp deregistered in U8 5b; module kept as patch surface for test_webui_unit3_security.
-    from . import llm as _llm_patch_surface  # noqa: F401 — retain module for test patching
+    from . import llm as _llm_patch_surface
     from .batch import bp as batch_bp
     from .batch_campaign import bp as batch_campaign_bp
     from .batch_sites import bp as batch_sites_bp

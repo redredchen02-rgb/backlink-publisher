@@ -181,6 +181,7 @@ class TumblrAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: tumblr-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Tumblr publish failed ({type(exc).__name__}): {exc}"

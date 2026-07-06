@@ -33,7 +33,7 @@ from collections import OrderedDict
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from functools import lru_cache
 import os
-import socket  # noqa: F401 — kept for test patch backward compat
+import socket
 import ssl
 import threading
 import time
@@ -48,7 +48,7 @@ from backlink_publisher._util.net_safety import (
 )
 from backlink_publisher._util.url import normalize_url_for_fetch
 
-from ._disk_cache import disk_cache_clear, disk_cache_get, disk_cache_set  # noqa: F401
+from ._disk_cache import disk_cache_clear, disk_cache_get, disk_cache_set
 from ._fetch_helpers import _cache_key, _is_transient, _is_valid_http_url
 from ._fetch_settings import (
     _body_too_small_bytes,
@@ -141,7 +141,7 @@ def reset_cache() -> None:
     _CACHE.clear()
     try:
         disk_cache_clear()
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
 
@@ -232,7 +232,7 @@ def _check_once(
     except (OSError, ValueError) as exc:
         # Network-level errors (connection refused, DNS failure, etc.)
         return False, "network_error", None
-    except Exception as exc:  # noqa: BLE001 — log programming errors
+    except Exception as exc:
         opencli_logger.warning(
             "content_fetch: unexpected error for %s: %s %s", url, type(exc).__name__, exc
         )
@@ -244,12 +244,12 @@ def _check_once(
 
     try:
         body = read_html_head_window(resp, _head_scan_bytes())
-    except Exception:  # noqa: BLE001
+    except Exception:
         return False, "network_error", None
     finally:
         try:
             resp.close()
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     title = extract_title(body)
@@ -437,7 +437,7 @@ def verify_urls_batch(
                     # returned value too so eviction can't lose it before the
                     # result dict is built.
                     results_by_canonical[c] = fut.result()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     results_by_canonical[c] = _NETWORK_ERROR
                     # Cache the failure so a repeat call doesn't re-raise.
                     with _CACHE_LOCK:

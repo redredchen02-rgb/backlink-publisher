@@ -126,7 +126,7 @@ def register_api_error_handlers(app: Flask) -> None:
         return problem_response(exc)
 
     @app.errorhandler(404)
-    def _handle_404(exc):  # noqa: ANN001
+    def _handle_404(exc):
         if request.path.startswith("/api/v1"):
             return problem_response(
                 ApiProblem(
@@ -139,7 +139,7 @@ def register_api_error_handlers(app: Flask) -> None:
         return exc.get_response()
 
     @app.errorhandler(405)
-    def _handle_405(exc):  # noqa: ANN001
+    def _handle_405(exc):
         if request.path.startswith("/api/v1"):
             return problem_response(
                 ApiProblem(405, "Method Not Allowed", error_class="method_not_allowed")

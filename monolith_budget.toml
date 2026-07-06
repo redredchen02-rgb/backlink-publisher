@@ -185,8 +185,8 @@ ceiling = 260
 rationale = "Audit KEEP (2026-06-15): config dataclasses + constants. radon SLOC 222 across 30 frozen dataclasses with near-zero logic — this IS the config schema SSoT (blogger/medium/oauth/targets/throttle). Splitting would just re-distribute declarations the loader + writer both walk end-to-end. Ceiling 260 = round_up_to_10(222+30)."
 
 [files."src/backlink_publisher/publishing/registry.py"]
-ceiling = 340
-rationale = "Optimization (2026-07-03): added get_platform_throttle_seconds() helper to consolidate adapter throttle lookups (18 adapters now use this instead of individual load_config() calls). SLOC 314 after addition. Ceiling 340 = round_up_to_10(314+30) per policy."
+ceiling = 364
+rationale = "Plan 2026-07-06-002 Unit B2: pre-emptive raise (92.4% of prior 340 ceiling; re-measured SLOC=314, unchanged) so this file does not hard-fail mid-way through the concurrently-active v0.6.0 upgrade plan (docs/plans/2026-07-02-001-opt-v060-uiux-pipeline-upgrade-plan.md), whose U10 per-platform-lane parallelization is documented as touching this file. Coordination check performed: no branch in this workspace (all local worktree branches, origin/*, gitlab/*) has a commit ahead of main touching registry.py, and v0.6.0's own U10 Files list does not name registry.py directly -- no live in-flight work found to conflict with, so this raise proceeds unilaterally per plan fallback guidance. Ceiling set to the maximum this PR can take without itself tripping tests/test_no_monolith_regrowth.py::test_policy_to_seed_drift's unconditional SEED_HEADROOM_MAX=50 anti-drift gate (ceiling-SLOC<=50, no rationale override exists): 314+50=364, materially larger than the standard round_up_to_10(SLOC+30)=350 ratchet would give, to buffer both this plan's remaining units and v0.6.0's anticipated growth in one shot rather than a series of tiny bumps."
 
 [files."src/backlink_publisher/cli/spray_backlinks/core.py"]
 ceiling = 160
@@ -259,3 +259,56 @@ rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ran
 [files."webui_app/api/v1/spec.py"]
 ceiling = 1460
 rationale = "Plan 2026-06-18-002 U7/U8 (2026-06-22): the declarative OpenAPI 3.1 contract — explicit spec.path()/components.schema() blocks generated from schemas.py. It grows linearly per migrated endpoint group; U7's sites/schedule/batch_campaign/profiles + the Settings credential-write endpoints (channel-token/notion-token/general channel-credential) + the stateful browser-bind flow (start/poll/identity-mismatch keep+replace) + the OAuth credential routes (blogger-oauth/medium-oauth) + the LLM settings save (llm-config, 0600 api_key write) + the LLM diagnostics (test-connection/test-generation) + the image-gen diagnostics (test-connection/generate-sample) + the medium browser-login flow (launch/probe/clear + status, inline-guarded) + the global settings saves (keywords/schedule POST) + the SPA settings page read-side GET hydration (keywords/schedule/llm-config redaction-safe + the channel binding-status overview + the channel binding-FORM schemas + medium card status) + the velog channel actions (status GET + login POST, inline-guarded) + the blogger card ops (blogger/status GET + blogger/revoke POST) + the U8 Notion card status GET (notion/status, redaction-safe — never echoes the integration_token) took SLOC 452->1258, crossing the 500 canary. Splitting it would fragment the single-source contract the CI lint + oasdiff gate read. 2026-07-06: Spectral's operation-description:error rule requires an explicit description on every operation — adding the 28 missing ones took SLOC 1258->1378. Ceiling 1410 = round_up_to_10(1378+30) within the <=50 seed-headroom (1410-1378=32). Plan 2026-07-02-001 U3 (2026-07-06): added the 3 batch-ops-parity endpoint specs (history/bulk-recheck, drafts/bulk-publish-now, drafts/bulk-cancel), +48 SLOC on top of the Spectral-description growth; merged SLOC 1426. Ceiling 1460 = round_up_to_10(1426+30) per the same policy (fleet-integration merge resolution, both parents' growth retained)."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Plan 2026-07-06-002 Unit B1: hidden-debt hardening sweep — SLOC budget
+# completeness pass. These 11 files sit in the 300-370 SLOC range and were
+# never given a budget entry, so they were previously unmonitored (not
+# over-budget). Each is newly-tracked here, not newly-over-budget: no file
+# grew past a prior ceiling, they simply lacked one. Ceiling policy unchanged:
+# round_up_to_10(current_radon_SLOC + 30) per the repo ratchet.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[files."src/backlink_publisher/publishing/adapters/medium_brave.py"]
+ceiling = 400
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: macOS Brave-via-AppleScript Medium adapter (stable window/tab-id resolution, clipboard paste into the editor, keyboard-shortcut publish sequence). SLOC 366. Ceiling 400 = round_up_to_10(366+30) per policy."
+
+[files."src/backlink_publisher/keepalive/chain.py"]
+ceiling = 380
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: five-step keep-alive orchestrator (recheck -> status derivation -> gap planning -> publish -> reverify+stat feedback) with fully injectable dependencies for network-free testing. SLOC 346. Ceiling 380 = round_up_to_10(346+30) per policy."
+
+[files."src/backlink_publisher/cli/ops/probe_citations.py"]
+ceiling = 380
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: GEO AI-citation probe CLI verb wiring selection -> guard -> probe -> classify -> emit -> cursor-advance, with a dry-run-by-default cost-ceiling preview. SLOC 341. Ceiling 380 = round_up_to_10(341+30) per policy."
+
+[files."src/backlink_publisher/publishing/adapters/ghpages.py"]
+ceiling = 360
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: GitHub Pages adapter using the Contents API (no git subprocess, Bearer PAT auth) — the highest-SEO-value Phase 3 dofollow channel. SLOC 329. Ceiling 360 = round_up_to_10(329+30) per policy."
+
+[files."src/backlink_publisher/cli/_bind/chrome_backend.py"]
+ceiling = 360
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: real Chrome/CDP bind-channel backend that launches a visible profile for manual operator OAuth/2FA and exports host-filtered cookies into the shared storage_state shape. SLOC 323. Ceiling 360 = round_up_to_10(323+30) per policy."
+
+[files."src/backlink_publisher/recheck/selection.py"]
+ceiling = 350
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: age-based recheck-backlinks candidate selection sourced from the append-only publish.confirmed event stream, decoupled from the history_store->events.db migration. SLOC 315. Ceiling 350 = round_up_to_10(315+30) per policy."
+
+[files."src/backlink_publisher/cli/_seal_init.py"]
+ceiling = 350
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: phase0-seal init subcommand extracted from phase0_seal.py to keep the parent CLI module within its own SLOC ceiling. SLOC 315. Ceiling 350 = round_up_to_10(315+30) per policy."
+
+[files."src/backlink_publisher/publishing/reliability/circuit.py"]
+ceiling = 350
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: per-channel circuit breaker with half-open recovery testing, multi-error-type trip conditions, and a fail-CLOSED flock-protected JSON state file. SLOC 312. Ceiling 350 = round_up_to_10(312+30) per policy."
+
+[files."src/backlink_publisher/events/store.py"]
+ceiling = 340
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: SQLite-backed EventStore for the read-side events.db projection (sibling of JsonStore), with WAL journal mode and rebuildable-from-JSON durability tradeoffs. SLOC 308. Ceiling 340 = round_up_to_10(308+30) per policy."
+
+[files."src/backlink_publisher/cli/_bind/_driver_impl.py"]
+ceiling = 340
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: Playwright headed driver for bind-channel — storage_state path validation, lazy Playwright import, login-URL navigation, and bound_predicate polling. SLOC 306. Ceiling 340 = round_up_to_10(306+30) per policy."
+
+[files."src/backlink_publisher/publishing/adapters/medium_browser.py"]
+ceiling = 340
+rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1), not newly-over-budget: Medium browser fallback adapter using Playwright with a cookies-only auth hard-cut (medium-cookies.json), replacing the retired storage_state contract. SLOC 304. Ceiling 340 = round_up_to_10(304+30) per policy."

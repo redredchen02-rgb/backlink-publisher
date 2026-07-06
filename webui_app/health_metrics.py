@@ -42,7 +42,7 @@ def fail_open(default=None):
         def wrapper(*args, **kwargs):
             try:
                 return fn(*args, **kwargs)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 _log.warning("health_metrics: %s failed: %s", fn.__name__, exc)
                 return default() if callable(default) else default
         return wrapper
@@ -359,7 +359,7 @@ def weights_snapshot() -> dict | None:
                 for p in top3
             ],
         }
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return None
 
 
@@ -472,7 +472,7 @@ def ranking_trend(store: EventStore) -> list[dict]:
                 "trend": trend,
             })
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -584,7 +584,7 @@ def publish_to_index_latency(
             })
         out.sort(key=lambda x: -x["count"])
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -674,7 +674,7 @@ def index_rate_by_channel(
             })
         out.sort(key=lambda x: (x["index_rate"] if x["index_rate"] is not None else -1.0), reverse=True)
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -722,7 +722,7 @@ def impression_analysis(
             }
             for r in rows
         ]
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -805,7 +805,7 @@ def ranking_lift_analysis(
                 "latest_impressions": int(latest_impressions or 0),
             })
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -898,7 +898,7 @@ def referral_conversion(
             })
         out.sort(key=lambda x: -(x["referral_sessions"]))
         return out
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []
 
 
@@ -989,7 +989,7 @@ def cost_metrics(
             "cost_per_indexed_url": cost_per_indexed,
             "cost_per_ranking_gain": cost_per_gain,
         }
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return {}
 
 
@@ -1039,5 +1039,5 @@ def decisions_by_platform(
             }
             for r in rows
         ]
-    except Exception:  # noqa: BLE001 — fail-open, never 500
+    except Exception:
         return []

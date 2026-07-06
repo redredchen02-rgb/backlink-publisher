@@ -44,7 +44,7 @@ def extract_title(body: bytes) -> str | None:
     """
     try:
         soup = BeautifulSoup(body, "html.parser")
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
     og = soup.find("meta", attrs={"property": "og:title"})

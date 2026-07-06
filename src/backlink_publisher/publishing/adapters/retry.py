@@ -62,7 +62,7 @@ DEFAULT_JITTER: float = _DEFAULT_JITTER
 #
 # INVARIANT — do NOT add 5xx (or any post-create-ambiguous status) to this set.
 # Non-idempotent create POSTs (medium_api, velog_graphql, http_form_post) gate
-# their retry on `_TransientHTTPError`, which is raised ONLY for statuses in this
+# their retry on `TransientError`, which is raised ONLY for statuses in this
 # set. They rely on every member being a PRE-create rejection (like 429) that the
 # server returns before creating anything. Adding 5xx here would silently make
 # those creates retry an ambiguous failure → duplicate published posts.
@@ -212,6 +212,7 @@ def retry_transient_call(
             # These must never be retried — re-raise immediately via bare raise
             # so the caller's except block sees the original type.
             raise
+        # debt: retry-transient-call-exhausted-reraise-accepted
         except Exception as exc:
             last_exc = exc
             if not is_retryable(exc):

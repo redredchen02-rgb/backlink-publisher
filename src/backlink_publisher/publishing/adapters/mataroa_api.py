@@ -187,6 +187,7 @@ class MataroaAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: mataroa-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Mataroa publish failed ({type(exc).__name__}): {exc}"

@@ -113,7 +113,7 @@ class RealChromeBrowserRunner:
         page = _CdpPage(cdp)
         try:
             recipe.bound_predicate(page)
-        except Exception:  # noqa: BLE001 — re-raise after cleanup; predicate errors are opaque
+        except Exception:
             cdp.close()
             self._terminate_proc()
             raise
@@ -273,7 +273,7 @@ class _CdpClient:
             websocket_factory = websocket.create_connection
         try:
             self._ws = websocket_factory(ws_url, timeout=_CDP_WS_CONNECT_TIMEOUT_S)
-        except Exception as exc:  # noqa: BLE001 — websocket lib raises varies by backend
+        except Exception as exc:
             raise ChromeLaunchError("chrome_cdp_unavailable") from exc
         self._next_id = 1
         self._event_callbacks: dict[str, list[Callable[..., Any]]] = {}
@@ -338,7 +338,7 @@ class _CdpClient:
     def all_cookies(self) -> list[dict[str, Any]]:
         try:
             result = self.send("Network.getAllCookies")
-        except Exception:  # noqa: BLE001 — fallback to alternative CDP command
+        except Exception:
             result = self.send("Storage.getCookies")
         cookies = result.get("cookies", [])
         return cookies if isinstance(cookies, list) else []
@@ -346,7 +346,7 @@ class _CdpClient:
     def close(self) -> None:
         try:
             self._ws.close()
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
 

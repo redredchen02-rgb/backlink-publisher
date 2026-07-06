@@ -96,6 +96,7 @@ class _FileLock:
                     time.sleep(0.5)
             # Write PID for stale-lock detection
             os.write(self._fd, str(os.getpid()).encode())
+        # debt: medium-auth-file-lock-cleanup-reraise-accepted
         except Exception:
             _thread_lock.release()
             raise
@@ -164,6 +165,7 @@ def _load_cookies_for_probe(path: Path) -> list[dict[Any, Any]]:
     try:
         data = cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8")))
         return cast("list[dict[Any, Any]]", data.get("cookies", []))
+    # debt: medium-auth-probe-cookie-load-degrade-accepted
     except Exception:
         return []
 
@@ -227,6 +229,7 @@ def probe_login_status(config: Config, timeout: int = 15) -> dict:
         if cookies:
             try:
                 ctx.add_cookies(cookies)
+            # debt: medium-auth-probe-cookie-load-degrade-accepted
             except Exception:
                 pass  # Cookie format incompatibility; proceed without
         page = ctx.new_page()

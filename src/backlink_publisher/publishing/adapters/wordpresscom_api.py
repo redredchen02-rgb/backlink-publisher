@@ -136,6 +136,7 @@ class WordpresscomAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: wordpresscom-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"WordPress.com publish failed ({type(exc).__name__}): {exc}"

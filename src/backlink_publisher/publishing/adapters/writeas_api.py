@@ -134,6 +134,7 @@ class WriteasAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: writeas-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Write.as publish failed ({type(exc).__name__}): {exc}"

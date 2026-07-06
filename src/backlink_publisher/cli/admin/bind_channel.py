@@ -134,7 +134,7 @@ def main(argv: Sequence[str] | None = None, *, _browser_runner: Any = None) -> N
         )
         handle_error(exc)
         return  # unreachable
-    except Exception as exc:  # noqa: BLE001 — last-line defense
+    except Exception as exc:
         driver._emit(
             "channel.bind.failed",
             channel=channel,

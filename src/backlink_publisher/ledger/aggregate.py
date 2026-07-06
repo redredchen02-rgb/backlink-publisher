@@ -29,7 +29,7 @@ from backlink_publisher.publishing import registry
 # side effects. Without this the registry is empty and every link classifies as
 # ``unknown`` — so the engine must trigger registration itself rather than rely
 # on the caller having imported adapters.
-import backlink_publisher.publishing.adapters  # noqa: F401,E402
+import backlink_publisher.publishing.adapters  # noqa: F401
 from backlink_publisher.recheck.verdicts import DOFOLLOW_LOST as _DOFOLLOW_LOST
 
 from .model import DofollowBreakdown, LedgerRow, worst_liveness
@@ -65,7 +65,7 @@ def _load_confirmed_dofollow_urls(store: EventStore | None) -> frozenset[str]:
             continue
         try:
             canon = canonicalize_url(raw_url)
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
         ts = _parse_ts(row["ts_utc"])
         rid = row["id"]

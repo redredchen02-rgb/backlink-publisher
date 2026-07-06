@@ -190,7 +190,7 @@ def _baseline_for(
         for url, text in mapping.items():
             if canonicalize_url(url) == canon_target:
                 return text
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return None
 

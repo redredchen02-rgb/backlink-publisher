@@ -68,9 +68,9 @@ class ChannelRecipe:
 
 
 # Import recipes at the bottom to avoid circular imports
-from .blogger import RECIPE as _BLOGGER_RECIPE  # noqa: E402
-from .medium import RECIPE as _MEDIUM_RECIPE  # noqa: E402
-from .velog import RECIPE as _VELOG_RECIPE  # noqa: E402
+from .blogger import RECIPE as _BLOGGER_RECIPE
+from .medium import RECIPE as _MEDIUM_RECIPE
+from .velog import RECIPE as _VELOG_RECIPE
 
 RECIPES: dict[str, ChannelRecipe] = {
     "velog": _VELOG_RECIPE,

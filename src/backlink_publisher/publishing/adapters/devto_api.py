@@ -257,6 +257,7 @@ class DevtoAPIAdapter(Publisher):
             )
         except (DependencyError, ExternalServiceError):
             raise
+        # debt: devto-api-publish-boilerplate-accepted
         except Exception as exc:
             raise ExternalServiceError(
                 f"Dev.to publish failed ({type(exc).__name__}): {exc}"
