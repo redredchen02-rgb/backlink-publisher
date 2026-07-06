@@ -64,6 +64,10 @@
 
 # spray_backlinks/core.py::main decomposed (Plan 2026-06-24-002 U2): extracted
 # _handle_list_checkpoints (CC 4); main() CC 35→29 — under backstop. Entry removed.
+# Further decomposed (Plan 2026-07-06-003 U6, 2026-07-06): seed loop moved to
+# _run.py (_run_seed_loop CC 14, _process_seed CC 11, _run_burst CC 12); shell
+# epilogue split into _read_seed_rows (CC 6) / _finish_run (CC 8); main() CC 29→4.
+# Package-wide max is now CC 14 — comfortably under the backstop; no entry needed.
 # spray_backlinks/_engine.py::_run_spray was dead code (never called by main()); deleted.
 # Entry removed.
 
