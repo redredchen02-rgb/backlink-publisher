@@ -1,7 +1,7 @@
 ---
 status: pending
 priority: p2
-issue_id: "011"
+issue_id: "018"
 tags: [frontend, keepalive, race-condition, confirm-dialog]
 dependencies: []
 ---
