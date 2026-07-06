@@ -18,9 +18,7 @@ import {
 import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
-import { useNotificationsStore } from '../../stores/notifications'
 
-const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 const formQuery = useQuery({ queryKey: ['campaigns', 'form'], queryFn: getCampaignForm })
 
@@ -52,7 +50,11 @@ const submitting = ref(false)
 
 function togglePlatform(name: string): void {
   const next = new Set(selected.value)
-  next.has(name) ? next.delete(name) : next.add(name)
+  if (next.has(name)) {
+    next.delete(name)
+  } else {
+    next.add(name)
+  }
   selected.value = next
 }
 

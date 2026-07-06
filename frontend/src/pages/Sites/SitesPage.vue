@@ -27,7 +27,6 @@ import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const SITES_KEY = ['sites']
 const WIDGETS_KEY = ['sites', 'widgets']

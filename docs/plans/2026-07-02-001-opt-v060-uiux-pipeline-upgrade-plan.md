@@ -575,7 +575,7 @@ merge(lanes) -> PublishRunState:
 
 ### Phase 3 — 工具鏈與驗證
 
-- [ ] **U12: 前端工具鏈與 CI 缺口〔R12〕**
+- [x] **U12: 前端工具鏈與 CI 缺口〔R12〕**
 
 **Goal:** SPA 有 lint;後端 PR 弄壞前端能被抓到;CI 定義單源化。
 

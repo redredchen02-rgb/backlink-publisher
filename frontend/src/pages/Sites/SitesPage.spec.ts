@@ -15,7 +15,6 @@ vi.mock('../../api/sites', () => ({
 import * as api from '../../api/sites'
 import { ApiError } from '../../api/client'
 import SitesPage from './SitesPage.vue'
-import { useNotificationsStore } from '../../stores/notifications'
 
 const SITE = {
   label: 'example.com',
