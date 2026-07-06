@@ -13,6 +13,12 @@ and a catastrophic aggregator failure returns an empty ``degraded`` payload (200
 so the dashboard shows an empty/degraded state instead of a hard error — one bad
 source must never drag down the whole monitor view. Non-sensitive (status counts
 + platform names, no credentials), so it carries no GET-time origin guard.
+
+``degraded`` (R18 fix): true when the aggregator itself crashes OR when any
+individual subsystem's own try/except caught an error. Previously only the
+former set it, so a single silently-broken source could leave the
+"everything's fine" banner showing even though its own card had quietly
+degraded to 'unavailable'.
 """
 
 from __future__ import annotations
@@ -21,7 +27,11 @@ from typing import Any
 
 from flask import jsonify
 
-from ...routes.command_center import _build_anomaly_cards, _collect_subsystem_status
+from ...routes.command_center import (
+    _any_subsystem_error,
+    _build_anomaly_cards,
+    _collect_subsystem_status,
+)
 from . import bp
 
 
@@ -29,8 +39,9 @@ from . import bp
 def monitor_summary() -> Any:
     """Anomaly-first monitor cards across credentials/keepalive/equity/history."""
     try:
-        cards = _build_anomaly_cards(_collect_subsystem_status())
-        degraded = False
+        status = _collect_subsystem_status()
+        cards = _build_anomaly_cards(status)
+        degraded = _any_subsystem_error(status)
     except Exception:  # noqa: BLE001 — belt-and-suspenders; aggregator is fail-open
         # debt: monitor-summary-aggregator-fail-open
         cards, degraded = [], True

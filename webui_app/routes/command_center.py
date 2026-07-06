@@ -122,6 +122,26 @@ def _collect_subsystem_status() -> Any:
     return result
 
 
+def _any_subsystem_error(status: dict) -> bool:
+    """True when at least one subsystem in ``status`` reported a caught error.
+
+    ``_collect_subsystem_status()`` isolates every subsystem in its own
+    try/except and swaps in ``{"error": ...}`` on failure (see its
+    docstring) rather than ever propagating the exception — so a single
+    bad source degrades only its own card instead of dragging down the
+    whole aggregator. That per-subsystem isolation must not also *erase*
+    the fact that something failed at the top level (R18): before this
+    fix, the aggregator's ``degraded`` flag only flipped true when the
+    entire aggregator crashed, so a source that quietly caught its own
+    exception left the "everything's fine" banner showing even though its
+    card had degraded to an 'unavailable' state.
+    """
+    return any(
+        isinstance(sub, dict) and "error" in sub
+        for sub in status.values()
+    )
+
+
 # Severity → sort rank (lower = more urgent / more prominent). Used by the
 # monitor hub to rank cards and drive their visual weight ("today's anomalies
 # first"). Plan priority: credential-failure > stale/dead links > equity gaps.

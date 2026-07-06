@@ -64,3 +64,41 @@ def test_webui_monitor_summary_is_fail_open_on_aggregator_error(client, monkeypa
     assert body["cards"] == []
     assert body["anomaly_count"] == 0
     assert body["degraded"] is True
+
+
+def test_webui_monitor_summary_degraded_true_when_single_subsystem_errors(client, monkeypatch):
+    """Plan 2026-07-06-004 Unit 1 (R18): one subsystem's own caught error must
+    flip ``degraded``, not just a total aggregator crash — and its card must
+    still render (fail-open), not disappear because of degraded=true."""
+    status_with_one_error = {
+        "credentials": {"error": "boom"},
+        "keepalive": {"n_targets": 0, "stripped": 0, "alive": 0, "unknown": 0},
+    }
+    monkeypatch.setattr(monitor_mod, "_collect_subsystem_status", lambda: status_with_one_error)
+    monkeypatch.setattr(
+        monitor_mod,
+        "_build_anomaly_cards",
+        lambda _status: [
+            {"key": "credentials", "severity": "info", "title": "渠道凭证",
+             "headline": "状态不可用", "detail": "boom",
+             "deep_link": "/settings", "action": None},
+            {"key": "keepalive", "severity": "ok", "title": "保活",
+             "headline": "0 条链接存活", "detail": "",
+             "deep_link": "/ce:keep-alive", "action": None},
+        ],
+    )
+    resp = client.get("/api/v1/monitor/summary")
+    assert resp.status_code == 200  # degraded=true never turns into a 500
+    body = resp.get_json()
+    assert body["degraded"] is True
+    assert len(body["cards"]) == 2  # the failed subsystem's card still renders
+
+
+def test_webui_monitor_summary_degraded_false_when_all_subsystems_healthy(client, monkeypatch):
+    monkeypatch.setattr(
+        monitor_mod, "_collect_subsystem_status",
+        lambda: {"credentials": {"failed_count": 0, "n_bound": 3}},
+    )
+    monkeypatch.setattr(monitor_mod, "_build_anomaly_cards", lambda _status: [])
+    body = client.get("/api/v1/monitor/summary").get_json()
+    assert body["degraded"] is False

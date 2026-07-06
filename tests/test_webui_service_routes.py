@@ -127,12 +127,55 @@ class TestQueueDashboardRoutes:
         data = resp.get_json()
         assert data["status"] == "error"
 
-    def test_ce_retry_task_unknown_id_returns_success(self, client):
+    def test_ce_retry_task_unknown_id_returns_error(self, client):
+        """Plan 2026-07-06-004 Unit 1: the previous implementation silently
+        claimed success for a vanished/unknown task id — QueueSqliteStore's
+        conditional UPDATE now affects zero rows, and retry_task() surfaces
+        that as an error rather than pretending the retry worked."""
         resp = client.post("/ce:retry-task", data={"task_id": "nonexistent-id"})
         assert resp.status_code == 200
         assert resp.is_json
         data = resp.get_json()
+        assert data["status"] == "error"
+
+    def test_ce_retry_task_failed_task_is_reset_to_pending(self, client):
+        import uuid
+
+        from webui_store import queue_store
+        task_id = f"retry-happy-{uuid.uuid4().hex}"
+        queue_store.update(
+            lambda tasks: tasks + [{"id": task_id, "status": "failed", "error": "boom"}]
+        )
+
+        resp = client.post("/ce:retry-task", data={"task_id": task_id})
+        assert resp.status_code == 200
+        data = resp.get_json()
         assert data["status"] == "success"
+
+        tasks = {t["id"]: t for t in queue_store.load()}
+        assert tasks[task_id]["status"] == "pending"
+        assert tasks[task_id]["error"] is None
+
+    def test_ce_retry_task_processing_task_is_rejected(self, client):
+        """Plan 2026-07-06-004 Unit 1: retry must not clobber a task the
+        background scheduler (webui_app/scheduler.py::_process_queue_job) is
+        currently mid-publish on — that would risk a duplicate publish."""
+        import uuid
+
+        from webui_store import queue_store
+        task_id = f"retry-processing-{uuid.uuid4().hex}"
+        queue_store.update(
+            lambda tasks: tasks + [{"id": task_id, "status": "processing"}]
+        )
+
+        resp = client.post("/ce:retry-task", data={"task_id": task_id})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "error"
+
+        # Status must remain 'processing' — not silently flipped to pending.
+        tasks = {t["id"]: t for t in queue_store.load()}
+        assert tasks[task_id]["status"] == "processing"
 
 
 

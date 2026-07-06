@@ -10,12 +10,15 @@ Plan: docs/plans/2026-06-03-008-refactor-webui-store-sqlite-unification-plan.md
 from __future__ import annotations
 
 __tier__ = "integration"
+import contextlib
+import threading
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
 from webui_store.base import Store
 from webui_store.queue_store import (
+    TaskUpdateOutcome,
     _JSON_FILENAME,
     _SENTINEL_NAME,
     QueueSqliteStore,
@@ -131,6 +134,236 @@ class TestUpdateTask:
         store.save([{"id": f"t{i}", "status": "pending"} for i in range(5)])
         store.update_task("t2", {"status": "done"})
         assert [t["id"] for t in store.load()] == [f"t{i}" for i in range(5)]
+
+
+# ── update_task_if_status (atomic conditional UPDATE, Unit 1) ─────────────────
+
+class TestUpdateTaskIfStatus:
+    """Plan 2026-07-06-004 Unit 1: retry_task() bug fixes.
+
+    ``update_task_if_status`` must be a single atomic conditional SQL
+    UPDATE (checked via affected-row-count), not a separate read-then-write
+    — see the method's docstring for the TOCTOU race this closes against
+    ``webui_app/scheduler.py::_process_queue_job``.
+    """
+
+    def test_happy_path_updates_and_returns_updated(self, tmp_path):
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "failed", "error": "boom"}])
+        outcome = store.update_task_if_status(
+            "t1", {"status": "pending", "error": None}, forbidden_status="processing",
+        )
+        assert outcome is TaskUpdateOutcome.UPDATED
+        task = store.load()[0]
+        assert task["status"] == "pending"
+        assert task["error"] is None
+
+    def test_mirrors_status_column(self, tmp_path):
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "failed"}])
+        store.update_task_if_status(
+            "t1", {"status": "pending", "error": None}, forbidden_status="processing",
+        )
+        # get_runnable() filters on the indexed status column, not data_json.
+        assert [t["id"] for t in store.get_runnable()] == ["t1"]
+
+    def test_preserves_other_fields(self, tmp_path):
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "failed", "x": 1, "urls": ["a"]}])
+        store.update_task_if_status(
+            "t1", {"status": "pending", "error": None}, forbidden_status="processing",
+        )
+        task = store.load()[0]
+        assert task["x"] == 1
+        assert task["urls"] == ["a"]
+
+    def test_unknown_id_returns_not_found(self, tmp_path):
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "failed"}])
+        outcome = store.update_task_if_status(
+            "nonexistent", {"status": "pending", "error": None},
+            forbidden_status="processing",
+        )
+        assert outcome is TaskUpdateOutcome.NOT_FOUND
+        # untouched — no phantom row created, existing row unaffected
+        assert store.load() == [{"id": "t1", "status": "failed"}]
+
+    def test_unknown_id_on_empty_store_returns_not_found(self, tmp_path):
+        store = _store(tmp_path)
+        outcome = store.update_task_if_status(
+            "ghost", {"status": "pending", "error": None}, forbidden_status="processing",
+        )
+        assert outcome is TaskUpdateOutcome.NOT_FOUND
+
+    def test_processing_status_is_rejected_not_clobbered(self, tmp_path):
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "processing"}])
+        outcome = store.update_task_if_status(
+            "t1", {"status": "pending", "error": None}, forbidden_status="processing",
+        )
+        assert outcome is TaskUpdateOutcome.REJECTED
+        # must NOT have been silently flipped back to pending
+        assert store.load()[0]["status"] == "processing"
+
+    def test_non_processing_status_is_updated(self, tmp_path):
+        # Sanity: only the forbidden status is guarded; any other current
+        # status (pending/failed/success/done/...) is retryable.
+        store = _store(tmp_path)
+        for status in ("pending", "failed", "success", "done"):
+            store.save([{"id": "t1", "status": status}])
+            outcome = store.update_task_if_status(
+                "t1", {"status": "pending", "error": None}, forbidden_status="processing",
+            )
+            assert outcome is TaskUpdateOutcome.UPDATED, status
+
+    def test_empty_updates_raises(self, tmp_path):
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "pending"}])
+        try:
+            store.update_task_if_status("t1", {}, forbidden_status="processing")
+            assert False, "expected ValueError"
+        except ValueError:
+            pass
+
+    def test_rejects_unsafe_field_name(self, tmp_path):
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "pending"}])
+        try:
+            store.update_task_if_status(
+                "t1", {"status'; DROP TABLE tasks; --": "x"},
+                forbidden_status="processing",
+            )
+            assert False, "expected ValueError"
+        except ValueError:
+            pass
+
+    # ── Genuine interleaving: the atomic UPDATE must see LIVE status,
+    #    not a value captured earlier in Python. ─────────────────────────
+
+    def test_atomic_update_sees_live_status_not_stale_snapshot(self, tmp_path, monkeypatch):
+        """Simulates the scheduler grabbing the task for processing in the
+        exact window between our conditional UPDATE being prepared and it
+        actually executing against the database.
+
+        A single atomic SQL statement has no such window at the Python
+        level: the WHERE guard is evaluated by SQLite against the row's
+        live value at the instant the UPDATE runs. This test proves that —
+        it gates our own conditional UPDATE's ``conn.execute`` call right
+        before it fires, lets a *separate* connection (simulating the
+        scheduler thread) commit a ``'processing'`` transition while we're
+        paused, then releases us. The guard must see that fresh value and
+        reject — proving the decision is made at execution time, not from
+        an earlier Python-level read. A read-then-write implementation
+        gated the same way would instead have already decided "not
+        processing" before the pause and would incorrectly clobber the
+        scheduler's claim — exactly the race this method exists to close.
+        """
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "pending", "error": "boom"}])
+
+        real_connect = store._db.connect
+        reached_gate = threading.Event()
+        proceed = threading.Event()
+
+        class _GatedConn:
+            """Proxies a real sqlite3.Connection; pauses right before the
+            conditional retry UPDATE executes (identified by its WHERE
+            clause), so a concurrent writer can land in between."""
+
+            def __init__(self, conn):
+                self._conn = conn
+
+            def execute(self, sql, params=()):
+                if "status != ?" in sql:
+                    reached_gate.set()
+                    assert proceed.wait(timeout=5), "test deadlocked: proceed never set"
+                return self._conn.execute(sql, params)
+
+            def __getattr__(self, name):
+                return getattr(self._conn, name)
+
+        @contextlib.contextmanager
+        def gated_connect():
+            with real_connect() as conn:
+                yield _GatedConn(conn)
+
+        monkeypatch.setattr(store._db, "connect", gated_connect)
+
+        result: dict[str, TaskUpdateOutcome] = {}
+
+        def _retry():
+            result["outcome"] = store.update_task_if_status(
+                "t1", {"status": "pending", "error": None},
+                forbidden_status="processing",
+            )
+
+        retry_thread = threading.Thread(target=_retry)
+        retry_thread.start()
+        assert reached_gate.wait(timeout=5), "retry call never reached its UPDATE"
+
+        # "Scheduler" thread wins the race: claims the task via a plain,
+        # ungated update_task() call while our retry is paused mid-flight.
+        store.update_task("t1", {"status": "processing"})
+        proceed.set()
+        retry_thread.join(timeout=5)
+
+        assert result["outcome"] is TaskUpdateOutcome.REJECTED
+        # Never clobbered back to 'pending' despite our stale-looking read.
+        assert store.load()[0]["status"] == "processing"
+
+    def test_atomic_update_wins_when_it_runs_before_scheduler_claims_task(
+        self, tmp_path, monkeypatch,
+    ):
+        """Mirror case: if our conditional UPDATE reaches SQLite strictly
+        before the scheduler's claim, the retry legitimately succeeds and
+        the scheduler's subsequent claim attempt (via plain update_task,
+        which is unconditional) would be the one that "wins" afterwards —
+        this just pins that a live 'pending' row is retryable at all under
+        the same gated harness used above."""
+        store = _store(tmp_path)
+        store.save([{"id": "t1", "status": "failed", "error": "boom"}])
+
+        real_connect = store._db.connect
+        reached_gate = threading.Event()
+        proceed = threading.Event()
+
+        class _GatedConn:
+            def __init__(self, conn):
+                self._conn = conn
+
+            def execute(self, sql, params=()):
+                if "status != ?" in sql:
+                    reached_gate.set()
+                    assert proceed.wait(timeout=5), "test deadlocked: proceed never set"
+                return self._conn.execute(sql, params)
+
+            def __getattr__(self, name):
+                return getattr(self._conn, name)
+
+        @contextlib.contextmanager
+        def gated_connect():
+            with real_connect() as conn:
+                yield _GatedConn(conn)
+
+        monkeypatch.setattr(store._db, "connect", gated_connect)
+
+        result: dict[str, TaskUpdateOutcome] = {}
+
+        def _retry():
+            result["outcome"] = store.update_task_if_status(
+                "t1", {"status": "pending", "error": None},
+                forbidden_status="processing",
+            )
+
+        retry_thread = threading.Thread(target=_retry)
+        retry_thread.start()
+        assert reached_gate.wait(timeout=5)
+        # No concurrent claim this time — release immediately.
+        proceed.set()
+        retry_thread.join(timeout=5)
+
+        assert result["outcome"] is TaskUpdateOutcome.UPDATED
+        assert store.load()[0]["status"] == "pending"
 
 
 # ── get_runnable filtering ────────────────────────────────────────────────────
