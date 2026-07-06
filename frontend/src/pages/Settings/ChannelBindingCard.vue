@@ -9,7 +9,7 @@
 // Secrets are never pre-filled: a password field shows a "已设置" placeholder when
 // bound and a blank submit preserves the stored value (leave-as-is). oauth /
 // browser-login channels are not here — they get card actions in a later slice.
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   getChannelForms,
@@ -22,6 +22,7 @@ import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
@@ -62,18 +63,59 @@ const state = computed<FourState>(() => {
 const edits = reactive<Record<string, Record<string, string>>>({})
 const savingSlug = ref<string | null>(null)
 
+// Plan 2026-07-06-005 W2 — this card's hydration was already non-destructive
+// (the loop below only ever seeds a *missing* field key blank, it never
+// overwrites a key that's already present — so a refetch triggered while
+// mid-edit never clobbers `edits`). What it lacked was dirty tracking for the
+// route-leave guard / beforeunload handler.
+//
+// It deliberately does NOT reuse `useSnapshotDirty`'s single-baseline
+// approach: that composable snapshots the *whole* source once and diffs
+// against it, but here new keys get seeded into `edits` incrementally as
+// more channel forms/fields stream in (each seed pass would otherwise look
+// like "the user changed something" even though nothing was typed). Instead,
+// `lastSeeded` mirrors only the seeded *blank defaults* — every key in it is
+// updated in lockstep with `edits` at seed time (both blank, so no apparent
+// diff) and left alone afterwards, so a real edit is exactly the divergence
+// between `edits` and `lastSeeded` for that key. Reactive (not a plain
+// object) so `markSlugClean()` — called after a successful save, even one
+// that doesn't itself mutate `edits` (the "清除" path) — reliably triggers
+// the `dirty` computed below to re-evaluate.
+const lastSeeded = reactive<Record<string, Record<string, string>>>({})
+
+function markSlugClean(slug: string): void {
+  lastSeeded[slug] = { ...(edits[slug] ?? {}) }
+}
+
 watch(
   () => formsQuery.data.value,
   (data) => {
     for (const f of data?.forms ?? []) {
       if (!edits[f.slug]) edits[f.slug] = {}
+      if (!lastSeeded[f.slug]) lastSeeded[f.slug] = {}
       for (const fld of f.fields) {
-        if (!(fld.name in edits[f.slug])) edits[f.slug][fld.name] = ''
+        if (!(fld.name in edits[f.slug])) {
+          edits[f.slug][fld.name] = ''
+          lastSeeded[f.slug][fld.name] = ''
+        }
       }
     }
   },
   { immediate: true },
 )
+
+const dirty = computed(() => JSON.stringify(edits) !== JSON.stringify(lastSeeded))
+
+const dirtyStore = useSettingsDirtyStore()
+watch(
+  dirty,
+  (v) => {
+    if (v) dirtyStore.setDirty('settings-channel-binding', '渠道凭据绑定')
+    else dirtyStore.clearDirty('settings-channel-binding')
+  },
+  { immediate: true },
+)
+onUnmounted(() => dirtyStore.clearDirty('settings-channel-binding'))
 
 function isBound(slug: string): boolean {
   return Boolean(boundMap.value[slug]?.bound)
@@ -106,6 +148,11 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
     const r = await save(form.slug, body)
     notify.push(r.message, r.ok ? 'success' : 'info')
     if (!clear) clearSecretInputs(form)
+    // This slug's fields now match what was just persisted — re-baseline so
+    // it stops counting toward the route-leave guard's dirty set. (The
+    // `clear` path never touched `edits`, but re-baselining is still correct
+    // and cheap: it's a no-op diff-wise.)
+    markSlugClean(form.slug)
     await Promise.all([
       qc.invalidateQueries({ queryKey: ['settings', 'channels'] }),
       qc.invalidateQueries({ queryKey: ['settings', 'channel-forms'] }),

@@ -13,6 +13,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import BloggerCard from './BloggerCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 let pinia: ReturnType<typeof createPinia>
 
@@ -40,6 +41,14 @@ function mountCard() {
   return mount(BloggerCard, {
     global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
   })
+}
+
+function mountCardWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(BloggerCard, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
 }
 
 function btn(w: ReturnType<typeof mountCard>, text: string) {
@@ -148,5 +157,32 @@ describe('BloggerCard', () => {
     await btn(w, '取消')!.trigger('click')
     expect(w.find('[role="dialog"]').exists()).toBe(false)
     expect(api.revokeBlogger).not.toHaveBeenCalled()
+  })
+
+  it('REGRESSION (W2): unsaved client_id edit survives a non-focus query-data change', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    await w.find('#bg-cid').setValue('typed-cid.apps')
+
+    queryClient.setQueryData(['settings', 'blogger-status'], statusValue({ client_id: 'server-cid.apps' }))
+    await flushPromises()
+
+    expect((w.find('#bg-cid').element as HTMLInputElement).value).toBe('typed-cid.apps')
+  })
+
+  it('marks the card dirty while editing and clean again after a successful save', async () => {
+    vi.mocked(api.saveBloggerOauth).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountCard()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('#bg-cid').setValue('typing…')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('Blogger')
+
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
   })
 })

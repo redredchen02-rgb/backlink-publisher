@@ -20,6 +20,7 @@ import {
 } from '../../api/settings'
 import { ApiError } from '../../api/client'
 import { useErrorToast } from '../../composables/useErrorToast'
+import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
 import StateBlock from '../../components/StateBlock.vue'
 import { useNotificationsStore } from '../../stores/notifications'
 
@@ -53,10 +54,18 @@ const form = reactive({
 const hasApiKey = ref(false)
 const hasImageGenApiKey = ref(false)
 
+// Plan 2026-07-06-005 W2 — hydration-overwrite fix: while the operator has
+// unsaved edits anywhere in this (largest) form, a query refetch must not
+// clobber them. `markClean()` re-baselines right after a hydration actually
+// runs, including the one echoing this card's own successful save/clear
+// (where the two API-key fields get programmatically blanked).
+const { dirty, markClean } = useSnapshotDirty('settings-llm', '进阶 LLM 整合', () => form)
+
 watch(
   () => query.data.value,
   (d) => {
     if (!d) return
+    if (dirty.value) return
     form.endpoint = d.endpoint
     form.model = d.model
     form.temperature = d.temperature
@@ -70,6 +79,7 @@ watch(
     hasApiKey.value = d.has_api_key
     hasImageGenApiKey.value = d.has_image_gen_api_key
     // secrets intentionally stay blank — never hydrated from the server.
+    markClean()
   },
   { immediate: true },
 )
@@ -112,6 +122,7 @@ async function onSave(): Promise<void> {
     notify.push(r.message || 'LLM 设定已保存', 'success')
     form.api_key = ''
     form.image_gen_api_key = ''
+    markClean()
     await query.refetch()
   } catch (e) {
     if (e instanceof ApiError && e.status === 422) {
@@ -135,6 +146,7 @@ async function onClear(): Promise<void> {
     form.image_gen_api_key = ''
     connResult.value = genResult.value = null
     imgResult.value = sampleResult.value = null
+    markClean()
     await query.refetch()
   } catch (e) {
     toastError(e)

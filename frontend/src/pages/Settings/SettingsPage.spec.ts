@@ -63,6 +63,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import SettingsPage from './SettingsPage.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 let pinia: ReturnType<typeof createPinia>
 
@@ -110,6 +111,19 @@ function mountPage() {
   })
 }
 
+/** Like mountPage(), but also hands back the QueryClient so a test can push
+ *  new cache data directly (`setQueryData`) — simulating a refetch triggered
+ *  by something *other* than window focus (invalidation elsewhere, a manual
+ *  refetch, revisiting the route), which is exactly the trigger W1's
+ *  `refetchOnWindowFocus: false` does NOT cover. */
+function mountPageWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(SettingsPage, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
+}
+
 describe('SettingsPage — global config', () => {
   it('hydrates the keyword editor and the schedule form from GET', async () => {
     const w = mountPage()
@@ -155,5 +169,93 @@ describe('SettingsPage — global config', () => {
     expect(api.saveScheduleSettings).toHaveBeenCalled()
     const notify = useNotificationsStore()
     expect(notify.toasts.at(-1)?.severity).toBe('success')
+  })
+})
+
+describe('SettingsPage — W2 hydration-overwrite regression + dirty tracking', () => {
+  it('REGRESSION: unsaved keyword-pool edits survive a query-data change that is NOT a window-focus refetch', async () => {
+    const { wrapper: w, queryClient } = mountPageWithClient()
+    await flushPromises()
+    await w.find('textarea').setValue('unsaved-keyword-edit')
+
+    // Simulate a refetch triggered by something other than window focus —
+    // e.g. a cache invalidation fired from elsewhere in the app, or TanStack
+    // re-delivering data after a background refetch. Before the W2 fix this
+    // silently clobbered the textarea.
+    queryClient.setQueryData(['settings', 'keywords'], {
+      targets: ['https://x.com'],
+      pools: { 'https://x.com': ['server', 'updated'] },
+    })
+    await flushPromises()
+
+    expect((w.find('textarea').element as HTMLTextAreaElement).value).toBe(
+      'unsaved-keyword-edit',
+    )
+  })
+
+  it('REGRESSION: unsaved schedule edits survive a non-focus query-data change', async () => {
+    const { wrapper: w, queryClient } = mountPageWithClient()
+    await flushPromises()
+    await w.find('#min-int').setValue('9')
+
+    queryClient.setQueryData(['settings', 'schedule'], {
+      min_interval_hours: 4,
+      jitter_minutes: 30,
+    })
+    await flushPromises()
+
+    expect((w.find('#min-int').element as HTMLInputElement).value).toBe('9')
+  })
+
+  it('marks the keyword-pool card dirty while editing, and clean again after a successful save', async () => {
+    vi.mocked(api.saveKeywordPools).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountPage()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('textarea').setValue('typing…')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('SEO 关键词池')
+
+    await w.find('[data-test="keyword-form"]').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
+  })
+
+  it('marks the schedule card dirty independently of the keyword-pool card', async () => {
+    const w = mountPage()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+
+    await w.find('#min-int').setValue('12')
+    expect(dirtyStore.dirtyLabels).toEqual(['排程发布设定'])
+
+    await w.find('textarea').setValue('also typing')
+    expect(dirtyStore.dirtyLabels.slice().sort()).toEqual(
+      ['排程发布设定', 'SEO 关键词池'].sort(),
+    )
+  })
+
+  it('does not carry dirty state from a previous save into the next hydration round-trip', async () => {
+    vi.mocked(api.saveScheduleSettings).mockResolvedValue({ ok: true, message: 'ok' })
+    const { wrapper: w, queryClient } = mountPageWithClient()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+
+    await w.find('#min-int').setValue('9')
+    await w.find('[data-test="schedule-form"]').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    // A later, unrelated refetch (still not window-focus) should be allowed
+    // through since nothing is dirty anymore.
+    queryClient.setQueryData(['settings', 'schedule'], {
+      min_interval_hours: 6,
+      jitter_minutes: 15,
+    })
+    await flushPromises()
+    expect((w.find('#min-int').element as HTMLInputElement).value).toBe('6')
+    expect(dirtyStore.anyDirty).toBe(false)
   })
 })

@@ -13,6 +13,7 @@ import { getNotionStatus, saveNotionToken, clearNotionToken } from '../../api/se
 import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
+import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -43,10 +44,19 @@ const state = computed<FourState>(() => {
 const form = reactive({ integration_token: '', database_id: '' })
 const saving = ref(false)
 
+// Plan 2026-07-06-005 W2 — hydration-overwrite fix; see BloggerCard's
+// identical comment for the full rationale (same shape: a secret field that
+// gets programmatically blanked after save, plus a non-secret field hydrated
+// from the status query).
+const { dirty, markClean } = useSnapshotDirty('settings-notion', 'Notion', () => form)
+
 watch(
   () => status.value,
   (s) => {
-    if (s) form.database_id = s.database_id
+    if (!s) return
+    if (dirty.value) return
+    form.database_id = s.database_id
+    markClean()
   },
   { immediate: true },
 )
@@ -62,6 +72,7 @@ async function onSave(): Promise<void> {
     const r = await saveNotionToken(form.integration_token, form.database_id)
     notify.push(r.message || 'Notion 凭据已保存', 'success')
     form.integration_token = ''
+    markClean()
     await qc.invalidateQueries({ queryKey: ['settings', 'notion-status'] })
     await qc.invalidateQueries({ queryKey: ['settings', 'channels'] })
   } catch (e) {
@@ -82,6 +93,7 @@ async function onClear(): Promise<void> {
     const r = await clearNotionToken()
     notify.push(r.message || 'Notion 凭据已清除', 'success')
     form.integration_token = ''
+    markClean()
     await qc.invalidateQueries({ queryKey: ['settings', 'notion-status'] })
     await qc.invalidateQueries({ queryKey: ['settings', 'channels'] })
   } catch (e) {

@@ -235,7 +235,9 @@ graph TB
 
 **Verification:** 盤點文件涵蓋全部 17 條路由;vitest 綠;手動 blur/focus 視窗確認編輯型頁不刷新。
 
-- [ ] **W2: Settings 編輯保護——hydration 覆蓋修復 + per-card dirty + route-leave guard〔R2〕**
+- [x] **W2: Settings 編輯保護——hydration 覆蓋修復 + per-card dirty + route-leave guard〔R2〕**
+
+〔W2 執行結果,2026-07-06,分支 `feat/w2-settings-edit-protection`(堆疊於 W1)〕已完成:新建 `stores/settingsDirty.ts`(per-card dirty 單一事實來源)與 `composables/useSnapshotDirty.ts`(JSON snapshot diff 判斷 dirty 的共用邏輯,5 張卡復用);SettingsPage 與 4 張卡的 hydration watcher 加 `if (dirty.value) return` guard(dirty 期間不覆寫);ChannelBindingCard 走客製修法(其 hydration 本來就是 merge-only,改追蹤 `lastSeeded` baseline 避免新串流進來的空白預設誤判 dirty);`router/index.ts` 新增全域 `beforeEach`(dirty 時 `window.confirm` 列出哪些卡 dirty)+ 同步 `beforeunload`。vitest 48 檔 303 測試全綠(新增 47)、vue-tsc 零錯誤。**偏離記錄**:route-leave 警告用 `window.confirm` 而非 W3 的 ConfirmDialog(理由:router 全域 guard 若要 await 一個掛在元件樹外的 async modal confirm,需要額外的 confirm-service singleton 架構,超出本次測試場景要求的範圍)——這正是計畫審查曾警告過的「第 4 種 ad-hoc confirm」模式,已記錄為 todo `014`(P2,不阻擋合併,`beforeunload` 部分維持原生實作是正確且無法避免的瀏覽器限制)。
 
 **Goal:** 使用者輸入中的內容永不被背景刷新覆蓋;未儲存離開有警告。這是活的資料遺失 bug,優先級最高。
 

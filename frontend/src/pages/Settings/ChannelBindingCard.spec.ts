@@ -14,6 +14,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import ChannelBindingCard from './ChannelBindingCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 let pinia: ReturnType<typeof createPinia>
 
@@ -53,6 +54,14 @@ function mountCard() {
   return mount(ChannelBindingCard, {
     global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
   })
+}
+
+function mountCardWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(ChannelBindingCard, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
 }
 
 describe('ChannelBindingCard', () => {
@@ -145,5 +154,59 @@ describe('ChannelBindingCard', () => {
     await flushPromises()
     expect(w.find('[data-test="bind"]').exists()).toBe(false)
     expect(w.text()).toContain('无可直接填表绑定的渠道')
+  })
+
+  it('marks the card dirty while editing and clean again after a successful save (W2)', async () => {
+    vi.mocked(api.saveChannelCredential).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountCard()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('input[type="url"]').setValue('https://me.wordpress.com')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('渠道凭据绑定')
+
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
+  })
+
+  it('W2: a newly-appearing channel form does not itself count as a dirty edit', async () => {
+    // Regression guard for the incremental-baseline design (see the card's
+    // own comment): seeding a brand-new slug's blank defaults into `edits`
+    // (as happens whenever formsQuery re-resolves with an extra channel) must
+    // not be mistaken for a user edit.
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    // Simulate a second channel becoming available mid-session (a refetch
+    // elsewhere delivering an extra form) — no user input happened.
+    queryClient.setQueryData(['settings', 'channel-forms'], {
+      forms: [TOKEN_FIELDS_FORM, TOKEN_PASTE_FORM],
+    })
+    await flushPromises()
+
+    expect(w.findAll('[data-test="bind"]')).toHaveLength(2)
+    expect(dirtyStore.anyDirty).toBe(false)
+  })
+
+  it('W2: an unsaved field edit is untouched when a new channel form streams in', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    await w.find('input[type="password"]').setValue('typed-token')
+
+    queryClient.setQueryData(['settings', 'channel-forms'], {
+      forms: [TOKEN_FIELDS_FORM, TOKEN_PASTE_FORM],
+    })
+    await flushPromises()
+
+    expect((w.find('input[type="password"]').element as HTMLInputElement).value).toBe(
+      'typed-token',
+    )
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(true)
   })
 })
