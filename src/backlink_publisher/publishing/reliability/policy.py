@@ -191,7 +191,7 @@ def _reset_failures(platform: str, config: Config) -> None:
         locked_store.update(
             platform, lambda e: {**e, "consecutive_failures": 0}, config
         )
-    except Exception:  # noqa: BLE001 — health-store faults never block publishing
+    except Exception:
         pass
 
 
@@ -214,7 +214,7 @@ def _record_failure_and_maybe_trip(
             config,
         )
         count = locked_store.get(platform, config)["consecutive_failures"]
-    except Exception:  # noqa: BLE001
+    except Exception:
         return
     if count >= threshold:
         trip(platform, config)
@@ -244,7 +244,7 @@ def _record_decision(
         append_reliability_decision(
             EventStore(), platform=platform, decision=decision, mode=mode, reason=reason
         )
-    except Exception:  # noqa: BLE001 — events.db faults never block publishing
+    except Exception:
         pass
 
 
@@ -327,7 +327,7 @@ def publish_with_policy(
 
             status_info = get_status(platform)
             channel_status = status_info.get("status", "unbound")
-        except Exception:  # noqa: BLE001
+        except Exception:
             channel_status = "unbound"
 
         if channel_status != "bound":

@@ -660,8 +660,8 @@ def dispatch_weight(name: str, language: str = "default") -> float:
 # Re-export from extracted sub-modules. All existing callers import from
 # ``backlink_publisher.publishing.registry`` — the re-exports keep those paths
 # working without changes.
-from ._registry_dispatch import dispatch  # noqa: F401, E402
-from ._registry_manifest import (  # noqa: F401, E402
+from ._registry_dispatch import dispatch  # noqa: F401
+from ._registry_manifest import (  # noqa: F401
     active_platforms,
     bind_descriptors,
     bound_platforms,

@@ -357,7 +357,7 @@ def _handle_checkpoint_unmapped(
 # ── History reducer helpers ───────────────────────────────────────
 
 
-from ._project_emit import (  # noqa: F401 — re-export for callers
+from ._project_emit import (
     _emit_confirmed_history_row,
     _emit_drafts_confirmed,
     _parse_row_timestamps,

@@ -14,7 +14,7 @@ resolve the ``_util → cli`` layer violation.
 
 from __future__ import annotations
 
-from backlink_publisher._util.constants import CHANNELS  # noqa: F401 — re-export
+from backlink_publisher._util.constants import CHANNELS
 
 EVENTS: frozenset[str] = frozenset({
     "channel.bind.start",

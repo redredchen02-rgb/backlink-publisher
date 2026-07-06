@@ -24,12 +24,14 @@ from .batch_ops import BatchOpsSqliteStore
 from .campaign_store import CampaignSqliteStore, CampaignStore
 from .channel_status import channel_status_store
 from .drafts import DraftsSqliteStore, DraftsStore
+from .error_reports import error_report_store
 from .history import HistoryStore
 from .profiles import ProfilesSqliteStore
 from .publish_defaults import PublishDefaultsSqliteStore
 from .queue_store import QueueSqliteStore
 from .schedule import ScheduleSqliteStore
 from .sqlite_base import WebUIDatabase
+from .verify_health import verify_health_store
 
 
 def _store_path(filename: str) -> Path:
@@ -123,7 +125,8 @@ def _refresh_paths() -> None:
     _WEBUI_DB = None
     for store in (history_store, profiles_store, drafts_store,
                   schedule_store, queue_store, channel_status_store,
-                  campaign_store, publish_defaults_store, batch_ops_store):
+                  campaign_store, publish_defaults_store, batch_ops_store,
+                  verify_health_store, error_report_store):
         store.reset()
 
 
@@ -150,5 +153,7 @@ __all__ = [
     "batch_ops_store",
     "PublishDefaultsSqliteStore",
     "publish_defaults_store",
+    "verify_health_store",
+    "error_report_store",
     "_refresh_paths",
 ]

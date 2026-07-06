@@ -18,13 +18,13 @@ Contract:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, UTC
+import fcntl
 import json
 from pathlib import Path
 import sys
 from typing import Any
 import uuid
 
-import fcntl
 from backlink_publisher._util.errors import (
     DependencyError,
     ExternalServiceError,
@@ -91,7 +91,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # -- flock guard -----------------------------------------------------------
     lock_path = Path(cfg.config_dir) / "probe-ranking.lock"
-    lock_fh = open(lock_path, "w")  # noqa: SIM115
+    lock_fh = open(lock_path, "w")
     try:
         fcntl.flock(lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:

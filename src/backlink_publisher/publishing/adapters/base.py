@@ -13,9 +13,32 @@ from typing import Any
 
 
 class TransientError(Exception):
-    """Temporary error that can be safely retried (network timeout, 429, 5xx)."""
+    """Temporary error that can be safely retried (network timeout, 429, 5xx).
 
-    pass
+    Consolidates four previously module-private, per-adapter transient-HTTP
+    sentinel exception classes duplicated across ``blogger_api.py``,
+    ``medium_api.py``, ``velog_graphql.py``, and ``llm_anchor_provider.py``
+    (Plan 2026-07-06-002 Unit D1). Those four call sites raised with either a
+    bare HTTP status code (e.g. ``TransientError(429)``) or a status code
+    plus a response-body detail string (e.g. ``TransientError(503,
+    resp.text)``). This constructor accepts both shapes — exposing the
+    status via ``.status_code`` for callers that build their own message at
+    the catch site — while remaining a drop-in replacement for the original
+    plain-message usage (``TransientError("some message")``) relied on
+    elsewhere.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        self.status_code: int | None = None
+        if args and isinstance(args[0], int) and not isinstance(args[0], bool):
+            self.status_code = args[0]
+            detail = args[1] if len(args) > 1 else None
+            message = (
+                f"HTTP {args[0]}" if detail is None else f"HTTP {args[0]}: {detail}"
+            )
+            super().__init__(message)
+        else:
+            super().__init__(*args)
 
 
 class PermanentError(Exception):

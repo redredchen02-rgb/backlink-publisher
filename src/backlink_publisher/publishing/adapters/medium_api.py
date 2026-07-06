@@ -15,10 +15,10 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.config.types import MEDIUM_API_BASE, MEDIUM_API_TIMEOUT
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .link_attr_verifier import required_link_urls, verify_link_attributes
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
@@ -35,17 +35,6 @@ def _post_publish_delay_s() -> int:
     )
 
 
-class _TransientHTTPError(Exception):
-    """Sentinel raised when an HTTP response status warrants a retry.
-
-    Module-private — not exported. Does not extend ExternalServiceError so it
-    is not caught by the retry guard in retry_transient_call.
-    """
-    def __init__(self, status_code: int) -> None:
-        self.status_code = status_code
-        super().__init__(f"HTTP {status_code}")
-
-
 def _json_log(**kwargs: Any) -> str:
     import json
     return json.dumps(kwargs)
@@ -56,14 +45,14 @@ def _fetch_medium_user_id(session: requests.Session) -> str:
     def _do_me() -> requests.Response:
         resp = session.get(f"{_API_BASE}/me", timeout=_TIMEOUT)
         if resp.status_code in RETRYABLE_HTTP_STATUSES:
-            raise _TransientHTTPError(resp.status_code)
+            raise TransientError(resp.status_code)
         return resp
 
     try:
         me_resp = retry_transient_call(
             _do_me,
             is_retryable=lambda exc: isinstance(
-                exc, (requests.Timeout, requests.ConnectionError, _TransientHTTPError)
+                exc, (requests.Timeout, requests.ConnectionError, TransientError)
             ),
             adapter="medium-api",
         )
@@ -71,7 +60,7 @@ def _fetch_medium_user_id(session: requests.Session) -> str:
         raise ExternalServiceError(
             f"Medium API unreachable (/me): {exc}"
         ) from None
-    except _TransientHTTPError as exc:
+    except TransientError as exc:
         raise ExternalServiceError(
             f"Medium /me returned HTTP {exc.status_code} after retries"
         ) from None
@@ -101,7 +90,7 @@ def _create_medium_post(
             timeout=_TIMEOUT,
         )
         if resp.status_code in RETRYABLE_HTTP_STATUSES:
-            raise _TransientHTTPError(resp.status_code)
+            raise TransientError(resp.status_code)
         return resp
 
     # Local import avoids an import cycle: reliability/__init__ imports policy,
@@ -111,14 +100,14 @@ def _create_medium_post(
     try:
         post_resp = retry_transient_call(
             _do_post,
-            is_retryable=lambda exc: isinstance(exc, _TransientHTTPError),
+            is_retryable=lambda exc: isinstance(exc, TransientError),
             adapter="medium-api",
         )
     except requests.RequestException as exc:
         raise ExternalServiceError(
             f"Medium API unreachable (create post): {exc}"
         ) from None
-    except _TransientHTTPError as exc:
+    except TransientError as exc:
         err = ExternalServiceError(
             f"Medium /posts returned HTTP {exc.status_code} after retries"
         )

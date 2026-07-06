@@ -57,7 +57,7 @@ _WAL_SUFFIX = "-wal"
 #: (plan 2026-06-04-001 Unit 3) so the ledger read path shares one grep-tested
 #: table; re-exported here so existing callers and
 #: ``test_every_live_adapter_string_is_mapped`` keep resolving the name.
-from ..publishing.platform_alias import _ADAPTER_STRING_TO_PLATFORM  # noqa: E402,F401
+from ..publishing.platform_alias import _ADAPTER_STRING_TO_PLATFORM  # noqa: E402
 
 _BACKFILL_KINDS = ("publish.confirmed", "publish.unverified")
 

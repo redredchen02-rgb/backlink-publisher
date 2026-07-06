@@ -100,7 +100,7 @@ def _safe_ssrf_check(url: str) -> str | None:
     fetched. Mirrors ``_preflight_fetch._safe_ssrf_check``."""
     try:
         return _check_url_for_ssrf(url)
-    except Exception:  # noqa: BLE001 — malformed URL must not break never-raises
+    except Exception:
         return "invalid_host"
 
 
@@ -158,7 +158,7 @@ def fetch_comment_page(url: str, *, timeout: float | None = None) -> FetchResult
         if isinstance(reason_obj, ssl.SSLError):
             return FetchResult(html=None, reason="network_error")
         return FetchResult(html=None, reason="network_error")
-    except Exception:  # noqa: BLE001 — routine must never raise out
+    except Exception:
         return FetchResult(html=None, reason="network_error")
 
     try:
@@ -168,7 +168,7 @@ def fetch_comment_page(url: str, *, timeout: float | None = None) -> FetchResult
             status = resp.getcode()
             final_url = resp.geturl() or normalized
             body, oversized = _read_body_capped(resp, MAX_BODY_BYTES)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return FetchResult(html=None, reason="network_error")
 
     # Post-redirect SSRF re-check of the final URL (narrows the DNS-rebinding window;

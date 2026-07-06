@@ -33,6 +33,7 @@ from backlink_publisher.linkcheck.language import (
     language_matches,
     SUPPORTED_LANGUAGES,
 )
+
 from ..schema import _is_field_present
 
 
@@ -96,7 +97,7 @@ def _extract_hrefs_from_html(html: str) -> list[str]:
     try:
         collector.feed(html)
         collector.close()
-    except Exception:  # noqa: BLE001 — parser may raise on extreme inputs
+    except Exception:
         return collector.hrefs
     return collector.hrefs
 

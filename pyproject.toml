@@ -123,6 +123,20 @@ select = [
     "I",    # isort
 ]
 
+# 2026-07-06 (hardening-sweep C1): deliberately NOT enabling flake8-blind-except
+# (BLE, e.g. BLE001 "blind except Exception") here. This project already governs
+# `except Exception` hygiene via `debt_registry.toml` + `# debt: <slug>` site
+# comments (the methodology established in Phase 3 D2); adding BLE001 on top would
+# require a per-site `# noqa: BLE001` for every judged-acceptable broad catch
+# (~465 sites at last count), duplicating the tracking the debt registry already
+# provides instead of adding new signal. C1 only removed the ~218 `# noqa: BLE001`
+# comments that were dead (BLE was never enabled, so they suppressed nothing) plus
+# other noqa already redundant with per-file-ignores below — it did not change this
+# select list. Re-evaluate enabling BLE once the D2/D3 except-Exception
+# classification work (see this repo's hardening-sweep plan, Sprint D) has
+# produced enough data to judge whether a second, rule-based governance layer is
+# actually worth the duplication.
+
 # Rules we explicitly allow for this codebase's patterns
 ignore = [
     "E501",  # line-too-long — handled by formatter

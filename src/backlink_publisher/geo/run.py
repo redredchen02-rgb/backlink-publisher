@@ -218,7 +218,7 @@ def probe_many(
                 brand_aliases=aliases,
                 engine=engine,
             )
-        except Exception as exc:  # noqa: BLE001 — never-raises contract
+        except Exception as exc:
             log.warning(
                 "probe_many: probe error for target",
                 target_url=candidate.target_url,

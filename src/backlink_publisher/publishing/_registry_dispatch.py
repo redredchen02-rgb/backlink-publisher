@@ -48,7 +48,7 @@ def _emit_degraded(platform: str, *, failed_adapter: str, to_adapter: str) -> No
             failed_adapter=failed_adapter,
             to_adapter=to_adapter,
         )
-    except Exception:  # noqa: BLE001 — observability must never break dispatch
+    except Exception:
         pass
 
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Any
+
 """Keep-alive status view (R3 / plan 2026-06-04-001 Unit 4).
 
 Builds the per-target keep-alive scorecard the operator lands on: live-dofollow +
@@ -11,7 +13,6 @@ hosts (``example.com``) are excluded so a new operator isn't misled.
 """
 
 from datetime import datetime
-from typing import Any
 from urllib.parse import urlsplit
 
 from backlink_publisher._util.url import canonicalize_url
@@ -218,7 +219,7 @@ def build_cycle_status_view(*, run_state: Any=None, opt_state: Any=None) -> dict
                 "alive_count": int(pstats.get("alive_count") or 0),
                 "total_published": int(pstats.get("total_published") or 0),
             })
-    except Exception:  # noqa: BLE001
+    except Exception:
         platforms = []
 
     return {

@@ -49,6 +49,7 @@ from backlink_publisher._util.errors import (
 from backlink_publisher.cli._bind import driver
 from backlink_publisher.cli._bind.channels import CHANNELS
 from backlink_publisher.cli._bind.recipes import RECIPES
+from backlink_publisher.events.scrubber import scrub_text
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -123,23 +124,33 @@ def main(argv: Sequence[str] | None = None, *, _browser_runner: Any = None) -> N
             recipe=recipe,
             _browser_runner=_browser_runner,
         )
+    # debt: bind-channel-main-catchall-message-scrubbed-fixed
     except PipelineError as exc:
         # UsageError, DependencyError, etc — emit terminal failed event for
-        # the consumer (webui) before delegating to handle_error.
+        # the consumer (webui) before delegating to handle_error. Plan D3 fix
+        # (R9): this is the unfiltered stdout->WebUI exit point (driver._emit
+        # -> webui_app/services/bind_job.py's `events` list -> poll API,
+        # verbatim, with no filtering layer). `message` must be scrub_text()'d
+        # before it can carry any exception text that reaches an operator's
+        # browser — any exception outside run_bind's five enumerated types
+        # (e.g. a bare RuntimeError from chrome_backend.py's _CdpClient.send())
+        # lands here.
+        cleaned_message, _hits = scrub_text(str(exc))
         driver._emit(
             "channel.bind.failed",
             channel=channel,
             error_code=type(exc).__name__,
-            message=str(exc),
+            message=cleaned_message,
         )
         handle_error(exc)
         return  # unreachable
-    except Exception as exc:  # noqa: BLE001 — last-line defense
+    except Exception as exc:
+        cleaned_message, _hits = scrub_text(str(exc))
         driver._emit(
             "channel.bind.failed",
             channel=channel,
             error_code="unexpected",
-            message=str(exc),
+            message=cleaned_message,
         )
         handle_unexpected_error(exc)
         return  # unreachable

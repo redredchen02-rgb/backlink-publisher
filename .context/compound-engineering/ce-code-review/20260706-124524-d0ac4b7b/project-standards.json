@@ -1,0 +1,12 @@
+{
+  "reviewer": "project-standards",
+  "findings": [],
+  "residual_risks": [
+    "webui_app/AGENTS.md states \"spec.py is the SSoT for the 63 registered endpoints\" (api/ section). This diff adds 3 new spec.path() operations (history/bulk-recheck, drafts/bulk-publish-now, drafts/bulk-cancel), bringing operationId count to 68 (was 65 pre-diff) and spec.path() call count to 64. The '63' figure in webui_app/AGENTS.md was not updated by this PR. This mirrors the exact staleness pattern the same file already documents for the store count (\"9\"->\"10\") and route count (\"20\"->\"36\"), but AGENTS.md itself is not in the changed-files list for this diff, so it is reported here as a residual risk rather than a citable in-diff violation.",
+    "The bulk-publish-now single-flight guard (`_bulk_publish_lock = threading.Lock()` in webui_app/api/v1/drafts.py) is a module-level, single-process lock. It correctly serializes concurrent requests within one Python process/thread pool, but would not serialize across multiple worker processes (e.g. a multi-process WSGI deployment). Nothing in the read standards files mandates single-process deployment, so this is not cited as a rule violation, but is worth confirming against the WebUI's actual deployment model (dev server is single-process per AGENTS.md `python webui.py`)."
+  ],
+  "testing_gaps": [
+    "No test asserts that the new bulk-publish-now / bulk-cancel / bulk-recheck buttons are disabled while `busy` is true during an in-flight request (only the 'no selection' disabled state is covered for the new buttons in DraftsPage.spec.ts / HistoryPage.spec.ts) — existing bulk-delete tests have the same gap, so this is not a regression, but it's untested for the new controls too.",
+    "monolith_budget.toml's spec.py rationale and the CSRF-only snapshot count were independently re-verified (radon SLOC=1307 matches the claimed 1258->1307 delta and round_up_to_10(1307+30)=1340; `test_csrf_only_route_count_snapshot` passes with the new count of 99) — no gap, noted here only so the verification is visible in the artifact."
+  ]
+}

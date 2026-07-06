@@ -1,0 +1,33 @@
+{
+  "reviewer": "kieran-typescript",
+  "findings": [
+    {
+      "title": "409 test mock is a plain object, not a real ApiError instance",
+      "severity": "P2",
+      "file": "frontend/src/pages/Drafts/DraftsPage.spec.ts",
+      "line": 177,
+      "why_it_matters": "The test rejects with `{ name: 'ApiError', status: 409, message: '...' }`, a plain object literal, rather than `new ApiError(...)` from '../../api/client'. Every other ApiError-rejection test in this codebase (Settings/*.spec.ts, SitesPage.spec.ts, BatchCampaignPage.spec.ts, ChannelBindingCard.spec.ts) constructs a real `new ApiError(message, status, payload)` instance, and the established idiom for status-specific handling elsewhere in this codebase is `e instanceof ApiError && e.status === 422` (BatchCampaignPage.vue, SitesPage.vue, Settings/*.vue). The mock also omits `payload` entirely, even though the same file's own comment above bulkPublishDraftsNow documents that the 409 response carries `payload.error_class === 'already_running'`. Today this doesn't mask a bug because run()/reportError never branches on `instanceof ApiError` or reads `.payload` for this path -- it always falls through to the generic classifyError('unknown') toast. But if a future change adds a distinguishing 409 branch (following the exact `instanceof ApiError` pattern already used for 422 elsewhere in this repo), this test would keep passing against a mock that could never satisfy that check, silently failing to catch the regression it's nominally testing.",
+      "autofix_class": "safe_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "suggested_fix": "Import ApiError from '../../api/client' and reject with `new ApiError('Bulk publish already in progress', 409, { error_class: 'already_running' })` to match the shape the comment in drafts.ts documents and the construction pattern used by every other ApiError test in the repo.",
+      "confidence": 0.65,
+      "evidence": [
+        "frontend/src/pages/Drafts/DraftsPage.spec.ts:177-179 rejects with a plain object literal: `{ name: 'ApiError', status: 409, message: 'Bulk publish already in progress' }`",
+        "frontend/src/api/drafts.ts:46-49 comment: 'rejects with ApiError (status 409, payload.error_class === \"already_running\")' -- payload is not present in the test mock",
+        "frontend/src/api/client.ts:43-51 defines ApiError as a class extending Error with status/payload fields, not matched by the plain-object mock",
+        "Repo convention: frontend/src/pages/Sites/SitesPage.spec.ts:89, frontend/src/pages/BatchCampaign/BatchCampaignPage.spec.ts:87, frontend/src/pages/Settings/*.spec.ts all construct `new ApiError(...)` for rejection mocks",
+        "Repo convention: frontend/src/pages/BatchCampaign/BatchCampaignPage.vue:78, frontend/src/pages/Sites/SitesPage.vue:82, frontend/src/pages/Settings/*.vue:~64-128 all branch on `e instanceof ApiError && e.status === ...` -- the exact check this mock would fail"
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "classifyError (frontend/src/lib/errors.ts) maps HTTP 409 into the generic 'unknown' category, identical to any unrecognized status -- the same fixed '出错了' toast the user would see for an unrelated 500 or malformed response. This matches the plan's stated intent (busy-state disables the button; 409 must not fake a success toast) but means the backend's specific 'already_running' signal is discarded client-side with no differentiated messaging, by design rather than oversight in this diff.",
+    "DraftsPage's bulk-cancel button (`onBulkCancel` -> bulkCancelDrafts) is enabled whenever `selected.size > 0`, with no client-side check that every selected id is actually in 'scheduled' status (the per-row cancel button, by contrast, only renders for scheduled rows). A user could select a mix of pending and scheduled drafts and trigger bulk-cancel; how the backend handles non-scheduled ids in that call is not visible from the frontend diff alone."
+  ],
+  "testing_gaps": [
+    "The 409/error-path test exists only for bulkPublishDraftsNow in DraftsPage.spec.ts; there is no equivalent rejection test for bulkCancelDrafts, and HistoryPage.spec.ts has no rejection/error-path test at all for the new bulkRecheckHistory.",
+    "No test exercises bulkPublishDraftsNow/bulkCancelDrafts/bulkRecheckHistory being called with a mixed-status selection (e.g., a pending + scheduled draft selected together for bulk-cancel), so the UI's assumption that any non-empty selection is valid for every bulk action is untested."
+  ]
+}

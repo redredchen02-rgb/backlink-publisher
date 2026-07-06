@@ -102,6 +102,7 @@ def _log_recon_event(event_type: str, **fields: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(str(path), "a", encoding="utf-8") as f:
             f.write(line + "\n")
+    # debt: reconciler-log-and-canonicalize-best-effort-accepted
     except Exception as exc:
         log.warning("RECON.log write failed: %s", exc)
 
@@ -117,6 +118,7 @@ def _canonicalize_url(url: str | None) -> str | None:
         return None
     try:
         return _canonicalize_url_fn(url)
+    # debt: reconciler-log-and-canonicalize-best-effort-accepted
     except Exception as exc:
         log.debug("canonicalize_url failed for %r: %s", url, exc)
         return None
@@ -161,6 +163,7 @@ def _resolve_checkpoint_probe(
 
     try:
         key = DedupKey(platform=platform, target_url=canon)
+    # debt: reconciler-checkpoint-crossref-fail-closed-accepted
     except Exception as exc:
         _log_recon_event(
             "reconciler_skip",
@@ -209,6 +212,7 @@ def _auto_fix_checkpoint(
         # R8: clear any stale quarantine entry for this URL.
         _clear_quarantine_by_dedup_key(store, probe.canon)
         summary.cleared += 1
+    # debt: reconciler-checkpoint-crossref-fail-closed-accepted
     except Exception as exc:
         log.warning(
             "reconciler: auto-fix failed for item %s/%s: %s",
@@ -305,6 +309,7 @@ def _reconcile_checkpoints(
     # neither auto-fixing nor quarantining an item whose dedup read failed.
     try:
         records = dedup_store.get_many(probe.key for probe in pending)
+    # debt: reconciler-checkpoint-crossref-fail-closed-accepted
     except Exception as exc:
         log.warning(
             "reconciler: batch dedup read failed; skipping cross-reference: %s", exc
@@ -388,6 +393,7 @@ def _reconcile_history(
     # rather than over-reporting every checked URL as a gap.
     try:
         records = dedup_store.get_many(key for _, _, _, key in probes)
+    # debt: reconciler-history-reverse-check-batch-read-accepted
     except Exception as exc:
         log.warning("reconciler: history batch dedup read failed: %s", exc)
         _log_recon_event("reconciler_history_summary", checked=checked, gaps=0)
@@ -447,6 +453,7 @@ def reconcile_all(
         summary.history_gaps = gaps
         summary.history_checked = checked
 
+    # debt: reconciler-reconcile-all-outer-degrade-accepted
     except Exception as exc:
         log.warning("reconciler: reconcile_all failed (partial result): %s", exc)
 

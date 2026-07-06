@@ -58,7 +58,7 @@ ENV BACKLINK_PUBLISHER_CONFIG_DIR=/config
 ENV PORT=8888
 ENV BIND_HOST=0.0.0.0
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -sf http://localhost:8888/ce:health || exit 1
+    CMD curl -sf http://localhost:8888/api/v1/health || exit 1
 EXPOSE 8888
 CMD ["python", "serve.py"]
 
@@ -101,7 +101,7 @@ ENV PORT=8888
 ENV BIND_HOST=0.0.0.0
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -sf http://localhost:8888/ce:health || exit 1
+    CMD curl -sf http://localhost:8888/api/v1/health || exit 1
 
 EXPOSE 8888
 

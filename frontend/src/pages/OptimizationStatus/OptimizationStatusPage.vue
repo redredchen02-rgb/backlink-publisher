@@ -39,11 +39,6 @@ const weightFor = (platform: string): number => {
   return p?.weight ?? 0
 }
 
-const locked = (platform: string): boolean => {
-  const p = platforms.value.find(p => p.platform === platform)
-  return p?.locked ?? false
-}
-
 const startEdit = (platform: string) => {
   editingWeight.value = platform
   weightInput.value = String(weightFor(platform))

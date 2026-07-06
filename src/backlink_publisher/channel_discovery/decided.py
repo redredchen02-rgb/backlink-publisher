@@ -64,7 +64,7 @@ def get_verdict(platform: str) -> dict | None:
 
         if platform in registered_platforms():
             return {"platform": platform, "verdict": "registered", "source": "registry"}
-    except Exception:  # noqa: BLE001 — registry unavailable, fall through
+    except Exception:
         pass
 
     for entry in _entries():
@@ -88,7 +88,7 @@ def all_decided_platforms() -> set[str]:
         from backlink_publisher.publishing.registry import registered_platforms
 
         decided.update(registered_platforms())
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     decided.update(e["platform"] for e in _entries())
     return decided

@@ -11,8 +11,8 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 from datetime import timedelta
 import logging
 import os
-import time
 from pathlib import Path
+import time
 from typing import Any
 import uuid
 
@@ -154,7 +154,8 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # the publisher registry so inject_platforms() doesn't pay the import
     # cost on every template render — both lineages independently made this
     # same optimization; kept once.
-    import backlink_publisher.publishing.adapters  # noqa: F401
+    import backlink_publisher.publishing.adapters
+
     from .helpers.security import (
         _check_bind_origin_or_abort,
         _check_csrf_or_abort,
@@ -184,6 +185,8 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
 
         from backlink_publisher.publishing.registry import (
             bound_platforms as registry_bound_platforms,
+        )
+        from backlink_publisher.publishing.registry import (
             registered_platforms,
             ui_meta,
         )
@@ -468,21 +471,21 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
             try:
                 from webui_store.channel_status import reconcile_on_load
                 reconcile_on_load()
-            except Exception as exc:  # noqa: BLE001 — startup must not crash
+            except Exception as exc:
                 _log.warning("channel_status.reconcile_on_load failed: %s", exc)
 
         def _run_purge_credentials() -> None:
             try:
                 from webui_store.channel_status import purge_removed_channel_credentials
                 purge_removed_channel_credentials()
-            except Exception as exc:  # noqa: BLE001 — startup must not crash
+            except Exception as exc:
                 _log.warning("channel_status.purge_removed_channel_credentials failed: %s", exc)
 
         def _run_reap_bind_orphans() -> None:
             try:
                 from .services.bind_job import reap_orphans
                 reap_orphans()
-            except Exception as exc:  # noqa: BLE001 — startup must not crash
+            except Exception as exc:
                 _log.warning("bind_job.reap_orphans failed: %s", exc)
 
         def _run_reap_chrome() -> None:
@@ -493,7 +496,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
                 outcome = reap_orphan_publish_chrome()
                 if outcome.get("action") != "noop":
                     _log.info("chrome_session.reap_orphan_publish_chrome: %s", outcome)
-            except Exception as exc:  # noqa: BLE001 — startup must not crash
+            except Exception as exc:
                 _log.warning("chrome_session.reap_orphan_publish_chrome failed: %s", exc)
 
         def _run_import_history() -> None:
@@ -502,7 +505,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
                     import_history_to_events,
                 )
                 import_history_to_events()
-            except Exception as exc:  # noqa: BLE001 — startup must not crash
+            except Exception as exc:
                 _log.warning("history_importer.import_history_to_events failed: %s", exc)
 
         def _run_campaign_worker() -> None:
@@ -511,7 +514,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
                 _worker = CampaignWorker()
                 app.config['CAMPAIGN_WORKER'] = _worker
                 _log.info("CampaignWorker started")
-            except Exception as exc:  # noqa: BLE001 — startup must not crash
+            except Exception as exc:
                 _log.warning("CampaignWorker startup failed: %s", exc)
 
         # Run all startup hooks in parallel (they are independent, I/O-bound,
@@ -530,7 +533,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
                 _name = _futures[_future]
                 try:
                     _future.result()
-                except Exception as exc:  # noqa: BLE001 — already logged in each hook
+                except Exception as exc:
                     _log.warning("startup hook %s raised: %s", _name, exc)
 
     # Always register CAMPAIGN_WORKER (even when start_scheduler is False),

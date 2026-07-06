@@ -52,7 +52,7 @@ _LOG_LEVELS = {"DEBUG", "INFO", "WARN", "ERROR"}
 try:
     from backlink_publisher._util.net_safety import _check_url_for_ssrf as _ssrf_check
     _SSRF_GUARD_ACTIVE = True
-except Exception:  # noqa: BLE001
+except Exception:
     _ssrf_check = None  # type: ignore[assignment]
     _SSRF_GUARD_ACTIVE = False
 
@@ -251,7 +251,7 @@ def main(argv: list[str] | None = None) -> None:
         except PipelineError as exc:
             reason = "publish_failed"
             canary_logger.warning("publish_failed", platform=args.platform, error=str(exc))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             reason = "publish_failed"
             canary_logger.warning("publish_exception", platform=args.platform, error=repr(exc))
 
@@ -271,7 +271,7 @@ def main(argv: list[str] | None = None) -> None:
                     verdict, needs_browser_check, reason = _map_verdict(anchor)
                     raw_rel = anchor.get("target_rel") or ""
                     rel_tokens = [t.strip() for t in raw_rel.split() if t.strip()] if raw_rel else []
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     reason = "inspect_failed"
                     canary_logger.warning("inspect_failed", platform=args.platform, error=repr(exc))
 
@@ -324,7 +324,7 @@ def main(argv: list[str] | None = None) -> None:
                 ),
                 file=sys.stderr,
             )
-        except Exception as exc:  # noqa: BLE001 — advisory hint must never break exit 0
+        except Exception as exc:
             canary_logger.warning("flip_hint_failed", platform=args.platform, error=repr(exc))
 
     except PipelineError as exc:

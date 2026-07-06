@@ -244,7 +244,8 @@ def _wait_for_editor(win_id: str, tab_id: str, max_wait: int = 20) -> bool:
             )
             if result == "ready":
                 return True
-        except Exception as exc:  # noqa: BLE001
+        # debt: medium-brave-applescript-preflight-checks-accepted
+        except Exception as exc:
             log.debug("page-ready probe failed", error=str(exc))
         time.sleep(_EDITOR_POLL_INTERVAL_S)
     return False
@@ -353,6 +354,7 @@ class MediumBraveAdapter(Publisher):
 
         try:
             _run_applescript('tell application "Brave Browser" to return name', timeout=_BRAVE_CHECK_TIMEOUT_S)
+        # debt: medium-brave-applescript-preflight-checks-accepted
         except Exception:
             raise ExternalServiceError(
                 "Brave Browser is not running. Please open Brave and log in to Medium."

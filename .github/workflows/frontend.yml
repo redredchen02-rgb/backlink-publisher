@@ -8,6 +8,7 @@ on:
     paths:
       - "frontend/**"
       - "webui_app/static/css/**" # shared design tokens consumed by the SPA
+      - "webui_app/api/**" # API shape changes break the SPA's typed client (U12)
       - ".github/workflows/frontend.yml"
 
 permissions:
@@ -27,6 +28,8 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Lint (eslint, zero-warning baseline)
+        run: npm run lint
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests (vitest)

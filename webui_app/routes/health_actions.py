@@ -54,7 +54,7 @@ def _known_platform(platform: str) -> bool:
         from backlink_publisher.publishing.registry import registered_platforms
 
         return platform in registered_platforms()
-    except Exception:  # noqa: BLE001 — unknown on any registry error
+    except Exception:
         return False
 
 
@@ -77,7 +77,7 @@ def pause_platform() -> Any:
         from backlink_publisher.health.persistence import locked_store
 
         new_state = locked_store.set_paused(platform, paused, _config())
-    except Exception as exc:  # noqa: BLE001 — never 500
+    except Exception as exc:
         _log.warning(f"health-actions: pause write failed for {platform}: {exc}")
         return jsonify({"ok": False, "platform": platform, "reason": "write_failed"}), 200
     return jsonify({"ok": True, "platform": platform, "paused": new_state})
@@ -97,7 +97,7 @@ def reverify_platform() -> Any:
         return jsonify({"ok": True, "platform": platform, "ready": True, "reason": ""})
     except DependencyError as exc:
         return jsonify({"ok": True, "platform": platform, "ready": False, "reason": str(exc)})
-    except Exception as exc:  # noqa: BLE001 — never 500
+    except Exception as exc:
         _log.warning(f"health-actions: reverify failed for {platform}: {exc}")
         return jsonify({
             "ok": False, "platform": platform, "ready": False,
@@ -115,7 +115,7 @@ def circuit_reset_platform() -> Any:
         from backlink_publisher.publishing.reliability import circuit
 
         circuit.reset_circuit(platform, _config())
-    except Exception as exc:  # noqa: BLE001 — never 500
+    except Exception as exc:
         _log.warning(f"health-actions: circuit reset failed for {platform}: {exc}")
         return jsonify({"ok": False, "platform": platform, "reason": "reset_failed"}), 200
     return jsonify({"ok": True, "platform": platform})
