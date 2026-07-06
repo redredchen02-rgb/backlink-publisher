@@ -246,6 +246,16 @@ class MonitorCardSchema(Schema):
             )
         },
     )
+    failed_channels = fields.List(
+        fields.String(),
+        metadata={
+            "description": (
+                "Raw channel-name list backing the credentials card's failure "
+                "detail, for a per-channel retry action. Only the credentials "
+                "card carries this field; absent on every other card."
+            )
+        },
+    )
 
 
 class MonitorSummarySchema(Schema):

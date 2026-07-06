@@ -2177,6 +2177,13 @@ components:
             schedule_queue). Absent on the 4 original aggregate-only cards.'
           items:
             $ref: '#/components/schemas/MonitorCardItem'
+        failed_channels:
+          type: array
+          description: Raw channel-name list backing the credentials card's failure
+            detail, for a per-channel retry action. Only the credentials card carries
+            this field; absent on every other card.
+          items:
+            type: string
       required:
       - deep_link
       - detail
