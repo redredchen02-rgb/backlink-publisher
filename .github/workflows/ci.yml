@@ -114,7 +114,7 @@ jobs:
           python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit and not seam" --strict-markers --strict-config --cov --cov-branch --cov-append --cov-report=term --cov-report=json:coverage-unit.json --reruns 2 --reruns-delay 1
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-unit-${{ matrix.python-version }}
           path: coverage-unit.json
@@ -215,7 +215,7 @@ jobs:
           python -m pytest tests/ --tb=short --timeout=60 -n auto --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:coverage-full.json --cov-fail-under=80
 
       - name: Upload full coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-full-${{ matrix.python-version }}
           path: coverage-full.json
@@ -301,7 +301,7 @@ jobs:
           python -m pytest tests/test_benchmarks.py --benchmark-only --benchmark-json=benchmark-result.json -v --tb=short
 
       - name: Upload benchmark result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-result-${{ github.sha }}
           path: benchmark-result.json
@@ -312,7 +312,7 @@ jobs:
         # baseline run" step below only ever needs the most recent successful
         # run of this workflow on main — no manual pruning of old baselines.
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-baseline
           path: benchmark-result.json
