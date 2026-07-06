@@ -1,0 +1,36 @@
+{
+  "reviewer": "project-standards",
+  "run_id": "20260706-140906-a92c9d99",
+  "scope": "12-unit hidden-debt hardening sweep (commits 1d6e6d01..5dc449f5, merge-base 667e5cce)",
+  "standards_checked": [
+    "CLAUDE.md",
+    "AGENTS.md",
+    "tests/AGENTS.md",
+    "webui_app/AGENTS.md"
+  ],
+  "checks_performed": [
+    "B1/B2 monolith_budget.toml + complexity_budget.toml rationale length (>=80 chars) and round_up_to_10(current+30) / SEED_HEADROOM_MAX<=50 ratchet math -- verified all 11 B1 SLOC entries, 3 B1 CC entries, and both B2 raises comply.",
+    "D2/D3 debt_registry.toml schema compliance -- programmatically checked all 88 [[items]] entries for rationale>=80 chars, discovered/owner/status presence, resolved_date pairing rule, slug uniqueness, and no cross-slug location collisions. Zero violations found.",
+    "C1 pyproject.toml BLE001 governance comment -- read in full, accurately describes the debt_registry.toml-instead-of-BLE001 decision with a concrete re-evaluation trigger.",
+    "Import-boundary check on D3's scrub_text() imports into cli/_bind/_driver_impl.py, cli/_bind/chrome_backend.py, cli/admin/bind_channel.py -- these import backlink_publisher.events.scrubber (a domain package) from cli, which is the permitted direction under pyproject.toml's importlinter contracts (only domain->cli and _util->domain are forbidden; cli->domain is the normal, allowed direction). No violation.",
+    "Cross-platform check on A3's path-separator fix (correct, mirrors precedent in test_no_monolith_regrowth.py) and on all new D2/D3 file-path handling (Path-based, config_dir()-relative) -- found no new Windows-vs-POSIX issues introduced.",
+    "Spot-verified debt-comment placement/line-number accuracy against debt_registry.toml location arrays (schema requires the comment's own line, not the except handler's line) -- sampled entries matched exactly."
+  ],
+  "findings": [
+    {
+      "id": "PS-1",
+      "title": "Plan-doc frontmatter status left at 'active' despite the plan's own final commit declaring all 12 units complete",
+      "confidence": 0.65,
+      "file": "docs/plans/2026-07-06-002-opt-hidden-debt-hardening-sweep-plan.md",
+      "line": 4,
+      "standard_citation": "AGENTS.md, Status vocabulary canon: '`active` | Genuine open work — executing or ready to execute | No [done-family]' vs '`completed` | All units landed (canonical done head) | **Yes**'. Also AGENTS.md, Update-plan-on-ship discipline: 'When an implementing PR lands, the author flips `status: active -> shipped`... Off-canon tokens... are not valid — normalize to the canon set on discovery.'",
+      "violation_evidence": "Commit 5dc449f5 ('docs(plan): mark D3 complete -- all 12 units done') edits only the D3 checklist line, changing it to '- [x] ... ✅ 已完成... 至此本計畫全部 12 個 unit 皆已完成' (\"at this point all 12 units of this plan are complete\"), but does not touch line 4's `status: active` frontmatter field. Every other unit's completion commit (A1-A3, B1-B2, C1, D1-D2, E1-E3) likewise left `status: active` untouched even as each checkbox flipped to `[x]`. The plan's own body content now asserts full completion while its canonical status field still reads the non-done-family token 'active'.",
+      "explanation": "The repo's own documented status vocabulary distinguishes 'active' (open work) from the done-family ('completed'/'shipped'), and its update-on-ship discipline exists precisely to keep this field synchronized with real completion state. With every checklist item now checked and the doc's own closing sentence declaring 100% completion, leaving `status: active` is inconsistent with the plan's own content and the project's stated canon. Confidence is moderate rather than high because the 'ship' flip is explicitly keyed to 'when an implementing PR lands' (i.e. merge to main), and this diff has not yet merged — so a reviewer could argue the flip is intentionally deferred to a follow-up commit at merge time rather than omitted."
+    }
+  ],
+  "residual_risks": [
+    "CLAUDE.md's WebUI Layout section states webui_store has '10 _LazyStore-backed singleton stores total' and explicitly excludes error_report_store as belonging to a 'not-yet-landed' plan ('it has not landed in this worktree/repo as of this count, so it is not included here'). webui_store/error_reports.py already exists at this diff's merge-base (pre-dating this review), so that specific claim was already stale before A1. A1's commit (1d6e6d01) is the change that formally wires error_report_store into __all__/_refresh_paths, which is exactly the fact CLAUDE.md's sentence describes as not-yet-true -- but the diff does not touch CLAUDE.md to update the count/caveat. Not raised as a primary finding because no standards file states an explicit obligation to update this count on every store-wiring change (the count's own history of 'supersedes a stale 9 figure' shows it is updated periodically, not on every commit), so applying it here requires interpretive judgment below the reporting threshold.",
+    "The plan doc's Sprint completion commits (B1/B2/C1/D1-D3/E1-E3) are each single-line checkbox-only edits with no corresponding frontmatter/date changes; if this pattern continues past merge, the 'Update-plan-on-ship discipline' flip may be missed entirely rather than deferred -- worth confirming a follow-up commit performs the active->completed/shipped transition before this plan is considered fully closed out."
+  ],
+  "testing_gaps": []
+}

@@ -1,0 +1,54 @@
+{
+  "reviewer": "kieran-typescript",
+  "findings": [
+    {
+      "title": "load() sequentializes /app-config before the real fetch on every call, without reusing TopBar's cached query",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "lines": "53-70",
+      "confidence": 0.62,
+      "description": "load() now does `await getJson<AppConfig>('/app-config')` and only starts `fetchPrQueue()` after that resolves. This is correct for skipping the doomed request under LITE, but it means every mount, every manual '刷新' click, and every markStatus()-triggered reload (markStatus calls load() again in both its try and catch paths) re-issues a fresh network round trip to /app-config before the queue data can even start loading — for the non-LITE majority case this is pure added latency with no benefit. TopBar.vue already fetches and caches the identical endpoint via `useQuery({ queryKey: ['app-config'], queryFn: () => getJson<AppConfig>('/app-config') })`, which would dedupe/cache across the app; PrQueuePage instead calls `getJson` directly, bypassing that cache (client.ts's own in-flight dedup map deletes its entry as soon as the promise settles, so it provides no cross-call caching, only concurrent-call coalescing). Worth reusing the TanStack Query cache (or a shared composable) here instead of a raw getJson call on every load()."
+    },
+    {
+      "title": "New /app-config failure path in load() has no test coverage",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.spec.ts",
+      "lines": "1-86",
+      "confidence": 0.65,
+      "description": "load()'s try block now contains two awaits: `getJson('/app-config')` and `fetchPrQueue()`. The spec file covers fetchPrQueue rejecting (the 'still shows the generic error state' test) but never exercises getJson('/app-config') itself rejecting (e.g. a network failure or a non-200 on /app-config before the LITE check ever runs). Since this is a brand-new fallible call introduced by this diff and sits ahead of the pre-existing fetchPrQueue call in the same try/catch, its own failure path deserves a dedicated assertion (error state, retry button, fetchPrQueue not called) rather than relying on the shared catch block being 'probably fine because it's the same catch'."
+    },
+    {
+      "title": "Error-state test rejects with a shape fetchPrQueue never actually throws, and load()'s non-Error branch silently drops it",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.spec.ts",
+      "lines": "78-85",
+      "confidence": 0.5,
+      "description": "The 'real failure' test does `mockRejectedValue({ status: 500 })`, a plain object. In production, prQueue.ts's fetchPrQueue always throws `new Error(\`HTTP ${resp.status}\`)` — a real Error whose status is embedded in the message text, never a bare `{status}` object. load()'s (pre-existing, unmodified) catch does `error.value = e instanceof Error ? e : new Error(String(e))`; for the test's plain object this discards `.status` entirely and produces `new Error('[object Object]')`, so classifyError falls through to the generic 'unknown' category rather than 'server' — the test only asserts role=alert + a 重试 button exist, which is true for any retryable category, so it passes without actually verifying server-error classification or matching the real throw shape. Not a production bug (real callers always throw proper Errors), but the test doesn't exercise what fetchPrQueue actually produces, so it wouldn't catch a status-classification regression."
+    }
+  ],
+  "residual_risks": [
+    {
+      "title": "Duplicated, non-shared AppConfig interface can drift from TopBar's",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "lines": "20-22",
+      "confidence": 0.45,
+      "description": "PrQueuePage.vue declares its own `interface AppConfig { lite_edition: boolean }`, a narrower subset of TopBar.vue's `AppConfig` (which also has llm_configured and pro_status). This appears to be a deliberate choice per the task framing (mirror the pattern, don't share a type), and each interface's fields are consistent with the real /app-config shape as far as this diff shows, so it's not flagged as a defect — but with no single source-of-truth type for the /app-config response, a backend rename of lite_edition would only be caught by whichever page's field is actually exercised at runtime, not by the type checker on the other page."
+    },
+    {
+      "title": "getJson<T>'s unchecked `as T` cast means a malformed /app-config response silently disables LITE gating",
+      "file": "frontend/src/api/client.ts",
+      "lines": "119-124, 172-193",
+      "confidence": 0.4,
+      "description": "getJson does `return (await resp.json()) as T` with no runtime validation. If /app-config ever omits lite_edition or changes its type, `config.lite_edition` becomes `undefined`, `if (config.lite_edition)` is falsy, and load() falls through to the doomed fetchPrQueue() call this diff was written to avoid — failing back to the old generic-404 UX rather than erroring loudly. This is a pre-existing pattern shared with TopBar.vue (not introduced by this diff), so it's noted as a residual risk rather than a new hole."
+    },
+    {
+      "title": "load() has no re-entrancy guard against overlapping invocations",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "lines": "53-70, 72-86",
+      "confidence": 0.35,
+      "description": "The 刷新 button is disabled while loading.value is true, but markStatus() calls load() unconditionally in both its success and catch branches, and the row action buttons are only disabled by `updating.has(item.id)`, not by `loading`. Adding a second await (app-config) widens the async window in which a user-triggered markStatus() load() could race a manual refresh load() (last-settled write wins on items/error/loading). This control flow predates the diff structurally, but the new extra hop increases the overlap window; flagged as a residual risk rather than a defect since no evidence of it firing in practice was found."
+    }
+  ],
+  "testing_gaps": [
+    "No test verifies that liteUnavailable resets correctly when load() is invoked a second time after a lite_edition:true -> false transition (e.g. via the 刷新 button) within the same mounted instance — the reset line `liteUnavailable.value = false` at the top of load() is untested in isolation.",
+    "No test covers /app-config (getJson) itself rejecting — only fetchPrQueue's rejection is exercised, leaving the new call's own failure path (ahead of the LITE branch) unverified.",
+    "PrQueuePage.spec.ts is the first-ever spec for this component; markStatus(), STATUS_COLORS badge mapping, and the updating-spinner/disabled-button behavior remain entirely uncovered even though this PR touches the same file and adds the first test harness for it."
+  ]
+}

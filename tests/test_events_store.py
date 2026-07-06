@@ -13,6 +13,7 @@ import sys
 
 import pytest
 
+from backlink_publisher.events import schema as schema_module
 from backlink_publisher.events import store as store_module
 from backlink_publisher.events.store import EventStore
 
@@ -150,7 +151,7 @@ def test_connect_rebuilds_schema_after_db_deletion(tmp_path):
     )
     assert event_id == 1, "fresh DB should restart AUTOINCREMENT at 1"
     rows = store.query("SELECT version FROM schema_version")
-    assert rows[0]["version"] == 4
+    assert rows[0]["version"] == schema_module.SCHEMA_VERSION
 
 
 def test_schema_version_zero_upgrades_to_two(tmp_path):
@@ -163,7 +164,7 @@ def test_schema_version_zero_upgrades_to_two(tmp_path):
     # Next connect should bring it to the current version.
     with store.connect() as conn:
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-    assert version == 4
+    assert version == schema_module.SCHEMA_VERSION
 
 
 def test_wal_mode_is_enabled(tmp_path):

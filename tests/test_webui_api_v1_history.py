@@ -26,7 +26,7 @@ def _patch(monkeypatch, **methods):
 
 
 def test_webui_history_list_returns_items_envelope(client, monkeypatch):
-    _patch(monkeypatch, list=lambda: [_ROW])
+    _patch(monkeypatch, list=lambda include_deleted=None: [_ROW])
     resp = client.get("/api/v1/history")
     assert resp.status_code == 200
     body = resp.get_json()
@@ -96,3 +96,47 @@ def test_webui_history_recheck_not_found_returns_404(client, monkeypatch):
     assert resp.status_code == 404
     assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
     assert resp.get_json()["error_class"] == "not_found"
+
+
+def test_webui_history_undelete_returns_refreshed_list(client, monkeypatch):
+    _patch(monkeypatch, undelete=lambda _id: {"ok": True, "history": [_ROW]})
+    resp = client.post("/api/v1/history/undelete", json={"id": "7"})
+    assert resp.status_code == 200
+    assert resp.get_json()["items"] == [_ROW]
+
+
+def test_webui_history_undelete_missing_id_returns_422(client):
+    resp = client.post("/api/v1/history/undelete", json={})
+    assert resp.status_code == 422
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+
+
+def test_webui_history_undelete_not_found_returns_404_not_silent_success(client, monkeypatch):
+    _patch(
+        monkeypatch,
+        undelete=lambda _id: {"ok": False, "error_code": "not_found", "flash_msg": "记录不存在或已过期"},
+    )
+    resp = client.post("/api/v1/history/undelete", json={"id": "999999"})
+    assert resp.status_code == 404
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+    assert resp.get_json()["error_class"] == "not_found"
+
+
+def test_webui_history_list_include_deleted_window(client, monkeypatch):
+    seen = {}
+
+    def _list(include_deleted=None):
+        seen["include_deleted"] = include_deleted
+        return [{**_ROW, "deleted_at": "2026-07-06T00:00:00+00:00"}]
+
+    _patch(monkeypatch, list=_list)
+    resp = client.get("/api/v1/history?include_deleted=window")
+    assert resp.status_code == 200
+    assert seen["include_deleted"] == "window"
+    assert resp.get_json()["items"][0]["deleted_at"] is not None
+
+
+def test_webui_history_list_invalid_include_deleted_returns_422(client):
+    resp = client.get("/api/v1/history?include_deleted=bogus")
+    assert resp.status_code == 422
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)

@@ -140,7 +140,12 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 99  # routes with CSRF but no inline Origin guard as of 2026-07-06
+_CSRF_ONLY_SNAPSHOT_COUNT = 100  # routes with CSRF but no inline Origin guard as of 2026-07-06
+# +1 (99->100): W4 soft-delete plan — POST /api/v1/history/undelete. Same tier
+# as its sibling POST /api/v1/history/delete already in this count: app-level
+# CSRF + origin guard only, deliberately not loopback-gated (matches the rest
+# of the history mutating surface) — no inline guard is warranted; covered at
+# runtime by the app-level guard exercised in test_webui_history_group.py.
 # +3 (96->99): Plan 2026-07-02-001 U3 — POST /api/v1/history/bulk-recheck, POST
 # /api/v1/drafts/bulk-publish-now, POST /api/v1/drafts/bulk-cancel. Same tier as
 # the sibling bulk-delete endpoints already in this count: app-level CSRF +

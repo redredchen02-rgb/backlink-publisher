@@ -228,9 +228,23 @@ def _build_history_item(
 # ── public query functions ─────────────────────────────────────────────────
 
 
+def _deleted_at_cutoff_iso() -> str:
+    """ISO-8601 UTC cutoff for the ``include_deleted=window`` read path (D18).
+
+    Shares the purge-window constant with the write path so a row that's
+    still returned here is, by construction, not yet purge-eligible.
+    """
+    from datetime import datetime, timedelta, UTC
+
+    from ._history_mutations import PURGE_WINDOW_SECONDS
+
+    return (datetime.now(UTC) - timedelta(seconds=PURGE_WINDOW_SECONDS)).isoformat()
+
+
 def list_history(
     store: _EventStore | None = None,
     limit: int = 500,
+    include_deleted: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return history-shaped dicts from events.db, newest-first.
 
@@ -241,22 +255,41 @@ def list_history(
     ``id``, ``target_url``, ``created_at``, ``platform``, ``status``,
     ``article_urls``, ``run_id``, ``language``, ``error``, ``verified_at``,
     ``publish_mode``.
+
+    ``include_deleted`` (W4/D18): ``None`` (default) filters out
+    soft-deleted rows -- this is the invariant every CLI read path relies
+    on implicitly by never passing the parameter. The only other
+    recognised value is ``"window"``, which flips the query to return
+    *only* rows soft-deleted within the undo window (``deleted_at``
+    populated on each item, for the WebUI's undo affordance). Any other
+    value is a caller bug, not a value to silently ignore.
     """
+    if include_deleted not in (None, "window"):
+        raise ValueError(f"include_deleted must be None or 'window', got {include_deleted!r}")
+    window_only = include_deleted == "window"
     s = store or _EventStore()
     out: list[dict[str, Any]] = []
+
+    if window_only:
+        article_filter = "a.deleted_at IS NOT NULL AND a.deleted_at >= ?"
+        article_params: tuple[Any, ...] = (_deleted_at_cutoff_iso(),)
+    else:
+        article_filter = "a.deleted_at IS NULL"
+        article_params = ()
 
     with s.connect() as conn:
         # 1. Articles with their latest event (for status derivation).
         # Use a subquery to find the latest event ID per article upfront,
         # avoiding the correlated subquery that ran O(N*M) on large datasets.
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT
               a.article_id, a.body, a.anchors_json, a.target_urls_json,
               a.lang, a.host, a.live_url, a.published_at_raw,
               a.published_at_utc, a.run_id, a.platform,
               a.verified_at, a.verify_error, a.migration_dedup_key,
               e.id, e.ts_utc, e.ts_raw, e.run_id, e.kind,
-              e.target_url, e.host, e.article_id, e.payload_json
+              e.target_url, e.host, e.article_id, e.payload_json,
+              a.deleted_at
             FROM articles a
             LEFT JOIN events e
               ON e.id = (
@@ -264,38 +297,56 @@ def list_history(
                 WHERE e2.article_id = a.article_id
                 ORDER BY e2.id DESC LIMIT 1
               )
+            WHERE {article_filter}
             ORDER BY a.published_at_utc DESC
             LIMIT ?
-        """, (limit,)).fetchall()
+        """, (*article_params, limit)).fetchall()
         verdict_map = _latest_verdicts(conn)
 
     for row in rows:
-        # Split the wide row into article (cols 0-13) and event (cols 14-22) halves.
+        # Split the wide row into article (cols 0-13), event (cols 14-22),
+        # and the trailing deleted_at column.
         article_cols = row[:14]
-        event_cols = row[14:]
+        event_cols = row[14:23]
+        deleted_at = row[23]
         # If there's no matching event, event_cols will be all-None.
         has_event = event_cols[0] is not None
-        out.append(_build_history_item(
+        item = _build_history_item(
             article_cols,
             event_cols if has_event else None,
             verdict_map,
-        ))
+        )
+        if window_only:
+            item["deleted_at"] = deleted_at
+        out.append(item)
 
     # 2. Orphan events — publish failed before an article row was created.
+    if window_only:
+        orphan_filter = "e.deleted_at IS NOT NULL AND e.deleted_at >= ?"
+        orphan_params: tuple[Any, ...] = (_deleted_at_cutoff_iso(),)
+    else:
+        orphan_filter = "e.deleted_at IS NULL"
+        orphan_params = ()
+
     with s.connect() as conn:
-        orphans = conn.execute("""
+        orphans = conn.execute(f"""
             SELECT e.id, e.ts_utc, e.ts_raw, e.run_id, e.kind,
-                   e.target_url, e.host, e.article_id, e.payload_json
+                   e.target_url, e.host, e.article_id, e.payload_json,
+                   e.deleted_at
             FROM events e
             LEFT JOIN articles a ON a.article_id = e.article_id
             WHERE a.article_id IS NULL
               AND e.kind IN (?, ?, ?)
+              AND {orphan_filter}
             ORDER BY e.id DESC
             LIMIT ?
-        """, (KIND_CONFIRMED, KIND_UNVERIFIED, KIND_FAILED, limit)).fetchall()
+        """, (KIND_CONFIRMED, KIND_UNVERIFIED, KIND_FAILED, *orphan_params, limit)).fetchall()
 
     for orow in orphans:
-        out.append(_build_history_item(None, orow))
+        item = _build_history_item(None, orow[:9])
+        if window_only:
+            item["deleted_at"] = orow[9]
+        out.append(item)
 
     # Sort combined list by created_at desc, then id desc.
     out.sort(key=lambda i: (i.get("created_at") or "", str(i.get("id", ""))), reverse=True)
@@ -333,7 +384,7 @@ def get_history_item(
                SELECT MAX(e2.id) FROM events e2
                WHERE e2.article_id = a.article_id
              )
-            WHERE a.article_id = ?
+            WHERE a.article_id = ? AND a.deleted_at IS NULL
         """, (aid,)).fetchone()
         verdict_map = _latest_verdicts(conn) if row is not None else None
 
@@ -448,8 +499,11 @@ def count_publish_events() -> int:
 from ._history_mutations import (  # noqa: E402
     _STATUS_TO_KIND,
     bulk_delete_from_db,
+    CLIENT_UNDO_WINDOW_SECONDS,
     delete_from_db,
     purge_failed_from_db,
+    PURGE_WINDOW_SECONDS,
+    undelete_from_db,
     update_status_in_db,
 )
 
@@ -457,8 +511,11 @@ __all__ = [
     "purge_failed_from_db",
     "delete_from_db",
     "bulk_delete_from_db",
+    "undelete_from_db",
     "_STATUS_TO_KIND",
     "update_status_in_db",
+    "CLIENT_UNDO_WINDOW_SECONDS",
+    "PURGE_WINDOW_SECONDS",
 ]
 
 

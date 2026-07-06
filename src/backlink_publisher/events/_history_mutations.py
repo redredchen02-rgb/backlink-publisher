@@ -5,14 +5,23 @@ that mutate the ``events`` and ``articles`` tables:
 ``purge_failed_from_db``, ``delete_from_db``, ``bulk_delete_from_db``,
 ``update_status_in_db``, and the ``_STATUS_TO_KIND`` mapping they share.
 
+W4 (soft-delete, 2026-07-06): ``delete_from_db``/``bulk_delete_from_db`` now
+set ``deleted_at`` instead of physically removing rows -- the read path
+(``history_query.list_history``/``get_history_item``) filters them out by
+default. ``undelete_from_db`` clears ``deleted_at`` within the purge window.
+Both mutators opportunistically purge rows whose ``deleted_at`` has aged past
+``PURGE_WINDOW_SECONDS`` (lazy cleanup on next write -- no scheduler needed).
+
 ``history_query.py`` re-exports these names for backward compatibility.
 """
 
 from __future__ import annotations
 
 import json
+import sqlite3
 
 from . import kinds as _kinds
+from ._store_sqlite import _now_iso_utc
 from .store import EventStore as _EventStore
 
 KIND_CONFIRMED = _kinds.PUBLISH_CONFIRMED
@@ -26,6 +35,62 @@ _STATUS_TO_KIND: dict[str, str] = {
     "drafted_unverified": KIND_UNVERIFIED,
     "failed": KIND_FAILED,
 }
+
+#: How long a soft-deleted row stays visible to the WebUI's
+#: ``include_deleted=window`` read path (D18) for an undo affordance. The
+#: frontend's undo-toast duration (see ``frontend/src/pages/History``) is a
+#: UI constant that MUST stay strictly smaller than this value.
+CLIENT_UNDO_WINDOW_SECONDS = 15
+
+#: Purge eligibility = deleted_at older than this many seconds. Deliberately
+#: 2x the client's undo window: the server purge window must strictly exceed
+#: the client undo window (plus network/render latency margin), or a user's
+#: still-visible "撤銷" (undo) button can lose the race against the purge
+#: sweep and return a 404 for a click made well within the window they were
+#: shown. Named here (not inlined) so the invariant is one obvious edit, not
+#: two numbers a future change could accidentally desync.
+PURGE_WINDOW_SECONDS = CLIENT_UNDO_WINDOW_SECONDS * 2
+
+
+def _purge_expired_rows(conn: sqlite3.Connection) -> int:
+    """Physically remove rows past ``PURGE_WINDOW_SECONDS`` since soft-delete.
+
+    Called opportunistically from the soft-delete write paths (lazy cleanup
+    on next write) rather than via a scheduled job -- simplest mechanism that
+    satisfies the purge-eligibility invariant. Returns rows removed.
+    """
+    cutoff = _cutoff_iso()
+    removed = 0
+    aids = [
+        row[0]
+        for row in conn.execute(
+            "SELECT article_id FROM articles WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+            (cutoff,),
+        ).fetchall()
+    ]
+    if aids:
+        ph = ",".join("?" * len(aids))
+        conn.execute(f"DELETE FROM events WHERE article_id IN ({ph})", aids)
+        cur = conn.execute(f"DELETE FROM articles WHERE article_id IN ({ph})", aids)
+        removed += cur.rowcount
+    cur = conn.execute(
+        "DELETE FROM events WHERE deleted_at IS NOT NULL AND deleted_at < ? "
+        "AND article_id IS NULL",
+        (cutoff,),
+    )
+    removed += cur.rowcount
+    return removed
+
+
+def _cutoff_iso() -> str:
+    """ISO-8601 UTC timestamp ``PURGE_WINDOW_SECONDS`` in the past.
+
+    Deleted-at values are ISO-8601 with a fixed-width ``+00:00`` offset
+    (``_now_iso_utc``), so plain string comparison sorts correctly.
+    """
+    from datetime import datetime, timedelta, UTC
+
+    return (datetime.now(UTC) - timedelta(seconds=PURGE_WINDOW_SECONDS)).isoformat()
 
 
 def purge_failed_from_db(store: _EventStore | None = None) -> int:
@@ -81,13 +146,18 @@ def purge_failed_from_db(store: _EventStore | None = None) -> int:
 
 
 def delete_from_db(article_id: int | str, store: _EventStore | None = None) -> bool:
-    """Delete one history item (article + linked events) from events.db.
+    """Soft-delete one history item (article + linked events) in events.db.
 
-    Handles orphan-event IDs of the form ``'evt-<int>'`` (no article row).
-    Returns True when at least one row was removed.
+    Sets ``deleted_at`` instead of physically removing rows -- the row stays
+    undo-able until it ages past ``PURGE_WINDOW_SECONDS``, at which point it
+    becomes eligible for opportunistic purge (this call also sweeps any other
+    rows already past that window). Handles orphan-event IDs of the form
+    ``'evt-<int>'`` (no article row). Returns True when at least one row was
+    matched and marked deleted.
     """
     aid_str = str(article_id)
     s = store or _EventStore()
+    now = _now_iso_utc()
     # Orphan event — no article row, only an event row (id="evt-<n>" in UI)
     if aid_str.startswith("evt-"):
         try:
@@ -95,22 +165,43 @@ def delete_from_db(article_id: int | str, store: _EventStore | None = None) -> b
         except (ValueError, TypeError):
             return False
         with s.connect_immediate() as conn:
-            cur = conn.execute("DELETE FROM events WHERE id = ?", (evt_id,))
+            cur = conn.execute(
+                "UPDATE events SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+                (now, evt_id),
+            )
+            _purge_expired_rows(conn)
             return cur.rowcount > 0
     try:
         aid = int(article_id)
     except (ValueError, TypeError):
         return False
     with s.connect_immediate() as conn:
-        conn.execute("DELETE FROM events WHERE article_id = ?", (aid,))
-        cur = conn.execute("DELETE FROM articles WHERE article_id = ?", (aid,))
-        return cur.rowcount > 0
+        conn.execute(
+            "UPDATE events SET deleted_at = ? WHERE article_id = ? AND deleted_at IS NULL",
+            (now, aid),
+        )
+        cur = conn.execute(
+            "UPDATE articles SET deleted_at = ? WHERE article_id = ? AND deleted_at IS NULL",
+            (now, aid),
+        )
+        matched = cur.rowcount > 0
+        _purge_expired_rows(conn)
+        return matched
 
 
-def bulk_delete_from_db(ids: list[str | int], store: _EventStore | None = None) -> int:
-    """Delete multiple history items from events.db. Returns row count removed."""
+def bulk_delete_from_db(
+    ids: list[str | int], store: _EventStore | None = None
+) -> dict[str, int]:
+    """Soft-delete multiple history items from events.db.
+
+    Returns ``{"deleted": n, "skipped": n}`` -- ``skipped`` counts ids that
+    don't parse or don't match any live (not-already-deleted) row, so a
+    partially-stale bulk selection reports honestly instead of an
+    all-or-nothing result.
+    """
+    result = {"deleted": 0, "skipped": 0}
     if not ids:
-        return 0
+        return result
     article_ids: list[int] = []
     event_ids: list[int] = []
     for item_id in ids:
@@ -119,27 +210,83 @@ def bulk_delete_from_db(ids: list[str | int], store: _EventStore | None = None) 
             try:
                 event_ids.append(int(s[4:]))
             except (ValueError, TypeError):
-                pass
+                result["skipped"] += 1
         else:
             try:
                 article_ids.append(int(item_id))
             except (ValueError, TypeError):
-                pass
+                result["skipped"] += 1
     if not article_ids and not event_ids:
-        return 0
+        return result
     st = store or _EventStore()
-    removed = 0
+    now = _now_iso_utc()
     with st.connect_immediate() as conn:
         if article_ids:
             ph = ",".join("?" * len(article_ids))
-            conn.execute(f"DELETE FROM events WHERE article_id IN ({ph})", article_ids)
-            cur = conn.execute(f"DELETE FROM articles WHERE article_id IN ({ph})", article_ids)
-            removed += cur.rowcount
+            conn.execute(
+                f"UPDATE events SET deleted_at = ? WHERE article_id IN ({ph}) "
+                "AND deleted_at IS NULL",
+                [now, *article_ids],
+            )
+            cur = conn.execute(
+                f"UPDATE articles SET deleted_at = ? WHERE article_id IN ({ph}) "
+                "AND deleted_at IS NULL",
+                [now, *article_ids],
+            )
+            result["deleted"] += cur.rowcount
+            result["skipped"] += len(article_ids) - cur.rowcount
         if event_ids:
             ph = ",".join("?" * len(event_ids))
-            cur = conn.execute(f"DELETE FROM events WHERE id IN ({ph})", event_ids)
-            removed += cur.rowcount
-    return removed
+            cur = conn.execute(
+                f"UPDATE events SET deleted_at = ? WHERE id IN ({ph}) "
+                "AND deleted_at IS NULL",
+                [now, *event_ids],
+            )
+            result["deleted"] += cur.rowcount
+            result["skipped"] += len(event_ids) - cur.rowcount
+        _purge_expired_rows(conn)
+    return result
+
+
+def undelete_from_db(article_id: int | str, store: _EventStore | None = None) -> bool:
+    """Clear ``deleted_at`` for one soft-deleted history item.
+
+    Returns True only when a currently-soft-deleted row was found and
+    restored -- an id that never existed, was never deleted, or has already
+    aged past the purge window (physically gone) returns False so the
+    caller can surface a real 404 instead of a false success.
+    """
+    aid_str = str(article_id)
+    s = store or _EventStore()
+    if aid_str.startswith("evt-"):
+        try:
+            evt_id = int(aid_str[4:])
+        except (ValueError, TypeError):
+            return False
+        with s.connect_immediate() as conn:
+            _purge_expired_rows(conn)
+            cur = conn.execute(
+                "UPDATE events SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL",
+                (evt_id,),
+            )
+            return cur.rowcount > 0
+    try:
+        aid = int(article_id)
+    except (ValueError, TypeError):
+        return False
+    with s.connect_immediate() as conn:
+        _purge_expired_rows(conn)
+        cur = conn.execute(
+            "UPDATE articles SET deleted_at = NULL WHERE article_id = ? "
+            "AND deleted_at IS NOT NULL",
+            (aid,),
+        )
+        restored = cur.rowcount > 0
+        conn.execute(
+            "UPDATE events SET deleted_at = NULL WHERE article_id = ? AND deleted_at IS NOT NULL",
+            (aid,),
+        )
+        return restored
 
 
 def update_status_in_db(

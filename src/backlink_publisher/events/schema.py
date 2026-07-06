@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 
 #: Current schema version. Bump when adding a migration step.
-SCHEMA_VERSION: int = 4
+SCHEMA_VERSION: int = 5
 
 
 class SchemaTooNewError(RuntimeError):
@@ -41,12 +41,14 @@ _DDL_STATEMENTS: tuple[str, ...] = (
         target_url TEXT,
         host TEXT,
         article_id INTEGER,
-        payload_json TEXT NOT NULL
+        payload_json TEXT NOT NULL,
+        deleted_at TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_events_kind_ts ON events(kind, ts_utc)",
     "CREATE INDEX IF NOT EXISTS idx_events_host_kind ON events(host, kind)",
     "CREATE INDEX IF NOT EXISTS idx_events_article_kind ON events(article_id, kind)",
+    "CREATE INDEX IF NOT EXISTS idx_events_deleted_at ON events(deleted_at)",
     """
     CREATE TABLE IF NOT EXISTS articles (
         article_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,13 +64,15 @@ _DDL_STATEMENTS: tuple[str, ...] = (
         platform TEXT,
         verified_at TEXT,
         verify_error TEXT,
-        migration_dedup_key TEXT
+        migration_dedup_key TEXT,
+        deleted_at TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_articles_host_pub ON articles(host, published_at_utc)",
     "CREATE INDEX IF NOT EXISTS idx_articles_run ON articles(run_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_migration_dedup "
     "ON articles(migration_dedup_key) WHERE migration_dedup_key IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_articles_deleted_at ON articles(deleted_at)",
     """
     CREATE TABLE IF NOT EXISTS projection_cursor (
         source TEXT PRIMARY KEY,
@@ -167,6 +171,12 @@ def maybe_upgrade_schema(conn: sqlite3.Connection) -> None:
         # them (e.g. idx_articles_migration_dedup).
         if version in (1, 2, 3):
             _ensure_articles_v4_columns(conn)
+        # v5 migration (W4 soft-delete): add deleted_at to both events and
+        # articles. Nullable, so pre-existing rows read as "not deleted" —
+        # forward-compatible; a rollback to a pre-W4 binary would hit
+        # SchemaTooNewError and require `bp-events-rebuild --force`.
+        if version in (1, 2, 3, 4):
+            _ensure_deleted_at_columns(conn)
         initialize_schema(conn)
         conn.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
     # Additive, idempotent, version-independent migrations. These MUST run even
@@ -253,6 +263,32 @@ def _ensure_articles_v4_columns(conn: sqlite3.Connection) -> None:
         "ON articles(migration_dedup_key) "
         "WHERE migration_dedup_key IS NOT NULL"
     )
+
+
+def _ensure_deleted_at_columns(conn: sqlite3.Connection) -> None:
+    """Add ``deleted_at`` to ``events`` and ``articles`` for W4 soft-delete.
+
+    Nullable TEXT column, same convention as the other timestamp columns
+    (ISO-8601 UTC string, or NULL meaning "not deleted"). Each ALTER is
+    guarded by ``PRAGMA table_info`` (SQLite has no ``ADD COLUMN IF NOT
+    EXISTS``); a concurrent-writer race on the same guard is a benign
+    "duplicate column" error, matching the other v2/v3/v4 helpers above.
+    """
+    for table in ("events", "articles"):
+        existing_tables = {
+            row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        if table not in existing_tables:
+            continue  # initialize_schema will create it with the column already
+        cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if "deleted_at" not in cols:
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN deleted_at TEXT")
+            except sqlite3.OperationalError as exc:
+                if "duplicate column" not in str(exc).lower():
+                    raise
 
 
 def maybe_create_fts5(conn: sqlite3.Connection) -> None:  # pragma: no cover - v1 stub

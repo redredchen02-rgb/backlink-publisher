@@ -1,0 +1,7 @@
+{
+  "run_id": "20260703-190925-e4d53510",
+  "branch": "fix/pr-queue-lite-error-message-2",
+  "head_sha": "698ac012e9f32f55625431f793fd16713fe30a57",
+  "verdict": "Ready with fixes (applied)",
+  "completed_at": "2026-07-03T19:30:00Z"
+}

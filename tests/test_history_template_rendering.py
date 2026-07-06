@@ -30,7 +30,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(real, "save", _save)
 
     import webui_app.api.history_api as _hapi
-    monkeypatch.setattr(_hapi, "list_history", lambda: list(_saved))
+    monkeypatch.setattr(_hapi, "list_history", lambda include_deleted=None: list(_saved))
 
     import webui
     webui.app.config["TESTING"] = True

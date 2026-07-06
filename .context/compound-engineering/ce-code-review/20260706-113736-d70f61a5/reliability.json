@@ -1,0 +1,33 @@
+{
+  "reviewer": "reliability",
+  "findings": [
+    {
+      "title": "Sequential CSRF+POST timeouts can compound to ~30s wait",
+      "severity": "P3",
+      "file": "frontend/src/api/prQueue.ts",
+      "line": 69,
+      "why_it_matters": "updatePrStatus() sequentially awaits _csrf() (an independent _fetchWithTimeout call with its own fresh 15s timer) before starting the main POST's own independent 15s _fetchWithTimeout call, so if the backend is slow/hanging on both endpoints a single button click (mark won/skipped) can leave the user waiting up to ~30s before any feedback appears -- longer than the 15s the B3 fix intends as the outer bound for 'stuck on this page' on an interactive, single-click action. This is not a hang (still bounded, a strict improvement over the pre-fix unbounded wait) but the compounding is concrete and always-exercised in production: _csrf() has no module-level token cache (unlike client.ts's cached `_csrf` variable) and the SPA shell is served as a static file with no Jinja templating, so no `<meta name=\"csrf-token\">` tag is ever present to short-circuit the fetch -- every updatePrStatus call pays the full CSRF round-trip before the status POST even starts.",
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "suggested_fix": "Consider capping the combined worst-case latency for a single interactive action, e.g. a shorter timeout for the CSRF hop specifically, caching the CSRF token at module scope (mirroring client.ts's `_csrf` variable, refetched only on a 403) so most clicks skip the CSRF round-trip entirely, or fetching the token once eagerly on page mount rather than per-click.",
+      "confidence": 0.62,
+      "evidence": [
+        "frontend/src/api/prQueue.ts:69-77 -- `updatePrStatus` builds its POST call with `'X-CSRFToken': await _csrf()` inline in the headers object, so `_csrf()`'s own `_fetchWithTimeout` (up to 15s) fully resolves before the main POST's `_fetchWithTimeout` (another up to 15s) even starts -- sequential, not parallel, worst case ~30s.",
+        "frontend/src/api/prQueue.ts:41-52 -- `_csrf()` has no module-level cache of the resolved token (unlike frontend/src/api/client.ts:21,37-38's `let _csrf: string | null = null` pattern), so every call re-fetches when no `<meta>` tag is present.",
+        "webui_app/routes/spa.py:38-53 -- the SPA shell is served via `send_from_directory(..., 'index.html')`, a static file with no Jinja templating, confirming no server-rendered `<meta name=\"csrf-token\">` tag exists in the `/app/pr-queue` page to short-circuit `_csrf()`'s network fetch (matches the rationale already documented in frontend/src/api/client.ts's file header comment)."
+      ],
+      "pre_existing": false
+    }
+  ],
+  "residual_risks": [
+    "PrQueuePage.vue's markStatus() catch block (unchanged by this diff) discards the actual updatePrStatus failure reason and just calls load() again ('Error is surfaced by load()'); if that reload succeeds the user gets zero indication their status-update click failed. This is pre-existing and out of scope for B3/B4/B5, but B3's new 15s timeout turns what used to be an indefinite hang on a bad update into a concrete rejection that now flows straight into this silent-swallow path, making it more likely to be hit in practice.",
+    "prQueue.ts's hand-rolled _fetchWithTimeout deliberately does not retry on transient network/AbortError (unlike client.ts's withRetry, 1 retry), so /api/pr-queue and /api/pr-queue/status remain less resilient to a single transient blip than every other SPA endpoint routed through client.ts -- an intentional, documented scope-narrowing decision (code comment explains it), but a durable behavioral asymmetry worth being aware of.",
+    "The health-bar dismiss recheck (B5) fully closes the specific race it targets: because the fetchJson('/health').then() callback runs synchronously from its dismiss-check through the classList mutations with no awaited yield point in between, a concurrent dismiss click cannot interleave mid-callback under JS's single-threaded run-to-completion model -- this narrows to zero, not just narrows, for this exact interaction."
+  ],
+  "testing_gaps": [
+    "Neither the new prQueue.spec.ts AbortError tests nor client.spec.ts's existing equivalent exercise the real `setTimeout(..., 15_000)` firing -- both substitute an immediately-thrown DOMException for the mocked fetch instead of using fake timers to advance past the real window, so the actual timer -> ctrl.abort() wiring inside _fetchWithTimeout is never executed by the suite (a regression that broke that wiring, e.g. an uncleared/mis-scoped timer, would not be caught).",
+    "test_health_bar_fetch_resolution_rechecks_dismiss_before_showing only asserts the dismiss-check string literal appears twice in the source (a static string-count assertion) rather than exercising the actual race with a controlled/deferred fetch promise and a simulated dismiss click in between -- a change that duplicated the guard string elsewhere without it being on the actual execution path inside .then() could still pass.",
+    "The new B4 test in PrQueuePage.spec.ts only covers two DIFFERENT rows' markStatus()-triggered load() calls overlapping; it does not add coverage for a manual '刷新' click racing a markStatus()-triggered reload (both call the same load(), so the generation-counter guard is likely origin-agnostic, but that specific interleaving remains untested)."
+  ]
+}
