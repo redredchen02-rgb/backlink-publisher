@@ -213,6 +213,19 @@ def test_health_bar_never_run_literal_matches_backend():
     assert "reasons[0] === 'pipeline:never_run'" in _INDEX_JS
 
 
+def test_health_bar_fetch_resolution_rechecks_dismiss_before_showing():
+    """backlog B5 (found in B2's code review): the /health fetch's .then()
+    callback must re-check the dismiss flag before removing 'd-none' -- else a
+    response that resolves after the user clicks dismiss silently un-hides the
+    bar they just closed. The check must appear a second time (inside the
+    callback), not just once at _initHealthBar's own top (which only guards
+    against starting the fetch at all, not a late-resolving one already in
+    flight when the user dismisses)."""
+    assert _INDEX_JS.count(
+        "try { if (sessionStorage.getItem(DISMISS_KEY)) return; } catch (_) { /* ignore */ }"
+    ) == 2
+
+
 # test_settings_error_path_routes_through_classify_error removed — settings.js
 # retired in U8 (Plan 2026-06-18-002).
 

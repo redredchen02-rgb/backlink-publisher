@@ -318,6 +318,10 @@ function _initHealthBar() {
 
   fetchJson('/health').then((data) => {
     if (!data) return;
+    // If the user dismissed the bar while this request was in flight, don't
+    // let a late response silently un-hide it (backlog B5, found in B2's code
+    // review; pre-existing, same root function B2 touched).
+    try { if (sessionStorage.getItem(DISMISS_KEY)) return; } catch (_) { /* ignore */ }
     const healthy = data.healthy;
     const reasons = data.degraded_reasons || [];
     // A brand-new install (or a channel just bound, nothing published yet) is

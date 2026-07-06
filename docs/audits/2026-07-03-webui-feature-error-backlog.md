@@ -99,7 +99,7 @@
 | B2 | `/`、`/ce:history` 首頁在「從未發佈過」的正常情境下持續顯示「系统降级」紅色橫幅 | **高**（每次打開主入口都看到，任何新安裝/新設定完 channel 但還沒發第一篇的使用者都會遇到） | 需要先有產品決策（見發現 #2），程式碼修改本身不難 | **已修復**（2026-07-06，分支 `fix/pr-queue-lite-error-message-2`，見下方「已完成」） |
 | B3〔2026-07-03，B1 code review 發現〕 | `frontend/src/api/prQueue.ts` 的 `fetchPrQueue()`/`updatePrStatus()` 沒有 timeout/AbortController（`frontend/src/api/client.ts` 的 `getJson`/`sendJson` 有 15s timeout + 重試，這兩個手寫 `fetch` 呼叫繞過了它）——後端若 hang，使用者卡在 loading 骨架、刷新按鈕被 disabled，沒有逃生路徑 | 低（僅在後端異常掛起時才會遇到，屬邊角情境） | 中（改用 `client.ts` 的 `getJson`/`sendJson` 取代手寫 `fetch`，需確認錯誤形狀相容） | **已修復**（2026-07-06，分支 `fix/pr-queue-lite-error-message-2`，見下方「已完成」） |
 | B4〔2026-07-03，B1 code review 發現〕 | `PrQueuePage.vue` 的 `load()` 沒有 request-generation 防護，`markStatus()` 的內部重新載入與手動「刷新」按鈕可並發觸發多次 `load()`，最後 resolve 的（不一定是最後啟動的）會覆蓋 `items`/`error`/`liteUnavailable`，可能讓過期的錯誤狀態蓋掉之後成功的資料 | 低（需要快速連續操作才會踩到，UX 級而非資料損毀） | 中（加一個遞增的 request-generation counter，~8-10 行） | **已修復**（2026-07-06，分支 `fix/pr-queue-lite-error-message-2`，見下方「已完成」） |
-| B5〔2026-07-06，B2 code review 發現〕 | `_initHealthBar()` 的 `/health` fetch resolve 時無條件 `bar.classList.remove('d-none')`，若使用者在 fetch 進行中點擊「關閉」橫幅按鈕，稍後 resolve 的回應會悄悄把已關閉的橫幅重新顯示出來 | 低（需要在 fetch 進行中恰好點擊關閉才會踩到，邊角情境） | 低（在 `.then()` 開頭重新檢查 `sessionStorage.getItem(DISMISS_KEY)` 並提早 return） | **既存缺陷，非 B2 引入**（`_initHealthBar()` 的整體結構在 B2 之前就存在；B2 的 diff 只新增 `neverPublished` 分類邏輯，未改動這段 fetch/dismiss 互動）；獨立，未排入本輪 |
+| B5〔2026-07-06，B2 code review 發現〕 | `_initHealthBar()` 的 `/health` fetch resolve 時無條件 `bar.classList.remove('d-none')`，若使用者在 fetch 進行中點擊「關閉」橫幅按鈕，稍後 resolve 的回應會悄悄把已關閉的橫幅重新顯示出來 | 低（需要在 fetch 進行中恰好點擊關閉才會踩到，邊角情境） | 低（在 `.then()` 開頭重新檢查 `sessionStorage.getItem(DISMISS_KEY)` 並提早 return） | **已修復**（2026-07-06，分支 `fix/pr-queue-lite-error-message-2`，見下方「已完成」） |
 
 ## 已完成
 
@@ -112,6 +112,8 @@
 - [x] **B3**（2026-07-06，分支 `fix/pr-queue-lite-error-message-2`）：`frontend/src/api/prQueue.ts` 沒法直接改用 `client.ts` 的 `getJson`/`sendJson`——後者寫死 `API_BASE = '/api/v1'`，而這是 legacy `/api/pr-queue` 端點（見檔案自己的開頭註解）。改法是在 `prQueue.ts` 內就地實作一個對稱、範圍限縮的 `_fetchWithTimeout`（AbortController + 15s，等同 `client.ts` 的 `DEFAULT_TIMEOUT_MS`），不拉入 `client.ts` 整套 dedup/retry/CSRF-refresh 機制（這個 bug 只缺 timeout，不缺那些）。`fetchPrQueue()`/`updatePrStatus()` 均已套用。新增 `frontend/src/api/prQueue.spec.ts`（7 案例，含「fetch 收到 AbortSignal」與「逾時時 reject 而非卡住」兩條直接釘住本次修復的測試），沿用 `client.spec.ts` 既有的 `vi.stubGlobal('fetch', ...)` 測試慣例。
 
 - [x] **B4**（2026-07-06，分支 `fix/pr-queue-lite-error-message-2`）：`PrQueuePage.vue` 的 `load()` 新增遞增的 `loadGeneration` 計數器——每次呼叫 `load()` 時鎖定自己的世代編號，在每個可能被搶先的檢查點（`/app-config` 讀取後、`fetchPrQueue()` resolve 後）確認自己仍是最新世代才寫入 `items`/`error`/`liteUnavailable`/`loading`，過期的呼叫直接靜默返回。新增測試（`PrQueuePage.spec.ts`）模擬兩個不同列的 `markStatus()` 幾乎同時觸發：驗證較早啟動的 `load()` 在 `/app-config` 檢查點就會發現自己過期並提早返回、**連 `fetchPrQueue()` 都不會呼叫**（比原始 B4 描述的「不覆蓋已渲染資料」更早一步的防護），只有較新的呼叫真正打到網路且結果被套用。以 `git stash` 暫時還原修復、確認測試會真的失敗（會呼叫兩次 `fetchPrQueue()` 且第二次吃到 mock 佇列外的 `undefined` 而拋錯）後復原，紅綠對照確認測試有效。`npx vitest run`（255/255）、`vue-tsc --noEmit`（同前 3 個既有無關錯誤）全綠。
+
+- [x] **B5**（2026-07-06，分支 `fix/pr-queue-lite-error-message-2`）：`webui_app/static/js/index.js` 的 `_initHealthBar()` 在 `/health` fetch 的 `.then()` callback 開頭新增與函式頂部相同的 `sessionStorage.getItem(DISMISS_KEY)` 重新檢查——若使用者在 fetch 進行中點擊「關閉」，稍後才 resolve 的回應會直接提早返回，不再悄悄把已關閉的橫幅重新顯示。新增 `test_health_bar_fetch_resolution_rechecks_dismiss_before_showing`（斷言同一段檢查字串在檔案中出現兩次：函式頂部一次、`.then()` 內一次）。以獨立 webui 執行個體在真實瀏覽器驗證一般（非競態）情境下關閉按鈕仍正常運作、無回歸；競態情境本身的邏輯正確性由原始碼比對驗證（新檢查與函式頂部既有、已驗證正確的檢查完全相同），未額外用瀏覽器精確控制 timing 重現競態本身（成本與這個 P3 邊角案例不成比例）。
 
 ## 待辦
 
