@@ -931,6 +931,9 @@
         }
         .health-summary-bar.healthy  { background: var(--success-soft); border-color: rgba(16,185,129,0.4); }
         .health-summary-bar.degraded { background: var(--danger-soft); border-color: rgba(239,68,68,0.35); }
+        /* "Never published yet" is expected for a fresh install, not a failure —
+           informational tint, not the alarming danger tint (2026-07-06, U15 B2). */
+        .health-summary-bar.pending  { background: var(--info-soft); }
         .health-summary-bar .health-icon { font-size: 14px; flex-shrink: 0; }
         .health-summary-bar .health-text { color: #374151; }
         .health-summary-bar .health-link { font-size: 12px; color: #6b7280; text-decoration: none; }
