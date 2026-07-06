@@ -61,16 +61,119 @@ def api_channel_status(channel: str) -> Any:
     return jsonify(get_channel_status(channel, config))
 
 
+def _medium_verify_result() -> Any:
+    """Special-case ``medium``: run the real Playwright liveness probe
+    (Plan 2026-07-06-004 Unit 3) instead of falling through to the generic
+    ``verify_adapter_setup(..., mode='live')`` stub, which per the plan's own
+    research always answers ``unverifiable_live`` for medium.
+
+    Maps :class:`LivenessResult` onto the same
+    :class:`~backlink_publisher.publishing._verify.VerifyResult` shape every
+    other channel returns, so the frontend needs no channel-specific handling.
+    ``LOGGED_IN``/``CACHED_BOUND`` both read as a definite ``ok`` (the liveness
+    TTL cache is itself the definition of "still verified enough"); ``EXPIRED``
+    and ``NEVER_BOUND`` map onto the existing ``token_expired``/``never``
+    literals; ``NEEDS_RECHECK`` (probe timeout/disabled) reads as the existing
+    transient ``timeout`` literal — never mutates state, same as any other
+    channel's timeout.
+    """
+    from backlink_publisher.publishing._verify import VerifyResult
+    from backlink_publisher.publishing.adapters.medium_liveness import LivenessResult
+    from webui_store.channel_status import get_status
+
+    from ..services.medium_liveness_service import medium_liveness_check
+
+    outcome = medium_liveness_check()
+    last_verified_at = get_status("medium").get("last_verified_at")
+
+    if outcome in (LivenessResult.LOGGED_IN, LivenessResult.CACHED_BOUND):
+        return VerifyResult(
+            ok=True, last_verified_at=last_verified_at, last_verify_result="ok"
+        )
+    if outcome is LivenessResult.EXPIRED:
+        return VerifyResult(
+            ok=False,
+            last_verified_at=last_verified_at,
+            last_verify_result="token_expired",
+            blockers=["Medium session expired — reconnect via Settings."],
+        )
+    if outcome is LivenessResult.NEVER_BOUND:
+        return VerifyResult(
+            ok=False,
+            last_verify_result="never",
+            blockers=["Medium is not bound — complete browser login first."],
+        )
+    # NEEDS_RECHECK: probe timed out, is disabled, or storage state vanished
+    # mid-check — an honest "couldn't tell right now", not a verdict.
+    return VerifyResult(
+        ok=False,
+        last_verified_at=last_verified_at,
+        last_verify_result="timeout",
+        blockers=["Medium liveness probe did not complete — try again shortly."],
+    )
+
+
+def _sync_channel_status(channel: str, result: Any) -> None:
+    """Mirror a live-verify verdict into ``channel_status_store`` (Plan
+    2026-07-06-004 Unit 3 gap-fill) so the dashboard's credentials card
+    (which reads ``channel_status.list_all()``, not ``verify_health``)
+    reflects the new state.
+
+    Restricted to the ``CHANNELS`` whitelist (blogger/medium/velog) — every
+    other channel (telegraph/ghpages/devto/...) would raise ``UsageError``
+    from ``channel_status._validate_channel``, so those are skipped entirely
+    and keep only the pre-existing ``verify_health.record()`` write above.
+
+    Same transient/definite split as ``verify_health.record()``: only ``ok``
+    and ``token_expired`` are definite signals; timeout/never/payload_invalid/
+    unverifiable_live never mutate state (a network blip must not fake an
+    expiry, nor must an honest "can't check this live" stub fake a bind).
+
+    On ``ok`` while the stored status is already ``expired`` (with a
+    recorded ``storage_state_path``), restores to ``bound`` via
+    ``mark_bound`` — ``mark_verified`` alone preserves the existing status
+    field, so without this the credentials card's failed list would never
+    clear on a successful manual re-verify. ``identity_mismatch`` is
+    deliberately left untouched either way (R6: operator must resolve it
+    explicitly via the keep/replace routes, never an implicit clear).
+    """
+    from backlink_publisher.cli._bind.channels import CHANNELS
+    if channel not in CHANNELS:
+        return
+
+    from webui_store import channel_status
+
+    try:
+        if result.last_verify_result == "ok":
+            current = channel_status.get_status(channel)
+            path = current.get("storage_state_path")
+            if current.get("status") == "expired" and path:
+                channel_status.mark_bound(channel, path)
+            else:
+                channel_status.mark_verified(channel)
+        elif result.last_verify_result == "token_expired":
+            if channel_status.get_status(channel).get("status") != "identity_mismatch":
+                channel_status.mark_expired(channel)
+    except Exception:
+        pass
+
+
 @bp.route('/api/<channel>/verify', methods=['POST'])
 def api_channel_verify(channel: str) -> Any:
     """Live verify — calls platform's lightweight verify endpoint.
 
     CSRF guarded by app-level ``_global_csrf_guard``. Per-channel live impl
     deferred to Unit 6 backfill — Unit 4 ships the dispatch + JSON contract.
+    ``medium`` is special-cased (Plan 2026-07-06-004 Unit 3) to a real
+    liveness probe; every verdict also syncs into ``channel_status_store``
+    for whitelisted channels (see ``_sync_channel_status``).
     """
     _require_known_channel(channel)
-    config = _g_cache('config', load_config)
-    result = verify_adapter_setup(channel, config, mode='live')
+    if channel == "medium":
+        result = _medium_verify_result()
+    else:
+        config = _g_cache('config', load_config)
+        result = verify_adapter_setup(channel, config, mode='live')
     # Plan 2026-06-05-008: persist the credential verdict so an expired token
     # surfaces as needs-reconnect (plan-007 partition) across reloads. Only
     # token_expired/ok mutate state. Never let a store hiccup break verify.
@@ -79,6 +182,7 @@ def api_channel_verify(channel: str) -> Any:
         verify_health.record(channel, result.last_verify_result)
     except Exception:
         pass
+    _sync_channel_status(channel, result)
     return jsonify(_verify_result_to_json(result))
 
 

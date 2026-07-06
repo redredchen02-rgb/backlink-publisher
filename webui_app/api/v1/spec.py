@@ -73,6 +73,7 @@ from .schemas import (
     ProStatusEnvelopeSchema,
     PublishRequestSchema,
     PublishResponseSchema,
+    QueueRetryResultSchema,
     RegenBodyRequestSchema,
     RegenBodyResponseSchema,
     ScheduledListSchema,
@@ -146,6 +147,7 @@ def build_spec() -> APISpec:
     spec.components.schema("HistoryMutationResult", schema=HistoryMutationResultSchema)
     spec.components.schema("HistoryIdRequest", schema=HistoryIdRequestSchema)
     spec.components.schema("HistoryIdsRequest", schema=HistoryIdsRequestSchema)
+    spec.components.schema("QueueRetryResult", schema=QueueRetryResultSchema)
     spec.components.schema("DraftList", schema=DraftListSchema)
     spec.components.schema("DraftMutationResult", schema=DraftMutationResultSchema)
     spec.components.schema("DraftIdRequest", schema=DraftIdRequestSchema)
@@ -456,6 +458,33 @@ def build_spec() -> APISpec:
                     "200": _ok("Refreshed list.", HistoryMutationResultSchema),
                     "404": _problem_response("History item not found."),
                     "422": _problem_response("Missing id."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/queue/{task_id}/retry",
+        operations={
+            "post": {
+                "operationId": "retryQueueTask",
+                "summary": "Requeue a queue task for retry (atomic, race-fixed).",
+                "description": (
+                    "Genuine-gap JSON binding for the SPA dashboard's retry action "
+                    "(Plan 2026-07-06-004 Unit 3): calls HistoryAPI.retry_task(), which "
+                    "delegates to queue_store.update_task_if_status()'s single "
+                    "conditional UPDATE, closing a TOCTOU race with the scheduler "
+                    "thread. No request body; `task_id` is a path param. Distinct from "
+                    "the legacy form-encoded /ce:retry-task route, which the SPA cannot use."
+                ),
+                "tags": ["history"],
+                "parameters": [
+                    {"name": "task_id", "in": "path", "required": True,
+                     "schema": {"type": "string"}},
+                ],
+                "responses": {
+                    "200": _ok("Requeued.", QueueRetryResultSchema),
+                    "404": _problem_response("Task not found (vanished or already handled)."),
+                    "409": _problem_response("Task is currently processing; retry rejected."),
                 },
             }
         },

@@ -307,6 +307,25 @@ class HistoryIdsRequestSchema(Schema):
     ids = fields.List(fields.String(), required=True)
 
 
+# ── queue-task retry — Plan 2026-07-06-004 Unit 3 ───────────────────────────
+
+
+class QueueRetryResultSchema(Schema):
+    """Outcome of ``HistoryAPI.retry_task()`` (Unit 1's atomic conditional
+    UPDATE), unchanged shape — no request body; ``task_id`` is a path param."""
+
+    ok = fields.Boolean(required=True)
+    error_code = fields.String(
+        allow_none=True,
+        metadata={
+            "description": "NOT_FOUND | TASK_PROCESSING | MISSING_PARAM. Absent on success."
+        },
+    )
+    flash_type = fields.String(metadata={"description": "success | warning | danger."})
+    flash_msg = fields.String(metadata={"description": "Human-readable outcome message."})
+    message = fields.String(metadata={"description": "Same text as flash_msg."})
+
+
 # ── draft queue — Plan 2026-06-18-002 U7 ────────────────────────────────────
 
 

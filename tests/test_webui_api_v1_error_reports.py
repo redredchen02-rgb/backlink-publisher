@@ -136,6 +136,28 @@ def test_patch_description_preserves_original_fields(client):
     assert body["status"] == "open"
 
 
+# ── 2b. Happy path: mark-resolved / undo round trip (Plan 2026-07-06-004
+#        Unit 3 item 1 — confirms the existing PATCH endpoint already covers
+#        the dashboard's resolve/undo action; no new backend code needed) ──
+
+
+def test_mark_resolved_then_undo_round_trip_persists_both_transitions(client):
+    resp = _post(client, _auto_report(message="dashboard resolve/undo probe"))
+    report_id = resp.get_json()["id"]
+
+    resolve_resp = _patch(client, report_id, {"status": "resolved"})
+    assert resolve_resp.status_code == 200
+    assert resolve_resp.get_json()["status"] == "resolved"
+
+    from webui_store.error_reports import error_report_store
+    assert error_report_store.get(report_id)["status"] == "resolved"
+
+    undo_resp = _patch(client, report_id, {"status": "open"})
+    assert undo_resp.status_code == 200
+    assert undo_resp.get_json()["status"] == "open"
+    assert error_report_store.get(report_id)["status"] == "open"
+
+
 # ── 3. Edge case: CSRF paired (no token 403 / valid token 201) ─────────────
 
 

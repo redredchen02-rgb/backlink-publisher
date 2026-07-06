@@ -365,6 +365,43 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/queue/{task_id}/retry:
+    post:
+      operationId: retryQueueTask
+      summary: Requeue a queue task for retry (atomic, race-fixed).
+      description: 'Genuine-gap JSON binding for the SPA dashboard''s retry action
+        (Plan 2026-07-06-004 Unit 3): calls HistoryAPI.retry_task(), which delegates
+        to queue_store.update_task_if_status()''s single conditional UPDATE, closing
+        a TOCTOU race with the scheduler thread. No request body; `task_id` is a path
+        param. Distinct from the legacy form-encoded /ce:retry-task route, which the
+        SPA cannot use.'
+      tags:
+      - history
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Requeued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueRetryResult'
+        '404':
+          description: Task not found (vanished or already handled).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Task is currently processing; retry rejected.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/drafts:
     get:
       operationId: getDrafts
@@ -2138,6 +2175,28 @@ components:
             type: string
       required:
       - ids
+      additionalProperties: false
+    QueueRetryResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error_code:
+          type:
+          - string
+          - 'null'
+          description: NOT_FOUND | TASK_PROCESSING | MISSING_PARAM. Absent on success.
+        flash_type:
+          type: string
+          description: success | warning | danger.
+        flash_msg:
+          type: string
+          description: Human-readable outcome message.
+        message:
+          type: string
+          description: Same text as flash_msg.
+      required:
+      - ok
       additionalProperties: false
     DraftItem:
       type: object

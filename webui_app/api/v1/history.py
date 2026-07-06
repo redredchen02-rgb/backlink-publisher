@@ -23,6 +23,17 @@ from .errors import ApiProblem
 
 _api = HistoryAPI()
 
+#: Maps ``HistoryAPI.retry_task()``'s ``error_code`` to an HTTP status, mirroring
+#: how ``error_reports.py``'s ``ApiProblem`` sites pick a status per outcome
+#: (Plan 2026-07-06-004 Unit 3). ``MISSING_PARAM`` is effectively unreachable via
+#: the URL-path ``task_id`` (Flask's default converter never matches an empty
+#: segment) but is kept for defense-in-depth. Anything else defaults to 400.
+_RETRY_ERROR_STATUS: dict[str, int] = {
+    "MISSING_PARAM": 400,
+    "NOT_FOUND": 404,
+    "TASK_PROCESSING": 409,
+}
+
 
 def _require_id(data: dict) -> str:
     item_id = str(data.get("id") or "").strip()
@@ -83,3 +94,28 @@ def history_recheck() -> Any:
             error_class="not_found",
         )
     return jsonify({"items": _api.list(), "message": result.get("flash_msg", "")})
+
+
+@bp.post("/queue/<task_id>/retry")
+def queue_retry_task(task_id: str) -> Any:
+    """Requeue a queue task for retry → the {ok, error_code, flash_type,
+    flash_msg, message} envelope, JSON-native (genuine gap-fill: the legacy
+    ``/ce:retry-task`` route is form-encoded and returns a different
+    {status, message} shape the SPA fetch layer can't consume as-is).
+
+    Reuses ``HistoryAPI.retry_task()`` unchanged — no reimplementation of
+    Unit 1's atomic conditional UPDATE. A rejected/vanished task never claims
+    success: failures raise ``ApiProblem`` with a status from
+    ``_RETRY_ERROR_STATUS``, mirroring this module's ``history_recheck``.
+    """
+    result = _api.retry_task(task_id)
+    if result.get("ok"):
+        return jsonify(result), 200
+
+    error_code = result.get("error_code")
+    raise ApiProblem(
+        _RETRY_ERROR_STATUS.get(error_code, 400),
+        result.get("flash_msg", "Retry failed"),
+        detail=result.get("message"),
+        error_class=(error_code or "retry_failed").lower(),
+    )
