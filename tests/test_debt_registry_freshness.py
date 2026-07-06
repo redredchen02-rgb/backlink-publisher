@@ -221,6 +221,9 @@ _CLAIM_TEST_SLUGS: set[str] = {
     "recheck-ledger-liveness-seam",
     "no-stewardship-model",
     "medium-browser-save-draft-false-success-fixed",
+    "bind-channel-main-catchall-message-scrubbed-fixed",
+    "chrome-backend-profile-dir-error-code-contract-fixed",
+    "driver-impl-persist-storage-state-message-scrubbed-fixed",
 }
 
 
@@ -275,4 +278,72 @@ def test_claim_medium_browser_save_draft_false_success_fixed_is_true() -> None:
     assert _grep("test_save_draft_click_failure_raises_instead_of_reporting_drafted", regression), (
         "the red-then-green regression test named in the debt rationale is gone; "
         "re-point the claim or re-open the debt."
+    )
+
+
+def test_claim_bind_channel_main_catchall_message_scrubbed_fixed_is_true() -> None:
+    """``bind-channel-main-catchall-message-scrubbed-fixed`` is resolved (sweep
+    D3, 2026-07-06) — bind_channel.py::main()'s catch-all except arms must pass
+    exception text through ``scrub_text()`` before emitting
+    ``channel.bind.failed`` (the unfiltered exit point onto the stdout→WebUI
+    poll chain).
+
+    Falsifiable: if the scrub is reverted to raw ``str(exc)``, the scrub_text
+    call sites vanish from bind_channel.py — re-open the debt rather than
+    letting credential-adjacent exception text reach the poll API again."""
+    assert ITEMS["bind-channel-main-catchall-message-scrubbed-fixed"]["status"] == "resolved"
+    mod = REPO_ROOT / "src" / "backlink_publisher" / "cli" / "admin" / "bind_channel.py"
+    assert mod.exists(), "cli/admin/bind_channel.py vanished"
+    assert _grep("scrub_text", mod) and _grep(
+        "bind-channel-main-catchall-message-scrubbed-fixed", mod
+    ), (
+        "bind-channel-main-catchall-message-scrubbed-fixed is 'resolved' but "
+        "bind_channel.py no longer scrubs catch-all exception text before the "
+        "channel.bind.failed emit. Re-open the debt or restore scrub_text()."
+    )
+    regression = REPO_ROOT / "tests" / "test_bind_channel_cli.py"
+    assert _grep("test_unenumerated_runtimeerror_message_is_scrubbed", regression), (
+        "the scrub regression test is gone; re-point the claim or re-open the debt."
+    )
+
+
+def test_claim_chrome_backend_profile_dir_error_code_contract_fixed_is_true() -> None:
+    """``chrome-backend-profile-dir-error-code-contract-fixed`` is resolved
+    (sweep D3, 2026-07-06) — ``_chrome_profile_dir`` must raise
+    ``ChromeLaunchError`` with the fixed literal code ``chrome_not_available``
+    (bind_job.py reads error_code as a closed enum) and carry the wrapped
+    exception's scrubbed text on the separate ``detail`` attribute.
+
+    Falsifiable: if reverted to ``ChromeLaunchError(str(exc))``, the fixed
+    literal + detail= call shape vanishes from chrome_backend.py — re-open the
+    debt rather than letting free text pollute the error_code enum again."""
+    assert ITEMS["chrome-backend-profile-dir-error-code-contract-fixed"]["status"] == "resolved"
+    mod = REPO_ROOT / "src" / "backlink_publisher" / "cli" / "_bind" / "chrome_backend.py"
+    assert mod.exists(), "cli/_bind/chrome_backend.py vanished"
+    assert _grep('ChromeLaunchError("chrome_not_available", detail=', mod) and _grep(
+        "chrome-backend-profile-dir-error-code-contract-fixed", mod
+    ), (
+        "chrome-backend-profile-dir-error-code-contract-fixed is 'resolved' but "
+        "chrome_backend.py no longer raises the fixed-literal error_code with a "
+        "separate detail attribute. Re-open the debt or restore the contract."
+    )
+
+
+def test_claim_driver_impl_persist_storage_state_message_scrubbed_fixed_is_true() -> None:
+    """``driver-impl-persist-storage-state-message-scrubbed-fixed`` is resolved
+    (sweep D3, 2026-07-06) — ``_persist_storage_state``'s PersistIOError message
+    must pass the wrapped exception text through ``scrub_text()`` so repr()'d
+    cookie/session-token fragments can never ride along.
+
+    Falsifiable: if reverted to embedding raw ``str(exc)``, the scrub_text call
+    and debt marker vanish from _driver_impl.py — re-open the debt."""
+    assert ITEMS["driver-impl-persist-storage-state-message-scrubbed-fixed"]["status"] == "resolved"
+    mod = REPO_ROOT / "src" / "backlink_publisher" / "cli" / "_bind" / "_driver_impl.py"
+    assert mod.exists(), "cli/_bind/_driver_impl.py vanished"
+    assert _grep("scrub_text", mod) and _grep(
+        "driver-impl-persist-storage-state-message-scrubbed-fixed", mod
+    ), (
+        "driver-impl-persist-storage-state-message-scrubbed-fixed is 'resolved' "
+        "but _driver_impl.py no longer scrubs the PersistIOError message text. "
+        "Re-open the debt or restore scrub_text()."
     )
