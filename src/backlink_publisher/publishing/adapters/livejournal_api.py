@@ -71,10 +71,12 @@ def _post_publish_delay_s() -> int:
         default=_DEFAULT_POST_PUBLISH_DELAY_S,
     )
     from backlink_publisher.config import load_config
+
     toml_val = load_config().platform_throttle.get("livejournal")
     if toml_val is not None:
         return int(toml_val)
     return _DEFAULT_POST_PUBLISH_DELAY_S
+
 
 #: faultString fragments LiveJournal returns for credential failures. Matched
 #: case-insensitively. The raw faultString is never logged (it can echo the
@@ -125,9 +127,7 @@ def store_credentials(config: Config, username: str, password: str) -> Path:
     Returns the credential path. Raises ``DependencyError`` on empty input.
     """
     if not username or not password:
-        raise DependencyError(
-            "LiveJournal credentials require both username and password"
-        )
+        raise DependencyError("LiveJournal credentials require both username and password")
     path = _credentials_path(config)
     path.parent.mkdir(parents=True, exist_ok=True)
     safe_write.atomic_write(
@@ -139,16 +139,14 @@ def store_credentials(config: Config, username: str, password: str) -> Path:
     # tmp file to 0o600 before replace, but a pre-existing destination written
     # by older code could have left an inode whose mode we must confirm.
     from backlink_publisher._util.permissions import check_0600
+
     check_0600(path, label=_CRED_FILENAME)
     log.info("livejournal_credentials_stored username_set=%s", bool(username))
     return path
 
 
 def _livejournal_credential_saver(
-    channel: str,
-    config: Config,
-    validated_fields: dict,
-    write_mode: str,
+    channel: str, config: Config, validated_fields: dict, write_mode: str
 ) -> Path:
     """Registry credential_saver callback for livejournal (Plan 2026-06-01-001 U3a).
 
@@ -177,17 +175,16 @@ def _load_credentials(config: Config) -> dict[str, str]:
             "password) — use a throwaway account (the secret is not revocable)."
         )
     from backlink_publisher._util.permissions import check_0600
+
     check_0600(path, label=_CRED_FILENAME)
     try:
         data = cast("dict[str, str]", json.loads(path.read_text(encoding="utf-8")))
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
         raise DependencyError(
             "Cannot parse LiveJournal credentials: file corrupt or unreadable"
         ) from None
     if not data.get("username") or not data.get("hpassword"):
-        raise DependencyError(
-            f"{_CRED_FILENAME} missing 'username' or 'hpassword' field"
-        )
+        raise DependencyError(f"{_CRED_FILENAME} missing 'username' or 'hpassword' field")
     return data
 
 
@@ -229,18 +226,11 @@ class LivejournalAPIAdapter(Publisher):
 
     def _proxy(self) -> ServerProxy:
         return ServerProxy(
-            LIVEJOURNAL_XMLRPC,
-            transport=_TimeoutTransport(_HTTP_TIMEOUT_S),
-            allow_none=True,
+            LIVEJOURNAL_XMLRPC, transport=_TimeoutTransport(_HTTP_TIMEOUT_S), allow_none=True
         )
 
     def _do_lj_publish(
-        self,
-        proxy: ServerProxy,
-        username: str,
-        hpassword: str,
-        body_html: str,
-        title: str,
+        self, proxy: ServerProxy, username: str, hpassword: str, body_html: str, title: str
     ) -> Any:
         """Call getchallenge + postevent, returning the XML-RPC result dict.
 
@@ -252,12 +242,8 @@ class LivejournalAPIAdapter(Publisher):
         challenge_resp = proxy.LJ.XMLRPC.getchallenge()
         challenge = str(cast("dict[str, Any]", challenge_resp or {}).get("challenge", ""))
         if not challenge:
-            raise ExternalServiceError(
-                "LiveJournal getchallenge returned no challenge"
-            )
-        auth_response = hashlib.md5(
-            (challenge + hpassword).encode("utf-8")
-        ).hexdigest()
+            raise ExternalServiceError("LiveJournal getchallenge returned no challenge")
+        auth_response = hashlib.md5((challenge + hpassword).encode("utf-8")).hexdigest()
         now = time.localtime()
         event = {
             "username": username,
@@ -278,12 +264,7 @@ class LivejournalAPIAdapter(Publisher):
         }
         return proxy.LJ.XMLRPC.postevent(event) or {}
 
-    def publish(
-        self,
-        payload: dict[str, Any],
-        mode: str,
-        config: Config,
-    ) -> AdapterResult:
+    def publish(self, payload: dict[str, Any], mode: str, config: Config) -> AdapterResult:
         article_id = payload.get("id", "")
         title = (payload.get("title") or "").strip() or "Untitled"
         body_html = extract_publish_html(payload, "livejournal")
@@ -305,9 +286,7 @@ class LivejournalAPIAdapter(Publisher):
         # issues that retries cannot fix.
         try:
             result = retry_transient_call(
-                lambda: self._do_lj_publish(
-                    proxy, username, hpassword, body_html, title
-                ),
+                lambda: self._do_lj_publish(proxy, username, hpassword, body_html, title),
                 adapter="livejournal-api",
                 max_attempts=3,
             )
@@ -320,8 +299,7 @@ class LivejournalAPIAdapter(Publisher):
                     f"(faultCode={getattr(fault, 'faultCode', '?')})"
                 ) from None
             raise ExternalServiceError(
-                "LiveJournal publish rejected "
-                f"(faultCode={getattr(fault, 'faultCode', '?')})"
+                f"LiveJournal publish rejected (faultCode={getattr(fault, 'faultCode', '?')})"
             ) from None
         except (ExternalServiceError, DependencyError):
             raise
