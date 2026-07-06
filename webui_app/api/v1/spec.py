@@ -432,6 +432,12 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "bulkRecheckHistory",
                 "summary": "Re-verify multiple history entries' link liveness → refreshed list.",
+                "description": (
+                    "Re-checks every entry whose id appears in `ids`, then returns the "
+                    "refreshed list. A per-item verify outcome (e.g. a URL now dead) is "
+                    "data, not a failure — this only returns 422 for genuine input "
+                    "problems (empty or unmatched ids)."
+                ),
                 "tags": ["history"],
                 "requestBody": _body(HistoryIdsRequestSchema),
                 "responses": {
@@ -626,6 +632,11 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "bulkPublishDraftsNow",
                 "summary": "Publish multiple drafts now (staggered ~5s+ out) → refreshed list.",
+                "description": (
+                    "Schedules every draft whose id appears in `ids` for immediate, "
+                    "staggered publishing. Single-flight: a concurrent bulk-publish "
+                    "call is rejected with 409 rather than queued."
+                ),
                 "tags": ["drafts"],
                 "requestBody": _body(DraftIdsRequestSchema),
                 "responses": {
@@ -643,6 +654,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "bulkCancelDrafts",
                 "summary": "Cancel scheduling for multiple drafts → refreshed list.",
+                "description": (
+                    "Cancels the pending scheduled-publish job for every draft whose "
+                    "id appears in `ids`, then returns the refreshed list."
+                ),
                 "tags": ["drafts"],
                 "requestBody": _body(DraftIdsRequestSchema),
                 "responses": {

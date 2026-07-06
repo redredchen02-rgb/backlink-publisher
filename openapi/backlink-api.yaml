@@ -322,6 +322,10 @@ paths:
       operationId: bulkRecheckHistory
       summary: "Re-verify multiple history entries' link liveness \u2192 refreshed\
         \ list."
+      description: "Re-checks every entry whose id appears in `ids`, then returns\
+        \ the refreshed list. A per-item verify outcome (e.g. a URL now dead) is data,\
+        \ not a failure \u2014 this only returns 422 for genuine input problems (empty\
+        \ or unmatched ids)."
       tags:
       - history
       requestBody:
@@ -613,6 +617,9 @@ paths:
       operationId: bulkPublishDraftsNow
       summary: "Publish multiple drafts now (staggered ~5s+ out) \u2192 refreshed\
         \ list."
+      description: 'Schedules every draft whose id appears in `ids` for immediate,
+        staggered publishing. Single-flight: a concurrent bulk-publish call is rejected
+        with 409 rather than queued.'
       tags:
       - drafts
       requestBody:
@@ -650,6 +657,8 @@ paths:
     post:
       operationId: bulkCancelDrafts
       summary: "Cancel scheduling for multiple drafts \u2192 refreshed list."
+      description: Cancels the pending scheduled-publish job for every draft whose
+        id appears in `ids`, then returns the refreshed list.
       tags:
       - drafts
       requestBody:
