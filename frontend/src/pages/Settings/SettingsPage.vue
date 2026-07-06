@@ -305,7 +305,15 @@ async function onSaveSchedule(): Promise<void> {
   gap: 1.25rem;
   min-width: 0;
 }
-@media (max-width: 720px) {
+/* Plan 2026-07-06-005 W12 (D12): the sidebar+content grid was originally a
+   phone-width fallback at 720px. D12 widens this to the full desktop
+   split-screen range this plan actually targets (700-960px — a single
+   operator running two windows side by side on one monitor, not a phone) so
+   the collapse to single-column/no-nav kicks in across that whole band, not
+   just below 720px. 960px was chosen (rather than 700px, the low end of the
+   range) so the *entire* 700-960px window stays single-column — a 760px
+   viewport must not fall between two stools. */
+@media (max-width: 960px) {
   .settings__layout {
     grid-template-columns: 1fr;
   }

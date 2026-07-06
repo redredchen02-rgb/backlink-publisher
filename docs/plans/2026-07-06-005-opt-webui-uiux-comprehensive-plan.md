@@ -479,7 +479,9 @@ graph TB
 
 **Verification:** 全部 DataTable 消費頁鍵盤可完成主要操作;a11y 慣例與 R17 一致。
 
-- [ ] **W12: 分屏寬度可用性(700-960px)〔R12〕**
+- [x] **W12: 分屏寬度可用性(700-960px)〔R12〕**
+
+〔W12 執行結果,2026-07-06,分支 `feat/w12-responsive-splitscreen`〕已完成,範圍限定非表格部分(U5 未落地)。SettingsPage 既有 720px 特例斷點直接延伸為 960px(涵蓋整個 700-960 區間,不是另起機制);Monitor 頁新增 `@media (max-width: 960px)`:`.cards` 強制單欄避免擠壓、`.card__links` 加 `flex-wrap` 避免溢出;`app.css` 只加說明性注釋記錄「700-960px 分屏斷點統一用 960px」慣例供後續頁面依循,未動 `.data-table-wrap` 既有橫向捲動機制(有回歸測試釘住)。vitest 52 檔 343 測試全綠(新增 5)、vue-tsc 零錯誤。
 
 **Goal:** 桌面分屏場景下 Settings 與 Monitor 優先可用;表格橫向捲動不外溢頁面。
 
