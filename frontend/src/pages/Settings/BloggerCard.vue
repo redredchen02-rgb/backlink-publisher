@@ -26,7 +26,14 @@ const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
-const query = useQuery({ queryKey: ['settings', 'blogger-status'], queryFn: getBloggerStatus })
+// Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `form.client_id`)
+// — window-focus refetch explicitly OFF. See
+// docs/audits/2026-07-06-webui-refresh-inventory.md.
+const query = useQuery({
+  queryKey: ['settings', 'blogger-status'],
+  queryFn: getBloggerStatus,
+  refetchOnWindowFocus: false,
+})
 const status = computed(() => query.data.value ?? null)
 const authorized = computed(() => Boolean(status.value?.authorized))
 

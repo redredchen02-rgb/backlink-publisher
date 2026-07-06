@@ -212,7 +212,9 @@ graph TB
 
 ### Phase A — 地基
 
-- [ ] **W1: 刷新行為顯式化——QueryClient defaultOptions + 全站刷新來源盤點〔R1〕**
+- [x] **W1: 刷新行為顯式化——QueryClient defaultOptions + 全站刷新來源盤點〔R1〕**
+
+〔W1 執行結果,2026-07-06,分支 `feat/w1-refresh-defaults`〕已完成:`main.ts` 的 QueryClient 補上 `defaultOptions`(`refetchOnWindowFocus: true` + `staleTime: 30_000`,先前完全沒有,所有頁面都默默吃套件內建預設 `staleTime: 0`);6 個 Settings 編輯型 query(SettingsPage 2 個 + BlogIdsCard/BloggerCard/ChannelBindingCard/LlmSettingsCard/NotionCard 各 1 個,經 `watch()` 回填表單的都算)顯式設 `refetchOnWindowFocus: false`;guard test 斷言兩者(main.ts defaultOptions + 6 個編輯頁的顯式關閉),紅色路徑已驗證。盤點文件涵蓋全部 17 條路由,發現 4 條路由(PrQueue/SurvivalDashboard/OptimizationStatus/EquityLedger)根本沒用 `useQuery`(純 `onMounted(load)`,零自動刷新)——記錄為未來 unit 的觀察項,本 unit 不修(僅使既有行為顯式,非新增能力)。vitest 46 檔 276 測試全綠(新增 2 個)、vue-tsc 零錯誤。**未做**:未針對 blur/focus 做手動瀏覽器走查(只驗證了 guard test 與程式碼層級的 `refetchOnWindowFocus: false` 存在),已在盤點文件中誠實記錄未做而非宣稱已做。
 
 **Goal:** 把「什麼時候資料會自己變」從隱性預設變成顯式、逐頁可查的契約——這是 W2/W5/W6 全部狀態機的地基。
 

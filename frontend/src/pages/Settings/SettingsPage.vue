@@ -35,7 +35,17 @@ const { toastError } = useErrorToast()
 
 // ── keyword pools ────────────────────────────────────────────────────────────
 
-const keywordsQuery = useQuery({ queryKey: ['settings', 'keywords'], queryFn: getKeywordPools })
+// Plan 2026-07-06-005 W1 (D15): this is an edit-surface query (hydrates
+// `keywordEdits`, a live textarea) — window-focus refetch is explicitly OFF so
+// switching back to this tab never re-fires a fetch mid-edit. This does not
+// by itself fix the hydration-overwrite bug (a refetch from cache
+// invalidation elsewhere still rewrites `keywordEdits`); that dirty-aware fix
+// is W2's scope. See docs/audits/2026-07-06-webui-refresh-inventory.md.
+const keywordsQuery = useQuery({
+  queryKey: ['settings', 'keywords'],
+  queryFn: getKeywordPools,
+  refetchOnWindowFocus: false,
+})
 const keywordTargets = computed<string[]>(() => keywordsQuery.data.value?.targets ?? [])
 
 // Editable copy: domain → textarea string (one keyword per line). Hydrated from
@@ -94,7 +104,14 @@ async function onSaveKeywords(): Promise<void> {
 
 // ── publish cadence ──────────────────────────────────────────────────────────
 
-const scheduleQuery = useQuery({ queryKey: ['settings', 'schedule'], queryFn: getScheduleSettings })
+// Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `scheduleForm`) —
+// window-focus refetch explicitly OFF; see the identical rationale on
+// `keywordsQuery` above.
+const scheduleQuery = useQuery({
+  queryKey: ['settings', 'schedule'],
+  queryFn: getScheduleSettings,
+  refetchOnWindowFocus: false,
+})
 const scheduleForm = reactive<ScheduleSettings>({ min_interval_hours: 4, jitter_minutes: 30 })
 const savingSchedule = ref(false)
 

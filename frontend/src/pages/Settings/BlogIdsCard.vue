@@ -21,7 +21,14 @@ const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
-const query = useQuery({ queryKey: ['settings', 'blog-ids'], queryFn: getBlogIds })
+// Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `rows`) —
+// window-focus refetch explicitly OFF. See
+// docs/audits/2026-07-06-webui-refresh-inventory.md.
+const query = useQuery({
+  queryKey: ['settings', 'blog-ids'],
+  queryFn: getBlogIds,
+  refetchOnWindowFocus: false,
+})
 
 // Editable rows, kept local so edits don't fight the cached server state. Always
 // keep at least one (blank) row so the operator has somewhere to type.
