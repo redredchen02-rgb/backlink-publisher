@@ -92,9 +92,10 @@
 # own documented minimum valid seed floor, used uniformly for all three below.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[functions."src/backlink_publisher/cli/spray_backlinks/core.py::main"]
-ceiling = 31
-rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1): main() sits at CC 29 (D grade), only 1 point below the shared CC-30 backstop after Plan 2026-06-24-002 U2 extracted _handle_list_checkpoints (35->29). An explicit entry avoids a future unrelated minor edit silently tripping the shared backstop and blocking unrelated PRs. Ceiling 31 = backstop(30)+1, the schema's minimum valid seed floor for a below-backstop function, giving 2 points of dedicated headroom over the measured CC 29."
+# spray_backlinks/core.py::main entry (ceiling 31, sweep Unit B1) removed at fleet
+# integration (2026-07-06): plan 2026-07-06-003 U6 decomposed main() to CC 4 in the
+# same merge window, far below the CC-30 backstop — a dedicated entry would carry
+# 27 points of dead headroom and trips test_seeded_cc_drift.
 
 [functions."src/backlink_publisher/publishing/adapters/medium_brave.py::MediumBraveAdapter.publish"]
 ceiling = 31

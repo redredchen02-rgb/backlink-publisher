@@ -220,6 +220,7 @@ _CLAIM_TEST_SLUGS: set[str] = {
     "debt-registry-staleness",
     "recheck-ledger-liveness-seam",
     "no-stewardship-model",
+    "medium-browser-save-draft-false-success-fixed",
 }
 
 
@@ -243,4 +244,35 @@ def test_every_resolved_or_mitigated_item_has_a_freshness_claim() -> None:
         + "\nAdd a test_claim_<slug>_*_is_true() function that asserts the "
         "falsifiable codebase invariant behind the 'done' claim. Closing a "
         "debt requires writing the check that keeps it honest."
+    )
+
+
+def test_claim_medium_browser_save_draft_false_success_fixed_is_true() -> None:
+    """``medium-browser-save-draft-false-success-fixed`` is resolved (sweep D2,
+    2026-07-06) — the Save Draft click handler must raise
+    ``ExternalServiceError`` on click failure instead of logging and falling
+    through to a false ``status="drafted"`` success.
+
+    Falsifiable: if the raise is reverted to the old log-and-continue shape,
+    the unconfirmed-draft error message vanishes from medium_browser.py and the
+    red-then-green regression test loses its subject — re-open the debt rather
+    than letting the critical silent swallow return."""
+    assert "medium-browser-save-draft-false-success-fixed" in ITEMS
+    assert ITEMS["medium-browser-save-draft-false-success-fixed"]["status"] == "resolved"
+    adapter = (
+        REPO_ROOT / "src" / "backlink_publisher" / "publishing" / "adapters" / "medium_browser.py"
+    )
+    assert adapter.exists(), "adapters/medium_browser.py vanished"
+    assert _grep("draft status is", adapter) and _grep(
+        "medium-browser-save-draft-false-success-fixed", adapter
+    ), (
+        "medium-browser-save-draft-false-success-fixed is 'resolved' but "
+        "medium_browser.py no longer raises the unconfirmed-draft error from the "
+        "Save Draft click handler. Re-open the debt or restore the raise (a "
+        "failed Save Draft click must never report status='drafted')."
+    )
+    regression = REPO_ROOT / "tests" / "test_adapter_medium_browser.py"
+    assert _grep("test_save_draft_click_failure_raises_instead_of_reporting_drafted", regression), (
+        "the red-then-green regression test named in the debt rationale is gone; "
+        "re-point the claim or re-open the debt."
     )
