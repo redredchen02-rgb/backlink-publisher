@@ -303,6 +303,7 @@ def _gsc_ranking_panel() -> list[dict]:
 def _publish_index_latency() -> list[dict]:
     try:
         from backlink_publisher.events import EventStore
+
         from ..health_metrics import publish_to_index_latency
         return publish_to_index_latency(EventStore())
     except Exception as exc:  # noqa: BLE001 — never 500 the page
@@ -313,6 +314,7 @@ def _publish_index_latency() -> list[dict]:
 def _index_rate_by_channel() -> list[dict]:
     try:
         from backlink_publisher.events import EventStore
+
         from ..health_metrics import index_rate_by_channel
         return index_rate_by_channel(EventStore())
     except Exception as exc:  # noqa: BLE001 — never 500 the page
@@ -323,6 +325,7 @@ def _index_rate_by_channel() -> list[dict]:
 def _impression_analysis() -> list[dict]:
     try:
         from backlink_publisher.events import EventStore
+
         from ..health_metrics import impression_analysis
         return impression_analysis(EventStore())
     except Exception as exc:  # noqa: BLE001 — never 500 the page
@@ -333,6 +336,7 @@ def _impression_analysis() -> list[dict]:
 def _ranking_lift_analysis() -> list[dict]:
     try:
         from backlink_publisher.events import EventStore
+
         from ..health_metrics import ranking_lift_analysis
         return ranking_lift_analysis(EventStore())
     except Exception as exc:  # noqa: BLE001 — never 500 the page
@@ -343,6 +347,7 @@ def _ranking_lift_analysis() -> list[dict]:
 def _referral_conversion() -> list[dict]:
     try:
         from backlink_publisher.events import EventStore
+
         from ..health_metrics import referral_conversion
         return referral_conversion(EventStore())
     except Exception as exc:  # noqa: BLE001 — never 500 the page
@@ -353,6 +358,7 @@ def _referral_conversion() -> list[dict]:
 def _cost_metrics() -> dict:
     try:
         from backlink_publisher.events import EventStore
+
         from ..health_metrics import cost_metrics
         return cost_metrics(EventStore())
     except Exception as exc:  # noqa: BLE001 — never 500 the page
@@ -363,6 +369,7 @@ def _cost_metrics() -> dict:
 def _decisions_by_platform() -> list[dict]:
     try:
         from backlink_publisher.events import EventStore
+
         from ..health_metrics import decisions_by_platform
         return decisions_by_platform(EventStore())
     except Exception as exc:  # noqa: BLE001 — never 500 the page
@@ -762,12 +769,13 @@ def api_admin_errors():
         return jsonify({"error": "forbidden"}), 403
 
     try:
-        from datetime import timedelta
         from backlink_publisher.events import EventStore
         from backlink_publisher.events.kinds import RELIABILITY_DECISION
 
+        from ..health_metrics import _window_start
+
         store = EventStore()
-        since = _window_start(datetime.now(timezone.utc), 1)
+        since = _window_start(datetime.now(UTC), 1)
 
         # Error class distribution from publish.failed.
         err_rows = store.query(

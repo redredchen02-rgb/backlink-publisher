@@ -6,10 +6,10 @@ Extracted from ``plan_check.py`` to keep the CLI module focused on dispatch.
 
 from __future__ import annotations
 
-import datetime as _dt
-import re
 from dataclasses import dataclass, field
+import datetime as _dt
 from pathlib import Path
+import re
 from typing import Any
 
 import yaml

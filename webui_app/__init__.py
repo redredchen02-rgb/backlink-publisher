@@ -11,8 +11,8 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 from datetime import timedelta
 import logging
 import os
-import time
 from pathlib import Path
+import time
 from typing import Any
 import uuid
 
@@ -155,6 +155,7 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # cost on every template render — both lineages independently made this
     # same optimization; kept once.
     import backlink_publisher.publishing.adapters  # noqa: F401
+
     from .helpers.security import (
         _check_bind_origin_or_abort,
         _check_csrf_or_abort,
@@ -184,6 +185,8 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
 
         from backlink_publisher.publishing.registry import (
             bound_platforms as registry_bound_platforms,
+        )
+        from backlink_publisher.publishing.registry import (
             registered_platforms,
             ui_meta,
         )
@@ -551,9 +554,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_internal_error(exc):
         _log.error(
             "RECON api_5xx path=%s method=%s remote=%s error=%s",
-            request.path,
-            request.method,
-            request.remote_addr,
+            _flask_req.path,
+            _flask_req.method,
+            _flask_req.remote_addr,
             exc,
         )
         from flask import jsonify as _jsonify
@@ -563,9 +566,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_bad_gateway(exc):
         _log.error(
             "RECON api_502 path=%s method=%s remote=%s error=%s",
-            request.path,
-            request.method,
-            request.remote_addr,
+            _flask_req.path,
+            _flask_req.method,
+            _flask_req.remote_addr,
             exc,
         )
         from flask import jsonify as _jsonify
@@ -575,9 +578,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_service_unavailable(exc):
         _log.error(
             "RECON api_503 path=%s method=%s remote=%s error=%s",
-            request.path,
-            request.method,
-            request.remote_addr,
+            _flask_req.path,
+            _flask_req.method,
+            _flask_req.remote_addr,
             exc,
         )
         from flask import jsonify as _jsonify

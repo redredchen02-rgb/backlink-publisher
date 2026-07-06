@@ -36,6 +36,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
+# P14 A5: imported from _util.constants (moved to resolve _util → domain violation).
+from backlink_publisher._util.constants import USER_AGENT
 from backlink_publisher._util.net_safety import _check_url_for_ssrf, _make_ssrf_opener
 from backlink_publisher._util.url import normalize_url_for_fetch, safe_hostname, safe_urlparse
 
@@ -56,8 +58,6 @@ _MAX_REDIRECTS: int = 5
 PREFLIGHT_BODY_BYTES: int = 768_000
 
 #: Identifies this fetcher distinctly so targets can rate-limit it separately.
-#: P14 A5: imported from _util.constants (moved to resolve _util → domain violation).
-from backlink_publisher._util.constants import USER_AGENT
 
 #: Truncate the stored ``X-Robots-Tag`` value — it is untrusted, display-only.
 _X_ROBOTS_MAX_LEN: int = 256

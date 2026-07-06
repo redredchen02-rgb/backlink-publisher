@@ -5,7 +5,6 @@ the keep-alive flow — both redirect to /ce:keep-alive.
 """
 
 from __future__ import annotations
-from typing import Any
 
 from datetime import UTC
 from typing import Any

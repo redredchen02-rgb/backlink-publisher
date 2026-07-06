@@ -36,13 +36,13 @@ from __future__ import annotations
 
 from datetime import datetime, UTC
 from enum import StrEnum
+import fcntl
 import json
 import os
 from pathlib import Path
 import time
 from typing import Any, cast, TYPE_CHECKING
 
-import fcntl
 from backlink_publisher._util.errors import AuthExpiredError, ExternalServiceError
 from backlink_publisher._util.io import atomic_write_json
 from backlink_publisher._util.logger import opencli_logger as log

@@ -15,7 +15,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.config.types import MEDIUM_API_BASE, MEDIUM_API_TIMEOUT
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
-from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 
 from .base import AdapterResult

@@ -36,7 +36,7 @@ from backlink_publisher._util.errors import DependencyError, ExternalServiceErro
 from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_qiita_token
 from backlink_publisher.http import post as http_post
-from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES

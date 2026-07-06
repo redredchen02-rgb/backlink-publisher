@@ -229,7 +229,7 @@ def _check_once(
         if isinstance(reason_obj, socket.timeout):
             return False, "timeout", None
         return False, "network_error", None
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError):
         # Network-level errors (connection refused, DNS failure, etc.)
         return False, "network_error", None
     except Exception as exc:  # noqa: BLE001 — log programming errors
