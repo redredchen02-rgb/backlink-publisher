@@ -10,7 +10,9 @@
 import { computed, reactive, ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
+  bulkCancelDrafts,
   bulkDeleteDrafts,
+  bulkPublishDraftsNow,
   cancelDraft,
   deleteDraft,
   listDrafts,
@@ -79,20 +81,40 @@ const onPublishNow = (id: string) => run(() => publishDraftNow(id))
 const onCancel = (id: string) => run(() => cancelDraft(id))
 const onDelete = (id: string) => run(() => deleteDraft(id))
 const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
+const onBulkPublishNow = () => run(() => bulkPublishDraftsNow([...selected.value]))
+const onBulkCancel = () => run(() => bulkCancelDrafts([...selected.value]))
 </script>
 
 <template>
   <section class="drafts">
     <header class="drafts__head">
       <h1>草稿队列</h1>
-      <button
-        type="button"
-        class="bulk-delete"
-        :disabled="busy || !selected.size"
-        @click="onBulkDelete"
-      >
-        删除选中 ({{ selected.size }})
-      </button>
+      <div class="drafts__bulk-actions">
+        <button
+          type="button"
+          class="bulk-publish-now"
+          :disabled="busy || !selected.size"
+          @click="onBulkPublishNow"
+        >
+          立即发布选中 ({{ selected.size }})
+        </button>
+        <button
+          type="button"
+          class="bulk-cancel"
+          :disabled="busy || !selected.size"
+          @click="onBulkCancel"
+        >
+          取消选中排程 ({{ selected.size }})
+        </button>
+        <button
+          type="button"
+          class="bulk-delete"
+          :disabled="busy || !selected.size"
+          @click="onBulkDelete"
+        >
+          删除选中 ({{ selected.size }})
+        </button>
+      </div>
     </header>
 
     <StateBlock
@@ -149,6 +171,10 @@ const onBulkDelete = () => run(() => bulkDeleteDrafts([...selected.value]))
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+.drafts__bulk-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 .rows {
   list-style: none;

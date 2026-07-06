@@ -10,6 +10,7 @@ import { computed, ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   bulkDeleteHistory,
+  bulkRecheckHistory,
   deleteHistory,
   listHistory,
   purgeFailedHistory,
@@ -70,6 +71,7 @@ const onDelete = (id: string) => run(() => deleteHistory(id))
 const onRecheck = (id: string) => run(() => recheckHistory(id))
 const onPurgeFailed = () => run(purgeFailedHistory)
 const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
+const onBulkRecheck = () => run(() => bulkRecheckHistory([...selected.value]))
 
 const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 </script>
@@ -79,6 +81,14 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
     <header class="history__head">
       <h1>发布历史</h1>
       <div class="history__actions">
+        <button
+          type="button"
+          :disabled="busy || !selected.size"
+          class="bulk-recheck"
+          @click="onBulkRecheck"
+        >
+          重核选中 ({{ selected.size }})
+        </button>
         <button
           type="button"
           :disabled="busy || !selected.size"

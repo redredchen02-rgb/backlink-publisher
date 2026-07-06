@@ -41,3 +41,6 @@ export const purgeFailedHistory = (): Promise<HistoryMutationResult> =>
 
 export const recheckHistory = (id: string): Promise<HistoryMutationResult> =>
   sendJson('POST', '/history/recheck', { id })
+
+export const bulkRecheckHistory = (ids: string[]): Promise<HistoryMutationResult> =>
+  sendJson('POST', '/history/bulk-recheck', { ids })
