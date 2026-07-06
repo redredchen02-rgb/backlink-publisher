@@ -263,6 +263,32 @@ def test_backstop_webui_unlisted_functions() -> None:
     )
 
 
+def test_backstop_webui_store_unlisted_functions() -> None:
+    """Rule (b) extended: every unlisted Function/Method block in webui_store/ must have CC <= backstop.
+
+    Gate-efficacy audit (2026-07-06, master convergence Unit 5): webui_app/
+    had its own dedicated backstop test (test_backstop_webui_unlisted_functions
+    above), but webui_store/ -- a sibling repo-root package with the same
+    "outside src/, needs its own scan" property -- had none, so a future CC
+    regression there would not be caught by CI. No function currently exceeds
+    the backstop (highest found: BaseSqliteStore.migrate_from_json at CC 11),
+    so this closes the coverage gap without needing any budget entries.
+    """
+    declared = set(MONITORED_KEYS)
+    violations = _scan_unlisted_over_backstop(
+        scan_root=REPO_ROOT / "webui_store",
+        declared_keys=declared,
+        repo_root=REPO_ROOT,
+        backstop=BACKSTOP,
+    )
+    assert not violations, (
+        f"{len(violations)} unlisted webui_store function(s) exceed the CC backstop ({BACKSTOP}):\n  "
+        + "\n  ".join(sorted(violations))
+        + "\nEither reduce the function's complexity, or add an explicit "
+        "complexity_budget.toml entry (with a >=80-char rationale) in this same PR."
+    )
+
+
 def test_radon_cc_behavior_pinned() -> None:
     """CC canary: pin radon's complexity counter against the hand-crafted fixture.
 
