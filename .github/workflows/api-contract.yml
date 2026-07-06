@@ -67,7 +67,7 @@ jobs:
           # points at the ephemeral instance. GET-only until mutating endpoints
           # exist and a write-safe fuzz harness is in place.
           schemathesis run openapi/backlink-api.yaml \
-            --base-url http://127.0.0.1:8888 \
+            --url http://127.0.0.1:8888 \
             --checks all --hypothesis-max-examples 25 \
             --exclude-method POST --exclude-method PUT --exclude-method PATCH --exclude-method DELETE \
             || { kill $APP_PID; exit 1; }

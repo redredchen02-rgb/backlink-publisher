@@ -178,14 +178,24 @@ def calc_next_available(requested_dt: datetime) -> datetime:
 
     last_published = None
 
+    def _normalize(dt: datetime) -> datetime:
+        # Stored timestamps may be tz-aware ISO (history writes UTC-aware)
+        # while requested_dt is typically naive local — coerce to
+        # requested_dt's awareness so comparisons never raise TypeError.
+        if dt.tzinfo is not None and requested_dt.tzinfo is None:
+            return dt.astimezone().replace(tzinfo=None)
+        if dt.tzinfo is None and requested_dt.tzinfo is not None:
+            return dt.replace(tzinfo=requested_dt.tzinfo)
+        return dt
+
     # Check drafts store for latest published/scheduled time
     for item in _drafts_store.load():
         if item.get("status") in ("published", "scheduled"):
             ts = item.get("published_at") or item.get("scheduled_at")
             if ts:
                 try:
-                    dt = datetime.fromisoformat(ts) if "T" in ts else \
-                        datetime.strptime(ts, "%Y-%m-%d %H:%M")
+                    dt = _normalize(datetime.fromisoformat(ts) if "T" in ts else
+                                    datetime.strptime(ts, "%Y-%m-%d %H:%M"))
                     if last_published is None or dt > last_published:
                         last_published = dt
                 except ValueError:
@@ -196,8 +206,8 @@ def calc_next_available(requested_dt: datetime) -> datetime:
     ts = latest_publish_timestamp()
     if ts:
         try:
-            dt = datetime.fromisoformat(ts) if "T" in ts else \
-                datetime.strptime(ts, "%Y-%m-%d %H:%M")
+            dt = _normalize(datetime.fromisoformat(ts) if "T" in ts else
+                            datetime.strptime(ts, "%Y-%m-%d %H:%M"))
             if last_published is None or dt > last_published:
                 last_published = dt
         except ValueError:
