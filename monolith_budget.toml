@@ -189,16 +189,24 @@ ceiling = 340
 rationale = "Optimization (2026-07-03): added get_platform_throttle_seconds() helper to consolidate adapter throttle lookups (18 adapters now use this instead of individual load_config() calls). SLOC 314 after addition. Ceiling 340 = round_up_to_10(314+30) per policy."
 
 [files."src/backlink_publisher/cli/spray_backlinks/core.py"]
-ceiling = 540
-rationale = "Wave 3 Unit 1 intended to trim core.py to 171 SLOC, but rebase onto main (which added new features to core.py) resolved the conflict by keeping main's version at 512 SLOC. _engine.py and _gates.py were added as new modules but core.py itself was not trimmed. Ceiling 540 = round_up_to_10(512+30) to match current reality; split deferred to follow-up PR."
+ceiling = 160
+rationale = "Wave 3 Unit 1 split completed 2026-07-06 per plan 2026-07-06-003 U6: core.py trimmed 517→129 SLOC. Argparse moved to _args.py, seed loop + per-seed orchestration to _run.py, checkpoint/resume helpers to _gates.py (deduplicated — core's copies deleted). core.py keeps the I/O shell (read seeds, epilogue, exit codes) and the three test seams (_spray_checkpoint_dir/_default_rewrite_fn/dispatch_burst, dereferenced late). main() CC 29→4. Ceiling 160 = round_up_to_10(129+30)."
+
+[files."src/backlink_publisher/cli/spray_backlinks/_args.py"]
+ceiling = 180
+rationale = "Plan 2026-07-06-003 U6 (2026-07-06): new file extracted from core.py completing the Wave 3 Unit 1 split. Holds _build_parser (14 argparse flags — declarative, near-zero logic), _parse_platforms, and _validate_args (closed-set flag validation, CC 13). SLOC 148. Ceiling 180 = round_up_to_10(148+30) per policy."
+
+[files."src/backlink_publisher/cli/spray_backlinks/_run.py"]
+ceiling = 250
+rationale = "Plan 2026-07-06-003 U6 (2026-07-06): new file extracted from core.py completing the Wave 3 Unit 1 split. Holds the per-seed run orchestration: _run_seed_loop (checkpointed loop + inter-seed delay, CC 14), _process_seed (expand→gate→draft→audit, CC 11), _run_burst (audit gate + jittered dispatch, CC 12), _emit_preview. LLM rewrite factory and dispatcher are injected callables so core.py stays the test seam. SLOC 214. Ceiling 250 = round_up_to_10(214+30) per policy."
 
 [files."src/backlink_publisher/cli/spray_backlinks/_engine.py"]
 ceiling = 110
 rationale = "Plan 2026-06-24-002 U2: deleted dead _run_spray (never called by main()) and its duplicate private helpers (_emit_preview, _main_anchor_of etc); _engine.py reverts to pure kernel only (SprayCandidate, expand_seed, validate_platform_selection, gate_candidates). 333 SLOC → 79 SLOC. Ceiling 110 = round_up_to_10(79+30)."
 
 [files."src/backlink_publisher/cli/spray_backlinks/_gates.py"]
-ceiling = 110
-rationale = "Wave 3 Unit 1 (2026-06-11): new file extracted from core.py. Contains cross-seed governance closure (_make_cross_seed_checker) and all checkpoint helpers: _spray_checkpoint_dir, _checkpoint_path, _generate_run_id, _list_checkpoints, _save_checkpoint, _domain_slug, _write_per_seed_file. SLOC 77. Ceiling 110 = round_up_to_10(77+30) per policy."
+ceiling = 150
+rationale = "Wave 3 Unit 1 (2026-06-11): extracted from core.py — cross-seed governance closure (_make_cross_seed_checker) + checkpoint helpers (_spray_checkpoint_dir, _checkpoint_path, _generate_run_id, _list_checkpoints, _save_checkpoint, _domain_slug, _write_per_seed_file). Plan 2026-07-06-003 U6 (2026-07-06) completed the split: core's duplicate copies deleted, this module became the live implementation and gained _setup_resume + _handle_list_checkpoints; checkpoint dir is now an explicit cdir param (core keeps the patchable seam). SLOC 119. Ceiling 150 = round_up_to_10(119+30) per policy."
 
 # Wave 3 Unit 2 (2026-06-11): events/history_query.py split into read-path + write-path (mutations).
 [files."src/backlink_publisher/events/history_query.py"]
