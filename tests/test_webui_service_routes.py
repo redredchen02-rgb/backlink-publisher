@@ -142,7 +142,7 @@ class TestKeepAliveRoutes:
     tests/test_webui_keepalive_*.py; this satisfies the route-coverage gate."""
 
     def test_get_keep_alive_renders(self, client):
-        assert client.get("/ce:keep-alive").status_code == 200
+        assert client.get("/ce:keep-alive/jinja").status_code == 200
 
     def test_get_keep_alive_redirects_to_spa(self, client):
         # /ce:keep-alive now redirects to the SPA (P15 A1); the Jinja fallback
@@ -307,8 +307,8 @@ class TestVelogApiRoutes:
 
 class TestOptimizationStatusRoutes:
     def test_get_optimization_status_page(self, client):
-        """GET /optimization-status returns 200 with expected text."""
-        resp = client.get("/optimization-status")
+        """GET /optimization-status/jinja returns 200 with expected text."""
+        resp = client.get("/optimization-status/jinja")
         assert resp.status_code == 200
         assert b"Optimization Status" in resp.data or b"optimisation" in resp.data.lower()
 
@@ -361,8 +361,8 @@ class TestOptimizationStatusRoutes:
 
 class TestSurvivalDashboardRoutes:
     def test_get_survival_dashboard_page(self, client):
-        """GET /survival-dashboard returns 200 (never 500 on empty store)."""
-        resp = client.get("/survival-dashboard")
+        """GET /survival-dashboard/jinja returns 200 (never 500 on empty store)."""
+        resp = client.get("/survival-dashboard/jinja")
         assert resp.status_code == 200
         assert "存活率".encode() in resp.data
 
