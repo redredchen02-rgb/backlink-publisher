@@ -96,3 +96,65 @@ def test_webui_history_recheck_not_found_returns_404(client, monkeypatch):
     assert resp.status_code == 404
     assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
     assert resp.get_json()["error_class"] == "not_found"
+
+
+# ── POST /api/v1/queue/<task_id>/retry — Plan 2026-07-06-004 Unit 3 ─────────
+
+
+def test_webui_queue_retry_success_returns_200_and_envelope(client, monkeypatch):
+    _patch(
+        monkeypatch,
+        retry_task=lambda _id: {
+            "ok": True,
+            "flash_type": "success",
+            "flash_msg": "任务已重新排入队列，等待后台处理",
+            "message": "任务已重新排入队列，等待后台处理",
+        },
+    )
+    resp = client.post("/api/v1/queue/7/retry")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["ok"] is True
+    assert body["flash_type"] == "success"
+    # Honest wording: "requeued", never "retry succeeded" / "published".
+    assert "重新排入队列" in body["message"]
+
+
+def test_webui_queue_retry_not_found_returns_404(client, monkeypatch):
+    _patch(
+        monkeypatch,
+        retry_task=lambda _id: {
+            "ok": False,
+            "error_code": "NOT_FOUND",
+            "flash_type": "warning",
+            "flash_msg": "任务不存在，可能已被处理",
+            "message": "任务不存在，可能已被处理",
+        },
+    )
+    resp = client.post("/api/v1/queue/vanished/retry")
+    assert resp.status_code == 404
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+    assert resp.get_json()["error_class"] == "not_found"
+
+
+def test_webui_queue_retry_processing_returns_409_and_leaves_task_alone(client, monkeypatch):
+    calls: list[str] = []
+
+    def _retry(task_id):
+        calls.append(task_id)
+        return {
+            "ok": False,
+            "error_code": "TASK_PROCESSING",
+            "flash_type": "warning",
+            "flash_msg": "任务正在处理中，暂不能重试",
+            "message": "任务正在处理中，暂不能重试",
+        }
+
+    _patch(monkeypatch, retry_task=_retry)
+    resp = client.post("/api/v1/queue/7/retry")
+    assert resp.status_code == 409
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+    assert resp.get_json()["error_class"] == "task_processing"
+    # retry_task is the single source of truth for the conditional UPDATE —
+    # this route must never separately touch the task's status.
+    assert calls == ["7"]

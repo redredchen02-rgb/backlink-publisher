@@ -40,7 +40,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config, load_zenn_token
 from backlink_publisher.http import get as http_get
 from backlink_publisher.http import put as http_put
-from backlink_publisher.publishing.registry import Publisher, get_platform_throttle_seconds
+from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
 from .base import AdapterResult
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
@@ -136,7 +136,8 @@ def _get_file_sha(repo: str, path: str, branch: str, headers: dict) -> str | Non
         if resp.status_code == 200:
             return cast("str | None", cast("dict[str, Any]", resp.json()).get("sha"))
         return None
-    except Exception:  # noqa: BLE001
+    # debt: zenn-github-file-sha-lookup-degrade-accepted
+    except Exception:
         return None
 
 

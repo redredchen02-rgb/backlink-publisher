@@ -18,7 +18,7 @@ from backlink_publisher.publishing.adapters.base import AdapterResult
 @pytest.fixture(autouse=True)
 def _mock_verify_pass(mocker):
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     )
 
@@ -86,7 +86,7 @@ def _medium_result():
     )
 
 
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_throttle_between_two_medium_rows(mock_pub, mock_verify, mock_sleep):
@@ -97,7 +97,7 @@ def test_throttle_between_two_medium_rows(mock_pub, mock_verify, mock_sleep):
     mock_sleep.assert_called_once()
 
 
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_throttle_respects_env_override(mock_pub, mock_verify, mock_sleep):
@@ -111,7 +111,7 @@ def test_throttle_respects_env_override(mock_pub, mock_verify, mock_sleep):
     assert 10 <= sleep_val <= 15, f"Sleep {sleep_val} outside [10,15]"
 
 
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_no_throttle_for_single_row(mock_pub, mock_verify, mock_sleep):
@@ -121,7 +121,7 @@ def test_no_throttle_for_single_row(mock_pub, mock_verify, mock_sleep):
     mock_sleep.assert_not_called()
 
 
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_no_throttle_on_dry_run(mock_pub, mock_verify, mock_sleep):
@@ -135,7 +135,7 @@ def test_no_throttle_on_dry_run(mock_pub, mock_verify, mock_sleep):
     mock_sleep.assert_not_called()
 
 
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_no_throttle_when_next_row_is_blogger(mock_pub, mock_verify, mock_sleep):

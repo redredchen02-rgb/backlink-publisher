@@ -7,6 +7,7 @@ per-link verdict read from the ``link.rechecked`` time series — the authority 
 (recheck→ledger writeback is deferred). Bleeding targets sort first; test-data
 hosts (``example.com``) are excluded so a new operator isn't misled.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -217,7 +218,7 @@ def build_cycle_status_view(*, run_state: Any=None, opt_state: Any=None) -> dict
                 "alive_count": int(pstats.get("alive_count") or 0),
                 "total_published": int(pstats.get("total_published") or 0),
             })
-    except Exception:  # noqa: BLE001
+    except Exception:
         platforms = []
 
     return {

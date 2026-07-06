@@ -40,7 +40,7 @@ CC_HEADROOM_MAX = 10
 
 # Load at module-collection time so pytest's parametrize sees concrete budget keys.
 # Missing/malformed budget file raises during collection -- pytest reports a clear error.
-BUDGET = tomllib.loads(BUDGET_FILE.read_text())
+BUDGET = tomllib.loads(BUDGET_FILE.read_text(encoding="utf-8"))
 MONITORED_KEYS = list(BUDGET["functions"].keys())
 MONITORED_TEST_KEYS = list(BUDGET.get("test_files", {}).keys())
 
@@ -87,7 +87,7 @@ def _measure_function_cc(repo_root: Path, key: str) -> int:
     relpath, fullname = _split_key(key)
     full_path = repo_root / relpath
     try:
-        text = full_path.read_text()
+        text = full_path.read_text(encoding="utf-8")
     except (FileNotFoundError, IsADirectoryError, PermissionError) as exc:
         pytest.fail(
             f"Budgeted file {relpath} not readable ({exc.__class__.__name__}: {exc}). "
@@ -138,7 +138,7 @@ def _scan_unlisted_over_backstop(
         except ValueError:
             continue
         try:
-            blocks = _function_blocks(path.read_text())
+            blocks = _function_blocks(path.read_text(encoding="utf-8"))
         except (SyntaxError, OSError):
             continue
         for block in blocks:
@@ -263,6 +263,32 @@ def test_backstop_webui_unlisted_functions() -> None:
     )
 
 
+def test_backstop_webui_store_unlisted_functions() -> None:
+    """Rule (b) extended: every unlisted Function/Method block in webui_store/ must have CC <= backstop.
+
+    Gate-efficacy audit (2026-07-06, master convergence Unit 5): webui_app/
+    had its own dedicated backstop test (test_backstop_webui_unlisted_functions
+    above), but webui_store/ -- a sibling repo-root package with the same
+    "outside src/, needs its own scan" property -- had none, so a future CC
+    regression there would not be caught by CI. No function currently exceeds
+    the backstop (highest found: BaseSqliteStore.migrate_from_json at CC 11),
+    so this closes the coverage gap without needing any budget entries.
+    """
+    declared = set(MONITORED_KEYS)
+    violations = _scan_unlisted_over_backstop(
+        scan_root=REPO_ROOT / "webui_store",
+        declared_keys=declared,
+        repo_root=REPO_ROOT,
+        backstop=BACKSTOP,
+    )
+    assert not violations, (
+        f"{len(violations)} unlisted webui_store function(s) exceed the CC backstop ({BACKSTOP}):\n  "
+        + "\n  ".join(sorted(violations))
+        + "\nEither reduce the function's complexity, or add an explicit "
+        "complexity_budget.toml entry (with a >=80-char rationale) in this same PR."
+    )
+
+
 def test_radon_cc_behavior_pinned() -> None:
     """CC canary: pin radon's complexity counter against the hand-crafted fixture.
 
@@ -270,7 +296,7 @@ def test_radon_cc_behavior_pinned() -> None:
     Re-baseline only on a deliberate radon bump -- which is also a budget edit: re-measure
     every monitored ceiling and update CC_CANARY_EXPECTED in the same PR.
     """
-    blocks = _function_blocks(CC_CANARY_FIXTURE.read_text())
+    blocks = _function_blocks(CC_CANARY_FIXTURE.read_text(encoding="utf-8"))
     match = next((b for b in blocks if b.fullname == CC_CANARY_FUNC), None)
     assert match is not None, f"canary function {CC_CANARY_FUNC!r} not found in {CC_CANARY_FIXTURE}"
     assert match.complexity == CC_CANARY_EXPECTED, (
@@ -286,7 +312,7 @@ def test_radon_cc_behavior_pinned() -> None:
 def _sloc_of(path: Path) -> int:
     """Return the logical SLOC (source lines of code) of a Python file."""
     from radon.raw import analyze
-    return analyze(path.read_text()).sloc
+    return analyze(path.read_text(encoding="utf-8")).sloc
 
 
 def test_test_files_budget_exists() -> None:

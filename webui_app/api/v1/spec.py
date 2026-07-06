@@ -20,6 +20,7 @@ from typing import Any
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
+from .errors import MAX_PAGE_LIMIT
 from .schemas import (
     AppConfigSchema,
     BindPollResultSchema,
@@ -58,6 +59,7 @@ from .schemas import (
     LlmTestGenerationRequestSchema,
     MediumLoginResultSchema,
     MediumStatusSchema,
+    MonitorCardItemSchema,
     MonitorSummarySchema,
     NotionStatusSchema,
     NotionTokenRequestSchema,
@@ -72,6 +74,7 @@ from .schemas import (
     ProStatusEnvelopeSchema,
     PublishRequestSchema,
     PublishResponseSchema,
+    QueueRetryResultSchema,
     RegenBodyRequestSchema,
     RegenBodyResponseSchema,
     ScheduledListSchema,
@@ -139,11 +142,13 @@ def build_spec() -> APISpec:
     spec.components.schema("PublishResponse", schema=PublishResponseSchema)
     spec.components.schema("RegenBodyRequest", schema=RegenBodyRequestSchema)
     spec.components.schema("RegenBodyResponse", schema=RegenBodyResponseSchema)
+    spec.components.schema("MonitorCardItem", schema=MonitorCardItemSchema)
     spec.components.schema("MonitorSummary", schema=MonitorSummarySchema)
     spec.components.schema("HistoryList", schema=HistoryListSchema)
     spec.components.schema("HistoryMutationResult", schema=HistoryMutationResultSchema)
     spec.components.schema("HistoryIdRequest", schema=HistoryIdRequestSchema)
     spec.components.schema("HistoryIdsRequest", schema=HistoryIdsRequestSchema)
+    spec.components.schema("QueueRetryResult", schema=QueueRetryResultSchema)
     spec.components.schema("DraftList", schema=DraftListSchema)
     spec.components.schema("DraftMutationResult", schema=DraftMutationResultSchema)
     spec.components.schema("DraftIdRequest", schema=DraftIdRequestSchema)
@@ -250,6 +255,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getPlatforms",
                 "summary": "Full registered-platform list.",
+                "description": (
+                    "Read-only registry dump: every registered platform's slug and "
+                    "display name, regardless of binding state. No secrets, no guard."
+                ),
                 "tags": ["bootstrap"],
                 "responses": {"200": _ok("Platform list.", PlatformListSchema)},
             }
@@ -261,6 +270,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getBoundPlatforms",
                 "summary": "Bound + manifest-visible platforms (publish-form filter).",
+                "description": (
+                    "Subset of /platforms: only channels that are credential-bound and "
+                    "manifest-visible, i.e. what the publish form may offer. Read-only."
+                ),
                 "tags": ["bootstrap"],
                 "responses": {"200": _ok("Bound platform list.", PlatformListSchema)},
             }
@@ -272,6 +285,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getProStatus",
                 "summary": "Pro-Mode visibility summary (redaction-safe).",
+                "description": (
+                    "Booleans/labels describing Pro-Mode visibility only — the "
+                    "api_key itself is never returned. Read-only, no guard."
+                ),
                 "tags": ["bootstrap"],
                 "responses": {"200": _ok("Pro status.", ProStatusEnvelopeSchema)},
             }
@@ -300,6 +317,11 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "previewBacklink",
                 "summary": "Single-article preview (plan one seed, return first row).",
+                "description": (
+                    "Plans exactly one seed through the same generator as "
+                    "/pipeline/plan and returns the first row, or null when nothing "
+                    "was produced. Stateless."
+                ),
                 "tags": ["pipeline"],
                 "requestBody": _body(PlanRequestSchema),
                 "responses": {
@@ -316,6 +338,11 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "validateBacklinks",
                 "summary": "Validate plan rows (URL checks skipped server-side).",
+                "description": (
+                    "Runs the CLI validate step's schema/content checks over the "
+                    "posted plan rows, mirroring /ce:validate; URL liveness probes "
+                    "are skipped server-side. Stateless."
+                ),
                 "tags": ["pipeline"],
                 "requestBody": _body(ValidateRequestSchema),
                 "responses": {
@@ -352,9 +379,29 @@ def build_spec() -> APISpec:
         operations={
             "get": {
                 "operationId": "getHistory",
-                "summary": "Full publish-history list.",
+                "summary": "Publish-history list, optionally paginated.",
+                "description": (
+                    "Read-only: publish-history entries from events.db, normalised "
+                    "for display. Omitting `limit` returns every entry in the "
+                    "original flat shape; passing `limit` returns a page envelope "
+                    "with `total`/`limit`/`offset` (Plan 2026-07-02-001 U5)."
+                ),
                 "tags": ["history"],
-                "responses": {"200": _ok("History list.", HistoryListSchema)},
+                "parameters": [
+                    {"name": "limit", "in": "query", "required": False,
+                     "description": (
+                         "Opts into the paginated envelope; omitting it returns "
+                         "every entry in the original flat shape."
+                     ),
+                     "schema": {"type": "integer", "minimum": 0, "maximum": MAX_PAGE_LIMIT}},
+                    {"name": "offset", "in": "query", "required": False,
+                     "description": "Has no effect unless `limit` is also given.",
+                     "schema": {"type": "integer", "minimum": 0, "default": 0}},
+                ],
+                "responses": {
+                    "200": _ok("History list (paginated if `limit` given).", HistoryListSchema),
+                    "400": _problem_response("Invalid limit/offset."),
+                },
             }
         },
     )
@@ -364,6 +411,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "deleteHistoryItem",
                 "summary": "Delete one history entry → refreshed list.",
+                "description": (
+                    "Removes the entry with the given `id` and returns the refreshed "
+                    "list so the SPA re-renders without a second GET."
+                ),
                 "tags": ["history"],
                 "requestBody": _body(HistoryIdRequestSchema),
                 "responses": {
@@ -379,6 +430,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "bulkDeleteHistory",
                 "summary": "Delete multiple history entries → refreshed list.",
+                "description": (
+                    "Removes every entry whose id appears in `ids`, then returns the "
+                    "refreshed list plus a flash-style `message`."
+                ),
                 "tags": ["history"],
                 "requestBody": _body(HistoryIdsRequestSchema),
                 "responses": {
@@ -389,11 +444,37 @@ def build_spec() -> APISpec:
         },
     )
     spec.path(
+        path="/api/v1/history/bulk-recheck",
+        operations={
+            "post": {
+                "operationId": "bulkRecheckHistory",
+                "summary": "Re-verify multiple history entries' link liveness → refreshed list.",
+                "description": (
+                    "Re-checks every entry whose id appears in `ids`, then returns the "
+                    "refreshed list. A per-item verify outcome (e.g. a URL now dead) is "
+                    "data, not a failure — this only returns 422 for genuine input "
+                    "problems (empty or unmatched ids)."
+                ),
+                "tags": ["history"],
+                "requestBody": _body(HistoryIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", HistoryMutationResultSchema),
+                    "422": _problem_response("Missing ids or no items matched."),
+                },
+            }
+        },
+    )
+    spec.path(
         path="/api/v1/history/purge-failed",
         operations={
             "post": {
                 "operationId": "purgeFailedHistory",
                 "summary": "Delete every 'failed' entry → refreshed list.",
+                "description": (
+                    "Removes all entries whose status is `failed`. Idempotent — "
+                    "nothing to purge is still a 200 with the refreshed list. "
+                    "No request body."
+                ),
                 "tags": ["history"],
                 "responses": {"200": _ok("Refreshed list.", HistoryMutationResultSchema)},
             }
@@ -405,6 +486,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "recheckHistoryItem",
                 "summary": "Re-verify one history entry's link liveness → refreshed list.",
+                "description": (
+                    "Re-runs the link-liveness check for one entry and updates its "
+                    "status, returning the refreshed list plus a flash-style `message`."
+                ),
                 "tags": ["history"],
                 "requestBody": _body(HistoryIdRequestSchema),
                 "responses": {
@@ -416,13 +501,59 @@ def build_spec() -> APISpec:
         },
     )
     spec.path(
+        path="/api/v1/queue/{task_id}/retry",
+        operations={
+            "post": {
+                "operationId": "retryQueueTask",
+                "summary": "Requeue a queue task for retry (atomic, race-fixed).",
+                "description": (
+                    "Genuine-gap JSON binding for the SPA dashboard's retry action "
+                    "(Plan 2026-07-06-004 Unit 3): calls HistoryAPI.retry_task(), which "
+                    "delegates to queue_store.update_task_if_status()'s single "
+                    "conditional UPDATE, closing a TOCTOU race with the scheduler "
+                    "thread. No request body; `task_id` is a path param. Distinct from "
+                    "the legacy form-encoded /ce:retry-task route, which the SPA cannot use."
+                ),
+                "tags": ["history"],
+                "parameters": [
+                    {"name": "task_id", "in": "path", "required": True,
+                     "schema": {"type": "string"}},
+                ],
+                "responses": {
+                    "200": _ok("Requeued.", QueueRetryResultSchema),
+                    "404": _problem_response("Task not found (vanished or already handled)."),
+                    "409": _problem_response("Task is currently processing; retry rejected."),
+                },
+            }
+        },
+    )
+    spec.path(
         path="/api/v1/drafts",
         operations={
             "get": {
                 "operationId": "getDrafts",
-                "summary": "Full draft-queue list (newest first).",
+                "summary": "Draft-queue list (newest first), optionally paginated.",
+                "description": (
+                    "Read-only: drafts in the queue with their status "
+                    "(pending/scheduled), newest first. Same pagination contract "
+                    "as GET /history (Plan 2026-07-02-001 U5)."
+                ),
                 "tags": ["drafts"],
-                "responses": {"200": _ok("Draft list.", DraftListSchema)},
+                "parameters": [
+                    {"name": "limit", "in": "query", "required": False,
+                     "description": (
+                         "Opts into the paginated envelope; omitting it returns "
+                         "every entry in the original flat shape."
+                     ),
+                     "schema": {"type": "integer", "minimum": 0, "maximum": MAX_PAGE_LIMIT}},
+                    {"name": "offset", "in": "query", "required": False,
+                     "description": "Has no effect unless `limit` is also given.",
+                     "schema": {"type": "integer", "minimum": 0, "default": 0}},
+                ],
+                "responses": {
+                    "200": _ok("Draft list (paginated if `limit` given).", DraftListSchema),
+                    "400": _problem_response("Invalid limit/offset."),
+                },
             }
         },
     )
@@ -432,6 +563,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "scheduleDraft",
                 "summary": "Schedule a draft at an ISO-8601 datetime → refreshed list.",
+                "description": (
+                    "Sets the draft's publish time from `datetime` and registers the "
+                    "scheduler job, then returns the refreshed list."
+                ),
                 "tags": ["drafts"],
                 "requestBody": _body(DraftScheduleRequestSchema),
                 "responses": {
@@ -448,6 +583,11 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "publishDraftNow",
                 "summary": "Publish a draft now (schedules ~5s out) → refreshed list.",
+                "description": (
+                    "Reuses the scheduler path rather than publishing inline: the "
+                    "draft is scheduled ~5 seconds out, then the refreshed list is "
+                    "returned."
+                ),
                 "tags": ["drafts"],
                 "requestBody": _body(DraftIdRequestSchema),
                 "responses": {
@@ -464,6 +604,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "cancelDraft",
                 "summary": "Cancel a scheduled draft (back to pending) → refreshed list.",
+                "description": (
+                    "Unschedules the draft's job and returns it to pending, then "
+                    "returns the refreshed list."
+                ),
                 "tags": ["drafts"],
                 "requestBody": _body(DraftIdRequestSchema),
                 "responses": {
@@ -480,6 +624,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "deleteDraft",
                 "summary": "Delete one draft (cancels its job if scheduled) → refreshed list.",
+                "description": (
+                    "Deletes the draft, first cancelling its scheduler job if one "
+                    "exists, then returns the refreshed list."
+                ),
                 "tags": ["drafts"],
                 "requestBody": _body(DraftIdRequestSchema),
                 "responses": {
@@ -496,6 +644,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "bulkDeleteDrafts",
                 "summary": "Delete multiple drafts → refreshed list.",
+                "description": (
+                    "Deletes every draft whose id appears in `ids` (cancelling any "
+                    "scheduled jobs), then returns the refreshed list."
+                ),
                 "tags": ["drafts"],
                 "requestBody": _body(DraftIdsRequestSchema),
                 "responses": {
@@ -507,11 +659,57 @@ def build_spec() -> APISpec:
         },
     )
     spec.path(
+        path="/api/v1/drafts/bulk-publish-now",
+        operations={
+            "post": {
+                "operationId": "bulkPublishDraftsNow",
+                "summary": "Publish multiple drafts now (staggered ~5s+ out) → refreshed list.",
+                "description": (
+                    "Schedules every draft whose id appears in `ids` for immediate, "
+                    "staggered publishing. Single-flight: a concurrent bulk-publish "
+                    "call is rejected with 409 rather than queued."
+                ),
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "409": _problem_response("A bulk publish is already in progress."),
+                    "422": _problem_response("Missing ids."),
+                    "502": _problem_response("Scheduler registration failure (rolled back)."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/bulk-cancel",
+        operations={
+            "post": {
+                "operationId": "bulkCancelDrafts",
+                "summary": "Cancel scheduling for multiple drafts → refreshed list.",
+                "description": (
+                    "Cancels the pending scheduled-publish job for every draft whose "
+                    "id appears in `ids`, then returns the refreshed list."
+                ),
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "422": _problem_response("Missing ids."),
+                    "502": _problem_response("Scheduler sync failure."),
+                },
+            }
+        },
+    )
+    spec.path(
         path="/api/v1/sites",
         operations={
             "get": {
                 "operationId": "getSites",
                 "summary": "All configured sites with live autopilot status.",
+                "description": (
+                    "Read-only: every configured site joined with its live "
+                    "autopilot (scheduler) status."
+                ),
                 "tags": ["sites"],
                 "responses": {"200": _ok("Site list.", SiteListSchema)},
             }
@@ -523,6 +721,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getSitesWidgets",
                 "summary": "Read-only side panels: plan-gap weekly + citation-share alert.",
+                "description": (
+                    "Aggregate for the sites page's side panels: the weekly plan-gap "
+                    "summary and the citation-share alert. No mutation."
+                ),
                 "tags": ["sites"],
                 "responses": {"200": _ok("Side-panel data.", SiteWidgetsSchema)},
             }
@@ -534,6 +736,11 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getSiteForm",
                 "summary": "Edit-prefill for an existing site (?domain=), or null.",
+                "description": (
+                    "Returns the edit-prefill payload for the site named by the "
+                    "`domain` query param, or a null envelope when unknown — the SPA "
+                    "then renders a blank creation form."
+                ),
                 "tags": ["sites"],
                 "responses": {"200": _ok("Form prefill (or null).", SiteFormEnvelopeSchema)},
             }
@@ -928,6 +1135,11 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "testLlmGeneration",
                 "summary": "Generate an article/anchor preview from the stored LLM settings.",
+                "description": (
+                    "Runs a real generation call against the stored LLM settings and "
+                    "returns the diagnostic envelope, NOT problem+json — a failed "
+                    "generation is a successful call."
+                ),
                 "tags": ["settings"],
                 "requestBody": _body(LlmTestGenerationRequestSchema),
                 "responses": {
@@ -1095,6 +1307,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getKeywordPools",
                 "summary": "Hydrate the keyword-pool editor (target domains + pools).",
+                "description": (
+                    "Read-only hydration: known target domains plus each domain's "
+                    "current anchor-keyword pool. No secrets, no guard."
+                ),
                 "tags": ["settings"],
                 "responses": {
                     "200": _ok("Known targets + each domain's current pool.", KeywordPoolsViewSchema),
@@ -1123,6 +1339,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getScheduleSettings",
                 "summary": "Hydrate the publish-cadence form.",
+                "description": (
+                    "Read-only hydration: the current min_interval_hours and "
+                    "jitter_minutes from schedule-settings.json. No secrets, no guard."
+                ),
                 "tags": ["settings"],
                 "responses": {
                     "200": _ok("Current min interval / jitter.", ScheduleSettingsRequestSchema),
@@ -1151,6 +1371,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "clearMediumOauth",
                 "summary": "Revoke a stored Medium OAuth token (delete medium-token.json).",
+                "description": (
+                    "Deletes the stored medium-token.json. Idempotent — an "
+                    "already-absent token is still a 200. No request body."
+                ),
                 "tags": ["settings"],
                 "responses": {
                     "200": _ok("Cleared (idempotent).", CredentialResultSchema),
@@ -1165,6 +1389,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getProfiles",
                 "summary": "All saved campaign profiles (publish presets).",
+                "description": (
+                    "Read-only: every saved campaign profile — named publish presets "
+                    "the SPA offers on the workbench."
+                ),
                 "tags": ["profiles"],
                 "responses": {"200": _ok("Profile list.", ProfileListSchema)},
             }
@@ -1176,6 +1404,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "saveProfile",
                 "summary": "Upsert a campaign profile by name → refreshed list.",
+                "description": (
+                    "Creates or overwrites the profile with the given name, then "
+                    "returns the refreshed profile list."
+                ),
                 "tags": ["profiles"],
                 "requestBody": _body(ProfileSaveRequestSchema),
                 "responses": {
@@ -1191,6 +1423,10 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "deleteProfile",
                 "summary": "Delete a campaign profile by name → refreshed list.",
+                "description": (
+                    "Deletes the named profile and returns the refreshed profile "
+                    "list."
+                ),
                 "tags": ["profiles"],
                 "requestBody": _body(ProfileDeleteRequestSchema),
                 "responses": {
@@ -1206,6 +1442,10 @@ def build_spec() -> APISpec:
             "get": {
                 "operationId": "getCampaignForm",
                 "summary": "Creation-form bootstrap: platforms + connection partition.",
+                "description": (
+                    "Read-only bootstrap for the campaign-creation form: the platform "
+                    "list partitioned by connection state (connected vs. needs-binding)."
+                ),
                 "tags": ["campaigns"],
                 "responses": {"200": _ok("Form bootstrap.", CampaignFormSchema)},
             }
@@ -1250,9 +1490,12 @@ def build_spec() -> APISpec:
                 "operationId": "getMonitorSummary",
                 "summary": "Anomaly-first monitor aggregate (today's anomalies first).",
                 "description": (
-                    "Fail-open aggregate across credentials/keepalive/equity/history. "
-                    "Severity + equity-gap computed server-side (single source); the SPA "
-                    "only displays. Versioned binding of the legacy /api/monitor-hub feed."
+                    "Fail-open aggregate across 6 signal sources: credentials/keepalive/"
+                    "equity/history plus (Plan 2026-07-06-004 Unit 2) error-reports backlog "
+                    "and schedule/queue backlog. The latter two are hybrid cards carrying an "
+                    "optional `items` list (first N individual items) alongside the aggregate "
+                    "headline. Severity + equity-gap computed server-side (single source); the "
+                    "SPA only displays. Versioned binding of the legacy /api/monitor-hub feed."
                 ),
                 "tags": ["monitor"],
                 "responses": {
@@ -1267,6 +1510,11 @@ def build_spec() -> APISpec:
             "post": {
                 "operationId": "regenArticleBody",
                 "summary": "Re-generate one article body via the configured LLM.",
+                "description": (
+                    "Calls the configured LLM to produce a fresh body (markdown + "
+                    "html) for one planned article. Versioned binding of the legacy "
+                    "/ce:regen-body route; 400 when no LLM is configured."
+                ),
                 "tags": ["pipeline"],
                 "requestBody": _body(RegenBodyRequestSchema),
                 "responses": {

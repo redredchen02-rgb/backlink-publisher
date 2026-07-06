@@ -25,8 +25,17 @@ from backlink_publisher.publishing._manifest_types import (
 
 
 def _get_registry() -> dict:
-    """Lazy import to break circular dependency with registry.py."""
-    from .registry import _REGISTRY  # noqa: PLC0415
+    """Lazy import to break circular dependency with registry.py.
+
+    Also ensures the adapter registry has been lazily initialized —
+    without this, a fresh process calling e.g. ``visibility()`` before any
+    other registry accessor sees an empty ``_REGISTRY`` and silently
+    returns defaults for genuinely-registered platforms (same bug class as
+    the ``registry.py`` accessors fixed alongside this).
+    """
+    from .registry import _ensure_adapters_initialized, _REGISTRY
+
+    _ensure_adapters_initialized()
     return _REGISTRY
 
 

@@ -88,7 +88,7 @@ def medium_liveness_check(timeout_s: float = 10.0) -> LivenessResult:
             f"medium_liveness: probe exceeded {timeout_s}s budget; needs_recheck"
         )
         return LivenessResult.NEEDS_RECHECK
-    except Exception as exc:  # noqa: BLE001 — defensive
+    except Exception as exc:
         log.warn(
             f"medium_liveness: probe raised: "
             f"{type(exc).__name__}: {exc}"
@@ -98,7 +98,7 @@ def medium_liveness_check(timeout_s: float = 10.0) -> LivenessResult:
     if result == LivenessResult.LOGGED_IN:
         try:
             mark_verified("medium")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warn(
                 f"medium_liveness: mark_verified failed: "
                 f"{type(exc).__name__}: {exc}"
@@ -106,7 +106,7 @@ def medium_liveness_check(timeout_s: float = 10.0) -> LivenessResult:
     elif result == LivenessResult.EXPIRED:
         try:
             mark_expired("medium")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warn(
                 f"medium_liveness: mark_expired failed: "
                 f"{type(exc).__name__}: {exc}"

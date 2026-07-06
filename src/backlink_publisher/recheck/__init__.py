@@ -15,5 +15,4 @@ Modules:
 * ``events_io``   — emit ``link.rechecked`` events + derive decay counts.
 """
 
-
 __all__: list[str] = []

@@ -153,9 +153,9 @@ def register_all_adapters() -> None:
         return
     # Deferred imports: avoid loading heavy adapter modules at import time.
     from ..browser_publish import BrowserPublishDispatcher
-    from ..browser_publish.recipes import devto as _devto_recipe  # noqa: F401
-    from ..browser_publish.recipes import mastodon as _mastodon_recipe  # noqa: F401
-    from ..browser_publish.recipes import velog as _velog_recipe  # noqa: F401
+    from ..browser_publish.recipes import devto as _devto_recipe
+    from ..browser_publish.recipes import mastodon as _mastodon_recipe
+    from ..browser_publish.recipes import velog as _velog_recipe
     from .blogger_api import BloggerAPIAdapter
     from .devto_api import DevtoAPIAdapter
     from .ghpages import GitHubPagesAPIAdapter
@@ -163,7 +163,7 @@ def register_all_adapters() -> None:
     from .hackmd_api import HackmdAPIAdapter
     from .hashnode_graphql import HashnodeGraphQLAdapter
     from .hatena_atompub import HatenaAtomPubAdapter
-    from .instant_web import TelegraphCdpAdapter  # noqa: F401
+    from .instant_web import TelegraphCdpAdapter
     from .linkedin_api import LinkedInAPIAdapter
     from .livejournal_api import _livejournal_credential_saver, LivejournalAPIAdapter
     from .mataroa_api import MataroaAPIAdapter
@@ -368,6 +368,42 @@ def register_all_adapters() -> None:
         **ZENN_MANIFEST,
     )
 
+    # Export the deferred-imported classes to module globals so attribute
+    # access (``adapters.BloggerAPIAdapter``) resolves after ``__getattr__``
+    # triggers ``_lazy_init()``. Without this, the function-local imports
+    # above never reach the module namespace and every public class name in
+    # ``__all__`` raises AttributeError despite lazy init having run.
+    globals().update(
+        BrowserPublishDispatcher=BrowserPublishDispatcher,
+        BloggerAPIAdapter=BloggerAPIAdapter,
+        DevtoAPIAdapter=DevtoAPIAdapter,
+        GitHubPagesAPIAdapter=GitHubPagesAPIAdapter,
+        GitLabPagesAPIAdapter=GitLabPagesAPIAdapter,
+        HackmdAPIAdapter=HackmdAPIAdapter,
+        HashnodeGraphQLAdapter=HashnodeGraphQLAdapter,
+        HatenaAtomPubAdapter=HatenaAtomPubAdapter,
+        TelegraphCdpAdapter=TelegraphCdpAdapter,
+        LinkedInAPIAdapter=LinkedInAPIAdapter,
+        LivejournalAPIAdapter=LivejournalAPIAdapter,
+        MataroaAPIAdapter=MataroaAPIAdapter,
+        MediumAPIAdapter=MediumAPIAdapter,
+        MediumBraveAdapter=MediumBraveAdapter,
+        MediumBrowserAdapter=MediumBrowserAdapter,
+        NotesioFormPostAdapter=NotesioFormPostAdapter,
+        NotionAPIAdapter=NotionAPIAdapter,
+        QiitaAPIAdapter=QiitaAPIAdapter,
+        RentryAPIAdapter=RentryAPIAdapter,
+        SubstackAPIAdapter=SubstackAPIAdapter,
+        TelegraphAPIAdapter=TelegraphAPIAdapter,
+        TumblrAPIAdapter=TumblrAPIAdapter,
+        TxtfyiFormPostAdapter=TxtfyiFormPostAdapter,
+        VelogGraphQLAdapter=VelogGraphQLAdapter,
+        WordpresscomAPIAdapter=WordpresscomAPIAdapter,
+        WriteasAPIAdapter=WriteasAPIAdapter,
+        ZennGitHubAdapter=ZennGitHubAdapter,
+        _livejournal_credential_saver=_livejournal_credential_saver,
+    )
+
 
 _INITIALIZED: bool = False
 
@@ -460,3 +496,14 @@ def register_catalog_entries(built_in_dir: str = "", user_config_dir: str = "") 
 
 
 _builtin_catalog = str(_Path(__file__).resolve().parent / "catalog")
+# Rejected origin's addition here (eager `register_catalog_entries(...)` call +
+# a second `__all__` list): `_lazy_init()` above already calls
+# `register_catalog_entries(built_in_dir=_builtin_catalog)` lazily, and calling
+# it again here at module scope would register catalog entries eagerly at
+# import time — contradicting this module's own documented design
+# (`register_all_adapters()`'s docstring: "importing this module does NOT
+# eagerly load any adapter module... only calling this function... triggers
+# the full import chain"). A second `__all__` here would also silently
+# shadow the complete one already defined near the top of this file (which
+# additionally exports Any/Literal/Optional/TYPE_CHECKING) — origin's version
+# is missing those.

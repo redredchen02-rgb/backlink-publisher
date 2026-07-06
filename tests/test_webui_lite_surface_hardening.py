@@ -40,7 +40,7 @@ def test_pro_blueprint_post_returns_404_not_403(disable_csrf):
 
 def test_core_route_accessible_in_lite(disable_csrf):
     """GET core route is not blocked by LITE gate."""
-    resp = webui.app.test_client().get("/ce:keep-alive")
+    resp = webui.app.test_client().get("/ce:keep-alive/jinja")
     assert resp.status_code == 200
 
 
@@ -75,11 +75,18 @@ def test_csrf_guard_runs_before_lite_gate():
 
 # ── Copilot panel absent (not just unlinked) ─────────────────────────────────
 
-@pytest.mark.parametrize("url", ["/", "/sites", "/ce:health"])
+@pytest.mark.parametrize("url", ["/jinja", "/sites", "/ce:health"])
 def test_copilot_panel_absent_in_lite(url, disable_csrf):
     """The Copilot FAB/panel must not render in LITE mode: its /copilot/advice
     route 404s under the LITE gate, so a rendered launcher button would just
-    trigger the client-side 'non-JSON response' error the gate exists to avoid."""
+    trigger the client-side 'non-JSON response' error the gate exists to avoid.
+
+    '/' itself is '/jinja' here (not bare '/') since Plan 2026-07-06-004 Unit 4
+    made bare '/' an unconditional redirect to the SPA ('/app/') — it no
+    longer renders a body at all, so the invariant this test checks (no
+    copilot panel markup) is now verified against the legacy Jinja fallback
+    route instead, which still serves the exact same index.html content.
+    """
     resp = webui.app.test_client().get(url)
     assert resp.status_code == 200, f"{url} -> {resp.status_code}"
     body = resp.data.decode()
@@ -90,8 +97,11 @@ def test_copilot_panel_absent_in_lite(url, disable_csrf):
 # ── Nav consistency ───────────────────────────────────────────────────────────
 
 def test_nav_has_no_pro_blueprint_links_in_lite(disable_csrf):
-    """Rendered HTML with LITE=1 → no Pro blueprint nav links."""
-    resp = webui.app.test_client().get("/")
+    """Rendered HTML with LITE=1 → no Pro blueprint nav links.
+
+    '/' now redirects to the SPA (Plan 2026-07-06-004 Unit 4); checked against
+    '/jinja' (the legacy fallback, same nav template) instead of bare '/'."""
+    resp = webui.app.test_client().get("/jinja")
     body = resp.data.decode()
     # Pro blueprint paths should not appear as navigation links
     for pro_path in ("/copilot/", "/api/seo/", "/metrics", "/pr-queue"):

@@ -122,7 +122,7 @@ def fetch_work_metadata(
             "work_metadata response too large", url=url, reason=str(exc)
         )
         return None
-    except Exception as exc:  # noqa: BLE001 — fail-continue per plan
+    except Exception as exc:
         plan_logger.warning(
             "work_metadata fetch failed", url=url, error=type(exc).__name__
         )
@@ -136,7 +136,7 @@ def fetch_work_metadata(
 
     try:
         soup = BeautifulSoup(_decode(body, resp), "html.parser")
-    except Exception as exc:  # noqa: BLE001 — fail-continue per plan
+    except Exception as exc:
         plan_logger.warning(
             "work_metadata parse failed", url=url, error=type(exc).__name__
         )
@@ -226,7 +226,7 @@ def fetch_work_urls_from_list(
             )
         except InputValidationError:
             raise
-        except Exception:  # noqa: BLE001 — fall through to next variant
+        except Exception:
             continue
         if sitemap_urls is not None:
             break
@@ -253,7 +253,7 @@ def fetch_work_urls_from_list(
         )
     except InputValidationError:
         raise
-    except Exception as exc:  # noqa: BLE001 — fail-abort per plan
+    except Exception as exc:
         raise ExternalServiceError(
             f"list_url fetch failed: {type(exc).__name__}: {exc}"
         )
@@ -271,7 +271,7 @@ def fetch_work_urls_from_list(
 
     try:
         soup = BeautifulSoup(_decode(body, resp), "html.parser")
-    except Exception as exc:  # noqa: BLE001 — fail-abort: list-page is critical
+    except Exception as exc:
         raise ExternalServiceError(
             f"list_url parse failed: {type(exc).__name__}: {exc}"
         )
@@ -350,7 +350,7 @@ def _try_sitemap(
                         locs.append(loc.text.strip())
             except (ExternalServiceError, InputValidationError):
                 raise
-            except Exception:  # noqa: BLE001 — skip individual bad shard
+            except Exception:
                 continue
     return locs
 

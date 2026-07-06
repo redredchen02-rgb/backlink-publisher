@@ -35,7 +35,7 @@ def _index_html(cfg_dir):
     app.config["TESTING"] = True
     app.config["CSRF_ENABLED"] = False
     app.config["WTF_CSRF_ENABLED"] = False
-    resp = app.test_client().get("/")
+    resp = app.test_client().get("/jinja")
     assert resp.status_code == 200
     return resp.get_data(as_text=True)
 

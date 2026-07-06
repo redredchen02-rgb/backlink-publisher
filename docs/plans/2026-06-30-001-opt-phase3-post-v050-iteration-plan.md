@@ -1,7 +1,7 @@
 ---
 title: "Optimization Phase 3: Post-v0.5.0 全面優化迭代計畫"
 date: 2026-06-30
-status: active
+status: completed
 type: optimization
 priority: high
 origin: docs/brainstorms/2026-07-01-phase3-signal-integrity-hardening-requirements.md
@@ -15,7 +15,7 @@ claims:
     - tests/
     - docs/
     - pyproject.toml
-    - CI/*.yml
+    - .github/workflows/
     - monolith_budget.toml
     - complexity_budget.toml
     - debt_registry.toml

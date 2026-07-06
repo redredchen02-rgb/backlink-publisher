@@ -370,16 +370,23 @@ def test_batch_campaign_post_with_cap_and_delay(client):
 
 
 def test_campaign_progress_page_valid(client):
-    """Visit campaign progress for an existing campaign."""
+    """Visit campaign progress for an existing campaign.
+
+    /campaign/<id> now 302s to the SPA (P13 B3); the Jinja page lives at
+    /campaign/<id>/jinja.
+    """
     cid = _make_campaign()
     resp = client.get(f"/campaign/{cid}")
+    assert resp.status_code == 302
+    assert f"/app/campaign/{cid}" in resp.location
+    resp = client.get(f"/campaign/{cid}/jinja")
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
     assert cid[:8] in html or "批量" in html
 
 
 def test_campaign_progress_page_invalid(client):
-    resp = client.get("/campaign/nonexistent-id")
+    resp = client.get("/campaign/nonexistent-id/jinja")
     assert resp.status_code == 404
 
 
@@ -408,16 +415,18 @@ def test_campaign_api_status_nonexistent(client):
 
 
 def test_main_page_with_campaign_id(client):
-    """Main page accepts campaign_id param and renders without error."""
-    resp = client.get("/?campaign_id=test-id-123")
+    """Main page (legacy Jinja fallback, /jinja) accepts campaign_id param and
+    renders without error. campaign_id is deliberately NOT forwarded by the
+    new '/' -> SPA redirect (Plan 2026-07-06-004 Unit 4 Scope Boundaries)."""
+    resp = client.get("/jinja?campaign_id=test-id-123")
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
     assert "Backlink" in html or "Publisher" in html
 
 
 def test_main_page_without_campaign_id(client):
-    """Main page renders normally without campaign_id filter."""
-    resp = client.get("/")
+    """Main page (legacy Jinja fallback) renders normally without campaign_id filter."""
+    resp = client.get("/jinja")
     assert resp.status_code == 200
 
 

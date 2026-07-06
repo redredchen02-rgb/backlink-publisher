@@ -8,6 +8,10 @@ Contains ``_enhance_payload`` and all its exclusive helper functions:
 ``_HrefCollector``, ``_extract_hrefs_from_html``, ``_check_main_domain_in_html``,
 ``_resolve_branded_pool``, ``_nfc_normalize_in_place``, ``_detect_row_body_language``.
 
+cli/_validate_payload.py is a thin re-export shim for backward-compat (tests
+that patch backlink_publisher.cli._validate_payload.X still work because the
+shim re-imports from here at module load time).
+
 (Plan 2026-06-24-002 U5)
 """
 
@@ -93,7 +97,7 @@ def _extract_hrefs_from_html(html: str) -> list[str]:
     try:
         collector.feed(html)
         collector.close()
-    except Exception:  # noqa: BLE001 — parser may raise on extreme inputs
+    except Exception:
         return collector.hrefs
     return collector.hrefs
 
@@ -250,6 +254,69 @@ def _resolve_banner_path(banner: dict[str, Any]) -> str | None:
     return None
 
 
+def _check_body_language_gate(
+    row: dict[str, Any],
+    detected: str,
+    source_used: str,
+    requested: str,
+    errors_list: list[str],
+    warnings_list: list[str],
+) -> None:
+    """Validate body language matches the requested language; append to errors/warnings."""
+    if source_used.startswith("both-mismatch:"):
+        tag = source_used.removeprefix("both-mismatch:")
+        errors_list.append(
+            f"body language mismatch between content_markdown and "
+            f"content_html ({tag}); operator must use single-source "
+            f"workflow or update both fields"
+        )
+        return
+
+    if not language_matches(detected, requested):
+        if requested == "zh-CN":
+            body_text = (
+                row.get("content_markdown")
+                or row.get("content_html")
+                or ""
+            )
+            cjk_count = sum(
+                1 for c in body_text
+                if 0x4E00 <= ord(c) <= 0x9FFF
+            )
+            hangul_count = sum(
+                1 for c in body_text
+                if 0xAC00 <= ord(c) <= 0xD7AF
+            )
+            latin_count = sum(
+                1 for c in body_text
+                if ("A" <= c <= "Z") or ("a" <= c <= "z")
+            )
+            total_latin_plus_cjk = latin_count + cjk_count + hangul_count
+            if total_latin_plus_cjk > 0:
+                cjk_ratio = (cjk_count + hangul_count) / total_latin_plus_cjk
+                if cjk_ratio >= 0.30:
+                    validate_logger.warning(
+                        f"body language '{detected}' != requested '{requested}', "
+                        f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
+                        f"downgraded from error to warning"
+                    )
+                    warnings_list.append(
+                        f"body language '{detected}' != requested 'zh-CN', "
+                        f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
+                        f"downgraded from error. Best practice: ensure ≥30% of "
+                        f"the body text uses CJK codepoints."
+                    )
+                    row.setdefault("validation", {})["body_language_relaxed"] = True
+                    return
+            errors_list.append(
+                f"body language '{detected}' does not match requested '{requested}'"
+            )
+        else:
+            errors_list.append(
+                f"body language '{detected}' does not match requested '{requested}'"
+            )
+
+
 def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[str, Any]:
     """Attach a ``validation`` block; populate errors[] on R2/R4/R5 failure.
 
@@ -277,60 +344,7 @@ def _enhance_payload(row: dict[str, Any], config: Config | None = None) -> dict[
     else:
         # R2 / R15: body-language match.
         detected, source_used = _detect_row_body_language(row)
-        if source_used.startswith("both-mismatch:"):
-            tag = source_used.removeprefix("both-mismatch:")
-            errors_list.append(
-                f"body language mismatch between content_markdown and "
-                f"content_html ({tag}); operator must use single-source "
-                f"workflow or update both fields"
-            )
-        elif not language_matches(detected, requested):
-            if requested == "zh-CN":
-                body_text = (
-                    row.get("content_markdown")
-                    or row.get("content_html")
-                    or ""
-                )
-                cjk_count = sum(
-                    1 for c in body_text
-                    if 0x4E00 <= ord(c) <= 0x9FFF
-                )
-                hangul_count = sum(
-                    1 for c in body_text
-                    if 0xAC00 <= ord(c) <= 0xD7AF
-                )
-                latin_count = sum(
-                    1 for c in body_text
-                    if ("A" <= c <= "Z") or ("a" <= c <= "z")
-                )
-                total_latin_plus_cjk = latin_count + cjk_count + hangul_count
-                if total_latin_plus_cjk > 0:
-                    cjk_ratio = (cjk_count + hangul_count) / total_latin_plus_cjk
-                    if cjk_ratio >= 0.30:
-                        validate_logger.warning(
-                            f"body language '{detected}' != requested '{requested}', "
-                            f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
-                            f"downgraded from error to warning"
-                        )
-                        warnings_list.append(
-                            f"body language '{detected}' != requested 'zh-CN', "
-                            f"but CJK ratio ({cjk_ratio:.0%}) suggests zh-CN content; "
-                            f"downgraded from error. Best practice: ensure ≥30% of "
-                            f"the body text uses CJK codepoints."
-                        )
-                        row.setdefault("validation", {})["body_language_relaxed"] = True
-                    else:
-                        errors_list.append(
-                            f"body language '{detected}' does not match requested '{requested}'"
-                        )
-                else:
-                    errors_list.append(
-                        f"body language '{detected}' does not match requested '{requested}'"
-                    )
-            else:
-                errors_list.append(
-                    f"body language '{detected}' does not match requested '{requested}'"
-                )
+        _check_body_language_gate(row, detected, source_used, requested, errors_list, warnings_list)
 
         # R4/R5: per-anchor codepoint check for kind in {main_domain, target}.
         branded_pool = _resolve_branded_pool(row, config)

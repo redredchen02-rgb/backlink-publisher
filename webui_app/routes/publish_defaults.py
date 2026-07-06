@@ -56,7 +56,11 @@ def post_publish_quick() -> Any:
     target_ids = data.get("last_target_ids", [])
 
     # Allow caller to pass explicit urls_json; fall back to stored target_ids
-    urls_raw = request.form.get("urls_json") or request.get_json(silent=True, force=True) and request.get_json(silent=True, force=True).get("urls_json")
+    urls_raw = request.form.get("urls_json")
+    if not urls_raw:
+        json_body = request.get_json(silent=True, force=True)
+        if json_body:
+            urls_raw = json_body.get("urls_json")
     if urls_raw:
         import json as _json
         try:

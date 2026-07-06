@@ -80,7 +80,7 @@ def _velog_bound_predicate(page: Any) -> None:
     try:
         from playwright.sync_api import TimeoutError as PWTimeoutError
 
-        del PWTimeoutError  # noqa: F841  imported for runtime availability
+        del PWTimeoutError
     except ImportError:
         pass
 
@@ -103,6 +103,7 @@ def _velog_bound_predicate(page: Any) -> None:
             raise BoundPredicateTimeout()
         try:
             current_url = str(page.url or "")
+        # debt: velog-recipe-bound-predicate-fail-closed-accepted
         except Exception:
             current_url = ""
         if not _BOUND_URL_PATTERN.match(current_url):
@@ -111,6 +112,7 @@ def _velog_bound_predicate(page: Any) -> None:
         authed = False
         try:
             cookies = page.context.cookies()
+        # debt: velog-recipe-bound-predicate-fail-closed-accepted
         except Exception:
             cookies = []
         if isinstance(cookies, list):
@@ -124,6 +126,7 @@ def _velog_bound_predicate(page: Any) -> None:
                     break
         try:
             signed_in_ui = bool(page.evaluate(_SIGNED_IN_UI_JS))
+        # debt: velog-recipe-bound-predicate-fail-closed-accepted
         except Exception:
             signed_in_ui = False
         if authed or signed_in_ui:
@@ -160,6 +163,7 @@ def _velog_post_persist(config_dir: Path, storage_state_path: Path) -> Path:
         tmp_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
         os.chmod(tmp_path, 0o600)
         os.replace(tmp_path, target)
+    # debt: velog-recipe-post-persist-cleanup-reraise-accepted
     except Exception:
         try:
             if tmp_path.exists():

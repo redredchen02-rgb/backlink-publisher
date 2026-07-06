@@ -29,16 +29,16 @@ def test_index_css_served(client):
 
 
 def test_index_page_links_to_css(client):
-    """GET / includes a <link> pointing to css/index.css."""
-    resp = client.get("/")
+    """GET /jinja includes a <link> pointing to css/index.css."""
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert "css/index.css" in body
 
 
 def test_index_page_has_no_inline_style(client):
-    """GET / response body contains no inline <style> element."""
-    resp = client.get("/")
+    """GET /jinja response body contains no inline <style> element."""
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert "<style>" not in body

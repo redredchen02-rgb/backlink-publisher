@@ -498,6 +498,7 @@ def is_registered(name: str) -> bool:
     list (P12 optimization). Use this instead of ``name in registered_platforms()``
     when only membership is needed.
     """
+    _ensure_adapters_initialized()
     return name in _REGISTRY
 
 
@@ -507,6 +508,7 @@ def dofollow_status(name: str) -> _DofollowStatus | None:
 
     Plan 2026-05-20-009 R5.
     """
+    _ensure_adapters_initialized()
     entry = _REGISTRY.get(name)
     return entry.dofollow if entry else None
 
@@ -551,6 +553,7 @@ def referral_value(name: str) -> _ReferralValue | None:
     unregistered platforms. Always non-``None`` for nofollow platforms
     (enforced by the ``register()`` gate). Plan 2026-05-25-001 R1.
     """
+    _ensure_adapters_initialized()
     entry = _REGISTRY.get(name)
     return entry.referral_value if entry else None
 
@@ -562,6 +565,7 @@ def dofollow_rationale(name: str) -> str | None:
 
     Plan 2026-05-20-009 R5.
     """
+    _ensure_adapters_initialized()
     entry = _REGISTRY.get(name)
     return entry.rationale if entry else None
 
@@ -576,6 +580,7 @@ def credential_saver(name: str) -> Callable[..., Any] | None:
 
     Plan 2026-06-01-001 U3a / R8.
     """
+    _ensure_adapters_initialized()
     entry = _REGISTRY.get(name)
     return entry.credential_saver if entry else None
 
@@ -600,6 +605,7 @@ def dispatch_weight(name: str, language: str = "default") -> float:
 
     Returns 1.0 for unregistered platforms (safe default = no discount).
     """
+    _ensure_adapters_initialized()
     entry = _REGISTRY.get(name)
     static = entry.dispatch_weight if entry is not None else 1.0
 
@@ -660,8 +666,8 @@ def dispatch_weight(name: str, language: str = "default") -> float:
 # Re-export from extracted sub-modules. All existing callers import from
 # ``backlink_publisher.publishing.registry`` — the re-exports keep those paths
 # working without changes.
-from ._registry_dispatch import dispatch  # noqa: F401, E402
-from ._registry_manifest import (  # noqa: F401, E402
+from ._registry_dispatch import dispatch  # noqa: F401
+from ._registry_manifest import (  # noqa: F401
     active_platforms,
     bind_descriptors,
     bound_platforms,

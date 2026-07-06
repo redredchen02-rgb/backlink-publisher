@@ -196,7 +196,8 @@ def _scrape_username(page: Any) -> str | None:
                 m = _USERNAME_URL_RE.search(href)
                 if m:
                     return m.group(1).lower()
-    except Exception:  # noqa: BLE001 — Playwright DOM access may raise on navigated pages
+    # debt: medium-recipe-scrape-username-fallback-accepted
+    except Exception:
         pass
     # Tier 2: og:url meta
     try:
@@ -207,14 +208,16 @@ def _scrape_username(page: Any) -> str | None:
                 m = _USERNAME_URL_RE.search(content)
                 if m:
                     return m.group(1).lower()
-    except Exception:  # noqa: BLE001
+    # debt: medium-recipe-scrape-username-fallback-accepted
+    except Exception:
         pass
     # Tier 3: URL parse
     try:
         m = _USERNAME_URL_RE.search(page.url or "")
         if m:
             return m.group(1).lower()
-    except Exception:  # noqa: BLE001
+    # debt: medium-recipe-scrape-username-fallback-accepted
+    except Exception:
         pass
     return None
 
@@ -305,7 +308,8 @@ def _write_meta_tentative(page: Any) -> None:
     """
     try:
         ua = page.evaluate("navigator.userAgent") or ""
-    except Exception:  # noqa: BLE001 — Playwright JS evaluation may raise on detached pages
+    # debt: medium-recipe-write-meta-best-effort-accepted
+    except Exception:
         ua = ""
     if not ua:
         return
@@ -476,9 +480,11 @@ def _medium_bound_predicate(page: Any) -> None:
                         if _BOUND_URL_PATTERN.match(p.url or ""):
                             matched_page = p
                             break
-                    except Exception:  # noqa: BLE001
+                    # debt: medium-recipe-bound-predicate-fail-closed-accepted
+                    except Exception:
                         pass
-            except Exception:  # noqa: BLE001
+            # debt: medium-recipe-bound-predicate-fail-closed-accepted
+            except Exception:
                 pass
 
         if matched_page is None:
@@ -489,7 +495,8 @@ def _medium_bound_predicate(page: Any) -> None:
         # authenticated session before declaring success.
         try:
             cookies = matched_page.context.cookies("https://medium.com")
-        except Exception:  # noqa: BLE001 — Playwright context may be detached
+        # debt: medium-recipe-bound-predicate-fail-closed-accepted
+        except Exception:
             cookies = []
         if not _cookie_sanity_passes(cookies):
             # URL fluke (e.g., user clicked Medium logo while not logged

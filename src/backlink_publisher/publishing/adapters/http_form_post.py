@@ -73,6 +73,7 @@ def _host(url: str) -> str:
     """Best-effort host extraction for safe (body-free) error messages."""
     try:
         return urlparse(url).netloc or "?"
+    # debt: http-form-post-safe-error-construction-accepted
     except Exception:  # pragma: no cover - urlparse is extremely tolerant
         return "?"
 
@@ -123,6 +124,7 @@ def fetch_form(url: str, *, timeout: float = DEFAULT_TIMEOUT) -> requests.Respon
         resp = requests.get(
             url, timeout=timeout, headers={"User-Agent": _USER_AGENT}
         )
+    # debt: http-form-post-safe-error-construction-accepted
     except Exception as exc:
         raise ExternalServiceError(
             f"form fetch failed for {_host(url)} ({type(exc).__name__})"
@@ -191,6 +193,7 @@ def submit_form(
             headers={"User-Agent": _USER_AGENT},
             allow_redirects=True,
         )
+    # debt: http-form-post-safe-error-construction-accepted
     except Exception as exc:
         raise ExternalServiceError(
             f"form submit to {_host(url)} failed ({type(exc).__name__})"

@@ -3,6 +3,7 @@ title: "feat: Add clickable published-URL column to History page"
 type: feat
 status: completed
 date: 2026-06-23
+claims: {}  # UI column addition, shipped pre-claims-discipline; behavior verified by the History page tests, no machine-checkable assertions to track
 ---
 
 # feat: Add clickable published-URL column to History page

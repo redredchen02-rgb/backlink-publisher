@@ -172,6 +172,81 @@ class TestPersistStorageState:
             )
 
 
+class TestPersistStorageStateMessageScrubbed:
+    """Plan D3 (R9) edge-case security test: `_persist_storage_state`'s
+    PersistIOError message used to embed str(exc) from a failing
+    storage_state_provider unscrubbed. A serialization failure inside that
+    provider could in principle carry repr()'d cookie/session-token content
+    in its own exception text — this proves the text reaching PersistIOError's
+    message (and therefore anything that later logs or emits it) is
+    scrub_text()-cleaned first."""
+
+    def test_provider_failure_with_cookie_shaped_text_is_scrubbed(self):
+        target = _config_dir() / "velog-storage-state.json"
+
+        def _failing_provider(*, path):
+            # Simulates a storage_state serialization failure whose exception
+            # text embeds a real-looking cookie/session token value (the
+            # shape a repr()'d cookie dict failure could produce).
+            raise ValueError(
+                "cannot serialize storage_state: session_token=abcdef0123456789abcdef0123456789ZZ"
+            )
+
+        with pytest.raises(drv.PersistIOError) as excinfo:
+            drv._persist_storage_state(
+                channel="velog",
+                target_path=target,
+                storage_state_provider=_failing_provider,
+            )
+
+        message = str(excinfo.value)
+        assert "abcdef0123456789abcdef0123456789ZZ" not in message
+        assert "<REDACTED>" in message
+        # The PersistIOError's own contract prefix must still be present —
+        # scrubbing must clean the embedded exception text, not discard the
+        # whole message.
+        assert "failed to persist storage_state" in message
+
+    def test_provider_failure_without_secret_shaped_text_is_unaffected(self):
+        """Non-secret-shaped exception text should pass through unredacted —
+        proves the fix doesn't over-scrub ordinary error text."""
+        target = _config_dir() / "medium-storage-state.json"
+
+        def _failing_provider(*, path):
+            raise OSError("disk full")
+
+        with pytest.raises(drv.PersistIOError) as excinfo:
+            drv._persist_storage_state(
+                channel="medium",
+                target_path=target,
+                storage_state_provider=_failing_provider,
+            )
+
+        assert "disk full" in str(excinfo.value)
+
+    def test_cleanup_still_removes_tmp_file_on_scrubbed_failure(self):
+        """Regression guard: adding scrub_text() must not disturb the
+        existing best-effort tmp-file cleanup on a persist failure."""
+        target = _config_dir() / "blogger-storage-state.json"
+
+        def _failing_provider(*, path):
+            from pathlib import Path as _P
+            # Provider writes the tmp file then fails — matches a real
+            # serialization-partway-through failure shape.
+            _P(path).write_text("{}")
+            raise ValueError("session=deadbeefdeadbeefdeadbeefdeadbeef00")
+
+        with pytest.raises(drv.PersistIOError):
+            drv._persist_storage_state(
+                channel="blogger",
+                target_path=target,
+                storage_state_provider=_failing_provider,
+            )
+
+        residue = list(_config_dir().glob("blogger-storage-state.json.tmp*"))
+        assert residue == [], f"tmp residue left behind: {residue}"
+
+
 class TestRunBindHappyPath:
     """End-to-end driver.run_bind with a fake recipe — emits 3 events.
 

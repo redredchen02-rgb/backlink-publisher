@@ -29,12 +29,18 @@ _scheduler = BackgroundScheduler(
 
 def _process_queue_job() -> None:
     """轮询队列中的 pending 任务并执行发布，支持 429 自动退避。"""
-    tasks = _queue_store.load()
+    # Use get_runnable() for SQL-filtered retrieval instead of loading all tasks
+    # (origin's optimization; verified its docstring matches the old loop
+    # semantics exactly). `now` stays naive datetime, not timezone.utc — origin's
+    # commit paired the SQL optimization with a timezone-aware `now` here, but
+    # queue_store.get_runnable() itself still compares against a *naive*
+    # datetime.now() internally; storing an aware isoformat string in
+    # next_retry_at would make that internal comparison raise
+    # "can't compare offset-naive and offset-aware datetimes" the next time
+    # get_runnable() runs. Adopting the SQL optimization without the paired
+    # (and here, incompatible) timezone change avoids that crash.
+    pending = _queue_store.get_runnable()
     now = datetime.now()
-
-    # 查找任务：PENDING 且 不在退避时间内
-    pending = [t for t in tasks if t.get('status') in ('pending', 'failed')
-               and (not t.get('next_retry_at') or datetime.fromisoformat(t['next_retry_at']) <= now)]
 
     if not pending:
         return
@@ -258,6 +264,14 @@ def _restore_scheduled_jobs() -> None:
         replace_existing=True,
     )
 
+    # `now` stays naive datetime here too — origin's version made it
+    # timezone-aware, but `scheduled_at` on drafts (compared against `now`
+    # a few lines below) is stored as a naive isoformat string throughout
+    # this codebase; introducing an aware `now` here without a codebase-wide
+    # naive-to-aware migration would make `run_date < now` raise
+    # "can't compare offset-naive and offset-aware datetimes" the first time
+    # a scheduled draft is restored. Same reasoning as the get_runnable() fix
+    # above in this file.
     now = datetime.now()
     for item in _drafts_store.load():
         if item.get('status') != 'scheduled':
@@ -312,7 +326,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
 
     try:
         result = run_keepalive_for_site(site_url)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         result_success = False
         result_error = str(exc)
         result_checked = 0
@@ -335,7 +349,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
     }
     try:
         _hist_store.update(lambda hist: [entry, *hist][:200])
-    except Exception:  # noqa: BLE001
+    except Exception:
         plan_logger.debug("history_update_failed", site_url=site_url, exc_info=True)
 
     # Update autopilot_targets: last_run + alert_pending
@@ -350,7 +364,7 @@ def _keepalive_cycle_job(site_url: str) -> None:
 
     try:
         _sched_store.update(_update_autopilot)
-    except Exception:  # noqa: BLE001
+    except Exception:
         plan_logger.debug("autopilot_state_update_failed", site_url=site_url, exc_info=True)
 
     plan_logger.info(

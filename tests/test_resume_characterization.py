@@ -68,13 +68,13 @@ def _harness(ckpt: dict, *, fake_publish, do_verify=None, check_token_drift=None
         "project_run_safe": MagicMock(name="project_run_safe"),
     }
     patches = [
-        patch("backlink_publisher.cli._resume.adapter_publish", side_effect=fake_publish),
-        patch("backlink_publisher.cli._resume.verify_adapter_setup"),
-        patch("backlink_publisher.cli._resume._acquire_publish_leases"),
-        patch("backlink_publisher.cli._dedup_gate.enforce_precondition_or_exit"),
-        patch("backlink_publisher.cli._resume.record_done", spies["record_done"]),
-        patch("backlink_publisher.cli._resume.record_failure", spies["record_failure"]),
-        patch("backlink_publisher.cli._resume.gate", spies["gate"]),
+        patch("backlink_publisher.cli.admin._resume.adapter_publish", side_effect=fake_publish),
+        patch("backlink_publisher.cli.admin._resume.verify_adapter_setup"),
+        patch("backlink_publisher.cli.admin._resume._acquire_publish_leases"),
+        patch("backlink_publisher.cli.publish._dedup_gate.enforce_precondition_or_exit"),
+        patch("backlink_publisher.cli.admin._resume.record_done", spies["record_done"]),
+        patch("backlink_publisher.cli.admin._resume.record_failure", spies["record_failure"]),
+        patch("backlink_publisher.cli.admin._resume.gate", spies["gate"]),
         patch("backlink_publisher.cli.validate_backlinks._enhance_payload",
               side_effect=lambda payload, config: {"validation": {"status": "ok", "errors": []}}),
         patch("backlink_publisher.checkpoint.load_checkpoint", return_value=ckpt),
@@ -83,10 +83,10 @@ def _harness(ckpt: dict, *, fake_publish, do_verify=None, check_token_drift=None
         patch("backlink_publisher.events.project_run_safe", spies["project_run_safe"]),
     ]
     if do_verify is not None:
-        patches.append(patch("backlink_publisher.cli._resume._do_verify", side_effect=do_verify))
+        patches.append(patch("backlink_publisher.cli.admin._resume._do_verify", side_effect=do_verify))
     if check_token_drift is not None:
         spies["check_token_drift"] = MagicMock(name="check_token_drift", side_effect=check_token_drift)
-        patches.append(patch("backlink_publisher.cli._resume._check_token_drift", spies["check_token_drift"]))
+        patches.append(patch("backlink_publisher.cli.admin._resume._check_token_drift", spies["check_token_drift"]))
     with contextlib.ExitStack() as stack:
         for p in patches:
             stack.enter_context(p)

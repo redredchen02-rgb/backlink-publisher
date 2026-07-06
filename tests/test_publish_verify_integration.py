@@ -89,7 +89,7 @@ def _make_payload(platform="blogger"):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_verify_passes_exit_0(mock_vp, mock_pub, mock_verify):
     mock_pub.return_value = AdapterResult(
         status="drafted", adapter="blogger-api", platform="blogger",
@@ -110,7 +110,7 @@ def test_verify_passes_exit_0(mock_vp, mock_pub, mock_verify):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_verify_fails_exit_5_status_unverified(mock_vp, mock_pub, mock_verify):
     mock_pub.return_value = AdapterResult(
         status="drafted", adapter="blogger-api", platform="blogger",
@@ -129,7 +129,7 @@ def test_verify_fails_exit_5_status_unverified(mock_vp, mock_pub, mock_verify):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_verify_fails_published_mode_gets_unverified_status(mock_vp, mock_pub, mock_verify):
     mock_pub.return_value = AdapterResult(
         status="published", adapter="blogger-api", platform="blogger",
@@ -149,7 +149,7 @@ def test_verify_fails_published_mode_gets_unverified_status(mock_vp, mock_pub, m
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_no_verify_skips_verification(mock_vp, mock_pub, mock_verify):
     mock_pub.return_value = AdapterResult(
         status="drafted", adapter="blogger-api", platform="blogger",
@@ -168,7 +168,7 @@ def test_no_verify_skips_verification(mock_vp, mock_pub, mock_verify):
 # ── dry-run skips verification ─────────────────────────────────────────────────
 
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_dry_run_skips_verification(mock_vp, mock_pub):
     mock_pub.return_value = AdapterResult(
         status="draft", adapter="blogger-api", platform="blogger",
@@ -186,7 +186,7 @@ def test_dry_run_skips_verification(mock_vp, mock_pub):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_publish_failure_dominates_over_unverified(mock_vp, mock_pub, mock_verify):
     """If one item fails to publish and another is unverified, exit 4 (not 5)."""
     payloads = [_make_payload(), {**_make_payload(), "id": "test002"}]
@@ -208,7 +208,7 @@ def test_publish_failure_dominates_over_unverified(mock_vp, mock_pub, mock_verif
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_verify_uses_published_url_when_available(mock_vp, mock_pub, mock_verify):
     published = "https://blogger.example.com/2026/live-post.html"
     mock_pub.return_value = AdapterResult(
@@ -228,7 +228,7 @@ def test_verify_uses_published_url_when_available(mock_vp, mock_pub, mock_verify
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_medium_uses_long_max_wait(mock_vp, mock_pub, mock_verify):
     mock_pub.return_value = AdapterResult(
         status="drafted", adapter="medium-api", platform="medium",
@@ -245,7 +245,7 @@ def test_medium_uses_long_max_wait(mock_vp, mock_pub, mock_verify):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_blogger_uses_short_max_wait(mock_vp, mock_pub, mock_verify):
     mock_pub.return_value = AdapterResult(
         status="drafted", adapter="blogger-api", platform="blogger",

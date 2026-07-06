@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.from_profile:
         # ── Profile-based report path ────────────────────────────────────────
-        from backlink_publisher.cli.report_engine import report_from_profile
+        from ._report_engine import report_from_profile
 
         cfg = load_config()
         config_echo.emit_banner(cfg, "report-anchors")
@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> None:
         file=sys.stderr,
     )
 
-    from backlink_publisher.cli.report_engine import report_from_rows
+    from ._report_engine import report_from_rows
 
     fh = args.input or sys.stdin
     rows = list(read_jsonl(fh, strict=False))

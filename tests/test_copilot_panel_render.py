@@ -23,8 +23,11 @@ from webui_app import create_app
 
 # url -> the template that backs it. All five must mount the panel.
 PAGE_ROUTES = {
-    "/": "index.html",
-    "/ce:equity-ledger": "equity_ledger.html",
+    # bare '/' now 302s to the SPA (Plan 2026-07-06-004 Unit 4); the Jinja
+    # page lives on at /jinja, same pattern as /ce:equity-ledger below.
+    "/jinja": "index.html",
+    # /ce:equity-ledger now 302s to the SPA (P14 B1); the Jinja page lives on.
+    "/ce:equity-ledger/jinja": "equity_ledger.html",
     "/ce:health": "health.html",
     "/sites": "sites.html",
 }

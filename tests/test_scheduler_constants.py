@@ -3,8 +3,8 @@ __tier__ = "unit"
 import ast
 import pathlib
 
-_SCHEDULER_SRC = pathlib.Path("webui_app/scheduler.py").read_text()
-_EQUITY_SRC = pathlib.Path("webui_app/routes/equity_ledger.py").read_text()
+_SCHEDULER_SRC = pathlib.Path("webui_app/scheduler.py").read_text(encoding="utf-8")
+_EQUITY_SRC = pathlib.Path("webui_app/routes/equity_ledger.py").read_text(encoding="utf-8")
 
 
 def _constant_value(src: str, name: str):

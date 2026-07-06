@@ -56,7 +56,13 @@ def _get_body(url: str) -> tuple[int, str]:
             code = resp.getcode()
             body = resp.read(512 * 1024).decode("utf-8", errors="replace")
         return code, body
+    except (OSError, ValueError) as exc:
+        return 0, str(exc)
     except Exception as exc:
+        from backlink_publisher._util.logger import opencli_logger
+        opencli_logger.warning(
+            f"linkcheck/verify: unexpected error for {url}: {type(exc).__name__} {exc}"
+        )
         return 0, str(exc)
 
 

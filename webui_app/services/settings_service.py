@@ -22,7 +22,6 @@ from backlink_publisher.config import (
     save_config,
     upgrade_target_to_threeurl,
 )
-from backlink_publisher.events.history_query import list_history as _list_history
 from webui_store import (
     drafts_store as _drafts_store,
 )
@@ -168,33 +167,50 @@ def save_schedule_settings(data: dict) -> None:
 # ── Schedule time calculation ─────────────────────────────────────────────────
 
 def calc_next_available(requested_dt: datetime) -> datetime:
-    """Return the earliest publish time respecting min-interval + jitter."""
+    """Return the earliest publish time respecting min-interval + jitter.
+
+    Uses SQL MAX() for the history lookup instead of loading all rows.
+    """
     settings = load_schedule_settings()
     min_hours = settings.get("min_interval_hours", 4)
     jitter_mins = settings.get("jitter_minutes", 30)
 
     last_published = None
+
+    def _normalize(dt: datetime) -> datetime:
+        # Stored timestamps may be tz-aware ISO (history writes UTC-aware)
+        # while requested_dt is typically naive local — coerce to
+        # requested_dt's awareness so comparisons never raise TypeError.
+        if dt.tzinfo is not None and requested_dt.tzinfo is None:
+            return dt.astimezone().replace(tzinfo=None)
+        if dt.tzinfo is None and requested_dt.tzinfo is not None:
+            return dt.replace(tzinfo=requested_dt.tzinfo)
+        return dt
+
+    # Check drafts store for latest published/scheduled time
     for item in _drafts_store.load():
         if item.get("status") in ("published", "scheduled"):
             ts = item.get("published_at") or item.get("scheduled_at")
             if ts:
                 try:
-                    dt = datetime.fromisoformat(ts) if "T" in ts else \
-                        datetime.strptime(ts, "%Y-%m-%d %H:%M")
+                    dt = _normalize(datetime.fromisoformat(ts) if "T" in ts else
+                                    datetime.strptime(ts, "%Y-%m-%d %H:%M"))
                     if last_published is None or dt > last_published:
                         last_published = dt
                 except ValueError:
                     plan_logger.warn("calc_next_available: bad date in drafts_store", ts=ts)
 
-    for item in _list_history():
-        ts = item.get("created_at")
-        if ts and item.get("status") in ("drafted", "published"):
-            try:
-                dt = datetime.strptime(ts, "%Y-%m-%d %H:%M")
-                if last_published is None or dt > last_published:
-                    last_published = dt
-            except ValueError:
-                plan_logger.warn("calc_next_available: bad date in history_store", ts=ts)
+    # Use SQL MAX() for history — O(1) instead of loading all rows
+    from backlink_publisher.events.history_query import latest_publish_timestamp
+    ts = latest_publish_timestamp()
+    if ts:
+        try:
+            dt = _normalize(datetime.fromisoformat(ts) if "T" in ts else
+                            datetime.strptime(ts, "%Y-%m-%d %H:%M"))
+            if last_published is None or dt > last_published:
+                last_published = dt
+        except ValueError:
+            plan_logger.warn("calc_next_available: bad date in history", ts=ts)
 
     if last_published is None:
         return requested_dt
@@ -267,10 +283,9 @@ def token_paste_status(cfg: Any, channel: str, load_fn: Any, *, token_field: str
         data = None
     token = (data or {}).get(token_field, "") if isinstance(data, dict) else ""
     bound = bool(token)
-    if bound and len(token) > 6:
-        masked = token[:3] + "*" * (len(token) - 6) + token[-3:]
-    elif bound:
-        masked = "*" * len(token)
+    if bound:
+        from ..helpers.security import _mask_token
+        masked = _mask_token(token)
     else:
         masked = ""
     return {
@@ -291,10 +306,9 @@ def token_paste_status_notion(cfg: Any, load_fn: Any) -> dict:
     integration_token = (data or {}).get("integration_token", "") if isinstance(data, dict) else ""
     database_id = (data or {}).get("database_id", "") if isinstance(data, dict) else ""
     bound = bool(integration_token and database_id)
-    if bound and len(integration_token) > 6:
-        masked = integration_token[:3] + "*" * (len(integration_token) - 6) + integration_token[-3:]
-    elif bound:
-        masked = "*" * len(integration_token)
+    if bound:
+        from ..helpers.security import _mask_token
+        masked = _mask_token(integration_token)
     else:
         masked = ""
     return {

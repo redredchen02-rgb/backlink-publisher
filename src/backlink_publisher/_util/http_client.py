@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import os
 import threading
-import time
 from typing import Any, cast
 
 import requests
@@ -45,8 +44,6 @@ class HttpClient:
         pool_maxsize: int = 10,
     ) -> None:
         self._timeout = timeout
-        self._max_retries = max_retries
-        self._retry_delay = retry_delay
 
         retry_strategy = Retry(
             total=max_retries,
@@ -89,22 +86,17 @@ class HttpClient:
         self._check_ssrf(url, allow_private=allow_private)
         kwargs.setdefault("timeout", self._timeout)
 
-        last_exc: Exception | None = None
-        for attempt in range(self._max_retries + 1):
-            try:
-                resp = self._session.request(method, url, **kwargs)
-                if raise_for_status:
-                    resp.raise_for_status()
-                return resp
-            except requests.RequestException as exc:
-                last_exc = exc
-                if attempt < self._max_retries:
-                    wait = self._retry_delay * (attempt + 1)
-                    time.sleep(wait)
-        raise ExternalServiceError(
-            f"HTTP {method.upper()} {url!r} failed after "
-            f"{self._max_retries + 1} attempt(s): {last_exc}"
-        ) from last_exc
+        # Retry is handled by urllib3.Retry configured on the adapter — no
+        # manual loop needed (previously caused up to 9x redundant requests).
+        try:
+            resp = self._session.request(method, url, **kwargs)
+            if raise_for_status:
+                resp.raise_for_status()
+            return resp
+        except requests.RequestException as exc:
+            raise ExternalServiceError(
+                f"HTTP {method.upper()} {url!r} failed: {exc}"
+            ) from exc
 
     def get(
         self,

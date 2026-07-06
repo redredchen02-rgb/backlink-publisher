@@ -102,7 +102,7 @@ class TestQueueDashboardRoutes:
 
     def test_publish_panel_dom_removed(self, client):
         """Plan 012 Unit 1 — #publishPanel tab + pane removed from index.html."""
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode("utf-8", errors="ignore")
         assert 'id="publishPanel"' not in body
@@ -127,12 +127,55 @@ class TestQueueDashboardRoutes:
         data = resp.get_json()
         assert data["status"] == "error"
 
-    def test_ce_retry_task_unknown_id_returns_success(self, client):
+    def test_ce_retry_task_unknown_id_returns_error(self, client):
+        """Plan 2026-07-06-004 Unit 1: the previous implementation silently
+        claimed success for a vanished/unknown task id — QueueSqliteStore's
+        conditional UPDATE now affects zero rows, and retry_task() surfaces
+        that as an error rather than pretending the retry worked."""
         resp = client.post("/ce:retry-task", data={"task_id": "nonexistent-id"})
         assert resp.status_code == 200
         assert resp.is_json
         data = resp.get_json()
+        assert data["status"] == "error"
+
+    def test_ce_retry_task_failed_task_is_reset_to_pending(self, client):
+        import uuid
+
+        from webui_store import queue_store
+        task_id = f"retry-happy-{uuid.uuid4().hex}"
+        queue_store.update(
+            lambda tasks: tasks + [{"id": task_id, "status": "failed", "error": "boom"}]
+        )
+
+        resp = client.post("/ce:retry-task", data={"task_id": task_id})
+        assert resp.status_code == 200
+        data = resp.get_json()
         assert data["status"] == "success"
+
+        tasks = {t["id"]: t for t in queue_store.load()}
+        assert tasks[task_id]["status"] == "pending"
+        assert tasks[task_id]["error"] is None
+
+    def test_ce_retry_task_processing_task_is_rejected(self, client):
+        """Plan 2026-07-06-004 Unit 1: retry must not clobber a task the
+        background scheduler (webui_app/scheduler.py::_process_queue_job) is
+        currently mid-publish on — that would risk a duplicate publish."""
+        import uuid
+
+        from webui_store import queue_store
+        task_id = f"retry-processing-{uuid.uuid4().hex}"
+        queue_store.update(
+            lambda tasks: tasks + [{"id": task_id, "status": "processing"}]
+        )
+
+        resp = client.post("/ce:retry-task", data={"task_id": task_id})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "error"
+
+        # Status must remain 'processing' — not silently flipped to pending.
+        tasks = {t["id"]: t for t in queue_store.load()}
+        assert tasks[task_id]["status"] == "processing"
 
 
 
@@ -142,7 +185,14 @@ class TestKeepAliveRoutes:
     tests/test_webui_keepalive_*.py; this satisfies the route-coverage gate."""
 
     def test_get_keep_alive_renders(self, client):
-        assert client.get("/ce:keep-alive").status_code == 200
+        assert client.get("/ce:keep-alive/jinja").status_code == 200
+
+    def test_get_keep_alive_redirects_to_spa(self, client):
+        # /ce:keep-alive now redirects to the SPA (P15 A1); the Jinja fallback
+        # (test_get_keep_alive_renders above) covers the LITE-mode render path.
+        resp = client.get("/ce:keep-alive")
+        assert resp.status_code == 302
+        assert "/app/keep-alive" in resp.location
 
     def test_action_routes_covered(self, client):
         # Route-coverage gate: hit each action route once (guards + state
@@ -300,10 +350,17 @@ class TestVelogApiRoutes:
 
 class TestOptimizationStatusRoutes:
     def test_get_optimization_status_page(self, client):
-        """GET /optimization-status returns 200 with expected text."""
-        resp = client.get("/optimization-status")
+        """GET /optimization-status/jinja returns 200 with expected text."""
+        resp = client.get("/optimization-status/jinja")
         assert resp.status_code == 200
         assert b"Optimization Status" in resp.data or b"optimisation" in resp.data.lower()
+
+    def test_get_optimization_status_redirects_to_spa(self, client):
+        # /optimization-status now redirects to the SPA; the Jinja fallback
+        # (test_get_optimization_status_page above) covers the render path.
+        resp = client.get("/optimization-status")
+        assert resp.status_code == 302
+        assert "/app/optimization-status" in resp.location
 
     def test_post_set_weight_missing_csrf_returns_403(self, csrf_client):
         """POST /optimization-status/set-weight without CSRF token returns 403."""
@@ -347,10 +404,17 @@ class TestOptimizationStatusRoutes:
 
 class TestSurvivalDashboardRoutes:
     def test_get_survival_dashboard_page(self, client):
-        """GET /survival-dashboard returns 200 (never 500 on empty store)."""
-        resp = client.get("/survival-dashboard")
+        """GET /survival-dashboard/jinja returns 200 (never 500 on empty store)."""
+        resp = client.get("/survival-dashboard/jinja")
         assert resp.status_code == 200
         assert "存活率".encode() in resp.data
+
+    def test_get_survival_dashboard_redirects_to_spa(self, client):
+        # /survival-dashboard now redirects to the SPA; the Jinja fallback
+        # (test_get_survival_dashboard_page above) covers the render path.
+        resp = client.get("/survival-dashboard")
+        assert resp.status_code == 302
+        assert "/app/survival" in resp.location
 
 
 

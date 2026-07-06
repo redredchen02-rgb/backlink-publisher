@@ -74,11 +74,15 @@ _verdict_to_target_dofollow = derive_target_dofollow
 
 def _latest_verdicts(conn: sqlite3.Connection) -> dict[int, tuple[str | None, bool]]:
     """Return ``{article_id: (latest_verdict, expected_nofollow)}`` from the
-    ``link.rechecked`` time series (latest id wins per article)."""
+    ``link.rechecked`` time series (latest id wins per article).
+
+    Uses SQL GROUP BY to deduplicate in-database instead of loading all events.
+    """
     rows = conn.execute(
         "SELECT article_id, payload_json FROM events "
-        "WHERE kind = ? AND article_id IS NOT NULL ORDER BY id",
-        (KIND_RECHECKED,),
+        "WHERE kind = ? AND article_id IS NOT NULL "
+        "AND id IN (SELECT MAX(id) FROM events WHERE kind = ? AND article_id IS NOT NULL GROUP BY article_id)",
+        (KIND_RECHECKED, KIND_RECHECKED),
     ).fetchall()
     out: dict[int, tuple[str | None, bool]] = {}
     for aid, payload_json in rows:
@@ -243,6 +247,8 @@ def list_history(
 
     with s.connect() as conn:
         # 1. Articles with their latest event (for status derivation).
+        # Use a subquery to find the latest event ID per article upfront,
+        # avoiding the correlated subquery that ran O(N*M) on large datasets.
         rows = conn.execute("""
             SELECT
               a.article_id, a.body, a.anchors_json, a.target_urls_json,
@@ -253,11 +259,11 @@ def list_history(
               e.target_url, e.host, e.article_id, e.payload_json
             FROM articles a
             LEFT JOIN events e
-              ON e.article_id = a.article_id
-             AND e.id = (
-               SELECT MAX(e2.id) FROM events e2
-               WHERE e2.article_id = a.article_id
-             )
+              ON e.id = (
+                SELECT e2.id FROM events e2
+                WHERE e2.article_id = a.article_id
+                ORDER BY e2.id DESC LIMIT 1
+              )
             ORDER BY a.published_at_utc DESC
             LIMIT ?
         """, (limit,)).fetchall()
@@ -486,3 +492,20 @@ def get_article_by_live_url(live_url: str) -> dict[str, Any] | None:
         "verify_error": row[12],
         "migration_dedup_key": row[13],
     }
+
+
+def latest_publish_timestamp(
+    store: _EventStore | None = None,
+) -> str | None:
+    """Return the most recent ``created_at`` timestamp from published/drafted articles.
+
+    Uses SQL ``MAX()`` instead of loading all rows — O(1) vs O(N).
+    Returns ``None`` when no published/drafted articles exist.
+    """
+    s = store or _EventStore()
+    with s.connect() as conn:
+        row = conn.execute(
+            "SELECT MAX(published_at_utc) FROM articles "
+            "WHERE published_at_utc IS NOT NULL AND published_at_utc != ''"
+        ).fetchone()
+    return row[0] if row and row[0] else None

@@ -22,7 +22,7 @@ from ..helpers.security import _check_bind_origin_or_abort
 from ..services.alerting import alert_registry
 
 if TYPE_CHECKING:
-    from backlink_publisher.events.store import EventStore
+    from backlink_publisher.events import EventStore
 
 bp = Blueprint("health", __name__)
 
@@ -48,7 +48,7 @@ def ce_health_scorecard_links(channel: str) -> Any:
         by_channel = _g_cache("scorecard_links", _links)
         rows = by_channel.get(channel, [])
         return jsonify({"ok": True, "links": [r.to_dict() for r in rows]})
-    except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
+    except Exception as exc:
         _log.warning("health: scorecard links read failed for %s: %s", channel, exc)
         return jsonify({"ok": False, "links": []})
 
@@ -89,7 +89,7 @@ def ce_health_publish_metrics() -> Any:
                 "enforce_channels": sorted(enforce_allowlist()),
             }
         )
-    except Exception as exc:  # noqa: BLE001 — read-only GET must never 500
+    except Exception as exc:
         _log.warning("health: publish-metrics read failed: %s", exc)
         return jsonify(
             {
@@ -121,9 +121,12 @@ def _published_candidate(store: EventStore, live_url: str) -> dict[str, Any] | N
         return None
     kinds_t = (kinds.PUBLISH_CONFIRMED, kinds.PUBLISH_UNVERIFIED)
     placeholders = ",".join("?" for _ in kinds_t)
+    # Filter server-side: only fetch events whose payload contains a live_url
+    # field, reducing the result set significantly vs loading all events.
     rows = store.query(
         "SELECT article_id, target_url, host, payload_json FROM events "
-        f"WHERE kind IN ({placeholders})",
+        f"WHERE kind IN ({placeholders}) "
+        "AND json_extract(payload_json, '$.live_url') IS NOT NULL",
         kinds_t,
     )
     for row in rows:
@@ -181,7 +184,7 @@ def ce_health_scorecard_recheck_link() -> Any:
 
         result = recheck_link(record, probe=True, timeout=5.0)
         events_io.emit_recheck(store, [result])
-    except Exception as exc:  # noqa: BLE001 — honest failure, never 500, no half-write
+    except Exception as exc:
         _log.warning("health: scorecard recheck-link failed for %s: %s", live_url, exc)
         return jsonify({"ok": False, "error_code": "probe_failed"}), 200
 
@@ -213,7 +216,7 @@ def _reconciliation_gaps() -> Any:
     """
     try:
         from backlink_publisher.checkpoint import list_failed_items
-        from backlink_publisher.events.store import EventStore
+        from backlink_publisher.events import EventStore
 
         pending = len(list_failed_items())
         rows = EventStore().query(
@@ -223,7 +226,7 @@ def _reconciliation_gaps() -> Any:
         )
         gaps = int(rows[0][0]) if rows else 0
         return {"pending_checkpoints": pending, "quarantine_gaps": gaps}
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: reconciliation gap check failed: %s", exc)
         return {}
 
@@ -244,7 +247,7 @@ def _geo_panel() -> dict:
 
         rows = geo_citation_share(EventStore())
         return {"targets": rows} if rows else {}
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: geo citation-share read failed: %s", exc)
         return {}
 
@@ -258,7 +261,7 @@ def _decay_counts() -> Any:
         from ..health_metrics import decay_counts
 
         return decay_counts()
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: decay count read failed: %s", exc)
         return {}
 
@@ -275,7 +278,7 @@ def _gsc_indexation_panel() -> list[dict]:
         from ..health_metrics import indexation_status
 
         return indexation_status(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: gsc indexation panel read failed: %s", exc)
         return []
 
@@ -292,8 +295,85 @@ def _gsc_ranking_panel() -> list[dict]:
         from ..health_metrics import ranking_trend
 
         return ranking_trend(EventStore())
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: gsc ranking panel read failed: %s", exc)
+        return []
+
+
+def _publish_index_latency() -> list[dict]:
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import publish_to_index_latency
+        return publish_to_index_latency(EventStore())
+    except Exception as exc:
+        _log.warning("health: publish-index latency read failed: %s", exc)
+        return []
+
+
+def _index_rate_by_channel() -> list[dict]:
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import index_rate_by_channel
+        return index_rate_by_channel(EventStore())
+    except Exception as exc:
+        _log.warning("health: index rate by channel read failed: %s", exc)
+        return []
+
+
+def _impression_analysis() -> list[dict]:
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import impression_analysis
+        return impression_analysis(EventStore())
+    except Exception as exc:
+        _log.warning("health: impression analysis read failed: %s", exc)
+        return []
+
+
+def _ranking_lift_analysis() -> list[dict]:
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import ranking_lift_analysis
+        return ranking_lift_analysis(EventStore())
+    except Exception as exc:
+        _log.warning("health: ranking lift analysis read failed: %s", exc)
+        return []
+
+
+def _referral_conversion() -> list[dict]:
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import referral_conversion
+        return referral_conversion(EventStore())
+    except Exception as exc:
+        _log.warning("health: referral conversion read failed: %s", exc)
+        return []
+
+
+def _cost_metrics() -> dict:
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import cost_metrics
+        return cost_metrics(EventStore())
+    except Exception as exc:
+        _log.warning("health: cost metrics read failed: %s", exc)
+        return {}
+
+
+def _decisions_by_platform() -> list[dict]:
+    try:
+        from backlink_publisher.events import EventStore
+
+        from ..health_metrics import decisions_by_platform
+        return decisions_by_platform(EventStore())
+    except Exception as exc:
+        _log.warning("health: decisions by platform read failed: %s", exc)
         return []
 
 
@@ -325,7 +405,7 @@ def _decay_alerts() -> list[dict]:
             {"target_url": r["target_url"], "lost_count": r["lost_count"], "ts": r["ts_utc"]}
             for r in rows
         ]
-    except Exception as exc:  # noqa: BLE001 — never 500 the page
+    except Exception as exc:
         _log.warning("health: decay alerts read failed: %s", exc)
         return []
 
@@ -337,40 +417,46 @@ def _pipeline_summary() -> Any:
     and ``last_recheck`` (ISO timestamp or None). Fail-open.
     """
     try:
-        import sqlite3
         import time
 
         from backlink_publisher.config.loader import _config_dir
+        from backlink_publisher.events import EventStore
 
+        # Kept local's explicit existence check (dropped in origin's version):
+        # EventStore.__init__'s own docstring says construction doesn't open
+        # the file, but the *first connect()/query() call creates the
+        # database (and applies the schema) if absent. Without this check, a
+        # health-status read on a fresh install (no pipeline ever run yet —
+        # see B2 in docs/audits/2026-07-03-webui-feature-error-backlog.md)
+        # would silently create a new events.db as a side effect of being
+        # polled, which a read-only health endpoint shouldn't do.
         db_path = _config_dir() / "events.db"
         if not db_path.exists():
             return {}
 
+        store = EventStore()
         now = time.time()
         windows = {"w24h": now - 86400, "w7d": now - 604800, "w30d": now - 2592000}
-        con = sqlite3.connect(str(db_path), timeout=2)
-        cur = con.cursor()
 
         result: dict = {}
         for wname, since_ts in windows.items():
-            cur.execute(
-                "SELECT json_extract(payload_json, '$.status') as status, COUNT(*) "
+            rows = store.query(
+                "SELECT json_extract(payload_json, '$.status') as status, COUNT(*) as cnt "
                 "FROM events WHERE kind IN ('publish.confirmed','publish.unverified','publish.failed') "
                 "AND ts_utc >= ? GROUP BY status",
                 (since_ts,),
             )
             row_map: dict = {}
-            for status, count in cur.fetchall():
-                row_map[status or "unknown"] = count
+            for r in rows:
+                row_map[r["status"] or "unknown"] = r["cnt"]
             result[wname] = {
                 "ok": row_map.get("published", 0) + row_map.get("ok", 0),
                 "fail": sum(v for k, v in row_map.items() if k not in ("published", "ok")),
             }
 
         # most recent recheck
-        cur.execute("SELECT MAX(ts_utc) FROM events WHERE kind='link.rechecked'")
-        row = cur.fetchone()
-        last_ts = row[0] if row and row[0] else None
+        rows = store.query("SELECT MAX(ts_utc) as max_ts FROM events WHERE kind='link.rechecked'")
+        last_ts = rows[0]["max_ts"] if rows and rows[0]["max_ts"] else None
         if last_ts:
             import datetime
             result["last_recheck"] = datetime.datetime.fromtimestamp(
@@ -379,9 +465,8 @@ def _pipeline_summary() -> Any:
         else:
             result["last_recheck"] = None
 
-        con.close()
         return result
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _log.warning("health: pipeline summary failed: %s", exc)
         return {}
 
@@ -440,7 +525,7 @@ def _storage_health() -> Any:
                     articles_rows = con.execute(
                         "SELECT COUNT(*) FROM articles"
                     ).fetchone()[0]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             _log.debug("health: events.db row count failed: %s", exc)
 
         return {
@@ -454,7 +539,7 @@ def _storage_health() -> Any:
                 or events_rows > _EVENTS_WARN_ROWS
             ),
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _log.warning("health: storage health failed: %s", exc)
         return {}
 
@@ -476,7 +561,7 @@ def ce_health() -> Any:
         projection = project_on_read()
         try:
             health = build_health()
-        except Exception as exc:  # noqa: BLE001 — R5: degrade, never 500 the page
+        except Exception as exc:
             _log.warning("health: aggregation failed, rendering degraded: %s", exc)
             health = Health(
                 window_days=DEFAULT_WINDOW_DAYS,
@@ -516,7 +601,7 @@ def ce_health() -> Any:
                     "last_drift_at": rec.get("last_drift_at"),
                 })
             return rows
-        except Exception as exc:  # noqa: BLE001 — never 500 the page on canary
+        except Exception as exc:
             _log.warning("health: canary read failed: %s", exc)
             return []
 
@@ -543,7 +628,7 @@ def ce_health() -> Any:
                     "last_drift_at": rec.get("last_drift_at"),
                 })
             return rows
-        except Exception as exc:  # noqa: BLE001 — never 500 the page
+        except Exception as exc:
             _log.warning("health: forward-path read failed: %s", exc)
             return []
 
@@ -560,7 +645,7 @@ def ce_health() -> Any:
             from backlink_publisher.scorecard import build_channel_scorecard
 
             return [r.to_jsonl_dict() for r in build_channel_scorecard()]
-        except Exception as exc:  # noqa: BLE001 — never 500 the page on scorecard
+        except Exception as exc:
             _log.warning("health: channel scorecard read failed: %s", exc)
             return []
 
@@ -570,7 +655,7 @@ def ce_health() -> Any:
             from backlink_publisher.health.aggregate import build_platform_health
             cfg = _g_cache('config', load_config)
             return build_platform_health(cfg)
-        except Exception as exc:  # noqa: BLE001 — never 500 the page
+        except Exception as exc:
             _log.warning("health: platform_health build failed: %s", exc)
             return {}
 
@@ -584,7 +669,7 @@ def ce_health() -> Any:
                 for url, cfg in targets.items()
                 if cfg.get("alert_pending")
             ]
-        except Exception:  # noqa: BLE001
+        except Exception:
             return []
 
     def _weights_snapshot() -> Any:
@@ -607,6 +692,13 @@ def ce_health() -> Any:
         decay_alerts = _g_cache("decay_alerts", _decay_alerts)
         gsc_indexation = _g_cache("gsc_indexation_panel", _gsc_indexation_panel)
         gsc_ranking = _g_cache("gsc_ranking_panel", _gsc_ranking_panel)
+        idx_latency = _g_cache("idx_latency", _publish_index_latency)
+        idx_rate = _g_cache("idx_rate", _index_rate_by_channel)
+        imp_analysis = _g_cache("imp_analysis", _impression_analysis)
+        rank_lift = _g_cache("rank_lift", _ranking_lift_analysis)
+        ref_conv = _g_cache("ref_conv", _referral_conversion)
+        cost_m = _g_cache("cost_m", _cost_metrics)
+        decisions = _g_cache("decisions", _decisions_by_platform)
         return _render(
             "health.html",
             health=health,
@@ -625,9 +717,16 @@ def ce_health() -> Any:
             decay_alerts=decay_alerts,
             gsc_indexation=gsc_indexation,
             gsc_ranking=gsc_ranking,
+            publish_index_latency=idx_latency,
+            index_rate_by_channel=idx_rate,
+            impression_analysis=imp_analysis,
+            ranking_lift_analysis=rank_lift,
+            referral_conversion=ref_conv,
+            cost_metrics=cost_m,
+            decisions_by_platform=decisions,
             active_page='health',
         )
-    except Exception as exc:  # noqa: BLE001 — R5: even a render/context error must not 500
+    except Exception as exc:
         _log.error("health: dashboard render failed, serving minimal fallback: %s", exc)
         return _FALLBACK_HTML, 200
 
@@ -655,3 +754,101 @@ def health_alerts() -> Any:
         "active": alert_registry.to_dicts(only_active=True),
         "count": len(alert_registry.active()),
     })
+
+
+@bp.route("/api/admin/errors", methods=["GET"])
+def api_admin_errors():
+    """Loopback-only error baseline dashboard (Plan 2026-06-24-001 P0.7).
+
+    Returns counts per error category over the last 24h from ``publish.failed``
+    events, plus a recent 5xx window sampled from events.db. Only callers on
+    127.0.0.1 / ::1 may reach this endpoint — it leaks internal error detail.
+    """
+    from ..helpers.security import _LOOPBACK_HOSTS
+    if request.remote_addr not in _LOOPBACK_HOSTS:
+        return jsonify({"error": "forbidden"}), 403
+
+    try:
+        from backlink_publisher.events import EventStore
+        from backlink_publisher.events.kinds import RELIABILITY_DECISION
+
+        from ..health_metrics import _window_start
+
+        store = EventStore()
+        since = _window_start(datetime.now(UTC), 1)
+
+        # Error class distribution from publish.failed.
+        err_rows = store.query(
+            """
+            SELECT
+                json_extract(payload_json, '$.error_class') AS error_class,
+                COUNT(*) AS count
+            FROM events
+            WHERE kind = 'publish.failed'
+              AND ts_utc >= ?
+            GROUP BY error_class
+            ORDER BY count DESC, error_class
+            """,
+            (since,),
+        )
+        error_dist = [
+            {
+                "error_class": r["error_class"] or "unclassified",
+                "count": int(r["count"] or 0),
+            }
+            for r in err_rows
+        ]
+
+        # Recent api/http 5xx-equivalent: any error_distribution entry whose
+        # class maps to a server-side failure (external_service / auth /
+        # circuit / policy). These are the categories an operator sees as
+        # service-degrading.
+        server_side = {
+            row["error_class"]
+            for row in error_dist
+            if row["error_class"] in (
+                "external_service",
+                "auth_expired",
+                "circuit_open",
+                "policy_skip",
+                "banner_upload",
+                "unrecognized",
+            )
+        }
+        fivexx_equiv = sum(r["count"] for r in error_dist if r["error_class"] in server_side)
+
+        # Reliability decision breakdown (observe→enforce rollout signals).
+        dec_rows = store.query(
+            """
+            SELECT
+                json_extract(payload_json, '$.decision') AS decision,
+                json_extract(payload_json, '$.mode') AS mode,
+                COUNT(*) AS count
+            FROM events
+            WHERE kind = ?
+              AND ts_utc >= ?
+            GROUP BY decision, mode
+            ORDER BY count DESC
+            """,
+            (RELIABILITY_DECISION, since),
+        )
+        decision_dist = [
+            {
+                "decision": r["decision"],
+                "mode": r["mode"],
+                "count": int(r["count"] or 0),
+            }
+            for r in dec_rows
+        ]
+
+        return jsonify({
+            "ok": True,
+            "window": "24h",
+            "since_utc": since,
+            "error_distribution": error_dist,
+            "server_side_24h": fivexx_equiv,
+            "decision_distribution": decision_dist,
+        })
+    except Exception as exc:
+        _log.warning("admin/errors read failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 200

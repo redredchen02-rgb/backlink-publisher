@@ -220,7 +220,7 @@ class SitesAPI:
         if not fields["branded_pool"] or not fields["partial_pool"]:
             try:
                 tdk = fetch_full_tdk(main_url)
-            except Exception as exc:  # noqa: BLE001 — derivation is best-effort
+            except Exception as exc:
                 plan_logger.warn("tdk_fetch_failed", url=main_url, reason=type(exc).__name__)
 
         if not fields["list_url"]:
@@ -246,7 +246,7 @@ class SitesAPI:
                 if discovered:
                     fields["work_urls"] = discovered
                     derived.append("work_urls")
-            except Exception as exc:  # noqa: BLE001 — discovery is best-effort
+            except Exception as exc:
                 plan_logger.warn(
                     "work_urls_discovery_failed",
                     main_url=main_url, list_url=fields["list_url"], reason=type(exc).__name__,
@@ -319,7 +319,7 @@ class SitesAPI:
                 except Exception:
                     # debt: sites-scheduler-job-removal-best-effort
                     pass
-        except Exception as exc:  # noqa: BLE001 — roll back only this site's cfg
+        except Exception as exc:
             # debt: sites-autopilot-scheduler-sync-rollback
             plan_logger.warn("autopilot_scheduler_sync_failed", site_url=site_url, reason=type(exc).__name__)
 
@@ -361,7 +361,7 @@ class SitesAPI:
             meta = fetch_work_metadata(url)
         except InputValidationError as exc:
             return {"status": "error", "reason": str(exc)}
-        except Exception as exc:  # noqa: BLE001 — surface as error, never 500
+        except Exception as exc:
             # debt: sites-scrape-preview-fail-safe
             return {"status": "error", "reason": type(exc).__name__}
         if meta is None:
@@ -432,6 +432,6 @@ class SitesAPI:
                 return None
             data = json.loads(path.read_text(encoding="utf-8"))
             return {"ts": data.get("ts", "")}
-        except Exception:  # noqa: BLE001 — fail-open
+        except Exception:
             # debt: sites-citation-alert-fail-open
             return None

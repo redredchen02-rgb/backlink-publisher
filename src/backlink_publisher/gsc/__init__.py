@@ -5,5 +5,4 @@ those must stay inside method bodies to avoid discovery-cache side effects
 at import time.
 """
 
-
 __all__: list[str] = []

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from backlink_publisher.events.store import EventStore
+from backlink_publisher.events import EventStore
 from backlink_publisher.events.survival_query import compute_survival
 
 
@@ -39,7 +39,7 @@ def build_survival_view(*, store: EventStore | None = None, now: datetime | None
     try:
         data = compute_survival(store, now=now)
         return _display_fields(data)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return {
             "state": "empty",
             "survival_rate": None,

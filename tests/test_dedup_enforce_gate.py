@@ -49,7 +49,7 @@ def _fresh_dir(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _verify_pass(mocker):
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     )
 
@@ -207,7 +207,7 @@ def test_recon_line_counts_only_no_urls(mock_pub, _mv):
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
 def test_enforce_gate_store_error_fails_closed(mock_pub, _mv, mocker):
     mocker.patch(
-        "backlink_publisher.cli._dedup_gate.DedupStore",
+        "backlink_publisher.cli.publish._dedup_gate.DedupStore",
         side_effect=RuntimeError("dedup.db unreadable"),
     )
     mock_pub.return_value = _drafted()
@@ -264,9 +264,9 @@ def test_gate_force_overrides_stale_attempting_and_dispatches():
 # Resume seam (R17): a resumed run consults the dedup record like a fresh run
 # --------------------------------------------------------------------------- #
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_enforce_skips_done(mock_pub, _mv, _ms, mock_cache, tmp_path):
     from backlink_publisher.checkpoint import create_checkpoint
 
@@ -281,9 +281,9 @@ def test_resume_enforce_skips_done(mock_pub, _mv, _ms, mock_cache, tmp_path):
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_enforce_holds_uncertain(mock_pub, _mv, _ms, mock_cache, tmp_path):
     from backlink_publisher.checkpoint import create_checkpoint
 
@@ -297,9 +297,9 @@ def test_resume_enforce_holds_uncertain(mock_pub, _mv, _ms, mock_cache, tmp_path
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_enforce_absent_dispatches(mock_pub, _mv, _ms, mock_cache, tmp_path):
     from backlink_publisher.checkpoint import create_checkpoint
 
@@ -364,9 +364,9 @@ def test_enforce_fresh_stale_attempting_holds(mock_pub, _mv):
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_enforce_holds_crashed_in_flight_as_uncertain(mock_pub, _mv, _ms, mock_cache, tmp_path):
     """Enforce: a pending item whose dedup row is a stale `attempting` (prior run
     crashed mid-dispatch) is HELD and promoted to uncertain — never re-published —
@@ -391,9 +391,9 @@ def test_resume_enforce_holds_crashed_in_flight_as_uncertain(mock_pub, _mv, _ms,
 
 
 @patch("backlink_publisher.checkpoint._cache_dir")
-@patch("backlink_publisher.cli._publish_helpers._do_sleep")
-@patch("backlink_publisher.cli._resume.verify_adapter_setup")
-@patch("backlink_publisher.cli._resume.adapter_publish")
+@patch("backlink_publisher.cli.publish._publish_helpers._do_sleep")
+@patch("backlink_publisher.cli.admin._resume.verify_adapter_setup")
+@patch("backlink_publisher.cli.admin._resume.adapter_publish")
 def test_resume_observe_warns_crashed_in_flight_then_dispatches(mock_pub, _mv, _ms, mock_cache, tmp_path):
     """Observe (default): the dedup gate dispatches by contract, but resume now
     WARNS on a stale-attempting item (parity with the http_5xx warning) so a hard

@@ -17,6 +17,7 @@ from __future__ import annotations
 __tier__ = "unit"
 import os
 import sys
+from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -52,6 +53,21 @@ def _make_response(
     return resp
 
 
+@contextmanager
+def _patch_session_get(**mock_kwargs: Any):
+    """Replace the pooled probe session with a mock (no real sockets).
+
+    The optimization sweep moved _probe() from module-level ``requests.get``
+    onto a shared ``requests.Session`` obtained via ``_get_session()``; tests
+    must mock that layer so pytest-socket never sees a DNS lookup.  Yields the
+    ``session.get`` mock so call-count / not-called assertions keep working.
+    """
+    session = MagicMock()
+    session.get = MagicMock(**mock_kwargs)
+    with patch.object(http_probe, "_get_session", return_value=session):
+        yield session.get
+
+
 # ── Unit 1: initial URL SSRF guard ───────────────────────────────────────────
 
 
@@ -61,7 +77,7 @@ class TestSsrfInitialUrl:
     def test_loopback_blocked(self):
         with patch.object(
             http_probe, "_ssrf_check", return_value="loopback"
-        ), patch("requests.get") as mock_get:
+        ), _patch_session_get() as mock_get:
             hit = http_probe._probe("http://127.0.0.1/", "browser", "UA")
         assert hit.status is None
         assert "ssrf-blocked" in hit.error
@@ -71,7 +87,7 @@ class TestSsrfInitialUrl:
     def test_rfc1918_blocked(self):
         with patch.object(
             http_probe, "_ssrf_check", return_value="rfc1918"
-        ), patch("requests.get") as mock_get:
+        ), _patch_session_get() as mock_get:
             hit = http_probe._probe("http://192.168.1.1/", "browser", "UA")
         assert hit.status is None
         assert "ssrf-blocked" in hit.error
@@ -80,7 +96,7 @@ class TestSsrfInitialUrl:
     def test_cloud_metadata_blocked(self):
         with patch.object(
             http_probe, "_ssrf_check", return_value="cloud_metadata"
-        ), patch("requests.get") as mock_get:
+        ), _patch_session_get() as mock_get:
             hit = http_probe._probe("http://169.254.169.254/latest/meta-data/", "browser", "UA")
         assert hit.status is None
         assert "ssrf-blocked" in hit.error
@@ -89,7 +105,7 @@ class TestSsrfInitialUrl:
     def test_public_url_not_blocked(self):
         with patch.object(
             http_probe, "_ssrf_check", return_value=None
-        ), patch("requests.get", return_value=_make_response(200, "https://example.com/")) as mock_get:
+        ), _patch_session_get(return_value=_make_response(200, "https://example.com/")) as mock_get:
             hit = http_probe._probe("https://example.com/", "browser", "UA")
         assert hit.status == 200
         assert hit.error == ""
@@ -117,7 +133,7 @@ class TestSsrfRedirectHop:
 
         with patch.object(
             http_probe, "_ssrf_check", side_effect=_ssrf_side_effect
-        ), patch("requests.get", return_value=redirect_resp) as mock_get:
+        ), _patch_session_get(return_value=redirect_resp) as mock_get:
             hit = http_probe._probe("https://example.com/", "browser", "UA")
 
         assert hit.status is None
@@ -140,7 +156,7 @@ class TestSsrfRedirectHop:
 
         with patch.object(
             http_probe, "_ssrf_check", side_effect=_ssrf_side_effect
-        ), patch("requests.get", return_value=redirect_resp):
+        ), _patch_session_get(return_value=redirect_resp):
             hit = http_probe._probe("https://legit.com/", "browser", "UA")
 
         assert hit.status is None
@@ -157,7 +173,7 @@ class TestSsrfRedirectHop:
 
         with patch.object(
             http_probe, "_ssrf_check", return_value=None
-        ), patch("requests.get", side_effect=[redirect_resp, final_resp]):
+        ), _patch_session_get(side_effect=[redirect_resp, final_resp]):
             hit = http_probe._probe("https://example.com/", "browser", "UA")
 
         assert hit.status == 200
@@ -199,7 +215,7 @@ class TestRelativeRedirect:
 
         with patch.object(
             http_probe, "_ssrf_check", return_value=None
-        ), patch("requests.get", side_effect=[redirect_resp, final_resp]):
+        ), _patch_session_get(side_effect=[redirect_resp, final_resp]):
             hit = http_probe._probe("https://example.com/page", "browser", "UA")
 
         assert hit.status == 200
@@ -219,8 +235,8 @@ class TestChannelProbeCli:
 
     def test_probe_url_public_api(self):
         """probe_url() public function returns correct shape."""
-        with patch.object(http_probe, "_ssrf_check", return_value=None), patch(
-            "requests.get", return_value=_make_response(200, "https://example.com/")
+        with patch.object(http_probe, "_ssrf_check", return_value=None), _patch_session_get(
+            return_value=_make_response(200, "https://example.com/")
         ):
             result = http_probe.probe_url("https://example.com/")
         assert "verdict" in result

@@ -201,7 +201,9 @@ DEBT_COMMENT_RE = re.compile(r"#\s*debt:\s*(?P<slug>[\w.\-]+)")
 SANDBOX_SENTINEL = "BACKLINK_PUBLISHER_TEST_SANDBOX"
 
 # AST gate: the one allowlisted module that may contain raw home-path primitives.
-_RAW_HOME_ALLOWED_MODULE = "src/backlink_publisher/config/loader.py"
+# U8 reorg: the raw home-path primitives physically live in _util/paths.py
+# (config/loader.py imports _config_dir/_resolve_config_dir from there).
+_RAW_HOME_ALLOWED_MODULE = "src/backlink_publisher/_util/paths.py"
 
 # Sites whose .expanduser() calls on operator-supplied env vars are legitimate
 # (expanding BACKLINK_PUBLISHER_REAL_CHROME_* config, not constructing a raw root).
@@ -228,11 +230,17 @@ GRANDFATHERED_EXPANDUSER_SITES: frozenset[tuple[str, int]] = frozenset(
         # BACKLINK_PUBLISHER_REAL_CHROME_PROFILE_DIR may contain "~"; the
         # default arg now uses _config_dir() (folded in Unit 1) so the raw-root
         # escape is gone — only the env-var expansion remains.
-        # AST lineno 77 = start of the Path(os.environ.get(...)).expanduser()
+        # AST lineno 78 = start of the Path(os.environ.get(...)).expanduser()
         # multi-line expression (AST reports the opening line of the call).
         (
             "src/backlink_publisher/publishing/adapters/instant_web.py",
-            77,
+            78,
+        ),
+        # _parse_velog(): expands an operator-supplied [velog].cookies_path from
+        # config.toml (not an operator-state-root construction).
+        (
+            "src/backlink_publisher/config/loader.py",
+            177,
         ),
     }
 )
@@ -471,6 +479,30 @@ def _reassert_config_isolation():
 
 
 @pytest.fixture(autouse=True)
+def _clear_process_ttl_cache():
+    """Clear ``backlink_publisher._util.cache``'s process-global TTL cache.
+
+    Plan 2026-07-06-004 Unit 2 introduced this cache's first consumer in this
+    branch: ``command_center._collect_subsystem_status()`` wraps its result
+    in a 3-5s TTL (K10) so repeated polls/tabs within that window collapse
+    onto one real query instead of re-reading history_store/drafts_store/
+    queue_store/error_report_store every time. The cache is keyed by a fixed
+    string at *process* scope, not per-request and not per-config-dir — so
+    two tests that happen to run within that few-second wall-clock window
+    (routine in a fast, xdist-parallel 10k+ test suite) would otherwise see
+    each other's cached aggregator snapshot even though
+    ``_isolate_user_dirs``/``_reassert_config_isolation`` pointed them at
+    different ``BACKLINK_PUBLISHER_CONFIG_DIR`` tmp dirs. Clearing before and
+    after every test keeps this process-global cache from leaking across
+    test boundaries.
+    """
+    from backlink_publisher._util.cache import _ttl_cache_clear
+    _ttl_cache_clear()
+    yield
+    _ttl_cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _restore_logger_levels():
     """Restore pipeline logger levels after each test.
 
@@ -508,7 +540,7 @@ def _mock_publish_check_url(monkeypatch: pytest.MonkeyPatch) -> None:
     # check_url promoted to module-level in _publish_helpers.py;
     # patch at the consumer reference per feedback_test-autouse-verify-mock.
     monkeypatch.setattr(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
         lambda _url: (True, None),
         raising=True,
     )

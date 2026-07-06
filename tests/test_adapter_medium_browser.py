@@ -33,6 +33,7 @@ from backlink_publisher._util.errors import (
 )
 from backlink_publisher.config import Config
 from backlink_publisher.config.loader import _config_dir
+from backlink_publisher.publishing.adapters import _medium_selectors as sel
 from backlink_publisher.publishing.adapters.medium_browser import MediumBrowserAdapter
 
 PAYLOAD = {
@@ -430,3 +431,130 @@ def test_html_clipboard_content_matches_render(mock_sync_pw):
     assert any(expected_html in arg for arg in html_args), (
         f"Expected rendered HTML in clipboard evaluate args. Got: {html_args}"
     )
+
+
+# ─── D2 (2026-07-06): Save Draft click failure must not report false success ───
+#
+# docs/solutions/correctness/adapter-silent-exceptions-resolution.md named
+# medium_browser.py's Save Draft except-Exception site a "critical silent
+# swallow": a click failure fell through to `page.wait_for_timeout(...)` and
+# the adapter still returned `AdapterResult(status="drafted", ...)` with no
+# signal that the draft was never confirmed saved. K8 (plan
+# 2026-07-06-002-opt-hidden-debt-hardening-sweep-plan.md) classified this as
+# fix-now: there is no independent recheck of "was the draft actually saved",
+# so a click failure must surface as an explicit failure instead.
+
+
+def _locator_side_effect(default_count: int = 0, **overrides):
+    """Build a ``page.locator(selector)`` side_effect returning per-selector
+    mocks. ``overrides`` maps a selector string to the MagicMock it should
+    return; any other selector gets a fresh MagicMock with ``count() ==
+    default_count`` (matches make_mock_pw's default CAPTCHA-probe shape)."""
+
+    def _side_effect(sel_str):
+        if sel_str in overrides:
+            return overrides[sel_str]
+        default = MagicMock()
+        default.count.return_value = default_count
+        return default
+
+    return _side_effect
+
+
+@patch("backlink_publisher.publishing.adapters.medium_browser.sync_playwright")
+def test_save_draft_click_failure_raises_instead_of_reporting_drafted(mock_sync_pw):
+    """RED-then-GREEN proof for the D2 fix.
+
+    Before the fix: a Save Draft click failure was caught, logged, and the
+    adapter fell through to `return AdapterResult(status="drafted", ...)` —
+    a false success with no signal the draft was never confirmed saved.
+
+    After the fix: the same failure must raise (ExternalServiceError, either
+    directly or via the outer browser-automation wrapper) so callers see an
+    explicit failure/unconfirmed outcome instead of a fabricated "drafted"
+    status.
+    """
+    mock_pw, mock_br, mock_ctx, mock_page = make_mock_pw()
+    mock_sync_pw.return_value = mock_pw
+
+    save_draft_locator = MagicMock()
+    save_draft_locator.click.side_effect = RuntimeError(
+        "element not found: button[data-testid=\"saveDraftButton\"]"
+    )
+    mock_page.locator.side_effect = _locator_side_effect(
+        default_count=0, **{sel.SAVE_DRAFT: save_draft_locator}
+    )
+
+    adapter = MediumBrowserAdapter()
+    with pytest.raises(ExternalServiceError, match="Save Draft"):
+        adapter.publish(PAYLOAD, mode="draft", config=CONFIG)
+
+
+# ─── D2: lock in the "accepted" (not silent-swallow) behavior at 271/322 ───
+
+
+@patch("backlink_publisher.publishing.adapters.retry.time.sleep")
+@patch("backlink_publisher.publishing.adapters.medium_browser.sync_playwright")
+def test_captcha_probe_failure_still_propagates_original_timeout(mock_sync_pw, mock_sleep):
+    """K8-accepted site (CAPTCHA probe, ~line 281): if the probe itself raises
+    (e.g. a detached page) during the post-timeout CAPTCHA check, that probe
+    failure must be swallowed (logged) WITHOUT masking the original
+    PlaywrightTimeoutError — the timeout still propagates so
+    retry_transient_call can retry it. This proves the probe failure is a
+    genuine best-effort side-channel, not a silent-success risk: the
+    authoritative signal (the timeout) is never suppressed by a probe error."""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    mock_page = MagicMock()
+    mock_page.url = "https://medium.com/new-story"
+    mock_page.goto.side_effect = PlaywrightTimeout("slow load")
+    # The CAPTCHA-probe locator itself raises (e.g. detached page/context),
+    # rather than cleanly reporting count()==0.
+    mock_page.locator.side_effect = RuntimeError(
+        "Target page, context or browser has been closed"
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.new_page.return_value = mock_page
+    mock_ctx.add_cookies = MagicMock()
+
+    mock_br = MagicMock()
+    mock_br.new_context.return_value = mock_ctx
+
+    mock_pw = MagicMock()
+    mock_pw.chromium.launch.return_value = mock_br
+    mock_pw.__enter__ = MagicMock(return_value=mock_pw)
+    mock_pw.__exit__ = MagicMock(return_value=False)
+
+    mock_sync_pw.return_value = mock_pw
+
+    adapter = MediumBrowserAdapter()
+    with pytest.raises(PlaywrightTimeout):
+        adapter.publish(PAYLOAD, mode="draft", config=CONFIG)
+    # Retried at least once (is_retryable=isinstance(exc, PlaywrightTimeoutError))
+    # before exhausting attempts and re-raising the same timeout type.
+    assert mock_sleep.call_count >= 1
+
+
+@patch("backlink_publisher.publishing.adapters.medium_browser.sync_playwright")
+def test_tag_insertion_failure_is_best_effort_and_publish_still_succeeds(mock_sync_pw):
+    """K8-accepted site (tag insertion, ~line 332): tags are optional metadata,
+    not an authoritative output field — a failure typing a tag must be
+    swallowed so the publish itself still completes and returns
+    `status="published"`, matching the code's own "(optional)" comment."""
+    mock_pw, mock_br, mock_ctx, mock_page = make_mock_pw(
+        "https://medium.com/@user/live-post-abc123"
+    )
+    mock_sync_pw.return_value = mock_pw
+
+    tags_locator = MagicMock()
+    tags_locator.type.side_effect = RuntimeError("tag input not interactable")
+    mock_page.locator.side_effect = _locator_side_effect(
+        default_count=0, **{sel.TAGS_INPUT: tags_locator}
+    )
+
+    adapter = MediumBrowserAdapter()
+    result = adapter.publish(PAYLOAD, mode="publish", config=CONFIG)
+
+    assert result.status == "published"
+    assert result.published_url == "https://medium.com/@user/live-post-abc123"

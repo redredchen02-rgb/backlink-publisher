@@ -52,7 +52,7 @@ def build_published_article_set(
     """
     try:
         buckets = build_target_buckets(store=store, history=history)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         # Surface as a warning — a missing events.db is not a fatal error for
         # the verdict classifier; it just means no article URLs are known.
         log.warning("geo.joins: could not load published article set: %s", exc)

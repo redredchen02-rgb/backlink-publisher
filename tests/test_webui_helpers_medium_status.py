@@ -113,7 +113,12 @@ class TestMediumBrowserStatusStates:
         from backlink_publisher.publishing.adapters import medium_browser as _mb
         monkeypatch.setattr(_mb, "sync_playwright", object())
         cookies = cfg_with_cookies.config_dir / "chrome-profile-default" / "Default" / "Cookies"
-        old_ts = time.time() - 40 * 86_400
+        # 40 days + 1 hour: the helper measures age with datetime.now() while
+        # this test sets mtime relative to time.time() — two clock sources that
+        # can disagree by sub-millisecond on Windows, so an *exact* 40-day
+        # offset makes `.days` flip between 39 and 40 run-to-run. The margin
+        # keeps the assertion meaningful without sitting on the boundary.
+        old_ts = time.time() - (40 * 86_400 + 3_600)
         os.utime(cookies, (old_ts, old_ts))
         result = _get_medium_browser_status(cfg_with_cookies)
         assert result["state"] == "profile_exists_unverified"

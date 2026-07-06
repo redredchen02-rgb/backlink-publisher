@@ -69,6 +69,8 @@ paths:
     get:
       operationId: getPlatforms
       summary: Full registered-platform list.
+      description: 'Read-only registry dump: every registered platform''s slug and
+        display name, regardless of binding state. No secrets, no guard.'
       tags:
       - bootstrap
       responses:
@@ -82,6 +84,8 @@ paths:
     get:
       operationId: getBoundPlatforms
       summary: Bound + manifest-visible platforms (publish-form filter).
+      description: 'Subset of /platforms: only channels that are credential-bound
+        and manifest-visible, i.e. what the publish form may offer. Read-only.'
       tags:
       - bootstrap
       responses:
@@ -95,6 +99,8 @@ paths:
     get:
       operationId: getProStatus
       summary: Pro-Mode visibility summary (redaction-safe).
+      description: "Booleans/labels describing Pro-Mode visibility only \u2014 the\
+        \ api_key itself is never returned. Read-only, no guard."
       tags:
       - bootstrap
       responses:
@@ -140,6 +146,8 @@ paths:
     post:
       operationId: previewBacklink
       summary: Single-article preview (plan one seed, return first row).
+      description: Plans exactly one seed through the same generator as /pipeline/plan
+        and returns the first row, or null when nothing was produced. Stateless.
       tags:
       - pipeline
       requestBody:
@@ -171,6 +179,9 @@ paths:
     post:
       operationId: validateBacklinks
       summary: Validate plan rows (URL checks skipped server-side).
+      description: Runs the CLI validate step's schema/content checks over the posted
+        plan rows, mirroring /ce:validate; URL liveness probes are skipped server-side.
+        Stateless.
       tags:
       - pipeline
       requestBody:
@@ -240,20 +251,50 @@ paths:
   /api/v1/history:
     get:
       operationId: getHistory
-      summary: Full publish-history list.
+      summary: Publish-history list, optionally paginated.
+      description: 'Read-only: publish-history entries from events.db, normalised
+        for display. Omitting `limit` returns every entry in the original flat shape;
+        passing `limit` returns a page envelope with `total`/`limit`/`offset` (Plan
+        2026-07-02-001 U5).'
       tags:
       - history
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        description: Opts into the paginated envelope; omitting it returns every entry
+          in the original flat shape.
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 500
+      - name: offset
+        in: query
+        required: false
+        description: Has no effect unless `limit` is also given.
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
         '200':
-          description: History list.
+          description: History list (paginated if `limit` given).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryList'
+        '400':
+          description: Invalid limit/offset.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/history/delete:
     post:
       operationId: deleteHistoryItem
       summary: "Delete one history entry \u2192 refreshed list."
+      description: Removes the entry with the given `id` and returns the refreshed
+        list so the SPA re-renders without a second GET.
       tags:
       - history
       requestBody:
@@ -279,6 +320,8 @@ paths:
     post:
       operationId: bulkDeleteHistory
       summary: "Delete multiple history entries \u2192 refreshed list."
+      description: Removes every entry whose id appears in `ids`, then returns the
+        refreshed list plus a flash-style `message`.
       tags:
       - history
       requestBody:
@@ -300,10 +343,42 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history/bulk-recheck:
+    post:
+      operationId: bulkRecheckHistory
+      summary: "Re-verify multiple history entries' link liveness \u2192 refreshed\
+        \ list."
+      description: "Re-checks every entry whose id appears in `ids`, then returns\
+        \ the refreshed list. A per-item verify outcome (e.g. a URL now dead) is data,\
+        \ not a failure \u2014 this only returns 422 for genuine input problems (empty\
+        \ or unmatched ids)."
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdsRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '422':
+          description: Missing ids or no items matched.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/history/purge-failed:
     post:
       operationId: purgeFailedHistory
       summary: "Delete every 'failed' entry \u2192 refreshed list."
+      description: "Removes all entries whose status is `failed`. Idempotent \u2014\
+        \ nothing to purge is still a 200 with the refreshed list. No request body."
       tags:
       - history
       responses:
@@ -317,6 +392,8 @@ paths:
     post:
       operationId: recheckHistoryItem
       summary: "Re-verify one history entry's link liveness \u2192 refreshed list."
+      description: Re-runs the link-liveness check for one entry and updates its status,
+        returning the refreshed list plus a flash-style `message`.
       tags:
       - history
       requestBody:
@@ -344,23 +421,89 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/queue/{task_id}/retry:
+    post:
+      operationId: retryQueueTask
+      summary: Requeue a queue task for retry (atomic, race-fixed).
+      description: 'Genuine-gap JSON binding for the SPA dashboard''s retry action
+        (Plan 2026-07-06-004 Unit 3): calls HistoryAPI.retry_task(), which delegates
+        to queue_store.update_task_if_status()''s single conditional UPDATE, closing
+        a TOCTOU race with the scheduler thread. No request body; `task_id` is a path
+        param. Distinct from the legacy form-encoded /ce:retry-task route, which the
+        SPA cannot use.'
+      tags:
+      - history
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Requeued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueRetryResult'
+        '404':
+          description: Task not found (vanished or already handled).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Task is currently processing; retry rejected.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/drafts:
     get:
       operationId: getDrafts
-      summary: Full draft-queue list (newest first).
+      summary: Draft-queue list (newest first), optionally paginated.
+      description: 'Read-only: drafts in the queue with their status (pending/scheduled),
+        newest first. Same pagination contract as GET /history (Plan 2026-07-02-001
+        U5).'
       tags:
       - drafts
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        description: Opts into the paginated envelope; omitting it returns every entry
+          in the original flat shape.
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 500
+      - name: offset
+        in: query
+        required: false
+        description: Has no effect unless `limit` is also given.
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
         '200':
-          description: Draft list.
+          description: Draft list (paginated if `limit` given).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DraftList'
+        '400':
+          description: Invalid limit/offset.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/drafts/schedule:
     post:
       operationId: scheduleDraft
       summary: "Schedule a draft at an ISO-8601 datetime \u2192 refreshed list."
+      description: Sets the draft's publish time from `datetime` and registers the
+        scheduler job, then returns the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -392,6 +535,8 @@ paths:
     post:
       operationId: publishDraftNow
       summary: "Publish a draft now (schedules ~5s out) \u2192 refreshed list."
+      description: 'Reuses the scheduler path rather than publishing inline: the draft
+        is scheduled ~5 seconds out, then the refreshed list is returned.'
       tags:
       - drafts
       requestBody:
@@ -423,6 +568,8 @@ paths:
     post:
       operationId: cancelDraft
       summary: "Cancel a scheduled draft (back to pending) \u2192 refreshed list."
+      description: Unschedules the draft's job and returns it to pending, then returns
+        the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -454,6 +601,8 @@ paths:
     post:
       operationId: deleteDraft
       summary: "Delete one draft (cancels its job if scheduled) \u2192 refreshed list."
+      description: Deletes the draft, first cancelling its scheduler job if one exists,
+        then returns the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -485,6 +634,8 @@ paths:
     post:
       operationId: bulkDeleteDrafts
       summary: "Delete multiple drafts \u2192 refreshed list."
+      description: Deletes every draft whose id appears in `ids` (cancelling any scheduled
+        jobs), then returns the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -512,10 +663,86 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/bulk-publish-now:
+    post:
+      operationId: bulkPublishDraftsNow
+      summary: "Publish multiple drafts now (staggered ~5s+ out) \u2192 refreshed\
+        \ list."
+      description: 'Schedules every draft whose id appears in `ids` for immediate,
+        staggered publishing. Single-flight: a concurrent bulk-publish call is rejected
+        with 409 rather than queued.'
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdsRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '409':
+          description: A bulk publish is already in progress.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Missing ids.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Scheduler registration failure (rolled back).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/drafts/bulk-cancel:
+    post:
+      operationId: bulkCancelDrafts
+      summary: "Cancel scheduling for multiple drafts \u2192 refreshed list."
+      description: Cancels the pending scheduled-publish job for every draft whose
+        id appears in `ids`, then returns the refreshed list.
+      tags:
+      - drafts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftIdsRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftMutationResult'
+        '422':
+          description: Missing ids.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          description: Scheduler sync failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/sites:
     get:
       operationId: getSites
       summary: All configured sites with live autopilot status.
+      description: 'Read-only: every configured site joined with its live autopilot
+        (scheduler) status.'
       tags:
       - sites
       responses:
@@ -529,6 +756,8 @@ paths:
     get:
       operationId: getSitesWidgets
       summary: 'Read-only side panels: plan-gap weekly + citation-share alert.'
+      description: 'Aggregate for the sites page''s side panels: the weekly plan-gap
+        summary and the citation-share alert. No mutation.'
       tags:
       - sites
       responses:
@@ -542,6 +771,9 @@ paths:
     get:
       operationId: getSiteForm
       summary: Edit-prefill for an existing site (?domain=), or null.
+      description: "Returns the edit-prefill payload for the site named by the `domain`\
+        \ query param, or a null envelope when unknown \u2014 the SPA then renders\
+        \ a blank creation form."
       tags:
       - sites
       responses:
@@ -1126,6 +1358,9 @@ paths:
     post:
       operationId: testLlmGeneration
       summary: Generate an article/anchor preview from the stored LLM settings.
+      description: "Runs a real generation call against the stored LLM settings and\
+        \ returns the diagnostic envelope, NOT problem+json \u2014 a failed generation\
+        \ is a successful call."
       tags:
       - settings
       requestBody:
@@ -1341,6 +1576,8 @@ paths:
     get:
       operationId: getKeywordPools
       summary: Hydrate the keyword-pool editor (target domains + pools).
+      description: 'Read-only hydration: known target domains plus each domain''s
+        current anchor-keyword pool. No secrets, no guard.'
       tags:
       - settings
       responses:
@@ -1386,6 +1623,8 @@ paths:
     get:
       operationId: getScheduleSettings
       summary: Hydrate the publish-cadence form.
+      description: 'Read-only hydration: the current min_interval_hours and jitter_minutes
+        from schedule-settings.json. No secrets, no guard.'
       tags:
       - settings
       responses:
@@ -1431,6 +1670,8 @@ paths:
     post:
       operationId: clearMediumOauth
       summary: Revoke a stored Medium OAuth token (delete medium-token.json).
+      description: "Deletes the stored medium-token.json. Idempotent \u2014 an already-absent\
+        \ token is still a 200. No request body."
       tags:
       - settings
       responses:
@@ -1450,6 +1691,8 @@ paths:
     get:
       operationId: getProfiles
       summary: All saved campaign profiles (publish presets).
+      description: "Read-only: every saved campaign profile \u2014 named publish presets\
+        \ the SPA offers on the workbench."
       tags:
       - profiles
       responses:
@@ -1463,6 +1706,8 @@ paths:
     post:
       operationId: saveProfile
       summary: "Upsert a campaign profile by name \u2192 refreshed list."
+      description: Creates or overwrites the profile with the given name, then returns
+        the refreshed profile list.
       tags:
       - profiles
       requestBody:
@@ -1488,6 +1733,7 @@ paths:
     post:
       operationId: deleteProfile
       summary: "Delete a campaign profile by name \u2192 refreshed list."
+      description: Deletes the named profile and returns the refreshed profile list.
       tags:
       - profiles
       requestBody:
@@ -1513,6 +1759,8 @@ paths:
     get:
       operationId: getCampaignForm
       summary: 'Creation-form bootstrap: platforms + connection partition.'
+      description: 'Read-only bootstrap for the campaign-creation form: the platform
+        list partitioned by connection state (connected vs. needs-binding).'
       tags:
       - campaigns
       responses:
@@ -1568,9 +1816,12 @@ paths:
     get:
       operationId: getMonitorSummary
       summary: Anomaly-first monitor aggregate (today's anomalies first).
-      description: Fail-open aggregate across credentials/keepalive/equity/history.
-        Severity + equity-gap computed server-side (single source); the SPA only displays.
-        Versioned binding of the legacy /api/monitor-hub feed.
+      description: 'Fail-open aggregate across 6 signal sources: credentials/keepalive/equity/history
+        plus (Plan 2026-07-06-004 Unit 2) error-reports backlog and schedule/queue
+        backlog. The latter two are hybrid cards carrying an optional `items` list
+        (first N individual items) alongside the aggregate headline. Severity + equity-gap
+        computed server-side (single source); the SPA only displays. Versioned binding
+        of the legacy /api/monitor-hub feed.'
       tags:
       - monitor
       responses:
@@ -1584,6 +1835,9 @@ paths:
     post:
       operationId: regenArticleBody
       summary: Re-generate one article body via the configured LLM.
+      description: Calls the configured LLM to produce a fresh body (markdown + html)
+        for one planned article. Versioned binding of the legacy /ce:regen-body route;
+        400 when no LLM is configured.
       tags:
       - pipeline
       requestBody:
@@ -1904,6 +2158,38 @@ components:
       - content_markdown
       - content_source
       additionalProperties: false
+    MonitorCardItem:
+      type: object
+      properties:
+        id:
+          type: string
+        item_type:
+          type: string
+          description: error_report | scheduled_draft | queue_task.
+        status:
+          type: string
+          description: 'Item''s own bucket: open (error_report) | overdue | upcoming
+            | unscheduled (scheduled_draft) | pending | failed | other (queue_task).'
+        headline:
+          type: string
+        detail:
+          type: string
+        severity:
+          type:
+          - string
+          - 'null'
+          description: error_report only; free-form.
+        occurrences:
+          type:
+          - integer
+          - 'null'
+          description: error_report only.
+      required:
+      - detail
+      - headline
+      - id
+      - item_type
+      additionalProperties: false
     MonitorAction:
       type: object
       properties:
@@ -1936,6 +2222,19 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitorAction'
           - type: 'null'
+        items:
+          type: array
+          description: 'First-N individual items (hybrid cards only: error_reports,
+            schedule_queue). Absent on the 4 original aggregate-only cards.'
+          items:
+            $ref: '#/components/schemas/MonitorCardItem'
+        failed_channels:
+          type: array
+          description: Raw channel-name list backing the credentials card's failure
+            detail, for a per-channel retry action. Only the credentials card carries
+            this field; absent on every other card.
+          items:
+            type: string
       required:
       - deep_link
       - detail
@@ -2006,6 +2305,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HistoryItem'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
       required:
       - items
       additionalProperties: false
@@ -2038,6 +2343,28 @@ components:
             type: string
       required:
       - ids
+      additionalProperties: false
+    QueueRetryResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error_code:
+          type:
+          - string
+          - 'null'
+          description: NOT_FOUND | TASK_PROCESSING | MISSING_PARAM. Absent on success.
+        flash_type:
+          type: string
+          description: success | warning | danger.
+        flash_msg:
+          type: string
+          description: Human-readable outcome message.
+        message:
+          type: string
+          description: Same text as flash_msg.
+      required:
+      - ok
       additionalProperties: false
     DraftItem:
       type: object
@@ -2080,6 +2407,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DraftItem'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
       required:
       - items
       additionalProperties: false

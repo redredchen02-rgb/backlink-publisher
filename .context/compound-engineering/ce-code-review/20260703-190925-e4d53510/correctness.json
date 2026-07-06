@@ -1,0 +1,34 @@
+{
+  "reviewer": "correctness",
+  "findings": [
+    {
+      "id": "prqueue-app-config-failure-coupling",
+      "title": "load() now requires /app-config to succeed before it will render pr-queue data, even in full (non-LITE) edition",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "lines": "53-70",
+      "severity": "low-medium",
+      "confidence": 0.62,
+      "description": "load() (lines 53-70) now does `const config = await getJson<AppConfig>('/app-config')` before `items.value = await fetchPrQueue()`, and both calls run inside the same try/catch. Any failure of the new /app-config call (timeout, transient 5xx, Origin/Referer guard rejection off-loopback, etc.) is caught by the same handler that used to only catch fetchPrQueue() failures, so it now surfaces the generic error state for the whole page -- even in a full (non-LITE) edition where /api/pr-queue itself would have succeeded fine. Pre-fix, only fetchPrQueue() mattered for this page's success/failure. This is a real (if narrow) behavior regression: the page's availability now depends on two sequential network calls instead of one. It is softened by TEMPLATES in lib/errors.ts always setting retryable:true, so the resulting error state is not 'doomed' the way the original bug was -- a user can retry and it can succeed. Also notable: TopBar.vue, the other consumer of the same /app-config endpoint, treats its failure as soft (`v-if=\"config.data.value\"` just quietly omits the Pro-status pill via TanStack Query, no page-level error) rather than hard-failing the whole view, which is an inconsistency in how the codebase treats this endpoint's unavailability.",
+      "evidence": "frontend/src/pages/PrQueue/PrQueuePage.vue:53-70 (single try/catch wrapping both getJson('/app-config') and fetchPrQueue()); frontend/src/layout/TopBar.vue:31-34,65 (same endpoint consumed via useQuery, failure handled by a v-if that hides only the pill, no page error)."
+    }
+  ],
+  "residual_risks": [
+    {
+      "description": "PrQueuePage.vue calls getJson('/app-config') directly on every load() (mount, manual '刷新' click, and every markStatus()-triggered reload), rather than sharing TopBar.vue's cached TanStack Query result for the same endpoint (queryKey ['app-config']). client.ts's request-dedup only collapses genuinely concurrent GETs within a 5s TTL window, so sequential calls (e.g. two markStatus actions a few seconds apart) each re-hit the network. This compounds the new failure-coupling finding by increasing how often the extra network round trip actually executes, though it is not itself a data-correctness bug.",
+      "confidence": 0.55
+    },
+    {
+      "description": "getJson()'s internal fetchWithTimeout uses AbortController, so a slow /app-config response can reject with a DOMException (name 'AbortError') rather than an Error instance. In real browser runtimes DOMException does not extend Error, so `error.value = e instanceof Error ? e : new Error(String(e))` (unchanged code, but now reachable via the new getJson() call in a way it wasn't before, since fetchPrQueue() never times out via AbortController) takes the String(e) fallback branch, which can produce a low-quality message (e.g. '[object DOMException]' depending on runtime) for classifyError's detail field. Cosmetic only -- the error/retry state still renders correctly -- so kept as a residual risk rather than a finding.",
+      "confidence": 0.4
+    },
+    {
+      "description": "load() has no in-flight guard (no 'if (loading.value) return' at the top), so two overlapping load() calls (e.g. mount racing a very fast manual trigger before Vue's reactive :disabled=\"loading\" takes effect) could resolve out of order and let a stale response overwrite a newer one. This pattern predates the diff, but the window is now slightly wider because load() does two sequential awaits (config, then queue) instead of one.",
+      "confidence": 0.35
+    }
+  ],
+  "testing_gaps": [
+    "No test exercises getJson('/app-config') itself rejecting/throwing while lite_edition would have been false -- i.e. the new failure-coupling behavior described in the 'prqueue-app-config-failure-coupling' finding (an /app-config-specific failure that would have left a working /api/pr-queue response unreached) is not covered; the existing 'real failure' test (4th test) only rejects fetchPrQueue, not getJson.",
+    "No test covers the /app-config response omitting or mistyping `lite_edition` (undefined/missing field) to confirm the code correctly falls through to fetchPrQueue() rather than misbehaving.",
+    "No test verifies that clicking the always-visible header '刷新' button while liteUnavailable is true re-runs the same lite_edition check without ever calling fetchPrQueue -- only the initial mount path is asserted for 'fetchPrQueue not called'."
+  ]
+}

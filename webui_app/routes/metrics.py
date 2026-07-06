@@ -64,7 +64,7 @@ def _scrape_events_db() -> list[str]:
         lines.append(_gauge("bp_eventsdb_bytes", db_path.stat().st_size))
 
         con.close()
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return lines
 
@@ -81,7 +81,7 @@ def _scrape_content_cache() -> list[str]:
         latency = snap.get("total_latency_ms", 0)
         fetches = snap.get("fetches", 1) or 1
         lines.append(_gauge("bp_content_fetch_avg_latency_ms", round(latency / fetches, 1)))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return lines
 
@@ -98,7 +98,7 @@ def _scrape_publish_history() -> list[str]:
             data = json.loads(hist.read_text())
             if isinstance(data, list):
                 lines.append(_gauge("bp_publish_history_entries_total", len(data)))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return lines
 

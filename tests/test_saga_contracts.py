@@ -124,7 +124,7 @@ def _drafted_result(platform: str = "medium") -> AdapterResult:
 def _mock_verify_pass(mocker):
     """Default: verification passes so tests are fast and network-free."""
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     )
 
@@ -323,7 +323,7 @@ def test_contract_g7_unverified_count_nonzero_on_verify_failure(
     """dropped.unverified reflects the number of rows where verify_ok=False."""
     # Override the autouse fixture to make verification FAIL
     mocker.patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=False, reason="link not found"),
     )
     mock_pub.return_value = AdapterResult(

@@ -53,28 +53,21 @@ ALLOWLIST: dict[str, str] = {
     # object), NOT the top-level requests module, so the gate's regex never
     # matches it — no allowlist entry needed.
     # --- http_probe / http_client themselves: they ARE the SSRF-safe layer.
-    "src/backlink_publisher/_util/http_probe.py:82": (
-        "http_probe is the SSRF-checking multi-UA probe primitive itself; it "
-        "applies _validate_url_ssrf before this call. Migrating it to http_client "
-        "would be circular (http_client is built on top of this layer's contract)."
-    ),
-    "src/backlink_publisher/_util/http_probe.py:102": (
-        "Second-UA retry inside http_probe; same SSRF-safe-primitive rationale as "
-        "the :82 sibling — the probe validates the URL before issuing the request."
-    ),
+    #     (http_probe migrated to a module-level requests.Session — its former
+    #     raw requests.get sites at :82/:102 no longer exist, entries removed.)
     # --- Form-POST publish path: structurally cannot use the shared http_client,
     #     because that client retries POSTs (would duplicate a non-idempotent live
     #     backlink) and retries 503 (which IS the anti-bot challenge signal this
     #     path must observe). SSRF — the one thing http_client would add — is
     #     enforced inline via _guard_ssrf(). Not a migration backlog item.
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:122": (
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:124": (
         "Form-GET whose 503/403 status IS the anti-bot challenge signal "
         "(detect_challenge). http_client's urllib3 Retry has 503 in its "
         "status_forcelist, so it would retry then mask the 503 as an opaque "
         "error — the challenge would never be observed. SSRF is enforced inline "
         "via _guard_ssrf(); raw requests is required for challenge visibility."
     ),
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:186": (
+    "src/backlink_publisher/publishing/adapters/http_form_post.py:189": (
         "Create-exactly-once form POST (non-idempotent; a retry risks a "
         "DUPLICATE live backlink — P2 fix). http_client retries POSTs on "
         "429/5xx + connection errors, which would violate that contract. SSRF "
@@ -85,7 +78,7 @@ ALLOWLIST: dict[str, str] = {
     #     redirect-rejection gate, same structural rationale as http_guard.py:103.
     #     The redirect-bearing header would leak the api_key; http_client follows
     #     redirects and cannot provide the streaming content-type + size gate.
-    "webui_app/api/llm_diagnostics_api.py:58": (
+    "webui_app/api/llm_diagnostics_api.py:63": (
         "LLM diagnostics GET probe: needs stream=True + allow_redirects=False "
         "for redirect-rejection (Bearer exfiltration guard) and content-type/size "
         "checks before buffering; http_client follows redirects and buffers first."
@@ -107,7 +100,7 @@ def _find_raw_call_sites() -> list[tuple[str, int]]:
         for py in (REPO_ROOT / root).rglob("*.py"):
             if "__pycache__" in py.parts:
                 continue
-            rel = str(py.relative_to(REPO_ROOT))
+            rel = py.relative_to(REPO_ROOT).as_posix()  # stable across OSes
             try:
                 text = py.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):

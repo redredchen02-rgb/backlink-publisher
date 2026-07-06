@@ -59,14 +59,17 @@ test-a11y:
 
 # ── Code quality targets (Phase 3 F4) ────────────────────────────────────────
 
-.PHONY: lint type-check coverage clean-pyc clean-all setup-hooks
+.PHONY: lint lint-imports type-check coverage clean-pyc clean-all setup-hooks
 
 lint:
 	@ruff check src/ tests/ || true
 	@ruff format --check src/ tests/ || true
 
+lint-imports:
+	@PYTHONPATH=src .venv/bin/lint-imports
+
 type-check:
-	@mypy src/backlink_publisher/_util/ src/backlink_publisher/config/ 2>&1 | tail -5 || true
+	@mypy src/backlink_publisher/_util/ src/backlink_publisher/config/ src/backlink_publisher/content/ 2>&1 | tail -10 || true
 
 coverage:
 	@PYTHONHASHSEED=0 PYTHONPATH=src pytest tests/ --cov=src/backlink_publisher \

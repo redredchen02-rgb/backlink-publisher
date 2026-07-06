@@ -21,7 +21,7 @@ from backlink_publisher.config import _domain_label
 from backlink_publisher.content import fetch as content_fetch
 
 # Import from security — the single source of truth (Unit 3 landed).
-from .security import _TRUTHY_BYPASS  # noqa: F401
+from .security import _TRUTHY_BYPASS
 
 
 def _is_fetch_verify_disabled() -> bool:
@@ -133,8 +133,8 @@ def detect_platform(url: Any) -> Any:
     if 'medium.com' in domain:
         return 'medium'
     if 'blogspot.com' in domain or 'blogger.com' in domain:
-        return 'medium'
-    return 'medium'
+        return 'blogger'
+    return 'blogger'
 
 
 def detect_language(url: Any) -> Any:

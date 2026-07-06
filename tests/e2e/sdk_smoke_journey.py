@@ -70,7 +70,7 @@ def test_sdk_plan_validate_publish_smoke():
     ) as mock_pub, patch(
         "backlink_publisher.cli.publish_backlinks.verify_adapter_setup",
     ), patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     ):
         row = validate_result.rows[0]
@@ -112,7 +112,7 @@ def test_sdk_publish_empty_url_is_unverified():
     ) as mock_pub, patch(
         "backlink_publisher.cli.publish_backlinks.verify_adapter_setup",
     ), patch(
-        "backlink_publisher.cli._publish_helpers.verify_published",
+        "backlink_publisher.cli.publish._publish_helpers.verify_published",
         return_value=VerificationResult(ok=True, reason=""),
     ):
         mock_pub.return_value = AdapterResult(

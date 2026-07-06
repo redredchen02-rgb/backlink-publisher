@@ -343,7 +343,7 @@ class BaseSqliteStore(SqliteStore):
 
         try:
             self.save(self._coerce_migrated(data))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # Consistency with the read/rename error paths: log + return WITHOUT
             # writing the sentinel, so the next boot retries. save() is
             # idempotent (DELETE + INSERT), so a retry cannot duplicate data.

@@ -96,3 +96,53 @@ class TestRecordSemantics:
 
     def test_unknown_channel_not_expired(self):
         assert "mystery" not in expired_channels()
+
+
+class TestRefreshPathsResetsVerifyHealthCache:
+    """A1: verify_health_store used to be silently excluded from
+    _refresh_paths()'s reset tuple. These assertions observe the real effect
+    of the fix (cache actually cleared / config-dir change actually takes
+    effect) rather than merely "calling _refresh_paths() doesn't raise".
+    """
+
+    def test_refresh_paths_clears_cached_instance(self, tmp_path, monkeypatch):
+        # White-box: directly observe the _LazyStore's cached instance being
+        # discarded by _refresh_paths() itself, without relying on
+        # BACKLINK_PUBLISHER_CONFIG_DIR changing (which _LazyStore._real()
+        # would separately guard against on its own) — isolates the effect
+        # of verify_health_store's membership in the reset tuple specifically.
+        from webui_store import _refresh_paths
+        from webui_store.verify_health import verify_health_store
+
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
+        verify_health_store.load()  # force instantiation
+        assert verify_health_store._instance is not None  # sanity precondition
+
+        _refresh_paths()
+
+        assert verify_health_store._instance is None, (
+            "_refresh_paths() did not clear verify_health_store's cached "
+            "instance — verify_health_store is missing from the "
+            "_refresh_paths() reset tuple in webui_store/__init__.py"
+        )
+
+    def test_refresh_paths_repoints_store_to_new_config_dir(self, tmp_path, monkeypatch):
+        # Black-box: after a config-dir change + _refresh_paths(), the store
+        # actually resolves under the *new* directory on next access.
+        from webui_store import _refresh_paths
+        from webui_store.verify_health import verify_health_store
+
+        dir_a = tmp_path / "a"
+        dir_b = tmp_path / "b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(dir_a))
+        _refresh_paths()
+        verify_health_store.load()
+        assert Path(verify_health_store.path).parent == dir_a
+
+        monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(dir_b))
+        _refresh_paths()
+        verify_health_store.load()
+        assert Path(verify_health_store.path).parent == dir_b

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 import uuid
 
-from flask import Blueprint, redirect, request, session
+from flask import Blueprint, request, session
 
 from backlink_publisher import checkpoint as _checkpoint_mod
 from backlink_publisher._util.logger import plan_logger
@@ -14,7 +14,11 @@ from backlink_publisher._util.logger import plan_logger
 from ..api.pipeline_api import PipelineAPI
 from ..helpers.contexts import _render
 from ..helpers.history import _parse_publish_results, _push_history_aggregate
-from ..helpers.security import _check_localhost, _validate_webui_run_id
+from ..helpers.security import (
+    _check_localhost,
+    _safe_flash_redirect,
+    _validate_webui_run_id,
+)
 
 bp = Blueprint("checkpoint", __name__)
 
@@ -95,5 +99,6 @@ def checkpoint_dismiss() -> Any:
         # still present. Do NOT pretend it was dismissed — surface it.
         plan_logger.warn("checkpoint_dismiss_failed", run_id=run_id,
                          reason=type(exc).__name__)
-        return redirect("/?flash_type=danger&flash_msg=删除检查点失败，该检查点仍然存在")
-    return redirect('/?flash_type=success&flash_msg=检查点已删除')
+        return _safe_flash_redirect('/', flash_type='danger',
+                                    msg='删除检查点失败，该检查点仍然存在')
+    return _safe_flash_redirect('/', flash_type='success', msg='检查点已删除')

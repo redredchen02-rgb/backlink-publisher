@@ -51,7 +51,7 @@ from backlink_publisher.cli._publish_helpers import (
     _record_publish_path,
     _try_update_ckpt_failed,
 )
-from backlink_publisher.cli._resume import _run_resume  # noqa: F401
+from backlink_publisher.cli._resume import _run_resume
 from backlink_publisher.cli.publish_backlinks._engine import publish_rows, PublishOptions
 from backlink_publisher.config import load_config
 from backlink_publisher.publishing.adapters import publish as adapter_publish
@@ -62,7 +62,7 @@ from backlink_publisher.publishing.reliability.policy import policy_enabled, pub
 # `...publish_backlinks.checkpoint.create_checkpoint` to simulate checkpoint
 # failures, and publish_rows() (in _engine) calls create_checkpoint on the SAME
 # module object, so the patch applies even though the call site moved (U4-1).
-from ... import checkpoint, config_echo  # noqa: F401 -- checkpoint = patch seam
+from ... import checkpoint, config_echo
 from ...schema import reject_unsupported_platform, supported_platforms, validate_publish_payload
 
 
@@ -291,3 +291,35 @@ def main(argv: list[str] | None = None) -> None:
             )
         except Exception as exc:
             publish_logger.warning(f"post-publish optimisation failed: {exc}")
+
+__all__ = [
+    "enforce_enabled",
+    "enforce_precondition_or_exit",
+    "gate_with_force",
+    "record_done",
+    "record_failure",
+    "load_force_manifest",
+    "load_config",
+    "AuthExpiredError",
+    "BannerUploadError",
+    "ContentRejectedError",
+    "DependencyError",
+    "ExternalServiceError",
+    "emit_envelope_and_exit",
+    "emit_error",
+    "read_jsonl",
+    "publish_logger",
+    "emit_recon",
+    "adapter_publish",
+    "verify_adapter_setup",
+    "policy_enabled",
+    "publish_with_policy",
+    "checkpoint",
+    "config_echo",
+    "reject_unsupported_platform",
+    "supported_platforms",
+    "validate_publish_payload",
+    "PublishOptions",
+    "publish_rows",
+    "main",
+]

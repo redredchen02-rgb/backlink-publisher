@@ -46,9 +46,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+
+      - name: Cache .venv
+        uses: actions/cache@v4
+        id: venv-cache
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-venv-${{ matrix.python-version }}-
 
       - name: Install dependencies
+        if: steps.venv-cache.outputs.cache-hit != 'true'
         run: |
           pip install -e ".[dev]"
 
@@ -106,7 +114,7 @@ jobs:
           python -m pytest tests/ -v --tb=short --timeout=15 -n auto -m "unit and not seam" --strict-markers --strict-config --cov --cov-branch --cov-append --cov-report=term --cov-report=json:coverage-unit.json --reruns 2 --reruns-delay 1
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-unit-${{ matrix.python-version }}
           path: coverage-unit.json
@@ -115,29 +123,29 @@ jobs:
       - name: Validate syntax (py_compile + ast.parse)
         run: |
           python -c "
-import py_compile, ast, sys, pathlib
-root = pathlib.Path('.')
-errors = 0
-for f in sorted(root.rglob('*.py')):
-    if any(p in f.parts for p in ('__pycache__', '.venv', 'node_modules', '.mypy_cache', '.pytest_cache')):
-        continue
-    # py_compile
-    try:
-        py_compile.compile(f, doraise=True)
-    except py_compile.PyCompileError as e:
-        print(f'[FAIL] py_compile: {e}')
-        errors += 1
-    # ast.parse (catches syntax errors py_compile might miss)
-    try:
-        ast.parse(f.read_text(encoding='utf-8'))
-    except SyntaxError as e:
-        print(f'[FAIL] ast.parse: {f}: {e}')
-        errors += 1
-if errors:
-    sys.exit(f'❌ {errors} file(s) failed syntax validation')
-else:
-    print(f'✅ All {len(list(root.rglob(\"*.py\")))} Python files passed syntax validation')
-"
+          import py_compile, ast, sys, pathlib
+          root = pathlib.Path('.')
+          errors = 0
+          for f in sorted(root.rglob('*.py')):
+              if any(p in f.parts for p in ('__pycache__', '.venv', 'node_modules', '.mypy_cache', '.pytest_cache')):
+                  continue
+              # py_compile
+              try:
+                  py_compile.compile(f, doraise=True)
+              except py_compile.PyCompileError as e:
+                  print(f'[FAIL] py_compile: {e}')
+                  errors += 1
+              # ast.parse (catches syntax errors py_compile might miss)
+              try:
+                  ast.parse(f.read_text(encoding='utf-8'))
+              except SyntaxError as e:
+                  print(f'[FAIL] ast.parse: {f}: {e}')
+                  errors += 1
+          if errors:
+              sys.exit(f'❌ {errors} file(s) failed syntax validation')
+          else:
+              print(f'✅ All {len(list(root.rglob(\"*.py\")))} Python files passed syntax validation')
+          "
 
       - name: Check code style (ruff)
         run: |
@@ -159,9 +167,9 @@ else:
 
   # ═══════════════════════════════════════════════════════════════════════════
   # U2: Integration tests — touch disk, database, or external fakes
+  # Runs on both PR and push to main to catch regressions early.
   # ═══════════════════════════════════════════════════════════════════════════
   integration:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -175,9 +183,17 @@ else:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+
+      - name: Cache .venv
+        uses: actions/cache@v4
+        id: venv-cache-integration
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-venv-${{ matrix.python-version }}-
 
       - name: Install dependencies
+        if: steps.venv-cache-integration.outputs.cache-hit != 'true'
         run: |
           pip install -e ".[dev]"
 
@@ -191,12 +207,15 @@ else:
         # Run without -m filter to measure combined coverage. --cov-fail-under=80
         # is set on the CLI, not addopts, to avoid conftest module-load silencing
         # (see docs/solutions/test-failures/strict-markers-addopts-noop-conftest-module-load-2026-06-01.md).
-        # Baseline: 83.2% measured 2026-06-09; floor set at 80% to prevent regressions.
+        # Baseline: 83.2% measured 2026-06-09; floor set at 80% to prevent
+        # regressions. Both pre-reconcile lineages carried this gate; the
+        # debt-registry claim 'no-coverage-gate: resolved' depends on it
+        # (tests/test_debt_registry_freshness.py).
         run: |
           python -m pytest tests/ --tb=short --timeout=60 -n auto --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:coverage-full.json --cov-fail-under=80
 
       - name: Upload full coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-full-${{ matrix.python-version }}
           path: coverage-full.json
@@ -204,9 +223,9 @@ else:
 
   # ═══════════════════════════════════════════════════════════════════════════
   # U2: E2E tests — full end-to-end requiring real network or browser
+  # Runs on both PR and push to main.
   # ═══════════════════════════════════════════════════════════════════════════
   e2e:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -220,9 +239,17 @@ else:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+
+      - name: Cache .venv
+        uses: actions/cache@v4
+        id: venv-cache-e2e
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-venv-${{ matrix.python-version }}-
 
       - name: Install dependencies
+        if: steps.venv-cache-e2e.outputs.cache-hit != 'true'
         run: |
           pip install -e ".[dev]"
 
@@ -274,7 +301,7 @@ else:
           python -m pytest tests/test_benchmarks.py --benchmark-only --benchmark-json=benchmark-result.json -v --tb=short
 
       - name: Upload benchmark result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-result-${{ github.sha }}
           path: benchmark-result.json
@@ -285,7 +312,7 @@ else:
         # baseline run" step below only ever needs the most recent successful
         # run of this workflow on main — no manual pruning of old baselines.
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-baseline
           path: benchmark-result.json
@@ -303,7 +330,7 @@ else:
       - name: Download main baseline
         if: github.event_name == 'pull_request' && steps.baseline_run.outputs.run_id != ''
         continue-on-error: true  # missing/expired baseline artifact must not fail the job — see compare step
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: benchmark-baseline
           path: baseline

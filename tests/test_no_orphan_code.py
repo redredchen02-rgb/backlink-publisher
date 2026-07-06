@@ -16,7 +16,6 @@ ALLOWLIST: set[str] = {
     "cli/publish_backlinks/__main__.py",
     "cli/spray_backlinks/__main__.py",
     # True orphans — not imported by any code path
-    "_util/http_session.py",
     "cli/verify_backlinks.py",
     "config/parsers/click_track.py",
     "events/history_importer.py",
@@ -43,6 +42,9 @@ ALLOWLIST: set[str] = {
     # CLI boilerplate + formatting — imported dynamically
     "cli/_shared.py",
     "_util/cli_format.py",
+    # sys.modules alias shim — referenced only via mock.patch dotted strings
+    # in tests/test_dedup_enforce_gate.py, which the static scanner can't see.
+    "cli/admin/_resume.py",
 }
 
 

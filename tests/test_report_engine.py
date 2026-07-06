@@ -1,6 +1,6 @@
 """Unit tests for the pure report-anchors engine (thin-WebUI Phase 2 Unit 7).
 
-Tests :func:`backlink_publisher.cli._report_engine.report_from_profile` and
+Tests :func:`backlink_publisher.cli.publish._report_engine.report_from_profile` and
 :func:`~.report_from_rows` DIRECTLY — no stdin/stdout, no SystemExit, no banner.
 The engine is the shared kernel behind both the CLI shell
 (``cli/report_anchors.py``) and the in-process ``PipelineAPI.report_anchors``.
@@ -122,19 +122,19 @@ def test_report_from_profile_no_alarm(tmp_path):
 
     with (
         patch(
-            "backlink_publisher.cli._report_engine.load_profile",
+            "backlink_publisher.cli.publish._report_engine.load_profile",
             return_value=_stub_profile(),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._build_profile_report",
+            "backlink_publisher.cli.publish._report_engine._build_profile_report",
             return_value={"alarm": None},
         ),
         patch(
-            "backlink_publisher.cli._report_engine._compute_alarm",
+            "backlink_publisher.cli.publish._report_engine._compute_alarm",
             return_value=(alarm_block, []),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._format_profile_report_json",
+            "backlink_publisher.cli.publish._report_engine._format_profile_report_json",
             return_value='{"ok": true}',
         ),
     ):
@@ -155,19 +155,19 @@ def test_report_from_profile_alarm_breach(tmp_path):
 
     with (
         patch(
-            "backlink_publisher.cli._report_engine.load_profile",
+            "backlink_publisher.cli.publish._report_engine.load_profile",
             return_value=_stub_profile(),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._build_profile_report",
+            "backlink_publisher.cli.publish._report_engine._build_profile_report",
             return_value={"alarm": None},
         ),
         patch(
-            "backlink_publisher.cli._report_engine._compute_alarm",
+            "backlink_publisher.cli.publish._report_engine._compute_alarm",
             return_value=(alarm_block, breach_lines),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._format_profile_report_json",
+            "backlink_publisher.cli.publish._report_engine._format_profile_report_json",
             return_value='{"alarm": "breach"}',
         ),
     ):
@@ -186,19 +186,19 @@ def test_report_from_profile_does_not_write_stdout(capsys):
     cfg = _stub_config_for_report()
     with (
         patch(
-            "backlink_publisher.cli._report_engine.load_profile",
+            "backlink_publisher.cli.publish._report_engine.load_profile",
             return_value=_stub_profile(),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._build_profile_report",
+            "backlink_publisher.cli.publish._report_engine._build_profile_report",
             return_value={},
         ),
         patch(
-            "backlink_publisher.cli._report_engine._compute_alarm",
+            "backlink_publisher.cli.publish._report_engine._compute_alarm",
             return_value=({"any_breach": False}, []),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._format_profile_report_json",
+            "backlink_publisher.cli.publish._report_engine._format_profile_report_json",
             return_value="{}",
         ),
     ):
@@ -222,19 +222,19 @@ def test_pipeline_api_report_anchors_returns_pipe_result():
     with (
         patch("backlink_publisher.config.load_config", return_value=cfg_mock),
         patch(
-            "backlink_publisher.cli._report_engine.load_profile",
+            "backlink_publisher.cli.publish._report_engine.load_profile",
             return_value=_stub_profile(),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._build_profile_report",
+            "backlink_publisher.cli.publish._report_engine._build_profile_report",
             return_value={},
         ),
         patch(
-            "backlink_publisher.cli._report_engine._compute_alarm",
+            "backlink_publisher.cli.publish._report_engine._compute_alarm",
             return_value=(alarm_block, []),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._format_profile_report_json",
+            "backlink_publisher.cli.publish._report_engine._format_profile_report_json",
             return_value='{"ok": 1}',
         ),
     ):
@@ -257,19 +257,19 @@ def test_pipeline_api_report_anchors_alarm_is_advisory():
     with (
         patch("backlink_publisher.config.load_config", return_value=cfg_mock),
         patch(
-            "backlink_publisher.cli._report_engine.load_profile",
+            "backlink_publisher.cli.publish._report_engine.load_profile",
             return_value=_stub_profile(),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._build_profile_report",
+            "backlink_publisher.cli.publish._report_engine._build_profile_report",
             return_value={},
         ),
         patch(
-            "backlink_publisher.cli._report_engine._compute_alarm",
+            "backlink_publisher.cli.publish._report_engine._compute_alarm",
             return_value=(alarm_block, breach_lines),
         ),
         patch(
-            "backlink_publisher.cli._report_engine._format_profile_report_json",
+            "backlink_publisher.cli.publish._report_engine._format_profile_report_json",
             return_value='{"alarm": true}',
         ),
     ):
