@@ -330,7 +330,7 @@ jobs:
       - name: Download main baseline
         if: github.event_name == 'pull_request' && steps.baseline_run.outputs.run_id != ''
         continue-on-error: true  # missing/expired baseline artifact must not fail the job — see compare step
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: benchmark-baseline
           path: baseline
