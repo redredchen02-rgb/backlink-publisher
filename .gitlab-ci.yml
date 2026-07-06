@@ -6,6 +6,13 @@
 # PYTHONHASHSEED=0 is required by the Footprint Regression Gate at interpreter
 # startup — Python freezes hash randomisation at process start, so it must be
 # set in the job environment (a no-op if set later inside Python).
+#
+# Keep/remove decision (plan 2026-07-02-001 U12, 2026-07-06): KEEP. The GitHub
+# account is currently suspended, making this file the only working CI for the
+# `gitlab` remote — it has a live consumer by definition. Known sync gap: the
+# frontend lane (.github/workflows/frontend.yml — eslint + vue-tsc + vitest +
+# vite build) has NO GitLab mirror; if GitHub stays unavailable long-term, port
+# that lane here rather than letting SPA changes ride unverified.
 
 workflow:
   rules:

@@ -20,7 +20,6 @@ import {
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const QKEY = ['history']
 const qc = useQueryClient()
@@ -41,7 +40,11 @@ const busy = ref(false)
 
 function toggle(id: string): void {
   const next = new Set(selected.value)
-  next.has(id) ? next.delete(id) : next.add(id)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
   selected.value = next
 }
 

@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint src --max-warnings 0"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.101.0",
@@ -20,9 +21,13 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.4.11",
+    "eslint": "^10.6.0",
+    "eslint-plugin-vue": "^10.9.2",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.1",
     "vite": "^8.0.16",
     "vitest": "^4.1.9",
     "vue-tsc": "^3.3.5"
