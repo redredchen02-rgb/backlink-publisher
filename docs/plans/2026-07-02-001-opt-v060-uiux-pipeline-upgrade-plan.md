@@ -253,7 +253,7 @@ graph TB
 
 **Verification:** `PYTHONPATH=src pytest tests/ -m "unit"` 於 main 分支全綠——殘餘若無法全修，透過 K3 例外的 shrink-only 隔離清單達成 gate 綠，且清單逐條有根因與追蹤項（「gate 綠」是硬條件，「零殘餘」不是）；guard test 進 CI。
 
-- [ ] **U2: Docker healthcheck 切換到 `/api/v1/health`〔R2〕**
+- [x] **U2: Docker healthcheck 切換到 `/api/v1/health`〔R2〕**（2026-07-06，分支 `fix/u2-docker-healthcheck-switch`，見下方執行記錄）
 
 **Goal:** 容器健康檢查脫離 legacy Jinja 路由，為 U9 退役解除部署面依賴。
 
@@ -272,6 +272,8 @@ graph TB
 - (a) 容器**能**啟動（deepening 判斷被推翻）→ 依原標準驗證：`docker compose up` 後容器 healthy；人工把某健康指標弄成 degraded（如撤 channel 憑證）確認容器**不**重啟。
 - (b) 容器確認**起不來**（Docker 路徑已死）→ 驗證改為：三處 curl 目標的 config diff 已指向 `/api/v1/health`；本地 `python webui.py` + `curl http://127.0.0.1:8888/api/v1/health` 回 200；degraded 情境對本地行程驗證；綁定姿態決策已記錄——compose 級驗證明確延到未來的容器復活任務。
 - 兩分支皆須：`/ce:health` 在 U9 之前仍照常 200。
+
+**執行記錄（2026-07-06，分支 `fix/u2-docker-healthcheck-switch`）：** 綁定姿態查證確認分支 (b)——容器路徑**已死，而且比 deepening 發現的更嚴重**：`Dockerfile` 兩個 stage 的 `CMD ["python", "serve.py"]` 指向的 `serve.py` 在整個 repo（含 git 全history）從未存在過，從 `69c2d9be`（Dockerfile 首次加入的 commit）就是這樣——容器連 entrypoint 都找不到，尚未走到會撞上 `BIND_HOST=0.0.0.0` vs `_resolve_bind_host()` 無條件 loopback-only 強制那一步。兩個死因均記錄在案，均超出 U2 範圍，本輪不修。已完成：三處 curl 目標（`docker-compose.yml` 一處、`Dockerfile` 兩處 HEALTHCHECK）改為 `/api/v1/health`。分支 (b) 驗證：`webui_app/api/v1/__init__.py` 的 `health()` 確認為純 liveness（無條件回 `{"status":"ok",...}`，無 degraded 分支）；本地 `python webui.py`（全新 config dir，模擬未發布過的降級情境）+ `curl http://127.0.0.1:8899/api/v1/health` 回 200；同一行程 `curl /health`（legacy）回 503 + `degraded_reasons:["pipeline:never_run"]`，證實兩者語意確實不同——`/api/v1/health` 不會因應用降級而 503，符合 K4 liveness 要求；`curl /ce:health` 回 200，U9 之前不受影響。容器級（`docker compose up`）驗證明確延後至未來的「容器復活」任務（需要先補 `serve.py` 或改回 `webui.py` 當 entrypoint，並處理 loopback 綁定與反代層面問題）。
 
 ---
 
