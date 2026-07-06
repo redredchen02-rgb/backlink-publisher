@@ -60,7 +60,7 @@ def _classify(input_expr: str) -> dict:
     )
     out = subprocess.run(
         [_NODE, "--input-type=module", "-e", driver],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, encoding="utf-8", timeout=30,
     )
     assert out.returncode == 0, f"node failed: {out.stderr}"
     return json.loads(out.stdout)
