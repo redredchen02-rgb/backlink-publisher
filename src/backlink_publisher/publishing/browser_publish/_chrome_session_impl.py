@@ -448,13 +448,13 @@ class ChromeAttachSession(AbstractContextManager):
                 continue
             try:
                 closer.close()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
 
         if self._pw_cm is not None:
             try:
                 self._pw_cm.__exit__(None, None, None)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
 
         if self._owned:
@@ -517,18 +517,18 @@ class ChromeAttachSession(AbstractContextManager):
             ctx = contexts[0] if contexts else self._browser.new_context()
             pages = ctx.pages
             return pages[0] if pages else ctx.new_page()
-        except Exception as exc:  # noqa: BLE001 — Playwright errors are opaque; propagate as ChromeSessionError
+        except Exception as exc:
             # Tear down any partial state then propagate as ChromeSessionError.
             for closer in (self._browser,):
                 if closer is not None:
                     try:
                         closer.close()
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         pass
             if self._pw_cm is not None:
                 try:
                     self._pw_cm.__exit__(None, None, None)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     pass
             self._teardown_owned_proc()
             raise ChromeSessionError("chrome_cdp_unavailable") from exc
@@ -571,7 +571,7 @@ def _default_version_probe(base: str, timeout_s: float = 1.0) -> dict | None:
             raw = resp.read()
     except (TimeoutError, urllib.error.URLError, ConnectionError):
         return None
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
     try:
         data = json.loads(raw)

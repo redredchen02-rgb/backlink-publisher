@@ -148,15 +148,15 @@ def _default_reverify(result: dict[str, Any], store: Any) -> dict[str, Any]:
         )
         if article_id is not None:
             verdict = {**verdict, "article_id": article_id}
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         emit_recheck(store, [verdict])
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         write_verified_at(store, [verdict])
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return verdict
 
@@ -176,7 +176,7 @@ def _effective_sticky(runtime_sticky: tuple[str, ...], opt_state: Any = None) ->
             opt_state = OptimizationState()
         filtered = [p for p in runtime_sticky if opt_state.get_weight(p, default=1.0) > 0.0]
         return filtered
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("OptimizationState unavailable, using full sticky list: %s", exc)
         return list(runtime_sticky)
 
@@ -211,7 +211,7 @@ def _update_opt_stats(platform: str, verdict: str, opt_state: Any = None, langua
             if verdict == "alive":
                 entry["dofollow_count"] = entry.get("dofollow_count", 0) + 1
             opt_state.save(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("Failed to update optimization stats for %s: %s", platform, exc)
 
 
@@ -235,16 +235,16 @@ def _run_recheck_stage(
             break
         try:
             r = _probe(candidate)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             r = {**candidate, "verdict": "probe_error", "reason": f"probe error: {exc}"}
         results.append(r)
         try:
             _emit(store, [r])
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.debug("emit_recheck failed", exc_info=True)
         try:
             _vat(store, [r])
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.debug("write_verified_at failed", exc_info=True)
     _log.recon("keepalive_recheck_done", probed=len(results))
     return results
@@ -280,7 +280,7 @@ def _run_publish_step(
     for seed in seeds:
         try:
             result = _publish(seed)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             result = {
                 "target_url": seed.get("target_url"),
                 "platform": seed.get("platform"),
@@ -317,7 +317,7 @@ def _run_reverify_step(
         target_url = result.get("target_url") or ""
         try:
             verdict_dict = _reverify(result)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             verdict_dict = {"verdict": "probe_error", "reason": str(exc)}
         v = verdict_dict.get("verdict") or "probe_error"
         if v == "alive":

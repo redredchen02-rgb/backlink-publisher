@@ -152,7 +152,7 @@ def build_brief(record: dict[str, Any], provider: Any | None = None) -> dict[str
                 anchor_policy=anchor_policy,
             )
             source = "llm"
-        except Exception:  # noqa: BLE001 — never crash, never log the raw exception
+        except Exception:
             raw = None
             source = "template"
             brief_logger.recon("comment_brief_llm_fallback", target_id=target_id)
@@ -191,7 +191,7 @@ def _load_provider() -> Any | None:
         from backlink_publisher.config.loader import load_config
 
         cfg = load_config()
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
     provider_cfg = getattr(cfg, "llm_anchor_provider", None)
     if provider_cfg is None:
@@ -209,7 +209,7 @@ def _load_provider() -> Any | None:
             temperature=provider_cfg.temperature,
             system_prompt=None,  # generate_comment_draft uses its own system message
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 

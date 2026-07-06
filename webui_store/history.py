@@ -43,7 +43,7 @@ class HistoryStore:
 
     def load(self) -> list[dict[str, Any]]:
         if self._path is None:
-            from backlink_publisher.events.history_query import list_history  # noqa: PLC0415
+            from backlink_publisher.events.history_query import list_history
             return list_history()
         if not self._path.exists():
             return []
@@ -55,7 +55,7 @@ class HistoryStore:
     def save(self, items: list[dict[str, Any]]) -> None:
         if self._path is None:
             return  # no-op in events.db mode
-        from backlink_publisher.persistence.safe_write import atomic_write  # noqa: PLC0415
+        from backlink_publisher.persistence.safe_write import atomic_write
         atomic_write(self._path, json.dumps(items, ensure_ascii=False, indent=2))
 
     def update(self, fn: Callable[[Any], Any]) -> list[dict[str, Any]]:
@@ -71,7 +71,7 @@ class HistoryStore:
 
     def get_item(self, item_id: str) -> dict | None:
         if self._path is None:
-            from backlink_publisher.events.history_query import get_history_item  # noqa: PLC0415
+            from backlink_publisher.events.history_query import get_history_item
             return get_history_item(item_id)
         items = self.load()
         return next((it for it in items if str(it.get("id", "")) == str(item_id)), None)
@@ -155,7 +155,7 @@ class HistoryStore:
             aid = int(item_id)
         except (ValueError, TypeError):
             return False
-        from backlink_publisher.events.store import EventStore  # noqa: PLC0415
+        from backlink_publisher.events.store import EventStore
         store = EventStore()
         sets: list[str] = []
         params: list[Any] = []

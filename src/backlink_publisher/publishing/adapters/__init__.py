@@ -153,9 +153,9 @@ def register_all_adapters() -> None:
         return
     # Deferred imports: avoid loading heavy adapter modules at import time.
     from ..browser_publish import BrowserPublishDispatcher
-    from ..browser_publish.recipes import devto as _devto_recipe  # noqa: F401
-    from ..browser_publish.recipes import mastodon as _mastodon_recipe  # noqa: F401
-    from ..browser_publish.recipes import velog as _velog_recipe  # noqa: F401
+    from ..browser_publish.recipes import devto as _devto_recipe
+    from ..browser_publish.recipes import mastodon as _mastodon_recipe
+    from ..browser_publish.recipes import velog as _velog_recipe
     from .blogger_api import BloggerAPIAdapter
     from .devto_api import DevtoAPIAdapter
     from .ghpages import GitHubPagesAPIAdapter
@@ -163,7 +163,7 @@ def register_all_adapters() -> None:
     from .hackmd_api import HackmdAPIAdapter
     from .hashnode_graphql import HashnodeGraphQLAdapter
     from .hatena_atompub import HatenaAtomPubAdapter
-    from .instant_web import TelegraphCdpAdapter  # noqa: F401
+    from .instant_web import TelegraphCdpAdapter
     from .linkedin_api import LinkedInAPIAdapter
     from .livejournal_api import _livejournal_credential_saver, LivejournalAPIAdapter
     from .mataroa_api import MataroaAPIAdapter

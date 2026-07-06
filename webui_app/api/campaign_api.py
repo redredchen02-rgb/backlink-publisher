@@ -68,7 +68,7 @@ class CampaignAPI:
                 # debt: campaign-bootstrap-status-fail-soft
                 pass
             return partition_channels_by_connection(dashboard_channels, statuses)
-        except Exception:  # noqa: BLE001 — fail-soft to flat list
+        except Exception:
             # debt: campaign-bootstrap-status-fail-soft
             return None
 
@@ -105,7 +105,7 @@ class CampaignAPI:
                 worker.start_campaign(campaign_id, {
                     "platforms": platforms, "mode": mode, "cap": cap, "seed_delay": seed_delay,
                 })
-        except Exception:  # noqa: BLE001 — worker dispatch is best-effort
+        except Exception:
             # debt: campaign-worker-dispatch-best-effort
             pass
 

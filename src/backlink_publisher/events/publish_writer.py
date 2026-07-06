@@ -64,7 +64,7 @@ def write_event(
             host=host,
             article_id=article_id,
         )
-    except Exception:  # noqa: BLE001 — events.db failure must never break the caller
+    except Exception:
         log.warning(
             "publish_writer: failed to write event kind=%s target_url=%s",
             kind, target_url,
@@ -202,12 +202,12 @@ def write_publish_result(item: dict, store: EventStore | None = None) -> int | N
         for qr in pending:
             try:
                 s.quarantine(**qr)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.debug("publish_writer: quarantine flush failed: %r", qr)
 
         return article_id
 
-    except Exception:  # noqa: BLE001 — events.db failure must never break publishing
+    except Exception:
         log.warning(
             "publish_writer: failed to write result kind=%s target_url=%s",
             kind,

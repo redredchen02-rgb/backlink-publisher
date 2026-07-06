@@ -343,7 +343,7 @@ class OpenAICompatibleProvider:
             )
         except (ExternalServiceError, DependencyError):
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise DependencyError(
                 f"LLM comment draft call failed: {_redact_for_log(str(exc))}"
             ) from exc

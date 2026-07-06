@@ -229,7 +229,7 @@ def _persist_storage_state(
         storage_state_provider(path=str(tmp_path))
         os.chmod(tmp_path, 0o600)
         os.replace(tmp_path, resolved)
-    except Exception as exc:  # noqa: BLE001 — storage_state() is Playwright; OSError for file ops
+    except Exception as exc:
         # Best-effort cleanup; mask filesystem errors as PersistIOError
         try:
             if tmp_path.exists():
@@ -444,10 +444,10 @@ class _PlaywrightBrowserRunner:
                 headless=False,
                 args=["--disable-blink-features=AutomationControlled"],
             )
-        except Exception as exc:  # noqa: BLE001 — Playwright errors are opaque
+        except Exception as exc:
             try:
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             # "User data directory is already in use" means another Chromium
             # instance is holding the profile lock — surface a distinct code
@@ -464,11 +464,11 @@ class _PlaywrightBrowserRunner:
         page = context.pages[0] if context.pages else context.new_page()
         try:
             page.goto(recipe.login_url, wait_until="domcontentloaded")
-        except Exception as exc:  # noqa: BLE001 — Playwright errors are opaque
+        except Exception as exc:
             try:
                 context.close()
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             raise PlaywrightLaunchError("login_url_unreachable") from exc
 
@@ -480,14 +480,14 @@ class _PlaywrightBrowserRunner:
             try:
                 context.close()
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             raise BoundPredicateTimeout() from exc
-        except Exception:  # noqa: BLE001 — re-raise after teardown; Playwright errors are opaque
+        except Exception:
             try:
                 context.close()
                 pw.stop()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             raise
 
@@ -506,7 +506,7 @@ class _PlaywrightBrowserRunner:
                 try:
                     context.close()
                     pw.stop()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     pass
 
         return _provider

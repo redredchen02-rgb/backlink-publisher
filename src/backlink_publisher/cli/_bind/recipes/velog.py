@@ -80,7 +80,7 @@ def _velog_bound_predicate(page: Any) -> None:
     try:
         from playwright.sync_api import TimeoutError as PWTimeoutError
 
-        del PWTimeoutError  # noqa: F841  imported for runtime availability
+        del PWTimeoutError
     except ImportError:
         pass
 

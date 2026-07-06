@@ -361,7 +361,7 @@ def inspect_target_anchor(
 
     try:
         canonical_target = _canonicalize_for_match(target_url)
-    except Exception:  # noqa: BLE001 — never-raise contract
+    except Exception:
         canonical_target = None
 
     # Distinguish "target_url itself is malformed/uncanonicalizable" from
@@ -386,7 +386,7 @@ def inspect_target_anchor(
             try:
                 if _canonicalize_for_match(effective) != canonical_target:
                     continue
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
             rel = _tag_rel(tag)
             result["target_anchor_found"] = True
@@ -414,7 +414,7 @@ def _canonicalize_for_match(href: str) -> str | None:
         return None
     try:
         return canonicalize_url(href)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 
@@ -479,7 +479,7 @@ def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tupl
 
     try:
         resp = _pf._PREFLIGHT_OPENER.open(req, timeout=effective_timeout)
-    except Exception as exc:  # noqa: BLE001 — never-raise; classify generically
+    except Exception as exc:
         return b"", _classify_fetch_error(exc)
 
     try:
@@ -490,9 +490,9 @@ def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tupl
         finally:
             try:
                 resp.close()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
-    except Exception:  # noqa: BLE001
+    except Exception:
         return b"", "network_error"
 
     # Post-redirect SSRF re-check of the final URL (narrows DNS-rebinding window).

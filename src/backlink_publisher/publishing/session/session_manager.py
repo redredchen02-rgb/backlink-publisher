@@ -24,7 +24,7 @@ from backlink_publisher.publishing._manifest_types import SessionDescriptor
 
 # Module-level name so tests can patch it via
 # "...session.session_manager.get_descriptor"
-from backlink_publisher.publishing._registry_manifest import session as get_descriptor  # noqa: E402
+from backlink_publisher.publishing._registry_manifest import session as get_descriptor
 
 from .credential import Credential
 from .provider import CredentialProvider

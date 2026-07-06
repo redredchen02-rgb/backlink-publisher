@@ -211,7 +211,7 @@ def _canary_gate(
                 f"canary 偵測到契約漂移(advisory,仍照常發布);"
                 f"請複查 adapter / 重新 seed canary,或 flip 成 hard_skip"
             )
-    except Exception as exc:  # noqa: BLE001 — fail-open: never block publish on canary read error
+    except Exception as exc:
         publish_logger.debug(f"[canary] gate read failed for {platform!r}: {exc}")
         return False, None
     return False, None
@@ -443,7 +443,7 @@ def _record_publish_path(platform: str, result: Any, row: dict[str, Any]) -> int
         )
         verdict = STATUS_DRIFT_CONFIRMED if is_drift else STATUS_LINK_ALIVE
         record_publish_path_verdict(platform, verdict)
-    except Exception as _exc:  # noqa: BLE001
+    except Exception as _exc:
         publish_logger.debug(
             f"[publish-path-canary] store write failed for {platform!r}: {_exc}"
         )  # advisory — never fail publish

@@ -166,10 +166,10 @@ class TelegraphCdpAdapter(Publisher):
     """Publish to telegra.ph through the public browser composer."""
 
     @classmethod
-    def available(cls, config: Config) -> bool:  # noqa: ARG003
+    def available(cls, config: Config) -> bool:
         return _ChromeSession.available()
 
-    def publish(self, payload: dict[str, Any], mode: str, config: Config) -> AdapterResult:  # noqa: ARG002
+    def publish(self, payload: dict[str, Any], mode: str, config: Config) -> AdapterResult:
         if mode == "draft":
             return AdapterResult(
                 status="drafted",

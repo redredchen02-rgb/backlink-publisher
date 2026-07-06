@@ -35,7 +35,7 @@ import uuid
 
 from backlink_publisher._util.errors import UsageError
 from backlink_publisher.events import EventStore
-from backlink_publisher.events._project_helpers import (  # noqa: F401 — re-exported; core home is events._project_helpers
+from backlink_publisher.events._project_helpers import (
     _ensure_article,
 )
 from backlink_publisher.recheck.events_io import emit_recheck, write_verified_at
@@ -94,7 +94,7 @@ def _default_reverify(result: dict, store: EventStore) -> dict:
         verdict = {**verdict, "article_id": article_id}
     try:
         emit_recheck(store, [verdict])
-    except Exception:  # noqa: BLE001 — a write failure must not lose the verdict signal
+    except Exception:
         pass
     # Mirror the regular recheck job: update articles.verified_at so the ledger
     # reflects the new alive link on the next build_ledger call. Without this,
@@ -102,7 +102,7 @@ def _default_reverify(result: dict, store: EventStore) -> dict:
     # until the next scheduled recheck job runs write_verified_at itself.
     try:
         write_verified_at(store, [verdict])
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return verdict
 
@@ -181,17 +181,17 @@ class KeepaliveJobRegistry:
                         return
                 try:
                     result = probe_fn(cand)
-                except Exception as exc:  # noqa: BLE001 — a bad link never aborts the batch
+                except Exception as exc:
                     result = {**cand, "verdict": _PROBE_ERROR, "reason": f"probe error: {exc}"}
                 # Append-only: one link.rechecked event per result. A write
                 # failure must not crash the worker or lose progress.
                 try:
                     emit_recheck(store, [result])
-                except Exception:  # noqa: BLE001
+                except Exception:
                     pass
                 try:
                     write_verified_at(store, [result])
-                except Exception:  # noqa: BLE001
+                except Exception:
                     pass
                 with self._lock:
                     job.checked += 1
@@ -203,7 +203,7 @@ class KeepaliveJobRegistry:
             with self._lock:
                 if job.status == "running":
                     job.status = "done"
-        except Exception as exc:  # noqa: BLE001 — surface, never hang
+        except Exception as exc:
             with self._lock:
                 job.status = "error"
                 job.error = f"recheck job failed: {exc}"
@@ -443,7 +443,7 @@ class KeepaliveJobRegistry:
             for seed in plan:
                 try:
                     result = publish_fn(seed)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     result = {
                         "target_url": seed.get("target_url"), "platform": seed.get("platform"),
                         "published_url": "", "status": "failed", "error": f"publish error: {exc}",
@@ -460,7 +460,7 @@ class KeepaliveJobRegistry:
                             "article_urls": [result["published_url"]],
                             "verified_at": None,
                         })
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         pass
                 with self._lock:
                     job.results.append(result)
@@ -479,7 +479,7 @@ class KeepaliveJobRegistry:
             for res in ok_results:
                 try:
                     verdict = recheck_fn(res)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     verdict = {"verdict": _PROBE_ERROR, "reason": f"reverify error: {exc}"}
                 v = verdict.get("verdict") or _PROBE_ERROR
                 with self._lock:
@@ -498,7 +498,7 @@ class KeepaliveJobRegistry:
                 job.state = self._republish_state(job)
                 job.phase = "done"
                 job.status = "done"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             with self._lock:
                 job.status = "error"
                 job.error = f"republish job failed: {exc}"

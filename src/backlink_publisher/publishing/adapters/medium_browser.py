@@ -156,7 +156,7 @@ def _safe_mark_expired() -> None:
     try:
         from webui_store.channel_status import mark_expired
         mark_expired("medium")
-    except Exception as exc:  # noqa: BLE001 — defensive
+    except Exception as exc:
         log.warning(
             f"medium_browser: mark_expired('medium') failed during auth-expired "
             f"propagation: {type(exc).__name__}: {exc}"
@@ -198,7 +198,7 @@ def _refresh_cookies(context: Any) -> None:
             except OSError:
                 pass
             raise
-    except Exception as exc:  # noqa: BLE001 — best-effort refresh
+    except Exception as exc:
         log.warning(
             f"medium_browser: failed to refresh medium-cookies.json: "
             f"{type(exc).__name__}: {exc}"

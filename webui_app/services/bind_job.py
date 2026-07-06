@@ -176,7 +176,7 @@ class BindJobRegistry:
                                     old_account=str(old),
                                     new_account=str(new),
                                 )
-                            except Exception:  # noqa: BLE001
+                            except Exception:
                                 # Store-write failure shouldn't crash the
                                 # reader thread; the failed event is already
                                 # recorded on the BindJob for the poll API.

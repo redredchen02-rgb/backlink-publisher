@@ -58,7 +58,7 @@ def _get_body(url: str) -> tuple[int, str]:
         return code, body
     except (OSError, ValueError) as exc:
         return 0, str(exc)
-    except Exception as exc:  # noqa: BLE001 — log programming errors
+    except Exception as exc:
         from backlink_publisher._util.logger import opencli_logger
         opencli_logger.warning(
             "linkcheck/verify: unexpected error for %s: %s %s", url, type(exc).__name__, exc

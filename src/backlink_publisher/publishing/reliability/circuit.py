@@ -489,7 +489,7 @@ def _auto_reset(platform: str, config: Config) -> None:
                 log.info("circuit_auto_reset", event="circuit_auto_reset", platform=platform)
         finally:
             _release_lock(fd)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
 

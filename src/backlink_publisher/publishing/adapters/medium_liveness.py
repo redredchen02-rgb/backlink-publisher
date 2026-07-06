@@ -103,7 +103,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
                 page = context.new_page()
                 try:
                     page.goto("https://medium.com/me", timeout=8000)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     log.warning(
                         f"medium_liveness: goto failed: "
                         f"{type(exc).__name__}: {exc}"
@@ -113,7 +113,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
             finally:
                 try:
                     browser.close()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     pass
 
         # Outcome classification — order matters: a Cloudflare challenge URL
@@ -133,7 +133,7 @@ def _active_probe(storage_state: dict[str, Any]) -> LivenessResult:
             f"needs_recheck"
         )
         return LivenessResult.NEEDS_RECHECK
-    except Exception as exc:  # noqa: BLE001 — defensive
+    except Exception as exc:
         log.warning(
             f"medium_liveness: active probe failed: "
             f"{type(exc).__name__}: {exc}"

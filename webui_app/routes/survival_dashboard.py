@@ -36,7 +36,7 @@ def survival_dashboard_jinja() -> Any:
         view = build_survival_view()
         return _render("survival_dashboard.html", view=view,
                        active_page="survival_dashboard")
-    except Exception:  # noqa: BLE001 — never 500 the page
+    except Exception:
         _log.warning("survival-dashboard: render failed", exc_info=True)
         view = {"state": "unavailable", "headline": "暂时不可用",
                 "sub": "读取存活数据时出错", "display": "—", "has_rate": False,
@@ -52,7 +52,7 @@ def api_survival() -> Any:
     try:
         view = build_survival_view()
         return jsonify(view)
-    except Exception:  # noqa: BLE001 — never 500
+    except Exception:
         _log.warning("api/survival: build failed", exc_info=True)
         return jsonify({"state": "unavailable", "headline": "暂时不可用",
                         "sub": "", "display": "—", "has_rate": False,
