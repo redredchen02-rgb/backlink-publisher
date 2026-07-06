@@ -191,7 +191,6 @@ def test_revoke_blogger_absent_token_still_ok(client, _isolated_config_dir):
 
 def test_revoke_blogger_delete_failure_is_502(client):
     cfg = MagicMock()
-    # revoke_blogger reads the blogger_token_path property.
     cfg.blogger_token_path.unlink.side_effect = OSError("locked")
     with patch("webui_app.api.oauth_api.load_config", return_value=cfg):
         resp = client.post("/api/v1/settings/blogger/revoke", headers=_headers())

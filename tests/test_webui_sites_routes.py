@@ -200,7 +200,7 @@ class TestPrQueueRoutes:
     """Contract tests for /pr-queue and /api/pr-queue (B1 PR opportunity queue)."""
 
     def test_get_pr_queue_page(self, client, monkeypatch):
-        """GET /pr-queue/jinja renders HTML (legacy fallback)."""
+        """GET /pr-queue/jinja renders HTML."""
         import webui_app.routes.pr_queue as pq_mod
 
         monkeypatch.setattr(pq_mod, "_load", lambda: [])

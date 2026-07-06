@@ -149,7 +149,7 @@ class TestEquityLedgerRoutes:
         # (test_get_equity_ledger above) covers the render path.
         resp = client.get("/ce:equity-ledger")
         assert resp.status_code == 302
-        assert "/app/equity-ledger" in resp.headers["Location"]
+        assert "/app/equity-ledger" in resp.location
 
     def test_post_equity_ledger_recheck_missing_csrf_or_body(self, client):
         resp = client.post("/ce:equity-ledger/recheck")
