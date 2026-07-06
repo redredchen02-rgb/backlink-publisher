@@ -1,7 +1,7 @@
 // Nav model for the console shell — Plan 2026-06-18-002 U4.
 //
-// Migration complete as of Sprint B1 (2026-07-02): all 13 navItems carry
-// `to` (isMigrated: true) — every entry routes in-SPA via RouterLink, no
+// Migration complete as of Sprint B1 (2026-07-02): all navItems carry `to`
+// (isMigrated: true) — every entry routes in-SPA via RouterLink, no
 // full-page reload. The `href` field is kept on the NavItem type as an
 // escape hatch for any future not-yet-migrated page, but nothing in
 // NAV_ITEMS currently uses it. IA groups outlive the migration:
@@ -38,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '优化权重', group: 'monitoring', to: '/optimization-status' }, // migrated in P13 B2
   { label: '权益总账', group: 'monitoring', to: '/equity-ledger' }, // migrated in P14 B1
   { label: '保活看板', group: 'monitoring', to: '/keep-alive' }, // migrated in P15 A1
+  { label: '发布健康看板', group: 'monitoring', to: '/health' }, // migrated in Plan 2026-07-02-001 U6
   // Plan 2026-07-01-002 Unit 8 — deliberately 'operations', NOT 'monitoring':
   // that group is exclusively ops-health dashboards (survival rate,
   // optimization weight, equity ledger, keep-alive); mixing in error-reporting
