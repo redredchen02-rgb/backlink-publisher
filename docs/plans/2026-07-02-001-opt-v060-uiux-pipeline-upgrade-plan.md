@@ -470,7 +470,9 @@ graph TB
 
 ### Phase 2 — Pipeline 升級
 
-- [ ] **U10: 發佈引擎 per-platform-lane 平行化〔R10〕**
+- [ ] **U10: 發佈引擎 per-platform-lane 平行化〔R10〕**〔**PARKED 2026-07-06**，量測閘門未通過，見下〕
+
+**Measurement gate result（2026-07-06，依本 unit Approach 第一段執行）：** 對本機全部遙測來源做了量測——`%APPDATA%acklink-publisher\events.db`（live）：`events` 0 列、`articles` 0 列（無任何 run_id/platform 記錄）；`%APPDATA%acklink-publisher\webui.db`（live）：`tasks` 0 列；repo `instance/webui.db`：`tasks` 0 列（僅 campaign 定義 11 筆）。結論：本機**不存在任何真實 publish run 的歷史記錄**，遑論混平台 run——「intra-run 混平台並行」的收益前提（同一 run 內共存多個 API-tier 平台且阻塞顯著）完全沒有資料佐證。依本 unit 自身的閘門條款降級為 **parked**。恢復觸發點：累積 ≥2–3 次真實混平台 run 的遙測（events.db `articles` 按 run_id 分組出現多平台），且序列阻塞（如 Medium 節流 sleep）在單 run 內佔比顯著時，重新評估。閘門量測分支：`docs/u10-measurement-gate-parked`。
 
 **Goal:** 一次 `publish_rows` 呼叫內，不同平台的列並行發佈（每平台一條 lane、lane 內序列），同平台節流語意不變;吞吐從「全序列」升級為「以最慢平台為界」。
 
