@@ -1,0 +1,94 @@
+{
+  "reviewer": "adversarial",
+  "findings": [
+    {
+      "title": "scrub_text high-entropy fallback cannot mathematically catch hex-encoded secrets except at exactly 64 characters",
+      "confidence": 0.82,
+      "severity": "high",
+      "file": "src/backlink_publisher/events/scrubber.py",
+      "lines": "43-51, 92-110, 193-204",
+      "evidence": [
+        "scrub_text has exactly one named pattern for hex-shaped tokens, sha256_hex_token, anchored to precisely 64 hex characters. Any hex-encoded secret of a different length is not matched by any other named pattern unless it happens to be immediately preceded by one of the enumerated session/token key names.",
+        "The high-entropy fallback threshold is 4.5 bits per character. Shannon entropy over a 16-symbol alphabet (hex digits) has a hard mathematical ceiling of log2(16) = 4.0 bits per char, so it can never reach 4.5 regardless of length or randomness. This is directly derivable from the entropy function itself, not an empirical guess.",
+        "Constructed scenario: an exception message embeds a hex-encoded session key under an unrecognized field name, e.g. X-Session-Key: 3f9a2b7c1d4e6f80a1b2c3d4e5f60718 (32 hex chars). No named pattern matches (wrong length for the 64-char pattern, wrong key name for the session-token pattern) and the entropy fallback structurally cannot fire, so the value passes through scrub_text unredacted.",
+        "The existing red-path test in tests/test_bind_channel_chrome_backend.py only exercises a hex value immediately preceded by a recognized key name (sid=), so it is caught via the key-name pattern rather than the entropy fallback -- this gap is untested as well as unfixed."
+      ],
+      "recommendation": "Add a dedicated hex-token pattern covering lengths other than 64, or treat any long uninterrupted hex run as suspicious rather than gating solely on Shannon entropy computed against a threshold that assumes a wider alphabet.",
+      "autofix_class": "advisory",
+      "owner": "human"
+    },
+    {
+      "title": "scrub_text session-token pattern only recognizes an enumerated key-name allowlist; a bare token parameter in a URL query string evades redaction entirely for short values",
+      "confidence": 0.8,
+      "severity": "high",
+      "file": "src/backlink_publisher/events/scrubber.py",
+      "lines": "77-89",
+      "evidence": [
+        "The session_token pattern requires the value to be immediately preceded by one of a fixed set of key names: refresh-token, access-token, session-token, csrf-token, xsrf-token, auth-token, or the bare words sessionid, session, sid, csrf, xsrf. A bare token key by itself, without one of those prefixes, is not in the pattern at all -- any other credential-shaped key name (api key, secret, client secret, password) is likewise invisible regardless of value.",
+        "Constructed scenario matching the requested probe of a token embedded in a URL query string: an adapter or bind exception message reads something like: request to medium.com oauth callback with query state=xyz and token=aBcDeFgH1234 failed with 403. The token value does not match session_token (bare token key is not recognized), does not match any of the bearer, jwt, google key, hex, cookie header, or basic auth patterns, and at 12 characters is far short of the 32-character floor needed for the entropy fallback. It passes through scrub_text completely unredacted.",
+        "The same blind spot applies to a dict-shaped dump of a Playwright cookie object where the key is literally named value rather than one of the recognized names, when the paired value is under roughly 32 characters."
+      ],
+      "recommendation": "Broaden the session-token pattern to include a bare token key (with appropriate false-positive tuning), and add a generic credential-shaped key plus short opaque value pattern for the sub-32-character range the entropy fallback structurally cannot cover.",
+      "autofix_class": "advisory",
+      "owner": "human"
+    },
+    {
+      "title": "ChromeLaunchError detail attribute is written by the D3 fix as the designated escape hatch for diagnostic text, but no code anywhere reads it, so the underlying Chrome-launch failure detail is silently dropped rather than merely hidden from the WebUI",
+      "confidence": 0.68,
+      "severity": "low",
+      "file": "src/backlink_publisher/cli/_bind/chrome_backend.py",
+      "lines": "60-70",
+      "evidence": [
+        "chrome_backend.py raises ChromeLaunchError with a fixed error_code and the scrubbed text on a new detail keyword argument, and _driver_impl.py class docstring frames detail as the deliberately separate escape hatch for that raw diagnostic text.",
+        "A repository-wide search for uses of the detail attribute shows the only production write site is _driver_impl.py where the constructor assigns self.detail = detail. There is no production read site anywhere: bind_job.py correctly never reads it by design, but neither does bind_channel.py exception handling, because ChromeLaunchError is a bare RuntimeError rather than a PipelineError subclass, so it falls into the generic except Exception branch, whose str(exc) is only the error_code (the base Exception constructor was called with just the error_code, never the detail), so the scrubbed diagnostic text is never printed to stderr and never included in any JSONL event.",
+        "Net effect: the security property is correctly achieved (the WebUI never sees raw exception text as an enum value), but the diagnostic value this fix was framed as preserving is functionally write-only dead data in the current codebase -- a producer and consumer contract mismatch where the producer assumes a future consumer that does not yet exist."
+      ],
+      "recommendation": "Either wire the detail attribute into a stderr-only diagnostic print in bind_channel.py generic except-Exception branch (safe, since stderr is documented in this project as an operator-facing, non-WebUI-mediated channel), or note in the class docstring that detail is currently inert and forward-looking so a future reader does not assume it is already surfaced somewhere.",
+      "autofix_class": "advisory",
+      "owner": "human"
+    },
+    {
+      "title": "medium_browser Save Draft fix wraps both the click and the settle-wait in one try and except, so a successful click followed by an unrelated post-click exception is misreported as a click failure and aborts the publish with no fallback",
+      "confidence": 0.68,
+      "severity": "medium",
+      "file": "src/backlink_publisher/publishing/adapters/medium_browser.py",
+      "lines": "343-359",
+      "evidence": [
+        "The fixed code wraps page.locator(SAVE_DRAFT).click() and the immediately following page.wait_for_timeout(settle_ms) call inside one try block, and the except clause raises ExternalServiceError with a message asserting the click failed and the draft status is unconfirmed regardless of which of the two statements actually threw.",
+        "Medium is a client-side single-page app; a successful Save Draft click plausibly triggers a route or DOM change. Playwright click calls and any subsequent page-bound call are well documented across the Playwright and Puppeteer ecosystems to occasionally raise execution-context-destroyed or target-closed style errors precisely when a click causes navigation or re-render, that is, in the success case rather than the failure case.",
+        "Because ExternalServiceError is caught two frames up and re-raised after closing the context and browser, and the retry helper only retries PlaywrightTimeoutError, a misattributed exception here terminates the whole publish attempt with no retry and no fallback, reporting a plausible real success (Medium continuously autosaves editor content well before the explicit Save Draft click even fires) as a hard external-service failure.",
+        "The test added by this same commit, test_save_draft_click_failure_raises_instead_of_reporting_drafted, only sets the click side effect to a RuntimeError, proving the fix works when the click call itself throws. No test simulates the click succeeding and the immediately following settle-wait throwing, so this specific misattribution path is unexercised."
+      ],
+      "recommendation": "Split the try block so a click-raised exception is attributed to a click failure as today, while an exception raised only during the settle-wait after a successful click is treated as a separate, lower-confidence signal, ideally verified against draft state (URL or DOM check) before deciding whether to raise ExternalServiceError or accept the draft as saved.",
+      "autofix_class": "advisory",
+      "owner": "human"
+    }
+  ],
+  "residual_risks": [
+    {
+      "title": "D1 TransientError consolidation replaces four module-private exception classes with one shared, importable class, weakening the structural isolation that protected the no-5xx-retry-on-non-idempotent-creates invariant",
+      "confidence": 0.55,
+      "detail": "Before this diff, blogger_api.py, medium_api.py, and velog_graphql.py each defined their own private transient-HTTP-error class, so an isinstance check inside one adapter retry gate could only ever be satisfied by an exception that adapter own closure raised. The D1 refactor merges all four into one shared TransientError class in base.py, now also raised by llm_anchor_provider.py for 5xx responses, correctly, since its calls are idempotent read-only requests. The safety invariant that keeps medium_api, velog_graphql, and blogger_api non-idempotent create-POST retries safe, namely that TransientError must only ever represent a guaranteed pre-create rejection like HTTP 429 and never a 5xx or network timeout that could mean the create already landed server-side, is now documented only as a source comment in retry.py rather than enforced by the type system or a distinct subclass. Every current raise site is disciplined by inspection, so this is not a live bug today, but a future adapter for a non-idempotent create endpoint that imports the same shared class for a 5xx condition, or omits a custom retry predicate and falls back to the default predicate which treats any TransientError as retryable with no idempotency awareness, would silently retry an ambiguous post-create failure and risk a duplicate post, exactly the failure mode the original four separate classes structurally prevented."
+    },
+    {
+      "title": "velog and medium bound-predicate fail-closed except sites were individually re-verified; no combination of simultaneous cookie-read plus signed-in-UI exceptions produces a false bound-true result",
+      "confidence": 0.7,
+      "detail": "Traced every except-Exception site in the velog and medium bound predicates looking for the requested combination attack. In velog, the authed flag and the signed-in-UI flag both default to false on their respective exceptions, and the predicate only returns success when either is true, so no combination of the two swallowed exceptions can produce a true result. In medium, the gates are sequential (URL match, then cookie sanity, then username scrape); each swallowed exception degrades its own step to the fail-closed value, which causes the loop to continue before any later gate runs with stale state. No concrete input or state was found that flips these to a false positive. This is a positive finding, but it rests on code reading rather than an explicit combined-failure regression test; existing tests in test_bind_channel_recipes.py exercise each except site individually but never inject two failures in the same predicate iteration."
+    },
+    {
+      "title": "debt_registry.toml rationale prose describing scrub_text purpose is not itself a meaningful additional roadmap for evasion",
+      "confidence": 0.3,
+      "detail": "The new debt_registry.toml entries reference scrub_text and its call sites at a high level but do not quote the actual regex patterns, key-name allowlist, or the entropy parameters. Since events/scrubber.py is plain, already-committed source code readable by anyone with repository access, the debt registry does not add meaningfully new exposure beyond what the module itself already discloses. Flagged only because the task explicitly asked for this check; low severity and low confidence."
+    }
+  ],
+  "testing_gaps": [
+    {
+      "title": "No test exercises velog or medium bound-predicate behavior when two fail-closed except sites fire in the same polling iteration",
+      "detail": "Existing tests cover each except-Exception site individually (cookie read, URL read, signed-in-UI evaluate) asserting each never declares bound, but none simulate two of these failing simultaneously within a single loop iteration. This review found no path to a false positive from this combination, but an explicit combined-failure test would convert an analysis-based guarantee into a regression-proof one."
+    },
+    {
+      "title": "medium_browser Save Draft fix test only covers the click call itself throwing, not a successful click followed by a post-click exception",
+      "detail": "The added test only sets the click side effect to a RuntimeError, proving the fix works when the click call itself fails. No test simulates the click succeeding and the subsequent wait-for-timeout call raising, which is the scenario where a real success would be misreported as a failure per the finding above."
+    }
+  ]
+}

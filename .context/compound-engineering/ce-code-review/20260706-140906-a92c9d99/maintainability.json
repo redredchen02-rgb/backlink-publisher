@@ -1,0 +1,46 @@
+{
+  "reviewer": "maintainability",
+  "findings": [
+    {
+      "title": "C1's noqa cleanup deleted inline 'why broad except' rationale in files the debt-registry backfill (D2/D3) never reached",
+      "confidence": 0.72,
+      "severity": "medium",
+      "files": [
+        "webui_app/routes/health.py",
+        "webui_app/health_metrics.py",
+        "webui_app/__init__.py",
+        "src/backlink_publisher/keepalive/chain.py",
+        "src/backlink_publisher/content/scraper.py",
+        "webui_app/services/keepalive_job.py",
+        "webui_app/routes/health_actions.py",
+        "webui_app/routes/survival_dashboard.py",
+        "src/backlink_publisher/recheck/probe.py",
+        "src/backlink_publisher/publishing/reliability/policy.py",
+        "src/backlink_publisher/content/_preflight_fetch.py",
+        "src/backlink_publisher/comment_outreach/fetch.py"
+      ],
+      "commit": "4bf8b70f",
+      "description": "Commit 4bf8b70f (C1) removed 340 # noqa comments across 131 files. The commit message frames this as pure dead-comment removal verified via ruff check --extend-select RUF100 (0 remaining) and an identical before/after error count -- true for lint signal. But many of the removed comments were '# noqa: BLE001 -- <rationale>' (e.g. never 500 the page, read-only GET must never 500, fail-continue per plan, quarantine bookkeeping is non-critical) or import-provenance notes ('# noqa: E402,F401  (Plan 2026-06-18-002 U7)' in webui_app/api/v1/__init__.py). The noqa token was dead, but the trailing human-readable explanation of why a blind except-Exception is intentional was live documentation, and it was deleted along with it. Of 218 removed BLE001 noqa comments, 115 (over 50 percent) carried this kind of rationale text (verified via git show 4bf8b70f piped to grep). D2 (a5f8ba3a) and D3 (c104dd95), landing later in the same sweep, reintroduce this context as debt comments plus debt_registry.toml entries -- but only for publishing/adapters/ (D2) and cli/_bind/ + events/ (D3), i.e. roughly 102 of the repo's ~502 current except-Exception sites (pyproject.toml's own new comment cites '~465 sites at last count'). Cross-checking file-by-file: webui_app/routes/health.py alone lost 23 rationale-bearing annotations and has 0 debt_registry.toml entries; health_metrics.py lost 9 (0 entries); webui_app/__init__.py lost 7 (0 entries); keepalive/chain.py, content/scraper.py, services/keepalive_job.py, routes/health_actions.py, routes/survival_dashboard.py, recheck/probe.py, publishing/reliability/policy.py, content/_preflight_fetch.py, comment_outreach/fetch.py all lost rationale-bearing comments and have 0 registry coverage. The sweep's own plan doc (docs/plans/2026-07-06-002-opt-hidden-debt-hardening-sweep-plan.md) scopes D2/D3 to exactly 3 subsystems and never discusses backfilling the rest, so this is not a scheduled follow-up -- it is a side effect the 'no behavioral or lint-signal change' verification did not measure. The net effect for a future maintainer: dozens of bare except-Exception-as-exc blocks across the webui_app/ and pipeline layers now read as unexplained blind catches, with the original design intent recoverable only via git blame / git show on this commit, not from the file itself.",
+      "recommendation": "Either (a) scope C1 to strip only noqa tokens whose comment had no trailing rationale text, preserving the reason suffix as a plain comment where one existed, or (b) extend D2/D3-style classification to the remaining ~360 uncovered except-Exception sites (or at minimum the files identified above) so the deleted rationale is re-captured rather than silently lost."
+    },
+    {
+      "title": "TransientError's consolidated constructor dispatches on positional-arg count/type instead of using named parameters or a factory",
+      "confidence": 0.68,
+      "severity": "medium",
+      "files": [
+        "src/backlink_publisher/publishing/adapters/base.py"
+      ],
+      "commit": "0fb3885d",
+      "description": "D1 consolidates four duplicated _TransientHTTPError classes into base.py's TransientError, but instead of giving the unified class an explicit, self-documenting signature, it dispatches at runtime on *args: def __init__(self, *args): if args and isinstance(args[0], int) and not isinstance(args[0], bool): ... else: super().__init__(*args). This means the class supports three distinct call shapes -- TransientError(429) (bare status), TransientError(503, resp.text) (status+detail), and TransientError('some message') (legacy plain-message shape, still used in tests/test_adapter_base.py) -- none of which are visible from the signature (*args: Any erases all of them). The isinstance(args[0], int) and not isinstance(args[0], bool) guard exists only to work around Python's bool being an int subtype, which is itself a sign the design leans on an implicit type-sniffing trick rather than an explicit contract. A fifth call shape (e.g. a retry-after hint) would require another branch on arg count/type rather than a new named parameter. Contrast with ChromeLaunchError, introduced the same day in D3 (cli/_bind/_driver_impl.py:87-102), which solves an analogous 'legacy single-string constructor extended with a new field' problem cleanly: def __init__(self, error_code: str = 'chrome_not_available', *, detail: str | None = None). That sibling class shows the same repo, on the same day, choosing an explicit-named-parameter design for a directly comparable problem, which makes TransientError's stringly-typed dispatch read as an avoidable smell rather than a framework constraint. Test coverage for the new dual-shape behavior is also only incidental: tests/test_adapter_base.py has one test for the plain-string shape, and there is no direct unit test asserting TransientError(429).status_code == 429, the message formatting, or the bool-guard edge case; the int and int+detail shapes are exercised only indirectly through 3 adapters' HTTP-mock tests.",
+      "recommendation": "Replace the *args dispatch with either (a) a single explicit constructor TransientError(message: str, *, status_code: int | None = None) and update the 3 call sites that pass a bare/second positional int, or (b) a classmethod factory TransientError.from_http_status(status_code, detail=None) alongside a normal TransientError(message) constructor, mirroring ChromeLaunchError's named-parameter pattern already in the same PR set."
+    }
+  ],
+  "residual_risks": [
+    "Only ~102 of the repo's ~465-502 except-Exception sites have been classified into debt_registry.toml as of this sweep (D2: 56 in publishing/adapters/, D3: 46 in cli/_bind/+events/). The plan doc scopes this deliberately, but combined with the first finding above, the majority of broad-except sites in the codebase now have neither their original inline rationale (stripped by C1) nor a debt_registry.toml entry (not yet reached by D2/D3-style work) -- a documentation gap with no committed owner or follow-up unit as of this diff.",
+    "debt_registry.toml's 'link-attr-verifier-fetch-classify-never-raises-accepted' entry (D2) clusters 6 except-Exception sites spanning genuinely different concerns within link_attr_verifier.py -- network fetch error classification (_fetch_body_via_preflight) and URL canonicalization (_canonicalize_for_match, inline anchor-matching loops). The clustering is defensible (the module has one documented 'never raises' contract that both concerns share, and the rationale text ties them together explicitly rather than just asserting proximity), but it sits at the wide end of the plan's own same-file/same-function-or-sibling clustering rule and is worth re-examining if either sub-concern's contract changes independently later.",
+    "The debt-registry '# debt: <slug>' to debt_registry.toml cross-reference is currently 100% consistent (verified: every debt comment in src/webui_app/webui_store has a matching registry entry, and the only registry entry without a comment, no-debt-tracking, is the documented pre-D2 exception) and is enforced by tests/test_debt_registry_format.py's cross-reference test. This is a positive finding, but it is only as strong as that test's continued enforcement -- there is no CI gate requiring every except-Exception site repo-wide to carry a debt comment (tests/test_seam_except_classification.py only scans 6 'seam' directories, and treats an adjacent log call as sufficient classification, not just a debt comment), so consistency could silently erode outside those seam roots without failing CI."
+  ],
+  "testing_gaps": [
+    "tests/test_adapter_base.py has no dedicated unit test for TransientError's new dual-argument-shape constructor (base.py, D1): no test asserts TransientError(429).status_code == 429 and its message format, no test for the TransientError(503, detail) shape's message concatenation, and no test for the bool-guard edge case. Current coverage of the int/int+detail shapes is only incidental, via 3 separate adapters' HTTP-mock-driven integration tests (blogger_api, medium_api, velog_graphql), not a direct test of the shared class's own contract."
+  ]
+}

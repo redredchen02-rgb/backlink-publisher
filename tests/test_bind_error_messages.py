@@ -15,6 +15,13 @@ KNOWN_DRIVER_ERROR_CODES = frozenset({
     "storage_path_traversal",
     "persist_io_error",
     "stream_closed_no_terminal_event",
+    # cli/_bind/chrome_backend.py::RealChromeBrowserRunner / ChromeLaunchError
+    # codes (ce-code-review 2026-07-06 follow-up -- these were previously
+    # unregistered here and in BIND_ERROR_MESSAGES).
+    "chrome_not_available",
+    "chrome_cdp_unavailable",
+    "chrome_profile_locked",
+    "chrome_launch_failed",
 })
 
 

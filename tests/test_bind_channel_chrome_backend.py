@@ -394,7 +394,7 @@ class TestChromeProfileDirErrorCodeContract:
         # not accidentally "promoted" to a real BIND_ERROR_MESSAGES key just
         # because the wrapped exception's text happened to spell one out.
         assert excinfo.value.error_code == "chrome_not_available"
-        assert excinfo.value.error_code in BIND_ERROR_MESSAGES or True  # documents: fixed literal is a valid closed value
+        assert excinfo.value.error_code in BIND_ERROR_MESSAGES  # fixed literal is a valid closed value
         # The raw wrapped text is preserved only on `detail`, never on error_code.
         assert excinfo.value.detail == "bound_predicate_timeout"
 
