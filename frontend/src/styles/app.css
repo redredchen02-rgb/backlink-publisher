@@ -110,6 +110,18 @@ select, input, textarea {
   border-color: var(--border-strong, var(--border));
 }
 
+/* ── Split-screen desktop breakpoint convention (Plan 2026-07-06-005 W12/D12) ──
+   D12 scopes this plan's responsive work to 700-960px desktop split-screen
+   (two windows side by side on one monitor — not a phone; mobile optimization
+   is explicitly out of scope). No CSS custom-media plugin is wired into this
+   project's PostCSS/Vite config, so there is no `@custom-media` variable to
+   share here — each consuming page (SettingsPage.vue, MonitorDashboard.vue)
+   repeats the literal `@media (max-width: 960px)` query inline, scoped to its
+   own <style>. Keep new split-screen breakpoints at 960px to stay consistent;
+   do not introduce a different threshold without updating this note. This
+   convention is independent of `.data-table-wrap`'s horizontal-scroll
+   handling below, which existed before W12 and is left untouched by it. */
+
 /* ── Shared dense data-table convention ──────────────────────────────── */
 /* Wrap table in .data-table-wrap for narrow-screen overflow handling */
 .data-table-wrap {
