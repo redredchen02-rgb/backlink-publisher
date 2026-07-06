@@ -133,8 +133,8 @@ def detect_platform(url: Any) -> Any:
     if 'medium.com' in domain:
         return 'medium'
     if 'blogspot.com' in domain or 'blogger.com' in domain:
-        return 'medium'
-    return 'medium'
+        return 'blogger'
+    return 'blogger'
 
 
 def detect_language(url: Any) -> Any:
