@@ -389,6 +389,21 @@ def build_spec() -> APISpec:
         },
     )
     spec.path(
+        path="/api/v1/history/bulk-recheck",
+        operations={
+            "post": {
+                "operationId": "bulkRecheckHistory",
+                "summary": "Re-verify multiple history entries' link liveness → refreshed list.",
+                "tags": ["history"],
+                "requestBody": _body(HistoryIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", HistoryMutationResultSchema),
+                    "422": _problem_response("Missing ids or no items matched."),
+                },
+            }
+        },
+    )
+    spec.path(
         path="/api/v1/history/purge-failed",
         operations={
             "post": {
@@ -502,6 +517,39 @@ def build_spec() -> APISpec:
                     "200": _ok("Refreshed list.", DraftMutationResultSchema),
                     "422": _problem_response("Missing ids."),
                     "502": _problem_response("Persistence failure."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/bulk-publish-now",
+        operations={
+            "post": {
+                "operationId": "bulkPublishDraftsNow",
+                "summary": "Publish multiple drafts now (staggered ~5s+ out) → refreshed list.",
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "409": _problem_response("A bulk publish is already in progress."),
+                    "422": _problem_response("Missing ids."),
+                    "502": _problem_response("Scheduler registration failure (rolled back)."),
+                },
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/drafts/bulk-cancel",
+        operations={
+            "post": {
+                "operationId": "bulkCancelDrafts",
+                "summary": "Cancel scheduling for multiple drafts → refreshed list.",
+                "tags": ["drafts"],
+                "requestBody": _body(DraftIdsRequestSchema),
+                "responses": {
+                    "200": _ok("Refreshed list.", DraftMutationResultSchema),
+                    "422": _problem_response("Missing ids."),
+                    "502": _problem_response("Scheduler sync failure."),
                 },
             }
         },

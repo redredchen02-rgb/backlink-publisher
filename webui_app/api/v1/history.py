@@ -83,3 +83,22 @@ def history_recheck() -> Any:
             error_class="not_found",
         )
     return jsonify({"items": _api.list(), "message": result.get("flash_msg", "")})
+
+
+@bp.post("/history/bulk-recheck")
+def history_bulk_recheck() -> Any:
+    """Re-verify multiple history entries' link liveness → refreshed list.
+
+    Plan 2026-07-02-001 U3. A per-item verify outcome (e.g. a URL now dead) is
+    data, not an API failure -- ``HistoryAPI.bulk_recheck`` only returns
+    ``ok: False`` for genuine input problems (empty/unmatched ids), which is
+    honestly surfaced as 422 rather than a fake 200.
+    """
+    ids = _require_ids(request.get_json(silent=True) or {})
+    result = _api.bulk_recheck(ids)
+    if not result.get("ok"):
+        raise ApiProblem(
+            422, "Bulk recheck failed", detail=result.get("flash_msg"),
+            error_class="invalid_request",
+        )
+    return jsonify({"items": _api.list(), "message": result.get("flash_msg", "")})
