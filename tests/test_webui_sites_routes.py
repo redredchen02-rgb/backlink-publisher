@@ -147,7 +147,7 @@ class TestCampaignRoutes:
         assert resp.status_code == 200
 
     def test_campaign_progress_unknown_id_returns_404(self, client):
-        resp = client.get("/campaign/nonexistent-campaign-id")
+        resp = client.get("/campaign/nonexistent-campaign-id/jinja")
         assert resp.status_code == 404
 
     def test_campaign_progress_redirects_to_spa(self, client):
@@ -200,11 +200,11 @@ class TestPrQueueRoutes:
     """Contract tests for /pr-queue and /api/pr-queue (B1 PR opportunity queue)."""
 
     def test_get_pr_queue_page(self, client, monkeypatch):
-        """GET /pr-queue renders HTML."""
+        """GET /pr-queue/jinja renders HTML (legacy fallback)."""
         import webui_app.routes.pr_queue as pq_mod
 
         monkeypatch.setattr(pq_mod, "_load", lambda: [])
-        resp = client.get("/pr-queue")
+        resp = client.get("/pr-queue/jinja")
         assert resp.status_code == 200
         assert b"html" in resp.data.lower()
 

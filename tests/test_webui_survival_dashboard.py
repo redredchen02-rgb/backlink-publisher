@@ -87,7 +87,7 @@ def test_route_renders_200_and_csrf():
 
     app = create_app()
     client = app.test_client()
-    resp = client.get("/survival-dashboard")
+    resp = client.get("/survival-dashboard/jinja")
     assert resp.status_code == 200          # never 500, even on empty store
     assert "存活率".encode() in resp.data
     # CSRF meta + asset versioning come from base.html.
@@ -112,6 +112,6 @@ def test_route_never_500s_when_render_raises(monkeypatch, caplog):
     monkeypatch.setattr(route, "_render", _flaky_render)
     app = create_app()
     with caplog.at_level("WARNING"):
-        resp = app.test_client().get("/survival-dashboard")
+        resp = app.test_client().get("/survival-dashboard/jinja")
     assert resp.status_code == 200
     assert calls["n"] == 2  # first (real-view) render raised; fallback render ran
