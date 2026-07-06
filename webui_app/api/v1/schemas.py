@@ -218,6 +218,88 @@ class MonitorSummarySchema(Schema):
     )
 
 
+# ── health dashboard — Plan 2026-07-02-001 U6 ────────────────────────────────
+# Panel payload shapes vary widely (dataclass-derived dicts, query-row lists,
+# scalar aggregates) -- fields.Raw/Dict is the established convention in this
+# module for exactly this (see e.g. PlanResponseSchema.plans above) rather than
+# ~20 near-duplicate nested schemas for read-only telemetry the SPA renders
+# generically.
+
+
+class HealthPanelSchema(Schema):
+    """Generic fail-open panel envelope shared by every /health/summary panel."""
+
+    data = fields.Raw(allow_none=True, required=True)
+    degraded = fields.Boolean(
+        required=True,
+        metadata={"description": "True if this panel's own data source raised."},
+    )
+
+
+class HealthProjectionSchema(Schema):
+    """U1 read-time projection backstop outcome (events.reconcile.ReadProjectionResult)."""
+
+    events_inserted = fields.Integer(required=True)
+    sources_projected = fields.Integer(required=True)
+    latest_event_utc = fields.String(allow_none=True)
+    gap = fields.Boolean(required=True)
+    gap_reason = fields.String(allow_none=True)
+    degraded = fields.Boolean(required=True)
+    degraded_reason = fields.String(
+        allow_none=True,
+        metadata={"description": "Sanitized to an exception class name, never str(exc)."},
+    )
+
+
+class HealthSummarySchema(Schema):
+    """Full health-dashboard aggregate. Always 200 -- degradation is per-field."""
+
+    projection = fields.Nested(HealthProjectionSchema, required=True)
+    health = fields.Raw(
+        required=True,
+        metadata={"description": "health_metrics.Health dataclass (window/success/per_adapter/errors/broken)."},
+    )
+    agg_degraded = fields.Boolean(
+        required=True,
+        metadata={"description": "Belt-and-suspenders flag; _health_agg self-reports via projection instead."},
+    )
+    panels = fields.Dict(
+        keys=fields.String(), values=fields.Nested(HealthPanelSchema), required=True,
+    )
+
+
+class HealthScorecardLinksSchema(Schema):
+    ok = fields.Boolean(required=True)
+    links = fields.List(fields.Dict(), required=True)
+
+
+class HealthRecheckLinkRequestSchema(Schema):
+    live_url = fields.String(required=True)
+
+
+class HealthRecheckLinkResultSchema(Schema):
+    ok = fields.Boolean(required=True)
+    verdict = fields.Raw(allow_none=True)
+    live_url = fields.String(allow_none=True)
+    last_recheck_ts = fields.String(allow_none=True)
+    error_code = fields.String(allow_none=True)
+
+
+class HealthActionPlatformRequestSchema(Schema):
+    platform = fields.String(required=True)
+    paused = fields.Boolean(
+        allow_none=True, metadata={"description": "Pause action only; defaults true."}
+    )
+
+
+class HealthActionResultSchema(Schema):
+    ok = fields.Boolean(required=True)
+    platform = fields.String(required=True)
+    paused = fields.Boolean(allow_none=True, metadata={"description": "Pause action only."})
+    ready = fields.Boolean(allow_none=True, metadata={"description": "Reverify action only."})
+    reason = fields.String(allow_none=True)
+
+
 # ── publish history — Plan 2026-06-18-002 U7 ────────────────────────────────
 
 

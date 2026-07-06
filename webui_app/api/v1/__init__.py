@@ -51,6 +51,7 @@ from . import (
     drafts,
     error_reports,
     global_settings,
+    health_dashboard,
     history,
     image_gen,
     llm,
