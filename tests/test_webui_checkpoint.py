@@ -76,7 +76,7 @@ def test_load_incomplete_run_returns_none_on_exception():
 
 def test_banner_shown_when_incomplete_run(client):
     with patch("webui_app.helpers.contexts._load_incomplete_run", return_value=_incomplete_run_fixture()):
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode()
         # banner contains the run_id and the dismiss route (unique to banner, not JS)
@@ -86,7 +86,7 @@ def test_banner_shown_when_incomplete_run(client):
 
 def test_banner_absent_when_no_incomplete_run(client):
     with patch("webui_app.helpers.contexts._load_incomplete_run", return_value=None):
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode()
         # dismiss form only renders when banner is shown
@@ -293,12 +293,12 @@ def test_banner_absent_after_dismiss(client, tmp_path):
         run_id, _ = create_checkpoint(rows, platform="blogger", mode="draft")
 
         # before dismiss: banner has the run_id
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert run_id in resp.data.decode()
 
         # dismiss
         client.post("/checkpoint/dismiss", data={"run_id": run_id})
 
         # after dismiss: run_id no longer in page (banner absent)
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert run_id not in resp.data.decode()

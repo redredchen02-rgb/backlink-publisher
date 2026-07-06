@@ -37,7 +37,7 @@ def client(app):
 def _csrf(client):
     """Grab a CSRF token by GET-ing the index; the session middleware
     seeds it into the meta tag."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     # Extract from <meta name="csrf-token" content="...">
     import re

@@ -102,7 +102,7 @@ class TestQueueDashboardRoutes:
 
     def test_publish_panel_dom_removed(self, client):
         """Plan 012 Unit 1 — #publishPanel tab + pane removed from index.html."""
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode("utf-8", errors="ignore")
         assert 'id="publishPanel"' not in body

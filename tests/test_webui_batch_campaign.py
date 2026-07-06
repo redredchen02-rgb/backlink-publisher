@@ -408,16 +408,18 @@ def test_campaign_api_status_nonexistent(client):
 
 
 def test_main_page_with_campaign_id(client):
-    """Main page accepts campaign_id param and renders without error."""
-    resp = client.get("/?campaign_id=test-id-123")
+    """Main page (legacy Jinja fallback, /jinja) accepts campaign_id param and
+    renders without error. campaign_id is deliberately NOT forwarded by the
+    new '/' -> SPA redirect (Plan 2026-07-06-004 Unit 4 Scope Boundaries)."""
+    resp = client.get("/jinja?campaign_id=test-id-123")
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
     assert "Backlink" in html or "Publisher" in html
 
 
 def test_main_page_without_campaign_id(client):
-    """Main page renders normally without campaign_id filter."""
-    resp = client.get("/")
+    """Main page (legacy Jinja fallback) renders normally without campaign_id filter."""
+    resp = client.get("/jinja")
     assert resp.status_code == 200
 
 

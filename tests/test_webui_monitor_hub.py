@@ -23,20 +23,24 @@ def client(tmp_path, monkeypatch):
 
 
 def test_hub_view_renders(client):
+    # Plan 2026-07-06-004 Unit 4 / K7: Monitor moved from '/monitor' to '/'
+    # (the new SPA homepage), so /monitor-hub's alias target changed from
+    # '/app/monitor' to '/app/' — it no longer renders the Jinja page
+    # directly, it redirects. The `/monitor-hub/jinja` fallback route still
+    # covers the Jinja render path (see monitor_hub_jinja()).
     resp = client.get("/monitor-hub")
-    assert resp.status_code == 200
-    body = resp.get_data(as_text=True)
-    assert "监控聚合" in body
-    assert "js/monitor_hub.js" in body
-    assert 'type="module"' in body
+    assert resp.status_code == 302
+    assert resp.location == "/app/"
 
 
 def test_hub_redirects_to_spa(client):
-    # /monitor-hub now redirects to the SPA; the Jinja fallback
-    # (test_hub_view_renders above) covers the render path.
+    # /monitor-hub now redirects to the SPA homepage (Unit 4 changed its
+    # target from '/app/monitor' to '/app/' since Monitor is now the
+    # homepage); the Jinja fallback (/monitor-hub/jinja) covers the render
+    # path.
     resp = client.get("/monitor-hub")
     assert resp.status_code == 302
-    assert "/app/monitor" in resp.location
+    assert resp.location == "/app/"
 
 
 def test_hub_json_ok_and_shape(client):

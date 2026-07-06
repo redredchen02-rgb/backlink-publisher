@@ -563,8 +563,16 @@ def command_center() -> Any:
 
 @bp.route("/monitor-hub", methods=["GET"])
 def monitor_hub() -> Any:
-    """Redirect legacy /monitor-hub → SPA /app/monitor (P15 B4)."""
-    return redirect(url_for("spa.spa", subpath="monitor"), 302)
+    """Redirect legacy /monitor-hub → SPA /app/ (P15 B4).
+
+    Plan 2026-07-06-004 Unit 4 / K7: kept as a permanent alias for existing
+    bookmarks/links, but its target changed. Monitor moved from '/monitor' to
+    '/' (the new SPA homepage), so this must redirect to the new homepage
+    (subpath="") rather than the now-stale '/app/monitor' — that path's
+    content meaning changed with the swap, it does not still show the
+    monitor-hub view a bookmark holder expects.
+    """
+    return redirect(url_for("spa.spa", subpath=""), 302)
 
 
 @bp.route("/monitor-hub/jinja", methods=["GET"])
