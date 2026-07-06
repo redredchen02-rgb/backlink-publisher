@@ -277,7 +277,7 @@ graph TB
 
 ### Phase 1 — UI/UX 迭代
 
-- [ ] **U3: 批次操作 API 對等 + SPA 呈現〔R3〕**
+- [x] **U3: 批次操作 API 對等 + SPA 呈現〔R3〕**（2026-07-06，分支 `feat/u3-batch-ops-api-parity`，見下方執行記錄）
 
 **Goal:** SPA 補齊 legacy `/` 頁面獨有的批次能力：bulk-publish-now、bulk-cancel、bulk-recheck、purge-failed——這是 U4 能安全 redirect 的前置。
 
@@ -309,6 +309,16 @@ graph TB
 - Integration：oasdiff 對照舊 spec 無 breaking change；`scripts/gen_openapi.py --check` 過。
 
 **Verification:** 4 個批次操作在 SPA History/Drafts 可用且行為與 legacy 對等；API contract workflow 全綠。
+
+**執行記錄（2026-07-06，分支 `feat/u3-batch-ops-api-parity`）：** 執行前重盤點確認〔deepening 校正〕屬實——3 個新端點：`POST /api/v1/history/bulk-recheck`、`POST /api/v1/drafts/bulk-publish-now`（新增 module-level `threading.Lock` single-flight 防護，並發呼叫回 409 而非排隊，比照 `routes/keep_alive.py` 的 `start_recheck()` 慣例）、`POST /api/v1/drafts/bulk-cancel`；`purge-failed` 確認已有端點只缺 SPA 呈現。契約先行：先寫 `tests/test_webui_api_v1_bulk_ops.py`（11 案例）確認全部因 404 失敗，再實作。`spec.py`／`openapi/backlink-api.yaml`／`monolith_budget.toml`（1290→1340）／CSRF-only snapshot（96→99）均已更新，OpenAPI diff 純新增（0 刪除行）。前端：`frontend/src/api/{history,drafts}.ts` 新增 3 個 client 方法，`HistoryPage.vue`／`DraftsPage.vue` 各新增對應按鈕，沿用既有 `run()` busy/cache-write/toast 慣例。`ce-code-review`（13 位 reviewer：correctness/testing/maintainability/project-standards/agent-native/learnings/security/api-contract/reliability/adversarial/kieran-python/kieran-typescript/julik-frontend-races）跑過一輪，7 項發現已修復（詳見 `.context/compound-engineering/ce-code-review/20260706-124524-d0ac4b7b/summary.md`）：`BULK_CANCEL_FAILURE` 誤用「無變更」502 語意（實際 `bulk_cancel` 無 rollback，改為 200+refreshed list+警告）、`_require_ids` 重複程式碼抽成共用 `errors.require_ids()` 並加上 `MAX_BULK_IDS=500` 上限、兩頁的 bulk 成功後會整批清空 `selected`（in-flight 期間的重新選取會被吃掉，已改為只清掉本次實際送出的 id）、single-flight lock 的測試只驗證同執行緒遞迴（已補 `threading.Barrier` 真實多執行緒測試）、409 測試的 mock 型別不符慣例（已改用真正的 `ApiError`）。`npx vitest run` 248/248、後端 `api_v1/bulk/drafts/history` 相關測試 615/620（5 個既有無關 Windows chmod 失敗）。
+
+**未修復、記錄為後續追蹤（均超出本 unit 宣告的檔案範圍，或需要橫跨新舊端點的政策決策）：**
+- **U3-B1**〔P1，maintainability/correctness/adversarial 三方收斂〕`_bulk_publish_lock` 只保護新的 `/api/v1/drafts/bulk-publish-now`，legacy `/ce:draft/bulk-publish-now`（`webui_app/routes/drafts.py`）呼叫同一個 `DraftAPI.bulk_publish_now` 完全沒有鎖保護——需要把鎖下移到 facade 層或兩個路由共用同一個鎖，在 U9 legacy 退役前這個缺口都在。已加註解說明；目前風險較低（`webui.py` 的 `app.run()` 沒有 `threaded=True`，此開發伺服器本來就無法真正並發處理請求）。
+- **U3-B2**〔P1，reliability〕single-flight lock 沒有 timeout——若底層呼叫真的 hang 住，鎖永遠不會釋放，整個端點永久卡死直到重啟行程。需要架構決策（background job + poll，或帶 timeout 的 executor）。
+- **U3-B3**〔P1，security〕`bulk-publish-now` 會觸發真實對外發佈，但沒有比照 `settings_credentials.py` 加 `_refuse_when_allow_network()` 硬擋——同樣缺口也存在於既有單筆 `/drafts/publish-now`，只修新端點會造成新舊不一致，需要橫跨兩者的政策決策。
+- **U3-B4**〔P2，adversarial〕`bulk_publish_now` 的 `ids` 若含重複值，可能弄亂 rollback 記錄邏輯（facade 層問題，`webui_app/api/drafts_api.py`，超出本 unit 檔案範圍）。
+- **U3-B5**〔P2，api-contract〕新的 `bulk-recheck` 在「ids 未匹配任何記錄」時回 422，但既有 `bulk_delete`／`bulk_publish_now`／`bulk_cancel` facade 對同情境是靜默回 200 + 0 筆訊息——四個 bulk 端點的「零匹配」語意不一致，需要一次性決定統一策略。
+- **U3-B6**〔P2，adversarial，信心較低〕`bulk-cancel` 與 `bulk-publish-now` 對同一筆 draft id 沒有共用協調機制，理論上可交錯執行。
 
 - [ ] **U4: dual-live 路由收斂（`/`、`/sites`、`/batch-campaign`、`/schedule`）〔R4〕**
 
