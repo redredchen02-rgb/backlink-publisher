@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Explicit PR head SHA — actions/checkout's default is the merge ref,
           # which is NOT what we want (closes v1 feasibility F2).
