@@ -10,6 +10,8 @@ vi.mock('../../api/drafts', () => ({
   cancelDraft: vi.fn(),
   deleteDraft: vi.fn(),
   bulkDeleteDrafts: vi.fn(),
+  bulkPublishDraftsNow: vi.fn(),
+  bulkCancelDrafts: vi.fn(),
 }))
 
 import * as api from '../../api/drafts'
@@ -138,5 +140,57 @@ describe('DraftsPage', () => {
     await w.find('.bulk-delete').trigger('click')
     await flushPromises()
     expect(api.bulkDeleteDrafts).toHaveBeenCalledWith(['p1'])
+  })
+
+  it('bulk-publishes selected drafts now (U3)', async () => {
+    vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING, SCHEDULED] })
+    vi.mocked(api.bulkPublishDraftsNow).mockResolvedValue({
+      items: [{ ...PENDING, status: 'scheduled' }, SCHEDULED],
+      message: '正在批量发布 1 项，请稍候刷新页面',
+    })
+    const w = mountPage()
+    const notify = useNotificationsStore()
+    await flushPromises()
+    await w.find('.draft input[type="checkbox"]').setValue(true)
+    await w.find('.bulk-publish-now').trigger('click')
+    await flushPromises()
+    expect(api.bulkPublishDraftsNow).toHaveBeenCalledWith(['p1'])
+    expect(notify.toasts.some((t) => t.message.includes('批量发布'))).toBe(true)
+  })
+
+  it('bulk-cancels selected drafts', async () => {
+    vi.mocked(api.listDrafts).mockResolvedValue({ items: [SCHEDULED] })
+    vi.mocked(api.bulkCancelDrafts).mockResolvedValue({
+      items: [{ ...SCHEDULED, status: 'pending' }],
+      message: '已取消 1 项排程',
+    })
+    const w = mountPage()
+    await flushPromises()
+    await w.find('.draft input[type="checkbox"]').setValue(true)
+    await w.find('.bulk-cancel').trigger('click')
+    await flushPromises()
+    expect(api.bulkCancelDrafts).toHaveBeenCalledWith(['s1'])
+  })
+
+  it('a double-submit rejected by the backend (409) surfaces a generic error toast, not a crash', async () => {
+    vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING] })
+    vi.mocked(api.bulkPublishDraftsNow).mockRejectedValue({
+      name: 'ApiError', status: 409, message: 'Bulk publish already in progress',
+    })
+    const w = mountPage()
+    const notify = useNotificationsStore()
+    await flushPromises()
+    await w.find('.draft input[type="checkbox"]').setValue(true)
+    await w.find('.bulk-publish-now').trigger('click')
+    await flushPromises()
+    expect(notify.toasts.some((t) => t.severity === 'error')).toBe(true)
+  })
+
+  it('bulk action buttons stay disabled with no selection', async () => {
+    vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING] })
+    const w = mountPage()
+    await flushPromises()
+    expect((w.find('.bulk-publish-now').element as HTMLButtonElement).disabled).toBe(true)
+    expect((w.find('.bulk-cancel').element as HTMLButtonElement).disabled).toBe(true)
   })
 })

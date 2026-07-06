@@ -7,6 +7,7 @@ vi.mock('../../api/history', () => ({
   listHistory: vi.fn(),
   deleteHistory: vi.fn(),
   bulkDeleteHistory: vi.fn(),
+  bulkRecheckHistory: vi.fn(),
   purgeFailedHistory: vi.fn(),
   recheckHistory: vi.fn(),
 }))
@@ -99,6 +100,33 @@ describe('HistoryPage', () => {
     await flushPromises()
 
     expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7'])
+  })
+
+  it('bulk-rechecks the selected rows (U3)', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+    vi.mocked(api.bulkRecheckHistory).mockResolvedValue({
+      items: [PUBLISHED, FAILED],
+      message: '已核实 1 条：1 升为已发布，0 标为失败，0 跳过',
+    })
+    const w = mountPage()
+    const notify = useNotificationsStore()
+    await flushPromises()
+
+    await w.find('tbody tr input[type="checkbox"]').setValue(true) // select first row
+    await w.find('.bulk-recheck').trigger('click')
+    await flushPromises()
+
+    expect(api.bulkRecheckHistory).toHaveBeenCalledWith(['7'])
+    expect(notify.toasts.some((t) => t.message.includes('已核实'))).toBe(true)
+  })
+
+  it('bulk-recheck button stays disabled with no selection', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+    const w = mountPage()
+    await flushPromises()
+
+    const btn = w.find('.bulk-recheck')
+    expect((btn.element as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('an action failure surfaces a classifyError toast (no raw server text)', async () => {

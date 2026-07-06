@@ -17,6 +17,7 @@ Error mapping mirrors DraftAPI's own honour-operator-intent semantics:
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from flask import jsonify, request
@@ -26,6 +27,19 @@ from . import bp
 from .errors import ApiProblem
 
 _api = DraftAPI()
+
+# Single-flight guard for bulk-publish-now (Plan 2026-07-02-001 U3): a second
+# concurrent call (double-click) while one is still executing gets 409 rather
+# than double-scheduling the same batch -- mirrors routes/keep_alive.py's
+# start_recheck() guard. Non-blocking acquire: reject immediately, never queue.
+_bulk_publish_lock = threading.Lock()
+
+# Infrastructure-layer failures (store/scheduler write problems, not client
+# input errors) map to 502. PERSISTENCE_FAILURE covers single-item ops;
+# BULK_SCHEDULER_FAILURE/BULK_CANCEL_FAILURE are the bulk equivalents.
+_INFRA_FAILURE_CODES = {
+    "PERSISTENCE_FAILURE", "BULK_SCHEDULER_FAILURE", "BULK_CANCEL_FAILURE",
+}
 
 
 def _require_id(data: dict) -> str:
@@ -37,6 +51,16 @@ def _require_id(data: dict) -> str:
     return item_id
 
 
+def _require_ids(data: dict) -> list[str]:
+    ids = data.get("ids")
+    if not isinstance(ids, list) or not ids:
+        raise ApiProblem(
+            422, "Missing ids", detail="`ids` must be a non-empty array.",
+            error_class="invalid_request",
+        )
+    return [str(i) for i in ids]
+
+
 def _raise_if_hard_failure(result: dict) -> None:
     """Raise problem+json only for genuine failures.
 
@@ -46,7 +70,7 @@ def _raise_if_hard_failure(result: dict) -> None:
     if result.get("ok") or result.get("error_code") == "SCHEDULER_SYNC_FAILED":
         return
     code = result.get("error_code")
-    status = 502 if code == "PERSISTENCE_FAILURE" else 422
+    status = 502 if code in _INFRA_FAILURE_CODES else 422
     raise ApiProblem(
         status,
         "Draft operation failed",
@@ -105,13 +129,38 @@ def drafts_delete() -> Any:
 @bp.post("/drafts/bulk-delete")
 def drafts_bulk_delete() -> Any:
     """Delete multiple drafts → refreshed list."""
-    data = request.get_json(silent=True) or {}
-    ids = data.get("ids")
-    if not isinstance(ids, list) or not ids:
+    ids = _require_ids(request.get_json(silent=True) or {})
+    result = _api.bulk_delete(ids)
+    _raise_if_hard_failure(result)
+    return _refreshed(result)
+
+
+@bp.post("/drafts/bulk-publish-now")
+def drafts_bulk_publish_now() -> Any:
+    """Publish multiple drafts now (schedules staggered ~5s+ out) → refreshed list.
+
+    Plan 2026-07-02-001 U3. Single-flight: rejects a concurrent call with 409
+    rather than queuing it (see ``_bulk_publish_lock`` above).
+    """
+    ids = _require_ids(request.get_json(silent=True) or {})
+    if not _bulk_publish_lock.acquire(blocking=False):
         raise ApiProblem(
-            422, "Missing ids", detail="`ids` must be a non-empty array.",
-            error_class="invalid_request",
+            409, "Bulk publish already in progress",
+            detail="Another bulk-publish-now request is still executing.",
+            error_class="already_running",
         )
-    result = _api.bulk_delete([str(i) for i in ids])
+    try:
+        result = _api.bulk_publish_now(ids)
+    finally:
+        _bulk_publish_lock.release()
+    _raise_if_hard_failure(result)
+    return _refreshed(result)
+
+
+@bp.post("/drafts/bulk-cancel")
+def drafts_bulk_cancel() -> Any:
+    """Cancel scheduling for multiple drafts → refreshed list."""
+    ids = _require_ids(request.get_json(silent=True) or {})
+    result = _api.bulk_cancel(ids)
     _raise_if_hard_failure(result)
     return _refreshed(result)
