@@ -430,7 +430,7 @@ graph TB
 
 ---
 
-- [ ] **E2: 效能熱點 benchmark 補齊〔R11〕**
+- [x] **E2: 效能熱點 benchmark 補齊〔R11〕** ✅ 已完成（commit `23cb1061`）——沿用既有 `tests/test_benchmarks.py`（未新增檔案：`.github/workflows/ci.yml` 的 benchmark job 硬編碼此檔案路徑，另開新檔會對 CI 的 benchmark-diff gate 隱形）。5 個新 benchmark 涵蓋全部 4 個熱點（`history.py` 另分 100 筆／1000 筆兩種規模）。**執行期發現**：`history.py` 的 `update_item` 延遲（~12–19ms）比 `campaign_store`/`batch_ops` 等價的 SQLite 單列更新（~5–6ms）慢 2–3 倍，且 100→1000 筆只慢約 1.3–1.5 倍（非預期的 ~10 倍），顯示目前瓶頸是 `atomic_write` 的 lock+tempfile+replace 固定成本而非 O(n) 掃描本身——記錄為未來 unit 的優化候選（比照 `campaign_store`/`batch_ops` 已用的 SQLite row-table 模式),依 K7 本 unit 不處理。既有 1 個 benchmark 失敗（`test_benchmark_publish_50_rows_dry_run`）經 `git stash` 對照確認為既有、與本 unit 無關。
 
 **Goal:** 為 `webui_store/history.py`（全檔案 load+save 型態）、`campaign_store.py`、`batch_ops.py`、`publishing/adapters/link_attr_verifier.py`（巢狀迴圈 + 多次全文 regex）新增 benchmark，建立效能基準線。
 
