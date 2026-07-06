@@ -270,7 +270,7 @@ graph TB
 
 ---
 
-- [ ] **B2: 高滿載天花板預先調高（`registry.py`／`spec.py`）〔R5〕**
+- [x] **B2: 高滿載天花板預先調高（`registry.py`／`spec.py`）〔R5〕** ✅ 已完成（commit `c8c64a38`）——`registry.py` 340→364、`spec.py` 1290→1309。協調檢查：掃描本 workspace 所有本地 worktree 分支、`origin/*`、`gitlab/*`，確認沒有任何分支對這兩檔案有領先 `main` 的 commit；v0.6.0 計畫的 U10 Files 清單未直接列出 `registry.py`，K22 對 `spec.py` 的成長估計則延後到 U3/U5/U6/U7 實際落地時才會有具體數字——皆已記錄於 rationale。**執行期發現，偏離規劃假設**：原計畫 Approach 建議「比照 v0.6.0 自己 K22 的做法一次涵蓋兩份計畫的預估總成長量」，但 `tests/test_no_monolith_regrowth.py::test_policy_to_seed_drift` 有一條無條件的 `SEED_HEADROOM_MAX=50` 反漂移閘門（`ceiling-SLOC<=50`，沒有 rationale 可覆寫），使得單次 PR 能調升的幅度被硬性上限鎖住——因此改用兩檔案各自的 `SLOC+50` 最大合規值（364、1309），而非更大膽的 K22 式一次到位緩衝，並在 rationale 中記錄下一個實際落地 v0.6.0 endpoint 成長的 unit 應重新檢查此 ceiling 是否仍有餘裕。
 
 **Goal:** 為已達 95%+ 天花板的 `publishing/registry.py` 與 `webui_app/api/v1/spec.py` 預先調高 ceiling，避免它們在 v0.6.0 計畫的平行化/路由遷移 unit 進行到一半時意外撞牆。
 
