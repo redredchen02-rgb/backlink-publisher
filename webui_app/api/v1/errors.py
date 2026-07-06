@@ -125,10 +125,13 @@ def parse_pagination() -> tuple[int | None, int]:
     Returns ``(None, 0)`` when ``limit`` is absent -- the caller's signal to
     skip pagination entirely and return the flat, pre-U5 ``{items: [...]}}``
     shape unchanged (opt-in incremental pagination, K6: old clients don't
-    break). When ``limit`` is present, both values are validated: negative,
-    non-numeric, or oversized (> MAX_PAGE_LIMIT) values raise a 400 problem+json
-    rather than silently clamping, since a caller passing a malformed value is
-    a client bug worth surfacing, not data worth guessing at.
+    break). ``offset`` has no effect in this case -- ``?offset=`` alone,
+    without ``limit``, is silently ignored, matching the OpenAPI spec's
+    per-field description. When ``limit`` is present, both values are
+    validated: negative, non-numeric, or oversized (> MAX_PAGE_LIMIT) values
+    raise a 400 problem+json rather than silently clamping, since a caller
+    passing a malformed value is a client bug worth surfacing, not data worth
+    guessing at.
     """
     limit_raw = request.args.get("limit")
     if limit_raw is None:
@@ -137,12 +140,12 @@ def parse_pagination() -> tuple[int | None, int]:
     try:
         limit = int(limit_raw)
         offset = int(offset_raw)
-    except (TypeError, ValueError):
+    except ValueError:
         raise ApiProblem(
             400, "Invalid pagination parameters",
             detail="`limit`/`offset` must be integers.",
             error_class="invalid_request",
-        )
+        ) from None
     if limit < 0 or offset < 0:
         raise ApiProblem(
             400, "Invalid pagination parameters",
@@ -158,7 +161,7 @@ def parse_pagination() -> tuple[int | None, int]:
     return limit, offset
 
 
-def paginate(items: list, limit: int | None, offset: int) -> dict[str, Any]:
+def paginate(items: list[dict[str, Any]], limit: int | None, offset: int) -> dict[str, Any]:
     """Build the list-endpoint response envelope for a (possibly paginated) list.
 
     ``limit is None`` (no ``?limit=`` given) returns the original flat

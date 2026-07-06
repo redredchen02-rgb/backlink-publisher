@@ -102,6 +102,13 @@ const load = async () => {
 // ── S1: Recheck ────────────────────────────────────────────────────────────
 const doRecheck = async () => {
   actionState.value = 'rechecking'
+  // Clear the previous job's progress/message before starting a new one --
+  // keepPreviousData otherwise briefly shows the old job's final values
+  // during the moment between setting the new job id and its first real
+  // poll result (code review finding, U5).
+  recheckProgress.value = 0
+  recheckTotal.value = 0
+  recheckMessage.value = ''
   try {
     const result = await startRecheck()
     // Setting a truthy job id flips usePolledQuery's `enabled` -- vue-query
@@ -188,6 +195,12 @@ const selectingGaps = () => hasGaps.value && actionState.value !== 'confirming'
 const doRepublish = async () => {
   if (!republishToken.value || selectedGaps.value.size === 0) return
   actionState.value = 'publishing'
+  // Clear the previous job's progress/message before starting a new one --
+  // keepPreviousData otherwise briefly shows the old job's final values
+  // during the moment between setting the new job id and its first real
+  // poll result (code review finding, U5).
+  republishStage.value = ''
+  republishMessage.value = ''
   const gapKeys = Array.from(selectedGaps.value).map(k => {
     const [target_url, platform] = k.split(':')
     return JSON.stringify({ target_url, platform })

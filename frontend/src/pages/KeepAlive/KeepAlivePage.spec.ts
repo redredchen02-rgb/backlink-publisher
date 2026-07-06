@@ -205,6 +205,29 @@ describe('KeepAlivePage — recheck polling (Plan 2026-07-02-001 U5)', () => {
     await flushPromises()
     expect(api.pollRecheck).toHaveBeenCalledTimes(3)
   })
+
+  it('starting a new recheck after a completed one does not show the previous job\'s stale progress (code review finding)', async () => {
+    vi.mocked(api.fetchSummary).mockResolvedValue(READY_SUMMARY)
+    vi.mocked(api.startRecheck)
+      .mockResolvedValueOnce({ status: 'started', job_id: 'job-1' })
+      .mockResolvedValueOnce({ status: 'started', job_id: 'job-2' })
+    vi.mocked(api.pollRecheck)
+      .mockResolvedValueOnce({ status: 'completed', progress: 3, total: 3 })
+      .mockResolvedValueOnce({ status: 'running', progress: 0, total: 5 })
+
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('.btn-primary').trigger('click') // job-1
+    await flushPromises() // job-1 completes immediately, back to idle
+
+    await w.find('.btn-primary').trigger('click') // job-2
+    // Before job-2's own poll result arrives, the panel must show a fresh
+    // 0/0, not job-1's stale "3/3" left over from keepPreviousData.
+    expect(w.text()).toContain('0/0')
+    expect(w.text()).not.toContain('3/3')
+    await flushPromises()
+  })
 })
 
 describe('KeepAlivePage — republish polling (Plan 2026-07-02-001 U5)', () => {

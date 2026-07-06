@@ -20,6 +20,7 @@ from typing import Any
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
+from .errors import MAX_PAGE_LIMIT
 from .schemas import (
     AppConfigSchema,
     BindPollResultSchema,
@@ -384,8 +385,13 @@ def build_spec() -> APISpec:
                 "tags": ["history"],
                 "parameters": [
                     {"name": "limit", "in": "query", "required": False,
-                     "schema": {"type": "integer", "minimum": 0, "maximum": 500}},
+                     "description": (
+                         "Opts into the paginated envelope; omitting it returns "
+                         "every entry in the original flat shape."
+                     ),
+                     "schema": {"type": "integer", "minimum": 0, "maximum": MAX_PAGE_LIMIT}},
                     {"name": "offset", "in": "query", "required": False,
+                     "description": "Has no effect unless `limit` is also given.",
                      "schema": {"type": "integer", "minimum": 0, "default": 0}},
                 ],
                 "responses": {
@@ -483,8 +489,13 @@ def build_spec() -> APISpec:
                 "tags": ["drafts"],
                 "parameters": [
                     {"name": "limit", "in": "query", "required": False,
-                     "schema": {"type": "integer", "minimum": 0, "maximum": 500}},
+                     "description": (
+                         "Opts into the paginated envelope; omitting it returns "
+                         "every entry in the original flat shape."
+                     ),
+                     "schema": {"type": "integer", "minimum": 0, "maximum": MAX_PAGE_LIMIT}},
                     {"name": "offset", "in": "query", "required": False,
+                     "description": "Has no effect unless `limit` is also given.",
                      "schema": {"type": "integer", "minimum": 0, "default": 0}},
                 ],
                 "responses": {

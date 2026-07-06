@@ -56,6 +56,21 @@ describe('CampaignProgressPage', () => {
     await w.find('button').trigger('click')
     expect(push).toHaveBeenCalledWith('/batch-campaign')
   })
+
+  it('a poll failure after a successful load keeps showing the last-good progress, not the error state (code review finding)', async () => {
+    vi.useFakeTimers()
+    vi.mocked(api.fetchCampaignStatus)
+      .mockResolvedValueOnce(RUNNING)
+      .mockRejectedValueOnce(new Error('network blip'))
+    const w = mountPage()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(w.text()).toContain('40%')
+
+    await vi.advanceTimersByTimeAsync(2000) // next poll tick: fails
+    expect(w.find('[role="alert"]').exists()).toBe(false)
+    expect(w.text()).toContain('40%')
+    vi.useRealTimers()
+  })
 })
 
 describe('CampaignProgressPage polling (Plan 2026-07-02-001 U5)', () => {

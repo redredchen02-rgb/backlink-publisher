@@ -118,3 +118,27 @@ describe('DataTable pagination (opt-in)', () => {
     expect(w.emitted('update:selected')![0]).toEqual([new Set()])
   })
 })
+
+describe('DataTable disabled (code review: pagination-during-mutation race)', () => {
+  it('disables the pager buttons even when they would otherwise be enabled', () => {
+    const w = mountTable({ limit: 50, offset: 50, total: 120, disabled: true })
+    const [prev, next] = w.findAll('.data-table__pager button')
+    expect((prev.element as HTMLButtonElement).disabled).toBe(true)
+    expect((next.element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('disables the select-all and per-row checkboxes', () => {
+    const w = mountTable({ disabled: true })
+    expect((w.find('thead input[type="checkbox"]').element as HTMLInputElement).disabled).toBe(true)
+    expect(
+      (w.find('tbody tr input[type="checkbox"]').element as HTMLInputElement).disabled,
+    ).toBe(true)
+  })
+
+  it('a disabled pager button does not emit update:offset when clicked', async () => {
+    const w = mountTable({ limit: 50, offset: 50, total: 120, disabled: true })
+    const [, next] = w.findAll('.data-table__pager button')
+    await next.trigger('click')
+    expect(w.emitted('update:offset')).toBeUndefined()
+  })
+})

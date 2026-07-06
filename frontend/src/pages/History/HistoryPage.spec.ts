@@ -76,6 +76,25 @@ describe('HistoryPage', () => {
     expect(w.findAll('tbody tr')).toHaveLength(0)
   })
 
+  it('disables pagination and checkboxes while a mutation is in flight (code review: pagination-during-mutation race)', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED], total: 120, limit: 50, offset: 0 })
+    let resolveDelete!: (v: { items: never[] }) => void
+    vi.mocked(api.deleteHistory).mockReturnValue(new Promise((resolve) => { resolveDelete = resolve }))
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('.row-actions button:last-child').trigger('click') // 删除, still pending
+    await flushPromises()
+
+    expect((w.find('tbody tr input[type="checkbox"]').element as HTMLInputElement).disabled).toBe(true)
+    const [, next] = w.findAll('.data-table__pager button')
+    expect((next.element as HTMLButtonElement).disabled).toBe(true)
+
+    resolveDelete({ items: [] })
+    await flushPromises()
+    expect((next.element as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('recheck surfaces the server message as a toast', async () => {
     vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
     vi.mocked(api.recheckHistory).mockResolvedValue({

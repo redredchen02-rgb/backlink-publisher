@@ -262,6 +262,8 @@ paths:
       - name: limit
         in: query
         required: false
+        description: Opts into the paginated envelope; omitting it returns every entry
+          in the original flat shape.
         schema:
           type: integer
           minimum: 0
@@ -269,6 +271,7 @@ paths:
       - name: offset
         in: query
         required: false
+        description: Has no effect unless `limit` is also given.
         schema:
           type: integer
           minimum: 0
@@ -401,6 +404,8 @@ paths:
       - name: limit
         in: query
         required: false
+        description: Opts into the paginated envelope; omitting it returns every entry
+          in the original flat shape.
         schema:
           type: integer
           minimum: 0
@@ -408,6 +413,7 @@ paths:
       - name: offset
         in: query
         required: false
+        description: Has no effect unless `limit` is also given.
         schema:
           type: integer
           minimum: 0

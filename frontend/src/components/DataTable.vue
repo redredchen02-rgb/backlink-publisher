@@ -6,6 +6,9 @@
 // Sorting is explicitly out of scope (Scope Boundaries) -- column content is
 // fully caller-controlled via the `head`/`row` slots, so this stays a thin
 // wrapper rather than a column-definition-driven grid.
+//
+// `id` must be a stable, unique string per row -- it backs :key, the
+// checkbox aria-label, and membership in the `selected` Set.
 import { computed } from 'vue'
 import StateBlock from './StateBlock.vue'
 
@@ -15,13 +18,21 @@ const props = withDefaults(
     loading?: boolean
     error?: unknown
     emptyText?: string
-    selected: Set<string>
+    selected?: Set<string>
     /** Present together to opt into the pagination footer (K6, opt-in). */
     total?: number
     limit?: number
     offset?: number
+    /**
+     * Disables selection checkboxes and pager buttons while a mutation is in
+     * flight. Without this, paging away mid-mutation lets the mutation's
+     * post-action refetch/clamp resolve against the offset the user has since
+     * navigated to instead of the one the mutation actually ran against
+     * (code review finding, U5).
+     */
+    disabled?: boolean
   }>(),
-  { loading: false, emptyText: '暂无数据', selected: () => new Set() },
+  { loading: false, emptyText: '暂无数据', selected: () => new Set(), disabled: false },
 )
 
 const emit = defineEmits<{
@@ -83,6 +94,7 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
                 <input
                   type="checkbox"
                   :checked="allSelected"
+                  :disabled="disabled"
                   :aria-label="allSelected ? '取消全选' : '全选本页'"
                   @change="toggleAll"
                 />
@@ -96,6 +108,7 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
                 <input
                   type="checkbox"
                   :checked="selected.has(row.id)"
+                  :disabled="disabled"
                   :aria-label="`选择 ${row.id}`"
                   @change="toggleRow(row.id)"
                 />
@@ -107,9 +120,9 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
       </div>
 
       <div v-if="paginated" class="data-table__pager">
-        <button type="button" :disabled="!hasPrev" @click="goPrev">上一页</button>
+        <button type="button" :disabled="!hasPrev || disabled" @click="goPrev">上一页</button>
         <span class="muted">第 {{ currentPage }} / {{ pageCount }} 页 · 共 {{ total }} 条</span>
-        <button type="button" :disabled="!hasNext" @click="goNext">下一页</button>
+        <button type="button" :disabled="!hasNext || disabled" @click="goNext">下一页</button>
       </div>
     </StateBlock>
   </div>

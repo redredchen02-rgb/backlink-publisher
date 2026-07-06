@@ -31,9 +31,12 @@ const status = computed(() => query.data.value ?? null)
 
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
   if (query.isPending.value) return 'loading'
+  // Data (even keepPreviousData's last-good snapshot) wins over isError --
+  // a single failed poll tick after a successful load must not wipe an
+  // already-rendered progress view (code review finding, U5).
+  if (status.value) return 'ready'
   if (query.isError.value) return 'error'
-  if (!status.value) return 'empty'
-  return 'ready'
+  return 'empty'
 })
 
 const progressPct = computed(() => Math.round((status.value?.progress_pct ?? 0) * 100))

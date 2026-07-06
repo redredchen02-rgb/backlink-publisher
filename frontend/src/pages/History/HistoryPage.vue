@@ -106,6 +106,7 @@ const onBulkDelete = () => run(() => bulkDeleteHistory([...selected.value]))
       :total="total"
       :limit="PAGE_SIZE"
       :offset="offset"
+      :disabled="busy"
       @retry="query.refetch()"
       @update:selected="selected = $event"
       @update:offset="offset = $event"
