@@ -14,7 +14,7 @@
 // manual refresh button matches existing behavior rather than adding new
 // continuous-polling cost the plan didn't ask for.
 import { computed, reactive, ref } from 'vue'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useQuery } from '@tanstack/vue-query'
 import {
   circuitResetPlatform,
   fetchHealthSummary,
@@ -27,16 +27,19 @@ import {
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
-import { classifyError } from '../../lib/errors'
 
 const QKEY = ['health-summary']
-const qc = useQueryClient()
 const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 
 const query = useQuery({ queryKey: QKEY, queryFn: fetchHealthSummary })
 
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
+// No 'empty' branch: unlike a list page, this dashboard always has something
+// meaningful to render even with zero published articles (every panel still
+// shows, just with zero/empty values within it -- matching the legacy Jinja
+// page's own behavior). A StateBlock empty-text prop would be unreachable
+// dead code here (code review finding, U6).
+const blockState = computed<'loading' | 'error' | 'ready'>(() => {
   if (query.isPending.value) return 'loading'
   if (query.isError.value) return 'error'
   return 'ready'
@@ -54,7 +57,10 @@ function reportError(e: unknown): void {
 // ── scorecard drill-down (fetch-on-expand) ──────────────────────────────
 const expandedChannel = ref<string | null>(null)
 const channelLinks = reactive<Record<string, Record<string, unknown>[]>>({})
-const linksLoading = ref<string | null>(null)
+// Keyed per-channel (not a single shared ref) -- code review finding:
+// expanding a second channel before the first's fetch resolves used to clear
+// the WRONG channel's loading indicator once the shared ref got reused.
+const linksLoading = reactive<Record<string, boolean>>({})
 
 async function toggleChannel(channel: string): Promise<void> {
   if (expandedChannel.value === channel) {
@@ -63,14 +69,14 @@ async function toggleChannel(channel: string): Promise<void> {
   }
   expandedChannel.value = channel
   if (channel in channelLinks) return
-  linksLoading.value = channel
+  linksLoading[channel] = true
   try {
     const r = await fetchScorecardLinks(channel)
     channelLinks[channel] = r.links
   } catch (e) {
     reportError(e)
   } finally {
-    linksLoading.value = null
+    linksLoading[channel] = false
   }
 }
 
@@ -92,8 +98,11 @@ async function doRecheckLink(liveUrl: string): Promise<void> {
 // ── platform actions (pause/resume, reverify, circuit-reset) ───────────
 const actionBusy = ref<string | null>(null)
 
-/** Run a platform action, write the result straight into the cache (no
- * refetch) -- mirrors the History/Drafts mutation pattern. */
+/** Run a platform action, then refetch so the table reflects the new state.
+ * `actionBusy` stays set until the refetch itself resolves (not just the
+ * action call) -- code review finding: releasing it right after the action
+ * call let the SAME action fire again against the still-stale on-screen
+ * state during the refetch window. */
 async function runAction(
   key: string,
   fn: () => Promise<HealthActionResult>,
@@ -109,7 +118,7 @@ async function runAction(
     }
     const msg = onOk(r)
     if (msg) notify.push(msg, 'success')
-    query.refetch()
+    await query.refetch()
   } catch (e) {
     reportError(e)
   } finally {
@@ -242,7 +251,7 @@ const secondaryPanels = computed(() => {
                   </tr>
                   <tr v-if="expandedChannel === row.channel">
                     <td colspan="2">
-                      <p v-if="linksLoading === row.channel" class="muted">加载中…</p>
+                      <p v-if="linksLoading[String(row.channel)]" class="muted">加载中…</p>
                       <ul v-else-if="channelLinks[String(row.channel)]?.length" class="link-list">
                         <li v-for="(link, i) in channelLinks[String(row.channel)]" :key="i">
                           <code>{{ link.live_url ?? link.url }}</code>

@@ -108,6 +108,31 @@ def test_webui_health_summary_agg_panel_self_reports_via_projection(client, monk
     assert body["projection"]["degraded"] is True
 
 
+def test_webui_health_summary_survives_project_on_read_failure(client, monkeypatch):
+    """Code review finding: an earlier version only wrapped build_health(),
+    so a project_on_read() failure propagated out of _health_agg() entirely,
+    collapsing BOTH health and projection to null and (per HealthPage.vue's
+    v-if="health && panels" gate) silently blanking the whole dashboard --
+    worse than the legacy Jinja page's own honest fallback for this exact
+    failure axis. Health/projection must both still be populated (degraded)
+    and every other panel must be entirely unaffected."""
+    import webui_app.services.health_projection as hp
+
+    def _boom():
+        raise RuntimeError("db locked")
+
+    monkeypatch.setattr(hp, "project_on_read", _boom)
+    resp = client.get("/api/v1/health/summary")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["projection"] is not None
+    assert body["projection"]["degraded"] is True
+    assert body["projection"]["degraded_reason"] == "RuntimeError"
+    assert body["health"] is not None
+    for name, panel in body["panels"].items():
+        assert panel["degraded"] is False, name
+
+
 def test_webui_health_summary_never_leaks_str_exc(client, monkeypatch):
     """A sentinel embedded in an exception message must never reach the JSON body."""
     sentinel = "sqlite-secret-path-C:/Users/user/.config/sekrit"

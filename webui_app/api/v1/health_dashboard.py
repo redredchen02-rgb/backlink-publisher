@@ -5,8 +5,13 @@ JSON sibling of the legacy ``/ce:health`` Jinja page plus its
 and ``/ce:health/scorecard/recheck-link`` actions. ``routes/health.py`` and
 ``routes/health_actions.py`` are NOT deleted (retire in U9) -- this module
 calls the SAME underlying read/write functions they call, not their own
-closures (which are private, nested inside ``ce_health()``/module-scoped and
-not importable).
+wrapper functions. ``routes/health.py``'s panel closures are genuinely
+private (nested inside ``ce_health()``, not importable at all).
+``health_actions.py``'s ``_config``/``_known_platform``/``_platform_arg``
+ARE plain module-level functions and technically importable -- duplicated
+here anyway (code review, Plan 2026-07-02-001 U6) to avoid coupling this
+long-lived module to one slated for deletion in U9, not because import was
+impossible.
 
 Fail-open per panel is the real spec here: ``GET /health/summary`` always
 returns 200; each panel carries its own ``degraded`` flag and a safe
@@ -40,7 +45,7 @@ import dataclasses
 from datetime import datetime, UTC
 import json
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from flask import abort, jsonify, request
 
@@ -48,6 +53,9 @@ from ...helpers._request_cache import _g_cache
 from ...helpers.security import _check_bind_origin_or_abort, _LOOPBACK_HOSTS
 from . import bp
 from .errors import ApiProblem
+
+if TYPE_CHECKING:
+    from backlink_publisher.events import EventStore
 
 _log = logging.getLogger(__name__)
 
@@ -88,7 +96,18 @@ def _health_agg() -> dict[str, Any]:
     """Mirrors ``ce_health()``'s ``_build()``: U1 projection backstop, then
     the U2 aggregation. Self-reports degradation via the returned dict rather
     than raising, matching the legacy closure's own design (a genuinely
-    degraded-but-populated Health object beats no health data at all)."""
+    degraded-but-populated Health object beats no health data at all).
+
+    Both ``project_on_read()`` and ``build_health()`` get their own try/except
+    -- code review finding: an earlier version only wrapped ``build_health()``,
+    so a ``project_on_read()`` failure would propagate out of this function
+    entirely, collapsing BOTH ``health`` and ``projection`` to null at the
+    ``_panel()`` layer and (per ``HealthPage.vue``'s `v-if="health && panels"`
+    gate) silently blanking the whole dashboard -- worse than the legacy
+    Jinja page's honest "temporarily unavailable" fallback for this one axis.
+    """
+    from backlink_publisher.events.reconcile import ReadProjectionResult
+
     from ...health_metrics import (
         _window_start,
         build_health,
@@ -98,7 +117,12 @@ def _health_agg() -> dict[str, Any]:
     )
     from ...services.health_projection import project_on_read
 
-    projection = project_on_read()
+    try:
+        projection = project_on_read()
+    except Exception as exc:
+        _log.warning("health API: project_on_read failed: %s", exc)
+        projection = ReadProjectionResult(degraded=True, degraded_reason=type(exc).__name__)
+
     try:
         health = build_health()
     except Exception as exc:
@@ -479,7 +503,7 @@ def health_scorecard_links(channel: str) -> Any:
         return jsonify({"ok": False, "links": []})
 
 
-def _published_candidate(store: Any, live_url: str) -> dict[str, Any] | None:
+def _published_candidate(store: EventStore, live_url: str) -> dict[str, Any] | None:
     """``live_url`` -> an already-published recheck candidate, or ``None``.
 
     Anti-SSRF membership gate, mirroring ``routes/health.py``'s
@@ -568,10 +592,15 @@ def health_scorecard_recheck_link() -> Any:
 
 # ── maintenance actions (pause/reverify/circuit-reset) ──────────────────────
 # Loopback-only, mirroring health_actions.py's blueprint-scoped guard (see
-# _enforce_loopback_addr above for why it's inline here instead). CSRF is
-# already enforced app-level for these POST routes. Every action validates the
-# platform against the live registry first -- an unknown platform is a 400
-# with no side effect, matching the legacy actions exactly.
+# _enforce_loopback_addr above for why it's inline here instead). CSRF and
+# the app-level Origin/Referer bind-origin guard (_global_origin_guard, see
+# webui_app/__init__.py) are already enforced for every /api/v1/* mutating
+# route automatically -- not re-implemented inline here, matching
+# health_actions.py's own original perimeter (only recheck-link is an
+# outbound probe that additionally needs the inline bind-origin call). Every
+# action validates the platform against the live registry first -- an
+# unknown platform is a 400 with no side effect, matching the legacy actions
+# exactly.
 
 
 def _config() -> Any:

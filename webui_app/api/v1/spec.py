@@ -1497,10 +1497,12 @@ def build_spec() -> APISpec:
             }
         },
     )
-    for _action, _summary in (
-        ("pause", "Pause or resume a platform."),
-        ("reverify", "Re-run offline adapter setup verification for a platform."),
-        ("circuit-reset", "Reset a platform's tripped reliability circuit breaker."),
+    for _action, _summary, _paused_note in (
+        ("pause", "Pause or resume a platform.", ""),
+        ("reverify", "Re-run offline adapter setup verification for a platform.",
+         " The request body's `paused` field is ignored on this endpoint (pause-only)."),
+        ("circuit-reset", "Reset a platform's tripped reliability circuit breaker.",
+         " The request body's `paused` field is ignored on this endpoint (pause-only)."),
     ):
         spec.path(
             path=f"/api/v1/health/actions/{_action}",
@@ -1513,8 +1515,12 @@ def build_spec() -> APISpec:
                     "description": (
                         "Loopback-only (enforced per-view -- api_v1 is a single shared "
                         "blueprint, so the legacy blueprint-scoped loopback hook doesn't "
-                        "carry over). Fail-soft: a store/breaker error returns `{ok: false}` "
-                        "with 200, never a 500. An unknown platform is a 400 with no side effect."
+                        "carry over). Also covered by the app-level CSRF and Origin/Referer "
+                        "guards applied to every /api/v1/* mutating route automatically "
+                        "(not an outbound probe, so no additional inline bind-origin check "
+                        "is needed here, unlike recheck-link). Fail-soft: a store/breaker "
+                        "error returns `{ok: false}` with 200, never a 500. An unknown "
+                        "platform is a 400 with no side effect." + _paused_note
                     ),
                     "tags": ["health"],
                     "requestBody": _body(HealthActionPlatformRequestSchema),

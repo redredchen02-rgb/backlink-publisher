@@ -1816,8 +1816,11 @@ paths:
       summary: Pause or resume a platform.
       description: 'Loopback-only (enforced per-view -- api_v1 is a single shared
         blueprint, so the legacy blueprint-scoped loopback hook doesn''t carry over).
-        Fail-soft: a store/breaker error returns `{ok: false}` with 200, never a 500.
-        An unknown platform is a 400 with no side effect.'
+        Also covered by the app-level CSRF and Origin/Referer guards applied to every
+        /api/v1/* mutating route automatically (not an outbound probe, so no additional
+        inline bind-origin check is needed here, unlike recheck-link). Fail-soft:
+        a store/breaker error returns `{ok: false}` with 200, never a 500. An unknown
+        platform is a 400 with no side effect.'
       tags:
       - health
       requestBody:
@@ -1851,8 +1854,12 @@ paths:
       summary: Re-run offline adapter setup verification for a platform.
       description: 'Loopback-only (enforced per-view -- api_v1 is a single shared
         blueprint, so the legacy blueprint-scoped loopback hook doesn''t carry over).
-        Fail-soft: a store/breaker error returns `{ok: false}` with 200, never a 500.
-        An unknown platform is a 400 with no side effect.'
+        Also covered by the app-level CSRF and Origin/Referer guards applied to every
+        /api/v1/* mutating route automatically (not an outbound probe, so no additional
+        inline bind-origin check is needed here, unlike recheck-link). Fail-soft:
+        a store/breaker error returns `{ok: false}` with 200, never a 500. An unknown
+        platform is a 400 with no side effect. The request body''s `paused` field
+        is ignored on this endpoint (pause-only).'
       tags:
       - health
       requestBody:
@@ -1886,8 +1893,12 @@ paths:
       summary: Reset a platform's tripped reliability circuit breaker.
       description: 'Loopback-only (enforced per-view -- api_v1 is a single shared
         blueprint, so the legacy blueprint-scoped loopback hook doesn''t carry over).
-        Fail-soft: a store/breaker error returns `{ok: false}` with 200, never a 500.
-        An unknown platform is a 400 with no side effect.'
+        Also covered by the app-level CSRF and Origin/Referer guards applied to every
+        /api/v1/* mutating route automatically (not an outbound probe, so no additional
+        inline bind-origin check is needed here, unlike recheck-link). Fail-soft:
+        a store/breaker error returns `{ok: false}` with 200, never a 500. An unknown
+        platform is a 400 with no side effect. The request body''s `paused` field
+        is ignored on this endpoint (pause-only).'
       tags:
       - health
       requestBody:

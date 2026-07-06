@@ -14,14 +14,19 @@ vi.mock('../../api/health', () => ({
 }))
 
 import * as api from '../../api/health'
+import type {
+  HealthActionResult,
+  HealthScorecardLinks,
+  HealthSummary,
+} from '../../api/health'
 import HealthPage from './HealthPage.vue'
 import { useNotificationsStore } from '../../stores/notifications'
 
-function panel<T>(data: T, degraded = false) {
+function panel<T>(data: T, degraded = false): { data: T, degraded: boolean } {
   return { data, degraded }
 }
 
-const BASE_SUMMARY = {
+const BASE_SUMMARY: HealthSummary = {
   projection: {
     events_inserted: 0, sources_projected: 0, latest_event_utc: null,
     gap: false, gap_reason: null, degraded: false, degraded_reason: null,
@@ -82,7 +87,7 @@ function mountPage() {
 
 describe('HealthPage', () => {
   it('renders hero stats, scorecard, canary, and platform table on happy path', async () => {
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY)
     const w = mountPage()
     await flushPromises()
 
@@ -96,7 +101,7 @@ describe('HealthPage', () => {
       ...BASE_SUMMARY,
       panels: { ...BASE_SUMMARY.panels, canary: panel([], true) },
     }
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary)
     const w = mountPage()
     await flushPromises()
     expect(w.text()).toContain('数据不可用')
@@ -107,7 +112,7 @@ describe('HealthPage', () => {
       ...BASE_SUMMARY,
       projection: { ...BASE_SUMMARY.projection, degraded: true, degraded_reason: 'RuntimeError' },
     }
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary)
     const w = mountPage()
     await flushPromises()
     expect(w.find('[role="alert"]').exists()).toBe(true)
@@ -122,7 +127,7 @@ describe('HealthPage', () => {
   })
 
   it('drills into a channel scorecard row and lists its links', async () => {
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY)
     vi.mocked(api.fetchScorecardLinks).mockResolvedValue({
       ok: true, links: [{ live_url: 'https://a.com/x' }],
     })
@@ -138,7 +143,7 @@ describe('HealthPage', () => {
   })
 
   it('recheck-link action surfaces a success toast', async () => {
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY)
     vi.mocked(api.fetchScorecardLinks).mockResolvedValue({
       ok: true, links: [{ live_url: 'https://a.com/x' }],
     })
@@ -160,7 +165,7 @@ describe('HealthPage', () => {
   })
 
   it('pauses a platform and surfaces a success toast', async () => {
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY)
     vi.mocked(api.pausePlatform).mockResolvedValue({ ok: true, platform: 'blogger', paused: true })
     const w = mountPage()
     const notify = useNotificationsStore()
@@ -175,7 +180,7 @@ describe('HealthPage', () => {
   })
 
   it('reverifies a platform and surfaces the ready result', async () => {
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY)
     vi.mocked(api.reverifyPlatform).mockResolvedValue({
       ok: true, platform: 'blogger', ready: true, reason: '',
     })
@@ -192,7 +197,7 @@ describe('HealthPage', () => {
   })
 
   it('circuit-reset button is disabled unless the circuit is tripped', async () => {
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(BASE_SUMMARY)
     const w = mountPage()
     await flushPromises()
     const resetBtn = w.findAll('.row-actions button')[2]
@@ -213,7 +218,7 @@ describe('HealthPage', () => {
         }),
       },
     }
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary)
     vi.mocked(api.circuitResetPlatform).mockResolvedValue({ ok: true, platform: 'blogger' })
     const w = mountPage()
     const notify = useNotificationsStore()
@@ -236,11 +241,74 @@ describe('HealthPage', () => {
         decay_alerts: panel([{ target_url: 'https://a.com', lost_count: 2, ts: '2026-07-01' }]),
       },
     }
-    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary as any)
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary)
     const w = mountPage()
     await flushPromises()
 
     expect(w.find('.health__more').exists()).toBe(true)
     expect(w.text()).toContain('更多指标')
+  })
+
+  it('a pause action stays busy (disabled) until the post-action refetch resolves (code review finding)', async () => {
+    let resolveRefetch!: (v: HealthSummary) => void
+    vi.mocked(api.fetchHealthSummary)
+      .mockResolvedValueOnce(BASE_SUMMARY) // initial load
+      .mockReturnValueOnce(new Promise((resolve) => { resolveRefetch = resolve })) // post-action refetch
+    let resolvePause!: (v: HealthActionResult) => void
+    vi.mocked(api.pausePlatform).mockReturnValue(new Promise((resolve) => { resolvePause = resolve }))
+    const w = mountPage()
+    await flushPromises()
+
+    const pauseBtn = w.findAll('.row-actions button')[0]
+    await pauseBtn.trigger('click')
+    await flushPromises()
+    expect((pauseBtn.element as HTMLButtonElement).disabled).toBe(true)
+
+    resolvePause({ ok: true, platform: 'blogger', paused: true })
+    await flushPromises()
+    // The action call itself settled, but the refetch it triggers is still
+    // pending -- the button must still read busy (this is exactly the
+    // window the pre-fix code released the lock in).
+    expect((pauseBtn.element as HTMLButtonElement).disabled).toBe(true)
+
+    resolveRefetch(BASE_SUMMARY)
+    await flushPromises()
+    expect((pauseBtn.element as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('expanding a second channel before the first resolves does not clear the wrong channel\'s loading indicator', async () => {
+    const summary = {
+      ...BASE_SUMMARY,
+      panels: {
+        ...BASE_SUMMARY.panels,
+        channel_scorecard: panel([{ channel: 'blogger' }, { channel: 'medium' }]),
+      },
+    }
+    vi.mocked(api.fetchHealthSummary).mockResolvedValue(summary)
+    let resolveBlogger!: (v: HealthScorecardLinks) => void
+    vi.mocked(api.fetchScorecardLinks).mockImplementation((channel: string) => {
+      if (channel === 'blogger') return new Promise((resolve) => { resolveBlogger = resolve })
+      return Promise.resolve({ ok: true, links: [{ live_url: 'https://medium.com/x' }] })
+    })
+    const w = mountPage()
+    await flushPromises()
+
+    const viewLinksBtns = w.findAll('button').filter((b) => b.text() === '查看链接')
+    await viewLinksBtns[0].trigger('click') // expand blogger (stays pending)
+    await flushPromises()
+    expect(w.text()).toContain('加载中')
+
+    await viewLinksBtns[1].trigger('click') // expand medium instead (blogger's fetch still pending)
+    await flushPromises()
+    expect(w.text()).toContain('https://medium.com/x')
+
+    resolveBlogger({ ok: true, links: [{ live_url: 'https://blogger.com/y' }] })
+    await flushPromises()
+    // blogger's own loading flag must have cleared once ITS fetch resolved,
+    // independent of medium's.
+    await viewLinksBtns[0].trigger('click') // re-expand blogger
+    await flushPromises()
+    expect(w.text()).not.toContain('加载中')
+    expect(w.text()).toContain('https://blogger.com/y')
   })
 })
