@@ -3,6 +3,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { fetchSurvival, type SurvivalView } from '../../api/survival'
 import StateBlock from '../../components/StateBlock.vue'
+import Icon from '../../components/Icon.vue'
 
 const view = ref<SurvivalView | null>(null)
 const error = ref<Error | null>(null)
@@ -43,7 +44,7 @@ onMounted(load)
     <header class="surv-title-row">
       <h1 class="surv-title">鏈接存活率</h1>
       <a href="/app/keep-alive" class="btn btn-sm btn-outline-light btn-outline-glass">
-        <i class="bi bi-shield-check me-1" />保活看板
+        <Icon name="shield-check" class="me-1" />保活看板
       </a>
     </header>
 
@@ -62,7 +63,7 @@ onMounted(load)
         <p class="surv-sub">{{ view?.sub ?? '' }}</p>
 
         <span v-if="view?.stale" class="surv-flag">
-          <i class="bi bi-exclamation-triangle-fill" />
+          <Icon name="exclamation-triangle-fill" />
           部分樣本：{{ view?.stale_count }} 條成熟鏈接待巡检（最久 {{ view?.stale_days }} 天）
         </span>
 
