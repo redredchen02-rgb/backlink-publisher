@@ -60,8 +60,13 @@ describe('HistoryPage', () => {
     expect(w.find('[role="alert"]').exists()).toBe(true)
   })
 
-  it('deletes a row and writes the refreshed list back into the table', async () => {
-    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED] })
+  it('deletes a row, refetches this page, and reflects the now-empty result', async () => {
+    // Mutation endpoints return the full table (unchanged contract), not a
+    // page-shaped envelope -- the page refetches from listHistory afterward
+    // rather than reshaping deleteHistory's own response.
+    vi.mocked(api.listHistory)
+      .mockResolvedValueOnce({ items: [PUBLISHED], total: 1, limit: 50, offset: 0 })
+      .mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
     vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
     const w = mountPage()
     await flushPromises()
@@ -71,6 +76,25 @@ describe('HistoryPage', () => {
 
     expect(api.deleteHistory).toHaveBeenCalledWith('7')
     expect(w.findAll('tbody tr')).toHaveLength(0)
+  })
+
+  it('disables pagination and checkboxes while a mutation is in flight (code review: pagination-during-mutation race)', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED], total: 120, limit: 50, offset: 0 })
+    let resolveDelete!: (v: { items: never[] }) => void
+    vi.mocked(api.deleteHistory).mockReturnValue(new Promise((resolve) => { resolveDelete = resolve }))
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('.row-actions button:last-child').trigger('click') // 删除, still pending
+    await flushPromises()
+
+    expect((w.find('tbody tr input[type="checkbox"]').element as HTMLInputElement).disabled).toBe(true)
+    const [, next] = w.findAll('.data-table__pager button')
+    expect((next.element as HTMLButtonElement).disabled).toBe(true)
+
+    resolveDelete({ items: [] })
+    await flushPromises()
+    expect((next.element as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('recheck surfaces the server message as a toast', async () => {
@@ -153,7 +177,13 @@ describe('HistoryPage', () => {
     // If the user reselects a DIFFERENT row while the first bulk call is still
     // in flight, that reselection must survive -- run() must not blanket-clear
     // `selected` on success, only remove the ids this call actually acted on.
-    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
+    // run() refetches this page from the server rather than trusting the
+    // mutation response's own `items` -- so the *second* listHistory call
+    // (triggered by that refetch) must reflect id 7's deletion, not just the
+    // mutation's return value.
+    vi.mocked(api.listHistory)
+      .mockResolvedValueOnce({ items: [PUBLISHED, FAILED] })
+      .mockResolvedValueOnce({ items: [FAILED] })
     let resolveDelete!: (v: { items: typeof PUBLISHED[]; message?: string }) => void
     const pending = new Promise<{ items: typeof PUBLISHED[]; message?: string }>((res) => {
       resolveDelete = res
@@ -189,5 +219,63 @@ describe('HistoryPage', () => {
     expect(notify.toasts[0].severity).toBe('error')
     expect(notify.toasts[0].message).toContain('服务器出错了')
     expect(notify.toasts[0].message).not.toContain('stacktrace')
+  })
+
+  it('fetches with limit/offset=0 on mount (Plan 2026-07-02-001 U5)', async () => {
+    vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED], total: 1, limit: 50, offset: 0 })
+    mountPage()
+    await flushPromises()
+    expect(api.listHistory).toHaveBeenCalledWith({ limit: 50, offset: 0 })
+  })
+
+  it('clicking next page fetches the next offset and clears the selection', async () => {
+    vi.mocked(api.listHistory)
+      .mockResolvedValueOnce({ items: [PUBLISHED], total: 120, limit: 50, offset: 0 })
+      .mockResolvedValueOnce({ items: [FAILED], total: 120, limit: 50, offset: 50 })
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('tbody tr input[type="checkbox"]').setValue(true) // select the only row
+    expect(w.findAll('.data-table__pager button')).toHaveLength(2)
+
+    const [, next] = w.findAll('.data-table__pager button')
+    await next.trigger('click')
+    await flushPromises()
+
+    expect(api.listHistory).toHaveBeenCalledWith({ limit: 50, offset: 50 })
+    // Selection made on page 1 must not survive the page change.
+    expect(w.find('.bulk-delete').text()).toContain('(0)')
+  })
+
+  it('deleting the last row on the last page clamps back to the previous page', async () => {
+    // Land on page 3 (offset 100) with a single remaining row; after deleting
+    // it, the server-reported total (100) means offset 100 is now out of
+    // range, so the page must clamp back to offset 50 and refetch there.
+    vi.mocked(api.listHistory)
+      .mockResolvedValueOnce({ items: [PUBLISHED], total: 101, limit: 50, offset: 0 })
+      .mockResolvedValueOnce({ items: [FAILED], total: 101, limit: 50, offset: 100 })
+    const w = mountPage()
+    await flushPromises()
+
+    const [, next] = w.findAll('.data-table__pager button')
+    await next.trigger('click') // -> offset 50
+    await flushPromises()
+    const [, next2] = w.findAll('.data-table__pager button')
+    await next2.trigger('click') // -> offset 100
+    await flushPromises()
+
+    vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
+    vi.mocked(api.listHistory).mockResolvedValueOnce({
+      items: [], total: 100, limit: 50, offset: 100,
+    }).mockResolvedValueOnce({
+      items: [PUBLISHED], total: 100, limit: 50, offset: 50,
+    })
+
+    await w.find('.row-actions button:last-child').trigger('click') // 删除
+    await flushPromises()
+
+    // Last call must be the clamped refetch at offset 50, not the empty 100.
+    const calls = vi.mocked(api.listHistory).mock.calls
+    expect(calls[calls.length - 1]).toEqual([{ limit: 50, offset: 50 }])
   })
 })

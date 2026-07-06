@@ -251,18 +251,44 @@ paths:
   /api/v1/history:
     get:
       operationId: getHistory
-      summary: Full publish-history list.
-      description: 'Read-only: every publish-history entry from events.db, normalised
-        for display. No pagination yet.'
+      summary: Publish-history list, optionally paginated.
+      description: 'Read-only: publish-history entries from events.db, normalised
+        for display. Omitting `limit` returns every entry in the original flat shape;
+        passing `limit` returns a page envelope with `total`/`limit`/`offset` (Plan
+        2026-07-02-001 U5).'
       tags:
       - history
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        description: Opts into the paginated envelope; omitting it returns every entry
+          in the original flat shape.
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 500
+      - name: offset
+        in: query
+        required: false
+        description: Has no effect unless `limit` is also given.
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
         '200':
-          description: History list.
+          description: History list (paginated if `limit` given).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryList'
+        '400':
+          description: Invalid limit/offset.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/history/delete:
     post:
       operationId: deleteHistoryItem
@@ -435,18 +461,43 @@ paths:
   /api/v1/drafts:
     get:
       operationId: getDrafts
-      summary: Full draft-queue list (newest first).
-      description: 'Read-only: every draft in the queue with its status (pending/scheduled),
-        newest first.'
+      summary: Draft-queue list (newest first), optionally paginated.
+      description: 'Read-only: drafts in the queue with their status (pending/scheduled),
+        newest first. Same pagination contract as GET /history (Plan 2026-07-02-001
+        U5).'
       tags:
       - drafts
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        description: Opts into the paginated envelope; omitting it returns every entry
+          in the original flat shape.
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 500
+      - name: offset
+        in: query
+        required: false
+        description: Has no effect unless `limit` is also given.
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
         '200':
-          description: Draft list.
+          description: Draft list (paginated if `limit` given).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DraftList'
+        '400':
+          description: Invalid limit/offset.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/drafts/schedule:
     post:
       operationId: scheduleDraft
@@ -2254,6 +2305,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HistoryItem'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
       required:
       - items
       additionalProperties: false
@@ -2350,6 +2407,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DraftItem'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
       required:
       - items
       additionalProperties: false
