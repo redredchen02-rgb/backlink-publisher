@@ -16,7 +16,6 @@ ALLOWLIST: set[str] = {
     "cli/publish_backlinks/__main__.py",
     "cli/spray_backlinks/__main__.py",
     # True orphans — not imported by any code path
-    "_util/http_session.py",
     "cli/verify_backlinks.py",
     "config/parsers/click_track.py",
     "events/history_importer.py",

@@ -131,6 +131,38 @@ class ChannelStatusSqliteStore(BaseSqliteStore):
 
         return _retry_sqlite(_op)
 
+    def get_one(self, channel: str) -> dict[str, Any] | None:
+        """Fetch a single channel record by slug. Returns ``None`` when
+        the channel has no row (avoids loading the entire table)."""
+
+        def _op() -> dict[str, Any] | None:
+            with self._db.connect() as conn:
+                row = conn.execute(
+                    "SELECT status, bound_at, storage_state_path, "
+                    "last_verified_at, extra_json FROM channel_status "
+                    "WHERE channel = ?",
+                    (channel,),
+                ).fetchone()
+            if row is None:
+                return None
+            status, bound_at, storage_state_path, last_verified_at, extra_json = row
+            rec: dict[str, Any] = {
+                "status": status,
+                "bound_at": bound_at,
+                "storage_state_path": storage_state_path,
+                "last_verified_at": last_verified_at,
+            }
+            if extra_json:
+                try:
+                    extra = json.loads(extra_json)
+                    if isinstance(extra, dict):
+                        rec.update(extra)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return rec
+
+        return _retry_sqlite(_op)
+
     def save(self, value: dict[str, dict[str, Any]]) -> None:
         records = value if isinstance(value, dict) else {}
         rows: list[tuple[Any, ...]] = []
@@ -301,7 +333,15 @@ def mark_identity_mismatch(
 def get_status(channel: str) -> dict[str, Any]:
     """Read API. Unknown channels return the unbound default (no
     KeyError) so UI rendering doesn't have to branch on membership."""
-    data = channel_status_store.load() or {}
+    # Fast path: direct SQL lookup avoids loading the entire table.
+    store = channel_status_store
+    if hasattr(store, 'get_one'):
+        rec = store.get_one(channel)
+        if rec is not None:
+            return rec
+        return dict(_UNBOUND_DEFAULT)
+    # Fallback for legacy JsonStore
+    data = store.load() or {}
     rec = data.get(channel)
     if rec is None:
         return dict(_UNBOUND_DEFAULT)

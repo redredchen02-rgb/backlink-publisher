@@ -66,7 +66,7 @@ lint:
 	@ruff format --check src/ tests/ || true
 
 type-check:
-	@mypy src/backlink_publisher/_util/ src/backlink_publisher/config/ 2>&1 | tail -5 || true
+	@mypy src/backlink_publisher/_util/ src/backlink_publisher/config/ src/backlink_publisher/content/ 2>&1 | tail -10 || true
 
 coverage:
 	@PYTHONHASHSEED=0 PYTHONPATH=src pytest tests/ --cov=src/backlink_publisher \

@@ -46,9 +46,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+
+      - name: Cache .venv
+        uses: actions/cache@v4
+        id: venv-cache
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-venv-${{ matrix.python-version }}-
 
       - name: Install dependencies
+        if: steps.venv-cache.outputs.cache-hit != 'true'
         run: |
           pip install -e ".[dev]"
 
@@ -159,9 +167,9 @@ else:
 
   # ═══════════════════════════════════════════════════════════════════════════
   # U2: Integration tests — touch disk, database, or external fakes
+  # Runs on both PR and push to main to catch regressions early.
   # ═══════════════════════════════════════════════════════════════════════════
   integration:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -175,38 +183,33 @@ else:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+
+      - name: Cache .venv
+        uses: actions/cache@v4
+        id: venv-cache-integration
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-venv-${{ matrix.python-version }}-
 
       - name: Install dependencies
+        if: steps.venv-cache-integration.outputs.cache-hit != 'true'
         run: |
           pip install -e ".[dev]"
 
       - name: Run integration tests
         # Longer per-test timeout (60s) — integration tests may touch SQLite,
         # filesystem, or spawn subprocesses.
+        # R18: no longer re-run all unit tests for coverage. The unit job
+        # already measures unit coverage; this job only validates integration tests.
         run: |
           python -m pytest tests/ -v --tb=short --timeout=60 -n auto -m "integration" --strict-markers --strict-config
 
-      - name: Full-suite coverage gate (R18)
-        # Run without -m filter to measure combined coverage. --cov-fail-under=80
-        # is set on the CLI, not addopts, to avoid conftest module-load silencing
-        # (see docs/solutions/test-failures/strict-markers-addopts-noop-conftest-module-load-2026-06-01.md).
-        # Baseline: 83.2% measured 2026-06-09; floor set at 80% to prevent regressions.
-        run: |
-          python -m pytest tests/ --tb=short --timeout=60 -n auto --strict-markers --strict-config --cov --cov-branch --cov-report=term --cov-report=json:coverage-full.json --cov-fail-under=80
-
-      - name: Upload full coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-full-${{ matrix.python-version }}
-          path: coverage-full.json
-          if-no-files-found: error
-
   # ═══════════════════════════════════════════════════════════════════════════
   # U2: E2E tests — full end-to-end requiring real network or browser
+  # Runs on both PR and push to main.
   # ═══════════════════════════════════════════════════════════════════════════
   e2e:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -220,9 +223,17 @@ else:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+
+      - name: Cache .venv
+        uses: actions/cache@v4
+        id: venv-cache-e2e
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-venv-${{ matrix.python-version }}-
 
       - name: Install dependencies
+        if: steps.venv-cache-e2e.outputs.cache-hit != 'true'
         run: |
           pip install -e ".[dev]"
 

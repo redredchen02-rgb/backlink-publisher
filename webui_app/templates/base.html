@@ -7,18 +7,22 @@
        this at call time; do NOT remove or let a child page drop it. #}
     <meta name="csrf-token" content="{{ csrf_token or '' }}">
     <title>{% block title %}Backlink Publisher{% endblock %}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     {# Bootstrap bundle: CLASSIC, non-defer, non-module. Its synchronous head
        execution guarantees window.bootstrap is defined BEFORE any deferred page
        module runs (ES modules execute in the defer phase). Do NOT add
        defer/type=module here, or move it to body-bottom. #}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
     {# Single source of design tokens, consumed by per-page CSS. #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css', v=asset_version) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global_nav.css', v=asset_version) }}">
     {# Shared console UI primitives: toast + empty/loading/error states. #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css', v=asset_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css', v=asset_version) }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
@@ -145,6 +149,11 @@
        a chance to throw — otherwise an early failure in theme.js/nav.js would
        go unobserved. See Plan 2026-07-01-002 Unit 4. #}
     <script type="module" src="{{ url_for('static', filename='js/ui/error-capture.js', v=asset_version) }}"></script>
+    {# Preload shared ES modules to enable speculative fetching. modulepreload
+       is a resource hint, not execution — it doesn't affect the error-capture
+       ordering guarantee above. #}
+    <link rel="modulepreload" href="{{ url_for('static', filename='js/lib/dom.js', v=asset_version) }}">
+    <link rel="modulepreload" href="{{ url_for('static', filename='js/lib/api.js', v=asset_version) }}">
     <script type="module" src="{{ url_for('static', filename='js/theme.js', v=asset_version) }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/nav.js', v=asset_version) }}"></script>
     {# ui/toast.js subscribes to app:notify BEFORE notifications.js inits (and

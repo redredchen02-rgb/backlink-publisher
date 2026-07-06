@@ -35,9 +35,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Cache .venv
+        uses: actions/cache@v4
+        id: venv-cache-e2e-sep
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-3.11-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-venv-3.11-
       - name: Install Python deps
+        if: steps.venv-cache-e2e-sep.outputs.cache-hit != 'true'
         run: python -m pip install -e ".[dev]"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: python -m playwright install --with-deps chromium
 
       - name: Publish-journey E2E

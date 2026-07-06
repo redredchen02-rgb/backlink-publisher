@@ -185,3 +185,10 @@ def _refuse_when_allow_network() -> None:
             403,
         )
         abort(response)
+
+
+def _mask_token(value: str) -> str:
+    """Mask a token/API key for display: show first 3 and last 3 chars."""
+    if not value or len(value) < 8:
+        return "***"
+    return value[:3] + "*" * (len(value) - 6) + value[-3:]

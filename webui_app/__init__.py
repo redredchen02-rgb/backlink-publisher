@@ -11,6 +11,7 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 from datetime import timedelta
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
 import uuid
@@ -149,20 +150,11 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     from .routes import register_blueprints
     register_blueprints(app)
 
-    # Pre-populate the publisher adapter registry at startup so the
-    # per-request context processor does not trigger the side-effect import
-    # on every template render (P11 optimization).
+    # Import adapters once at startup (not on first request). This populates
+    # the publisher registry so inject_platforms() doesn't pay the import
+    # cost on every template render — both lineages independently made this
+    # same optimization; kept once.
     import backlink_publisher.publishing.adapters  # noqa: F401
-    from backlink_publisher.publishing.registry import (
-        bound_platforms as registry_bound_platforms,
-    )
-    from backlink_publisher.publishing.registry import (
-        registered_platforms,
-        ui_meta,
-    )
-
-    # Per-request cache for llm-settings (loaded once per request, not per page).
-    from .helpers._request_cache import _g_cache
     from .helpers.security import (
         _check_bind_origin_or_abort,
         _check_csrf_or_abort,
@@ -175,10 +167,27 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # the JS counter dict, and norm_platform routing without any HTML edit.
     # ``s.title()`` is the v1 display-name source (no _display_name_map dict
     # per scope-guardian F5); i18n migration is a Deferred follow-up.
+    #
+    # TTL cache: platform list and channel bindings change infrequently;
+    # re-resolve every 30s max to avoid repeated config loads per request.
+    # This does strictly more than the startup adapter-import above: that
+    # only removes the registry *import* cost, this also amortizes the
+    # per-request config load and bound_platforms filtering below.
+    _PLATFORMS_TTL = 30
+
     @app.context_processor
     def inject_platforms() -> dict[str, Any]:
-        # Adapter registry is pre-populated at startup (moved from per-request
-        # to module-level import for P11 performance optimization).
+        now = time.monotonic()
+        cached = app.config.get('_platforms_cache')
+        if cached and now - cached['ts'] < _PLATFORMS_TTL:
+            return cached['data']
+
+        from backlink_publisher.publishing.registry import (
+            bound_platforms as registry_bound_platforms,
+            registered_platforms,
+            ui_meta,
+        )
+
         def _display(slug: str) -> str:
             meta = ui_meta(slug)
             return meta.display_name if meta is not None else slug.title()
@@ -219,7 +228,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
         except Exception:
             bound_platforms = platforms
 
-        return {"platforms": platforms, "bound_platforms": bound_platforms}
+        result = {"platforms": platforms, "bound_platforms": bound_platforms}
+        app.config['_platforms_cache'] = {'ts': now, 'data': result}
+        return result
 
     # Plan 2026-05-20-002 Unit 5 — register csrf_token() Jinja global so
     # the homepage <meta name="csrf-token"> tag can read the per-session
@@ -258,8 +269,18 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # endpoint is caught at POST time with a 400. ``llm_configured`` is kept as a
     # derived alias so the shipped copilot panel (`_copilot_panel.html`) needs
     # no change (back-compat).
+    #
+    # TTL cache: llm-settings.json rarely changes; re-read every 30s max.
+    _PRO_STATUS_TTL = 30
+
     @app.context_processor
     def inject_pro_status() -> dict[str, Any]:
+        now = time.monotonic()
+        cached = app.config.get('_pro_status_cache')
+        if cached and now - cached['ts'] < _PRO_STATUS_TTL:
+            return cached['data']
+
+        from .helpers._request_cache import _g_cache
         from .services import settings_service
         try:
             # Cache llm-settings per-request (same pattern as load_config)
@@ -274,7 +295,9 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
                 "configured": False, "endpoint_host": "", "model": "",
                 "article_gen": False, "image_gen": False, "last_test": None,
             }
-        return {"pro_status": summary, "llm_configured": summary["configured"]}
+        result = {"pro_status": summary, "llm_configured": summary["configured"]}
+        app.config['_pro_status_cache'] = {'ts': now, 'data': result}
+        return result
 
     # Plan 2026-06-04-001 Unit 10 / R7+R8 — the LITE edition shows the operator
     # only the keep-alive core. ``lite_edition`` drives the nav trim in
@@ -296,6 +319,20 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     # legacy ``WTF_CSRF_ENABLED = False`` (many existing tests already set
     # that flag defensively — both are honored).
     app.config.setdefault('CSRF_ENABLED', True)
+
+    # Cache-Control headers for API endpoints.
+    # Sensitive endpoints get no-store; read-only dashboards get short TTL.
+    @app.after_request
+    def _set_cache_headers(response):
+        from flask import request as _req
+        path = _req.path
+        if path.startswith("/api/") or path.startswith("/ce:"):
+            # API and health endpoints: no caching
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        elif path.startswith("/settings") or path.startswith("/sites"):
+            # Settings pages: no caching (contain credential state)
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.before_request
     def _global_csrf_guard() -> flask.Response | None:
@@ -509,5 +546,41 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     def _json_forbidden(exc: Exception) -> tuple[flask.Response, int]:
         from flask import jsonify as _jsonify
         return _jsonify({"status": "error", "error": "forbidden"}), 403
+
+    @app.errorhandler(500)
+    def _json_internal_error(exc):
+        _log.error(
+            "RECON api_5xx path=%s method=%s remote=%s error=%s",
+            request.path,
+            request.method,
+            request.remote_addr,
+            exc,
+        )
+        from flask import jsonify as _jsonify
+        return _jsonify({"status": "error", "error": "internal"}), 500
+
+    @app.errorhandler(502)
+    def _json_bad_gateway(exc):
+        _log.error(
+            "RECON api_502 path=%s method=%s remote=%s error=%s",
+            request.path,
+            request.method,
+            request.remote_addr,
+            exc,
+        )
+        from flask import jsonify as _jsonify
+        return _jsonify({"status": "error", "error": "bad_gateway"}), 502
+
+    @app.errorhandler(503)
+    def _json_service_unavailable(exc):
+        _log.error(
+            "RECON api_503 path=%s method=%s remote=%s error=%s",
+            request.path,
+            request.method,
+            request.remote_addr,
+            exc,
+        )
+        from flask import jsonify as _jsonify
+        return _jsonify({"status": "error", "error": "unavailable"}), 503
 
     return app

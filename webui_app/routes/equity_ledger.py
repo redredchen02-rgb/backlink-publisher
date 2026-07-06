@@ -130,7 +130,7 @@ def equity_ledger_recheck() -> Any:
         map_history_entry,
         write_event,
     )
-    from backlink_publisher.events.store import EventStore as _EventStore
+    from backlink_publisher.events import EventStore as _EventStore
 
     from ..services.recheck import recheck_one
 
