@@ -76,9 +76,12 @@ def _run_resume(run_id: str) -> tuple[str, str, int]:
         out, err = StringIO(), StringIO()
         sys.stdout, sys.stderr = out, err
         try:
-            with patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup"):
+            # --resume dispatches through cli._resume, whose module-level
+            # bindings (not cli.publish_backlinks's re-exports) are what the
+            # resume path actually calls — patch where the lookup happens.
+            with patch("backlink_publisher.cli._resume.verify_adapter_setup"):
                 with patch(
-                    "backlink_publisher.cli.publish_backlinks.adapter_publish"
+                    "backlink_publisher.cli._resume.adapter_publish"
                 ) as mock_pub:
                     from backlink_publisher.publishing.adapters.base import AdapterResult
                     mock_pub.return_value = AdapterResult(
