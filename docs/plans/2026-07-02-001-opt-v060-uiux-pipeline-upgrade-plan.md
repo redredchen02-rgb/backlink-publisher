@@ -297,11 +297,28 @@ graph TB
 
 **Verification:** 4 個批次操作在 SPA History/Drafts 可用且行為與 legacy 對等；API contract workflow 全綠。
 
-- [ ] **U4: dual-live 路由收斂（`/`、`/sites`、`/batch-campaign`、`/schedule`）〔R4〕**
+- [ ] **U4: dual-live 路由收斂（`/`、`/sites`、`/batch-campaign`、`/schedule`）〔R4〕**——**封鎖，未執行，見下方 2026-07-06 發現**
 
 **Goal:** 四條雙軌路由 302 到 SPA，主入口動線統一。
 
-**Dependencies:** U3（批次對等先行——K5 硬約束）。
+**Dependencies:** U3（批次對等先行——K5 硬約束，U3 已完成，分支 `feat/u3-batch-ops-api-parity`，尚未合併 main）。
+
+**〔2026-07-06 執行前查證，發現本 unit 的前提已過時，未動任何程式碼〕**：
+
+1. **`/schedule` 早已修復**——即時查證 `webui_app/routes/schedule.py` 確認已在「Sprint B1」加上 `redirect(url_for('spa.spa', subpath='schedule'), 302)` + `/schedule/jinja` 逃生口。本 unit 標題所列 4 條路由中，真正還缺 redirect 的其實是 `/`、`/ce:history`、`/sites`、`/batch-campaign`（`/ce:history` 取代 `/schedule`）——與 `webui_app/CLAUDE.md`（今日由另一並行工作階段更新）記載的缺口清單一致。
+
+2. **另一份更詳細、更近期、已定案的稽核直接牴觸本 unit 的執行前提**：`docs/plans/2026-06-30-001-opt-phase3-post-v050-iteration-plan.md` 的 B1 unit（執行於 2026-07-02，即本計畫成立當天）已經逐一查證這 4 條路由的風險並做出明確決策（該文件「SPA Route Audit Matrix」章節，行 202-217）：
+   - **`/`（高風險，延後）**：既有 9 處 POST handler（`checkpoint.py`／`drafts.py`）以 `redirect(f'/?flash_type=...&flash_msg=...')` 回導本路徑，傳遞使用者操作的成功／失敗提示；SPA 端 `frontend/src/stores/notifications.ts` 雖有 `pushFlash()` bridge 函式，但整個 `frontend/src/` 沒有任何呼叫點讀取這些 query string——是個沒接線的死接口。若機械式補 redirect，這些提示會被靜默吞掉，**是使用者可感知的功能退化**，不只是測試斷裂。37 個既有測試呼叫點斷言完整頁面渲染。
+   - **`/ce:history`（高風險，延後）**：同一機制，`history.py` 4 處 POST handler 帶 flash query string 回導。18 個既有測試呼叫點。
+   - **`/sites`（高風險，延後）**：`sites_save_three_url` 回導 `/sites?saved=...&autofilled=...`——另一組（非 flash_type/flash_msg）查詢參數契約，SPA 端同樣零接線。18 個既有測試呼叫點含大量狀態斷言（autopilot 列狀態、錯誤態）。
+   - **`/batch-campaign`（GET，中風險，延後）**：無 flash 退化問題，但 7 個既有測試斷言 legacy-only 內容（擴展區平台分區、過期管道渲染），SPA 端是否有等效覆蓋未經確認。
+   - 該文件的結論：**四條都需要一個獨立 unit——先接線 flash bridge（或改用其他機制傳遞操作結果），再處理 redirect + 測試遷移**；這是已完成、已定案的決策，不是待辦。
+
+3. **額外發現（本次查證新增，前述稽核未提及）**：legacy `index.html` 的 Pro Mode Copilot 側邊建議面板（`_copilot_panel.html`，含自己的 advice API／badge／loading-error-degraded 三態）在整個 `frontend/src/` 全域零匹配——沒有任何 SPA 對應元件。若 `/` 改導向 SPA，這個功能會從主入口完全消失（僅剩 `/jinja` 逃生口可達）。
+
+4. **本 unit 標題「必須 guard `_spa_enabled`」的既有先例查證**：目前 `webui_app/routes/` 全部 8 條已完成 redirect 的路由（含 `/schedule`）**沒有任何一條**實際檢查 `_spa_enabled()`——`grep -rn "_spa_enabled" webui_app/routes/*.py` 只在 `spa.py` 自身找到定義與使用。這代表若操作者設定 `BACKLINK_PUBLISHER_SPA=0`，這 8 條既有 redirect 全部會 302 進 `spa.spa()` 的 404（`_spa_enabled()` 為 False 時 `abort(404)`）——是個既存、系統性、影響全部 8 條既有路由的缺口，非本 unit 新增；記錄於此供未來一併處理，不在本 unit 檔案範圍內修復。
+
+**決策（2026-07-06）**：不執行本 unit 的路由 redirect 部分。前提條件（flash bridge 接線、Copilot 面板 SPA 對應、`/batch-campaign` 測試覆蓋確認）均未滿足，且已有更詳細的獨立稽核文件記載相同結論。待 flash bridge 接線（或替代機制）與 Copilot 面板遷移完成後，回頭以 `docs/plans/2026-06-30-001-...` 的稽核矩陣為準繼續執行，不重複該文件已完成的分析。
 
 **Files:**
 - Modify: `webui_app/routes/main.py`、`webui_app/routes/sites.py`、`webui_app/routes/batch_campaign.py`、schedule 對應 route 模組
