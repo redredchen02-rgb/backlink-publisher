@@ -1,7 +1,7 @@
 ---
 title: "opt: 全專案隱藏債務強化掃描計畫"
 type: optimization
-status: active
+status: completed
 date: 2026-07-06
 priority: medium
 deepened: 2026-07-06
