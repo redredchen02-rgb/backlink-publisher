@@ -171,14 +171,17 @@ def _discover_unclassified_sites() -> frozenset[tuple[str, int]]:
 # a `# debt: <slug>` comment nor an adjacent log/logger call inside its own
 # handler span:
 #
-#   * events/_project_helpers.py — a sqlite3.IntegrityError fallback path
-#     (look up an existing article by live_url) has two nested bare excepts
-#     that both just `return None`, with only a `# noqa: BLE001` comment.
 #   * idempotency/audit_log.py — the `_current_user()` best-effort
 #     `getpass.getuser()` fallback has a `# pragma: no cover` comment but no
 #     `# debt:`/log call.
 #   * ledger/aggregate.py — a `canonicalize_url()` failure inside the
 #     latest-verdict scan loop has only a `# noqa: BLE001` comment.
+#
+# Plan 2026-07-06-002 D3 closed the `events/_project_helpers.py` pair (the
+# sqlite3.IntegrityError fallback path's two nested bare excepts) by adding
+# `# debt: project-helpers-ensure-article-fallback-degrade-accepted` comments
+# + a matching debt_registry.toml entry — removed from the allowlist below
+# per this docstring's own instruction.
 #
 # D2 (or a follow-up debt pass) should close these incrementally by adding a
 # `# debt: <slug>` comment + matching debt_registry.toml entry and removing
@@ -186,8 +189,6 @@ def _discover_unclassified_sites() -> frozenset[tuple[str, int]]:
 # freshly introduced violation; that always means fix it or classify it.
 GRANDFATHERED_BARE_EXCEPT_SITES: frozenset[tuple[str, int]] = frozenset(
     {
-        ("src/backlink_publisher/events/_project_helpers.py", 263),
-        ("src/backlink_publisher/events/_project_helpers.py", 265),
         ("src/backlink_publisher/idempotency/audit_log.py", 46),
         ("src/backlink_publisher/ledger/aggregate.py", 68),
     }

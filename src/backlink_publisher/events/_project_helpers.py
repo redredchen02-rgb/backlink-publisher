@@ -161,6 +161,7 @@ def write_quarantines(store: EventStore, pending: list[dict[str, Any]]) -> None:
                 q.get("failure_type"), q.get("reason"),
                 q.get("run_id"), q.get("record_identity"),
             )
+        # debt: project-helpers-write-quarantines-log-failure-accepted
         except Exception as exc:
             log.error(
                 "RECON projector: FAILED to quarantine [%s] %s (run=%s id=%s): "
@@ -261,6 +262,8 @@ def _ensure_article(
             ))
             return rows[0]["article_id"] if rows else None
         except Exception:
+            # debt: project-helpers-ensure-article-fallback-degrade-accepted
             return None
     except Exception:
+        # debt: project-helpers-ensure-article-fallback-degrade-accepted
         return None
