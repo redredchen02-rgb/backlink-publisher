@@ -52,8 +52,10 @@ def client(app):
 
 
 def _get_index_html(client) -> str:
-    """GET / and return the rendered HTML body as a string."""
-    response = client.get("/")
+    """GET /jinja (the legacy Jinja fallback for '/', which now redirects to
+    the SPA — Plan 2026-07-06-004 Unit 4) and return the rendered HTML body
+    as a string."""
+    response = client.get("/jinja")
     assert response.status_code == 200, response.data[:500]
     return response.get_data(as_text=True)
 
@@ -153,7 +155,7 @@ def test_telegraph_appears_in_select_after_u1():
 
     app = create_app(start_scheduler=False)
     client = app.test_client()
-    html = client.get("/").get_data(as_text=True)
+    html = client.get("/jinja").get_data(as_text=True)
     assert 'value="telegraph"' in html
     assert "Telegraph" in html
 
@@ -163,7 +165,7 @@ def test_telegraph_appears_in_filter_chip_after_u1():
 
     app = create_app(start_scheduler=False)
     client = app.test_client()
-    html = client.get("/").get_data(as_text=True)
+    html = client.get("/jinja").get_data(as_text=True)
     assert 'data-filter-value="telegraph"' in html
 
 

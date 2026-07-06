@@ -67,7 +67,7 @@ def test_zero_config_cta_bound_via_addeventlistener_not_inline(client):
 def test_index_bootstrap_exposes_has_channels(client):
     """The index page exposes has_channels so JS can tell zero-config from
     has-config-but-empty (cause #1 vs #2) without a backend call."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     m = re.search(r"window\.__indexBootstrap\s*=\s*(\{.*?\});", body, re.DOTALL)
@@ -129,7 +129,7 @@ def test_cta_text_rides_action_label_not_innerhtml():
 def test_index_page_renders_empty_state_anchor(client):
     """On a fresh install (empty history) index renders the #indexEmptyState
     anchor that index.js fills with the unified empty state."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert 'id="indexEmptyState"' in body

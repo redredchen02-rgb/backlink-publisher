@@ -29,6 +29,7 @@ from backlink_publisher.events.publish_writer import (
 )
 from webui_store import history_store as _history_store
 from webui_store import queue_store as _queue_store
+from webui_store.queue_store import TaskUpdateOutcome
 
 from ..helpers.history import _REQUIRES_URL_STATUSES
 
@@ -237,8 +238,60 @@ class HistoryAPI:
     # ── retry-task (queue) ───────────────────────────────────────────────
 
     def retry_task(self, task_id: str) -> dict[str, Any]:
-        """Reset a queue task to pending for retry."""
+        """Reset a queue task to pending for retry.
+
+        Delegates to ``queue_store.update_task_if_status()`` — a single
+        atomic conditional SQL UPDATE (``... WHERE id = ? AND status !=
+        'processing'``), checked via affected-row-count rather than a
+        separate read-then-write. This closes a TOCTOU race with
+        ``webui_app/scheduler.py::_process_queue_job``, which flips a task
+        to ``'processing'`` on its own background thread — not
+        request-serialized — before doing the actual (network-latency)
+        publish call: a plain read-then-write here could observe a
+        not-yet-``'processing'`` status and then clobber it back to
+        ``'pending'`` right after the scheduler claims it, risking a
+        duplicate publish to an external platform.
+
+        Distinguishes three outcomes instead of always claiming success:
+        the previous implementation silently returned ``{"ok": True}`` even
+        when ``task_id`` no longer existed (``QueueSqliteStore.update_task``
+        is a documented no-op on unknown ids).
+        """
         if not task_id:
-            return {"ok": False, "error": "Missing task_id"}
-        _queue_store.update_task(task_id, {"status": "pending", "error": None})
-        return {"ok": True, "message": "任务已重置为待发布状态"}
+            return {
+                "ok": False,
+                "error_code": "MISSING_PARAM",
+                "flash_type": "danger",
+                "flash_msg": "Missing task_id",
+                "message": "Missing task_id",
+            }
+
+        outcome = _queue_store.update_task_if_status(
+            task_id,
+            updates={"status": "pending", "error": None},
+            forbidden_status="processing",
+        )
+
+        if outcome is TaskUpdateOutcome.UPDATED:
+            msg = "任务已重新排入队列，等待后台处理"
+            return {"ok": True, "flash_type": "success", "flash_msg": msg, "message": msg}
+
+        if outcome is TaskUpdateOutcome.NOT_FOUND:
+            msg = "任务不存在，可能已被处理"
+            return {
+                "ok": False,
+                "error_code": "NOT_FOUND",
+                "flash_type": "warning",
+                "flash_msg": msg,
+                "message": msg,
+            }
+
+        # TaskUpdateOutcome.REJECTED — task exists but is currently 'processing'.
+        msg = "任务正在处理中，暂不能重试"
+        return {
+            "ok": False,
+            "error_code": "TASK_PROCESSING",
+            "flash_type": "warning",
+            "flash_msg": msg,
+            "message": msg,
+        }

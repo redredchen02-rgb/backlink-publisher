@@ -13,6 +13,21 @@ and a catastrophic aggregator failure returns an empty ``degraded`` payload (200
 so the dashboard shows an empty/degraded state instead of a hard error — one bad
 source must never drag down the whole monitor view. Non-sensitive (status counts
 + platform names, no credentials), so it carries no GET-time origin guard.
+
+``degraded`` (R18 fix): true when the aggregator itself crashes OR when any
+individual subsystem's own try/except caught an error. Previously only the
+former set it, so a single silently-broken source could leave the
+"everything's fine" banner showing even though its own card had quietly
+degraded to 'unavailable'.
+
+Plan 2026-07-06-004 Unit 2 extended the aggregator to 6 signal sources total:
+the original 4 (credentials/keepalive/equity/history) plus an error-reports
+backlog and a schedule/queue backlog. The two new cards are "hybrid" — they
+carry an optional ``items`` list (the first N individual items) alongside the
+usual aggregate fields — but that shape lives entirely inside
+``_build_anomaly_cards()``'s card dicts, so this endpoint needed no code
+change beyond this docstring: whatever cards the aggregator returns are
+serialized as-is.
 """
 
 from __future__ import annotations
@@ -21,17 +36,22 @@ from typing import Any
 
 from flask import jsonify
 
-from ...routes.command_center import _build_anomaly_cards, _collect_subsystem_status
+from ...routes.command_center import (
+    _any_subsystem_error,
+    _build_anomaly_cards,
+    _collect_subsystem_status,
+)
 from . import bp
 
 
 @bp.get("/monitor/summary")
 def monitor_summary() -> Any:
-    """Anomaly-first monitor cards across credentials/keepalive/equity/history."""
+    """Anomaly-first monitor cards across all 6 signal sources (see module docstring)."""
     try:
-        cards = _build_anomaly_cards(_collect_subsystem_status())
-        degraded = False
-    except Exception:
+        status = _collect_subsystem_status()
+        cards = _build_anomaly_cards(status)
+        degraded = _any_subsystem_error(status)
+    except Exception:  # noqa: BLE001 — belt-and-suspenders; aggregator is fail-open
         # debt: monitor-summary-aggregator-fail-open
         cards, degraded = [], True
     anomaly_count = sum(1 for c in cards if c["severity"] in ("danger", "warning"))

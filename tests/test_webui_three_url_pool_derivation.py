@@ -89,7 +89,7 @@ class TestHomepageThreeTier:
     compat: target_url still accepted as fallback for main_url."""
 
     def test_get_homepage_renders_three_tier_inputs(self, client):
-        resp = client.get("/")
+        resp = client.get("/jinja")
         assert resp.status_code == 200
         body = resp.data.decode()
         # The three structured tier inputs are present with their badges.

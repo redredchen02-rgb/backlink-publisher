@@ -322,6 +322,10 @@ paths:
       operationId: bulkRecheckHistory
       summary: "Re-verify multiple history entries' link liveness \u2192 refreshed\
         \ list."
+      description: "Re-checks every entry whose id appears in `ids`, then returns\
+        \ the refreshed list. A per-item verify outcome (e.g. a URL now dead) is data,\
+        \ not a failure \u2014 this only returns 422 for genuine input problems (empty\
+        \ or unmatched ids)."
       tags:
       - history
       requestBody:
@@ -387,6 +391,43 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/queue/{task_id}/retry:
+    post:
+      operationId: retryQueueTask
+      summary: Requeue a queue task for retry (atomic, race-fixed).
+      description: 'Genuine-gap JSON binding for the SPA dashboard''s retry action
+        (Plan 2026-07-06-004 Unit 3): calls HistoryAPI.retry_task(), which delegates
+        to queue_store.update_task_if_status()''s single conditional UPDATE, closing
+        a TOCTOU race with the scheduler thread. No request body; `task_id` is a path
+        param. Distinct from the legacy form-encoded /ce:retry-task route, which the
+        SPA cannot use.'
+      tags:
+      - history
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Requeued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueRetryResult'
+        '404':
+          description: Task not found (vanished or already handled).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Task is currently processing; retry rejected.
           content:
             application/problem+json:
               schema:
@@ -576,6 +617,9 @@ paths:
       operationId: bulkPublishDraftsNow
       summary: "Publish multiple drafts now (staggered ~5s+ out) \u2192 refreshed\
         \ list."
+      description: 'Schedules every draft whose id appears in `ids` for immediate,
+        staggered publishing. Single-flight: a concurrent bulk-publish call is rejected
+        with 409 rather than queued.'
       tags:
       - drafts
       requestBody:
@@ -613,6 +657,8 @@ paths:
     post:
       operationId: bulkCancelDrafts
       summary: "Cancel scheduling for multiple drafts \u2192 refreshed list."
+      description: Cancels the pending scheduled-publish job for every draft whose
+        id appears in `ids`, then returns the refreshed list.
       tags:
       - drafts
       requestBody:
@@ -1719,9 +1765,12 @@ paths:
     get:
       operationId: getMonitorSummary
       summary: Anomaly-first monitor aggregate (today's anomalies first).
-      description: Fail-open aggregate across credentials/keepalive/equity/history.
-        Severity + equity-gap computed server-side (single source); the SPA only displays.
-        Versioned binding of the legacy /api/monitor-hub feed.
+      description: 'Fail-open aggregate across 6 signal sources: credentials/keepalive/equity/history
+        plus (Plan 2026-07-06-004 Unit 2) error-reports backlog and schedule/queue
+        backlog. The latter two are hybrid cards carrying an optional `items` list
+        (first N individual items) alongside the aggregate headline. Severity + equity-gap
+        computed server-side (single source); the SPA only displays. Versioned binding
+        of the legacy /api/monitor-hub feed.'
       tags:
       - monitor
       responses:
@@ -2058,6 +2107,38 @@ components:
       - content_markdown
       - content_source
       additionalProperties: false
+    MonitorCardItem:
+      type: object
+      properties:
+        id:
+          type: string
+        item_type:
+          type: string
+          description: error_report | scheduled_draft | queue_task.
+        status:
+          type: string
+          description: 'Item''s own bucket: open (error_report) | overdue | upcoming
+            | unscheduled (scheduled_draft) | pending | failed | other (queue_task).'
+        headline:
+          type: string
+        detail:
+          type: string
+        severity:
+          type:
+          - string
+          - 'null'
+          description: error_report only; free-form.
+        occurrences:
+          type:
+          - integer
+          - 'null'
+          description: error_report only.
+      required:
+      - detail
+      - headline
+      - id
+      - item_type
+      additionalProperties: false
     MonitorAction:
       type: object
       properties:
@@ -2090,6 +2171,19 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitorAction'
           - type: 'null'
+        items:
+          type: array
+          description: 'First-N individual items (hybrid cards only: error_reports,
+            schedule_queue). Absent on the 4 original aggregate-only cards.'
+          items:
+            $ref: '#/components/schemas/MonitorCardItem'
+        failed_channels:
+          type: array
+          description: Raw channel-name list backing the credentials card's failure
+            detail, for a per-channel retry action. Only the credentials card carries
+            this field; absent on every other card.
+          items:
+            type: string
       required:
       - deep_link
       - detail
@@ -2192,6 +2286,28 @@ components:
             type: string
       required:
       - ids
+      additionalProperties: false
+    QueueRetryResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error_code:
+          type:
+          - string
+          - 'null'
+          description: NOT_FOUND | TASK_PROCESSING | MISSING_PARAM. Absent on success.
+        flash_type:
+          type: string
+          description: success | warning | danger.
+        flash_msg:
+          type: string
+          description: Human-readable outcome message.
+        message:
+          type: string
+          description: Same text as flash_msg.
+      required:
+      - ok
       additionalProperties: false
     DraftItem:
       type: object

@@ -327,7 +327,7 @@ rationale = "webui_app/api/v1/monitor.py::monitor_summary keeps a bare except Ex
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/v1/monitor.py:35"]
+location = ["webui_app/api/v1/monitor.py:55"]
 
 [[items]]
 slug = "pipeline-regen-body-config-load-error"

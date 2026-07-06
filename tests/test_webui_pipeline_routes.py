@@ -232,7 +232,7 @@ class TestPipelineRoutes:
         """
 
         # 1. Batch form always renders target_language
-        resp = client.get("/")
+        resp = client.get("/jinja")
         body = resp.data.decode("utf-8", errors="ignore")
         assert 'name="target_language"' in body, "batch form missing target_language"
 

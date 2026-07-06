@@ -140,14 +140,20 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 99  # routes with CSRF but no inline Origin guard as of 2026-07-06
-# +3 (96->99): Plan 2026-07-02-001 U3 — POST /api/v1/history/bulk-recheck, POST
-# /api/v1/drafts/bulk-publish-now, POST /api/v1/drafts/bulk-cancel. Same tier as
-# the sibling bulk-delete endpoints already in this count: app-level CSRF +
-# origin guard only, deliberately not loopback-gated (plan's own explicit
-# decision, mirroring the rest of the history/drafts mutating surface) — no
-# inline guard is warranted; covered at runtime by the app-level
-# _global_origin_guard (proven unconditionally by
+_CSRF_ONLY_SNAPSHOT_COUNT = 100  # routes with CSRF but no inline Origin guard as of 2026-07-06
+# +1 (96->97): Plan 2026-07-06-004 Unit 3 — POST /api/v1/queue/<task_id>/retry
+# (webui_app/api/v1/history.py). Same protection level as its 4 sibling
+# endpoints in the same file (/history/delete, /bulk-delete, /purge-failed,
+# /recheck), none of which use the inline guard either — CSRF-token-only,
+# same as this whole file's existing convention, covered unconditionally by
+# the app-level _global_origin_guard like every other mutating route.
+# +3 (97->100): Plan 2026-07-02-001 U3 (merged independently, same period) —
+# POST /api/v1/history/bulk-recheck, POST /api/v1/drafts/bulk-publish-now, POST
+# /api/v1/drafts/bulk-cancel. Same tier as the sibling bulk-delete endpoints
+# already in this count: app-level CSRF + origin guard only, deliberately not
+# loopback-gated (plan's own explicit decision, mirroring the rest of the
+# history/drafts mutating surface) — no inline guard is warranted; covered at
+# runtime by the app-level _global_origin_guard (proven unconditionally by
 # test_global_guard_covers_every_mutating_route).
 # NOTE (2026-07-01): before this bump the measured count on this branch's fork
 # point was already 93 (2 above the previously-recorded 91), drift pre-dating
