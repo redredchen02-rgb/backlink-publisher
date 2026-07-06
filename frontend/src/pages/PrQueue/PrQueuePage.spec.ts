@@ -163,4 +163,72 @@ describe('PrQueuePage', () => {
     expect(w.text()).toContain('Fresh result from the current load')
     expect(w.find('[role="alert"]').exists()).toBe(false)
   })
+
+  // B4 follow-up (code review on the test above): that test only ever
+  // exercises the checkpoint right after the /app-config check, because both
+  // clicks fire before either awaits -- so load(A)'s own /app-config check
+  // resolves only *after* load(B) has already bumped loadGeneration, and A
+  // bails there without ever calling fetchPrQueue(). This test instead
+  // sequences the two markStatus() calls one flush apart, so load(A) clears
+  // its /app-config checkpoint (and calls fetchPrQueue()) *while it is still
+  // the current generation*, and only then does load(B) start (and do the
+  // same). That gets BOTH load(A) and load(B) genuinely in flight, each
+  // blocked on its own controllable deferred fetchPrQueue() promise -- so
+  // resolving B (current) before A (now-stale) specifically exercises the
+  // *second* checkpoint (`if (generation !== loadGeneration) return //
+  // superseded while fetching the queue`), not the first.
+  it('a load() superseded while fetchPrQueue is already in flight never lets its stale result overwrite items', async () => {
+    vi.mocked(getJson).mockResolvedValue({ lite_edition: false })
+    const itemA = { ...ITEM, id: 'pr1', headline: 'Item A' }
+    const itemB = { ...ITEM, id: 'pr2', headline: 'Item B' }
+
+    vi.mocked(prQueueApi.fetchPrQueue).mockResolvedValueOnce([itemA, itemB])
+    const w = mountPage()
+    await flushPromises()
+    expect(w.text()).toContain('Item A')
+    expect(w.text()).toContain('Item B')
+
+    // Grab both row buttons up front, before either click -- once load(A)
+    // sets loading.value = true, StateBlock swaps away from the table, but
+    // these references stay valid to trigger even after Vue detaches the
+    // underlying nodes from the currently-rendered tree.
+    const wonButtonForA = w.findAll('tr[data-id="pr1"] button').find((b) => b.text() === '✓')!
+    const skipButtonForB = w.findAll('tr[data-id="pr2"] button').find((b) => b.text() === '✕')!
+
+    vi.mocked(prQueueApi.updatePrStatus).mockResolvedValue({ ...itemA, status: 'won' })
+
+    const deferredA = deferred<PrItem[]>()
+    const deferredB = deferred<PrItem[]>()
+    vi.mocked(prQueueApi.fetchPrQueue)
+      .mockReturnValueOnce(deferredA.promise)
+      .mockReturnValueOnce(deferredB.promise)
+
+    // load(A): started alone, so it clears the /app-config checkpoint while
+    // its own generation is still current, then calls fetchPrQueue() and
+    // blocks on deferredA.
+    wonButtonForA.trigger('click')
+    await flushPromises()
+    expect(prQueueApi.fetchPrQueue).toHaveBeenCalledTimes(2) // initial mount + A
+
+    // load(B): started second, now the current generation -- nothing has
+    // superseded it yet, so it also clears the /app-config checkpoint, calls
+    // fetchPrQueue(), and blocks on deferredB. A and B are now both
+    // genuinely in flight past the /app-config check.
+    skipButtonForB.trigger('click')
+    await flushPromises()
+    expect(prQueueApi.fetchPrQueue).toHaveBeenCalledTimes(3) // + B
+
+    // Resolve the current (B) call first.
+    deferredB.resolve([{ ...itemB, headline: 'Fresh from B' }])
+    await flushPromises()
+    expect(w.text()).toContain('Fresh from B')
+    expect(w.find('[role="alert"]').exists()).toBe(false)
+
+    // Now resolve the stale (A) call -- its late data must never land.
+    deferredA.resolve([{ ...itemA, headline: 'Stale from A' }])
+    await flushPromises()
+    expect(w.text()).not.toContain('Stale from A')
+    expect(w.text()).toContain('Fresh from B')
+    expect(w.find('[role="alert"]').exists()).toBe(false)
+  })
 })

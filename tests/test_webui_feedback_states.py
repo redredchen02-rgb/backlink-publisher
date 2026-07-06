@@ -221,9 +221,21 @@ def test_health_bar_fetch_resolution_rechecks_dismiss_before_showing():
     callback), not just once at _initHealthBar's own top (which only guards
     against starting the fetch at all, not a late-resolving one already in
     flight when the user dismisses)."""
-    assert _INDEX_JS.count(
+    dismiss_check = (
         "try { if (sessionStorage.getItem(DISMISS_KEY)) return; } catch (_) { /* ignore */ }"
-    ) == 2
+    )
+    assert _INDEX_JS.count(dismiss_check) == 2
+
+    # Anchor to POSITION, not just count: a whole-file count of 2 would also
+    # pass if the second occurrence sat somewhere unrelated -- e.g. right
+    # after the dismiss-button handler instead of inside the fetch's .then().
+    # Pin it specifically inside the fetchJson('/health').then((data) => {
+    # ... }) callback body, which is the actual guard this test is about.
+    start_marker = "fetchJson('/health').then((data) => {"
+    start = _INDEX_JS.index(start_marker) + len(start_marker)
+    end = _INDEX_JS.index("}).catch(", start)
+    callback_body = _INDEX_JS[start:end]
+    assert dismiss_check in callback_body
 
 
 # test_settings_error_path_routes_through_classify_error removed — settings.js
