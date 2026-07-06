@@ -317,7 +317,7 @@ graph TB
 
 ### Sprint D — Exception Hygiene 掃描擴展（延續 Phase 3 D2 方法論）
 
-- [ ] **D1: `_TransientHTTPError` 重複定義收斂〔R7〕**
+- [x] **D1: `_TransientHTTPError` 重複定義收斂〔R7〕** ✅ 已完成（commit `0fb3885d`）——`base.py` 的 `TransientError` 建構子擴充為接受 `*args`，同時涵蓋四個原本重複類別的兩種呼叫形態（純狀態碼 `TransientError(429)`；狀態碼+內文 `TransientError(503, body)`，後者對應 `llm_anchor_provider.py` 原本屬性名為 `.status` 而非 `.status_code` 的差異建構子——確認下游只用 `str(exc)` 從未讀取 `.status`，可安全併入）。四個 adapter 檔案的類別定義、raise/except/isinstance 站點全數改用共用類別；`retry.py:65` 確認只是註解文字，不是第 5 個類別/except 子句，符合 deepening 複核提醒。`grep -rn "_TransientHTTPError" src/` 回傳空結果。受影響 6 個測試檔（107 passed, 2 skipped）+ 1 個既有失敗（`test_adapter_velog_graphql.py::test_missing_cookies_raises_dependency_error`，經 `git stash` 對照確認修改前後行為相同，與本 unit 無關）。
 
 **Goal:** 將 `blogger_api.py`、`medium_api.py`、`velog_graphql.py`、`llm_anchor_provider.py` 四處各自獨立定義的 `_TransientHTTPError` 收斂為統一使用 `publishing/adapters/base.py` 既有的 `TransientError`。
 
