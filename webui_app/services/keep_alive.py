@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-from typing import Any
-
 """Keep-alive status view (R3 / plan 2026-06-04-001 Unit 4).
 
 Builds the per-target keep-alive scorecard the operator lands on: live-dofollow +
@@ -12,7 +8,10 @@ per-link verdict read from the ``link.rechecked`` time series — the authority 
 hosts (``example.com``) are excluded so a new operator isn't misled.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Any
 from urllib.parse import urlsplit
 
 from backlink_publisher._util.url import canonicalize_url
