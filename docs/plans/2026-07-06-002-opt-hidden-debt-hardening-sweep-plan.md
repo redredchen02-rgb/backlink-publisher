@@ -409,7 +409,7 @@ graph TB
 
 ### Sprint E — 測試基準與效能熱點（唯讀量測 + benchmark 補齊）
 
-- [ ] **E1: main 既存失敗測試獨立唯讀量測與根因分群〔R10〕**
+- [x] **E1: main 既存失敗測試獨立唯讀量測與根因分群〔R10〕** ✅ 已完成（commit `1bbf09f1`，報告：`docs/audits/2026-07-06-existing-test-failure-baseline.md`）——雙模式量測：(a) xdist 關閉/無 rerun = 441 failed；(b) CI 對應兩步驟合計 = 393 failed，兩者確實不可直接比較（xdist+rerun 完全遮蔽了一整組 48 個 offset-naive/aware datetime 失敗）。60% 的 (a) 失敗可歸類到 4 個根因群：Windows `os.O_NOFOLLOW`（42，已在 main 修復但本分支尚未含入,屬過期非新債）、`Config.token_path()` AttributeError（47，main 上也存在的真實 bug）、過期的 pytest-socket mocking 模式（92）、offset-naive/aware datetime（48）。對照 v0.6.0 U1 殘餘清單：35 個既有檔案中 31 個仍失敗,另有 5 組新失敗群未被 U1 追蹤。**執行期發現，偏離規劃假設**：協調檢查發現本分支雖是 reconcile merge 的後代,但 local main 之後又推進了 11 個 commit（含 `763d0280` 穩定化修復),不是本分支的祖先——這正是計畫協調表中警告的「分支切點早於仍在移動的 main」風險的具體案例，已記錄但不影響本 unit（唯讀量測不涉及合併）。量測期間另有平行 session 完成 D2/E2/E3 commit,報告中詳細記錄了兩種模式各自實際量測到的 tree 內容與判斷依據。
 
 **Goal:** 獨立、唯讀地重新量測 main 上的既存失敗測試數量與構成，套用 `docs/solutions/test-failures/` 五篇文件記錄的分群方法論，產出一份審查用的稽核報告，不修改任何測試或原始碼。
 
