@@ -5,20 +5,7 @@ status: active
 date: 2026-07-02
 deepened: 2026-07-02
 priority: high
-claims:
-  paths:
-    - src/backlink_publisher/
-    - webui_app/
-    - webui_store/
-    - frontend/
-    - tests/
-    - docs/
-    - Dockerfile
-    - docker-compose.yml
-    - pyproject.toml
-    - monolith_budget.toml
-    - complexity_budget.toml
-  shas: []
+claims: {}  # mid-flight plan (U2-U13 not started): prior paths-only block trivially resolved and tripped redrift-gate; per-unit claims will be added as units ship
 ---
 
 # opt: v0.6.0 UI/UX 與 Pipeline 全面升級迭代計畫

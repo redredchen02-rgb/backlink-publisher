@@ -58,6 +58,7 @@ export interface RepublishToken {
 
 export interface RepublishResult {
   ok: boolean
+  error?: string
   job_id?: string
   message?: string
 }

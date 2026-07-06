@@ -6,7 +6,7 @@ import {
   fetchSummary, startRecheck, pollRecheck, cancelRecheck,
   getRepublishToken, executeRepublish, pollRepublish,
   fetchCycleStatus, resetExhausted,
-  type KeepAliveSummary, type KeepAliveGap,
+  type KeepAliveSummary, type KeepAliveGap, type RepublishResult,
 } from '../../api/keepAlive'
 import StateBlock from '../../components/StateBlock.vue'
 
