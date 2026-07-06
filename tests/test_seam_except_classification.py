@@ -188,7 +188,7 @@ GRANDFATHERED_BARE_EXCEPT_SITES: frozenset[tuple[str, int]] = frozenset(
     {
         ("src/backlink_publisher/events/_project_helpers.py", 263),
         ("src/backlink_publisher/events/_project_helpers.py", 265),
-        ("src/backlink_publisher/idempotency/audit_log.py", 46),
+        ("src/backlink_publisher/idempotency/audit_log.py", 45),
         ("src/backlink_publisher/ledger/aggregate.py", 68),
     }
 )
