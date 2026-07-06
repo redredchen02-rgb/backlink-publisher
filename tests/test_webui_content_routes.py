@@ -141,8 +141,15 @@ class TestEquityLedgerRoutes:
     route-coverage gate below."""
 
     def test_get_equity_ledger(self, client):
-        resp = client.get("/ce:equity-ledger")
+        resp = client.get("/ce:equity-ledger/jinja")
         assert resp.status_code == 200
+
+    def test_get_equity_ledger_redirects_to_spa(self, client):
+        # /ce:equity-ledger now redirects to the SPA; the /jinja fallback
+        # (test_get_equity_ledger above) covers the render path.
+        resp = client.get("/ce:equity-ledger")
+        assert resp.status_code == 302
+        assert "/app/equity-ledger" in resp.headers["Location"]
 
     def test_post_equity_ledger_recheck_missing_csrf_or_body(self, client):
         resp = client.post("/ce:equity-ledger/recheck")
