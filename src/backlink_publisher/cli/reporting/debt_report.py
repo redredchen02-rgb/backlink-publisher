@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 import tomllib
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT = Path(__file__).resolve().parents[4]
 _DEBT_FILE = _REPO_ROOT / "debt_registry.toml"
 
 

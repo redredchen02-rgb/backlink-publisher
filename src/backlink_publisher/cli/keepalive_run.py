@@ -1,4 +1,8 @@
-"""Shim — moved to backlink_publisher.cli.ops.keepalive_run."""
-from __future__ import annotations
+"""Backward-compat shim — moved to backlink_publisher.cli.ops.keepalive_run (plan 2026-06-24-002 U8)."""
+import sys as _sys
+import backlink_publisher.cli.ops.keepalive_run as _real  # noqa: F401
 
-from backlink_publisher.cli.ops.keepalive_run import *  # noqa: F401,F403
+if __name__ != "__main__":
+    _sys.modules[__name__] = _real
+else:
+    _real.main()

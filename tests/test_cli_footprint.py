@@ -234,7 +234,7 @@ def test_regen_atomicity_no_partial_state_on_failure(tmp_path, monkeypatch):
         (tmp_path / f"footprint_concentration_{corpus_name}.json").write_text('{"stale": true}', encoding="utf-8")
 
     call_count = {"n": 0}
-    from backlink_publisher.cli import _footprint_baseline as fb
+    from backlink_publisher.cli.reporting import _footprint_baseline as fb
 
     real_make = fb.make_corpus
 

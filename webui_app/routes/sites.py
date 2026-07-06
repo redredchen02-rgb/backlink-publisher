@@ -5,6 +5,7 @@ the keep-alive flow — both redirect to /ce:keep-alive.
 """
 
 from __future__ import annotations
+from typing import Any
 
 from datetime import UTC
 from typing import Any
@@ -116,19 +117,19 @@ def _validate_three_url_fields(raw: dict) -> tuple[dict | None, dict[str, str]]:
     """
     errors: dict[str, str] = {}
 
-    main_url = validate_main_domain_url(raw["main_url"])
+    main_url = validate_main_domain_url(str(raw["main_url"]))
     if not main_url:
         errors["main_url"] = "必须 https + host-root + 单一尾斜杠（例：https://your-site.com/）"
 
     list_url: str = ""
-    if raw["list_url"]:
-        validated = validate_https_url(raw["list_url"])
+    if str(raw["list_url"]):
+        validated = validate_https_url(str(raw["list_url"]))
         if not validated:
             errors["list_url"] = "必须 https"
         else:
             list_url = validated
 
-    work_urls_raw = _parse_lines(raw["work_urls"])
+    work_urls_raw = _parse_lines(str(raw["work_urls"]))
     work_urls: list[str] = []
     bad_work: list[str] = []
     for u in work_urls_raw:
@@ -140,10 +141,10 @@ def _validate_three_url_fields(raw: dict) -> tuple[dict | None, dict[str, str]]:
     if bad_work:
         errors["work_urls"] = f"以下 URL 必须 https：{', '.join(bad_work)}"
 
-    branded_pool = _parse_lines(raw["branded_pool"])
-    partial_pool = _parse_lines(raw["partial_pool"])
-    exact_pool = _parse_lines(raw["exact_pool"])
-    templates = _parse_lines(raw["work_anchor_templates"]) or list(DEFAULT_WORK_TEMPLATES)
+    branded_pool = _parse_lines(str(raw["branded_pool"]))
+    partial_pool = _parse_lines(str(raw["partial_pool"]))
+    exact_pool = _parse_lines(str(raw["exact_pool"]))
+    templates = _parse_lines(str(raw["work_anchor_templates"])) or list(DEFAULT_WORK_TEMPLATES)
 
     if main_url and "main_url" not in errors:
         _, gate_err = _verify_urls_or_error([main_url], "main_url")
@@ -191,15 +192,19 @@ def _derive_three_url_fields(data: dict) -> tuple[dict, list[str]]:
             plan_logger.warn("tdk_fetch_failed", url=main_url, reason=type(exc).__name__)
 
     if not list_url:
+        assert main_url is not None
         list_url = main_url
         fields_derived.append("list_url")
     if not branded_pool:
+        assert main_url is not None
         branded_pool = _derive_branded_pool(main_url, tdk)
         fields_derived.append("branded_pool")
     if not partial_pool:
+        assert main_url is not None
         partial_pool = _derive_partial_pool(main_url, tdk)
         fields_derived.append("partial_pool")
     if not exact_pool:
+        assert main_url is not None
         exact_pool = _derive_exact_pool(main_url)
         fields_derived.append("exact_pool")
 
@@ -356,6 +361,7 @@ def sites_autopilot() -> Any:
         import sys as _sys
         _sched_mod = _sys.modules.get('webui_app.scheduler')
         if enabled:
+            assert _sched_mod is not None
             _sched_mod._register_autopilot_job(site_url, interval_seconds)
             if getattr(_sched_mod, '_scheduler', None) is not None:
                 try:
@@ -366,6 +372,7 @@ def sites_autopilot() -> Any:
                     next_run_time_iso = _job.next_run_time.isoformat()
         else:
             try:
+                assert _sched_mod is not None
                 _sched_mod._scheduler.remove_job(
                     _sched_mod._autopilot_job_id(site_url)
                 )

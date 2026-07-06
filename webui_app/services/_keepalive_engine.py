@@ -147,6 +147,7 @@ def _default_publish_seed(seed: dict) -> dict:
         return {**base, "error": val_res.error or "validate failed"}
     # publish only the first generated variant — one new link per gap.
     one = (val_res.stdout or "").splitlines()
+    assert platform is not None
     pub_res = api.publish((one[0] + "\n") if one else "", platform, "publish")
     rows = parse_publish_results(pub_res.stdout)
     row = rows[0] if rows else {}

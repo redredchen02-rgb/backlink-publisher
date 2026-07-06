@@ -460,3 +460,14 @@ def register_catalog_entries(built_in_dir: str = "", user_config_dir: str = "") 
 
 
 _builtin_catalog = str(_Path(__file__).resolve().parent / "catalog")
+# Rejected origin's addition here (eager `register_catalog_entries(...)` call +
+# a second `__all__` list): `_lazy_init()` above already calls
+# `register_catalog_entries(built_in_dir=_builtin_catalog)` lazily, and calling
+# it again here at module scope would register catalog entries eagerly at
+# import time — contradicting this module's own documented design
+# (`register_all_adapters()`'s docstring: "importing this module does NOT
+# eagerly load any adapter module... only calling this function... triggers
+# the full import chain"). A second `__all__` here would also silently
+# shadow the complete one already defined near the top of this file (which
+# additionally exports Any/Literal/Optional/TYPE_CHECKING) — origin's version
+# is missing those.

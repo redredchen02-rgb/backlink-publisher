@@ -80,7 +80,7 @@ def _find_catalog_path(slug: str, config_dir: Path) -> Path | None:
 
     # Built-in dir.
     built_in_dir = (
-        Path(__file__).resolve().parent.parent
+        Path(__file__).resolve().parent.parent.parent
         / "publishing" / "adapters" / "catalog"
     )
     built_path = built_in_dir / f"{slug}.yaml"

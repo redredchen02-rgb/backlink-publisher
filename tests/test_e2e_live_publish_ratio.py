@@ -105,7 +105,7 @@ def _adapter_result(recorded: dict, verdict: dict) -> AdapterResult:
 # ── scrubbed-replay scenarios ────────────────────────────────────────────────
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_dofollow_replay_both_layers(mock_vp, mock_pub, mock_setup):
     """Happy: link exists (verify_published ok) AND dofollow truth confirmed."""
     verdict = _link_attr_from_fixture("medium_dofollow.html")
@@ -125,7 +125,7 @@ def test_dofollow_replay_both_layers(mock_vp, mock_pub, mock_setup):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_ratio_two_platforms_dofollow(mock_vp, mock_pub, mock_setup):
     """≥2-platform dofollow ratio: medium + blogger both verified dofollow."""
     mock_vp.return_value = VerificationResult(ok=True, reason="")
@@ -153,7 +153,7 @@ def test_ratio_two_platforms_dofollow(mock_vp, mock_pub, mock_setup):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_publish_ok_but_stripped_records_nofollow_truth(mock_vp, mock_pub, mock_setup):
     """Anti-false-positive: the link EXISTS (verify_published ok=True) but its
     rel is nofollow — the system must record the nofollow truth and NOT report
@@ -173,7 +173,7 @@ def test_publish_ok_but_stripped_records_nofollow_truth(mock_vp, mock_pub, mock_
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_rewritten_interstitial_recorded(mock_vp, mock_pub, mock_setup):
     """A target reachable only via a redirect interstitial → target_rewritten."""
     verdict = _link_attr_from_fixture("medium_rewritten.html")
@@ -189,7 +189,7 @@ def test_rewritten_interstitial_recorded(mock_vp, mock_pub, mock_setup):
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_exit_code_precedence_publish_fail_over_unverified(mock_vp, mock_pub, mock_setup):
     """One ExternalServiceError row + one unverified row → exit 4 (publish-fail
     dominates the unverified exit 5)."""
@@ -206,7 +206,7 @@ def test_exit_code_precedence_publish_fail_over_unverified(mock_vp, mock_pub, mo
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_auth_expired_aborts_without_unverified_rows(mock_vp, mock_pub, mock_setup):
     """AuthExpiredError mid-flow → exit 3, epilogue skipped, no *_unverified rows.
     (Channel flip + checkpoint locked by test_publish_backlinks_auth_expired_flip.)"""
@@ -218,7 +218,7 @@ def test_auth_expired_aborts_without_unverified_rows(mock_vp, mock_pub, mock_set
 
 @patch("backlink_publisher.cli.publish_backlinks.verify_adapter_setup")
 @patch("backlink_publisher.cli.publish_backlinks.adapter_publish")
-@patch("backlink_publisher.cli._publish_helpers.verify_published")
+@patch("backlink_publisher.cli.publish._publish_helpers.verify_published")
 def test_empty_live_url_is_not_verified_dofollow(mock_vp, mock_pub, mock_setup):
     """Empty published_url + draft_url → verify skipped. An empty URL must NOT
     count as verified-dofollow; documented as xfail until the gap is closed."""

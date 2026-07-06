@@ -131,7 +131,7 @@ def test_report_anchors_retains_stdout_on_exit6_alarm():
     with (
         mock.patch("backlink_publisher.config.load_config", return_value=cfg_mock),
         mock.patch(
-            "backlink_publisher.cli._report_engine.report_from_profile",
+            "backlink_publisher.cli.publish._report_engine.report_from_profile",
             return_value=alarm_outcome,
         ),
     ):
@@ -154,7 +154,7 @@ def test_report_anchors_success_path():
     with (
         mock.patch("backlink_publisher.config.load_config", return_value=cfg_mock),
         mock.patch(
-            "backlink_publisher.cli._report_engine.report_from_profile",
+            "backlink_publisher.cli.publish._report_engine.report_from_profile",
             return_value=ok_outcome,
         ),
     ):

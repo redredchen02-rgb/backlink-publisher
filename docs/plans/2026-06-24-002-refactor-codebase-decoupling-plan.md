@@ -351,7 +351,7 @@ TB
 
 ---
 
-- [ ] **U5: Decompose `_publish_one_row()` and `_enhance_payload()` (CC ceilings: 35, 32)**
+- [x] **U5: Decompose `_publish_one_row()` and `_enhance_payload()` (CC ceilings: 35, 32)**
 
 **Goal:** 拆分 publish pipeline 的兩個 gatekeeper 函數，降至 CC < 30；同時修復預先存在的 layer violation（`validate/engine.py` importing from `cli/`）。
 
@@ -393,7 +393,7 @@ TB
 
 ---
 
-- [ ] **U6: Add `__all__` Declarations Across All Subpackages**
+- [x] **U6: Add `__all__` Declarations Across All Subpackages**
 
 **Goal:** 為 50+ 個 subpackage 的 `__init__.py` 加入 `__all__`，使公開 API 顯式化。
 
@@ -425,7 +425,7 @@ TB
 
 ---
 
-- [ ] **U7: Add import-linter CI Enforcement + Fix Violations**
+- [x] **U7: Add import-linter CI Enforcement + Fix Violations**
 
 **Goal:** 在 CI 中加入 import-linter，靜態攔截跨層 import 違規；首次啟用 warn-only，修復所有違規後切換強制模式。
 
@@ -486,7 +486,7 @@ TB
 
 ---
 
-- [ ] **U8: CLI Subdirectory Reorganization**
+- [x] **U8: CLI Subdirectory Reorganization**
 
 **Goal:** 將 `cli/` 的 65 個文件重組到 6 個子目錄，每個子目錄 ≤ 15 文件；命令接口向後相容。
 

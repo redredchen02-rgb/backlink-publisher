@@ -3,8 +3,10 @@
 Extracted from helpers/contexts.py — these are pure status-read helpers
 called by _settings_context() and _render().
 """
-
 from __future__ import annotations
+from typing import Any
+import json
+import os
 
 from datetime import datetime, UTC
 import json

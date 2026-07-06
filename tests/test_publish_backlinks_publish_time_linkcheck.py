@@ -85,7 +85,7 @@ def test_check_row_reachability_all_ok() -> None:
     """All URLs reachable → (True, None)."""
     row = _valid_payload()
     with patch(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
         return_value=(True, None),
     ):
         ok, failing = publish_backlinks._check_row_reachability(row)
@@ -103,7 +103,7 @@ def test_check_row_reachability_target_unreachable() -> None:
         return True, None
 
     with patch(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
         side_effect=fake,
     ):
         ok, failing = publish_backlinks._check_row_reachability(row)
@@ -121,7 +121,7 @@ def test_check_row_reachability_link_unreachable() -> None:
         return True, None
 
     with patch(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
         side_effect=fake,
     ):
         ok, failing = publish_backlinks._check_row_reachability(row)
@@ -133,7 +133,7 @@ def test_check_row_reachability_empty_urls_passes() -> None:
     """Row with no URLs returns (True, None) without calling check_url."""
     row = {"target_url": "", "links": []}
     with patch(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
     ) as mocked:
         ok, failing = publish_backlinks._check_row_reachability(row)
     assert ok is True
@@ -145,11 +145,11 @@ def test_check_row_reachability_single_url_no_threadpool() -> None:
     """Single URL checked synchronously without ThreadPoolExecutor."""
     row = {"target_url": "https://example.com/article", "links": []}
     with patch(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
         return_value=(True, None),
     ) as mocked:
         with patch(
-            "backlink_publisher.cli._publish_helpers.ThreadPoolExecutor",
+            "backlink_publisher.cli.publish._publish_helpers.ThreadPoolExecutor",
         ) as tp_mock:
             ok, failing = publish_backlinks._check_row_reachability(row)
     assert ok is True
@@ -162,7 +162,7 @@ def test_check_row_reachability_single_url_unreachable() -> None:
     """Single unreachable URL returns (False, that URL)."""
     row = {"target_url": "https://example.com/article", "links": []}
     with patch(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
         return_value=(False, "HTTP 404"),
     ) as mocked:
         ok, failing = publish_backlinks._check_row_reachability(row)
@@ -177,7 +177,7 @@ def test_skip_flag_bypasses_check(tmp_path: Any) -> None:
     """When --skip-publish-time-check is set, check_url is never called."""
     payload = _valid_payload()
     with patch(
-        "backlink_publisher.cli._publish_helpers.check_url",
+        "backlink_publisher.cli.publish._publish_helpers.check_url",
     ) as mocked:
         # Dry-run already bypasses the check; explicitly pass the flag to
         # ensure it's preserved on the args namespace for non-dry-run too.
