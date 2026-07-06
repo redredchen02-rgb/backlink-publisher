@@ -84,6 +84,7 @@ def project_on_read(*, store: EventStore | None = None) -> ReadProjectionResult:
     try:
         with _PROJECTION_LOCK:
             return _project_all(store)
+    # debt: reconcile-project-on-read-degrade-accepted
     except Exception as exc:
         log.warning("health: project-on-read failed (non-fatal): %s", exc)
         return ReadProjectionResult(
@@ -193,6 +194,7 @@ def _latest_event_utc(store: EventStore) -> str | None:
             f"SELECT MAX(ts_utc) AS m FROM events WHERE kind IN ({placeholders})",
             _PUBLISH_KINDS,
         )
+    # debt: reconcile-quarantine-helpers-best-effort-accepted
     except Exception as exc:
         log.warning("health: could not read freshness stamp: %s", exc)
         return None
@@ -205,6 +207,7 @@ def _open_quarantine_count(store: EventStore) -> int:
     """Open-gap count. Best-effort — defaults to 0 (no gap) on read failure."""
     try:
         rows = store.query("SELECT COUNT(*) AS n FROM quarantine_log")
+    # debt: reconcile-quarantine-helpers-best-effort-accepted
     except Exception as exc:
         log.warning("health: could not read quarantine count: %s", exc)
         return 0
@@ -239,6 +242,7 @@ def _quarantine(
                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (now, source, run_id, reason, None, dedup_key, row_id),
                 )
+    # debt: reconcile-quarantine-helpers-best-effort-accepted
     except Exception as exc:
         log.warning("health: could not quarantine %s: %s", source, exc)
 
@@ -249,6 +253,7 @@ def _clear_quarantine(store: EventStore, source: str) -> None:
     try:
         with store.connect_immediate() as conn:
             conn.execute("DELETE FROM quarantine_log WHERE source = ?", (source,))
+    # debt: reconcile-quarantine-helpers-best-effort-accepted
     except Exception as exc:
         log.warning("health: could not clear quarantine for %s: %s", source, exc)
 
@@ -263,6 +268,7 @@ def _clear_quarantine_by_dedup_key(store: EventStore, dedup_key: str) -> None:
             conn.execute(
                 "DELETE FROM quarantine_log WHERE dedup_key = ?", (dedup_key,)
             )
+    # debt: reconcile-quarantine-helpers-best-effort-accepted
     except Exception as exc:
         log.warning("health: could not clear quarantine by dedup_key %s: %s", dedup_key, exc)
 
@@ -280,6 +286,7 @@ def _get_reconciler_quarantine_set(store: EventStore) -> set[str]:
                 "WHERE dedup_key IS NOT NULL AND dedup_key != ''"
             ).fetchall()
             return {r[0] for r in rows if r[0]}
+    # debt: reconcile-quarantine-helpers-best-effort-accepted
     except Exception as exc:
         log.warning("health: could not read reconciler quarantine set: %s", exc)
         return set()

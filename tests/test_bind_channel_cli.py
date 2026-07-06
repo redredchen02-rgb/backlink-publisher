@@ -97,6 +97,81 @@ class TestFailurePath:
         assert events[-1]["event"] == "channel.bind.failed"
 
 
+class TestCatchAllMessageScrubbed:
+    """Plan D3 (R9) red-path security test: main()'s two catch-all except
+    arms (`except PipelineError`, `except Exception`) used to emit
+    `channel.bind.failed` with `message=str(exc)` completely unscrubbed —
+    the actual unfiltered exit point on the stdout->WebUI chain (driver._emit
+    -> webui_app/services/bind_job.py's BindJob.events list -> poll API,
+    returned verbatim). Any exception outside run_bind()'s five enumerated
+    types (PlaywrightLaunchError, BoundPredicateTimeout, IdentityMismatch,
+    UsageError, PersistIOError) — e.g. a bare RuntimeError like
+    chrome_backend.py:311's `_CdpClient.send()` raise — lands on the
+    `except Exception` arm. This proves the final event's `message` field is
+    scrub_text()-cleaned before it is emitted.
+    """
+
+    def test_unenumerated_runtimeerror_message_is_scrubbed(self, capsys):
+        fake = _RaisingBrowserRunner(
+            RuntimeError(
+                "cdp error: session_token=abcdef0123456789abcdef0123456789ZZ"
+            )
+        )
+        with pytest.raises(SystemExit) as excinfo:
+            bc.main(["--channel", "velog"], _browser_runner=fake)
+        assert excinfo.value.code == 5  # handle_unexpected_error's exit code
+
+        events = _collect_events(capsys.readouterr().out)
+        terminal = events[-1]
+        assert terminal["event"] == "channel.bind.failed"
+        assert terminal["error_code"] == "unexpected"
+        assert "abcdef0123456789abcdef0123456789ZZ" not in terminal["message"]
+        assert "<REDACTED>" in terminal["message"]
+
+    def test_pipelineerror_message_is_scrubbed(self, capsys):
+        from backlink_publisher._util.errors import ExternalServiceError
+
+        fake = _RaisingBrowserRunner(
+            ExternalServiceError(
+                "upstream rejected: Authorization: Bearer abcdef0123456789abcdef0123456789"
+            )
+        )
+        with pytest.raises(SystemExit) as excinfo:
+            bc.main(["--channel", "velog"], _browser_runner=fake)
+        assert excinfo.value.code == 4  # ExternalServiceError.exit_code
+
+        events = _collect_events(capsys.readouterr().out)
+        terminal = events[-1]
+        assert terminal["event"] == "channel.bind.failed"
+        assert terminal["error_code"] == "ExternalServiceError"
+        assert "abcdef0123456789abcdef0123456789" not in terminal["message"]
+        assert "<REDACTED>" in terminal["message"]
+
+    def test_non_secret_message_passes_through(self, capsys):
+        """Proves scrubbing doesn't over-redact ordinary diagnostic text."""
+        fake = _RaisingBrowserRunner(RuntimeError("chrome binary not found"))
+        with pytest.raises(SystemExit):
+            bc.main(["--channel", "medium"], _browser_runner=fake)
+
+        events = _collect_events(capsys.readouterr().out)
+        terminal = events[-1]
+        assert "chrome binary not found" in terminal["message"]
+
+
+class _RaisingBrowserRunner:
+    """Fake browser runner whose launch_and_wait raises a caller-supplied
+    exception unconditionally — used to exercise the code paths outside
+    run_bind()'s five enumerated exception types (constraint: whatever this
+    raises must NOT be one of PlaywrightLaunchError/BoundPredicateTimeout/
+    IdentityMismatch, or run_bind's own except-arms would catch it first)."""
+
+    def __init__(self, exc: BaseException) -> None:
+        self._exc = exc
+
+    def launch_and_wait(self, *, recipe, on_browser_ready, on_login_detected):
+        raise self._exc
+
+
 # ───────── fake runner shared with driver tests ─────────
 
 

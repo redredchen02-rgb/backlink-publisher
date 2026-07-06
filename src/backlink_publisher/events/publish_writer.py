@@ -64,6 +64,7 @@ def write_event(
             host=host,
             article_id=article_id,
         )
+    # debt: publish-writer-events-db-write-degrade-open-medium
     except Exception:
         log.warning(
             "publish_writer: failed to write event kind=%s target_url=%s",
@@ -202,11 +203,13 @@ def write_publish_result(item: dict, store: EventStore | None = None) -> int | N
         for qr in pending:
             try:
                 s.quarantine(**qr)
+            # debt: publish-writer-events-db-write-degrade-open-medium
             except Exception:
                 log.debug("publish_writer: quarantine flush failed: %r", qr)
 
         return article_id
 
+    # debt: publish-writer-events-db-write-degrade-open-medium
     except Exception:
         log.warning(
             "publish_writer: failed to write result kind=%s target_url=%s",

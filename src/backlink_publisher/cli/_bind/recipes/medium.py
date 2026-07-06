@@ -196,6 +196,7 @@ def _scrape_username(page: Any) -> str | None:
                 m = _USERNAME_URL_RE.search(href)
                 if m:
                     return m.group(1).lower()
+    # debt: medium-recipe-scrape-username-fallback-accepted
     except Exception:
         pass
     # Tier 2: og:url meta
@@ -207,6 +208,7 @@ def _scrape_username(page: Any) -> str | None:
                 m = _USERNAME_URL_RE.search(content)
                 if m:
                     return m.group(1).lower()
+    # debt: medium-recipe-scrape-username-fallback-accepted
     except Exception:
         pass
     # Tier 3: URL parse
@@ -214,6 +216,7 @@ def _scrape_username(page: Any) -> str | None:
         m = _USERNAME_URL_RE.search(page.url or "")
         if m:
             return m.group(1).lower()
+    # debt: medium-recipe-scrape-username-fallback-accepted
     except Exception:
         pass
     return None
@@ -305,6 +308,7 @@ def _write_meta_tentative(page: Any) -> None:
     """
     try:
         ua = page.evaluate("navigator.userAgent") or ""
+    # debt: medium-recipe-write-meta-best-effort-accepted
     except Exception:
         ua = ""
     if not ua:
@@ -476,8 +480,10 @@ def _medium_bound_predicate(page: Any) -> None:
                         if _BOUND_URL_PATTERN.match(p.url or ""):
                             matched_page = p
                             break
+                    # debt: medium-recipe-bound-predicate-fail-closed-accepted
                     except Exception:
                         pass
+            # debt: medium-recipe-bound-predicate-fail-closed-accepted
             except Exception:
                 pass
 
@@ -489,6 +495,7 @@ def _medium_bound_predicate(page: Any) -> None:
         # authenticated session before declaring success.
         try:
             cookies = matched_page.context.cookies("https://medium.com")
+        # debt: medium-recipe-bound-predicate-fail-closed-accepted
         except Exception:
             cookies = []
         if not _cookie_sanity_passes(cookies):

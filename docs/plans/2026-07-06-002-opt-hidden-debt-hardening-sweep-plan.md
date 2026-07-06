@@ -371,7 +371,7 @@ graph TB
 
 ---
 
-- [ ] **D3: `cli/_bind/` + `events/` except-Exception 分類掃描〔R9〕**
+- [x] **D3: `cli/_bind/` + `events/` except-Exception 分類掃描〔R9〕** ✅ 已完成（commit `c104dd95`）——即時 grep：`cli/_bind/` 24 個站點（velog.py 實際 4 個，非計畫快照的 5 個）、`events/` 22 個站點,共 46 個新分類 + 22 筆 `debt_registry.toml` entry。**三個安全缺口已修復**：(1) `chrome_backend.py:60` 的 `error_code` 契約違規——原本把任意例外文字塞進本應是封閉列舉的欄位,現在固定回傳 literal error_code,例外文字改放不會被當列舉值解讀的獨立 `detail` 屬性；(2) `cli/admin/bind_channel.py::main()` 兩個 catch-all 出口（`run_bind()` 五種既列舉例外之外的真正未過濾 stdout→WebUI 出口)現在對 `message` 套用 `scrub_text()`；(3) `_driver_impl.py:232` 的 `storage_state` 持久化失敗訊息（可能夾帶 repr() 化的 cookie/token）同樣經 `scrub_text()` 清洗。所有觸碰到的 `cli/_bind/` 站點皆有紅色路徑測試證明 fail-closed 語意保留（掃描/cookie 讀取例外時仍回報「未綁定」，未被誤改為 fail-open）。三個修復皆有紅→綠測試。`debt_registry.toml` rationale 皆為自我審查過的描述性文字（已用已知測試 fixture 字串逐一 grep 確認未貼上任何原始例外/cookie/secret 文字）。驗證：`bind`/`events` 相關測試 + `test_debt_registry_format.py` 共 2 個失敗,經 `git stash` A/B 對照確認皆為既有、與本 unit 無關（Windows `/bin/ls` 路徑假設、已知的 `llm_diagnostics_api.py`/`pipeline.py` 過期行號問題）。至此本計畫全部 12 個 unit 皆已完成。
 
 **Goal:** 對 `cli/_bind/`（25 個站點，Playwright 憑證綁定流程）與 `events/`（22 個站點，僅 1 個已追蹤）套用同樣的分類方法論，並確保任何例外訊息內容的變動不會讓憑證/session 資料外洩到未經清洗的輸出通道。
 
@@ -409,7 +409,7 @@ graph TB
 
 ### Sprint E — 測試基準與效能熱點（唯讀量測 + benchmark 補齊）
 
-- [ ] **E1: main 既存失敗測試獨立唯讀量測與根因分群〔R10〕**
+- [x] **E1: main 既存失敗測試獨立唯讀量測與根因分群〔R10〕** ✅ 已完成（commit `1bbf09f1`，報告：`docs/audits/2026-07-06-existing-test-failure-baseline.md`）——雙模式量測：(a) xdist 關閉/無 rerun = 441 failed；(b) CI 對應兩步驟合計 = 393 failed，兩者確實不可直接比較（xdist+rerun 完全遮蔽了一整組 48 個 offset-naive/aware datetime 失敗）。60% 的 (a) 失敗可歸類到 4 個根因群：Windows `os.O_NOFOLLOW`（42，已在 main 修復但本分支尚未含入,屬過期非新債）、`Config.token_path()` AttributeError（47，main 上也存在的真實 bug）、過期的 pytest-socket mocking 模式（92）、offset-naive/aware datetime（48）。對照 v0.6.0 U1 殘餘清單：35 個既有檔案中 31 個仍失敗,另有 5 組新失敗群未被 U1 追蹤。**執行期發現，偏離規劃假設**：協調檢查發現本分支雖是 reconcile merge 的後代,但 local main 之後又推進了 11 個 commit（含 `763d0280` 穩定化修復),不是本分支的祖先——這正是計畫協調表中警告的「分支切點早於仍在移動的 main」風險的具體案例，已記錄但不影響本 unit（唯讀量測不涉及合併）。量測期間另有平行 session 完成 D2/E2/E3 commit,報告中詳細記錄了兩種模式各自實際量測到的 tree 內容與判斷依據。
 
 **Goal:** 獨立、唯讀地重新量測 main 上的既存失敗測試數量與構成，套用 `docs/solutions/test-failures/` 五篇文件記錄的分群方法論，產出一份審查用的稽核報告，不修改任何測試或原始碼。
 
