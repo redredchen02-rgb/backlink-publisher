@@ -11,11 +11,11 @@ from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
-import stat
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from webui_app.services import settings_service
 
 
@@ -50,10 +50,10 @@ def test_load_llm_settings_auto_chmod_loose_perms(cfg_dir):
     path = settings_service.llm_settings_file()
     path.write_text(json.dumps({"api_key": "secret"}), encoding="utf-8")
     path.chmod(0o644)
-    assert stat.S_IMODE(path.stat().st_mode) == 0o644
+    assert_file_mode(path, 0o644)
 
     settings_service.load_llm_settings()
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert_file_mode(path, 0o600)
 
 
 def test_load_llm_settings_corrupt_file_returns_defaults(cfg_dir):
