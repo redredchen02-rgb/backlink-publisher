@@ -15,10 +15,11 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
-import stat
 import threading
 
 import pytest
+
+from _mode_assertions import assert_file_mode
 
 # Module-under-test imports are TOP-LEVEL so the file fails ImportError
 # until Unit 1 implementation lands — this is the failing-test gate
@@ -76,8 +77,7 @@ def test_write_frw_token_creates_file_with_0600(isolated_config_dir):
     target = isolated_config_dir / "frw-token.json"
     assert target.exists()
 
-    mode = stat.S_IMODE(os.stat(target).st_mode)
-    assert mode == 0o600, f"expected 0600, got {oct(mode)}"
+    assert_file_mode(target, 0o600)
 
     data = json.loads(target.read_text())
     assert data == {"api_key": "sk_test_abc123"}
@@ -94,8 +94,7 @@ def test_write_frw_token_creates_parent_dir_0700(tmp_path, monkeypatch):
     write_frw_token("sk_x")
 
     assert nested.exists()
-    parent_mode = stat.S_IMODE(os.stat(nested).st_mode)
-    assert parent_mode == 0o700, f"parent dir perms should be 0o700, got {oct(parent_mode)}"
+    assert_file_mode(nested, 0o700)
 
 
 def test_write_frw_token_rejects_empty_string(isolated_config_dir):
@@ -143,8 +142,7 @@ def test_write_frw_token_archives_existing_token(isolated_config_dir):
     assert archived["api_key"] == "sk_old"
 
     # Archive perms must remain 0600 — the old key is still a secret.
-    arch_mode = stat.S_IMODE(os.stat(orphans[0]).st_mode)
-    assert arch_mode == 0o600
+    assert_file_mode(orphans[0], 0o600)
 
 
 def test_write_frw_token_orphan_archive_has_microseconds(isolated_config_dir):
@@ -225,8 +223,7 @@ def test_load_frw_token_warns_and_repairs_loose_perms(
         result = load_frw_token()
 
     assert result == "sk_loose"
-    final_mode = stat.S_IMODE(os.stat(target).st_mode)
-    assert final_mode == 0o600
+    assert_file_mode(target, 0o600)
     assert any("perm" in r.getMessage().lower() for r in caplog.records)
 
 
