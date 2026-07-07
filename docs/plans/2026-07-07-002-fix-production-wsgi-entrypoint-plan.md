@@ -376,7 +376,7 @@ launch the production entrypoint instead of the dev server.
   triggers correctly on an intentional crash and still recognizes a clean
   Ctrl-C exit.
 
-- [ ] **Unit 3: Point the workspace-root operator launchers at `serve.py`**
+- [x] **Unit 3: Point the workspace-root operator launchers at `serve.py`**
 
 **Goal:** The actual files an operator double-clicks (or `make
 restart-webui` invokes) run the production entrypoint — this is the code
@@ -429,14 +429,16 @@ path the user hit the dev-server warning through.
 - Test expectation: none — these files are outside the git repo and have no
   automated test harness (confirmed via repo-wide search: no test globs
   reach the workspace root). Verification is manual.
-- Manual (Windows, this session's platform): after editing, run
-  `start-webui.bat` and confirm the terminal shows the waitress startup
-  banner (not the Werkzeug warning) and the WebUI is reachable at
-  `http://127.0.0.1:<port>/`.
-- Manual (Windows): run `restart_webui.bat` against an already-running
-  instance and confirm it kills the old process and the new one comes up
-  via `serve.py` (check via `netstat`/Task Manager command line, or the
-  log file it writes to `%TEMP%`).
+- Manual (Windows, this session's platform) — **done**: ran `start-webui.bat`
+  end-to-end (with `serve.py` temporarily present in a copy of the target
+  checkout, since this branch's `serve.py` doesn't exist on `main` until
+  merged) — confirmed the waitress startup banner (no Werkzeug warning) and
+  `curl http://127.0.0.1:8888/api/v1/health` returned 200.
+- Manual (Windows) — **done**: ran `restart_webui.bat` the same way; exited
+  0, log showed "Starting serve.py", health check returned 200.
+- `启动WebUI.bat` edited identically to `start-webui.bat` (same two changes)
+  but not separately executed end-to-end this session — parity assumed from
+  the proven `start-webui.bat` run, not independently verified.
 - Manual (macOS, deferred — no macOS access in this session): confirm
   `启动WebUI.command` (already correct, per Files above) still launches
   cleanly; flag as a follow-up manual check for whoever has macOS access.
