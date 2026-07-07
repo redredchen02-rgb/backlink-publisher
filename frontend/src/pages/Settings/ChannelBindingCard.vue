@@ -112,15 +112,27 @@ function markSlugClean(slug: string): void {
 // snap a just-submitted form shut the moment the post-save `invalidateQueries`
 // resolves and flips `isBound()` true — this decouples "which group a channel
 // is displayed in" (still live) from "whether its form is open" (sticky).
+//
+// Code review (2026-07-07): seeding must wait for `overviewQuery` to have
+// resolved at least once. `formsQuery` and `overviewQuery` are two independent
+// requests with no ordering guarantee; if forms resolves first, `isBound()`
+// reads an empty `boundMap` and reports every channel as unbound, so an
+// already-bound channel would seed permanently open and never correct itself
+// (seeding never re-runs) — the exact "已绑定 default collapsed" contract (R3)
+// silently broken by pure request-timing luck. Gating on
+// `overviewQuery.data.value !== undefined` defers the seed until the true
+// bound status is known, re-firing this watch when overview settles.
 const openState = reactive<Record<string, boolean>>({})
 
 watch(
-  () => formsQuery.data.value,
-  (data) => {
-    for (const f of data?.forms ?? []) {
+  () => [formsQuery.data.value, overviewQuery.data.value] as const,
+  ([formsData, overviewData]) => {
+    for (const f of formsData?.forms ?? []) {
       if (!edits[f.slug]) edits[f.slug] = {}
       if (!lastSeeded[f.slug]) lastSeeded[f.slug] = {}
-      if (!(f.slug in openState)) openState[f.slug] = !isBound(f.slug)
+      if (!(f.slug in openState) && overviewData !== undefined) {
+        openState[f.slug] = !isBound(f.slug)
+      }
       for (const fld of f.fields) {
         if (!(fld.name in edits[f.slug])) {
           edits[f.slug][fld.name] = ''
@@ -194,6 +206,13 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
     const r = await save(form.slug, body)
     notify.push(r.message, r.ok ? 'success' : 'info')
     if (!clear) clearSecretInputs(form)
+    // Code review (2026-07-07): a successful 清除 (clear) moves this channel
+    // back to the 未绑定 group, but `openState` was seeded collapsed back when
+    // it was still bound and is never recomputed from `isBound()` — left
+    // alone, the form the user just cleared (and now needs to re-fill) would
+    // stay collapsed instead of guiding them to the fields it just emptied.
+    // Force it open, same one-shot idea as `markSlugClean` re-baselining below.
+    if (clear) openState[form.slug] = true
     // This slug's fields now match what was just persisted — re-baseline so
     // it stops counting toward the route-leave guard's dirty set. (The
     // `clear` path never touched `edits`, but re-baselining is still correct

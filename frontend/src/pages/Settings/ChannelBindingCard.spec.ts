@@ -197,6 +197,62 @@ describe('ChannelBindingCard', () => {
     })
   })
 
+  it('a successful Clear reopens the form so the user can immediately re-enter credentials', async () => {
+    // Code review (2026-07-07, adversarial + correctness): openState was
+    // seeded collapsed back when this channel was bound and is never
+    // recomputed from isBound() — without an explicit reopen on clear, the
+    // channel would move to the 未绑定 group but stay visually collapsed,
+    // hiding the very fields the user needs to fill in next.
+    const BOUND = {
+      slug: 'wordpresscom', display_name: 'WordPress', auth_type: 'token_fields',
+      bound: true, identity: 'me@blog', dofollow: true, last_verify_result: 'ok', blockers: [],
+    }
+    vi.mocked(api.getChannels)
+      .mockResolvedValueOnce({ channels: [BOUND] })
+      .mockResolvedValueOnce({ channels: [{ ...BOUND, bound: false, identity: null }] })
+    vi.mocked(api.saveChannelCredential).mockResolvedValue({ ok: true, message: '凭据已清除', cleared: true })
+    const w = mountCard()
+    await flushPromises()
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(false)
+
+    const clearBtn = w.findAll('button').find((b) => b.text() === '清除')
+    await clearBtn!.trigger('click')
+    await flushPromises()
+
+    expect(w.text()).toContain('未绑定 ·')
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('seeds openState from the true bound status even when overviewQuery resolves after formsQuery (cold-load race)', async () => {
+    // Code review (2026-07-07, julik-frontend-races): formsQuery and
+    // overviewQuery are two independent requests with no ordering guarantee.
+    // Seeding openState the moment forms resolves — before overview has ever
+    // resolved — would read an empty boundMap and treat every channel as
+    // unbound, permanently seeding an already-bound channel's form open
+    // (seeding never re-runs) even though R3 says bound channels default
+    // collapsed.
+    let resolveChannels!: (v: Awaited<ReturnType<typeof api.getChannels>>) => void
+    vi.mocked(api.getChannels).mockReturnValue(
+      new Promise((resolve) => { resolveChannels = resolve }),
+    )
+    const w = mountCard()
+    await flushPromises() // formsQuery resolves; overviewQuery still pending
+
+    // Must not have guessed "unbound" (open) while the true status is unknown.
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(false)
+
+    resolveChannels({
+      channels: [{
+        slug: 'wordpresscom', display_name: 'WordPress', auth_type: 'token_fields',
+        bound: true, identity: 'me@blog', dofollow: true, last_verify_result: 'ok', blockers: [],
+      }],
+    })
+    await flushPromises()
+
+    expect(w.text()).toContain('已绑定 ·')
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(false)
+  })
+
   it('W6: a 422 credential rejection renders inline under that slug, not a global toast', async () => {
     vi.mocked(api.saveChannelCredential).mockRejectedValue(
       new ApiError('rejected', 422, { detail: 'site 必须以 https:// 开头' }),
@@ -251,11 +307,19 @@ describe('ChannelBindingCard', () => {
     expect(dirtyStore.anyDirty).toBe(false)
   })
 
-  it('W2: a newly-appearing channel form does not itself count as a dirty edit', async () => {
+  it('W2: a newly-appearing channel form does not itself count as a dirty edit, and lands in the correct group', async () => {
     // Regression guard for the incremental-baseline design (see the card's
     // own comment): seeding a brand-new slug's blank defaults into `edits`
     // (as happens whenever formsQuery re-resolves with an extra channel) must
-    // not be mistaken for a user edit.
+    // not be mistaken for a user edit. wordpresscom is bound so the streamed-
+    // in ghpages (unbound) form's group placement is actually distinguishable
+    // (plan 2026-07-07-004 Unit 2 test scenario).
+    vi.mocked(api.getChannels).mockResolvedValue({
+      channels: [{
+        slug: 'wordpresscom', display_name: 'WordPress', auth_type: 'token_fields',
+        bound: true, identity: 'me@blog', dofollow: true, last_verify_result: 'ok', blockers: [],
+      }],
+    })
     const { wrapper: w, queryClient } = mountCardWithClient()
     await flushPromises()
     const dirtyStore = useSettingsDirtyStore()
@@ -269,6 +333,11 @@ describe('ChannelBindingCard', () => {
     await flushPromises()
 
     expect(w.findAll('[data-test="bind"]')).toHaveLength(2)
+    expect(w.text()).toContain('未绑定 · 1')
+    expect(w.text()).toContain('已绑定 · 1')
+    const cards = w.findAll('[data-test="bind"]')
+    expect(cards[0].text()).toContain('GitHub Pages') // unbound (ghpages), first group
+    expect(cards[1].text()).toContain('WordPress') // bound, second group
     expect(dirtyStore.anyDirty).toBe(false)
   })
 
