@@ -136,7 +136,7 @@ backlink-publisher/scripts/packaging/
 
 ## Implementation Units
 
-- [ ] **Unit 1: 建置期取得並準備獨立 Python 直譯器**
+- [x] **Unit 1: 建置期取得並準備獨立 Python 直譯器**
 
 **Goal:** 產生一個不依賴任何主機 Python 安裝、可直接搬移的 `python-embed/` 目錄，內含 `backlink_publisher` 本體與核心依賴。
 
@@ -232,7 +232,7 @@ backlink-publisher/scripts/packaging/
 
 ---
 
-- [ ] **Unit 4: 修正並產出封裝內的使用說明文件**
+- [x] **Unit 4: 修正並產出封裝內的使用說明文件**
 
 **Goal:** README / QUICK_START / ONBOARDING 內容與封裝的實際目錄結構一致（修正目前文件寫 `python\` 但實際是 `venv\` 的落差），並涵蓋「從 0 到 1」的完整使用流程。
 
