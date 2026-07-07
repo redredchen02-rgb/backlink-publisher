@@ -6,9 +6,9 @@ core runtime dependencies installed) that does NOT depend on any host Python
 installation. This is the build-time tool referenced by
 ``docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md``.
 
-Currently implements Unit 1 only: interpreter provisioning
-(``provision_interpreter``). Units 2-5 (CLI shim generation, SPA build +
-directory assembly, documentation, and full build orchestration / zip output)
+Implements Unit 1 (interpreter provisioning, ``provision_interpreter``) and
+Unit 2 (CLI shim generation, ``generate_cli_shims``). Units 3 and 5 (SPA
+build + directory assembly, and full build orchestration / zip output)
 extend this same file — the CLI entrypoint below is deliberately minimal
 until Unit 5 adds the full ``dist/backlink-publisher-vX.Y.Z-win64.zip``
 pipeline on top of it.
@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -392,6 +393,294 @@ def _run_pip_audit(site_packages: Path) -> None:
             "shipping a package with a known CVE.\n"
             f"--- pip-audit stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
         )
+
+
+# ── Unit 2: CLI shim generation ─────────────────────────────────────────────
+#
+# For each `[project.scripts]` entry in pyproject.toml, generate a
+# `scripts/cli-shims/<name>.bat` in the OUTPUT package directory that calls
+# the exact `module:function` target against the shipped
+# `python-embed\python.exe`. See generate_cli_shims() for the full rationale
+# (console-script .exe are not portable; `python -m <module>` silently no-ops
+# for ~10 of the 49 modules with no `__main__` guard).
+
+
+def _parse_project_scripts(repo_root: Path) -> dict[str, str]:
+    """Parse `[project.scripts]` from `repo_root/pyproject.toml`.
+
+    Returns `{name: "module.path:function"}`, e.g.
+    `{"bp": "backlink_publisher.cli.bp:main"}`. Reads the live table (not a
+    hardcoded count) so this naturally stays in sync as commands are
+    added/removed — see the plan's Risks table.
+    """
+    pyproject_path = repo_root / "pyproject.toml"
+    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    scripts = data.get("project", {}).get("scripts", {})
+    if not scripts:
+        raise BuildError(
+            f"No [project.scripts] entries found in {pyproject_path} — "
+            f"check the repo layout before trusting this check."
+        )
+    return dict(scripts)
+
+
+def _split_script_target(target: str) -> tuple[str, str]:
+    """Split a `"module.path:function"` [project.scripts] value into its parts."""
+    module, sep, function = target.partition(":")
+    module = module.strip()
+    function = function.strip()
+    if not sep or not module or not function:
+        raise BuildError(
+            f"Malformed [project.scripts] target {target!r} — expected "
+            f"'module.path:function'."
+        )
+    return module, function
+
+
+def _render_cli_shim_bat(module: str, function: str) -> str:
+    """Render the body of one `scripts/cli-shims/<name>.bat`.
+
+    Invokes the exact `module:function` pyproject.toml target via
+    `-c "from <module> import <function>; <function>()"` against the shipped
+    `python-embed\\python.exe` — deliberately NOT `python -m <module>`, which
+    would silently import-and-exit without calling anything for the ~10 CLI
+    modules that have no ``if __name__ == "__main__":`` guard (see
+    `generate_cli_shims`'s docstring / the plan's Key Technical Decisions),
+    and cannot express `backup-state`/`restore-state` mapping two different
+    functions from the same `state_backup.py` module.
+
+    `PYTHONPATH` is set to `<pkg_dir>\\app` (derived from the shim's own path
+    via `%~dp0..\\..`, since shims live at `scripts\\cli-shims\\<name>.bat`)
+    so CLI modules that import `webui_store` at module load time (e.g.
+    `dispatch_backlinks.py`) resolve correctly — `webui_store` lives under
+    `app\\`, not in `python-embed`'s `site-packages`.
+
+    `chcp 65001 >nul` guards against the non-UTF-8-console encoding crash
+    fixed in `docs/plans/2026-07-03-001-fix-windows-webui-encoding-crash-plan.md`.
+    """
+    call = f"from {module} import {function}; {function}()"
+    return (
+        "@echo off\r\n"
+        "chcp 65001 >nul\r\n"
+        "setlocal\r\n"
+        "set \"PYTHONPATH=%~dp0..\\..\\app\"\r\n"
+        f"\"%~dp0..\\..\\python-embed\\python.exe\" -c \"{call}\" %*\r\n"
+        "set \"EXITCODE=%ERRORLEVEL%\"\r\n"
+        "endlocal & exit /b %EXITCODE%\r\n"
+    )
+
+
+# Driver script executed in a single subprocess by
+# `_check_script_targets_resolvable` to check every [project.scripts] target
+# in one process launch (instead of one subprocess per target — ~49x fewer
+# spawns). Reads `[[name, module, function], ...]` as JSON from argv[1] and
+# reports every failure (not just the first) so a broken build tells you
+# everything wrong with pyproject.toml in one pass.
+_EXISTENCE_CHECK_DRIVER_SRC = '''\
+import importlib
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    targets = json.load(fh)
+
+failures = []
+for name, module, function in targets:
+    try:
+        mod = importlib.import_module(module)
+        getattr(mod, function)
+    except Exception as exc:  # noqa: BLE001 -- report every failure, don't stop at the first
+        failures.append(f"{name} ({module}:{function}): {type(exc).__name__}: {exc}")
+
+if failures:
+    print("\\n".join(failures))
+    sys.exit(1)
+sys.exit(0)
+'''
+
+
+def _check_script_targets_resolvable(
+    scripts: dict[str, str], *, python_exe: Path, repo_root: Path
+) -> None:
+    """Verify every `[project.scripts]` `module:function` target actually
+    resolves (module importable, attribute exists) — raises `BuildError`
+    (listing every failing target) rather than letting a build ship a shim
+    that is guaranteed to fail at runtime.
+
+    Runs ONE subprocess against `python_exe`, importing every target in turn,
+    with `PYTHONPATH=<repo_root>` — `repo_root` contains `webui_store/` at
+    its top level, which is exactly what Unit 3 later copies into the
+    package's `app/`; checking against it here proves the same import will
+    resolve once assembled, without making Unit 2 depend on Unit 3 running
+    first.
+
+    `python_exe` is deliberately a parameter rather than hardcoded to the
+    just-provisioned `python-embed\\python.exe`: this check only proves
+    import *resolvability* (catches typos/renames in pyproject.toml), which
+    is interpreter-agnostic as long as `backlink_publisher` is installed —
+    `generate_cli_shims` defaults it to `sys.executable` (the interpreter
+    running this build script) so the check works without requiring Unit 1
+    to have already run, and without needing a Windows-only executable to
+    exist. Callers that want the extra rigor of checking against the literal
+    shipped interpreter can pass `verify_python_exe=<output_dir>/python-embed/python.exe`
+    (see `generate_cli_shims`).
+    """
+    targets = [
+        (name, *_split_script_target(target)) for name, target in sorted(scripts.items())
+    ]
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(repo_root)
+
+    with tempfile.TemporaryDirectory(prefix="bp-shim-check-") as tmp_str:
+        tmp = Path(tmp_str)
+        driver_path = tmp / "_check_targets.py"
+        driver_path.write_text(_EXISTENCE_CHECK_DRIVER_SRC, encoding="utf-8")
+        targets_path = tmp / "targets.json"
+        targets_path.write_text(json.dumps(targets), encoding="utf-8")
+
+        result = subprocess.run(
+            [str(python_exe), str(driver_path), str(targets_path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+        )
+
+    if result.returncode != 0:
+        raise BuildError(
+            "CLI shim existence check failed — the following [project.scripts] "
+            f"target(s) could not be resolved against {python_exe}; refusing "
+            f"to ship shim(s) guaranteed to fail at runtime:\n"
+            f"{result.stdout.strip()}\n{result.stderr.strip()}"
+        )
+
+
+def _find_interpreter_pth_file(python_embed_dir: Path) -> Path:
+    """Locate the single `*._pth` file inside a provisioned `python-embed/`
+    directory (named e.g. `python311._pth` — derived from the interpreter's
+    version, but found by globbing here rather than recomputing the filename
+    from a version string, so this doesn't need to know which Python version
+    was provisioned)."""
+    candidates = sorted(python_embed_dir.glob("*._pth"))
+    if not candidates:
+        raise BuildError(
+            f"No *._pth file found in {python_embed_dir} — expected the "
+            f"provisioned python-embed/ interpreter's ._pth file (see "
+            f"provision_interpreter / _patch_pth_file, Unit 1)."
+        )
+    return candidates[0]
+
+
+def ensure_app_dir_importable(python_embed_dir: Path) -> None:
+    """Make `<pkg_dir>/app/` importable by every process spawned from the
+    provisioned `python-embed/python.exe` — both the CLI shims and the
+    WebUI launcher need `webui_app`/`webui_store` (which Unit 3 copies into
+    `app/`, a sibling of `python-embed/`) on `sys.path`.
+
+    CRITICAL FINDING (verified 2026-07-07 against a real provisioned
+    python-embed/, not assumed from documentation): the official embeddable
+    interpreter's `._pth` file causes Python to IGNORE the `PYTHONPATH`
+    environment variable *entirely* — confirmed empirically that
+    `sys.path` is byte-identical with and without `PYTHONPATH` set for a
+    `._pth`-patched interpreter. Even running a script directly
+    (`python.exe app\\webui.py`) does NOT auto-add the script's own
+    directory to `sys.path` when a `._pth` file is present, unlike normal
+    CPython. This invalidates the plan's Key Technical Decision text of
+    relying on `set PYTHONPATH=<pkg_dir>\\app` in the generated `.bat`
+    files to make `app\\` importable — that `set PYTHONPATH=...` line is
+    kept in the generated shims/launchers anyway (harmless, and correct if
+    they were ever pointed at a normal, non-`._pth`-restricted Python for
+    local testing) but it is NOT what makes the shipped package work.
+
+    The mechanism `._pth`-restricted interpreters DO honor: `._pth` files
+    support literal relative path lines (each resolved relative to the
+    `._pth` file's own directory) alongside the `import site` line Unit 1
+    already uncommented. This function appends `..\\app` (relative to
+    `python_embed_dir`, resolving to `<pkg_dir>\\app` given the Output
+    Structure's `python-embed/` + `app/` sibling layout) to that file,
+    idempotently (a no-op if already present). Non-existent path entries in
+    a `._pth` file are silently ignored at interpreter startup, so calling
+    this before `app/` physically exists (i.e. before Unit 3 assembles it)
+    is safe — the entry only starts mattering once `app/` is actually there.
+    """
+    pth_path = _find_interpreter_pth_file(python_embed_dir)
+    content = pth_path.read_text(encoding="utf-8")
+    existing_lines = {line.strip() for line in content.splitlines()}
+    if "..\\app" in existing_lines:
+        return
+    if not content.endswith("\n"):
+        content += "\n"
+    content += "..\\app\n"
+    pth_path.write_text(content, encoding="utf-8")
+
+
+def generate_cli_shims(
+    output_dir: Path,
+    *,
+    repo_root: Path = REPO_ROOT,
+    verify_python_exe: Path | None = None,
+) -> Path:
+    """Generate one `scripts/cli-shims/<name>.bat` per `[project.scripts]`
+    entry into `output_dir` (the same in-progress package build directory
+    Unit 1's `provision_interpreter` populates with `python-embed/`, and Unit
+    3 later populates with `app/`).
+
+    Does NOT use pip-generated console-script `.exe` (they hardcode the build
+    machine's absolute interpreter path into their shebang, breaking R4 —
+    relocatability) and does NOT use `python -m <module>` (silently
+    import-and-exits for the ~10 modules with no `__main__` guard, and cannot
+    express `backup-state`/`restore-state` mapping two functions from one
+    module). Instead each shim calls the exact `module:function` target from
+    pyproject.toml directly — see `_render_cli_shim_bat`.
+
+    All shims are written to a scratch temp directory first; after every
+    shim is written, `_check_script_targets_resolvable` verifies each target
+    actually resolves, and only once that passes are the shims moved into
+    `output_dir/scripts/cli-shims/` — mirrors `provision_interpreter`'s
+    staging pattern so a failed build does not leave a half-built
+    `cli-shims/` directory behind.
+
+    If `output_dir/python-embed/` already exists (i.e. Unit 1's
+    `provision_interpreter(output_dir / "python-embed", ...)` has already
+    run — the expected Unit 5 orchestration order), this also calls
+    `ensure_app_dir_importable` on it, since generated shims are only
+    actually usable once that patch is applied (see its docstring for why
+    `PYTHONPATH` alone does not suffice). If `python-embed/` doesn't exist
+    yet, this step is skipped (not an error) — that only happens when
+    calling `generate_cli_shims` standalone/in isolation (e.g. this
+    function's own unit tests), not in the real build order.
+
+    Returns the `output_dir/scripts/cli-shims/` path.
+    """
+    output_dir = Path(output_dir)
+    repo_root = Path(repo_root)
+    python_exe = Path(verify_python_exe) if verify_python_exe is not None else Path(sys.executable)
+
+    scripts = _parse_project_scripts(repo_root)
+
+    with tempfile.TemporaryDirectory(prefix="bp-cli-shims-build-") as tmp_str:
+        staging_dir = Path(tmp_str) / "cli-shims"
+        staging_dir.mkdir()
+
+        for name, target in scripts.items():
+            module, function = _split_script_target(target)
+            shim_path = staging_dir / f"{name}.bat"
+            shim_path.write_text(_render_cli_shim_bat(module, function), encoding="utf-8")
+
+        _check_script_targets_resolvable(scripts, python_exe=python_exe, repo_root=repo_root)
+
+        final_dir = output_dir / "scripts" / "cli-shims"
+        if final_dir.exists():
+            shutil.rmtree(final_dir)
+        final_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(staging_dir), str(final_dir))
+
+    python_embed_dir = output_dir / "python-embed"
+    if python_embed_dir.is_dir():
+        ensure_app_dir_importable(python_embed_dir)
+
+    return final_dir
 
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
