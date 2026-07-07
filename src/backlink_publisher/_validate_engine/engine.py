@@ -40,10 +40,7 @@ from backlink_publisher.schema import (
     reject_unsupported_platform,
     validate_and_convert_output,
 )
-from backlink_publisher.validate._payload import (
-    _enhance_payload,
-    _extract_hrefs_from_html,
-)
+from backlink_publisher._validate_engine._payload import _enhance_payload, _extract_hrefs_from_html
 
 
 @dataclass
@@ -95,10 +92,7 @@ def load_config_tolerant() -> Config | None:
 
 
 def validate_rows(
-    rows: list[dict[str, Any]],
-    config: Config | None,
-    *,
-    check_urls: bool,
+    rows: list[dict[str, Any]], config: Config | None, *, check_urls: bool
 ) -> ValidateOutcome:
     """Validate planned-backlink ``rows`` against ``config``. Pure compute.
 
