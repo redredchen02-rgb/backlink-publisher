@@ -23,7 +23,7 @@ def client(app):
 
 def test_all_three_tab_panes_rendered(client):
     """GET / renders all three tab panes via {% include %}."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert 'id="newPanel"' in body
@@ -33,7 +33,7 @@ def test_all_three_tab_panes_rendered(client):
 
 def test_history_tab_active_via_query_param(client):
     """GET /?section=history sets historyPanel as the active tab."""
-    resp = client.get("/?section=history")
+    resp = client.get("/jinja?section=history")
     assert resp.status_code == 200
     body = resp.data.decode()
     # historyPanel should have show active class when history_active is True
@@ -42,7 +42,7 @@ def test_history_tab_active_via_query_param(client):
 
 def test_empty_history_store_renders_without_error(client):
     """GET / with empty history store renders without UndefinedError."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert 'id="historyPanel"' in body
@@ -50,7 +50,7 @@ def test_empty_history_store_renders_without_error(client):
 
 def test_empty_profiles_renders_batch_panel(client):
     """GET / with empty profiles still renders batchPanel without error."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode()
     assert 'id="batchPanel"' in body
@@ -82,14 +82,14 @@ def test_index_html_includes_all_three_partials():
 
 def test_korean_language_option_in_rendered_page(client):
     """GET / must include value="ko" in the target_language select."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     assert b'value="ko"' in resp.data
 
 
 def test_korean_language_option_label(client):
     """The Korean option must be labelled 한국어 (韩文)."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     body = resp.data.decode("utf-8")
     assert "한국어 (韩文)" in body
 
@@ -101,7 +101,7 @@ def test_korean_language_option_label(client):
 
 def test_flash_success_message_rendered(client):
     """GET /?flash_type=success&flash_msg=... renders a success alert."""
-    resp = client.get("/?flash_type=success&flash_msg=已加入草稿栏")
+    resp = client.get("/jinja?flash_type=success&flash_msg=已加入草稿栏")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     assert "已加入草稿栏" in body
@@ -110,7 +110,7 @@ def test_flash_success_message_rendered(client):
 
 def test_flash_danger_message_rendered(client):
     """A danger flash (Unit 1/2 failure feedback) renders a danger alert."""
-    resp = client.get("/?flash_type=danger&flash_msg=删除检查点失败")
+    resp = client.get("/jinja?flash_type=danger&flash_msg=删除检查点失败")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     assert "删除检查点失败" in body
@@ -119,7 +119,7 @@ def test_flash_danger_message_rendered(client):
 
 def test_no_flash_args_renders_no_alert_block(client):
     """GET / without flash args must not render an empty flash alert."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     # No empty 'alert alert-' (flash type interpolated into class) should appear
@@ -131,7 +131,7 @@ def test_flash_msg_is_html_escaped(client):
     """ce:review (security): flash_msg/flash_type are operator-controlled query
     params reflected into the page — a payload must be HTML-escaped (Jinja2
     autoescape), never injected as live markup."""
-    resp = client.get("/?flash_type=danger&flash_msg=<img src=x onerror=alert(1)>")
+    resp = client.get("/jinja?flash_type=danger&flash_msg=<img src=x onerror=alert(1)>")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     # The raw tag must not appear; its escaped form must.
@@ -151,7 +151,7 @@ def test_index_loads_esm_entry_not_legacy_scripts(client):
     """Plan 007 U6: index loads index.js as a single ES module; the legacy
     fetch_json.js + index_main.js classic scripts (and their load-order
     dependency) are gone — index.js imports the guarded fetch from lib/api.js."""
-    resp = client.get("/")
+    resp = client.get("/jinja")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     assert "js/index.js" in body and 'type="module"' in body
@@ -162,6 +162,6 @@ def test_index_loads_esm_entry_not_legacy_scripts(client):
 def test_index_has_no_inline_event_handlers(client):
     """All tab-partial inline on* handlers migrated to data-action."""
     import re
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/jinja").data.decode("utf-8")
     assert not re.search(r'\son(click|change|submit|input|keyup)=', body), \
         "an inline on* handler survived the index ESM migration"

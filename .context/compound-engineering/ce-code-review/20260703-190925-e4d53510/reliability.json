@@ -1,0 +1,68 @@
+{
+  "reviewer": "reliability",
+  "findings": [
+    {
+      "title": "fetchPrQueue() has no timeout/AbortController, unlike the getJson() call load() now runs right before it",
+      "severity": "P2",
+      "file": "frontend/src/api/prQueue.ts",
+      "line": 38,
+      "why_it_matters": "load() (frontend/src/pages/PrQueue/PrQueuePage.vue:53-70) now runs two sequential awaited I/O calls: getJson<AppConfig>('/app-config') (15s AbortController timeout + 1 retry, from client.ts) followed by items.value = await fetchPrQueue(). fetchPrQueue (prQueue.ts:38-47) is a bare await fetch('/api/pr-queue', ...) with no AbortController/timeout and no retry -- if the pr-queue backend hangs (slow DB query, stuck worker, a proxy silently swallowing the response) rather than erroring, this fetch's promise never settles. Because it never rejects, load()'s catch is never entered and finally() (which flips loading.value back to false) never runs either -- the component is stuck on StateBlock's loading skeleton state indefinitely, with no error shown and no way to recover: the page's own refresh button is disabled while loading, so the one recovery affordance on the page is inert exactly when it would be needed. The only way out is a full browser reload. This gap predates this diff (fetchPrQueue was already the page's sole data call before), but the diff places it directly downstream of, and in the same function as, a call that demonstrates the correct pattern (explicit timeout plus bounded retry), making the asymmetry concrete and load-bearing for this review.",
+      "autofix_class": "manual",
+      "owner": "downstream-resolver",
+      "requires_verification": true,
+      "confidence": 0.75,
+      "evidence": [
+        "frontend/src/api/prQueue.ts:38-47 -- fetchPrQueue does await fetch('/api/pr-queue', {...}) with no AbortController, no timeoutMs, no retry wrapper.",
+        "frontend/src/pages/PrQueue/PrQueuePage.vue:57-64 -- the two calls sit back to back in the same try block, one protected (getJson, via client.ts fetchWithTimeout/withRetry) and one not.",
+        "frontend/src/api/client.ts:70-82,144-167 -- DEFAULT_TIMEOUT_MS=15000 and withRetry (MAX_RETRIES=1) are the protections getJson() has that fetchPrQueue() lacks.",
+        "frontend/src/components/StateBlock.vue:50-52 -- the loading branch renders only a skeleton with no cancel/retry affordance, and PrQueuePage.vue:95 binds the page's only other recovery control (refresh) to disabled while loading, so there is no UI escape from a stuck loading state."
+      ],
+      "pre_existing": true,
+      "suggested_fix": "Route fetchPrQueue() (and updatePrStatus()) through the shared client.ts getJson/sendJson helpers instead of a bare fetch(), so they inherit the same 15s timeout plus bounded-retry protection getJson('/app-config') already has, rather than leaving one half of load()'s two-call sequence unprotected."
+    },
+    {
+      "title": "load() gates a healthy /api/pr-queue behind a second, independently-timed-out /app-config call, widening worst-case time-to-error and coupling PR-queue availability to an unrelated endpoint's health",
+      "severity": "P2",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "line": 53,
+      "why_it_matters": "Before this diff, load() made one network call (fetchPrQueue). Now it makes two, sequentially: getJson('/app-config') must resolve before fetchPrQueue() is even attempted. getJson's own timeout/retry math (client.ts: 15s DEFAULT_TIMEOUT_MS, MAX_RETRIES=1, RETRY_DELAY_MS=300) means a persistently slow or 5xx-flapping /app-config endpoint can take up to roughly 30.3s to finally fail, and during that entire window the page shows only a loading skeleton with fetchPrQueue never even dispatched -- even in the common case where /api/pr-queue itself is fully healthy. This is a new cascading-dependency path: a degradation in an unrelated, previously-uninvolved endpoint (/app-config) now fully blocks a feature that used to be independent of it. The good news, confirmed by reading the code end to end: the try/catch wraps both calls unconditionally, catch (e) sets error.value = e instanceof Error ? e : new Error(String(e)) for any thrown value, and every category in lib/errors.ts's TEMPLATES (network/permission/server/unknown) has retryable: true -- so the page does NOT silently misbehave; it always falls through to StateBlock's real error state with a working retry button that re-invokes load() and can succeed once /app-config recovers. The residual issue is added latency and blast radius, not silent failure.",
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": false,
+      "confidence": 0.65,
+      "evidence": [
+        "frontend/src/pages/PrQueue/PrQueuePage.vue:53-70 -- config = await getJson('/app-config'); if (config.lite_edition) return; items.value = await fetchPrQueue() inside one try/catch.",
+        "frontend/src/api/client.ts:70,144-145 -- DEFAULT_TIMEOUT_MS=15000, MAX_RETRIES=1, RETRY_DELAY_MS=300 implies up to roughly 30.3s worst case for getJson('/app-config') alone before fetchPrQueue is ever reached.",
+        "frontend/src/lib/errors.ts:18-23 -- every TEMPLATES entry (network/permission/server/unknown) sets retryable: true, confirming the fallback path is never doomed regardless of which category an /app-config failure lands in."
+      ],
+      "pre_existing": false
+    },
+    {
+      "title": "load() has no re-entrancy guard; markStatus()'s internal reload can overlap a manually-triggered refresh and race on items/error/liteUnavailable state",
+      "severity": "P3",
+      "file": "frontend/src/pages/PrQueue/PrQueuePage.vue",
+      "line": 53,
+      "why_it_matters": "The page's own refresh button is disabled while loading is true, which correctly prevents a user from re-triggering load() while a load() it started is still in flight. But markStatus() (unchanged by this diff, lines 72-86) calls await updatePrStatus(id, status) -- a network call gated only by the per-row updating set, not by the page-level loading ref -- and only calls load() afterward. During that updatePrStatus window, the refresh button remains enabled, so a user can click it while a row action is mid-flight, and shortly after, markStatus's own load() call fires too: two independent load() invocations now run concurrently, each re-doing the full getJson('/app-config') plus fetchPrQueue() sequence. client.ts's in-flight dedup (5s TTL, keyed GET:/app-config) coalesces the two /app-config GETs so that part is fine, but fetchPrQueue() (see prior finding) has no such dedup -- two full, independent GETs to /api/pr-queue fire, and whichever settles last silently overwrites items.value/error.value/liteUnavailable.value with no request-generation token to discard the stale one. Net effect is wasted round trips and a possible loading-spinner flicker (one call's finally sets loading=false while the other is still running), not data corruption -- both responses reflect real current server state -- so this is a narrow, UX-grade race rather than a correctness break.",
+      "autofix_class": "advisory",
+      "owner": "downstream-resolver",
+      "requires_verification": false,
+      "confidence": 0.6,
+      "evidence": [
+        "frontend/src/pages/PrQueue/PrQueuePage.vue:95-97 -- the refresh button is only disabled by loading, which guards against the page's own load(), not markStatus()'s internal call.",
+        "frontend/src/pages/PrQueue/PrQueuePage.vue:72-86 -- markStatus() sets updating (per-row), not loading, while await updatePrStatus(id, status) is in flight, then calls await load() in both its try and catch branches.",
+        "frontend/src/api/client.ts:106-140 -- dedupedGet only covers getJson-routed calls (keyed by path, 5s TTL); frontend/src/api/prQueue.ts:38-47's fetchPrQueue is a bare fetch with no equivalent dedup, so overlapping load() calls each issue their own /api/pr-queue request."
+      ],
+      "pre_existing": true
+    }
+  ],
+  "residual_risks": [
+    "classifyError (frontend/src/lib/errors.ts:55-58) detects the 'network' category only via instanceof TypeError, name === 'TypeError', or a message-text regex -- it does not recognize a DOMException named AbortError (what fetchWithTimeout's AbortController produces on a getJson('/app-config') timeout). A timed-out /app-config call therefore renders under the generic 'unknown' template instead of the more accurate 'network' template. Not flagged as a finding: every TEMPLATES entry has retryable: true, so the retry button still works regardless of category, making this a message-copy nuance rather than a functional reliability gap, and message-wording choices are explicitly out of scope for this review.",
+    "updatePrStatus() (frontend/src/api/prQueue.ts:49-66), the mutation load() is one hop downstream of via markStatus(), shares fetchPrQueue's missing-timeout gap and additionally performs its own inline CSRF fetch with no retry-on-403 rotation (unlike client.ts's sendJson, which retries once with a freshly forced CSRF token on a 403). A rotated/expired CSRF token would surface as a hard failure on every status-update click rather than self-healing. Pre-existing, unchanged by this diff, and not on the specific load()/app-config path the task asked about, so kept as a residual risk rather than a finding.",
+    "PrQueuePage.vue issues its own uncached getJson('/app-config') call on every load() (mount, every refresh click, every markStatus()-triggered reload), rather than sharing TopBar.vue's TanStack Query cache for the same endpoint (queryKey ['app-config']). client.ts's in-flight dedup only coalesces genuinely concurrent GETs within a 5s TTL and deletes its cache entry as soon as a call settles, so sequential clicks each re-hit the network. This amplifies how often the two-sequential-call latency and coupling finding above is actually paid, but is a duplication/caching concern rather than a distinct reliability defect on its own."
+  ],
+  "testing_gaps": [
+    "No test drives getJson('/app-config') itself rejecting or timing out (as opposed to fetchPrQueue rejecting) to confirm load() still lands in the 'error' blockState with a working, retryable button -- the specific failure path this review was asked to trace end to end is exercised nowhere in PrQueuePage.spec.ts.",
+    "No test exercises fetchPrQueue() (or the underlying /api/pr-queue fetch) hanging/never resolving, which is exactly the scenario that would surface the missing-timeout finding above (the page would stay on the loading skeleton forever with no assertion currently catching that).",
+    "No test exercises the overlapping-load() scenario (a manual refresh click firing while a markStatus()-triggered updatePrStatus() call is still in flight) to confirm the final rendered state matches the last-settled response rather than an arbitrary interleaving."
+  ]
+}

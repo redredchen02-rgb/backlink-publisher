@@ -119,7 +119,7 @@ class TestBulkActionBarRendering:
         drafts_store.save([{"id": "d1", "status": "pending", "target_url": "https://t/",
                             "created_at": "2026-05-19", "platform": "medium",
                             "publish_mode": "draft"}])
-        resp = client.get("/")
+        resp = client.get("/jinja")
         body = resp.data.decode("utf-8")
         assert 'id="draftBulkForm"' in body
         assert 'formaction="/ce:draft/bulk-delete"' in body

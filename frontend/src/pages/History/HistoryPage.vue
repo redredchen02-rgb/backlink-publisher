@@ -1,13 +1,18 @@
 <script setup lang="ts">
 // Publish-history page — Plan 2026-06-18-002 U7 (first page of the campaign).
 //
-// Replaces the legacy /ce:history Jinja tab. Lists publish history (four-state),
-// with per-row delete + recheck, bulk-delete via selection, and purge-failed.
-// Every mutation endpoint returns the refreshed list, so we just write the
-// response back into the query cache (no re-fetch). Action failures go through
-// classifyError → a toast (fixed copy, never raw server text).
+// Replaces the legacy /ce:history Jinja tab. Lists publish history (four-state,
+// now via DataTable/U5), with per-row delete + recheck, bulk-delete via
+// selection, and purge-failed. Action failures go through classifyError → a
+// toast (fixed copy, never raw server text).
+//
+// Plan 2026-07-02-001 U5: paginated via DataTable. Mutation endpoints return
+// the FULL table (unchanged contract), not a page-shaped envelope, so mutations
+// refetch this page from the server rather than reshaping the full-table
+// response locally -- the correct shape for total/limit/offset can only come
+// from the paginated GET.
 import { computed, ref } from 'vue'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import {
   bulkDeleteHistory,
   bulkRecheckHistory,
@@ -15,47 +20,36 @@ import {
   listHistory,
   purgeFailedHistory,
   recheckHistory,
-  type HistoryItem,
   type HistoryMutationResult,
 } from '../../api/history'
-import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
 import Icon from '../../components/Icon.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
-const QKEY = ['history']
-const qc = useQueryClient()
+const PAGE_SIZE = 50
+
 const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 
-const query = useQuery({ queryKey: QKEY, queryFn: listHistory })
-const items = computed<HistoryItem[]>(() => query.data.value?.items ?? [])
-
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (query.isPending.value) return 'loading'
-  if (query.isError.value) return 'error'
-  return items.value.length ? 'ready' : 'empty'
+const offset = ref(0)
+const query = useQuery({
+  queryKey: computed(() => ['history', offset.value]),
+  queryFn: () => listHistory({ limit: PAGE_SIZE, offset: offset.value }),
+  placeholderData: keepPreviousData,
 })
+const items = computed(() => query.data.value?.items ?? [])
+const total = computed(() => query.data.value?.total)
 
 const selected = ref<Set<string>>(new Set())
 const busy = ref(false)
-
-function toggle(id: string): void {
-  const next = new Set(selected.value)
-  if (next.has(id)) {
-    next.delete(id)
-  } else {
-    next.add(id)
-  }
-  selected.value = next
-}
 
 function reportError(e: unknown): void {
   toastError(e)
 }
 
 /**
- * Run a mutation, write the refreshed list back into the cache, surface message.
+ * Run a mutation, refetch this page, clamp offset if deletion overflowed it.
  *
  * `idsToDeselect` (code review): only the ids this specific call acted on are
  * removed from `selected` on success -- not a blanket clear. Without this, a
@@ -71,13 +65,18 @@ async function run(
   busy.value = true
   try {
     const r = await fn()
-    qc.setQueryData(QKEY, { items: r.items })
+    if (r.message) notify.push(r.message, 'info')
+    await query.refetch()
+    const newTotal = query.data.value?.total
+    if (newTotal != null && offset.value > 0 && offset.value >= newTotal) {
+      offset.value = Math.max(0, Math.floor((newTotal - 1) / PAGE_SIZE) * PAGE_SIZE)
+      await query.refetch()
+    }
     if (idsToDeselect?.length) {
       const remaining = new Set(selected.value)
       for (const id of idsToDeselect) remaining.delete(id)
       selected.value = remaining
     }
-    if (r.message) notify.push(r.message, 'info')
   } catch (e) {
     reportError(e)
   } finally {
@@ -87,6 +86,10 @@ async function run(
 
 const onDelete = (id: string) => run(() => deleteHistory(id), [id])
 const onRecheck = (id: string) => run(() => recheckHistory(id), [id])
+// purge-failed acts on the FULL set (server-side), not just this page, so its
+// availability isn't gated on whether the *visible* page happens to contain a
+// failed row -- the backend already no-ops gracefully (200, not an error) when
+// there's nothing to purge.
 const onPurgeFailed = () => run(purgeFailedHistory)
 const onBulkDelete = () => {
   const ids = [...selected.value]
@@ -96,8 +99,6 @@ const onBulkRecheck = () => {
   const ids = [...selected.value]
   return run(() => bulkRecheckHistory(ids), ids)
 }
-
-const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
 </script>
 
 <template>
@@ -121,71 +122,62 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
         >
           删除选中 ({{ selected.size }})
         </button>
-        <button type="button" :disabled="busy || !hasFailed" @click="onPurgeFailed">
+        <button type="button" :disabled="busy" @click="onPurgeFailed">
           清除失败
         </button>
       </div>
     </header>
 
-    <StateBlock
-      :state="blockState"
-      :error="query.error.value"
+    <DataTable
+      :items="items"
+      :loading="query.isPending.value"
+      :error="query.isError.value ? query.error.value : undefined"
       empty-text="还没有发布记录"
+      :selected="selected"
+      :total="total"
+      :limit="PAGE_SIZE"
+      :offset="offset"
+      :disabled="busy"
       @retry="query.refetch()"
+      @update:selected="selected = $event"
+      @update:offset="offset = $event"
     >
-      <div class="data-table-wrap">
-        <table class="rows data-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>状态</th>
-              <th>目标页</th>
-              <th>平台</th>
-              <th>发布文章（点击核查内链）</th>
-              <th>时间</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in items" :key="row.id" :data-status="row.status">
-              <td>
-                <input
-                  type="checkbox"
-                  :checked="selected.has(row.id)"
-                  :aria-label="`选择 ${row.target_url}`"
-                  @change="toggle(row.id)"
-                />
-              </td>
-              <td class="col-status"><span class="status" :data-status="row.status">{{ row.status }}</span></td>
-              <td class="col-url target" :title="row.target_url">
-                <a :href="row.target_url" target="_blank" rel="noopener" class="url-link">
-                  {{ row.target_url }}<Icon name="box-arrow-up-right" class="ext-icon" />
-                </a>
-              </td>
-              <td>{{ row.platform }}</td>
-              <td class="col-article-urls">
-                <template v-if="row.article_urls?.length">
-                  <div v-for="(url, i) in row.article_urls" :key="i" class="article-url-row">
-                    <a :href="url" target="_blank" rel="noopener" :title="url" class="article-link">
-                      <Icon name="box-arrow-up-right" class="me-1" />{{ url }}
-                    </a>
-                  </div>
-                  <div v-if="row.verified_at" class="verified-at">
-                    核查于 {{ new Date(row.verified_at * 1000).toLocaleDateString('zh-CN') }}
-                  </div>
-                </template>
-                <span v-else class="muted">—</span>
-              </td>
-              <td class="col-date muted">{{ row.created_at }}</td>
-              <td class="row-actions">
-                <button type="button" :disabled="busy" @click="onRecheck(row.id)">重核存活</button>
-                <button type="button" :disabled="busy" @click="onDelete(row.id)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </StateBlock>
+      <template #head>
+        <th>状态</th>
+        <th>目标页</th>
+        <th>平台</th>
+        <th>发布文章（点击核查内链）</th>
+        <th>时间</th>
+        <th></th>
+      </template>
+      <template #row="{ row }">
+        <td class="col-status"><span class="status" :data-status="row.status">{{ row.status }}</span></td>
+        <td class="col-url target" :title="row.target_url">
+          <a :href="row.target_url" target="_blank" rel="noopener" class="url-link">
+            {{ row.target_url }}<Icon name="box-arrow-up-right" class="ext-icon" />
+          </a>
+        </td>
+        <td>{{ row.platform }}</td>
+        <td class="col-article-urls">
+          <template v-if="row.article_urls?.length">
+            <div v-for="(url, i) in row.article_urls" :key="i" class="article-url-row">
+              <a :href="url" target="_blank" rel="noopener" :title="url" class="article-link">
+                <Icon name="box-arrow-up-right" class="me-1" />{{ url }}
+              </a>
+            </div>
+            <div v-if="row.verified_at" class="verified-at">
+              核查于 {{ new Date(row.verified_at * 1000).toLocaleDateString('zh-CN') }}
+            </div>
+          </template>
+          <span v-else class="muted">—</span>
+        </td>
+        <td class="col-date muted">{{ row.created_at }}</td>
+        <td class="row-actions">
+          <button type="button" :disabled="busy" @click="onRecheck(row.id)">重核存活</button>
+          <button type="button" :disabled="busy" @click="onDelete(row.id)">删除</button>
+        </td>
+      </template>
+    </DataTable>
   </section>
 </template>
 
@@ -206,7 +198,7 @@ const hasFailed = computed(() => items.value.some((i) => i.status === 'failed'))
   display: flex;
   gap: 0.5rem;
 }
-/* .rows inherits .data-table layout; only page-specific overrides below */
+/* DataTable owns .data-table/.data-table-wrap layout; page-specific column overrides below */
 .target {
   max-width: 24rem;
   overflow: hidden;

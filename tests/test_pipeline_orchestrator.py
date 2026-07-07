@@ -8,11 +8,15 @@ import json
 import os
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 
 import pytest
 
 from backlink_publisher.cli.pipeline_orchestrator import (
+    _count_gaps,
     _read_scheduler_state,
+    _run_pipe_step,
+    _run_step,
     _write_scheduler_state,
     build_parser,
     PipelineConfig,
@@ -20,6 +24,50 @@ from backlink_publisher.cli.pipeline_orchestrator import (
     should_run_now,
     StepResult,
 )
+
+
+class _FakeCompleted:
+    def __init__(self, stdout="", stderr="", returncode=0):
+        self.stdout, self.stderr, self.returncode = stdout, stderr, returncode
+
+
+class TestSubprocessUtf8Encoding:
+    """_run_step / _run_pipe_step must force UTF-8 text I/O on both sides of
+    the pipe so a Windows non-UTF-8 locale doesn't crash the child."""
+
+    def test_run_step_passes_utf8_encoding_and_pythonioencoding_env(self) -> None:
+        fake = _FakeCompleted(stdout="ok\n")
+        with patch("subprocess.run", return_value=fake) as mock_run:
+            _run_step(["echo", "hi"], "some-step")
+
+        _args, kwargs = mock_run.call_args
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
+
+    def test_run_pipe_step_passes_utf8_encoding_and_pythonioencoding_env(self) -> None:
+        fake = _FakeCompleted(stdout="ok\n")
+        with patch("subprocess.run", return_value=fake) as mock_run:
+            _run_pipe_step(["echo", "hi"], "input\n", "some-step")
+
+        _args, kwargs = mock_run.call_args
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
+
+    def test_count_gaps_plan_gap_call_passes_utf8_encoding_and_pythonioencoding_env(self) -> None:
+        """_count_gaps' own subprocess.run (the plan-gap step) is a separate
+        call site from _run_step/_run_pipe_step above -- it needs its own
+        assertion since it isn't exercised by either of those tests."""
+        fake = _FakeCompleted(stdout="gap1\ngap2\n")
+        with patch("subprocess.run", return_value=fake) as mock_run:
+            _count_gaps(PipelineConfig())
+
+        assert mock_run.call_count == 2  # equity-ledger (via _run_step), then plan-gap
+        _args, kwargs = mock_run.call_args_list[-1]
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
 
 
 class TestStepResult:

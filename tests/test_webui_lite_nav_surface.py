@@ -15,7 +15,11 @@ from webui_app import create_app
 # Baseline (flag off) statuses: copilot/advice 200, metrics 200, seo 400,
 # pr-queue 200 — all non-404, so the gate's 404 is observable.
 _HIDDEN_ROUTES = ["/copilot/advice", "/metrics", "/api/seo/anchors", "/pr-queue"]
-_CORE_ROUTES = ["/", "/ce:keep-alive/jinja", "/ce:health"]
+# '/jinja' not bare '/' — Plan 2026-07-06-004 Unit 4 made bare '/' an
+# unconditional redirect to the SPA ('/app/'), so it no longer returns 200
+# directly; '/jinja' is the legacy Jinja fallback that still does (same
+# content this list originally meant to exercise).
+_CORE_ROUTES = ["/jinja", "/ce:keep-alive/jinja", "/ce:health"]
 _TRIMMED_NAV_LABELS = ["排程", "权益", "PR队列"]
 
 

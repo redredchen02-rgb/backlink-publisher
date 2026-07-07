@@ -12,13 +12,23 @@
 // from the tab order too, so wide-screen keyboard behaviour is unchanged).
 // Falls back to a standalone drawer instance when mounted without an
 // AppShell ancestor, matching SideNav.vue's fallback.
+//
+// Plan 2026-07-06-004 Unit 4 (K2): persistent "新建发布" quick-action button.
+// Follows the "报告问题" button's DOM/style placement (topbar__right) as a
+// visual pattern only — unlike that button, this one is a REAL route
+// navigation (router.push('/publish')), not a floating panel. Confirmed
+// user decision: PublishWorkbench needs bookmark/back-button/refresh support
+// that a floating panel can't provide.
 import { inject, onMounted, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
+import { useRouter } from 'vue-router'
 import { getJson } from '../api/client'
 import { useThemeStore } from '../stores/theme'
 import { useReportPanelStore } from '../stores/reportPanel'
 import ReportProblemPanel from '../components/ReportProblemPanel.vue'
 import { SIDENAV_DRAWER_KEY, useSidenavDrawer } from '../composables/useSidenavDrawer'
+
+const router = useRouter()
 
 interface AppConfig {
   lite_edition: boolean
@@ -68,6 +78,9 @@ onMounted(() => {
       >
         Pro {{ config.data.value.llm_configured ? '已启用' : '未配置' }}
       </span>
+      <button type="button" class="topbar__new-publish" @click="router.push('/publish')">
+        新建发布
+      </button>
       <button type="button" class="topbar__report" @click="reportPanel.open()">
         报告问题
       </button>
@@ -127,6 +140,15 @@ onMounted(() => {
   font-size: var(--text-xl);
 }
 .topbar__report {
+  font-size: var(--text-sm);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.topbar__new-publish {
   font-size: var(--text-sm);
   padding: 0.3rem 0.6rem;
   border-radius: var(--radius-sm);

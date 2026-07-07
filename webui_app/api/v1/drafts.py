@@ -32,7 +32,7 @@ from flask import jsonify, request
 
 from ..drafts_api import DraftAPI
 from . import bp
-from .errors import ApiProblem, require_ids
+from .errors import ApiProblem, paginate, parse_pagination, require_ids
 
 _api = DraftAPI()
 
@@ -102,8 +102,14 @@ def _refreshed(result: dict) -> Any:
 
 @bp.get("/drafts")
 def drafts_list() -> Any:
-    """Full draft-queue list (newest first)."""
-    return jsonify({"items": _api.list_all()})
+    """Draft-queue list (newest first).
+
+    Plan 2026-07-02-001 U5: opt-in incremental pagination via ``?limit=&offset=``,
+    same contract as GET /history -- omitting ``limit`` returns the original
+    flat ``{items: [...]}`` shape.
+    """
+    limit, offset = parse_pagination()
+    return jsonify(paginate(_api.list_all(), limit, offset))
 
 
 @bp.post("/drafts/schedule")

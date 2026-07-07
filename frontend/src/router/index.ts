@@ -8,16 +8,29 @@ export const router = createRouter({
   history: createWebHistory('/app/'),
   routes: [
     {
-      // The pipeline group's primary page IS the publish workbench (U5);
-      // navItems maps 发布工作台 → '/'.
+      // Homepage swap (Plan 2026-07-06-004 Unit 4): the Monitor aggregate
+      // dashboard is now the SPA's landing page; navItems maps 监控聚合 → '/'.
+      // PublishWorkbench (formerly here) moved to '/publish' below.
       path: '/',
+      name: 'monitor',
+      component: () => import('../pages/Monitor/MonitorDashboard.vue'),
+    },
+    {
+      // Publish workbench (Plan 2026-07-06-004 Unit 4, was at '/' pre-swap);
+      // navItems maps 发布工作台 → '/publish'. Reached via TopBar's persistent
+      // "新建发布" button (router.push, not a floating panel — K2: needs
+      // bookmark/back-button/refresh support) or the sidenav.
+      path: '/publish',
       name: 'publish',
       component: () => import('../pages/Publish/PublishWorkbench.vue'),
     },
     {
-      // Monitoring aggregate dashboard (U6); navItems maps 监控聚合 → '/monitor'.
+      // Kept as a harmless alias to the same component as '/' — no navItem
+      // links here anymore post-swap (Unit 4), but left in place rather than
+      // removed since nothing in this unit's scope required deleting it and
+      // no other code path references it.
       path: '/monitor',
-      name: 'monitor',
+      name: 'monitor-alias',
       component: () => import('../pages/Monitor/MonitorDashboard.vue'),
     },
     {

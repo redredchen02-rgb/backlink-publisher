@@ -140,8 +140,8 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 102  # routes with CSRF but no inline Origin guard as of 2026-07-06
-# +3 (99->102): Plan 2026-07-02-001 U6 — POST /api/v1/health/actions/pause,
+_CSRF_ONLY_SNAPSHOT_COUNT = 103  # routes with CSRF but no inline Origin guard as of 2026-07-07
+# +3 (100->103): Plan 2026-07-02-001 U6 — POST /api/v1/health/actions/pause,
 # POST /api/v1/health/actions/reverify, POST /api/v1/health/actions/circuit-
 # reset. Mirrors the legacy health_actions.py's own perimeter exactly
 # (loopback-only + app-level CSRF, no inline bind-origin call) — these are
@@ -154,7 +154,13 @@ _CSRF_ONLY_SNAPSHOT_COUNT = 102  # routes with CSRF but no inline Origin guard a
 # loopback gate (_enforce_loopback_addr, since api_v1 is one shared blueprint
 # and can't inherit health_actions.py's blueprint-scoped before_request) is
 # the actual defense specific to these 3 routes.
-# +3 (96->99): Plan 2026-07-02-001 U3 — POST /api/v1/history/bulk-recheck, POST
+# +1 (96->97): Plan 2026-07-06-004 Unit 3 — POST /api/v1/queue/<task_id>/retry
+# (webui_app/api/v1/history.py). Same protection level as its 4 sibling
+# endpoints in the same file (/history/delete, /bulk-delete, /purge-failed,
+# /recheck), none of which use the inline guard either — CSRF-token-only,
+# same as this whole file's existing convention, covered unconditionally by
+# the app-level _global_origin_guard like every other mutating route.
+# +3 (97->100): Plan 2026-07-02-001 U3 — POST /api/v1/history/bulk-recheck, POST
 # /api/v1/drafts/bulk-publish-now, POST /api/v1/drafts/bulk-cancel. Same tier as
 # the sibling bulk-delete endpoints already in this count: app-level CSRF +
 # origin guard only, deliberately not loopback-gated (plan's own explicit

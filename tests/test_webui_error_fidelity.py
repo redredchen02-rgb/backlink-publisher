@@ -10,7 +10,9 @@ error fidelity. Covers the two pure helpers added to ``cli_runner``:
 from __future__ import annotations
 
 __tier__ = "unit"
+import os
 from pathlib import Path
+import subprocess
 import sys
 from unittest.mock import patch
 
@@ -110,3 +112,49 @@ def test_run_pipe_silent_failure_raises_diagnostic():
     with patch("backlink_publisher.sdk._cli_runner.subprocess.run", return_value=fake):
         with pytest.raises(Exception, match="produced no output"):
             run_pipe(["validate-backlinks"], "{}\n")
+
+
+# ── UTF-8 subprocess encoding (Windows ANSI-codepage crash fix) ─────────────
+
+def test_capture_passes_utf8_encoding_and_pythonioencoding_env():
+    """run_pipe_capture must force UTF-8 text I/O on both sides of the pipe:
+    encoding="utf-8" for the parent's decode of the child's bytes, and
+    PYTHONIOENCODING=utf-8 in the child's own env so its internal print/log
+    calls don't fall back to the Windows ANSI codepage."""
+    fake = _FakeCompleted(stdout="ok\n", stderr="", returncode=0)
+    with patch("backlink_publisher.sdk._cli_runner.subprocess.run", return_value=fake) as mock_run:
+        run_pipe_capture(["publish-backlinks"], "{}\n")
+
+    _args, kwargs = mock_run.call_args
+    assert kwargs["encoding"] == "utf-8"
+    assert kwargs["errors"] == "replace"
+    assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
+
+
+def test_child_subprocess_survives_non_big5_cjk_with_utf8_child_env():
+    """Reproduces the actual Windows failure mode in an OS-independent way:
+    Python's ``cp950`` (Big5) codec is a stdlib codec, not an OS setting, so
+    forcing a child's ``PYTHONIOENCODING`` to ``cp950`` reproduces the crash
+    on any platform (including this repo's ubuntu-only CI). Without the fix,
+    printing a Simplified Chinese character outside Big5's repertoire (关,
+    U+5173) crashes the child; ``utf8_child_env()`` prevents it."""
+    from backlink_publisher._util.subprocess_env import utf8_child_env
+
+    script = "print('義关')"  # 義 (Big5-representable) + 关 (not)
+
+    unfixed_env = dict(os.environ, PYTHONIOENCODING="cp950")
+    unfixed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True, text=True, env=unfixed_env,
+    )
+    assert unfixed.returncode != 0
+    assert "UnicodeEncodeError" in unfixed.stderr
+
+    fixed_env = utf8_child_env(dict(os.environ, PYTHONIOENCODING="cp950"))
+    fixed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        env=fixed_env,
+    )
+    assert fixed.returncode == 0
+    assert "UnicodeEncodeError" not in (fixed.stderr or "")

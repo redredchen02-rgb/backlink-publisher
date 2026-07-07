@@ -366,7 +366,9 @@ graph TB
 
 〔狀態，2026-07-03〕U14 第二輪（瀏覽器層）完成後，backlog 有 2 個條目：**B1**（`/app/pr-queue` LITE 版錯誤訊息分類遺漏）已經是可以直接動工的獨立小 bug；**B2**（首頁「系统降级」橫幅在從未發佈過的正常情境下持續顯示）使用者可見度高，但修法需要先有產品決策（見 backlog 文件發現 #2），在拍板前不強行動工。
 
-〔B1 執行結果，2026-07-03，分支 `fix/pr-queue-lite-error-message`，baseline SHA `f835820e`〕已修復。不改後端 404 gate 的回應形狀（`_lite_surface_gate` 刻意設計成「跟任何未匹配路徑一樣的通用 404，不洩漏隱藏路由存在」，這條安全決策維持不動），也不改共用的 `classifyError` 分類法（會影響全站所有用 `StateBlock` 的頁面，超出 B1 範圍）。改法是讓 `PrQueuePage.vue` 自己讀 `/app-config` 的 `lite_edition` 旗標（沿用 `TopBar.vue` 已有的同款 `getJson('/app-config')` 讀法，`api/client.ts` 的 GET 去重層讓兩處呼叫共享同一次網路請求）——LITE 版下直接跳過必然 404 的 `fetchPrQueue()` 呼叫，改用 `StateBlock` 的 `empty` 狀態顯示「PR 机会队列在当前版本（LITE）中未开放。」，而不是 `error` 狀態的通用「出错了／發生未知錯誤」加一個永遠不會成功的重試按鈕。新增 `frontend/src/pages/PrQueue/PrQueuePage.spec.ts`（4 個案例：LITE 下顯示正確空態且不呼叫 API、非 LITE 正常渲染、非 LITE 下真正空佇列仍顯示原本文案、非 LITE 下真實 500 錯誤仍走原本 error+重試路徑，確保沒有把真正的錯誤悄悄吞掉）。`npm test`（244/244）與 `vue-tsc --noEmit`（3 個既有、無關的 pre-existing 錯誤在 KeepAlivePage.vue/ArticleReviewRow.spec.ts，與本次改動無關）皆確認過。B2 與發現 #4 仍待使用者決策，未動工。
+〔B1 執行結果，2026-07-03，分支 `fix/pr-queue-lite-error-message`，baseline SHA `f835820e`〕已修復。不改後端 404 gate 的回應形狀（`_lite_surface_gate` 刻意設計成「跟任何未匹配路徑一樣的通用 404，不洩漏隱藏路由存在」，這條安全決策維持不動），也不改共用的 `classifyError` 分類法（會影響全站所有用 `StateBlock` 的頁面，超出 B1 範圍）。改法是讓 `PrQueuePage.vue` 自己讀 `/app-config` 的 `lite_edition` 旗標（沿用 `TopBar.vue` 已有的同款 `getJson('/app-config')` 讀法，`api/client.ts` 的 GET 去重層讓兩處呼叫共享同一次網路請求）——LITE 版下直接跳過必然 404 的 `fetchPrQueue()` 呼叫，改用 `StateBlock` 的 `empty` 狀態顯示「PR 机会队列在当前版本（LITE）中未开放。」，而不是 `error` 狀態的通用「出错了／發生未知錯誤」加一個永遠不會成功的重試按鈕。新增 `frontend/src/pages/PrQueue/PrQueuePage.spec.ts`（4 個案例：LITE 下顯示正確空態且不呼叫 API、非 LITE 正常渲染、非 LITE 下真正空佇列仍顯示原本文案、非 LITE 下真實 500 錯誤仍走原本 error+重試路徑，確保沒有把真正的錯誤悄悄吞掉）。`npm test`（244/244）與 `vue-tsc --noEmit`（3 個既有、無關的 pre-existing 錯誤在 KeepAlivePage.vue/ArticleReviewRow.spec.ts，與本次改動無關）皆確認過。
+
+〔B1 code review 修正，2026-07-03，同分支追加 commit `11b3aee6`〕`ce-code-review`（mode:autofix，10 reviewer）跑完後，correctness／reliability／kieran-typescript 三方獨立收斂到同一個問題：初版把 `/app-config` 讀取與 `fetchPrQueue()` 包在同一個 try/catch，導致 `/app-config` 瞬斷會誤擋住原本健康的 `/api/pr-queue`（在非 LITE、多數使用者實際情境下反而是新退步）。已修正為 best-effort、fail-open（`/app-config` 失敗時預設非 LITE，照常嘗試 `fetchPrQueue()`），並補兩個測試（`/app-config` 失敗時的 fail-open 路徑、`lite_edition` 欄位缺失視為非 LITE）。測試最終 6 案例，`npm test` 246/246、typecheck 乾淨。審查另外發現兩個**既存**（B1 之前就有，已比對 base SHA `f835820e` 確認非本次引入）缺陷，記錄為 backlog 文件的 B3（`fetchPrQueue`/`updatePrStatus` 無 timeout）與 B4（`load()` 無 request-generation 防護、並發呼叫時後 resolve 的覆蓋先 resolve 的）——不阻擋本次修復，獨立追蹤。B2 與發現 #4 仍待使用者決策，未動工。
 
 **Files:**
 - Modify: 依 backlog 條目而定，逐條目在各自檔案內修復（無法在規劃階段預先列舉——見 Deferred to Implementation）
@@ -518,7 +520,7 @@ graph TB
 
 **Verification:** 手動走四條路由 + SPA 停用模式；`pytest tests/ -m "unit"` 綠。
 
-- [ ] **U5: DataTable 元件 + 分頁 + 輪詢統一〔R5〕**
+- [x] **U5: DataTable 元件 + 分頁 + 輪詢統一〔R5〕**
 
 **Goal:** 把 `.data-table` CSS 約定升級為共享元件、為大列表補分頁、把輪詢統一到 vue-query 範式——U6/U7 的移植地基。
 
@@ -546,6 +548,25 @@ graph TB
 - Integration：oasdiff 無 breaking；`data-table-adoption.spec.ts` guard 在 5 頁全過;unmount 中斷 in-flight 請求不留 console 錯誤。
 
 **Verification:** History/Drafts 在 >200 列資料下分頁可用；KeepAlive/CampaignProgress 無裸 setTimeout（grep 為證）。
+
+**執行記錄（2026-07-06，分支 `feat/u5-datatable-pagination-polling`）：**
+- Backend（`128f1ab1`）：`webui_app/api/v1/errors.py` 新增 `MAX_PAGE_LIMIT=500`/`parse_pagination()`/`paginate()`；`history.py`/`drafts.py` 的 list 端點接入；`spec.py`/`openapi/backlink-api.yaml` 同步更新 query 參數 + 400 回應。不帶 `limit` 回原始整表 envelope（K6 相容不破）；帶 `limit` 回 `{items,total,limit,offset}`。13 個新測試全過。
+- `DataTable.vue`（`00bd63d8`）：`<script setup generic="T extends {id:string}">` 泛型元件，包 `StateBlock` 四態 + `head`/`row` scoped slot + checkbox 選取（含全選）+ opt-in 分頁 footer（`limit`+`total` 同時給才顯示）。換頁清空選取（`goToOffset()` 一併 emit `update:selected(new Set())`）。15 個新測試全過。
+- `usePolledQuery.ts`（`b973f10e`）：包 `useQuery` 的 `refetchInterval`+`keepPreviousData`；退避邏輯抽成純函式 `computeBackoffIntervalMs()`（0 次失敗=基礎間隔，每次失敗倍增，`maxIntervalMs` 封頂，預設 8× 基礎間隔）方便無 timer 測試；`isTerminal` callback 終態即停；`enabled` 選項支援 job-triggered 輪詢（id 為空時不輪詢）。tab-hidden 暫停與 unmount 取消**非自訂邏輯**——vue-query `refetchIntervalInBackground` 預設 `false` 且內建監聽 `visibilitychange`，unmount 時 query observer 自行拆卸。6 個新測試（含 fake-timer 驗證 interval/backoff/終態）全過、連跑 3 次無 flaky。
+- `HistoryPage.vue`/`DraftsPage.vue`（`ec86b6ad`）：改用 `DataTable`（History 原生 `<table>`、Drafts 原生 `<ul>/<li>` 皆改為 head/row slot），固定 `PAGE_SIZE=50`。Mutation 端點仍回全表（契約不動）——不再嘗試把全表回應塞進分頁 envelope，改為 mutation 後 `query.refetch()` 拉當頁，並在 `offset >= newTotal` 時 clamp 回末頁再 refetch 一次。`purge-failed` 不再用「當頁是否有 failed 列」判斷是否可點——該動作作用於伺服器端全集，當頁看不到不代表沒有，後端本來就對「無可清除」優雅 no-op（200）。11 個新/改測試全過。
+- `KeepAlivePage.vue`/`CampaignProgressPage.vue`（`dfd29d6d`）：CampaignProgress 是單一 `usePolledQuery`（campaignId 空時 `enabled:false` 不發request）。KeepAlive 較複雜——兩條獨立、由使用者動作觸發的 job 輪詢（recheck、republish），改為「設定 job id 就讓 `enabled` 變 true 觸發首次 fetch」取代原本顯式 `startXPolling()`；原本內嵌在 `poll()` callback 裡的副作用（狀態機轉換、flash 訊息、重載 scorecard）搬到 `watch(query.data, ...)`。`onUnmounted` 手動 `clearTimeout` 整段刪除（vue-query 自行拆卸）。14 個新測試（CampaignProgress 原本零覆蓋）。
+- 驗證：前端 275/275、typecheck/build 乾淨；後端 pagination 11/11、`gen_openapi.py --check` 無 drift；`data-table-adoption.spec.ts`（另一計畫的 guard，5 頁其中僅 KeepAlive 與本 unit 重疊，其 scorecard table 本 unit 未觸碰，維持通過不需修改）；`grep setTimeout` 確認 KeepAlive/CampaignProgress 僅剩註解提及，無裸輪詢殘留。
+- 未做（明確排除，Scope Boundaries 內）：排序功能；跨頁全選。
+
+**Code review（2026-07-06，13 位 reviewer 並行，base `ad24fb1a`）與修復：**
+- **`usePolledQuery` 退避邏輯的真實 bug（review 未發現，自查所得）**：`query.state.fetchFailureCount`（`retry:false` 下每次 fetch 開始即歸零，最多只會是 0 或 1）與 `query.state.status`（一旦 query 曾經成功過，之後連續失敗會卡在 `'error'`、不再經過 `'pending'`，兩種歷史下行為不一致）皆不可靠，兩者都會讓退避在「連續失敗 2 次以上」時卡在 2× 基礎間隔、永不繼續拉長——與「持續失敗應持續拉長輪詢間隔」的設計初衷矛盾。改用 `query.state.errorUpdateCount`/`dataUpdateCount` 的差值追蹤（兩者在每次 settle 時單調遞增，不受查詢歷史影響），並在 queryKey 變更時重置，避免 KeepAlive 不同 job 間的失敗次數互相污染。3 個新迴歸測試（含以 `@tanstack/query-core` 實測驗證的 escalate-then-reset 情境）。
+- **`DataTable.vue` 分頁與 mutation 的競態（3 位 reviewer 獨立收斂：adversarial、correctness、julik-frontend-races 皆各自實測重現）**：分頁按鈕與 checkbox 未鎖 `busy`，換頁若剛好與進行中的 mutation 撞期，mutation 完成後的 `refetch()`/clamp 會作用在使用者已經切換走的頁碼上。修法：`DataTable` 新增 `disabled` prop（鎖 pager 按鈕 + 全選/單列 checkbox），`HistoryPage.vue`/`DraftsPage.vue` 傳入 `:disabled="busy"`。4 個新測試。
+- **`CampaignProgressPage.vue` 的 `blockState` 順序（reliability 發現，本人複閱程式碼確認為真）**：原順序先判 `isError` 再判是否有資料，導致單次輪詢失敗（即使先前已成功載入、`keepPreviousData` 仍握有舊資料）會整頁清空成錯誤畫面。改為「有資料就 ready，優先於 isError」。1 個新測試。
+- **`usePolledQuery` 缺 `retry:false`（reliability 發現，複閱 `frontend/src/main.ts` 證實正式環境 QueryClient 未覆寫 `retry`，會套用 TanStack 預設 `retry:3`）**：不設的話，正式環境每次「失敗一次」實際上是內建重試最多 4 次請求，且 backoff 要等這整輪重試跑完才看得到失敗次數。已加 `retry:false`（該 composable自己的 backoff 才是預期的重試機制），並用不覆寫 `retry` 的 QueryClient 鎖入迴歸測試。
+- **`KeepAlivePage.vue` 換 job 時殘留舊進度顯示（correctness + julik-frontend-races 皆發現，經 correctness 直接讀 `@tanstack/query-core` 原始碼排除更嚴重的「watch 誤觸發」疑慮，僅為顯示層 stale 值）**：`doRecheck()`/`doRepublish()` 起新 job 前清空 `recheckProgress`/`recheckTotal`/`recheckMessage`（republish 同理）。1 個新測試。
+- **Safe_auto 修復**：`spec.py` 兩處 `"maximum": 500` 改為 import `MAX_PAGE_LIMIT`（kieran-python + maintainability 收斂）；`errors.py` 的 `except (TypeError, ValueError)` 改 `except ValueError`（`TypeError` 分支不可達）+ 補 `from None`；`paginate()` 型別 `list` → `list[dict[str, Any]]`；`usePolledQuery.ts` 移除 2 處多餘的 `as` 型別斷言（kieran-typescript 實測確認可安全移除）；`DataTable.vue` 的 `selected` prop 改為 optional（原本 required 卻帶 `withDefaults` 預設值，預設值不可達）；spec.py 的 `limit`/`offset` 補上 per-field description（含 `offset` 無 `limit` 時無效的說明，呼應 api-contract + agent-native 收斂的發現）。
+- **記入 backlog、本次不修**：`?offset=` 無 `limit` 時被靜默忽略且不驗證（api-contract + agent-native 收斂，已於 docstring/spec description 說明，語意上可接受）；`HistoryPage.vue`/`DraftsPage.vue` 的 mutation-refetch-clamp 函式重複約 15 行（maintainability P2，兩頁各自測過，非緊急）；`DataTable.vue` 未把 `isFetching`/`stale` 轉發給內部 `StateBlock`（kieran-typescript + adversarial 收斂，能力缺口非退化）；`doCancelRecheck` 未清空 `recheckJobId`（correctness + julik 皆發現，經確認為 base commit 已存在的既有行為，非本次引入）；`startConfirm` 缺乏與 `doRecheck`/`doRepublish` 一致的雙擊防護（julik 發現，既有模式不一致）；`?limit=0` 被接受但恆回空頁（correctness C4，語意上可視為合理的邊界用法）；`webui_app/api/v1/spec.py` 的 monolith SLOC 餘裕僅剩約 11 行（project-standards 發現，U6 會再次觸碰此檔，屆時大概率需要一併調高 ceiling）。
+- 修復後驗證：前端 284/284（新增 9 個測試）、typecheck/build 乾淨；後端 history/drafts/pagination 相關 374 passed（1 個既有、與本次無關的 Windows-only NTFS chmod 測試失敗）、ruff clean、`gen_openapi.py --check` 無 drift。
 
 - [x] **U6: `/ce:health` 叢集移植到 SPA〔R6〕**
 

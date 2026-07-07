@@ -47,7 +47,7 @@ describe('DraftsPage', () => {
     vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING, SCHEDULED] })
     const w = mountPage()
     await flushPromises()
-    expect(w.findAll('.draft')).toHaveLength(2)
+    expect(w.findAll('tbody tr')).toHaveLength(2)
     // Pending row exposes a datetime input + 立即发布; scheduled row exposes 取消排程.
     expect(w.find('input[type="datetime-local"]').exists()).toBe(true)
     expect(btn(w, '立即发布')).toBeTruthy()
@@ -137,10 +137,33 @@ describe('DraftsPage', () => {
     vi.mocked(api.bulkDeleteDrafts).mockResolvedValue({ items: [], message: '已删除 1 项' })
     const w = mountPage()
     await flushPromises()
-    await w.find('.draft input[type="checkbox"]').setValue(true)
+    await w.find('tbody tr input[type="checkbox"]').setValue(true)
     await w.find('.bulk-delete').trigger('click')
     await flushPromises()
     expect(api.bulkDeleteDrafts).toHaveBeenCalledWith(['p1'])
+  })
+
+  it('fetches with limit/offset=0 on mount (Plan 2026-07-02-001 U5)', async () => {
+    vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING], total: 1, limit: 50, offset: 0 })
+    mountPage()
+    await flushPromises()
+    expect(api.listDrafts).toHaveBeenCalledWith({ limit: 50, offset: 0 })
+  })
+
+  it('clicking next page fetches the next offset and clears the selection', async () => {
+    vi.mocked(api.listDrafts)
+      .mockResolvedValueOnce({ items: [PENDING], total: 120, limit: 50, offset: 0 })
+      .mockResolvedValueOnce({ items: [SCHEDULED], total: 120, limit: 50, offset: 50 })
+    const w = mountPage()
+    await flushPromises()
+
+    await w.find('tbody tr input[type="checkbox"]').setValue(true)
+    const [, next] = w.findAll('.data-table__pager button')
+    await next.trigger('click')
+    await flushPromises()
+
+    expect(api.listDrafts).toHaveBeenCalledWith({ limit: 50, offset: 50 })
+    expect(w.find('.bulk-delete').text()).toContain('(0)')
   })
 
   it('bulk-publishes selected drafts now (U3)', async () => {
@@ -152,7 +175,7 @@ describe('DraftsPage', () => {
     const w = mountPage()
     const notify = useNotificationsStore()
     await flushPromises()
-    await w.find('.draft input[type="checkbox"]').setValue(true)
+    await w.find('tbody tr input[type="checkbox"]').setValue(true)
     await w.find('.bulk-publish-now').trigger('click')
     await flushPromises()
     expect(api.bulkPublishDraftsNow).toHaveBeenCalledWith(['p1'])
@@ -167,7 +190,7 @@ describe('DraftsPage', () => {
     })
     const w = mountPage()
     await flushPromises()
-    await w.find('.draft input[type="checkbox"]').setValue(true)
+    await w.find('tbody tr input[type="checkbox"]').setValue(true)
     await w.find('.bulk-cancel').trigger('click')
     await flushPromises()
     expect(api.bulkCancelDrafts).toHaveBeenCalledWith(['s1'])
@@ -181,7 +204,7 @@ describe('DraftsPage', () => {
     const w = mountPage()
     const notify = useNotificationsStore()
     await flushPromises()
-    await w.find('.draft input[type="checkbox"]').setValue(true)
+    await w.find('tbody tr input[type="checkbox"]').setValue(true)
     await w.find('.bulk-publish-now').trigger('click')
     await flushPromises()
     expect(notify.toasts.some((t) => t.severity === 'error')).toBe(true)
@@ -194,7 +217,13 @@ describe('DraftsPage', () => {
     // If the user reselects a DIFFERENT row while the first bulk call is still
     // in flight, that reselection must survive -- run() must not blanket-clear
     // `selected` on success, only remove the ids this call actually acted on.
-    vi.mocked(api.listDrafts).mockResolvedValue({ items: [PENDING, SCHEDULED] })
+    // run() refetches this page from the server rather than trusting the
+    // mutation response's own `items` -- so the *second* listDrafts call
+    // (triggered by that refetch) must reflect p1's deletion, not just the
+    // mutation's return value.
+    vi.mocked(api.listDrafts)
+      .mockResolvedValueOnce({ items: [PENDING, SCHEDULED] })
+      .mockResolvedValueOnce({ items: [SCHEDULED] })
     const pending = (() => {
       let resolve!: (v: { items: typeof PENDING[]; message?: string }) => void
       const promise = new Promise<{ items: typeof PENDING[]; message?: string }>((res) => {
@@ -206,7 +235,7 @@ describe('DraftsPage', () => {
     const w = mountPage()
     await flushPromises()
 
-    const checkboxes = w.findAll('.draft input[type="checkbox"]')
+    const checkboxes = w.findAll('tbody tr input[type="checkbox"]')
     await checkboxes[0].setValue(true) // select PENDING (p1)
     await w.find('.bulk-delete').trigger('click') // in-flight, still holding [p1]
 
@@ -217,7 +246,7 @@ describe('DraftsPage', () => {
 
     expect(api.bulkDeleteDrafts).toHaveBeenCalledWith(['p1'])
     // s1's checkbox (reselected mid-flight) must still be checked afterward.
-    const remainingCheckbox = w.find('.draft input[type="checkbox"]')
+    const remainingCheckbox = w.find('tbody tr input[type="checkbox"]')
     expect((remainingCheckbox.element as HTMLInputElement).checked).toBe(true)
   })
 

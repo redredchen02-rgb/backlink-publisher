@@ -5,7 +5,10 @@ describe('navItems dual-stack model', () => {
   it('migrated items carry an in-SPA route; legacy items carry an absolute href', () => {
     const migrated = NAV_ITEMS.filter(isMigrated)
     expect(migrated.length).toBeGreaterThanOrEqual(1)
-    expect(migrated[0].to).toBe('/')
+    // Plan 2026-07-06-004 Unit 4: Monitor (not Publish) is now the homepage,
+    // so assert by `to` value rather than array position — the first entry
+    // in NAV_ITEMS is still 发布工作台, now pointing at '/publish'.
+    expect(migrated.some((i) => i.to === '/')).toBe(true)
     for (const i of NAV_ITEMS.filter((x) => !isMigrated(x))) {
       expect(i.href).toMatch(/^\//)
       expect(i.to).toBeUndefined()

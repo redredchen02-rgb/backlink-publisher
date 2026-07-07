@@ -1,69 +1,49 @@
 <script setup lang="ts">
 // Campaign progress — Plan P13 B3 (SPA migration).
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+//
+// Plan 2026-07-02-001 U5: polling migrated to usePolledQuery, fixing two
+// anti-patterns in the previous hand-rolled setTimeout loop: (1) a failed poll
+// tick was silently swallowed (`catch { /* Silently retry on next tick */ }`)
+// with no user-visible indication anything was wrong; (2) the retry interval
+// never backed off, so a genuinely down backend would be hammered at a fixed
+// 2s forever. usePolledQuery backs off on consecutive failures and surfaces
+// the error via StateBlock's stale/error handling instead of hiding it.
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchCampaignStatus, type CampaignStatus } from '../../api/campaign'
+import { fetchCampaignStatus } from '../../api/campaign'
+import { usePolledQuery } from '../../composables/usePolledQuery'
 import StateBlock from '../../components/StateBlock.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const campaignId = computed(() => (route.params as Record<string, string>).campaignId || '')
-const status = ref<CampaignStatus | null>(null)
-const error = ref<Error | null>(null)
-const loading = ref(true)
-let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+const query = usePolledQuery({
+  queryKey: computed(() => ['campaign-progress', campaignId.value]),
+  queryFn: () => fetchCampaignStatus(campaignId.value),
+  intervalMs: 2000,
+  isTerminal: (data) => data?.done === true,
+  enabled: computed(() => !!campaignId.value),
+})
+
+const status = computed(() => query.data.value ?? null)
 
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (loading.value) return 'loading'
-  if (error.value) return 'error'
-  if (!status.value) return 'empty'
-  return 'ready'
+  if (query.isPending.value) return 'loading'
+  // Data (even keepPreviousData's last-good snapshot) wins over isError --
+  // a single failed poll tick after a successful load must not wipe an
+  // already-rendered progress view (code review finding, U5).
+  if (status.value) return 'ready'
+  if (query.isError.value) return 'error'
+  return 'empty'
 })
 
 const progressPct = computed(() => Math.round((status.value?.progress_pct ?? 0) * 100))
 
-const load = async () => {
-  if (!campaignId.value) return
-  loading.value = true
-  error.value = null
-  try {
-    status.value = await fetchCampaignStatus(campaignId.value)
-  } catch (e) {
-    error.value = e instanceof Error ? e : new Error(String(e))
-  } finally {
-    loading.value = false
-  }
-}
-
-const startPolling = () => {
-  const doPoll = async () => {
-    try {
-      status.value = await fetchCampaignStatus(campaignId.value)
-    } catch {
-      // Silently retry on next tick
-    }
-    if (status.value && !status.value.done) {
-      pollTimer = setTimeout(doPoll, 2000)
-    }
-  }
-  if (status.value && !status.value.done) {
-    pollTimer = setTimeout(doPoll, 2000)
-  }
-}
-
 const goBack = () => {
   router.push('/batch-campaign')
 }
-
-onMounted(async () => {
-  await load()
-  startPolling()
-})
-
-onUnmounted(() => {
-  if (pollTimer) clearTimeout(pollTimer)
-})
 </script>
 
 <template>
@@ -77,10 +57,10 @@ onUnmounted(() => {
 
     <StateBlock
       :state="blockState"
-      :error="error"
-      :is-fetching="loading"
+      :error="query.error.value"
+      :is-fetching="query.isFetching.value"
       empty-text="任务未找到。"
-      @retry="load"
+      @retry="query.refetch()"
     >
       <div v-if="status" class="camp-progress__content">
         <div class="camp-progress__summary">

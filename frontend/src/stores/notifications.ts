@@ -24,6 +24,16 @@ export interface Toast {
    *  by an auto-captured, successfully-submitted error report (U6); Unit 7's
    *  "补充说明" action uses this to PATCH the right row. */
   reportId?: string
+  /** Optional single-shot reversal action rendered as a button on the toast
+   *  (Plan 2026-07-06-004 Unit 6) — e.g. "撤销" after the monitor dashboard's
+   *  mark-resolved action. Distinct from `reportId`'s "补充说明" button: this
+   *  is a generic caller-supplied callback, not tied to the shared
+   *  ReportProblemPanel. The callback itself owns its own error handling
+   *  (e.g. re-PATCHing a since-deleted row) — this store just renders the
+   *  button and lets the click fire it; a stale/expired undo (toast already
+   *  auto-dismissed, or state changed via another path) is the callback's
+   *  problem to degrade gracefully, not this store's. */
+  undoAction?: { label: string; onClick: () => void }
 }
 
 /** Map the legacy server flash_type vocabulary onto Toast severities, so flash
@@ -54,9 +64,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
     severity: Severity = 'info',
     timeout = severity === 'error' ? 0 : 4000,
     reportId?: string,
+    undoAction?: { label: string; onClick: () => void },
   ): number {
     const id = ++_seq
-    toasts.value.push({ id, severity, message, timeout, reportId })
+    toasts.value.push({ id, severity, message, timeout, reportId, undoAction })
     return id
   }
 

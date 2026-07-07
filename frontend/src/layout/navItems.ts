@@ -25,8 +25,8 @@ export const GROUP_LABELS: Record<NavGroup, string> = {
 
 export const NAV_ITEMS: NavItem[] = [
   // Migrated (in-SPA).
-  { label: '发布工作台', group: 'pipeline', to: '/' },
-  { label: '监控聚合', group: 'monitoring', to: '/monitor' }, // migrated in U6
+  { label: '发布工作台', group: 'pipeline', to: '/publish' }, // moved off '/' in Plan 2026-07-06-004 Unit 4
+  { label: '监控聚合', group: 'monitoring', to: '/' }, // promoted to homepage in Plan 2026-07-06-004 Unit 4 (was '/monitor', migrated in U6)
   { label: '历史', group: 'operations', to: '/history' }, // migrated in U7
   { label: '草稿', group: 'operations', to: '/drafts' }, // migrated in U7
   { label: '站点', group: 'config', to: '/sites' }, // migrated in U7

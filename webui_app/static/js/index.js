@@ -318,20 +318,34 @@ function _initHealthBar() {
 
   fetchJson('/health').then((data) => {
     if (!data) return;
+    // If the user dismissed the bar while this request was in flight, don't
+    // let a late response silently un-hide it (backlog B5, found in B2's code
+    // review; pre-existing, same root function B2 touched).
+    try { if (sessionStorage.getItem(DISMISS_KEY)) return; } catch (_) { /* ignore */ }
     const healthy = data.healthy;
+    const reasons = data.degraded_reasons || [];
+    // A brand-new install (or a channel just bound, nothing published yet) is
+    // not the same situation as an actual failure — don't show the alarming
+    // "degraded" treatment for it. /health's healthy/degraded_reasons contract
+    // (and its 503 status, used by monitoring) is unchanged; this only affects
+    // how the banner is presented (2026-07-06, U15 B2).
+    const neverPublished = !healthy && reasons.length === 1 && reasons[0] === 'pipeline:never_run';
     bar.classList.remove('d-none');
     bar.classList.toggle('healthy', healthy);
-    bar.classList.toggle('degraded', !healthy);
-    if (icon) icon.textContent = healthy ? '✅' : '⚠️';
+    bar.classList.toggle('pending', neverPublished);
+    bar.classList.toggle('degraded', !healthy && !neverPublished);
+    if (icon) icon.textContent = healthy ? '✅' : (neverPublished ? 'ℹ️' : '⚠️');
     if (text) {
       text.textContent = healthy
         ? `系统正常 · 已绑定 ${Object.keys(data.channels || {}).length} 个渠道`
-        : `系统降级 · ${(data.degraded_reasons || []).join(', ')}`;
+        : neverPublished
+          ? '尚未发布任何内容 · 完成渠道设置后即可开始发布'
+          : `系统降级 · ${reasons.join(', ')}`;
     }
   }).catch(() => { /* fail-open: no bar shown on error */ });
 
   // Dismiss handler
-  delegate(bar, '[data-action="health-bar-dismiss"]', 'click', () => {
+  delegate(bar, 'click', '[data-action="health-bar-dismiss"]', () => {
     bar.classList.add('d-none');
     try { sessionStorage.setItem(DISMISS_KEY, '1'); } catch (_) { /* ignore */ }
   });

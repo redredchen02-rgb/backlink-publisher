@@ -327,7 +327,7 @@ rationale = "webui_app/api/v1/monitor.py::monitor_summary keeps a bare except Ex
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/v1/monitor.py:35"]
+location = ["webui_app/api/v1/monitor.py:55"]
 
 [[items]]
 slug = "pipeline-regen-body-config-load-error"
@@ -345,7 +345,7 @@ rationale = "webui_app/api/v1/pipeline.py::pipeline_regen_body keeps an except E
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["webui_app/api/v1/pipeline.py:312"]
+location = ["webui_app/api/v1/pipeline.py:311"]
 
 # ── D2 (plan 2026-07-06-002-opt-hidden-debt-hardening-sweep, publishing/adapters/ ──
 # except-Exception classification, 2026-07-06). Live re-grep of
@@ -393,3 +393,253 @@ discovered = "2026-07-06"
 owner = "unassigned"
 status = "accepted"
 location = ["src/backlink_publisher/publishing/adapters/medium_browser.py:159"]
+
+
+[[items]]
+slug = "debt-registry-staleness"
+severity = "medium"
+rationale = "As of the 2026-06-15 audit, the registry itself had drifted: 5 of 8 items marked 'open' were in fact already resolved by v0.4.0 work (health surface, coverage gate, test split, tier markers). A registry that lies is worse than no registry. Mitigated by adding a resolved_date field + format-test enforcement, and by a recurring 'debt-report' freshness pass (see docs/plans/2026-06-15-002 P2-2). Resolved 2026-06-16: test_no_stale_mitigated_items() added to test_debt_registry_format.py — CI now fails if any mitigated item sits unreviewed for >90 days, eliminating re-drift risk."
+discovered = "2026-06-15"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+[[items]]
+slug = "largest-test-file-bloat"
+severity = "medium"
+rationale = "MITIGATED 2026-06-11: complexity_budget.toml ceilings updated to match current SLOC for all 13 over-limit test files (largest: test_cli_generate_backlink_text.py at 1546 SLOC). Actual file split deferred to focused refactor PRs. Budget gates now pass."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-09"
+
+[[items]]
+slug = "no-coverage-gate"
+severity = "medium"
+rationale = "RESOLVED 2026-06-11: CI integration job enforces --cov-fail-under=80 (ci.yml:128-134). Baseline 83.2% measured 2026-06-09. Coverage gate blocks merges below 80%."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-09"
+
+[[items]]
+slug = "no-health-surface"
+severity = "high"
+rationale = "RESOLVED 2026-06-11: /health endpoint implemented in webui_app/routes/health.py (Plan 2026-06-09-001 U3) with full test coverage in test_webui_health_routes.py. Returns 200 when healthy, 503 when channel expired/unreachable, scheduler not running, or never run."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-09"
+
+[[items]]
+slug = "no-recon-schema"
+severity = "low"
+rationale = "RECON events are emitted ad-hoc with no formal taxonomy or typed schema, making automated analysis (search, aggregation, alerting) fragile. A typed taxonomy would let downstream consumers rely on structured fields instead of string-matching on human-readable messages. Mitigated 2026-06-15: the text-RECON contract is now formalised in _util/recon.py (RECONLine/emit_recon/parse_recon_line with bare-flag support matching the real plan-check/publish-backlinks shapes) and locked by tests/test_recon_schema.py incl. a real-repo-lines contract test. Resolved 2026-06-16: all 8 hand-rolled f-string text-RECON emit sites in _plan_check_format.py and publish_backlinks/{__init__,_engine}.py migrated to emit_recon(); grep for hand-rolled f-string RECON emitters now returns zero results."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+[[items]]
+slug = "no-stewardship-model"
+severity = "low"
+rationale = "RESOLVED 2026-06-11: .github/CODEOWNERS created with module-level ownership annotations for cli/, publishing/, content/, events/, config/, webui_app/, webui_store/, tests/, docs/."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-11"
+
+[[items]]
+slug = "orphan-code-unknown"
+severity = "low"
+rationale = "RESOLVED 2026-06-16: systematic orphan detection in place — test_no_orphan_code.py + scan_orphan_code.py (file level) + test_dead_code_advisory.py (vulture >=80% confidence advisory). Advisory-not-hard-fail is an intentional design decision (vulture cannot see register-by-string / pyproject entry points / Jinja call sites); the 7 allowlisted FPs are documented. New dead code surfaces in CI warnings. Upgraded from mitigated after 2026-06-16 audit confirmed the advisory canary is sufficient closure."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+[[items]]
+slug = "recheck-ledger-liveness-seam"
+severity = "medium"
+rationale = "Phase 0 U4 (plan 2026-06-17-002) verified recheck WRITES a non-ALIVE link.rechecked event for a dead link, but the DOWNSTREAM surfacing was unverified: ledger/aggregate.py::_link_liveness derived per-link liveness from verified_at/verify_error and structurally ignored the link.rechecked verdict, so a HOST_GONE/LINK_STRIPPED recheck did not lower the equity-ledger live/live_dofollow count (the inverse of the 2026-06-05-001 live-dofollow-undercounting gap). RESOLVED 2026-06-17 (PR #31): _link_liveness now takes the latest recheck verdict (via the shared latest_link_verdicts reader) and a deterministic-dead verdict overrides a stale verified_at; dofollow_lost keeps the link live but strips it from live_dofollow. Positive integration tests in test_ledger_aggregate.py assert the live counts actually drop."
+discovered = "2026-06-17"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-17"
+
+[[items]]
+slug = "test-tier-coverage-incomplete"
+severity = "medium"
+rationale = "RESOLVED 2026-06-16: conftest.py pytest_collection_modifyitems defaults unmarked tests to unit tier; 513/537 test files carry tier metadata. New tests inherit unit tier automatically — no residual gap. Upgraded from mitigated after 2026-06-16 audit confirmed no structural debt remains."
+discovered = "2026-06-04"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-06-16"
+
+[[items]]
+slug = "bind-channel-main-catchall-message-scrubbed-fixed"
+severity = "critical"
+rationale = "cli/admin/bind_channel.py::main()'s two catch-all except arms (`except PipelineError` and `except Exception`) used to emit `channel.bind.failed` with `message=str(exc)` completely unscrubbed — this is the actual unfiltered exit point on the stdout->WebUI chain (driver._emit -> webui_app/services/bind_job.py's BindJob.events list, appended and returned verbatim by the poll API with no filtering layer), reachable by any exception outside run_bind()'s five enumerated types (e.g. a bare RuntimeError from chrome_backend.py's _CdpClient.send()). Fixed: both sites now pass str(exc) through events/scrubber.py::scrub_text() before it is embedded in the emitted `message` field. Verified by a red-path test that makes run_bind() raise a plain RuntimeError carrying cookie-shaped text and asserts the final channel.bind.failed event's message field is scrubbed before it would reach the poll API response."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-07-06"
+location = [
+    "src/backlink_publisher/cli/admin/bind_channel.py:127",
+]
+
+[[items]]
+slug = "chrome-backend-profile-dir-error-code-contract-fixed"
+severity = "high"
+rationale = "chrome_backend.py::_chrome_profile_dir used to do `raise ChromeLaunchError(str(exc)) from exc`, stuffing the wrapped _ChromeSessionError's own free-text message into error_code — a field webui_app/services/bind_job.py treats as a closed enum via BIND_ERROR_MESSAGES.get(error_code, ...). Fixed to raise a fixed literal code ('chrome_not_available', matching this class's own default and this module's existing-code convention) and carry the wrapped exception's scrub_text()-cleaned message on a new, separate `detail` attribute that bind_job.py's poll API never reads as an enum value. Verified by a red-path test asserting error_code is always the fixed literal and never contains the injected exception text, even when the wrapped exception's message is adversarially crafted to look like a plausible alternate error_code."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-07-06"
+location = [
+    "src/backlink_publisher/cli/_bind/chrome_backend.py:60",
+]
+
+[[items]]
+slug = "driver-impl-persist-storage-state-message-scrubbed-fixed"
+severity = "high"
+rationale = "_driver_impl.py::_persist_storage_state's PersistIOError message used to embed str(exc) from the storage_state_provider call unscrubbed. Today run_bind() only forwards a fixed 'persist_io_error' error_code (never this exception's own text) to the terminal event, but a storage_state serialization failure's exception text could in principle carry repr()'d cookie/session-token fragments, and this text was one refactor away from reaching a log line or a future _emit() payload unfiltered. Fixed as defense-in-depth: the wrapped exception's text now passes through events/scrubber.py::scrub_text() before being embedded in PersistIOError's own message, matching the existing events/_project_reducers.py call-site pattern. Verified by an edge-case test simulating a persist failure whose exception text contains cookie-shaped content and asserting the resulting PersistIOError message contains no raw secret-shaped substring."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "resolved"
+resolved_date = "2026-07-06"
+location = [
+    "src/backlink_publisher/cli/_bind/_driver_impl.py:252",
+]
+
+[[items]]
+slug = "project-helpers-ensure-article-fallback-degrade-accepted"
+severity = "low"
+rationale = "events/_project_helpers.py::_ensure_article's nested IntegrityError fallback lookup and its outer except both degrade to returning None per the function's own docstring contract ('Never raises — returns None on an empty url or any store failure — the verdict is still emitted, just unkeyed'). article_id is a linking convenience for the keep-alive scorecard's article-recheck filter, not the recheck verdict itself; a failure here means a republished link is temporarily invisible to that filter, never that a failed recheck gets reported as passing. Closes two of the four sites test_seam_except_classification.py's GRANDFATHERED_BARE_EXCEPT_SITES allowlist froze on 2026-07-02 as unclassified."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/_project_helpers.py:265",
+    "src/backlink_publisher/events/_project_helpers.py:268",
+]
+
+[[items]]
+slug = "project-helpers-write-quarantines-log-failure-accepted"
+severity = "low"
+rationale = "events/_project_helpers.py::write_quarantines catches a store.quarantine(**q) write failure and logs at error level ('FAILED to quarantine ... continuing') rather than raising, so one bad quarantine write cannot abort the rest of the batch or the reducer transaction that already committed before this function runs (its own docstring: 'Write collected quarantine intents AFTER the reducer transaction commits'). A dropped quarantine write only means one gap-tracking side-record is missing, never that an unverified event gets reported as verified."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/_project_helpers.py:164",
+]
+
+[[items]]
+slug = "projector-record-health-self-protect-accepted"
+severity = "low"
+rationale = "events/projector.py::record_projection_health's own except-Exception is a self-protecting swallow around writing the module's OWN health marker (the __projection_health__ cursor row) — its docstring already states 'Fail-safe in its own right: never raises (the DB may be the thing that is locked/broken)'. A failure here only means the diagnostic health marker itself didn't update; it has no effect on the actual projection outcome (events/articles rows) that project_run_safe's own try block already committed or rolled back before this function is even called."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/projector.py:103",
+]
+
+[[items]]
+slug = "projector-run-safe-inline-flush-open-medium"
+severity = "medium"
+rationale = "events/projector.py::project_run_safe's except-Exception degrades to logging + a health-marker write + returning None, per its own documented contract that the inline post-publish flush MUST NOT raise. K8's doc-review addendum warns that citing 'project_on_read is a safe backstop' is not automatically a valid independent recheck if it just re-invokes the same flush_for on the same deterministically-failing source — verified here that it is NOT that degenerate case: events/reconcile.py::project_on_read runs on a different trigger (dashboard load, not inline post-publish) AND, unlike this function's silent log-plus-cursor-write (which nothing currently reads back), its own _project_all specifically catches the corrupt-source exception classes and converts them into a quarantine_log row that IS surfaced as a visible 'gap' flag through webui_app/services/health_projection.py to the health dashboard — so even a deterministic failure produces additional, genuinely different operator-visible signal on the second path. Recorded open/medium (not accepted) because that surfacing only happens on the NEXT dashboard load, an unmeasured latency window."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "open"
+location = [
+    "src/backlink_publisher/events/projector.py:131",
+]
+
+[[items]]
+slug = "publish-writer-events-db-write-degrade-open-medium"
+severity = "medium"
+rationale = "events/publish_writer.py's write_event/write_publish_result dual-write to events.db (the append failure, the post-commit quarantine-flush failure, and the outer whole-function failure) all log and return None per the module's own documented contract ('Errors are logged but never raised so a DB failure can't break a publish run'). K8 step 2 applies: webui_app/helpers/history.py calls write_publish_result only after the primary publish-history.json write already succeeded, and events/reconcile.py::project_on_read independently re-derives events.db rows from that same JSON file on every health-dashboard load (a genuinely different code path and data source, not a re-call into publish_writer itself) — so a dropped write here is a temporary staleness window closed by the next dashboard read, not a permanent lost signal. Recorded open/medium rather than accepted because the staleness window's duration depends on dashboard traffic, which this unit did not measure."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "open"
+location = [
+    "src/backlink_publisher/events/publish_writer.py:206",
+    "src/backlink_publisher/events/publish_writer.py:212",
+    "src/backlink_publisher/events/publish_writer.py:67",
+]
+
+[[items]]
+slug = "reconcile-project-on-read-degrade-accepted"
+severity = "low"
+rationale = "events/reconcile.py::project_on_read's outer except-Exception degrades to ReadProjectionResult(degraded=True, degraded_reason=...) rather than raising, matching the module's own documented contract ('NEVER raises — a locked/broken DB degrades to a stale result instead of a 500'). K8 step 1: `degraded`/`degraded_reason` are honest failure-signal fields the health dashboard renders as-is (a 'may be incomplete' notice), the opposite of a false-success authoritative field, so this requires no independent recheck to be judged safe."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/reconcile.py:87",
+]
+
+[[items]]
+slug = "reconcile-quarantine-helpers-best-effort-accepted"
+severity = "low"
+rationale = "events/reconcile.py's six sibling best-effort helpers (_latest_event_utc's freshness-stamp read, _open_quarantine_count's gap-count read, _quarantine/_clear_quarantine/_clear_quarantine_by_dedup_key's quarantine_log writes, and _get_reconciler_quarantine_set's skip-set read) each degrade to a safe, documented default (None / 0 / log-only / empty set) on failure rather than raising, per their own docstrings. None of these six produce or gate an authoritative bound/verdict/published_url field — they are diagnostic plumbing feeding an already-degraded-aware dashboard read path, so a read/write failure here cannot manufacture a false success signal anywhere downstream."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/reconcile.py:197",
+    "src/backlink_publisher/events/reconcile.py:210",
+    "src/backlink_publisher/events/reconcile.py:245",
+    "src/backlink_publisher/events/reconcile.py:256",
+    "src/backlink_publisher/events/reconcile.py:271",
+    "src/backlink_publisher/events/reconcile.py:289",
+]
+
+[[items]]
+slug = "reconciler-checkpoint-crossref-fail-closed-accepted"
+severity = "low"
+rationale = "events/reconciler.py's checkpoint cross-reference trio (_resolve_checkpoint_probe's DedupKey-construction failure, _auto_fix_checkpoint's outer except around the update-then-clear-quarantine sequence, and _reconcile_checkpoints' batched dedup-read failure) all fail toward leaving the checkpoint item's real status untouched: a DedupKey failure drops the item from this pass's probe list, an update failure that occurs before the checkpoint write succeeds leaves the item's stored status exactly as it was (no false 'done' write ever lands), and a batched-read failure leaves every pending probe for the next reconciler pass per the function's own documented per-item-equivalent behavior. None of the three can cause a checkpoint to read as done when the underlying publish never confirmed."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/reconciler.py:166",
+    "src/backlink_publisher/events/reconciler.py:215",
+    "src/backlink_publisher/events/reconciler.py:312",
+]
+
+[[items]]
+slug = "reconciler-history-reverse-check-batch-read-accepted"
+severity = "low"
+rationale = "events/reconciler.py::_reconcile_history's batched dedup-store read failure reports zero gaps for the entire batch rather than raising, a broader-blast-radius sibling of the already-tracked single-malformed-key entry above (reconciler-history-dedupkey-parse-failure). Both are the same report-only R4 reverse-check: history_gaps/history_checked are diagnostic counts folded into a JSONL summary event that nothing downstream gates on (confirmed by tracing both call sites in cli/publish/_publish_helpers.py and cli/_publish_helpers.py, which only forward the summary dict for reporting). A read failure this run is simply retried in full on the next publish-backlinks invocation's reconcile_all() pass."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/reconciler.py:396",
+]
+
+[[items]]
+slug = "reconciler-log-and-canonicalize-best-effort-accepted"
+severity = "low"
+rationale = "events/reconciler.py::_log_recon_event's own RECON.log append failure logs and returns (a logging helper failing to log is self-contained and cannot corrupt any other subsystem's state), and _canonicalize_url's wrapper around the shared canonicalize_url() degrades an unparseable URL to None, which its caller (_resolve_checkpoint_probe) already treats as 'cannot build a DedupKey — drop this item from cross-referencing this pass'. Neither site ever marks a checkpoint item done or clears a quarantine entry; both fail toward 'not reconciled this pass', not toward a false auto-fix."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/reconciler.py:105",
+    "src/backlink_publisher/events/reconciler.py:121",
+]
+
+[[items]]
+slug = "reconciler-reconcile-all-outer-degrade-accepted"
+severity = "low"
+rationale = "events/reconciler.py::reconcile_all's outer except-Exception degrades to whatever partial ReconciliationSummary was accumulated before the failure, matching its own docstring contract ('Never raises — errors degrade to partial results. Safe to call during or after any publish run.'). This is the module's designed top-level safety net, not a new judgment call: any authoritative state change (checkpoint auto-fix, quarantine write) has already either committed or not by the time this handler runs, so a failure here only affects how much of the summary gets reported, never whether an unconfirmed publish gets reported as confirmed."
+discovered = "2026-07-06"
+owner = "unassigned"
+status = "accepted"
+location = [
+    "src/backlink_publisher/events/reconciler.py:456",
+]

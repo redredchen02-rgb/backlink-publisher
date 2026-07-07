@@ -23,6 +23,7 @@ from typing import Any
 import uuid
 
 from backlink_publisher._util.errors import UsageError
+from backlink_publisher._util.subprocess_env import utf8_child_env
 from backlink_publisher.cli._bind.channels import CHANNELS
 
 BIND_ERROR_MESSAGES: dict[str, str] = {
@@ -43,6 +44,15 @@ BIND_ERROR_MESSAGES: dict[str, str] = {
     # Settings UI renders a confirmation card (keep vs replace) when
     # channel_status_store[<channel>].status == "identity_mismatch".
     "identity_mismatch": "检测到登录账号变更，请在设置页选择保留旧账号或替换为新账号",
+    # ce-code-review 2026-07-06 (D3 follow-up): cli/_bind/chrome_backend.py's
+    # RealChromeBrowserRunner/ChromeLaunchError error codes were never
+    # registered here, so a raised ChromeLaunchError would have fallen
+    # through to the generic English "bind failed: {error_code}" default
+    # instead of a localized operator message.
+    "chrome_not_available": "找不到可用的 Chrome 可执行文件，请安装 Chrome 或设置 BACKLINK_PUBLISHER_REAL_CHROME_BIN",
+    "chrome_cdp_unavailable": "无法连接 Chrome DevTools Protocol，请确认 Chrome 已以 --remote-debugging-port 启动",
+    "chrome_profile_locked": "无法创建或访问 Chrome 用户资料目录（可能被另一个 Chrome 进程占用）",
+    "chrome_launch_failed": "启动 Chrome 进程失败，请检查可执行文件路径与系统权限",
 }
 
 
@@ -88,7 +98,7 @@ class BindJobRegistry:
                     )
 
             job_id = uuid.uuid4().hex
-            env = os.environ.copy()
+            env = utf8_child_env(os.environ)
             env["PYTHONPATH"] = _SRC_DIR + (
                 os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
             )
@@ -104,6 +114,8 @@ class BindJobRegistry:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     bufsize=1,
                 )
             except OSError as exc:

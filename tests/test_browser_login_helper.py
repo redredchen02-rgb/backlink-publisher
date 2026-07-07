@@ -89,6 +89,30 @@ def test_returns_error_when_subprocess_exits_fast(tmp_path, monkeypatch):
     assert result.log_path.exists()
 
 
+def test_survives_non_big5_cjk_output_even_under_cp950_locale(tmp_path, monkeypatch):
+    """Regression for the Windows ANSI-codepage crash: force the parent's
+    inherited PYTHONIOENCODING to cp950 (Big5) — utf8_child_env() must still
+    override it so the spawned subprocess doesn't crash printing a Simplified
+    Chinese character (关, U+5173) outside Big5's repertoire."""
+    monkeypatch.setenv("PYTHONIOENCODING", "cp950")
+    module = _write_stub(
+        tmp_path,
+        "cjk_output",
+        "print('\\u7fa9\\u5173', flush=True)\n"  # 義 (Big5) + 关 (not Big5)
+        "import time\ntime.sleep(2)\n",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = spawn_browser_login(module, probe_seconds=1.0)
+    try:
+        assert result.ok is True
+        body = result.log_path.read_text("utf-8", errors="replace")
+        assert "UnicodeEncodeError" not in body
+        assert "義关" in body
+    finally:
+        _kill_descendants_of_module(module)
+
+
 def test_log_path_lives_under_configured_cache_dir(tmp_path, monkeypatch):
     module = _write_stub(tmp_path, "fast2", "import sys; sys.exit(0)\n")
     monkeypatch.chdir(tmp_path)

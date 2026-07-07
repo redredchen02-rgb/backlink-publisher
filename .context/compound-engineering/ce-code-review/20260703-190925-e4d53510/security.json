@@ -1,0 +1,11 @@
+{
+  "reviewer": "security",
+  "findings": [],
+  "residual_risks": [
+    "The Vue SideNav (frontend/src/layout/SideNav.vue, unchanged by this diff) does not filter navItems by lite_edition, so the 'PR 机会' link is shown to LITE-edition operators regardless of edition -- a pre-existing condition, not introduced or worsened by this diff, but worth noting since it's the reason the LITE-unavailable state is reachable via normal navigation at all.",
+    "getJson('/app-config') has no caching/memoization at the module level shared with TopBar.vue's useQuery -- PrQueuePage.vue issues its own fetch on every mount via plain getJson rather than the vue-query cache TopBar uses, so this is a minor redundant-request inefficiency, not a security issue."
+  ],
+  "testing_gaps": [
+    "No test asserts that PrQueuePage never issues a request to /api/pr-queue when getJson('/app-config') itself fails or times out (only the lite_edition:true/false success paths and the fetchPrQueue-rejection path are covered in PrQueuePage.spec.ts) -- worth confirming the failure path doesn't silently fall through to calling fetchPrQueue anyway."
+  ]
+}

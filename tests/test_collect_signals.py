@@ -23,6 +23,7 @@ import pytest
 from backlink_publisher.optimization import OptimizationState
 from backlink_publisher.optimization.collector import (
     _merge_signals,
+    _try_cli_collect,
     collect_all_signals,
 )
 
@@ -92,6 +93,26 @@ class TestMergeSignals:
         merged = _merge_signals(signals)
         assert merged["medium"]["alive_count"] == 3
         assert merged["medium"]["total_published"] == 5
+
+
+# ---------------------------------------------------------------------------
+# _try_cli_collect — UTF-8 subprocess encoding (Windows ANSI-codepage fix)
+# ---------------------------------------------------------------------------
+
+
+class TestTryCliCollectUtf8Encoding:
+    def test_passes_utf8_encoding_and_pythonioencoding_env(self):
+        class _FakeCompleted:
+            def __init__(self):
+                self.stdout, self.stderr, self.returncode = "{}", "", 0
+
+        with patch("subprocess.run", return_value=_FakeCompleted()) as mock_run:
+            _try_cli_collect("recheck-backlinks", [])
+
+        _args, kwargs = mock_run.call_args
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
 
 
 # ---------------------------------------------------------------------------

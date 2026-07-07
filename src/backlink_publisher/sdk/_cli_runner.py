@@ -23,6 +23,7 @@ import subprocess
 import sys
 from typing import Any
 
+from backlink_publisher._util.subprocess_env import utf8_child_env
 from backlink_publisher.content import fetch as content_fetch
 
 # ── fetch-verify bypass (inlined from webui_app/helpers/url_meta to avoid
@@ -136,9 +137,12 @@ def _rewrite_cli_cmd(cmd: Any) -> tuple[Any, Any]:
         return cmd, None
     module = _CLI_MODULES.get(cmd[0])
     if module is None:
-        return cmd, None
+        # Not a recognized `backlink_publisher` CLI module -- run as given, but
+        # still force UTF-8 child I/O so this path doesn't silently reintroduce
+        # the Windows ANSI-codepage crash this module exists to fix.
+        return cmd, utf8_child_env(os.environ)
     new_cmd = [sys.executable, '-m', module, *cmd[1:]]
-    env = os.environ.copy()
+    env = utf8_child_env(os.environ)
     env['PYTHONPATH'] = _SRC_DIR + (
         os.pathsep + env['PYTHONPATH'] if env.get('PYTHONPATH') else ''
     )
@@ -151,6 +155,8 @@ def _base_subprocess_kwargs(stdin: Any, cwd: Any, env: Any, timeout: int = 300) 
         input=stdin,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=cwd,
         env=env,
         timeout=timeout,
