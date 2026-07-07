@@ -21,6 +21,26 @@ const state = computed<FourState>(() => {
   return channels.value.length ? 'ready' : 'empty'
 })
 
+// Plan 2026-07-07-004 — unbound-first grouping so operators see what still
+// needs action without reading every row's tag. Order within each group is
+// preserved from the API response; only the group partition is new.
+const boundCount = computed(() => channels.value.filter((c) => c.bound).length)
+const totalCount = computed(() => channels.value.length)
+
+interface ChannelGroup {
+  key: 'unbound' | 'bound'
+  label: string
+  items: ChannelOverviewItem[]
+}
+
+const channelGroups = computed<ChannelGroup[]>(() => {
+  const groups: ChannelGroup[] = [
+    { key: 'unbound', label: '未绑定', items: channels.value.filter((c) => !c.bound) },
+    { key: 'bound', label: '已绑定', items: channels.value.filter((c) => c.bound) },
+  ]
+  return groups.filter((g) => g.items.length > 0)
+})
+
 function dofollowLabel(v: boolean | string | null): string {
   if (v === true) return 'dofollow'
   if (v === false) return 'nofollow'
@@ -41,30 +61,36 @@ function dofollowClass(v: boolean | string | null): string {
     <p class="muted">
       各发布渠道的连接状态总览。绑定 / 改凭证见下方「渠道凭据绑定」及各渠道动作卡。
     </p>
+    <p v-if="totalCount" class="ch-summary">
+      <span class="ch-summary__count">{{ boundCount }} / {{ totalCount }}</span> 已绑定
+    </p>
     <StateBlock
       :state="state"
       :error="query.error.value"
       empty-text="无可用渠道。"
       @retry="query.refetch()"
     >
-      <ul class="ch-list">
-        <li v-for="c in channels" :key="c.slug" class="ch">
-          <div class="ch__head">
-            <strong>{{ c.display_name }}</strong>
-            <span v-if="c.auth_type" class="tag tag--muted">{{ c.auth_type }}</span>
-            <span class="tag" :class="c.bound ? 'tag--ok' : 'tag--muted'">
-              {{ c.bound ? '已绑定' : '未绑定' }}
-            </span>
-            <span v-if="dofollowLabel(c.dofollow)" :class="dofollowClass(c.dofollow)">
-              {{ dofollowLabel(c.dofollow) }}
-            </span>
-          </div>
-          <div v-if="c.identity" class="ch__meta muted">身份：{{ c.identity }}</div>
-          <ul v-if="c.blockers.length" class="ch__blockers">
-            <li v-for="(b, i) in c.blockers" :key="i">{{ b }}</li>
-          </ul>
-        </li>
-      </ul>
+      <template v-for="g in channelGroups" :key="g.key">
+        <div :id="`ch-group-${g.key}`" class="group-label">{{ g.label }} · {{ g.items.length }}</div>
+        <ul class="ch-list" role="group" :aria-labelledby="`ch-group-${g.key}`">
+          <li v-for="c in g.items" :key="c.slug" class="ch">
+            <div class="ch__head">
+              <strong>{{ c.display_name }}</strong>
+              <span v-if="c.auth_type" class="tag tag--muted">{{ c.auth_type }}</span>
+              <span class="tag" :class="c.bound ? 'tag--ok' : 'tag--muted'">
+                {{ c.bound ? '已绑定' : '未绑定' }}
+              </span>
+              <span v-if="dofollowLabel(c.dofollow)" :class="dofollowClass(c.dofollow)">
+                {{ dofollowLabel(c.dofollow) }}
+              </span>
+            </div>
+            <div v-if="c.identity" class="ch__meta muted">身份：{{ c.identity }}</div>
+            <ul v-if="c.blockers.length" class="ch__blockers">
+              <li v-for="(b, i) in c.blockers" :key="i">{{ b }}</li>
+            </ul>
+          </li>
+        </ul>
+      </template>
     </StateBlock>
   </section>
 </template>
@@ -83,6 +109,22 @@ function dofollowClass(v: boolean | string | null): string {
 .muted {
   color: var(--text-secondary);
   font-size: var(--text-base);
+}
+.ch-summary {
+  margin: 0.5rem 0 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.ch-summary__count {
+  color: var(--success);
+  font-weight: var(--font-weight-semibold);
+}
+.group-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  padding: 0.5rem 0 0.25rem;
 }
 .ch-list {
   list-style: none;
