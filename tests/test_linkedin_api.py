@@ -94,3 +94,23 @@ def test_draft_mode_reports_drafted(config_with_token):
         result = LinkedInAPIAdapter().publish(_payload(), "draft", config_with_token)
     assert captured["body"]["lifecycleState"] == "DRAFT"
     assert result.status == "drafted"
+
+
+# ─── Unit 3 (2026-07-07-003): unexpected internal exceptions must propagate ───
+#
+# docs/solutions/correctness/adapter-silent-exceptions-resolution.md's
+# audited pattern for adapters is "wrap-and-propagate, never swallow into a
+# fake success". linkedin_api.py's `except Exception as exc:` around the
+# retry_transient_call(execute, ...) call (~line 194) already does this —
+# this test locks in that an unexpected internal failure (e.g. the HTTP
+# client raising something that isn't already ExternalServiceError/
+# DependencyError) is never turned into a reported "published"/"drafted"
+# result; it propagates as ExternalServiceError, correctly classified so the
+# caller sees a real failure instead of silently-swallowed success.
+def test_unexpected_internal_exception_is_classified_as_external_service_error(config_with_token):
+    with patch(
+        "backlink_publisher.publishing.adapters.linkedin_api.http_client.post",
+        side_effect=RuntimeError("connection reset by peer"),
+    ):
+        with pytest.raises(ExternalServiceError, match="connection reset by peer"):
+            LinkedInAPIAdapter().publish(_payload(), "publish", config_with_token)

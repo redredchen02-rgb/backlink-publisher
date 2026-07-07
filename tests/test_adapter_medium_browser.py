@@ -558,3 +558,79 @@ def test_tag_insertion_failure_is_best_effort_and_publish_still_succeeds(mock_sy
 
     assert result.status == "published"
     assert result.published_url == "https://medium.com/@user/live-post-abc123"
+
+
+# ─── Unit 3 (2026-07-07-003): cookie-refresh write failure must be observable ───
+#
+# `_refresh_cookies`'s temp-file write/replace step (~line 192) used to catch
+# a bare `except Exception:` with no `as` binding and no logging before
+# cleaning up the temp file and re-raising. The outer `_refresh_cookies`
+# try/except already logs the re-raised exception (so this was never a false
+# "publish succeeded silently" bug), but the inner site itself was a blind
+# spot: an operator debugging a cookie-refresh failure had no trace of what
+# actually happened at the write step. Now it logs (debug) before cleanup.
+
+
+@patch("backlink_publisher.publishing.adapters.medium_browser.sync_playwright")
+def test_cookie_refresh_write_failure_is_logged_and_does_not_fail_publish(mock_sync_pw):
+    """Cookie-refresh is best-effort (Medium session cookies are 'merely
+    slightly stale, not invalid' per the module docstring): a write/replace
+    failure during the atomic temp+rename must be logged (both at the
+    write-site debug log and the outer best-effort warning) but must NOT
+    fail an otherwise-successful publish."""
+    mock_pw, mock_br, mock_ctx, mock_page = make_mock_pw()
+    mock_sync_pw.return_value = mock_pw
+
+    logged = []
+
+    def _fake_debug(msg, **extra):
+        logged.append(("debug", msg, extra))
+
+    def _fake_warning(msg, **extra):
+        logged.append(("warning", msg, extra))
+
+    with patch("os.replace", side_effect=OSError("disk full")), \
+         patch(
+             "backlink_publisher.publishing.adapters.medium_browser.log.debug",
+             side_effect=_fake_debug,
+         ), \
+         patch(
+             "backlink_publisher.publishing.adapters.medium_browser.log.warning",
+             side_effect=_fake_warning,
+         ):
+        adapter = MediumBrowserAdapter()
+        result = adapter.publish(PAYLOAD, mode="draft", config=CONFIG)
+
+    # Publish still succeeds — cookie refresh is best-effort.
+    assert result.status == "drafted"
+
+    # The write-site failure is now observable (was previously silent):
+    # a debug log fires at the write/replace site itself...
+    debug_msgs = [entry for entry in logged if entry[0] == "debug"]
+    assert any("refreshed medium-cookies.json" in entry[1] for entry in debug_msgs)
+    assert any(entry[2].get("exc_type") == "OSError" for entry in debug_msgs)
+
+    # ...and the outer best-effort handler still logs its own warning too.
+    warning_msgs = [entry for entry in logged if entry[0] == "warning"]
+    assert any("failed to refresh medium-cookies.json" in entry[1] for entry in warning_msgs)
+
+
+@patch("backlink_publisher.publishing.adapters.medium_browser.sync_playwright")
+def test_unexpected_internal_exception_is_classified_as_external_service_error(mock_sync_pw):
+    """Error path (Unit 3 plan): an unexpected exception raised by an internal
+    Playwright call (here: filling the title) must not be silently swallowed
+    — it must propagate, wrapped as ExternalServiceError (the generic
+    browser-automation classification at ~line 426), rather than being
+    caught and turned into a fabricated success."""
+    mock_pw, mock_br, mock_ctx, mock_page = make_mock_pw()
+    mock_sync_pw.return_value = mock_pw
+
+    title_locator = MagicMock()
+    title_locator.click.side_effect = RuntimeError("frame detached")
+    mock_page.locator.side_effect = _locator_side_effect(
+        default_count=0, **{sel.TITLE: title_locator}
+    )
+
+    adapter = MediumBrowserAdapter()
+    with pytest.raises(ExternalServiceError, match="frame detached"):
+        adapter.publish(PAYLOAD, mode="draft", config=CONFIG)
