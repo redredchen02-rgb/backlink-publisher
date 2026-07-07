@@ -30,7 +30,7 @@ OUR_CWD=$(python3 -c "import os,sys;print(os.path.realpath(sys.argv[1]))" "$BP_D
 START_PORT="${PORT:-8888}"
 MAX_TRIES="${MAX_TRIES:-20}"
 BIND_HOST="${BIND_HOST:-127.0.0.1}"
-WEBUI_SCRIPT="${WEBUI_SCRIPT:-webui.py}"  # 測試時可 override 為 tests/manual/webui_crash_stub.py
+WEBUI_SCRIPT="${WEBUI_SCRIPT:-serve.py}"  # 測試時可 override 為 tests/manual/webui_crash_stub.py
 
 echo "================================================"
 echo "  Backlink Publisher WebUI"
@@ -69,7 +69,9 @@ is_our_webui() {
   cwd_of_pid=$(python3 -c "import os,sys;print(os.path.realpath(sys.argv[1]))" "$cwd_of_pid" 2>/dev/null || echo "")
   [[ "$cwd_of_pid" != "$OUR_CWD" ]] && return 1
   cmdline=$(ps -p "${pid}" -o command= 2>/dev/null || echo "")
-  [[ "$cmdline" == *webui.py* ]] || return 1
+  # 用 $WEBUI_SCRIPT 而非寫死 webui.py：serve.py 成為預設值後，殘留的
+  # serve.py 進程也要能被辨識為「本專案」而復用其 port（Plan 2026-07-07-002）。
+  [[ "$cmdline" == *"$WEBUI_SCRIPT"* ]] || return 1
   return 0
 }
 
@@ -224,13 +226,13 @@ while true; do
 
   if [[ "${#RESTART_LOG[@]}" -ge 4 ]]; then
     echo ""
-    echo "❌ 60s 內 4 次 crash（webui.py exit=${EXIT}），已 restart 3 次仍不穩，放棄"
+    echo "❌ 60s 內 4 次 crash（$WEBUI_SCRIPT exit=${EXIT}），已 restart 3 次仍不穩，放棄"
     echo "   提示：檢查終端上方 traceback；若是 syntax / import 錯誤，修完再雙擊重來"
     read -n 1 -s -r -p "按任意鍵關閉視窗…"
     exit 1
   fi
 
   echo ""
-  echo "↻ webui.py crash (exit=${EXIT})，restart 第 ${#RESTART_LOG[@]} 次（60s 窗口內）"
+  echo "↻ $WEBUI_SCRIPT crash (exit=${EXIT})，restart 第 ${#RESTART_LOG[@]} 次（60s 窗口內）"
   sleep 1
 done

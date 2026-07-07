@@ -216,10 +216,14 @@ should run production-style at it instead of `webui.py`.
 - Exact wording of the startup banner/log lines `serve.py` prints — cosmetic,
   implementer's call, should clearly say "production (waitress)" so it's
   visually distinct from the dev-server banner.
-- Whether the crash-restart loop in `scripts/launcher.command` /
-  `启动WebUI.command` needs its hardcoded "webui.py crash" log strings
-  updated to reference `$WEBUI_SCRIPT` dynamically — small polish, verify
-  during implementation whether it reads confusingly if left as-is.
+- ~~Whether the crash-restart loop in `scripts/launcher.command` needs its
+  hardcoded "webui.py crash" log strings updated to reference
+  `$WEBUI_SCRIPT` dynamically~~ — resolved during Unit 2: yes, updated both
+  crash-log lines to interpolate `$WEBUI_SCRIPT`. Also discovered and fixed
+  during implementation: `is_our_webui()`'s stale-process detector had the
+  same `*webui.py*`-only gap as the Unit 3 `.bat` finding — a leftover
+  `serve.py` process wouldn't have been recognized as "ours" for port reuse.
+  Fixed to match `$WEBUI_SCRIPT` dynamically, same file.
 
 ## Implementation Units
 
@@ -321,7 +325,7 @@ long-dead `serve.py` reference.
 - Setting `WSGI_THREADS=4` and running `python serve.py` prints the
   drafts.py-gap warning before the server starts.
 
-- [ ] **Unit 2: Point the two canonical launchers at `serve.py`**
+- [x] **Unit 2: Point the two canonical launchers at `serve.py`**
 
 **Goal:** The git-tracked "one launcher per platform" scripts (AGENTS.md R9)
 launch the production entrypoint instead of the dev server.
@@ -510,7 +514,7 @@ production entrypoint, not just the dev one.
 | Risk | Mitigation |
 |------|------------|
 | Multi-threaded waitress could turn the known drafts.py bulk-publish-now single-flight gap into a live, exploitable race | Default `threads=1` in `serve.py`, verified by an automated concurrency test (Unit 1); a loud startup warning fires if `WSGI_THREADS>1` is ever set, naming the gap explicitly so the risk isn't silent even if someone overrides the default |
-| `scripts/launcher.command`'s crash-restart loop keys off Werkzeug's Ctrl-C exit codes (0 or 130); waitress may report a different exit code on SIGINT, causing a clean shutdown to be misclassified as a crash | Verify waitress's SIGINT exit code during Unit 2 manual verification before considering the unit done; adjust the accepted exit-code set in `launcher.command` if it differs |
+| `scripts/launcher.command`'s crash-restart loop keys off Werkzeug's Ctrl-C exit codes (0 or 130); waitress may report a different exit code on SIGINT, causing a clean shutdown to be misclassified as a crash | Attempted during Unit 2 from this Windows session, but Git Bash on Windows does not deliver POSIX SIGINT to a native Windows Python process reliably (the test hung), so the result is inconclusive here — `scripts/launcher.command` is a bash script that only really runs on macOS/Linux anyway. Still unverified; remains a real, open risk for whoever next runs the launcher on macOS/Linux |
 | Workspace-root launcher edits (Unit 3) are outside the git repo and have zero automated test coverage | Manual verification steps enumerated per-unit; flagged explicitly so the operator knows these changes won't show up in a PR diff |
 | No macOS environment available in this session to verify `scripts/launcher.command` / `启动WebUI.command` end-to-end | Called out as a deferred manual check in Unit 3's test scenarios rather than silently assumed correct |
 | `Dockerfile`/`docker-compose.yml` still reference `serve.py` with `BIND_HOST=0.0.0.0`, which will now find the file but immediately crash with `RuntimeError` from `_resolve_bind_host()` instead of `FileNotFoundError` | Explicitly out of scope (see Scope Boundaries); failure mode changes from "file not found" to "refused non-loopback bind," which is at least a clearer error, but full container support is deferred |
