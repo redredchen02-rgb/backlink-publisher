@@ -28,6 +28,7 @@ import { useRowReportLinksStore } from '../../stores/rowReportLinks'
 
 const PUBLISHED = { id: '7', target_url: 'https://a.com/', status: 'published', platform: 'blogger' }
 const FAILED = { id: '8', target_url: 'https://b.com/', status: 'failed', platform: 'medium' }
+const OTHER = { id: '9', target_url: 'https://c.com/', status: 'published', platform: 'blogger' }
 
 let pinia: ReturnType<typeof createPinia>
 let router: Router
@@ -57,8 +58,15 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+let lastQueryClient: QueryClient
+
 function mountPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  lastQueryClient = queryClient
   return mount(HistoryPage, {
     global: { plugins: [pinia, router, [VueQueryPlugin, { queryClient }]] },
   })
@@ -207,9 +215,6 @@ describe('HistoryPage', () => {
 
     it('edge case: the undo window times out and the row disappears from view', async () => {
       vi.useFakeTimers()
-      // Real backend semantics: the live list excludes a soft-deleted row
-      // immediately (not just after the client-side undo window elapses) --
-      // so the FIRST call sees it, every call after the delete does not.
       vi.mocked(api.listHistory)
         .mockResolvedValueOnce({ items: [PUBLISHED], total: 1, limit: 50, offset: 0 })
         .mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
@@ -233,9 +238,6 @@ describe('HistoryPage', () => {
       const w = mountPage()
       await flushPromises()
 
-      // After delete, subsequent refetches of the LIVE list no longer
-      // contain the row (server excludes soft-deleted rows), and the
-      // deleted-window query now reports it as server-truth-pending.
       vi.mocked(api.listHistory).mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
       vi.mocked(api.listHistoryDeletedWindow).mockResolvedValue({
         items: [{ ...PUBLISHED, deleted_at: new Date().toISOString() }],
@@ -245,17 +247,14 @@ describe('HistoryPage', () => {
       await flushPromises()
       expect(w.text()).toContain('已删除')
 
-      // A further refetch of the live list (e.g. a background query
-      // invalidation) must not make the row flicker away -- `deletedItems`
-      // (server truth) still backs it via `pendingIds`/`rowSnapshots`.
       await w.vm.$nextTick()
       await flushPromises()
       expect(w.text()).toContain('已删除')
     })
 
-    it('remount mid-undo-window: the server-discovered pending row resumes with its remaining time, not a fresh 15s', async () => {
+    it('remount mid-undo-window: the server-discovered pending row resumes with its remaining time', async () => {
       vi.useFakeTimers()
-      const deletedAt = new Date(Date.now() - 10_000).toISOString() // 10s elapsed, 5s left
+      const deletedAt = new Date(Date.now() - 10_000).toISOString()
       vi.mocked(api.listHistory).mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
       vi.mocked(api.listHistoryDeletedWindow).mockResolvedValue({
         items: [{ ...PUBLISHED, deleted_at: deletedAt }],
@@ -266,14 +265,14 @@ describe('HistoryPage', () => {
 
       await vi.advanceTimersByTimeAsync(4_000)
       await flushPromises()
-      expect(w.text()).toContain('已删除') // still within its remaining ~5s
+      expect(w.text()).toContain('已删除')
 
       await vi.advanceTimersByTimeAsync(2_000)
       await flushPromises()
-      expect(w.findAll('tbody tr')).toHaveLength(0) // finalized after remaining time elapses
+      expect(w.findAll('tbody tr')).toHaveLength(0)
     })
 
-    it('an aged-out undo (404) is reported via W13 and finalizes the row immediately, not treated as a silent expected outcome', async () => {
+    it('an aged-out undo (404) is reported via W13 and finalizes the row immediately', async () => {
       vi.mocked(api.listHistory)
         .mockResolvedValueOnce({ items: [PUBLISHED], total: 1, limit: 50, offset: 0 })
         .mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
@@ -281,7 +280,7 @@ describe('HistoryPage', () => {
       const w = mountPage()
       await flushPromises()
 
-      await w.find('.row-actions button:nth-child(2)').trigger('click') // -> undo window
+      await w.find('.row-actions button:nth-child(2)').trigger('click')
       await flushPromises()
 
       vi.mocked(api.undeleteHistory).mockRejectedValue({ status: 404, error_class: 'not_found' })
@@ -306,13 +305,10 @@ describe('HistoryPage', () => {
       await flushPromises()
 
       const rows = w.findAll('tbody tr')
-      await rows[0].find('.row-actions button:nth-child(2)').trigger('click') // delete row A
+      await rows[0].find('.row-actions button:nth-child(2)').trigger('click')
       await flushPromises()
 
-      // Row A's own delete button is disabled while in flight...
       expect((rows[0].find('.row-actions button:nth-child(2)').element as HTMLButtonElement).disabled).toBe(true)
-      // ...but row B's buttons, the pager, and checkboxes are NOT (D6: a
-      // single-row op does not lock the whole table).
       expect((rows[1].find('.row-actions button:nth-child(2)').element as HTMLButtonElement).disabled).toBe(false)
       expect((w.find('tbody tr input[type="checkbox"]').element as HTMLInputElement).disabled).toBe(false)
       const [, next] = w.findAll('.data-table__pager button')
@@ -322,7 +318,7 @@ describe('HistoryPage', () => {
       await flushPromises()
     })
 
-    it('a bulk op locks the whole table (checkboxes + pager) via DataTable\'s disabled prop', async () => {
+    it('a bulk op locks the whole table via DataTable\'s disabled prop', async () => {
       vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED], total: 120, limit: 50, offset: 0 })
       let resolveBulk!: (v: { items: never[] }) => void
       vi.mocked(api.bulkDeleteHistory).mockReturnValue(new Promise((resolve) => { resolveBulk = resolve }))
@@ -368,7 +364,7 @@ describe('HistoryPage', () => {
       const w = mountPage()
       await flushPromises()
 
-      await w.find('tbody tr input[type="checkbox"]').setValue(true) // select first row
+      await w.find('tbody tr input[type="checkbox"]').setValue(true)
       await w.find('.bulk-delete').trigger('click')
       await flushPromises()
 
@@ -385,7 +381,7 @@ describe('HistoryPage', () => {
       const notify = useNotificationsStore()
       await flushPromises()
 
-      await w.find('tbody tr input[type="checkbox"]').setValue(true) // select first row
+      await w.find('tbody tr input[type="checkbox"]').setValue(true)
       await w.find('.bulk-recheck').trigger('click')
       await flushPromises()
 
@@ -393,7 +389,7 @@ describe('HistoryPage', () => {
       expect(notify.toasts.some((t) => t.message.includes('已核实'))).toBe(true)
     })
 
-    it('a successful bulk action only deselects the ids it actually submitted (code review)', async () => {
+    it('a successful bulk action only deselects the ids it actually submitted', async () => {
       vi.mocked(api.listHistory)
         .mockResolvedValueOnce({ items: [PUBLISHED, FAILED] })
         .mockResolvedValueOnce({ items: [FAILED] })
@@ -406,12 +402,12 @@ describe('HistoryPage', () => {
       await flushPromises()
 
       const checkboxes = w.findAll('tbody tr input[type="checkbox"]')
-      await checkboxes[0].setValue(true) // select PUBLISHED (id 7)
-      await w.find('.bulk-delete').trigger('click') // in-flight, still holding [7]
+      await checkboxes[0].setValue(true)
+      await w.find('.bulk-delete').trigger('click')
 
-      await checkboxes[1].setValue(true) // reselect FAILED (id 8) mid-flight
+      await checkboxes[1].setValue(true)
 
-      resolveDelete({ items: [FAILED] }) // id 7 deleted server-side
+      resolveDelete({ items: [FAILED] })
       await flushPromises()
 
       expect(api.bulkDeleteHistory).toHaveBeenCalledWith(['7'])
@@ -427,10 +423,10 @@ describe('HistoryPage', () => {
       await flushPromises()
 
       const [, next] = w.findAll('.data-table__pager button')
-      await next.trigger('click') // -> offset 50
+      await next.trigger('click')
       await flushPromises()
       const [, next2] = w.findAll('.data-table__pager button')
-      await next2.trigger('click') // -> offset 100
+      await next2.trigger('click')
       await flushPromises()
 
       vi.mocked(api.deleteHistory).mockResolvedValue({ items: [] })
@@ -440,7 +436,7 @@ describe('HistoryPage', () => {
         items: [PUBLISHED], total: 100, limit: 50, offset: 50,
       })
 
-      await w.find('.row-actions button:nth-child(2)').trigger('click') // 删除
+      await w.find('.row-actions button:nth-child(2)').trigger('click')
       await flushPromises()
 
       const calls = vi.mocked(api.listHistory).mock.calls
@@ -470,7 +466,7 @@ describe('HistoryPage', () => {
       const w = mountPage()
       await flushPromises()
 
-      await w.find('.row-actions button:nth-child(1)').trigger('click') // 重核 (fails)
+      await w.find('.row-actions button:nth-child(1)').trigger('click')
       await flushPromises()
 
       const link = w.find('a.row-report-link')
@@ -478,7 +474,7 @@ describe('HistoryPage', () => {
       expect(link.attributes('href')).toContain('/error-reports/report-123')
     })
 
-    it('bulk-delete failure reports once for the whole batch and links every id (one HTTP call covers all)', async () => {
+    it('bulk-delete failure reports once for the whole batch and links every id', async () => {
       vi.mocked(api.listHistory).mockResolvedValue({ items: [PUBLISHED, FAILED] })
       const err = { status: 500 }
       vi.mocked(api.bulkDeleteHistory).mockRejectedValue(err)
@@ -526,5 +522,6 @@ describe('HistoryPage', () => {
       await flushPromises()
       expect(w.find('.highlight-missing').exists()).toBe(false)
     })
+  })
   })
 })

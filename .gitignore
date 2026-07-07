@@ -186,3 +186,4 @@ frontend/dist/
 # (or the Docker Node stage), never committed.
 webui_app/spa_dist/
 .gstack/
+nul

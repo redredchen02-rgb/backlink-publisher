@@ -17,10 +17,8 @@ export interface HistoryItem {
   verified_at?: number | null
   publish_mode?: string
   target_dofollow?: string
-  // W4/W5: only populated on rows returned by `?include_deleted=window` --
-  // the ISO timestamp the row was soft-deleted at, used to compute the
-  // undo window's *remaining* time (rather than restarting a fresh timer)
-  // when a page reload rediscovers a still-pending row.
+  /** ISO-8601 UTC timestamp of the soft-delete, present while the row is still
+   *  within the undo window. Absent/undefined on live rows (W4/W5). */
   deleted_at?: string | null
 }
 
@@ -35,9 +33,8 @@ export interface HistoryList {
 export interface HistoryMutationResult {
   items: HistoryItem[]
   message?: string
-  // W4 bulk-delete only: honest per-call counts (additive, oasdiff-safe) --
-  // a partially-stale selection (some ids already gone) reports exactly how
-  // many were actually deleted vs skipped instead of an all-or-nothing result.
+  /** How many of the submitted ids were actually soft-deleted vs. already
+   *  gone (W4 bulk-delete only — additive, oasdiff-safe). */
   deleted?: number
   skipped?: number
 }

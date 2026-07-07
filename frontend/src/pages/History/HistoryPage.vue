@@ -1,22 +1,18 @@
 <script setup lang="ts">
-// Publish-history page — Plan 2026-06-18-002 U7 (first page of the campaign).
+// Publish-history page — Plan 2026-06-18-002 U7, undo UX per
+// 2026-07-06-005 W5 (History-only; Drafts undo explicitly out of scope —
+// see D17, no soft-delete backend for the Drafts JSON store).
 //
 // Replaces the legacy /ce:history Jinja tab. Lists publish history (four-state,
 // via DataTable/U5), with per-row delete + recheck, bulk-delete via selection,
 // and purge-failed. Action failures go through classifyError → a toast (fixed
 // copy, never raw server text).
 //
-// Plan 2026-07-02-001 U5: paginated via DataTable. Mutation endpoints return
-// the FULL table (unchanged contract), not a page-shaped envelope, so mutations
-// refetch this page from the server rather than reshaping the full-table
-// response locally -- the correct shape for total/limit/offset can only come
-// from the paginated GET.
-//
 // ── Reintegration (worktree bp-reintegrate-u5): W5 undo UX + W10 cross-page
 // deep-link + W13 mutation error-reporting, re-threaded through the U5
 // DataTable/pagination architecture ──
 //
-// State surfaces:
+// State surfaces (W5 undo state machine):
 //  - `liveItems`   : this page's slice from GET /history?limit=&offset=
 //                    (server excludes soft-deleted rows entirely)
 //  - `deletedItems`: GET /history?include_deleted=window (D18) — UNPAGINATED,
@@ -31,39 +27,17 @@
 //  - `displayRows` : liveItems ∪ (pendingIds rows via rowSnapshots) — fed to
 //                    DataTable's `items` prop instead of the raw query data,
 //                    so a pending row is never spliced out then back in (D5)
-//  - `rowBusy` (Set) / `bulkBusy` (bool): D6 mutual-exclusion matrix — a bulk
-//                    op locks the whole table (DataTable's `disabled` prop);
-//                    a single-row op only disables that row's own buttons
-//                    (checked directly in the `#row` slot, not via DataTable).
+//  - `rowBusy` (Set) / `bulkBusy` (bool): D6 mutual-exclusion matrix
 //
-// Pagination note (deviation from the pre-U5 combined branch this was
-// reintegrated from): `total` fed to DataTable is the LIVE query's total
-// ONLY -- pending (soft-deleted-but-still-shown) rows are "extra" rows
-// temporarily rendered on top of a page and must never perturb the
-// pagination math (principle #2 of the reintegration task). One consequence:
-// bulk-delete's "did this id actually get soft-deleted" check below inspects
-// only the CURRENT page's refetched live items, which is exact for ids that
-// stay on the same page across the refetch but could theoretically miss an
-// id that both survived deletion AND shifted off this page in the same
-// refetch (extremely rare -- the underlying list order is stable). This is
-// an accepted, documented limitation of layering W5 on top of paginated
-// listing; the pre-U5 combined branch didn't have to deal with it because
-// its `GET /history` was the whole table.
+// Pagination note: `total` fed to DataTable is the LIVE query's total ONLY —
+// pending rows are "extra" rows temporarily rendered on top of a page and
+// must never perturb the pagination math.
 //
-// Plan 2026-07-06-005 W13 (D7, option b): this page's mutations deliberately
-// stay hand-written async functions rather than migrating to `useMutation`.
-// The D6 rowBusy/bulkBusy mutual-exclusion matrix and the undo state machine
-// are precise and synchronous (the busy-set check happens BEFORE the first
-// `await`, guaranteeing exactly-once dispatch under rapid clicks); re-
-// threading that through useMutation's per-call `isPending` risked a race
-// between the mutation's own reactive update and this page's own
-// `rowBusy`/`bulkBusy` refs for no behavioral gain. Instead, every catch
-// block below calls `reportManualMutationError` (in addition to the existing
-// `toastError`) so a failure still reaches error-reports exactly like a real
-// MutationCache-observed mutation would.
+// Plan 2026-07-06-005 W13 (D7, option b): mutations stay hand-written rather
+// than useMutation for precise rowBusy/bulkBusy mutual exclusion.
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
-import { keepPreviousData, useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   bulkDeleteHistory,
   bulkRecheckHistory,
@@ -77,6 +51,7 @@ import {
 } from '../../api/history'
 import DataTable from '../../components/DataTable.vue'
 import Icon from '../../components/Icon.vue'
+import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { reportManualMutationError } from '../../lib/errorCapture'
 import { useNotificationsStore } from '../../stores/notifications'
@@ -89,6 +64,9 @@ const PAGE_SIZE = 50
 // backend purge. Keep these two constants in sync if the backend changes.
 const CLIENT_UNDO_WINDOW_MS = 15_000
 
+const QKEY = ['history']
+const DELETED_QKEY = ['history', 'deleted-window']
+const qc = useQueryClient()
 const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 const route = useRoute()
@@ -106,10 +84,16 @@ const liveItems = computed<HistoryItem[]>(() => query.data.value?.items ?? [])
 const total = computed(() => query.data.value?.total)
 
 const deletedQuery = useQuery({
-  queryKey: ['history', 'deleted-window'],
+  queryKey: DELETED_QKEY,
   queryFn: () => listHistoryDeletedWindow(),
 })
 const deletedItems = computed<HistoryItem[]>(() => deletedQuery.data.value?.items ?? [])
+
+const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
+  if (query.isPending.value) return 'loading'
+  if (query.isError.value) return 'error'
+  return displayRows.value.length ? 'ready' : 'empty'
+})
 
 // ── undo-window bookkeeping (W5) ────────────────────────────────────────────
 const localPending = ref<Set<string>>(new Set())
@@ -146,8 +130,6 @@ function finalizeDelete(id: string): void {
   localPending.value = withoutId(localPending.value, id)
   finalized.value = new Set(finalized.value).add(id)
   rowSnapshots.delete(id)
-  // The row is gone for good — any stale "查看报告" link for a past action
-  // failure no longer has a live row to point at.
   rowReportLinks.unlinkRow(id)
 }
 
@@ -303,6 +285,7 @@ function rowDisabled(id: string): boolean {
   return bulkBusy.value || rowBusy.value.has(id)
 }
 
+const tableLocked = computed(() => bulkBusy.value)
 const bulkButtonsDisabled = computed(() => bulkBusy.value || rowBusy.value.size > 0)
 
 /**
@@ -334,9 +317,9 @@ async function afterMutation(idsToDeselect?: string[]): Promise<void> {
  *
  * When `rowIds` is given, once the report actually submits we record the
  * real (id, row) correlation in rowReportLinks so the affected row(s) can
- * surface a "查看报告" deep-link — deliberately NOT awaited here (toastError
+ * surface a "查看报告" deep-link -- deliberately NOT awaited here (toastError
  * must fire immediately; the link appearing a moment later, once the POST
- * resolves, is fine — it's reactive). */
+ * resolves, is fine -- it's reactive). */
 function reportError(e: unknown, context: string, rowIds?: string | string[]): void {
   void reportManualMutationError(e, context).then((reportId) => {
     if (!reportId) return
@@ -353,12 +336,11 @@ async function onDelete(id: string): Promise<void> {
   if (!row) return
   setRowBusy(id, true)
   try {
-    await deleteHistory(id)
+    const r = await deleteHistory(id)
+    qc.setQueryData(QKEY, { items: r.items })
     beginUndoWindow(row)
-    rowReportLinks.unlinkRow(id)
-    await afterMutation([id])
   } catch (e) {
-    reportError(e, 'history.delete', id)
+    reportError(e, 'history.delete', [id])
   } finally {
     setRowBusy(id, false)
   }
@@ -368,19 +350,18 @@ async function onUndo(id: string): Promise<void> {
   if (rowDisabled(id)) return
   setRowBusy(id, true)
   try {
-    await undeleteHistory(id)
+    const r = await undeleteHistory(id)
+    qc.setQueryData(QKEY, { items: r.items })
     clearFinalizeTimer(id)
     localPending.value = withoutId(localPending.value, id)
     rowSnapshots.delete(id)
+    qc.setQueryData(DELETED_QKEY, {
+      items: deletedItems.value.filter((it) => it.id !== id),
+    })
     notify.push('已撤销删除', 'success')
-    rowReportLinks.unlinkRow(id)
-    await afterMutation()
   } catch (e) {
-    // 404 (aged past the purge window) — nothing left to undo; hide it.
-    // D8: a 404 here is an operator-visible race (server purged the row
-    // before the undo click landed), NOT an expected-422 — still reported.
     finalizeDelete(id)
-    reportError(e, 'history.undelete', id)
+    reportError(e, 'history.undelete', [id])
   } finally {
     setRowBusy(id, false)
   }
@@ -391,11 +372,11 @@ async function onRecheck(id: string): Promise<void> {
   setRowBusy(id, true)
   try {
     const r = await recheckHistory(id)
-    rowReportLinks.unlinkRow(id)
-    await afterMutation([id])
+    qc.setQueryData(QKEY, { items: r.items })
+    selected.value = withoutId(selected.value, id)
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
-    reportError(e, 'history.recheck', id)
+    reportError(e, 'history.recheck', [id])
   } finally {
     setRowBusy(id, false)
   }
@@ -412,8 +393,6 @@ async function onBulkDelete(): Promise<void> {
   try {
     const r = await bulkDeleteHistory(ids)
     await afterMutation(ids)
-    // See the module-header pagination note: verified against the CURRENT
-    // page's refetched live items only.
     const stillLiveIds = new Set(liveItems.value.map((it) => it.id))
     for (const row of rows) {
       if (!stillLiveIds.has(row.id)) beginUndoWindow(row)
@@ -421,9 +400,6 @@ async function onBulkDelete(): Promise<void> {
     if (r.message) notify.push(r.message, 'info')
     for (const id of ids) rowReportLinks.unlinkRow(id)
   } catch (e) {
-    // Bulk endpoints are ONE HTTP call for every selected id, so a single
-    // failure genuinely explains all of them — not a guess, the same
-    // request that failed covers every row in `ids`.
     reportError(e, 'history.bulk-delete', ids)
   } finally {
     bulkBusy.value = false
@@ -446,8 +422,18 @@ async function onBulkRecheck(): Promise<void> {
   }
 }
 
-async function onPurgeFailed(): Promise<void> {
-  if (bulkButtonsDisabled.value) return
+// ── purge-failed: the one genuinely irreversible op (D4) ───────────────────
+const hasFailed = computed(() => liveItems.value.some((i) => i.status === 'failed'))
+const purgeConfirmOpen = ref(false)
+const purgeFrozenCount = ref(0)
+
+function openPurgeConfirm(): void {
+  if (bulkButtonsDisabled.value || !hasFailed.value) return
+  purgeFrozenCount.value = liveItems.value.filter((i) => i.status === 'failed').length
+  purgeConfirmOpen.value = true
+}
+
+async function confirmPurge(): Promise<void> {
   bulkBusy.value = true
   try {
     const r = await purgeFailedHistory()
@@ -482,7 +468,11 @@ async function onPurgeFailed(): Promise<void> {
         >
           删除选中 ({{ selected.size }})
         </button>
-        <button type="button" :disabled="bulkButtonsDisabled" @click="onPurgeFailed">
+        <button
+          type="button"
+          :disabled="bulkButtonsDisabled || !hasFailed"
+          @click="openPurgeConfirm"
+        >
           清除失败
         </button>
       </div>
@@ -496,6 +486,16 @@ async function onPurgeFailed(): Promise<void> {
       <span>该项目已不在列表中，可能已被删除或翻页后不可见。</span>
       <button type="button" class="highlight-missing__dismiss" aria-label="关闭提示" @click="dismissHighlightMissing">×</button>
     </div>
+
+    <ConfirmDialog
+      v-model:open="purgeConfirmOpen"
+      title="确认清除失败记录"
+      :confirm-label="`确认清除（${purgeFrozenCount} 条）`"
+      danger
+      :confirm="confirmPurge"
+    >
+      此操作不可撤销，将永久删除全部失败记录，无法通过撤销恢复。
+    </ConfirmDialog>
 
     <DataTable
       :items="displayRows"
