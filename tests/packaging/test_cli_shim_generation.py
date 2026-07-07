@@ -71,7 +71,7 @@ def test_split_script_target_rejects_malformed(bad_target):
 
 def test_render_cli_shim_bat_uses_dash_c_not_dash_m():
     content = bwp._render_cli_shim_bat("backlink_publisher.cli.bp", "main")
-    assert '-c "from backlink_publisher.cli.bp import main; main()"' in content
+    assert '-c "import sys; from backlink_publisher.cli.bp import main; sys.exit(main())"' in content
     assert "-m backlink_publisher.cli.bp" not in content
     assert "-m " not in content
 
@@ -125,7 +125,7 @@ def test_generate_cli_shims_bp_bat_content(tmp_path):
     cli_shims_dir = bwp.generate_cli_shims(output_dir, repo_root=REPO_ROOT)
 
     bp_bat = (cli_shims_dir / "bp.bat").read_text(encoding="utf-8")
-    assert '-c "from backlink_publisher.cli.bp import main; main()"' in bp_bat
+    assert '-c "import sys; from backlink_publisher.cli.bp import main; sys.exit(main())"' in bp_bat
     assert "-m backlink_publisher.cli.bp" not in bp_bat
 
 

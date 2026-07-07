@@ -69,9 +69,14 @@ if not exist "%CONFIG_DIR%\config.toml" (
 )
 
 REM -- Persistent SECRET_KEY (kept across restarts and package updates) ---
+REM Uses RNGCryptoServiceProvider (not Get-Random -Count 64, which on
+REM PowerShell's *fixed* 16-item hex-digit set only returns a shuffled
+REM permutation of those 16 items -- 16 chars of ~44 bits of entropy, not
+REM the intended 64 chars / 256 bits -- and not RandomNumberGenerator::Fill,
+REM which requires a newer .NET than ships with Windows PowerShell 5.1).
 set "SECRET_KEY_FILE=%CONFIG_DIR%\.webui_secret_key"
 if not exist "%SECRET_KEY_FILE%" (
-    powershell -NoProfile -Command "-join ((48..57)+(97..102)|Get-Random -Count 64|ForEach-Object {[char]$_})" > "%SECRET_KEY_FILE%"
+    powershell -NoProfile -Command "$b = New-Object byte[] 32; $rng = [Security.Cryptography.RNGCryptoServiceProvider]::new(); $rng.GetBytes($b); $rng.Dispose(); -join ($b | ForEach-Object { $_.ToString('x2') })" > "%SECRET_KEY_FILE%"
 )
 set /p SECRET_KEY=<"%SECRET_KEY_FILE%"
 

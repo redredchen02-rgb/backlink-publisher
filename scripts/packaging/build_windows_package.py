@@ -55,6 +55,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 import urllib.error
 import urllib.request
@@ -143,9 +144,40 @@ class BuildError(RuntimeError):
     """Raised for any provisioning failure; callers should abort with a non-zero exit."""
 
 
-def _rmtree_long_path_safe(path: Path) -> None:
+# Network-touching steps (download, pip install, pip-audit, npm) get a
+# generous but finite timeout so a stalled connection produces a clear
+# BuildError instead of hanging the build indefinitely with no diagnostic.
+_NETWORK_TIMEOUT_S = 300
+
+# Purely local, no-network subprocess calls (e.g. the CLI-shim existence
+# check) don't need the network-scale allowance but should still have some
+# bound rather than none.
+_LOCAL_SUBPROCESS_TIMEOUT_S = 60
+
+
+def _utf8_child_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
+    """Return a copy of *base_env* (or `os.environ` if `None`) with
+    `PYTHONIOENCODING` forced to `"utf-8"`.
+
+    A local copy of `backlink_publisher._util.subprocess_env.utf8_child_env`
+    (same fix, same rationale) rather than an import of it: this build
+    script is intentionally stdlib-only so a maintainer can run it with
+    nothing but `python scripts/packaging/build_windows_package.py`, without
+    first needing `PYTHONPATH=src` or an editable install of the package it
+    is packaging. On Windows, a Python child process whose stdout/stderr is
+    a pipe (not a real console) falls back to the system ANSI codepage for
+    its own text I/O unless `PYTHONIOENCODING` forces otherwise — the same
+    bug class fixed for the runtime app in
+    docs/plans/2026-07-03-001-fix-windows-webui-encoding-crash-plan.md.
+    """
+    env = dict(base_env) if base_env is not None else os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
+def _rmtree_long_path_safe(path: Path, *, retries: int = 5, retry_delay_s: float = 1.0) -> None:
     """`shutil.rmtree` wrapper that tolerates Windows' classic 260-character
-    `MAX_PATH` limit.
+    `MAX_PATH` limit AND transiently locked files, with retry/backoff.
 
     Discovered during Unit 5's real end-to-end testing: this build's own
     `python-embed/Lib/site-packages/.../__pycache__/*.pyc` paths are deeply
@@ -162,6 +194,15 @@ def _rmtree_long_path_safe(path: Path) -> None:
     characters regardless of the system's `LongPathsEnabled` registry
     setting — scoped to just this call, so it needs no elevated/
     administrator access (unlike enabling long paths system-wide).
+
+    Also retries on `PermissionError` (`WinError 32`,
+    `ERROR_SHARING_VIOLATION`) with a short backoff: directly observed
+    during this feature's own development that a `.pyc` file under
+    `__pycache__` can still be held open momentarily by a just-killed
+    Python process, an antivirus real-time scanner, or the Windows Search
+    indexer, causing a spurious rmtree failure on an otherwise-legitimate
+    idempotent rebuild. Previously this had to be worked around manually by
+    the operator; a bounded retry closes that gap in the shipped code.
     """
     path = Path(path)
     if sys.platform == "win32":
@@ -169,7 +210,21 @@ def _rmtree_long_path_safe(path: Path) -> None:
         target = resolved if resolved.startswith("\\\\?\\") else f"\\\\?\\{resolved}"
     else:
         target = str(path)
-    shutil.rmtree(target)
+    last_exc: PermissionError | None = None
+    for attempt in range(retries):
+        try:
+            shutil.rmtree(target)
+            return
+        except PermissionError as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                time.sleep(retry_delay_s)
+    raise BuildError(
+        f"Could not remove {path} after {retries} attempts — a file inside it "
+        f"is still locked by another process (antivirus scanner, search "
+        f"indexer, or a not-yet-exited prior build). Close any process that "
+        f"might be holding it open and re-run the build."
+    ) from last_exc
 
 
 # ── Download + checksum verification ────────────────────────────────────────
@@ -188,10 +243,19 @@ def _sha256_file(path: Path, chunk_size: int = 1 << 20) -> str:
 
 
 def _http_get_to_file(url: str, dest: Path) -> None:
-    """Thin wrapper around urlretrieve — isolated so tests can monkeypatch it
+    """Thin wrapper around urlopen — isolated so tests can monkeypatch it
     without touching the real network (e.g. to simulate a corrupted download
-    for the checksum-mismatch error path)."""
-    urllib.request.urlretrieve(url, dest)  # noqa: S310 (fixed https:// URLs only)
+    for the checksum-mismatch error path).
+
+    Uses `urlopen(..., timeout=...)` rather than `urlretrieve` (which has no
+    timeout parameter at all) so a stalled connection raises promptly
+    instead of hanging the build indefinitely.
+    """
+    with (
+        urllib.request.urlopen(url, timeout=_NETWORK_TIMEOUT_S) as response,  # noqa: S310 (fixed https:// URLs only)
+        open(dest, "wb") as fh,
+    ):
+        shutil.copyfileobj(response, fh)
 
 
 def _download_and_verify(url: str, dest: Path, expected_sha256: str, *, label: str) -> None:
@@ -285,7 +349,15 @@ def _bootstrap_pip(python_exe: Path, get_pip_path: Path, build_tools_dir: Path) 
         str(build_tools_dir),
         "--no-warn-script-location",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=_utf8_child_env(),
+        timeout=_NETWORK_TIMEOUT_S,
+    )
     if result.returncode != 0:
         raise BuildError(
             f"get-pip.py bootstrap failed (exit {result.returncode}):\n"
@@ -295,7 +367,15 @@ def _bootstrap_pip(python_exe: Path, get_pip_path: Path, build_tools_dir: Path) 
 
 def _run_embedded_pip(python_exe: Path, pip_args: list[str], *, step_label: str) -> None:
     cmd = [str(python_exe), "-m", "pip", *pip_args]
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=_utf8_child_env(),
+        timeout=_NETWORK_TIMEOUT_S,
+    )
     if result.returncode != 0:
         raise BuildError(
             f"{step_label} failed (exit {result.returncode}):\n"
@@ -401,9 +481,14 @@ def _run_pip_audit(site_packages: Path) -> None:
     """
     if _pip_audit_available():
         cmd = [sys.executable, "-m", "pip_audit", "--path", str(site_packages)]
-        env = None
-    else:
-        tool_dir = Path(tempfile.mkdtemp(prefix="bp-pip-audit-tool-"))
+        _run_pip_audit_cmd(cmd, env=_utf8_child_env())
+        return
+
+    # Fallback install goes into a TemporaryDirectory (not a bare
+    # tempfile.mkdtemp(), which was never cleaned up) so every build run
+    # that hits this path doesn't leak a directory into the OS temp dir.
+    with tempfile.TemporaryDirectory(prefix="bp-pip-audit-tool-") as tool_dir_str:
+        tool_dir = Path(tool_dir_str)
         install_cmd = [
             sys.executable,
             "-m",
@@ -414,7 +499,15 @@ def _run_pip_audit(site_packages: Path) -> None:
             str(tool_dir),
             "pip-audit",
         ]
-        install_result = subprocess.run(install_cmd, capture_output=True, text=True, encoding="utf-8")
+        install_result = subprocess.run(
+            install_cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=_utf8_child_env(),
+            timeout=_NETWORK_TIMEOUT_S,
+        )
         if install_result.returncode != 0:
             raise BuildError(
                 "pip-audit is not importable in the current interpreter and "
@@ -423,11 +516,22 @@ def _run_pip_audit(site_packages: Path) -> None:
                 f"--- stdout ---\n{install_result.stdout}\n--- stderr ---\n{install_result.stderr}"
             )
         cmd = [sys.executable, "-m", "pip_audit", "--path", str(site_packages)]
-        env = dict(os.environ)
+        env = _utf8_child_env()
         existing = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = str(tool_dir) + (os.pathsep + existing if existing else "")
+        _run_pip_audit_cmd(cmd, env=env)
 
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", env=env)
+
+def _run_pip_audit_cmd(cmd: list[str], *, env: dict[str, str]) -> None:
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+        timeout=_NETWORK_TIMEOUT_S,
+    )
     if result.returncode != 0:
         raise BuildError(
             "pip-audit found known vulnerabilities (or failed to run) against "
@@ -499,8 +603,19 @@ def _render_cli_shim_bat(module: str, function: str) -> str:
 
     `chcp 65001 >nul` guards against the non-UTF-8-console encoding crash
     fixed in `docs/plans/2026-07-03-001-fix-windows-webui-encoding-crash-plan.md`.
+
+    The call is wrapped in `sys.exit(...)`, not a bare `<function>()` --
+    without it, `comment`, `phase0-seal`, and `weights` (whose `main()`
+    intentionally `return`s an int rather than calling `sys.exit()` itself,
+    relying on their own `if __name__ == "__main__": sys.exit(main())`
+    guard) would always report exit code 0 through this shim regardless of
+    their actual return value, since `python -c` discards a bare
+    expression's value. This is safe for the other ~46 targets too: their
+    `main()` already calls `sys.exit()`/raises `SystemExit` internally, so
+    `<function>()` never returns a value to the wrapping `sys.exit()` call
+    in the first place.
     """
-    call = f"from {module} import {function}; {function}()"
+    call = f"import sys; from {module} import {function}; sys.exit({function}())"
     return (
         "@echo off\r\n"
         "chcp 65001 >nul\r\n"
@@ -571,7 +686,7 @@ def _check_script_targets_resolvable(
         (name, *_split_script_target(target)) for name, target in sorted(scripts.items())
     ]
 
-    env = dict(os.environ)
+    env = _utf8_child_env()
     env["PYTHONPATH"] = str(repo_root)
 
     with tempfile.TemporaryDirectory(prefix="bp-shim-check-") as tmp_str:
@@ -586,7 +701,9 @@ def _check_script_targets_resolvable(
             capture_output=True,
             text=True,
             encoding="utf-8",
+            errors="replace",
             env=env,
+            timeout=_LOCAL_SUBPROCESS_TIMEOUT_S,
         )
 
     if result.returncode != 0:
@@ -753,7 +870,14 @@ def _run_npm_step(npm_exe: str, args: list[str], *, cwd: Path, step_label: str) 
     """Run one `npm <args>` step in `cwd`, raising `BuildError` (with a
     message distinguishable from "npm not found") on a non-zero exit."""
     result = subprocess.run(
-        [npm_exe, *args], cwd=str(cwd), capture_output=True, text=True, encoding="utf-8"
+        [npm_exe, *args],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=_utf8_child_env(),
+        timeout=_NETWORK_TIMEOUT_S,
     )
     if result.returncode != 0:
         raise BuildError(
@@ -1169,46 +1293,62 @@ def _create_zip_and_checksum(pkg_dir: Path, *, dist_dir: Path, pkg_name: str) ->
     format, matching what `sha256sum -c` / PowerShell's
     `Get-FileHash | Compare-Object` style verification expects).
 
-    Any pre-existing zip at the destination is removed first (this function
-    is only ever called after every earlier build step has already
-    succeeded — see `build_package` — so there is no risk of this clobbering
-    a still-valid previous zip while a new build is in flight; the previous
-    zip, if any, is by definition stale once we get here). If archive
-    creation itself fails partway, any partial zip file is removed before
-    re-raising as `BuildError`, so a crashed zip step never leaves a
-    corrupt-but-present `.zip` behind for an operator to accidentally ship.
+    Built to a staging name first (`<pkg_name>.staging.zip`), verified
+    (checksum computed, sidecar written), and only THEN atomically moved
+    (`os.replace`, which is atomic on Windows for same-volume renames) onto
+    the real `<pkg_name>.zip` path — mirroring the staging-then-move pattern
+    `provision_interpreter`/`generate_cli_shims` already use elsewhere in
+    this file. Deliberately does NOT delete any pre-existing valid zip
+    before the new one is confirmed good: if archive creation fails partway
+    (disk full, AV lock, a prior build's zip from the same version is still
+    the best available artifact) the old zip is untouched and still usable,
+    rather than being deleted before its replacement is proven to exist.
     """
     dist_dir = Path(dist_dir)
     dist_dir.mkdir(parents=True, exist_ok=True)
     zip_path = dist_dir / f"{pkg_name}.zip"
-    if zip_path.exists():
-        zip_path.unlink()
+    # shutil.make_archive(base_name, "zip") always appends ".zip" to
+    # base_name itself, so the staging base_name is "<pkg_name>.staging"
+    # (producing "<pkg_name>.staging.zip"), not "<pkg_name>.zip.staging".
+    staging_base_name = f"{pkg_name}.staging"
+    staging_zip_path = dist_dir / f"{staging_base_name}.zip"
+    if staging_zip_path.exists():
+        staging_zip_path.unlink()
 
     try:
         archive_path = Path(
             shutil.make_archive(
-                str(dist_dir / pkg_name), "zip", root_dir=str(dist_dir), base_dir=pkg_name
+                str(dist_dir / staging_base_name),
+                "zip",
+                root_dir=str(dist_dir),
+                base_dir=pkg_name,
             )
         )
     except Exception as exc:
-        if zip_path.exists():
-            zip_path.unlink()
+        if staging_zip_path.exists():
+            staging_zip_path.unlink()
         raise BuildError(f"Failed to create zip archive at {zip_path}: {exc}") from exc
 
-    if archive_path != zip_path:
+    if archive_path != staging_zip_path:
         # Defensive: shutil.make_archive is documented to return the path it
         # wrote to, which should always equal what we computed above given a
         # literal "zip" format argument — but don't silently trust that if a
         # future Python ever behaves differently.
         raise BuildError(
             f"shutil.make_archive wrote to an unexpected path {archive_path} "
-            f"(expected {zip_path}) — aborting rather than trusting a zip "
-            f"that isn't where the rest of this script expects it."
+            f"(expected {staging_zip_path}) — aborting rather than trusting "
+            f"a zip that isn't where the rest of this script expects it."
         )
 
-    sha256 = _sha256_file(zip_path)
+    sha256 = _sha256_file(staging_zip_path)
     sha256_path = zip_path.with_name(zip_path.name + ".sha256")
     sha256_path.write_text(f"{sha256}  {zip_path.name}\n", encoding="utf-8")
+
+    # Both the archive and its checksum sidecar are known-good at this
+    # point -- only now replace the real zip_path (os.replace is atomic on
+    # Windows for a same-volume rename), so a reader can never observe a
+    # half-written zip at the canonical path.
+    os.replace(staging_zip_path, zip_path)
 
     return zip_path
 
