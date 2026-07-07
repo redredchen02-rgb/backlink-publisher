@@ -7,11 +7,12 @@ installation. This is the build-time tool referenced by
 ``docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md``.
 
 Implements Unit 1 (interpreter provisioning, ``provision_interpreter``),
-Unit 2 (CLI shim generation, ``generate_cli_shims``), and Unit 3 (SPA build +
-package assembly, ``assemble_package``). Unit 5 (full build orchestration /
-zip output) extends this same file — the CLI entrypoint below is
-deliberately minimal until Unit 5 adds the full
-``dist/backlink-publisher-vX.Y.Z-win64.zip`` pipeline on top of it.
+Unit 2 (CLI shim generation, ``generate_cli_shims``), Unit 3 (SPA build +
+package assembly, ``assemble_package``), and Unit 5 (full build
+orchestration + zip/checksum output, ``build_package``, wired up as the
+``main()`` CLI entrypoint at the bottom of this file). Unit 4's doc/script
+templates live under ``scripts/packaging/templates/`` and are copied in by
+Unit 5's ``copy_docs``/``copy_launch_scripts``/``copy_helper_scripts``.
 
 Note on ``webui.py`` vs ``serve.py``: the plan's original Output Structure
 text names ``webui.py`` as the WebUI entrypoint copied into ``app/``. Since
@@ -28,9 +29,13 @@ cannot be moved to a machine that never had that exact Python installed. The
 embeddable zip from python.org is explicitly designed to be redistributed
 standalone.
 
-Usage (Unit 1 stage only, for now)::
+Usage (full build)::
 
-    python scripts/packaging/build_windows_package.py --output-dir dist/_python-embed-build
+    python scripts/packaging/build_windows_package.py [--version X.Y.Z]
+
+``--version`` is optional and overrides the package version used to name
+the output directory/zip; it defaults to ``[project].version`` in
+``pyproject.toml`` (see ``package_dir_name``).
 
 Run via the project's own Python (any interpreter satisfying
 ``requires-python = ">=3.11"`` — this script itself does not need to run
@@ -136,6 +141,35 @@ PINNED_DEPENDENCIES: dict[str, str] = {
 
 class BuildError(RuntimeError):
     """Raised for any provisioning failure; callers should abort with a non-zero exit."""
+
+
+def _rmtree_long_path_safe(path: Path) -> None:
+    """`shutil.rmtree` wrapper that tolerates Windows' classic 260-character
+    `MAX_PATH` limit.
+
+    Discovered during Unit 5's real end-to-end testing: this build's own
+    `python-embed/Lib/site-packages/.../__pycache__/*.pyc` paths are deeply
+    nested (package name + submodule path + compiled-cache suffix), and
+    combined with a sufficiently long repo checkout path (e.g. this repo's
+    own `.worktrees/<branch>/` layout), the full path can exceed 260
+    characters. Plain `shutil.rmtree` then fails with
+    `FileNotFoundError: [WinError 3]` (`ERROR_PATH_NOT_FOUND`) even though
+    the file is right there, because the classic (non-extended) Win32 path
+    APIs silently refuse anything longer than `MAX_PATH`.
+
+    Prefixing an absolute Windows path with `\\\\?\\` opts into the
+    "extended-length path" API, which supports paths up to ~32,767
+    characters regardless of the system's `LongPathsEnabled` registry
+    setting — scoped to just this call, so it needs no elevated/
+    administrator access (unlike enabling long paths system-wide).
+    """
+    path = Path(path)
+    if sys.platform == "win32":
+        resolved = str(path.resolve())
+        target = resolved if resolved.startswith("\\\\?\\") else f"\\\\?\\{resolved}"
+    else:
+        target = str(path)
+    shutil.rmtree(target)
 
 
 # ── Download + checksum verification ────────────────────────────────────────
@@ -680,7 +714,7 @@ def generate_cli_shims(
 
         final_dir = output_dir / "scripts" / "cli-shims"
         if final_dir.exists():
-            shutil.rmtree(final_dir)
+            _rmtree_long_path_safe(final_dir)
         final_dir.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(staging_dir), str(final_dir))
 
@@ -774,10 +808,16 @@ def build_spa(frontend_dir: Path) -> Path:
     return spa_dist_dir
 
 
-def package_dir_name(repo_root: Path = REPO_ROOT) -> str:
-    """Read `version` from `repo_root/pyproject.toml`'s `[project]` table and
-    return the versioned package directory name
+def package_dir_name(repo_root: Path = REPO_ROOT, *, version: str | None = None) -> str:
+    """Return the versioned package directory name
     `backlink-publisher-vX.Y.Z-win64` (matches the plan's Output Structure).
+
+    `version` defaults to `None`, which reads `[project].version` from
+    `repo_root/pyproject.toml`. Unit 5's CLI accepts an optional `--version`
+    override (e.g. for building a package under a version number that
+    hasn't been committed to pyproject.toml yet) — passing it through here
+    keeps that override and the default pyproject.toml lookup on one code
+    path instead of duplicating the TOML read at the call site.
 
     Deliberately NOT called internally by `assemble_package` — Unit 5 needs
     the same versioned name to compute `pkg_dir` BEFORE calling
@@ -786,23 +826,31 @@ def package_dir_name(repo_root: Path = REPO_ROOT) -> str:
     (plus `resolve_dist_package_dir`) so Unit 5 doesn't need to reimplement
     the `pyproject.toml` version lookup.
     """
-    pyproject_path = repo_root / "pyproject.toml"
-    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-    version = data.get("project", {}).get("version")
-    if not version:
-        raise BuildError(f"No [project].version found in {pyproject_path}")
+    if version is None:
+        pyproject_path = repo_root / "pyproject.toml"
+        data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        version = data.get("project", {}).get("version")
+        if not version:
+            raise BuildError(f"No [project].version found in {pyproject_path}")
     return f"backlink-publisher-v{version}-win64"
 
 
-def resolve_dist_package_dir(repo_root: Path = REPO_ROOT, *, dist_dir: Path | None = None) -> Path:
+def resolve_dist_package_dir(
+    repo_root: Path = REPO_ROOT,
+    *,
+    dist_dir: Path | None = None,
+    version: str | None = None,
+) -> Path:
     """Compute the full versioned package output path, e.g.
     `<repo_root>/dist/backlink-publisher-v0.5.0-win64` — convenience wrapper
     around `package_dir_name` for Unit 5's orchestration. `dist_dir` defaults
     to `repo_root / "dist"` (matches the plan's Output Structure and
-    `dist/`'s existing `.gitignore` entry).
+    `dist/`'s existing `.gitignore` entry). `version` is passed straight
+    through to `package_dir_name` (see its docstring for the `--version`
+    override rationale).
     """
     resolved_dist_dir = Path(dist_dir) if dist_dir is not None else repo_root / "dist"
-    return resolved_dist_dir / package_dir_name(repo_root)
+    return resolved_dist_dir / package_dir_name(repo_root, version=version)
 
 
 # Files/directories copied from repo_root into pkg_dir/app/ verbatim. Order
@@ -866,7 +914,7 @@ def assemble_package(pkg_dir: Path, *, repo_root: Path = REPO_ROOT) -> Path:
     # the whole pkg_dir).
     app_dir = pkg_dir / "app"
     if app_dir.exists():
-        shutil.rmtree(app_dir)
+        _rmtree_long_path_safe(app_dir)
     app_dir.mkdir(parents=True, exist_ok=True)
 
     # Step 3: copy backend + built SPA into app/.
@@ -1007,42 +1055,289 @@ def provision_interpreter(
         _run_pip_audit(site_packages)
 
         if output_dir.exists():
-            shutil.rmtree(output_dir)
+            _rmtree_long_path_safe(output_dir)
         output_dir.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(staging_dir), str(output_dir))
 
     return output_dir
 
 
+# ── Unit 5: launch/helper scripts + docs + zip + checksum ───────────────────
+#
+# Everything below wires Units 1-4 together into the single
+# `python scripts/packaging/build_windows_package.py` entrypoint described in
+# the plan's Unit 5. Nothing above this section changes behavior for Units
+# 1-4's own callers (their functions are used as-is, in the documented
+# order: provision_interpreter -> generate_cli_shims -> assemble_package).
+
+TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+
+# scripts/packaging/templates/<name>.bat.tmpl -> pkg_dir/scripts/<name>.bat
+# (".tmpl" stripped — see launch-webui.bat.tmpl's own docstring for why these
+# are plain byte-for-byte copies with no templating engine: every path
+# inside them is %~dp0-relative, so nothing needs substituting at build
+# time). Launch scripts and helper scripts are tracked as two separate
+# tuples only for the numbered-progress-output grouping in build_package();
+# the copy mechanism (_copy_bat_template) is identical for both.
+_LAUNCH_SCRIPT_NAMES: tuple[str, ...] = ("launch-webui", "launch-cli")
+_HELPER_SCRIPT_NAMES: tuple[str, ...] = (
+    "install-playwright",
+    "setup-scheduler",
+    "setup-wizard",
+)
+
+# scripts/packaging/templates/<name> -> pkg_dir/<dest_name>. QUICK_START.txt
+# and ONBOARDING.md copy verbatim under their own name; README-package.md is
+# retitled to README.md (it's already written entirely in Traditional
+# Chinese, so it doubles as the package's only README — see build_package's
+# docstring for why no separate README.zh.md is generated).
+# config-minimal-example.toml also copies verbatim.
+_DOC_COPY_ITEMS: tuple[tuple[str, str], ...] = (
+    ("QUICK_START.txt", "QUICK_START.txt"),
+    ("ONBOARDING.md", "ONBOARDING.md"),
+    ("README-package.md", "README.md"),
+    ("config-minimal-example.toml", "config-minimal-example.toml"),
+)
+
+
+def _copy_template_file(template_name: str, dest: Path) -> None:
+    """Copy `TEMPLATES_DIR / template_name` to `dest`, raising `BuildError`
+    (not a bare `FileNotFoundError`) if the template is missing — a missing
+    template means this script's own `scripts/packaging/templates/` tree is
+    incomplete, which should abort the build with a clear message rather
+    than a confusing traceback."""
+    src = TEMPLATES_DIR / template_name
+    if not src.is_file():
+        raise BuildError(
+            f"Expected packaging template not found at {src} — check "
+            f"scripts/packaging/templates/ before trusting this build script."
+        )
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+
+
+def _copy_bat_template(name: str, dest_dir: Path) -> None:
+    """Copy `scripts/packaging/templates/<name>.bat.tmpl` to
+    `dest_dir/<name>.bat` (drops the `.tmpl` suffix — see `_LAUNCH_SCRIPT_NAMES`
+    / `_HELPER_SCRIPT_NAMES` docstring comment for why no templating engine
+    is involved)."""
+    _copy_template_file(f"{name}.bat.tmpl", dest_dir / f"{name}.bat")
+
+
+def copy_launch_scripts(pkg_dir: Path) -> None:
+    """Copy `launch-webui.bat` / `launch-cli.bat` into `pkg_dir/scripts/`
+    (Unit 2's templates — this is the first thing that actually ships them
+    into a built package; Unit 2 only wrote the source-controlled
+    `.tmpl` copies)."""
+    scripts_dir = Path(pkg_dir) / "scripts"
+    for name in _LAUNCH_SCRIPT_NAMES:
+        _copy_bat_template(name, scripts_dir)
+
+
+def copy_helper_scripts(pkg_dir: Path) -> None:
+    """Copy `install-playwright.bat`, `setup-scheduler.bat`, and
+    `setup-wizard.bat` into `pkg_dir/scripts/` — the three scripts
+    `ONBOARDING.md`/`README-package.md` promise but that no earlier unit
+    had actually built (see Plan 2026-07-07-006 Unit 5's gap analysis).
+    All three are real, working scripts (not stubs) — see their own
+    docstring headers for what each one does and why."""
+    scripts_dir = Path(pkg_dir) / "scripts"
+    for name in _HELPER_SCRIPT_NAMES:
+        _copy_bat_template(name, scripts_dir)
+
+
+def copy_docs(pkg_dir: Path) -> None:
+    """Copy Unit 4's doc templates into `pkg_dir` root per `_DOC_COPY_ITEMS`.
+
+    No separate `README.zh.md` is generated: `README-package.md` (Unit 4's
+    template) is already written entirely in Traditional Chinese, so
+    copying it to `README.md` already serves Traditional-Chinese-reading
+    users; a byte-identical `README.zh.md` alongside it would be pure
+    duplication. (The plan's Output Structure sketch listed
+    "README.md / README.zh.md" as a range declaration, not a hard
+    requirement — see the plan's own line "此目錄樹是範圍宣告，非絕對限制".)
+    """
+    pkg_dir = Path(pkg_dir)
+    for template_name, dest_name in _DOC_COPY_ITEMS:
+        _copy_template_file(template_name, pkg_dir / dest_name)
+
+
+def _create_zip_and_checksum(pkg_dir: Path, *, dist_dir: Path, pkg_name: str) -> Path:
+    """Zip `pkg_dir` into `dist_dir/<pkg_name>.zip` (a SIBLING of `pkg_dir`,
+    not nested inside it) and write `dist_dir/<pkg_name>.zip.sha256` next to
+    it containing the zip's own SHA-256 (conventional `<hash>  <filename>`
+    format, matching what `sha256sum -c` / PowerShell's
+    `Get-FileHash | Compare-Object` style verification expects).
+
+    Any pre-existing zip at the destination is removed first (this function
+    is only ever called after every earlier build step has already
+    succeeded — see `build_package` — so there is no risk of this clobbering
+    a still-valid previous zip while a new build is in flight; the previous
+    zip, if any, is by definition stale once we get here). If archive
+    creation itself fails partway, any partial zip file is removed before
+    re-raising as `BuildError`, so a crashed zip step never leaves a
+    corrupt-but-present `.zip` behind for an operator to accidentally ship.
+    """
+    dist_dir = Path(dist_dir)
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = dist_dir / f"{pkg_name}.zip"
+    if zip_path.exists():
+        zip_path.unlink()
+
+    try:
+        archive_path = Path(
+            shutil.make_archive(
+                str(dist_dir / pkg_name), "zip", root_dir=str(dist_dir), base_dir=pkg_name
+            )
+        )
+    except Exception as exc:
+        if zip_path.exists():
+            zip_path.unlink()
+        raise BuildError(f"Failed to create zip archive at {zip_path}: {exc}") from exc
+
+    if archive_path != zip_path:
+        # Defensive: shutil.make_archive is documented to return the path it
+        # wrote to, which should always equal what we computed above given a
+        # literal "zip" format argument — but don't silently trust that if a
+        # future Python ever behaves differently.
+        raise BuildError(
+            f"shutil.make_archive wrote to an unexpected path {archive_path} "
+            f"(expected {zip_path}) — aborting rather than trusting a zip "
+            f"that isn't where the rest of this script expects it."
+        )
+
+    sha256 = _sha256_file(zip_path)
+    sha256_path = zip_path.with_name(zip_path.name + ".sha256")
+    sha256_path.write_text(f"{sha256}  {zip_path.name}\n", encoding="utf-8")
+
+    return zip_path
+
+
+_BUILD_STEP_COUNT = 7
+
+
+def build_package(*, repo_root: Path = REPO_ROOT, version: str | None = None) -> Path:
+    """Full Unit 5 orchestration: resolve the versioned output directory,
+    wipe it if it already exists (the fix for the plan's motivating bug — a
+    stale prior build produced a nested-duplicate
+    `dist/backlink-publisher-v0.5.0-win64/backlink-publisher-v0.5.1-win64/`
+    artifact), run Units 1-4 in order, then zip + checksum the result.
+
+    Progress is printed as `[N/7] ...` before each step, mirroring
+    `scripts/prep-release.sh`'s `N/4`-numbered style. On ANY failure
+    (`BuildError` from a stage, or any other exception, wrapped as
+    `BuildError` for a uniform caller contract), the partially-built
+    `pkg_dir` is left in place (for inspection) but NO `.zip` is ever
+    produced — the zip step only runs after every earlier step has already
+    succeeded — and a message printed to stderr makes unambiguous that the
+    build FAILED (a half-built `pkg_dir` must never look like a successful
+    build to whoever runs this).
+
+    Returns the path to the produced `.zip` on success.
+    """
+    repo_root = Path(repo_root)
+    dist_dir = repo_root / "dist"
+    pkg_dir = resolve_dist_package_dir(repo_root, dist_dir=dist_dir, version=version)
+    pkg_name = pkg_dir.name
+
+    print(f"Building {pkg_name} ...")
+    print(f"  output directory: {pkg_dir}")
+
+    if pkg_dir.exists():
+        print(f"  Removing pre-existing {pkg_dir} (idempotent rebuild) ...")
+        _rmtree_long_path_safe(pkg_dir)
+
+    try:
+        print(f"[1/{_BUILD_STEP_COUNT}] Provisioning Python interpreter...")
+        provision_interpreter(pkg_dir / "python-embed", repo_root=repo_root)
+
+        print(f"[2/{_BUILD_STEP_COUNT}] Generating CLI shims...")
+        generate_cli_shims(pkg_dir, repo_root=repo_root)
+
+        print(f"[3/{_BUILD_STEP_COUNT}] Building SPA and assembling app/...")
+        assemble_package(pkg_dir, repo_root=repo_root)
+
+        print(f"[4/{_BUILD_STEP_COUNT}] Copying launch scripts...")
+        copy_launch_scripts(pkg_dir)
+
+        print(f"[5/{_BUILD_STEP_COUNT}] Copying helper scripts...")
+        copy_helper_scripts(pkg_dir)
+
+        print(f"[6/{_BUILD_STEP_COUNT}] Copying documentation...")
+        copy_docs(pkg_dir)
+    except BuildError as exc:
+        print(
+            f"\nBUILD FAILED at: {exc}\n"
+            f"Partially-built package left at: {pkg_dir}\n"
+            f"This directory is NOT a usable package -- inspect it if useful, "
+            f"then re-run the build once the underlying problem is fixed "
+            f"(the next run will remove it automatically).",
+            file=sys.stderr,
+        )
+        raise
+    except Exception as exc:  # noqa: BLE001 -- convert to BuildError for a uniform caller contract
+        print(
+            f"\nBUILD FAILED with an unexpected error: {exc}\n"
+            f"Partially-built package left at: {pkg_dir}\n"
+            f"This directory is NOT a usable package -- inspect it if useful, "
+            f"then re-run the build once the underlying problem is fixed "
+            f"(the next run will remove it automatically).",
+            file=sys.stderr,
+        )
+        raise BuildError(f"Unexpected error during build: {exc}") from exc
+
+    print(f"[7/{_BUILD_STEP_COUNT}] Creating zip archive + checksum...")
+    try:
+        zip_path = _create_zip_and_checksum(pkg_dir, dist_dir=dist_dir, pkg_name=pkg_name)
+    except BuildError as exc:
+        print(
+            f"\nBUILD FAILED at zip/checksum step: {exc}\n"
+            f"Partially-built package directory (not a zip) left at: {pkg_dir}\n"
+            f"No .zip was produced -- do not ship anything from this run.",
+            file=sys.stderr,
+        )
+        raise
+
+    return zip_path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Provision a portable python-embed/ interpreter with "
-            "backlink_publisher + core dependencies installed (Unit 1 stage). "
-            "Full build orchestration (CLI shims, SPA assembly, docs, zip "
-            "output) is added on top of this by later units."
+            "Build the Windows portable package end-to-end: provision "
+            "python-embed/, generate CLI shims, build+assemble the SPA/app, "
+            "copy launch/helper scripts and docs, then zip the result with "
+            "a .sha256 checksum. See "
+            "docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md."
         )
     )
     parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=REPO_ROOT / "dist" / "_python-embed-build" / "python-embed",
-        help="Destination for the provisioned python-embed/ directory.",
-    )
-    parser.add_argument(
         "--version",
-        default=PYTHON_VERSION,
-        help="Pinned Python 3.11.x patch version to provision.",
+        default=None,
+        help=(
+            "Override the package version used to name the output "
+            "directory/zip (backlink-publisher-vX.Y.Z-win64). Defaults to "
+            "[project].version in pyproject.toml."
+        ),
     )
     args = parser.parse_args(argv)
 
     try:
-        result_dir = provision_interpreter(args.output_dir, version=args.version)
+        zip_path = build_package(repo_root=REPO_ROOT, version=args.version)
     except BuildError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        print(f"\nERROR: {exc}", file=sys.stderr)
         return 1
 
-    print(f"python-embed provisioned at: {result_dir}")
+    size_mb = zip_path.stat().st_size / (1024 * 1024)
+    sha256_path = zip_path.with_name(zip_path.name + ".sha256")
+    sha256_line = sha256_path.read_text(encoding="utf-8").strip()
+    sha256_value = sha256_line.split()[0] if sha256_line else "(unavailable)"
+
+    print("\nBuild succeeded.")
+    print(f"  zip:    {zip_path}")
+    print(f"  size:   {size_mb:.1f} MiB")
+    print(f"  sha256: {sha256_value}")
+    print(f"  (checksum file: {sha256_path})")
     return 0
 
 

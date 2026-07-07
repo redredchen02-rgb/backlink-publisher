@@ -355,26 +355,44 @@ def test_write_pinned_requirements_contains_all_pins(tmp_path):
 
 
 # ── Pure-unit: main() CLI wrapper ───────────────────────────────────────────
+#
+# main() was rewritten in Unit 5 from a Unit-1-only "--output-dir" stub
+# (documented in this module's own docstring as deliberately temporary) into
+# the full build_package() orchestration entrypoint — see
+# tests/packaging/test_build_windows_package_e2e.py for the rest of Unit 5's
+# main()/build_package() coverage. These two tests now mock build_package
+# directly (the function main() actually calls) rather than
+# provision_interpreter (which main() no longer calls on its own).
 
 
-def test_main_returns_nonzero_and_prints_error_on_build_failure(tmp_path, monkeypatch, capsys):
-    def _fake_provision(output_dir, *, version=bwp.PYTHON_VERSION):
+def test_main_returns_nonzero_and_prints_error_on_build_failure(monkeypatch, capsys):
+    def _fake_build_package(*, repo_root, version):
         raise bwp.BuildError("simulated failure for CLI test")
 
-    monkeypatch.setattr(bwp, "provision_interpreter", _fake_provision)
-    exit_code = bwp.main(["--output-dir", str(tmp_path / "out")])
+    monkeypatch.setattr(bwp, "build_package", _fake_build_package)
+    exit_code = bwp.main([])
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "simulated failure for CLI test" in captured.err
 
 
 def test_main_returns_zero_on_success(tmp_path, monkeypatch, capsys):
-    def _fake_provision(output_dir, *, version=bwp.PYTHON_VERSION):
-        return Path(output_dir)
+    zip_path = tmp_path / "backlink-publisher-v9.9.9-win64.zip"
+    zip_path.write_bytes(b"fake zip content")
+    sha256_path = zip_path.with_name(zip_path.name + ".sha256")
+    sha256_path.write_text(
+        f"{bwp._sha256_file(zip_path)}  {zip_path.name}\n", encoding="utf-8"
+    )
 
-    monkeypatch.setattr(bwp, "provision_interpreter", _fake_provision)
-    exit_code = bwp.main(["--output-dir", str(tmp_path / "out")])
+    def _fake_build_package(*, repo_root, version):
+        return zip_path
+
+    monkeypatch.setattr(bwp, "build_package", _fake_build_package)
+    exit_code = bwp.main([])
     assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "Build succeeded" in captured.out
+    assert str(zip_path) in captured.out
 
 
 # ── Real network + Windows integration tests (opt-in, never run in CI) ─────

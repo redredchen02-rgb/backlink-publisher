@@ -1,5 +1,5 @@
 @echo off
-REM launch-webui.bat — Backlink Publisher portable-package WebUI launcher.
+REM launch-webui.bat - Backlink Publisher portable-package WebUI launcher.
 REM
 REM Source-controlled copy for scripts/launch-webui.bat in the built package
 REM (Plan 2026-07-07-006 Unit 2). This file uses ONLY relative paths
@@ -40,7 +40,7 @@ REM site-packages, so PYTHONPATH must point there for the WebUI to import
 REM correctly (see the plan's Key Technical Decisions).
 set "PYTHONPATH=%PKG_DIR%\app"
 
-REM ── Port detection: try 8888, then 8889..8907 ──────────────────────────
+REM -- Port detection: try 8888, then 8889..8907 --------------------------
 set "PORT="
 for /L %%P in (8888,1,8907) do (
     if not defined PORT (
@@ -60,7 +60,7 @@ if not "%PORT%"=="8888" (
     echo Port 8888 is busy -- using %PORT% instead.
 )
 
-REM ── First-run config.toml ────────────────────────────────────────────────
+REM -- First-run config.toml ------------------------------------------------
 set "CONFIG_DIR=%USERPROFILE%\.config\backlink-publisher"
 if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%" >nul 2>&1
 if not exist "%CONFIG_DIR%\config.toml" (
@@ -68,14 +68,14 @@ if not exist "%CONFIG_DIR%\config.toml" (
     echo First run: created %CONFIG_DIR%\config.toml from the example config.
 )
 
-REM ── Persistent SECRET_KEY (kept across restarts and package updates) ───
+REM -- Persistent SECRET_KEY (kept across restarts and package updates) ---
 set "SECRET_KEY_FILE=%CONFIG_DIR%\.webui_secret_key"
 if not exist "%SECRET_KEY_FILE%" (
     powershell -NoProfile -Command "-join ((48..57)+(97..102)|Get-Random -Count 64|ForEach-Object {[char]$_})" > "%SECRET_KEY_FILE%"
 )
 set /p SECRET_KEY=<"%SECRET_KEY_FILE%"
 
-REM ── Auto-open the default browser once the server has had a moment ─────
+REM -- Auto-open the default browser once the server has had a moment -----
 start "" /min cmd /c "timeout /t 3 /nobreak >nul & start "" http://127.0.0.1:%PORT%"
 
 echo Starting Backlink Publisher WebUI...

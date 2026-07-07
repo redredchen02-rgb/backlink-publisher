@@ -28,7 +28,7 @@ backlink-publisher-vX.Y.Z-win64\
 │   ├── setup-scheduler.bat    # 設定「每天自動執行一次」等排程
 │   ├── install-playwright.bat # 選用：只有要用 Medium / Velog 才需要
 │   └── cli-shims\             # 供 launch-cli.bat 使用的內部檔案，不需要手動點
-├── README.md / README.zh.md
+├── README.md                   # 完整參考文件（本身即為繁體中文，無需另外的 README.zh.md）
 ├── QUICK_START.txt
 ├── ONBOARDING.md               # 就是這份文件
 └── config-minimal-example.toml
