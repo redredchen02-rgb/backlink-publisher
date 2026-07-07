@@ -14,7 +14,6 @@ const MAX_NOTIFICATIONS = 50;
 export const NOTIFY_EVENT = 'app:notify';
 
 // el() is imported from ./lib/dom.js — shared across all page modules.
-}
 
 /**
  * Notification types
