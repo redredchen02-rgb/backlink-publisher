@@ -111,28 +111,13 @@ def _divergence(
     return flags
 
 
-def build_channel_scorecard(
-    *,
-    stale_days: int = 30,
-    small_sample_max: int = DEFAULT_SMALL_SAMPLE_MAX,
-    store: EventStore | None = None,
-    history: list[dict[str, Any]] | None = None,
-) -> list[ChannelScoreRow]:
-    """Build the per-channel signal-vector scorecard.
+def _build_strip_by_channel(store: EventStore) -> dict[str, dict[str, int]]:
+    """Recheck-derived strip diagnosis (R2c.a), pivoted onto channel keys.
 
-    Every **registered** channel gets a row (declared half) even with zero
-    measured links, plus any channel observed in the data. ``store``/``history``
-    are injectable for tests. Default sort surfaces weakest-presence channels
-    first (live links ascending) — a raw dimension, not a composite rank.
+    Separate provenance from the ledger liveness pivot; mapped onto channels
+    by the recheck payload's own platform slug. None (unattributed recheck)
+    folds into UNATTRIBUTED.
     """
-    now = datetime.now()
-    store = store or EventStore()
-    buckets = build_target_buckets(store=store, history=history)
-    plat_index = _platform_by_live_url(store)
-    # Recheck-derived strip diagnosis (R2c.a) — separate provenance from the
-    # ledger liveness above; mapped onto channels by the recheck payload's own
-    # platform slug. None (unattributed recheck) folds into UNATTRIBUTED.
-    referral_by_channel = latest_referral_by_channel(store)
     strip_raw = derive_strip_counts_by_platform(store)
     strip_by_channel: dict[str, dict[str, int]] = {}
     for plat, counts in strip_raw.items():
@@ -140,8 +125,18 @@ def build_channel_scorecard(
         acc = strip_by_channel.setdefault(ch, {k: 0 for k in STRIP_VERDICTS})
         for k in STRIP_VERDICTS:
             acc[k] += counts.get(k, 0)
+    return strip_by_channel
 
-    # Pivot every link by its resolved channel.
+
+def _pivot_links_by_channel(
+    buckets: dict[str, Any],
+    plat_index: dict[str, str],
+    now: datetime,
+    stale_days: int,
+) -> dict[str, dict[str, Any]]:
+    """Pivot every ledger link by its resolved channel, accumulating
+    total/live/live_dofollow counts and a per-liveness-state breakdown.
+    """
     seen: dict[str, dict[str, Any]] = {}
 
     def channel_acc(ch: str) -> dict[str, Any]:
@@ -164,6 +159,78 @@ def build_channel_scorecard(
                 if _classify(resolved)[0] == "dofollow":
                     acc["live_dofollow"] += 1
 
+    return seen
+
+
+def _build_channel_row(
+    ch: str,
+    *,
+    seen: dict[str, dict[str, Any]],
+    strip_by_channel: dict[str, dict[str, int]],
+    referral_by_channel: dict[str, int],
+    small_sample_max: int,
+) -> ChannelScoreRow:
+    """Assemble one channel's full ``ChannelScoreRow`` from its accumulated
+    measured data (if any) plus its declared (registry) half.
+    """
+    ch_acc: dict[str, Any] | None = seen.get(ch)
+    total: int = int(ch_acc["total"]) if ch_acc else 0
+    live: int = int(ch_acc["live"]) if ch_acc else 0
+    live_dofollow: int = int(ch_acc["live_dofollow"]) if ch_acc else 0
+    breakdown: dict[str, int] = cast(dict[str, int], ch_acc["liveness"]) if ch_acc else {k: 0 for k in _LIVENESS_KEYS}
+    declared_dofollow, declared_referral = _declared(ch)
+    small = total <= small_sample_max
+    return ChannelScoreRow(
+        channel=ch,
+        declared_dofollow=declared_dofollow,
+        declared_referral_value=declared_referral,
+        total_links=total,
+        live_links=live,
+        live_pct=(round(live / total, 3) if total else None),
+        live_dofollow=live_dofollow,
+        liveness_breakdown=dict(breakdown),
+        strip_breakdown=dict(
+            strip_by_channel.get(ch, {k: 0 for k in STRIP_VERDICTS})
+        ),
+        small_sample=small,
+        sample_note="insufficient-data" if small else "ok",
+        divergence=_divergence(
+            declared_dofollow=declared_dofollow,
+            declared_referral=declared_referral,
+            total=total, live=live, live_dofollow=live_dofollow,
+        ),
+        referral_traffic=(
+            f"sessions:{referral_by_channel[ch]}"
+            if ch in referral_by_channel
+            else AXIS_INERT
+        ),
+        gsc_discovery=AXIS_INERT,
+        ai_retrievability=AXIS_INERT,
+    )
+
+
+def build_channel_scorecard(
+    *,
+    stale_days: int = 30,
+    small_sample_max: int = DEFAULT_SMALL_SAMPLE_MAX,
+    store: EventStore | None = None,
+    history: list[dict[str, Any]] | None = None,
+) -> list[ChannelScoreRow]:
+    """Build the per-channel signal-vector scorecard.
+
+    Every **registered** channel gets a row (declared half) even with zero
+    measured links, plus any channel observed in the data. ``store``/``history``
+    are injectable for tests. Default sort surfaces weakest-presence channels
+    first (live links ascending) — a raw dimension, not a composite rank.
+    """
+    now = datetime.now()
+    store = store or EventStore()
+    buckets = build_target_buckets(store=store, history=history)
+    plat_index = _platform_by_live_url(store)
+    referral_by_channel = latest_referral_by_channel(store)
+    strip_by_channel = _build_strip_by_channel(store)
+    seen = _pivot_links_by_channel(buckets, plat_index, now, stale_days)
+
     # Union of registered channels (declared half), observed channels, and any
     # channel that only appears in recheck-strip data (so a platform with strip
     # events but zero ledger links still surfaces a row).
@@ -174,42 +241,16 @@ def build_channel_scorecard(
         | set(referral_by_channel.keys())
     )
 
-    rows: list[ChannelScoreRow] = []
-    for ch in channels:
-        ch_acc: dict[str, Any] | None = seen.get(ch)
-        total: int = int(ch_acc["total"]) if ch_acc else 0
-        live: int = int(ch_acc["live"]) if ch_acc else 0
-        live_dofollow: int = int(ch_acc["live_dofollow"]) if ch_acc else 0
-        breakdown: dict[str, int] = cast(dict[str, int], ch_acc["liveness"]) if ch_acc else {k: 0 for k in _LIVENESS_KEYS}
-        declared_dofollow, declared_referral = _declared(ch)
-        small = total <= small_sample_max
-        rows.append(ChannelScoreRow(
-            channel=ch,
-            declared_dofollow=declared_dofollow,
-            declared_referral_value=declared_referral,
-            total_links=total,
-            live_links=live,
-            live_pct=(round(live / total, 3) if total else None),
-            live_dofollow=live_dofollow,
-            liveness_breakdown=dict(breakdown),
-            strip_breakdown=dict(
-                strip_by_channel.get(ch, {k: 0 for k in STRIP_VERDICTS})
-            ),
-            small_sample=small,
-            sample_note="insufficient-data" if small else "ok",
-            divergence=_divergence(
-                declared_dofollow=declared_dofollow,
-                declared_referral=declared_referral,
-                total=total, live=live, live_dofollow=live_dofollow,
-            ),
-            referral_traffic=(
-                f"sessions:{referral_by_channel[ch]}"
-                if ch in referral_by_channel
-                else AXIS_INERT
-            ),
-            gsc_discovery=AXIS_INERT,
-            ai_retrievability=AXIS_INERT,
-        ))
+    rows: list[ChannelScoreRow] = [
+        _build_channel_row(
+            ch,
+            seen=seen,
+            strip_by_channel=strip_by_channel,
+            referral_by_channel=referral_by_channel,
+            small_sample_max=small_sample_max,
+        )
+        for ch in channels
+    ]
 
     rows.sort(key=lambda r: (r.live_links, r.total_links, r.channel))
     return rows
