@@ -203,7 +203,7 @@ backlink-publisher/scripts/packaging/
 
 ---
 
-- [ ] **Unit 3: 建置 SPA 前端並組裝完整封裝目錄樹**
+- [x] **Unit 3: 建置 SPA 前端並組裝完整封裝目錄樹**
 
 **Goal:** 一個指令完成「建置 SPA → 複製後端程式碼 → 組合成 Output Structure 描述的目錄樹」，取代目前手動複製組裝的流程。
 
