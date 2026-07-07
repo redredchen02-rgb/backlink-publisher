@@ -171,6 +171,7 @@ const onBulkCancel = () => {
       :loading="query.isPending.value"
       :error="query.isError.value ? query.error.value : undefined"
       empty-text="草稿队列是空的"
+      caption="草稿队列列表"
       :selected="selected"
       :total="total"
       :limit="PAGE_SIZE"

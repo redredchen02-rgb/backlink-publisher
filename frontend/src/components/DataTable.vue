@@ -9,7 +9,7 @@
 //
 // `id` must be a stable, unique string per row -- it backs :key, the
 // checkbox aria-label, and membership in the `selected` Set.
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import StateBlock from './StateBlock.vue'
 
 const props = withDefaults(
@@ -18,6 +18,8 @@ const props = withDefaults(
     loading?: boolean
     error?: unknown
     emptyText?: string
+    /** Accessible caption for the <table> (W11). */
+    caption?: string
     selected?: Set<string>
     /** Present together to opt into the pagination footer (K6, opt-in). */
     total?: number
@@ -40,14 +42,18 @@ const props = withDefaults(
      * existing callers (Drafts, etc.) are unaffected.
      */
     rowClass?: (row: T) => Record<string, boolean>
+    /** Enable keyboard row navigation (Up/Down arrows, W11). */
+    rowKeyboardNav?: boolean
   }>(),
-  { loading: false, emptyText: '暂无数据', selected: () => new Set(), disabled: false },
+  { loading: false, emptyText: '暂无数据', caption: '', selected: () => new Set(), disabled: false, rowKeyboardNav: false },
 )
 
 const emit = defineEmits<{
   retry: []
   'update:selected': [Set<string>]
   'update:offset': [number]
+  /** Enter pressed on a keyboard-focused row (W11) -- caller decides the row's "main action". */
+  rowActivate: [T]
 }>()
 
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
@@ -60,6 +66,9 @@ const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
 
 const allSelected = computed(
   () => props.items.length > 0 && props.items.every((row) => props.selected.has(row.id)),
+)
+const someSelected = computed(
+  () => props.items.some((row) => props.selected.has(row.id)) && !allSelected.value,
 )
 
 function toggleAll(): void {
@@ -74,6 +83,49 @@ function toggleRow(id: string): void {
     next.add(id)
   }
   emit('update:selected', next)
+}
+
+// -1 = "no row explicitly focused yet" -- falls back to row 0 as the roving
+// tabindex target so the table is Tab-reachable at all before any arrow-key
+// interaction (fixing a draft bug where every row started at tabindex="-1").
+const focusedRowIndex = ref(-1)
+const activeRowIndex = computed(() => (focusedRowIndex.value >= 0 ? focusedRowIndex.value : 0))
+const tbodyRef = ref<HTMLElement | null>(null)
+
+function onRowKeydown(event: KeyboardEvent, index: number): void {
+  if (!props.rowKeyboardNav || props.disabled) return
+  // Only handle the key when the <tr> itself is focused -- not when it
+  // bubbled up from a nested interactive control (checkbox/link/button/
+  // datetime input), which must keep its own native key handling untouched.
+  if (event.target !== event.currentTarget) return
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    const next = Math.min(index + 1, props.items.length - 1)
+    _focusRow(next)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    const prev = Math.max(index - 1, 0)
+    _focusRow(prev)
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    const row = props.items[index]
+    if (row) emit('rowActivate', row)
+  }
+}
+
+function _focusRow(index: number): void {
+  focusedRowIndex.value = index
+  const rows = tbodyRef.value?.querySelectorAll('tr')
+  if (rows && rows[index]) {
+    ;(rows[index] as HTMLElement).focus()
+  }
+}
+
+// Keeps the roving-tabindex target in sync when a row is focused by means
+// other than the arrow keys (mouse click, or Tab landing on row 0).
+function onRowFocus(index: number): void {
+  if (!props.rowKeyboardNav) return
+  focusedRowIndex.value = index
 }
 
 const paginated = computed(() => props.limit != null && props.total != null)
@@ -101,26 +153,31 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
     <StateBlock :state="blockState" :error="error" :empty-text="emptyText" @retry="emit('retry')">
       <div class="data-table-wrap">
         <table class="data-table">
+          <caption v-if="caption" class="sr-only">{{ caption }}</caption>
           <thead>
             <tr>
-              <th class="col-select">
+              <th class="col-select" scope="col">
                 <input
                   type="checkbox"
                   :checked="allSelected"
+                  :indeterminate="someSelected"
                   :disabled="disabled"
-                  :aria-label="allSelected ? '取消全选' : '全选本页'"
+                  :aria-label="allSelected ? '取消全选' : someSelected ? '部分选中' : '全选本页'"
                   @change="toggleAll"
                 />
               </th>
               <slot name="head" />
             </tr>
           </thead>
-          <tbody>
+          <tbody ref="tbodyRef">
             <tr
-              v-for="row in items"
+              v-for="(row, index) in items"
               :key="row.id"
               :data-id="row.id"
               :class="rowClass ? rowClass(row) : undefined"
+              :tabindex="rowKeyboardNav && !disabled ? (activeRowIndex === index ? 0 : -1) : undefined"
+              @keydown="onRowKeydown($event, index)"
+              @focus="onRowFocus(index)"
             >
               <td class="col-select">
                 <input
@@ -157,5 +214,22 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
 .col-select {
   width: 2rem;
   text-align: center;
+}
+/* Visible roving-tabindex focus ring (W11) -- rows are only ever tabbable
+   via tabindex when rowKeyboardNav is on, so this never fires otherwise. */
+.data-table tbody tr:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

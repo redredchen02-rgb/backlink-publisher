@@ -119,6 +119,136 @@ describe('DataTable pagination (opt-in)', () => {
   })
 })
 
+describe('DataTable a11y structure (W11)', () => {
+  it('renders no <caption> when caption prop is the default empty string', () => {
+    const w = mountTable()
+    expect(w.find('caption').exists()).toBe(false)
+  })
+
+  it('renders a sr-only <caption> with the given text when caption is set', () => {
+    const w = mountTable({ caption: '发布历史列表' })
+    const caption = w.find('caption')
+    expect(caption.exists()).toBe(true)
+    expect(caption.classes()).toContain('sr-only')
+    expect(caption.text()).toBe('发布历史列表')
+  })
+
+  it('the select-all header cell carries scope="col"', () => {
+    const w = mountTable()
+    expect(w.find('thead th.col-select').attributes('scope')).toBe('col')
+  })
+
+  it('select-all checkbox: unchecked/not-indeterminate when nothing is selected', () => {
+    const w = mountTable({ selected: new Set<string>() })
+    const cb = w.find('thead input[type="checkbox"]').element as HTMLInputElement
+    expect(cb.checked).toBe(false)
+    expect(cb.indeterminate).toBe(false)
+    expect(cb.getAttribute('aria-label')).toBe('全选本页')
+  })
+
+  it('select-all checkbox: indeterminate + "部分选中" aria-label when some (not all) rows selected', () => {
+    const w = mountTable({ selected: new Set(['a']) })
+    const cb = w.find('thead input[type="checkbox"]').element as HTMLInputElement
+    expect(cb.checked).toBe(false)
+    expect(cb.indeterminate).toBe(true)
+    expect(cb.getAttribute('aria-label')).toBe('部分选中')
+  })
+
+  it('select-all checkbox: checked + not indeterminate + "取消全选" aria-label when every row selected', () => {
+    const w = mountTable({ selected: new Set(['a', 'b', 'c']) })
+    const cb = w.find('thead input[type="checkbox"]').element as HTMLInputElement
+    expect(cb.checked).toBe(true)
+    expect(cb.indeterminate).toBe(false)
+    expect(cb.getAttribute('aria-label')).toBe('取消全选')
+  })
+
+  it('three-state cycle: none -> some -> all -> none via toggling rows/select-all', async () => {
+    const w = mountTable({ selected: new Set<string>() })
+    const cbOf = () => w.find('thead input[type="checkbox"]').element as HTMLInputElement
+    expect(cbOf().indeterminate).toBe(false)
+
+    await w.setProps({ selected: new Set(['a']) })
+    expect(cbOf().indeterminate).toBe(true)
+
+    await w.setProps({ selected: new Set(['a', 'b', 'c']) })
+    expect(cbOf().indeterminate).toBe(false)
+    expect(cbOf().checked).toBe(true)
+
+    await w.setProps({ selected: new Set<string>() })
+    expect(cbOf().indeterminate).toBe(false)
+    expect(cbOf().checked).toBe(false)
+  })
+})
+
+describe('DataTable keyboard row navigation (W11, rowKeyboardNav)', () => {
+  it('rowKeyboardNav=false (default): rows carry no tabindex and arrows do nothing', async () => {
+    const w = mountTable()
+    const rows = w.findAll('tbody tr')
+    for (const r of rows) {
+      expect(r.attributes('tabindex')).toBeUndefined()
+    }
+    await rows[0].trigger('keydown', { key: 'ArrowDown' })
+    // no crash, no rowActivate/focus side effects to observe beyond absence of tabindex
+    expect(w.emitted('rowActivate')).toBeUndefined()
+  })
+
+  it('rowKeyboardNav=true: first row defaults to tabindex=0, others -1, before any interaction', () => {
+    const w = mountTable({ rowKeyboardNav: true })
+    const rows = w.findAll('tbody tr')
+    expect(rows[0].attributes('tabindex')).toBe('0')
+    expect(rows[1].attributes('tabindex')).toBe('-1')
+    expect(rows[2].attributes('tabindex')).toBe('-1')
+  })
+
+  it('ArrowDown moves the roving tabindex to the next row and focuses it', async () => {
+    const w = mountTable({ rowKeyboardNav: true })
+    document.body.appendChild(w.element)
+    const rows = w.findAll('tbody tr')
+    await rows[0].trigger('keydown', { key: 'ArrowDown' })
+    expect(w.findAll('tbody tr')[0].attributes('tabindex')).toBe('-1')
+    expect(w.findAll('tbody tr')[1].attributes('tabindex')).toBe('0')
+    w.element.remove()
+  })
+
+  it('ArrowDown at the last row stays clamped (no out-of-range focus)', async () => {
+    const w = mountTable({ rowKeyboardNav: true })
+    document.body.appendChild(w.element)
+    const rows = w.findAll('tbody tr')
+    await rows[2].trigger('keydown', { key: 'ArrowDown' })
+    expect(w.findAll('tbody tr')[2].attributes('tabindex')).toBe('0')
+    w.element.remove()
+  })
+
+  it('ArrowUp at the first row stays clamped', async () => {
+    const w = mountTable({ rowKeyboardNav: true })
+    const rows = w.findAll('tbody tr')
+    await rows[0].trigger('keydown', { key: 'ArrowUp' })
+    expect(w.findAll('tbody tr')[0].attributes('tabindex')).toBe('0')
+  })
+
+  it('Enter on a focused row emits rowActivate with that row', async () => {
+    const w = mountTable({ rowKeyboardNav: true })
+    const rows = w.findAll('tbody tr')
+    await rows[1].trigger('keydown', { key: 'Enter' })
+    expect(w.emitted('rowActivate')![0]).toEqual([{ id: 'b' }])
+  })
+
+  it('rowKeyboardNav=true but disabled=true: no tabindex, arrows/Enter are no-ops', async () => {
+    const w = mountTable({ rowKeyboardNav: true, disabled: true })
+    const rows = w.findAll('tbody tr')
+    expect(rows[0].attributes('tabindex')).toBeUndefined()
+    await rows[0].trigger('keydown', { key: 'Enter' })
+    expect(w.emitted('rowActivate')).toBeUndefined()
+  })
+
+  it('a keydown bubbling from a nested control (not the <tr> itself) is ignored', async () => {
+    const w = mountTable({ rowKeyboardNav: true })
+    const checkbox = w.find('tbody tr[data-id="a"] input[type="checkbox"]')
+    await checkbox.trigger('keydown', { key: 'Enter' })
+    expect(w.emitted('rowActivate')).toBeUndefined()
+  })
+})
+
 describe('DataTable disabled (code review: pagination-during-mutation race)', () => {
   it('disables the pager buttons even when they would otherwise be enabled', () => {
     const w = mountTable({ limit: 50, offset: 50, total: 120, disabled: true })

@@ -373,6 +373,15 @@ async function onRecheck(id: string): Promise<void> {
   }
 }
 
+// W11 keyboard row nav: Enter on a keyboard-focused row triggers this row's
+// "main action" -- opening the published target URL, mirroring the existing
+// mouse path (click the row's target-url link) rather than any of the
+// destructive/mutating row buttons (recheck/delete), which stay strictly
+// click-only to avoid an accidental Enter causing a mutation.
+function onRowActivate(row: HistoryItem): void {
+  window.open(row.target_url, '_blank', 'noopener')
+}
+
 // ── bulk mutations ─────────────────────────────────────────────────────────
 async function onBulkDelete(): Promise<void> {
   const ids = [...selected.value]
@@ -493,6 +502,8 @@ async function confirmPurge(): Promise<void> {
       :loading="query.isPending.value"
       :error="query.isError.value ? query.error.value : undefined"
       empty-text="还没有发布记录"
+      caption="发布历史列表"
+      row-keyboard-nav
       :selected="selected"
       :total="total"
       :limit="PAGE_SIZE"
@@ -502,6 +513,7 @@ async function confirmPurge(): Promise<void> {
       @retry="query.refetch()"
       @update:selected="selected = $event"
       @update:offset="offset = $event"
+      @row-activate="onRowActivate"
     >
       <template #head>
         <th>状态</th>
