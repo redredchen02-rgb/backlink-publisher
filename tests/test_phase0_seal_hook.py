@@ -25,6 +25,7 @@ __tier__ = "unit"
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -32,6 +33,13 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALLER = REPO_ROOT / "scripts" / "install-pre-push-hook.sh"
+# Resolve bash's full path, not the bare "bash" string: Windows' CreateProcess
+# implicit search checks System32 before PATH, so a bare "bash" argv[0] can
+# resolve to the WSL launcher stub at C:\Windows\System32\bash.exe instead of
+# Git for Windows' real bash -- and WSL's bash cannot see Windows-style paths
+# at all, so it reports "No such file or directory" (exit 127) for a path
+# that genuinely exists.
+_BASH = shutil.which("bash") or "bash"
 
 
 def _run(cwd: Path, *args: str, check: bool = True, env: dict | None = None) -> subprocess.CompletedProcess:
@@ -76,7 +84,12 @@ def _install_hook(repo: Path) -> Path:
     target.write_bytes(INSTALLER.read_bytes())
     target.chmod(0o755)
     subprocess.run(
-        ["bash", str(target)], cwd=repo, capture_output=True, text=True, check=True,
+        # as_posix(), not str(): on Windows, MSYS bash.exe's own argv
+        # unescaping treats "\" in a raw command-line argument as an escape
+        # character and silently strips it, turning
+        # "C:\...\install-pre-push-hook.sh" into "C:...install-pre-push-hook.sh"
+        # (a nonexistent path) -- exit 127 "No such file or directory".
+        [_BASH, target.as_posix()], cwd=repo, capture_output=True, text=True, check=True,
     )
     hook = repo / ".git" / "hooks" / "pre-push"
     assert hook.exists(), f"hook not installed at {hook}"
@@ -311,6 +324,11 @@ class TestInstaller:
     def test_installer_creates_executable_hook(self, hook_env: dict) -> None:
         hook = hook_env["repo"] / ".git" / "hooks" / "pre-push"
         assert hook.exists()
+        if sys.platform == "win32":
+            # Windows has no POSIX execute bit -- os.chmod can't set or
+            # represent it, so there is nothing meaningful left to assert
+            # here beyond the file existing (already checked above).
+            return
         # On Unix, check the user execute bit
         mode = hook.stat().st_mode
         assert mode & 0o100, f"hook not executable; mode={oct(mode)}"
@@ -320,7 +338,7 @@ class TestInstaller:
         write or back up; the marker line signals it's already managed."""
         installer = hook_env["repo"] / "scripts" / "install-pre-push-hook.sh"
         first_content = (hook_env["repo"] / ".git" / "hooks" / "pre-push").read_bytes()
-        subprocess.run(["bash", str(installer)], cwd=hook_env["repo"],
+        subprocess.run([_BASH, installer.as_posix()], cwd=hook_env["repo"],
                        capture_output=True, text=True, check=True)
         second_content = (hook_env["repo"] / ".git" / "hooks" / "pre-push").read_bytes()
         assert first_content == second_content
