@@ -100,6 +100,18 @@ resume = "backlink_publisher.cli.resume:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Packaging metadata (not runtime code) — declares non-.py resource files that
+# a plain `pip install --target` would otherwise silently drop. Needed by the
+# Windows portable-package build (scripts/packaging/build_windows_package.py,
+# docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md, Unit 1):
+# the config-driven catalog adapter framework
+# (src/backlink_publisher/publishing/adapters/catalog/) loads its platform
+# definitions from *.yaml files at runtime via importlib.resources /
+# directory-glob, and an empty catalog dir fails open (zero platforms
+# registered) with no error — so these files must ship with the wheel.
+[tool.setuptools.package-data]
+"backlink_publisher.publishing.adapters.catalog" = ["*.yaml", "*.yml"]
+
 [tool.ruff]
 # Ruff configuration — unified Python linter and formatter.
 # Replaces black/flake8/isort for this project.
@@ -218,6 +230,7 @@ markers = [
     "real_image_gen: exercise the real FRW image-gen endpoint instead of mocking; opt-in operator-only, never runs in CI (Plan 2026-05-20-001 Unit 2)",
     "real_browser_publish_smoke: open live channel compose URL in attached Chrome and verify selectors against current DOM; opt-in operator-only (Plan 2026-05-21-001 Unit 4a+)",
     "real_live_publish: run the real-credential non-author publish path against a throwaway account in draft mode; opt-in operator-only, never runs in CI (Plan 2026-06-05-008 R7/R8)",
+    "real_packaging_build: provision a real python-embed/ interpreter from python.org + PyPI (network + Windows required); opt-in via BACKLINK_PUBLISHER_REAL_PACKAGING_BUILD=1, never runs in CI (docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md Unit 1)",
     "unit: fast, isolated tests with no external dependencies; run on every push (default tier)",
     "integration: tests that touch disk, database, or external services; run on CI per-PR",
     "e2e: full end-to-end tests requiring real network or browser; opt-in, run pre-merge or nightly",
