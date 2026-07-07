@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import sys
 
+from backlink_publisher._dispatch_router import collect_all, route
+from backlink_publisher._dispatch_router.routing import ENGINE_VERSION
 from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import publish_logger as log
 from backlink_publisher.config import load_config
-from backlink_publisher._dispatch_router import collect_all, route
-from backlink_publisher._dispatch_router.routing import ENGINE_VERSION
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from webui_store.channel_status import channel_status_store
 
