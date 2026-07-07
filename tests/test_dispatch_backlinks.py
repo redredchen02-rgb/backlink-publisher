@@ -5,6 +5,7 @@ Covers:
 - Unit: collect_all() signal resolution
 - Integration: CLI entrypoint (stdin → stdout → exit code)
 """
+
 from __future__ import annotations
 
 __tier__ = "unit"
@@ -15,8 +16,8 @@ from typing import Any
 
 import pytest
 
-from backlink_publisher.dispatch.routing import ENGINE_VERSION, route
-from backlink_publisher.dispatch.signals import collect_all, PlatformSignal
+from backlink_publisher._dispatch_router.routing import ENGINE_VERSION, route
+from backlink_publisher._dispatch_router.signals import collect_all, PlatformSignal
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
@@ -111,26 +112,15 @@ class TestRouteBasic:
             "medium": _signal("medium"),
             "velog": _signal("velog"),
         }
-        ledger = {
-            "https://example.com/page": {
-                "live_dofollow_platforms": ["blogger", "medium"],
-            }
-        }
+        ledger = {"https://example.com/page": {"live_dofollow_platforms": ["blogger", "medium"]}}
         platform, dispatch = _route(sigs, ledger_map=ledger)
         # velog has 0 existing covers -> highest spread bonus
         assert platform == "velog"
         assert "new_platform" in dispatch["reason"]
 
     def test_spread_strategy_favors_uncovered(self):
-        sigs = {
-            "blogger": _signal("blogger"),
-            "velog": _signal("velog"),
-        }
-        ledger = {
-            "https://example.com/page": {
-                "live_dofollow_platforms": ["blogger"],
-            }
-        }
+        sigs = {"blogger": _signal("blogger"), "velog": _signal("velog")}
+        ledger = {"https://example.com/page": {"live_dofollow_platforms": ["blogger"]}}
         platform, _ = _route(sigs, strategy="spread", ledger_map=ledger)
         assert platform == "velog"
 
@@ -139,19 +129,13 @@ class TestRouteFiltering:
     """Exclusion logic — platforms that should be removed from consideration."""
 
     def test_excludes_retired_platforms(self):
-        sigs = {
-            "good": _signal("good"),
-            "retired": _signal("retired", visibility="retired"),
-        }
+        sigs = {"good": _signal("good"), "retired": _signal("retired", visibility="retired")}
         platform, dispatch = _route(sigs)
         assert platform == "good"
         assert dispatch["excluded"].get("retired") == "visibility"
 
     def test_excludes_hidden_platforms(self):
-        sigs = {
-            "hidden_plat": _signal("hidden_plat", visibility="hidden"),
-            "good": _signal("good"),
-        }
+        sigs = {"hidden_plat": _signal("hidden_plat", visibility="hidden"), "good": _signal("good")}
         platform, _ = _route(sigs)
         assert platform == "good"
 
@@ -165,10 +149,7 @@ class TestRouteFiltering:
         assert dispatch["excluded"].get("unbound_plat") == "binding"
 
     def test_excludes_expired_platforms(self):
-        sigs = {
-            "expired_plat": _signal("expired", binding="expired"),
-            "good": _signal("good"),
-        }
+        sigs = {"expired_plat": _signal("expired", binding="expired"), "good": _signal("good")}
         platform, _ = _route(sigs)
         assert platform == "good"
 
@@ -217,10 +198,8 @@ class TestRouteDowngrade:
         should downgrade to uncertain."""
         sigs = {
             "stale_plat": _signal(
-                "stale_plat",
-                dofollow=True,
-                canary_last_ok_at="2026-05-01T00:00:00",
-            ),
+                "stale_plat", dofollow=True, canary_last_ok_at="2026-05-01T00:00:00"
+            )
         }
         # Manually compute: stale_days=3, age≈33 days > 3 -> downgrade
         platform, _ = _route(sigs, canary_stale_days=3)
@@ -231,10 +210,8 @@ class TestRouteDowngrade:
         """Canary data from today should not downgrade."""
         sigs = {
             "fresh_plat": _signal(
-                "fresh_plat",
-                dofollow=True,
-                canary_last_ok_at="2026-06-03T00:00:00",
-            ),
+                "fresh_plat", dofollow=True, canary_last_ok_at="2026-06-03T00:00:00"
+            )
         }
         platform, dispatch = _route(sigs, canary_stale_days=7)
         assert platform == "fresh_plat"
@@ -243,11 +220,7 @@ class TestRouteDowngrade:
     def test_canary_stale_days_zero_disables_downgrade(self):
         """canary_stale_days=0 should disable the downgrade."""
         sigs = {
-            "old_plat": _signal(
-                "old_plat",
-                dofollow=True,
-                canary_last_ok_at="2026-01-01T00:00:00",
-            ),
+            "old_plat": _signal("old_plat", dofollow=True, canary_last_ok_at="2026-01-01T00:00:00")
         }
         platform, dispatch = _route(sigs, canary_stale_days=0)
         assert platform == "old_plat"
@@ -268,15 +241,8 @@ class TestRouteStrategies:
 
     def test_quality_no_spread_bonus(self):
         """Quality strategy ignores spread."""
-        sigs = {
-            "blogger": _signal("blogger"),
-            "medium": _signal("medium"),
-        }
-        ledger = {
-            "https://example.com/page": {
-                "live_dofollow_platforms": ["blogger"],
-            }
-        }
+        sigs = {"blogger": _signal("blogger"), "medium": _signal("medium")}
+        ledger = {"https://example.com/page": {"live_dofollow_platforms": ["blogger"]}}
         platform, dispatch = _route(sigs, strategy="quality", ledger_map=ledger)
         # Both are dofollow=True, tie goes to alphabetical (blogger < medium)
         assert platform == "blogger"
@@ -285,15 +251,8 @@ class TestRouteStrategies:
         assert "dofollow=True" in dispatch["reason"]
 
     def test_spread_ignores_existing_same_tier(self):
-        sigs = {
-            "blogger": _signal("blogger"),
-            "velog": _signal("velog"),
-        }
-        ledger = {
-            "https://example.com/page": {
-                "live_dofollow_platforms": ["blogger"],
-            }
-        }
+        sigs = {"blogger": _signal("blogger"), "velog": _signal("velog")}
+        ledger = {"https://example.com/page": {"live_dofollow_platforms": ["blogger"]}}
         platform, _ = _route(sigs, strategy="spread", ledger_map=ledger)
         assert platform == "velog"  # velog has 0 covers -> highest spread
 
@@ -302,10 +261,7 @@ class TestRouteDegradedNoLedger:
     """Behaviour when ledger data is unavailable."""
 
     def test_no_ledger_falls_back_to_round_robin(self):
-        sigs = {
-            "blogger": _signal("blogger"),
-            "medium": _signal("medium"),
-        }
+        sigs = {"blogger": _signal("blogger"), "medium": _signal("medium")}
         # No ledger provided: tie goes to alphabetical (blogger < medium)
         platform, _ = _route(sigs)
         assert platform == "blogger"
@@ -329,9 +285,7 @@ class TestCollectAll:
 
     def test_collect_all_reflects_channel_data(self):
         """Channel binding data should be reflected in signals."""
-        channel_data = {
-            "velog": {"status": "expired"},
-        }
+        channel_data = {"velog": {"status": "expired"}}
         signals = collect_all(channel_data=channel_data)
         velog = signals.get("velog")
         if velog:
@@ -368,10 +322,7 @@ class TestCLIIntegration:
         """--platform override should set all rows to that platform."""
         from backlink_publisher.cli.dispatch_backlinks import main
 
-        input_rows = [
-            {"url": "https://example.com/a"},
-            {"url": "https://example.com/b"},
-        ]
+        input_rows = [{"url": "https://example.com/a"}, {"url": "https://example.com/b"}]
         stdin_text = "\n".join(json.dumps(r) for r in input_rows)
         monkeypatch.setattr(sys, "stdin", io.StringIO(stdin_text))
 
@@ -426,11 +377,7 @@ class TestCLIIntegration:
         from backlink_publisher.cli.dispatch_backlinks import main
 
         input_rows = [
-            {
-                "url": "https://example.com/page",
-                "title": "Test Article",
-                "language": "en",
-            }
+            {"url": "https://example.com/page", "title": "Test Article", "language": "en"}
         ]
         stdin_text = "\n".join(json.dumps(r) for r in input_rows)
         monkeypatch.setattr(sys, "stdin", io.StringIO(stdin_text))
@@ -469,6 +416,3 @@ class TestCLIIntegration:
         # Since we can't monkeypatch all platform statuses easily,
         # skip this for now.
         pass
-
-
-

@@ -17,8 +17,8 @@ from backlink_publisher._util.errors import emit_error
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import publish_logger as log
 from backlink_publisher.config import load_config
-from backlink_publisher.dispatch import collect_all, route
-from backlink_publisher.dispatch.routing import ENGINE_VERSION
+from backlink_publisher._dispatch_router import collect_all, route
+from backlink_publisher._dispatch_router.routing import ENGINE_VERSION
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry
 from webui_store.channel_status import channel_status_store
 
@@ -62,34 +62,47 @@ def main(argv: list[str] | None = None) -> None:
         ),
     )
     parser.add_argument(
-        "--strategy", choices=_STRATEGY_CHOICES, default="balanced",
+        "--strategy",
+        choices=_STRATEGY_CHOICES,
+        default="balanced",
         help="Routing strategy: balanced (default), quality, or spread.",
     )
     parser.add_argument(
-        "--platform", default=None, metavar="NAME",
+        "--platform",
+        default=None,
+        metavar="NAME",
         help="Override: assign ALL rows to this platform (skip routing).",
     )
     parser.add_argument(
-        "--equity-ledger", default=None, metavar="FILE",
+        "--equity-ledger",
+        default=None,
+        metavar="FILE",
         help="Path to pre-computed equity-ledger JSONL for spread analysis.",
     )
     parser.add_argument(
-        "--canary-stale-days", type=int, default=None, metavar="N",
+        "--canary-stale-days",
+        type=int,
+        default=None,
+        metavar="N",
         help="Downgrade dofollow confidence if canary data is older than N days "
-             "(default: 7; 0 = disable).",
+        "(default: 7; 0 = disable).",
     )
-    parser.add_argument("--log-level", default="WARN",
-                        help="Set log level (DEBUG, INFO, WARN; default: WARN).")
+    parser.add_argument(
+        "--log-level", default="WARN", help="Set log level (DEBUG, INFO, WARN; default: WARN)."
+    )
     from backlink_publisher._util.profiling import add_profile_arg
+
     add_profile_arg(parser)
     args = parser.parse_args(argv)
 
     from backlink_publisher._util.logger import set_log_level
+
     set_log_level(args.log_level)
 
     # --platform override: skip routing entirely
     if args.platform is not None:
         from backlink_publisher.schema import reject_unsupported_platform
+
         msg = reject_unsupported_platform(args.platform)
         if msg is not None:
             emit_error(f"dispatch-backlinks: {msg}", exit_code=1)
@@ -111,14 +124,12 @@ def main(argv: list[str] | None = None) -> None:
     log.info(f"dispatch-backlinks: {len(rows)} row(s) to process on stdin")
 
     from backlink_publisher._util.profiling import profile_if_enabled
+
     with profile_if_enabled(args):
         # ── Resolve signals ──────────────────────────────────────────────
         channel_data = channel_status_store.load() or {}
         signals = collect_all(channel_data=channel_data)
-        log.info(
-            f"dispatch-backlinks: collected signals for "
-            f"{len(signals)} active platform(s)"
-        )
+        log.info(f"dispatch-backlinks: collected signals for {len(signals)} active platform(s)")
 
         ledger_map = _load_ledger_map(args.equity_ledger)
         if ledger_map is None:
@@ -164,9 +175,7 @@ def main(argv: list[str] | None = None) -> None:
             out = dict(row)
             if result.platform is not None:
                 out["platform"] = result.platform
-                total_platforms[result.platform] = (
-                    total_platforms.get(result.platform, 0) + 1
-                )
+                total_platforms[result.platform] = total_platforms.get(result.platform, 0) + 1
             else:
                 total_errors += 1
             out["_dispatch"] = result.dispatch
@@ -187,15 +196,14 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(6)
 
     summary_parts = [
-        f"dispatch-backlinks: assigned {len(rows)} row(s) across "
-        f"{len(total_platforms)} platform(s)"
+        f"dispatch-backlinks: assigned {len(rows)} row(s) across {len(total_platforms)} platform(s)"
     ]
     if total_errors:
         summary_parts.append(f"{total_errors} row(s) had no suitable platform")
     if total_platforms:
         parts = ", ".join(
-            f"{name}={count}" for name, count in
-            sorted(total_platforms.items(), key=lambda x: -x[1])
+            f"{name}={count}"
+            for name, count in sorted(total_platforms.items(), key=lambda x: -x[1])
         )
         summary_parts.append(f"({parts})")
     print("; ".join(summary_parts), file=sys.stderr)

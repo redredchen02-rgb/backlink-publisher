@@ -1,18 +1,19 @@
 """Unit tests for the pure validate engine (thin-WebUI Phase 2 Unit 6).
 
-Tests :func:`backlink_publisher.validate.engine.validate_rows` DIRECTLY — no
+Tests :func:`backlink_publisher._validate_engine.engine.validate_rows` DIRECTLY — no
 stdin/stdout, no SystemExit, no banner. The engine is the shared kernel behind
 both the CLI shell (``cli/validate_backlinks.py``) and the in-process
 ``PipelineAPI.validate``. The CLI-behavior guards live in
 ``tests/test_validate_backlinks.py``; these pin the pure contract.
 """
+
 from __future__ import annotations
 
 __tier__ = "e2e"
 import pytest
 
 from backlink_publisher._util import errors
-from backlink_publisher.validate.engine import validate_rows, ValidateOutcome
+from backlink_publisher._validate_engine.engine import validate_rows, ValidateOutcome
 
 
 def _make_valid_payload(url_mode: str = "A", platform: str = "medium") -> dict:
@@ -33,18 +34,37 @@ def _make_valid_payload(url_mode: str = "A", platform: str = "medium") -> dict:
             "This is a test article about https://example.com and some content here."
         ),
         "links": [
-            {"url": "https://example.com", "anchor": "Example",
-             "kind": "main_domain", "required": True},
-            {"url": "https://example.com/article", "anchor": "Article",
-             "kind": "target", "required": True},
-            {"url": "https://wikipedia.org", "anchor": "Wiki",
-             "kind": "supporting", "required": False},
-            {"url": "https://mdn.dev", "anchor": "MDN",
-             "kind": "supporting", "required": False},
-            {"url": "https://stackoverflow.com", "anchor": "SO",
-             "kind": "supporting", "required": False},
-            {"url": "https://github.com", "anchor": "GitHub",
-             "kind": "supporting", "required": False},
+            {
+                "url": "https://example.com",
+                "anchor": "Example",
+                "kind": "main_domain",
+                "required": True,
+            },
+            {
+                "url": "https://example.com/article",
+                "anchor": "Article",
+                "kind": "target",
+                "required": True,
+            },
+            {
+                "url": "https://wikipedia.org",
+                "anchor": "Wiki",
+                "kind": "supporting",
+                "required": False,
+            },
+            {"url": "https://mdn.dev", "anchor": "MDN", "kind": "supporting", "required": False},
+            {
+                "url": "https://stackoverflow.com",
+                "anchor": "SO",
+                "kind": "supporting",
+                "required": False,
+            },
+            {
+                "url": "https://github.com",
+                "anchor": "GitHub",
+                "kind": "supporting",
+                "required": False,
+            },
         ],
         "seo": {
             "title": "Test Article | SEO",
@@ -72,9 +92,7 @@ def test_happy_path_emits_output_no_errors():
 
 def test_malformed_row_collects_errors_not_raise():
     """Unregistered platform → collected into errors + platform_drops, no raise."""
-    outcome = validate_rows(
-        [{"id": "r0", "platform": "xyznonexistent"}], None, check_urls=False
-    )
+    outcome = validate_rows([{"id": "r0", "platform": "xyznonexistent"}], None, check_urls=False)
     assert outcome.outputs == []
     assert outcome.errors  # non-empty
     assert any("row 1" in e for e in outcome.errors)
@@ -85,9 +103,7 @@ def test_malformed_row_collects_errors_not_raise():
 
 def test_schema_failure_lands_in_validation_drops():
     """A registered-platform row missing required fields drops at the schema gate."""
-    outcome = validate_rows(
-        [{"id": "r1", "platform": "medium"}], None, check_urls=False
-    )
+    outcome = validate_rows([{"id": "r1", "platform": "medium"}], None, check_urls=False)
     assert outcome.outputs == []
     assert outcome.errors
     # Not a platform drop (medium is registered) — a schema/validation drop.
@@ -126,12 +142,11 @@ def test_url_check_failure_raises_external_service_error(monkeypatch):
     to raise. The contract: the engine propagates ExternalServiceError; the
     caller (shell / PipelineAPI) owns the exit-4 / PipeResult mapping.
     """
+
     def _boom(_urls):
         raise errors.ExternalServiceError("https://example.com unreachable")
 
-    monkeypatch.setattr(
-        "backlink_publisher.validate.engine.check_urls_strict", _boom
-    )
+    monkeypatch.setattr("backlink_publisher.validate.engine.check_urls_strict", _boom)
     with pytest.raises(errors.ExternalServiceError):
         validate_rows([_make_valid_payload()], None, check_urls=True)
 
@@ -149,10 +164,8 @@ def test_url_check_real_bad_url_raises_external_service_error():
     payload["target_url"] = "http://192.0.2.1/never"
     payload["main_domain"] = "http://192.0.2.1"
     payload["links"] = [
-        {"url": "http://192.0.2.1", "anchor": "Example",
-         "kind": "main_domain", "required": True},
-        {"url": "http://192.0.2.1/never", "anchor": "Article",
-         "kind": "target", "required": True},
+        {"url": "http://192.0.2.1", "anchor": "Example", "kind": "main_domain", "required": True},
+        {"url": "http://192.0.2.1/never", "anchor": "Article", "kind": "target", "required": True},
     ]
     with pytest.raises(errors.ExternalServiceError):
         validate_rows([payload], None, check_urls=True)

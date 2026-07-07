@@ -1,6 +1,6 @@
 """Validate planned backlink payloads with structured logging.
 
-Thin CLI shell over :func:`backlink_publisher.validate.engine.validate_rows`
+Thin CLI shell over :func:`backlink_publisher._validate_engine.engine.validate_rows`
 (thin-WebUI Phase 2 Unit 6). The shell owns argparse, ``set_log_level`` (H1 —
 stays here, NOT the engine), config-load tolerance, the config_echo banner,
 stdin/stdout JSONL, the recon line, and the typed-error exit. The pure
@@ -15,7 +15,7 @@ from typing import Any
 
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
 from backlink_publisher._util.logger import validate_logger
-from backlink_publisher.validate.engine import load_config_tolerant, validate_rows
+from backlink_publisher._validate_engine.engine import load_config_tolerant, validate_rows
 
 from .. import config_echo
 from .._util import errors
@@ -43,11 +43,11 @@ def main(argv: list[str] | None = None) -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        prog="validate-backlinks",
-        description="Validate planned backlink payloads.",
+        prog="validate-backlinks", description="Validate planned backlink payloads."
     )
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         type=argparse.FileType("r"),
         default=None,
         help="Input JSONL file (default: stdin)",
@@ -64,10 +64,7 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         default=False,
         dest="no_validate_url_check_legacy",
-        help=(
-            "DEPRECATED alias for --no-validate-url-check. "
-            "Will be removed in a future version."
-        ),
+        help=("DEPRECATED alias for --no-validate-url-check. Will be removed in a future version."),
     )
     parser.add_argument(
         "--log-level",
@@ -83,10 +80,12 @@ def main(argv: list[str] | None = None) -> None:
         help="Maximum input rows to process; excess rows are truncated with a warning (default: 1000)",
     )
     from backlink_publisher._util.profiling import add_profile_arg
+
     add_profile_arg(parser)
     args = parser.parse_args(argv)
 
     from backlink_publisher._util.logger import set_log_level
+
     set_log_level(args.log_level)
 
     validate_logger.info("validate-backlinks started")
@@ -111,6 +110,7 @@ def main(argv: list[str] | None = None) -> None:
         config_echo.emit_banner(config, "validate-backlinks")
 
     from backlink_publisher._util.profiling import profile_if_enabled
+
     with profile_if_enabled(args):
         try:
             rows = list(read_jsonl(args.input))
@@ -123,7 +123,7 @@ def main(argv: list[str] | None = None) -> None:
                 f" {args.max_rows} rows (--max-rows={args.max_rows})",
                 file=sys.stderr,
             )
-            rows = rows[:args.max_rows]
+            rows = rows[: args.max_rows]
 
         validate_logger.info(f"validating {len(rows)} payloads")
 
@@ -131,9 +131,7 @@ def main(argv: list[str] | None = None) -> None:
             outcome = validate_rows(rows, config, check_urls=check_urls)
         except errors.ExternalServiceError as exc:
             validate_logger.error(f"URL check failed: {exc}")
-            errors.emit_envelope_and_exit(
-                "ExternalServiceError", 4, f"URL check failed: {exc}"
-            )
+            errors.emit_envelope_and_exit("ExternalServiceError", 4, f"URL check failed: {exc}")
 
         # R2/R5: per-row skip semantic — passing rows STILL stream to stdout
         # so downstream consumers see partial success; exit code reflects overall
@@ -174,8 +172,7 @@ def main(argv: list[str] | None = None) -> None:
             )
 
     validate_logger.info(
-        f"validated {output_rows} payloads "
-        f"({output_rows} passed, {failed_count} failed)"
+        f"validated {output_rows} payloads ({output_rows} passed, {failed_count} failed)"
     )
 
 

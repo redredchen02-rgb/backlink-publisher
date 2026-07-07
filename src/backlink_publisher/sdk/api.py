@@ -164,18 +164,16 @@ def parse_publish_results(jsonl_str: str) -> list[dict[str, Any]]:
     return results
 
 
-def publish_state_summary(
-    publish_results: list[dict[str, Any]],
-) -> dict[str, Any]:
+def publish_state_summary(publish_results: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute aggregate publish state from per-row results.
 
     Returns ``{"n_ok", "n_failed", "state"}`` where *state* is one of
     ``"all_success"``, ``"all_failed"``, ``"partial_success"``.
     """
     n_ok = sum(
-        1 for r in publish_results
-        if (r.get("published_url") or "").strip()
-        or (r.get("draft_url") or "").strip()
+        1
+        for r in publish_results
+        if (r.get("published_url") or "").strip() or (r.get("draft_url") or "").strip()
     )
     n_failed = len(publish_results) - n_ok
 
@@ -189,8 +187,7 @@ def publish_state_summary(
     failure_msgs = [
         (r.get("error") or "").strip() or f"{r.get('status') or 'failed'} (no URL)"
         for r in publish_results
-        if not ((r.get("published_url") or "").strip()
-                or (r.get("draft_url") or "").strip())
+        if not ((r.get("published_url") or "").strip() or (r.get("draft_url") or "").strip())
     ]
 
     return {
@@ -226,11 +223,7 @@ class PipelineAPI:
         """
         try:
             raw = run_pipe(cmd, stdin)
-            return PipeResult(
-                stdout=raw["stdout"],
-                stderr=raw.get("stderr", ""),
-                success=True,
-            )
+            return PipeResult(stdout=raw["stdout"], stderr=raw.get("stderr", ""), success=True)
         except Exception as exc:
             return _typed_error_result(str(exc), label)
 
@@ -314,7 +307,8 @@ class PipelineAPI:
             return buf.getvalue()
 
         outcome: PlanOutcome = plan_rows(
-            rows, cfg,
+            rows,
+            cfg,
             work_count=work_count if work_count is not None else 10,
             fetch_verify_enabled=True,
         )
@@ -329,20 +323,11 @@ class PipelineAPI:
                 exit_code=2,
             )
 
-        return PipeResult(
-            stdout=_jsonl(outcome.outputs),
-            success=True,
-            exit_code=0,
-        )
+        return PipeResult(stdout=_jsonl(outcome.outputs), success=True, exit_code=0)
 
     # ── validate ─────────────────────────────────────────────────────────
 
-    def validate(
-        self,
-        plans_jsonl: str,
-        *,
-        no_check_urls: bool = True,
-    ) -> PipeResult:
+    def validate(self, plans_jsonl: str, *, no_check_urls: bool = True) -> PipeResult:
         """Validate planned-backlink JSONL **in-process** (thin-WebUI Phase 2 U6).
 
         Replaces the old ``validate-backlinks`` subprocess with a direct call to
@@ -365,10 +350,7 @@ class PipelineAPI:
 
         from backlink_publisher._util.errors import ExternalServiceError
         from backlink_publisher._util.jsonl import write_jsonl
-        from backlink_publisher.validate.engine import (
-            load_config_tolerant,
-            validate_rows,
-        )
+        from backlink_publisher._validate_engine.engine import load_config_tolerant, validate_rows
 
         rows = _parse_jsonl_rows(plans_jsonl)
         config = load_config_tolerant()
@@ -401,20 +383,12 @@ class PipelineAPI:
                 exit_code=2,
             )
 
-        return PipeResult(
-            stdout=_jsonl(outcome.outputs),
-            success=True,
-            exit_code=0,
-        )
+        return PipeResult(stdout=_jsonl(outcome.outputs), success=True, exit_code=0)
 
     # ── publish ──────────────────────────────────────────────────────────
 
     def publish(
-        self,
-        plans_jsonl: str,
-        platform: str,
-        mode: str,
-        tier_1: bool = False,
+        self, plans_jsonl: str, platform: str, mode: str, tier_1: bool = False
     ) -> PipeResult:
         """Publish validated rows, **in-process** for API-tier platforms (U5a-2).
 
@@ -439,7 +413,9 @@ class PipelineAPI:
             if tier_1:
                 cmd.append("--tier-1")
             return self._invoke_capture(cmd, plans_jsonl, "publish-backlinks failed")
-        return cast(PipeResult, publish_inprocess(plans_jsonl, platform=platform, mode=mode, tier_1=tier_1))
+        return cast(
+            PipeResult, publish_inprocess(plans_jsonl, platform=platform, mode=mode, tier_1=tier_1)
+        )
 
     def publish_seed(self, seed_jsonl: str) -> PipeResult:
         """Publish a self-describing seed (platform/mode in the payload), U5a-2.
@@ -460,7 +436,9 @@ class PipelineAPI:
             return self._invoke_capture(
                 ["publish-backlinks"], seed_jsonl, "publish-backlinks failed"
             )
-        return cast(PipeResult, publish_inprocess(seed_jsonl, platform=None, mode=None, tier_1=False))
+        return cast(
+            PipeResult, publish_inprocess(seed_jsonl, platform=None, mode=None, tier_1=False)
+        )
 
     # ── resume ───────────────────────────────────────────────────────────
 
@@ -517,16 +495,9 @@ class PipelineAPI:
             return PipeResult(
                 stdout=outcome.document,
                 success=False,
-                error=(
-                    f"anchor distribution alarm: {outcome.breach_count} "
-                    "target(s) breached"
-                ),
+                error=(f"anchor distribution alarm: {outcome.breach_count} target(s) breached"),
                 error_class="AnchorDistributionAlarm",
                 exit_code=outcome.exit_code,
             )
 
-        return PipeResult(
-            stdout=outcome.document,
-            success=True,
-            exit_code=0,
-        )
+        return PipeResult(stdout=outcome.document, success=True, exit_code=0)
