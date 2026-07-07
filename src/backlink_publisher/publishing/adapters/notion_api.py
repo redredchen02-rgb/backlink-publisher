@@ -58,11 +58,6 @@ def _post_publish_delay_s() -> int:
         env_var="NOTION_PUBLISH_DELAY_S",
         default=_DEFAULT_POST_PUBLISH_DELAY_S,
     )
-    from backlink_publisher.config import load_config
-    toml_val = load_config().platform_throttle.get("notion")
-    if toml_val is not None:
-        return int(toml_val)
-    return _DEFAULT_POST_PUBLISH_DELAY_S
 
 
 def _required_headers(integration_token: str) -> dict[str, str]:

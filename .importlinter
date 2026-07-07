@@ -21,7 +21,7 @@ source_modules =
     backlink_publisher.keepalive
     backlink_publisher.events
     backlink_publisher.anchor
-    backlink_publisher.validate
+    backlink_publisher._validate_engine
     backlink_publisher._util
     backlink_publisher.config
     backlink_publisher.linkcheck

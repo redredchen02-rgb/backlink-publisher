@@ -233,7 +233,7 @@ def _ensure_profile_perms(profile: Path) -> None:
         if os.name == "nt":  # Windows: no posix perm model
             return
         st = profile.stat()
-        if st.st_uid != os.geteuid():  # type: ignore[attr-defined]  # Windows: no geteuid
+        if st.st_uid != os.geteuid():
             raise ChromeSessionError("chrome_profile_unsafe_perms")
         if stat.S_IMODE(st.st_mode) & 0o077:
             os.chmod(profile, 0o700)

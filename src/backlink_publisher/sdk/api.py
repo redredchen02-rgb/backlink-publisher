@@ -468,7 +468,7 @@ class PipelineAPI:
         Read the document via ``result.stdout`` (``.rows`` cannot parse a
         single-document JSON/markdown blob).
         """
-        from backlink_publisher.cli._report_engine import report_from_profile
+        from backlink_publisher.cli.publish._report_engine import report_from_profile
         from backlink_publisher.config import load_config
 
         try:

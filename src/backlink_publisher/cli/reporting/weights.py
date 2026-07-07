@@ -47,7 +47,7 @@ def _handle_optimize(args: argparse.Namespace) -> int:
 
 
 def _handle_show(args: argparse.Namespace) -> int:
-    from backlink_publisher.cli.show_optimization_state import main as _show_main
+    from backlink_publisher.cli.reporting.show_optimization_state import main as _show_main
     argv: list[str] = []
     if args.as_json:
         argv.append("--json")

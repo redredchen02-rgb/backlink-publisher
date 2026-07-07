@@ -39,6 +39,13 @@ ALLOWLIST: set[str] = {
     "cli/keepalive_status.py",
     "cli/report_anchors.py",
     "cli/spray_backlinks/_gates.py",
+    # U8 CLI shim (2026-07-07) — orphaned once cli/reporting/weights.py's
+    # only remaining internal caller was repointed at the real
+    # cli.reporting.show_optimization_state location (see the same PR's
+    # mypy fix: the shim's static content is invisible to mypy's
+    # attr-defined check, since the sys.modules aliasing only resolves at
+    # runtime). Kept for the pyproject-adjacent/external legacy import path.
+    "cli/show_optimization_state.py",
     # CLI boilerplate + formatting — imported dynamically
     "cli/_shared.py",
     "_util/cli_format.py",

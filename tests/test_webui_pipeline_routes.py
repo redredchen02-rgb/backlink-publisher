@@ -303,11 +303,11 @@ class TestCheckpointRoutes:
         resp = client.post("/checkpoint/dismiss", data={"run_id": "bogus"})
         assert resp.status_code == 400
 
-    def test_dismiss_valid_run_id_redirects_to_root(self, client):
+    def test_dismiss_valid_run_id_redirects_to_spa(self, client):
         run_id = "20260518T000000-deadbeef"
         resp = client.post("/checkpoint/dismiss", data={"run_id": run_id})
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/?flash_type=success&flash_msg=")
+        assert resp.headers["Location"].startswith("/app/?flash_type=success&flash_msg=")
 
 
 # ═════════════════════════════════════════════════════════════════════════════

@@ -25,6 +25,7 @@ from typing import Any
 
 from backlink_publisher._util.errors import InputValidationError
 from backlink_publisher._util.logger import validate_logger
+from backlink_publisher._validate_engine._payload import _enhance_payload, _extract_hrefs_from_html
 from backlink_publisher.config import Config, load_config
 from backlink_publisher.linkcheck.http import check_urls_strict
 
@@ -40,7 +41,6 @@ from backlink_publisher.schema import (
     reject_unsupported_platform,
     validate_and_convert_output,
 )
-from backlink_publisher._validate_engine._payload import _enhance_payload, _extract_hrefs_from_html
 
 
 @dataclass

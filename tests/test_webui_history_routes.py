@@ -110,7 +110,7 @@ class TestDraftRoutes:
     def test_draft_save_with_empty_plans_redirects(self, client):
         resp = client.post("/ce:draft/save", data={"plans": ""})
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/?tab=draft")
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_save_with_plans_redirects(self, client):
         resp = client.post(
@@ -122,12 +122,12 @@ class TestDraftRoutes:
             },
         )
         assert resp.status_code == 302
-        assert resp.headers["Location"].startswith("/?tab=draft")
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_schedule_missing_params_redirects(self, client):
         resp = client.post("/ce:draft/schedule", data={})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_schedule_invalid_datetime_redirects(self, client):
         resp = client.post(
@@ -135,53 +135,53 @@ class TestDraftRoutes:
             data={"id": "abc", "scheduled_at": "not-a-datetime"},
         )
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_publish_now_missing_id_redirects(self, client):
         resp = client.post("/ce:draft/publish-now", data={})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_publish_now_with_id_redirects(self, client):
         resp = client.post("/ce:draft/publish-now", data={"id": "anything"})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_cancel_missing_id_redirects(self, client):
         resp = client.post("/ce:draft/cancel", data={})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_cancel_with_id_redirects(self, client):
         resp = client.post("/ce:draft/cancel", data={"id": "nonexistent"})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_delete_missing_id_redirects(self, client):
         resp = client.post("/ce:draft/delete", data={})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_delete_with_id_redirects(self, client):
         resp = client.post("/ce:draft/delete", data={"id": "nonexistent"})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     # Plan 2026-05-19-006 Unit 3 — bulk operations
     def test_draft_bulk_delete_empty_redirects(self, client):
         resp = client.post("/ce:draft/bulk-delete", data={})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_bulk_publish_now_empty_redirects(self, client):
         resp = client.post("/ce:draft/bulk-publish-now", data={})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
     def test_draft_bulk_cancel_empty_redirects(self, client):
         resp = client.post("/ce:draft/bulk-cancel", data={})
         assert resp.status_code == 302
-        assert "/?tab=draft" in resp.headers["Location"]
+        assert resp.headers["Location"].startswith("/app/")
 
 
 

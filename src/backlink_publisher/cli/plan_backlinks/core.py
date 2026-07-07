@@ -239,7 +239,7 @@ def main(argv: list[str] | None = None) -> None:
     # gives a statistically valid before/after comparison. Silently skipped when GSC
     # is not configured or any error occurs — never blocks plan generation.
     try:
-        from backlink_publisher.cli.probe_ranking import snapshot_baseline
+        from backlink_publisher.cli.ops.probe_ranking import snapshot_baseline
         gsc_cfg = getattr(cfg, "gsc", None)
         keywords = gsc_cfg.ranking_keywords if gsc_cfg else []
         snapshot_baseline(gsc_cfg, keywords)
