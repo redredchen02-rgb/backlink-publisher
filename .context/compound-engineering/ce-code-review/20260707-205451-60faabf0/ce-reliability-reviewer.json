@@ -1,0 +1,63 @@
+{
+  "reviewer": "reliability",
+  "findings": [
+    {
+      "title": "shutil.rmtree wrapper has no retry/backoff for locked-file failures, despite this exact failure being observed during development",
+      "severity": "P1",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 146,
+      "confidence": 0.85,
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "_rmtree_long_path_safe only prefixes the path with the extended-length prefix to work around MAX_PATH; it does not catch PermissionError / WinError 32 (file in use) or an OSError caused by a read-only attribute, and performs no retry-with-backoff. The docstring itself documents that a locked __pycache__/*.pyc from a killed prior build attempt caused a real rmtree failure during this feature own development, and says it was worked around manually, i.e. never fixed in code. This function is called from 4 places that gate the whole build (generate_cli_shims line 717, assemble_package line 917, provision_interpreter line 1058, build_package line 1248); any transient lock (AV scanner, search indexer, an orphaned python.exe from a previous killed build) will crash the build with a raw WinError instead of retrying past it. Add a bounded retry loop (e.g. 3-5 attempts with short backoff) around shutil.rmtree(target) that catches (PermissionError, OSError), optionally clearing read-only attributes via an onerror handler, before giving up and raising BuildError with a clear diagnostic."
+    },
+    {
+      "title": "subprocess.run calls capturing text output lack errors=replace, same encoding-fragility class already fixed in the e2e test bp.bat invocation",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 288,
+      "confidence": 0.82,
+      "autofix_class": "safe_auto",
+      "owner": "review-fixer",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "All 6 subprocess.run(...) call sites in this file (lines 288 _bootstrap_pip, 298 _run_embedded_pip, 417 and 430 _run_pip_audit, 584-590 _check_script_targets_resolvable, 755-757 _run_npm_step) use capture_output=True, text=True, encoding=utf-8 with no errors= argument. tests/packaging/test_build_windows_package_e2e.py lines 404-413 documents and fixes the exact same pattern for the bp.bat shim invocation (a stray non-UTF-8 byte on stdout/stderr crashes subprocess.run internal reader thread with an unhandled UnicodeDecodeError) but the fix (errors=replace) was never applied to these production call sites, even though they invoke the same kinds of Windows console tools (npm, pip, get-pip.py) that motivated the original fix. Add errors=replace consistently to all 6 call sites so a decode hiccup in pip/npm/pip-audit output degrades to a lossy-but-readable diagnostic instead of an opaque crash."
+    },
+    {
+      "title": "Network-dependent downloads and subprocess calls have no timeout, and can hang the build indefinitely on a stalled connection",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 194,
+      "confidence": 0.80,
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "_http_get_to_file (line 194) calls urllib.request.urlretrieve(url, dest) with no timeout argument and no socket.setdefaulttimeout() set anywhere in the module; if python.org or bootstrap.pypa.io accepts the TCP connection but stalls mid-transfer, this hangs forever with no way for an operator (or CI) to know the build is stuck rather than just slow. The same applies to the 6 subprocess.run calls that shell out to pip/npm/pip-audit (lines 288, 298, 417, 430, 584-590, 755-757), none of which pass timeout=; these run pip installs from PyPI, pip-audit vulnerability lookups, and npm ci against the npm registry, all network operations with no script-level timeout backstop. Add an explicit timeout to urlretrieve underlying connection (e.g. wrap in urlopen(url, timeout=N) plus shutil.copyfileobj) and pass timeout= to each subprocess.run call, converting subprocess.TimeoutExpired into a clear BuildError rather than leaving the operator staring at a build with no ETA and no diagnostic."
+    },
+    {
+      "title": "e2e test WebUI process cleanup does not check taskkill exit code before waiting, risking an orphaned server process holding its port",
+      "severity": "P2",
+      "file": "tests/packaging/test_build_windows_package_e2e.py",
+      "line": 386,
+      "confidence": 0.62,
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "The finally block (lines 386-395) does correctly run on every exit path from the try (poll-for-port timeout, poll-for-200 timeout, or success), which is good, but subprocess.run([taskkill, /F, /T, /PID, ...], capture_output=True, text=True) never checks result.returncode, so a taskkill failure (e.g. access denied, or a detached grandchild that escaped the process group CREATE_NEW_PROCESS_GROUP was meant to track) is silently swallowed. The subsequent webui_proc.wait(timeout=15) can then raise TimeoutExpired from inside the finally block itself, which both masks any original AssertionError from the poll functions and leaves the launch-webui.bat -> python-embed python.exe serve.py child orphaned, holding its port across test runs, exactly the failure mode this cleanup logic exists to prevent. Check taskkill returncode and log/assert on failure, and consider a second forced-kill attempt if wait() still times out, rather than letting the TimeoutExpired propagate silently."
+    }
+  ],
+  "residual_risks": [
+    "None of the build network operations (embeddable-zip download, get-pip.py download, pip installs, npm ci, pip-audit) retry on transient failure; a single blip on PyPI/npm/python.org fails the whole multi-minute build with no automatic recovery. This is likely an acceptable tradeoff for a manual/CI build tool an operator can just re-run, but it is a deliberate departure from the project own established retry_transient_call convention (src/backlink_publisher/publishing/adapters/retry.py, used by roughly 19 adapters) for exactly this class of external call, and was not called out as an explicit decision anywhere in this diff.",
+    "_check_script_targets_resolvable (line 544) accepts an arbitrary verify_python_exe path from callers without first checking it exists; a bad path raises a raw FileNotFoundError instead of a BuildError with a clear message. Low practical risk today since the only real caller passes either sys.executable or a python-embed/python.exe just verified to exist a few lines earlier in provision_interpreter, but it is a latent inconsistency with how build_spa (line 786) explicitly pre-checks npm existence for a clean error message."
+  ],
+  "testing_gaps": [
+    "No test exercises _rmtree_long_path_safe against a genuinely locked/in-use file (e.g. an open file handle held by a background thread) to confirm current behavior (immediate PermissionError propagation) or, once fixed, that the retry/backoff actually succeeds once the lock is released.",
+    "No test exercises the UnicodeDecodeError path for any of the 6 production subprocess.run call sites (only the e2e test own bp.bat invocation demonstrates the errors=replace fix); a unit test that monkeypatches subprocess.run to simulate the crash for e.g. _run_npm_step or _run_embedded_pip would catch a regression here.",
+    "No test simulates a network timeout/hang for _http_get_to_file, _bootstrap_pip, _run_embedded_pip, or _run_npm_step to confirm the build fails fast with a clear BuildError rather than hanging; the e2e test own network calls (_poll_for_http_200) do use explicit timeouts, showing the pattern is known but not applied to the build script own network calls.",
+    "The e2e test taskkill-then-wait cleanup path (lines 386-395) has no test coverage for taskkill returning non-zero or wait() timing out; both would currently fail silently or mask the original test failure."
+  ]
+}

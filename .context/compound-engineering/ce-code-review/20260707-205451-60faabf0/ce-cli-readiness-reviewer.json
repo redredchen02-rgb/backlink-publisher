@@ -1,0 +1,65 @@
+{
+  "reviewer": "cli-readiness",
+  "findings": [
+    {
+      "title": "Generated .bat shims silently discard the exit code for comment/phase0-seal/weights, always reporting success",
+      "severity": "P1",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 503,
+      "confidence": 0.9,
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "detail": "_render_cli_shim_bat renders -c \"from <module> import <function>; <function>()\" and never wraps the call in sys.exit(...). The normal pip console_scripts wrapper does sys.exit(load_entry_point(...)()), but this hand-rolled shim does not. Most CLI main() functions in this repo call sys.exit()/raise SystemExit internally on every error path (confirmed e.g. in validate_backlinks.py via errors.emit_envelope_and_exit), so they are unaffected. But three [project.scripts] targets deliberately return an int instead of calling sys.exit, per their own docstrings: comment.py line 187 (comment), admin/phase0_seal.py line 556 (phase0-seal), reporting/weights.py line 130 (weights) -- all three end with a module-level sys.exit(main()) guard. Through the generated shim, the return value of function() is discarded and the process always exits 0, regardless of what main() returned. comment and phase0-seal are mutating commands. This breaks the documented pipeline contract (exit 0 on success, non-zero on failure) specifically for the packaged distribution: an agent driving the packaged comment.bat or phase0-seal.bat and checking the exit code to gate a retry or the next pipeline stage gets a false-positive success signal on every failure.",
+      "suggested_fix": "Render every shim as -c \"import sys; from <module> import <function>; sys.exit(<function>())\" (harmless for the None-returning main()s, correct for the three int-returning ones). Add an e2e test alongside the existing real_packaging_build tests that invokes comment.bat or weights.bat with args guaranteed to make main() return non-zero and asserts result.returncode != 0."
+    },
+    {
+      "title": "Maintainer build CLI collapses every distinct failure mode to exit code 1, diverging from the repo's own typed-exit-code convention",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1327,
+      "confidence": 0.65,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": false,
+      "pre_existing": false,
+      "detail": "main() catches BuildError and always returns 1, and build_package() converts every other exception into BuildError too, so a network download failure, a checksum mismatch (supply-chain concern), a missing catalog resource, a pip-audit CVE finding, and a zip-write failure are all indistinguishable via exit code, differing only in stderr prose. This repo's own CLI convention maps distinct failure classes to distinct exit codes (UsageError=1, InputValidationError=2, DependencyError=3, ExternalServiceError=4) specifically so callers can decide programmatically whether a failure is retriable. This new build script introduces argparse conventions without following that established pattern and does not document why it diverges.",
+      "suggested_fix": "Give BuildError (or subclasses like DownloadError/ChecksumError/SubprocessError) distinct exit codes the way _util.errors does for the runtime CLI modules, or at minimum print a machine-greppable error_type= prefix on stderr so an agent retrying the build can distinguish transient failures from do-not-retry-blindly failures such as a checksum mismatch."
+    },
+    {
+      "title": "Onboarding/scheduler .bat templates prompt on stdin and unconditionally pause with no non-interactive bypass",
+      "severity": "P2",
+      "file": "scripts/packaging/templates/setup-scheduler.bat.tmpl",
+      "line": 70,
+      "confidence": 0.68,
+      "autofix_class": "manual",
+      "owner": "human",
+      "requires_verification": false,
+      "pre_existing": false,
+      "detail": "setup-scheduler.bat.tmpl (line 70) and setup-wizard.bat.tmpl (line 60) both use set /p to block on a stdin prompt with no flag or env-var override to select an answer non-interactively, and install-playwright.bat.tmpl, setup-scheduler.bat.tmpl, and setup-wizard.bat.tmpl all call bare pause on both success and failure paths, which waits for a keypress unconditionally. These are new files shipped as the package's Output Structure scripts/ directory and are exactly the Interactive/bootstrap surface the packaged distribution exposes for first-run setup. Any automation, or an agent walking through ONBOARDING.md unattended, invoking these scripts will hang indefinitely with no timeout and no explanatory error.",
+      "suggested_fix": "Add a non-interactive env-var check (e.g. BP_NONINTERACTIVE=1) at the top of each template that skips the set /p prompt (defaulting to a safe choice) and skips pause, matching how other Windows CLI installers support silent/unattended mode."
+    },
+    {
+      "title": "Shim argument passthrough via bare %* has no escaping for cmd.exe-special characters, a hidden parity gap vs. direct invocation",
+      "severity": "P3",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 509,
+      "confidence": 0.6,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "detail": "The rendered shim line appends the caller's raw argument list (%*) after the quoted -c command with no additional quoting/escaping layer. cmd.exe's argument handling for %* has known rough edges (a literal percent sign in an argument value that is not doubled can be interpreted as an environment-variable reference, and quote-heavy values used for JSON-ish CLI args can be re-tokenized differently than a direct python -m module invocation would see them). A developer running the same command directly against a dev install never goes through cmd.exe's tokenizer a second time the way the packaged shim does, so an agent composing CLI args programmatically could see silently different argv content only in the packaged distribution.",
+      "suggested_fix": "Document the known cmd.exe escaping caveats for shim callers, and/or add an e2e test that round-trips an argument containing a percent sign, embedded quotes, and a space through one shim and asserts the value arrives unmangled in the target module."
+    }
+  ],
+  "residual_risks": [
+    "generate_cli_shims's pre-ship existence check (_check_script_targets_resolvable) defaults verify_python_exe to sys.executable (the build host's own interpreter), and build_package() never passes verify_python_exe=<pkg_dir>/python-embed/python.exe when it calls generate_cli_shims -- so the real orchestration path never actually verifies the 49 shim targets against the interpreter/dependency set that ships. A resource or transitive-dependency gap specific to the pinned --target install could pass this check yet still fail at runtime for an end user or agent running the shipped .bat, with no earlier signal.",
+    "The exit-code-loss bug (finding 1) means any agent-driven pipeline that chains packaged shims (e.g. phase0-seal.bat after publish-backlinks.bat) and gates on exit code will silently continue past a failed phase0-seal/comment/weights step inside the packaged distribution, even though the exact same failure would correctly halt a dev-install pipeline."
+  ],
+  "testing_gaps": [
+    "The real_packaging_build e2e tests in tests/packaging/test_cli_shim_generation.py only exercise bp/platform-health/restore-state/dispatch-backlinks with --help or no-arg happy paths and assert returncode == 0 -- none cover a command invocation that should fail and assert a non-zero exit code, so the exit-code-discard bug for comment/phase0-seal/weights (finding 1) has no regression coverage.",
+    "No test invokes generate_cli_shims with verify_python_exe pointed at a genuinely provisioned python-embed/python.exe within the same test that also builds site-packages via provision_interpreter, so the existence check's real-world fidelity to the shipped interpreter is unverified (see residual_risks)."
+  ]
+}

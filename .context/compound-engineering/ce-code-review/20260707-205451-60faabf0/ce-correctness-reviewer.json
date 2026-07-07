@@ -1,0 +1,41 @@
+{
+  "reviewer": "correctness",
+  "findings": [
+    {
+      "title": "_create_zip_and_checksum deletes the pre-existing valid .zip before confirming the new one builds successfully",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1183,
+      "confidence": 0.8,
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "pre_existing": false,
+      "why_it_matters": "In _create_zip_and_checksum, `if zip_path.exists(): zip_path.unlink()` unconditionally deletes any pre-existing zip at dist_dir/<pkg_name>.zip BEFORE shutil.make_archive() is even attempted. If make_archive then fails partway (disk full, AV file lock, permission error, or a MAX_PATH failure -- see the connected finding below), the except-branch correctly removes any partial/corrupt zip and re-raises BuildError, but by that point the PREVIOUSLY VALID zip (e.g. from an earlier successful build of the same version) has already been destroyed. The operator is left with zero usable artifact where they previously had one, and the error message ('No .zip was produced -- do not ship anything from this run') does not disclose that a working prior artifact was also just deleted. This is reachable any time an operator re-runs `build_package()` for the same version (e.g. after a source tweak) and the failure happens to land specifically in the archiving step, which is exactly the step build_package's own 7-stage try/except does NOT protect (steps 1-6 are wrapped in a try/except that leaves any pre-existing zip untouched on failure; only step 7 is guarded by its own separate try/except that has already removed the old zip by the time it can fail). The function's own docstring / inline comment asserts 'there is no risk of this clobbering a still-valid previous zip ... the previous zip, if any, is by definition stale once we get here' -- this reasoning is incorrect precisely in the failure case being guarded against.",
+      "evidence": "def _create_zip_and_checksum(pkg_dir, *, dist_dir, pkg_name):\n    ...\n    zip_path = dist_dir / f\"{pkg_name}.zip\"\n    if zip_path.exists():\n        zip_path.unlink()\n    try:\n        archive_path = Path(shutil.make_archive(str(dist_dir / pkg_name), \"zip\", root_dir=str(dist_dir), base_dir=pkg_name))\n    except Exception as exc:\n        if zip_path.exists():\n            zip_path.unlink()\n        raise BuildError(f\"Failed to create zip archive at {zip_path}: {exc}\") from exc\n(lines ~1183-1196)",
+      "suggested_fix": "Build the new archive to a temporary/staging name first (e.g. dist_dir/f'.{pkg_name}.zip.tmp' or via shutil.make_archive into a scratch tempdir), verify it succeeded (and optionally re-verify its own checksum), and only then atomically replace the old zip_path (os.replace) and old .sha256 sidecar -- mirroring the staging-then-move pattern already used elsewhere in this file for provision_interpreter's output_dir and generate_cli_shims' cli-shims/ directory. This guarantees a failed rebuild never destroys a still-valid prior artifact."
+    },
+    {
+      "title": "Zip-archiving step is not long-path-safe, unlike the equivalent rmtree operations in the same file",
+      "severity": "P3",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1188,
+      "confidence": 0.62,
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "pre_existing": false,
+      "why_it_matters": "_rmtree_long_path_safe's own docstring documents that this build's own python-embed/Lib/site-packages/.../__pycache__/*.pyc paths, combined with a long repo checkout path (explicitly calling out this repo's own `.worktrees/<branch>/` layout -- which is exactly where this file lives), can exceed Windows' 260-char MAX_PATH and make plain (non `\\?\`-prefixed) Win32 path APIs fail with FileNotFoundError even though the file exists. shutil.make_archive() in _create_zip_and_checksum walks and opens every file under pkg_dir (including that same deeply-nested site-packages tree) using ordinary, non-extended-length paths, with no equivalent \\?\ prefixing. This makes it plausible that the exact same long-path failure mode already identified and fixed for deletion is still live -- unfixed -- for the zip-creation step, which is also the step that (per the finding above) destroys any pre-existing valid zip before it can fail.",
+      "evidence": "shutil.make_archive(str(dist_dir / pkg_name), \"zip\", root_dir=str(dist_dir), base_dir=pkg_name) has no long-path handling, whereas _rmtree_long_path_safe (lines 146-172) exists specifically because this same nested-path pattern breaks plain Win32 path APIs on this repo's checkout layout.",
+      "suggested_fix": "If real end-to-end testing (mentioned in the task's context) already exercised a full build+zip from this exact worktree layout and succeeded, this may be a non-issue in practice (Python's zipfile module has partial automatic long-path support on newer Windows/Python combinations) -- worth an explicit note/test confirming that, or wrapping the archive step with the same \\?\-prefix technique defensively if not already implicitly covered."
+    }
+  ],
+  "residual_risks": [
+    "_run_pip_audit's fallback path (pip-audit not importable in the interpreter running the build script) creates a throwaway tool_dir via tempfile.mkdtemp() that is never cleaned up on any code path (success or failure) -- a minor but real resource leak on machines that build repeatedly without pip-audit in their dev environment.",
+    "generate_cli_shims (called from build_package without a verify_python_exe override) checks [project.scripts] target resolvability against sys.executable (the interpreter running the build script), not against the just-provisioned python-embed interpreter -- this is a deliberate, documented design choice, but it means a real build can pass this check while still being broken against the actual shipped interpreter if the two Python environments diverge in ways not covered by the pinned-dependency install (e.g. a stdlib behavior difference between the build machine's Python and the pinned 3.11.9 embeddable interpreter)."
+  ],
+  "testing_gaps": [
+    "No test in tests/packaging/test_build_windows_package_e2e.py exercises the scenario of a pre-existing valid .zip at dist_dir/<pkg_name>.zip followed by a failure inside _create_zip_and_checksum itself (e.g. shutil.make_archive raising) -- this is exactly the gap that would have caught the P2 finding above; the existing parametrized failure test (test_build_package_stage_failure_propagates_and_produces_no_zip) only fails at stages 1-4 (provision_interpreter/generate_cli_shims/assemble_package/copy_launch_scripts) and always asserts 'no zip exists', never 'a previously-existing zip must survive a failed rebuild'.",
+    "test_build_package_stage_failure_propagates_and_produces_no_zip's fail_at parametrize list omits copy_helper_scripts and copy_docs (steps 5 and 6) -- only 4 of the 6 pre-zip stages have an explicit failure-propagation regression test."
+  ]
+}

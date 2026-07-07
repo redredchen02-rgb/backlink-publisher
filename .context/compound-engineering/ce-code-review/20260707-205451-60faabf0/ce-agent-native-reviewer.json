@@ -1,0 +1,67 @@
+{
+  "review_type": "agent-native-architecture",
+  "scope": "windows-portable-package build tooling (feat/windows-portable-package)",
+  "framing": "maintainer/build-tooling review, not end-user app-feature review; assesses whether an agent can run the build non-interactively and whether shipped end-user scripts create any real agent capability gap",
+  "files_reviewed": [
+    "scripts/packaging/build_windows_package.py",
+    "scripts/packaging/templates/setup-wizard.bat.tmpl",
+    "scripts/packaging/templates/setup-scheduler.bat.tmpl",
+    "scripts/packaging/templates/install-playwright.bat.tmpl",
+    "scripts/packaging/templates/launch-webui.bat.tmpl",
+    "scripts/packaging/templates/launch-cli.bat.tmpl",
+    "scripts/packaging/templates/ONBOARDING.md",
+    "scripts/packaging/templates/QUICK_START.txt",
+    "pyproject.toml"
+  ],
+  "findings": [
+    {
+      "id": "build-script-non-interactive",
+      "severity": "pass",
+      "confidence": 0.9,
+      "title": "build_windows_package.py is fully scriptable and non-interactive",
+      "detail": "Full read of scripts/packaging/build_windows_package.py (lines 1-1346) found no input(), no confirmation prompts, no GUI dependency. Entry point is argparse with a single optional --version flag. All external calls (get-pip bootstrap, pip installs, pip-audit, npm ci/build, CLI-shim resolvability check) go through subprocess.run(capture_output=True) and check returncode, raising BuildError on failure. main() catches BuildError and returns exit code 1; success returns 0. An agent can invoke `python scripts/packaging/build_windows_package.py [--version X.Y.Z]` end-to-end with no attached TTY (aside from the stdin-inheritance caveat below) and rely purely on the exit code."
+    },
+    {
+      "id": "build-script-output-parseable",
+      "severity": "observation",
+      "confidence": 0.65,
+      "title": "Success and failure signals are human-readable text, not structured JSON",
+      "detail": "main() prints numbered [N/7] progress lines and, on success, a block with zip:, size:, sha256: labels to stdout; failures print BUILD FAILED at: <reason> / ERROR: <reason> to stderr, with the specific failing BuildError message identifying which step, file, or checksum was involved. This is reasonably regex-parseable and the exit code is authoritative, so an agent can act on it programmatically today. There is no --json/--machine-readable output mode, so an agent wanting structured data must scrape text lines. This is mitigated by the fact that the real artifacts of success (the .zip and its .sha256 sidecar file under dist/) are directly inspectable on disk regardless of stdout formatting, giving the agent a second, more reliable machine-readable success signal.",
+      "recommendation": "Optional: add a --json flag that emits status, zip path, sha256, and size_bytes on success, or status/step/message on failure, for stronger machine parity. Not required given the disk artifacts already serve this purpose."
+    },
+    {
+      "id": "subprocess-stdin-inheritance",
+      "severity": "warning",
+      "confidence": 0.55,
+      "title": "subprocess.run calls do not pin stdin to DEVNULL, leaving a theoretical hang risk under non-interactive invocation",
+      "detail": "None of the subprocess.run call sites in build_windows_package.py (_bootstrap_pip L288, _run_embedded_pip L298, pip-audit fallback install L417, pip-audit run L430, CLI-shim resolvability check L584-590, npm ci/build via _run_npm_step L755-757) explicitly set stdin=subprocess.DEVNULL. By default subprocess.run inherits the parent stdin. If an agent runs this build script in an environment with no attached console or TTY and one of the wrapped tools (pip, npm, pip-audit) ever attempts an interactive read (for example a corporate npm registry auth prompt, or a pip keyring backend prompt), the process could block indefinitely rather than failing fast with a clear error. That is worse for agent-native operation than a visible failure, because a hang has no exit code or stderr message for the agent to act on until an external timeout kicks in. This is a defense-in-depth gap rather than an observed failure (none of the tools invoked here, such as public PyPI installs or npm ci/build against the repo's own package.json, normally prompt).",
+      "recommendation": "Pass stdin=subprocess.DEVNULL on every subprocess.run call in this script so any unexpected interactive prompt from a wrapped tool fails fast (the tool errors out on EOF) instead of hanging silently when driven by an agent with no TTY."
+    },
+    {
+      "id": "setup-wizard-prompt",
+      "severity": "observation",
+      "confidence": 0.75,
+      "title": "setup-wizard.bat.tmpl's Y/N launch prompt is a legitimate human-only exception, not a real agent parity gap",
+      "detail": "scripts/packaging/templates/setup-wizard.bat.tmpl:60 does `set /p LAUNCH_NOW=Launch the WebUI now...(Y/N)`. This is end-user-facing (shipped inside the package, run by a non-technical human), not something build_windows_package.py itself executes. Three points support treating this as an intentional exception rather than an Orphan Feature: (1) the script's own docstring/comments (lines 9-17) frame it explicitly as a convenience overview for non-technical humans deciding which platform to start with, not a required gate -- it does not collect or write any credentials itself; (2) QUICK_START.txt (the primary onboarding doc, step 2) instructs users to double-click scripts\\launch-webui.bat directly, bypassing setup-wizard.bat entirely; (3) launch-webui.bat.tmpl itself (the actual WebUI-start action) has zero interactive prompts on its success path. So any agent, or scripting human, driving this package on a user's behalf already has a fully non-interactive equivalent action -- scripts\\launch-webui.bat -- and does not need to answer the Y/N prompt at all.",
+      "recommendation": "Low priority: none of the shipped docs (ONBOARDING.md, README-package.md, QUICK_START.txt) explicitly state that scripting/automation should call scripts\\launch-webui.bat directly instead of setup-wizard.bat. A one-line note would make this equivalence self-evident instead of requiring an agent (or a technical user) to read both .bat files to discover the redundancy. Not blocking."
+    },
+    {
+      "id": "setup-scheduler-menu-prompt",
+      "severity": "observation",
+      "confidence": 0.7,
+      "title": "setup-scheduler.bat.tmpl's interactive menu wraps a plain schtasks.exe primitive that is already fully agent-scriptable",
+      "detail": "scripts/packaging/templates/setup-scheduler.bat.tmpl:70 does `set /p CHOICE=Choose an option (1/2/3/0)`. This is a convenience menu over Windows Task Scheduler registration. The underlying capability is plain `schtasks /CREATE /SC DAILY /TN ... /TR ... /ST 04:00 /RL HIGHEST /F` (line 82), which option [3] in the menu literally prints out for manual/scripted use, and the same command is documented in docs/windows-setup.md per the script's own comment (lines 14-18). An agent (or scripting human) can register the scheduled task non-interactively today by calling schtasks.exe directly against scripts\\cli-shims\\pipeline-orchestrator.bat -- it does not need to go through this wrapper's Y/N-style menu at all.",
+      "recommendation": "No fix required; the primitive is already exposed. Optional: document the raw schtasks command in ONBOARDING.md/README-package.md (not just inside the .bat comment) for easier agent/automation discovery."
+    },
+    {
+      "id": "convenience-scripts-use-pause",
+      "severity": "observation",
+      "confidence": 0.6,
+      "title": "End-user convenience .bat wrappers (install-playwright.bat, setup-wizard.bat, setup-scheduler.bat) use `pause`, which would block a subprocess invocation with no interactive console -- but the agent-appropriate entry points avoid this entirely",
+      "detail": "install-playwright.bat.tmpl (line 73, unconditional on both success and failure), setup-wizard.bat.tmpl (line 29, error path only), and setup-scheduler.bat.tmpl (line 127, unconditional) all end with `pause`, which waits for a keypress before exiting. If an agent invoked these specific .bat files via subprocess with a non-interactive stdin, `pause` could block the process from returning control. However, the actual work each wrapper performs is a single non-interactive command an agent can call directly instead: `python-embed\\python.exe -m playwright install chromium` (install-playwright.bat's only real action) or `schtasks /CREATE ...` (setup-scheduler.bat's option 1). Separately, the machine-invocable CLI shims generated by generate_cli_shims() (scripts\\cli-shims\\*.bat, see _render_cli_shim_bat in build_windows_package.py:482-512) deliberately contain NO pause and end cleanly with `exit /b %EXITCODE%` -- confirming this is a consistent, deliberate split between human-convenience double-click wrappers and agent/scripting-appropriate primitives, not an oversight.",
+      "recommendation": "None required for the build script itself. If any future agent workflow is built to drive this package end-to-end on a user's behalf, it should target python-embed\\python.exe / scripts\\cli-shims\\*.bat directly rather than the human convenience wrappers, to avoid the pause/set-p blocking points."
+    }
+  ],
+  "verdict": "PASS",
+  "summary": "build_windows_package.py (the maintainer-facing build entrypoint in scope for this review) is fully non-interactive and scriptable, with clear exit-code + stderr failure signals and a clear stdout success summary plus on-disk .zip/.sha256 artifacts an agent can verify directly. No interactive prompts, confirmations, or GUI requirements were found in the build script. The one defense-in-depth gap is that none of its subprocess.run() calls pin stdin=DEVNULL, which is a low-likelihood but real hang risk if a wrapped tool (pip/npm/pip-audit) ever attempts an interactive read with no TTY attached. Separately, the end-user-facing setup-wizard.bat.tmpl's Y/N prompt (and setup-scheduler.bat.tmpl's menu prompt) are legitimate human-UX exceptions rather than agent parity gaps: both wrap a single non-interactive primitive command that is already directly callable (launch-webui.bat or a raw schtasks command respectively), and the package's own primary onboarding doc (QUICK_START.txt) already routes users around setup-wizard.bat to the non-interactive launch-webui.bat."
+}

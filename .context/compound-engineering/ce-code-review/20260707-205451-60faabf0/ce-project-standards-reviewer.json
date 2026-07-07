@@ -1,0 +1,25 @@
+{
+  "reviewer": "project-standards",
+  "findings": [
+    {
+      "title": "Plan-doc frontmatter missing required `claims:` block",
+      "severity": "P2",
+      "file": "docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md",
+      "line": 1,
+      "confidence": 0.85,
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Add a `claims:` block to the frontmatter (lines 1-6) declaring the repo paths/SHAs this plan anchors to, or the explicit opt-out `claims: {}` if no code anchors apply (as done in the same-day sibling plan docs/plans/2026-07-07-002-fix-production-wsgi-entrypoint-plan.md).",
+      "evidence": "AGENTS.md, Plan-doc claims contract: 'Plans authored on or after 2026-05-20 must carry a `claims:` block in their YAML frontmatter... otherwise `plan-check` exits 8 and the `plan-claims-gate` check fails.' The plan doc is dated 2026-07-07 (post-cutoff, not grandfathered) and its frontmatter (lines 1-6: title/type/status/date only) contains no `claims:` key at all — confirmed via full-file grep. Other same-day plan docs in this diff's neighborhood (e.g. docs/plans/2026-07-07-002-fix-production-wsgi-entrypoint-plan.md) do include the required key, even when using the explicit `claims: {}` escape hatch, showing this is an actively-followed convention that this new doc skipped."
+    }
+  ],
+  "residual_risks": [
+    "scripts/packaging/build_windows_package.py lands at ~1345 SLOC but sits entirely outside both SLOC-regression gates: tests/test_no_monolith_regrowth.py's undeclared-monolith canary only walks src/backlink_publisher, webui_app, and webui_store, and tests/test_no_complexity_regrowth.py's CC backstop scan covers the same three roots. scripts/ (where scripts/platform_discovery.py already has a manolith_budget.toml entry, added voluntarily rather than by rule) is not auto-scanned by either gate, so this file's growth is not tracked by any repo-enforced budget going forward. Not a rule violation today (confirmed by reading both tests' scan_root arguments) but worth flagging since it is now the largest script/module in the repo by a wide margin (next largest tracked scripts/ file is 340-SLOC ceiling).",
+    "The build script's PINNED_DEPENDENCIES dict pins only the 16 direct dependencies; their transitive dependencies are left to pip's resolver at build time (acknowledged in the script's own comment), so two portable-package builds run on different days are not guaranteed byte-identical even though pip-audit gates the direct install."
+  ],
+  "testing_gaps": [
+    "The only test that actually proves the produced portable package boots and runs on a real machine (tests/packaging/test_build_windows_package_e2e.py::test_real_build_extract_launch_and_cli_shim_end_to_end, marked real_packaging_build) is gated behind BACKLINK_PUBLISHER_REAL_PACKAGING_BUILD=1 + win32 and intentionally never runs in CI (CI's unit job runs on ubuntu-latest, so the skipif always triggers there). A regression in the real provisioning/assembly path (e.g. a python.org URL/hash change, a pip resolver behavior change, or a Windows-only path bug) would only surface on an operator's manual run, not in CI."
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "reviewer": "security",
+  "findings": [
+    {
+      "title": "Persistent Flask SECRET_KEY generator in launch-webui.bat.tmpl produces only ~44 bits of entropy (16-char permutation), not the intended 64 hex chars / 256 bits",
+      "severity": "P1",
+      "file": "scripts/packaging/templates/launch-webui.bat.tmpl",
+      "line": 74,
+      "confidence": 0.85,
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "The line `powershell -NoProfile -Command \"-join ((48..57)+(97..102)|Get-Random -Count 64|ForEach-Object {[char]$_})\"` pipes a fixed 16-element array (0-9,a-f) into `Get-Random -Count 64`. PowerShell's documented behavior for `-Count` exceeding the input collection size is to return ALL input items once, shuffled (not sampled with replacement) -- empirically reproduced: this command emits exactly 16 characters (a permutation of 0123456789abcdef), not 64. That reduces the persistent SECRET_KEY's keyspace from the intended 256 bits down to log2(16!) ~= 44 bits, and it's a highly structured 44 bits (every one of the 16 hex digits appears exactly once), making it far more guessable than even a naive 44-bit random string. This SECRET_KEY is read into `app.secret_key` in webui_app/__init__.py and signs Flask session cookies and (per this repo's app-level CSRF guard) CSRF tokens for every portable-package install's first run. An attacker who obtains one signed cookie/token from a target instance (e.g. via a lower-privilege session, LAN capture when BACKLINK_PUBLISHER_ALLOW_NETWORK=1 takes the WebUI off loopback, or physical/shared-machine access) can brute-force the ~2^44 keyspace offline against itsdangerous' HMAC-SHA1 signer (fast per-guess) and then forge arbitrary sessions or CSRF tokens. Fix by generating the key from a CSPRNG with the intended length, e.g.: `powershell -NoProfile -Command \"$b=New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Fill($b); -join ($b | ForEach-Object { $_.ToString('x2') })\"` which yields 64 hex characters (256 bits) from a cryptographically secure source instead of `Get-Random` (a non-cryptographic PRNG) misapplied via `-Count`."
+    }
+  ],
+  "residual_risks": [
+    "pip install --target only pins the 16 direct dependencies (PINNED_DEPENDENCIES); their transitive dependencies are resolved fresh at build time and are not lockfile-pinned or hash-verified, so two builds on different days can install different transitive package versions -- this is already explicitly documented in the script's own comments (build_windows_package.py lines 116-121) and gated by a post-install pip-audit CVE scan; not re-flagged as a new finding.",
+    "The final dist/*.zip.sha256 sidecar file protects only against accidental transit/download corruption, not against a party who can also replace or MITM the .zip itself (no code-signing / detached signature over the checksum file) -- this is a known, already-accepted distribution-integrity gap per the plan's own Risks table (code-signing deferred) and is not re-flagged as new.",
+    "_render_cli_shim_bat builds a `python -c \"from <module> import <function>; <function>()\"` string directly from [project.scripts] module/function names parsed out of pyproject.toml with only a non-empty-string check (_split_script_target) -- no identifier-character validation. A module/function value containing a quote character could break out of the generated .bat's quoting. However pyproject.toml is repo-controlled (not runtime/user input); an attacker with write access to it already has a far more direct path to code execution in this codebase, so this is not treated as a realistic, independently-exploitable finding (confidence well below 0.60, suppressed).",
+    "_rmtree_long_path_safe (used to wipe pkg_dir/output_dir/app_dir on rebuild) calls shutil.rmtree with no explicit symlink/junction hardening beyond Python's stdlib default (which does not recurse into POSIX symlinks but historically has weaker guarantees against Windows NTFS junctions/reparse points depending on Python version). If a prior build's output directory ever contained a maliciously planted junction (e.g. via a compromised transitive pip package's install-time code execution -- itself already game-over independent of this cleanup step), the next build's cleanup could follow it and delete files outside pkg_dir. Given this requires prior code-execution on the build machine to plant the junction in the first place, the marginal risk added by the cleanup step is low; flagged here as a residual risk rather than an actionable finding (confidence below 0.60)."
+  ],
+  "testing_gaps": [
+    "No test in tests/packaging/ executes or emulates the PowerShell one-liner in launch-webui.bat.tmpl to assert the generated .webui_secret_key file's actual length/entropy -- the SECRET_KEY entropy bug (Get-Random -Count 64 over a 16-element array silently truncating to 16 shuffled chars) would not be caught by any existing test, including the real end-to-end packaging test, since none of them appear to inspect the generated secret key's content/length after a real launch-webui.bat run.",
+    "No test asserts that PINNED_DEPENDENCIES' resolved transitive dependency tree is captured/compared build-to-build (already an accepted, documented gap, not proposing a lockfile here -- but flagging that the idempotency/reproducibility claim tested by Unit 5 does not extend to transitive versions)."
+  ]
+}
