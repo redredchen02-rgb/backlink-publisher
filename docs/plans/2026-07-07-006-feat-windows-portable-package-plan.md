@@ -257,7 +257,7 @@ backlink-publisher/scripts/packaging/
 
 ---
 
-- [ ] **Unit 5: 建置腳本主流程整合、冪等清理、打包與可搬移性驗收**
+- [x] **Unit 5: 建置腳本主流程整合、冪等清理、打包與可搬移性驗收**
 
 **Goal:** 提供單一指令 `python scripts/packaging/build_windows_package.py` 串起 Unit 1-4，輸出 `dist/backlink-publisher-vX.Y.Z-win64.zip` 與對應的 `.sha256` 校驗檔，並驗證封裝在「換路徑、換機器」情境下仍可運作。
 
@@ -284,6 +284,7 @@ backlink-publisher/scripts/packaging/
 
 **Verification:**
 - 上述「可搬移性驗收」情境必須實際跑過一次並記錄結果，而不是只靠原機器上的測試——這是本計畫要解決的原始 bug 的直接反證。
+- **已於 2026-07-07 實際執行並通過**（`tests/packaging/test_build_windows_package_e2e.py::test_real_build_extract_launch_and_cli_shim_end_to_end`，並額外手動重複驗證一次）：完整建置耗時 ~114 秒，產出 `backlink-publisher-v0.5.0-win64.zip`（52.8MB，7046 個檔案，`.sha256` 校驗通過）；解壓縮到一個此機器上**從未存在過**的暫存路徑後，`launch-webui.bat` 成功啟動，`http://127.0.0.1:8888/` 回傳 `Server: waitress`（證明是 `serve.py` 而非開發伺服器）並正確 302 導向 `/app/`，SPA 頁面正常渲染；`bp.bat` 與另外兩個代表案例——`platform-health.bat`（原本沒有 `__main__` guard，若用 `-m` 呼叫會靜默無輸出）與 `restore-state.bat`（與 `backup-state` 共用同一模組兩個函式）——都在解壓縮後的新路徑下正確執行並輸出預期內容，直接證明本計畫研究階段發現的兩個最嚴重 bug（CLI 指令靜默失效、`ModuleNotFoundError`）在實際產出的封裝中確實已修復。
 
 ## System-Wide Impact
 
