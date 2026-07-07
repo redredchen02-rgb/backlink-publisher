@@ -8,12 +8,12 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import json
-import os
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 from webui_app.services import credential_service
 from webui_app.services.credential_service import (
@@ -62,7 +62,7 @@ def test_save_token_writes_0600_file(cfg, tmp_path):
     # writeas retired in plan 008; hackmd is representative token channel
     path = credential_service.save_token("hackmd", cfg, "MY_HACKMD_TOKEN")
     assert path.exists()
-    assert os.stat(path).st_mode & 0o777 == 0o600
+    assert_file_mode(path, 0o600)
     data = json.loads(path.read_text())
     assert data["token"] == "MY_HACKMD_TOKEN"
 
@@ -168,7 +168,7 @@ def test_save_paste_blob_writes_0600_file(cfg, tmp_path):
     blob = {"cookies": [{"name": "a", "value": "b", "domain": ".substack.com"}]}
     path = credential_service.save_paste_blob("substack", cfg, blob)
     assert path.exists()
-    assert os.stat(path).st_mode & 0o777 == 0o600
+    assert_file_mode(path, 0o600)
     data = json.loads(path.read_text())
     assert data["cookies"][0]["name"] == "a"
 
@@ -184,7 +184,7 @@ def test_save_paste_blob_unknown_channel_raises(cfg):
 def test_save_userpass_livejournal_writes_hpassword(cfg, tmp_path):
     path = credential_service.save_userpass("livejournal", cfg, "user1", "pass1")
     assert path.exists()
-    assert os.stat(path).st_mode & 0o777 == 0o600
+    assert_file_mode(path, 0o600)
     data = json.loads(path.read_text())
     assert data["username"] == "user1"
     assert "hpassword" in data

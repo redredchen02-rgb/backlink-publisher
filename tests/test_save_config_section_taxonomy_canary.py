@@ -40,10 +40,10 @@ from __future__ import annotations
 __tier__ = "unit"
 import os
 from pathlib import Path
-import stat
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher.config import Config, load_config, save_config
 
 
@@ -226,21 +226,14 @@ def test_branch_e_writer_does_not_emit_placeholder_sections_from_scratch(
 # ─── File-mode invariants (R-A4) ─────────────────────────────────────────────
 
 
-def _file_mode(path: Path) -> int:
-    """Return the file-mode bits (octal-comparable int) of ``path``."""
-    return stat.S_IMODE(path.stat().st_mode)
-
-
 def test_config_file_mode_is_0o600_after_save(tmp_path: Path) -> None:
     """``save_config`` rewrites ``config.toml`` via ``_atomic_write_text`` which
     chmod's the tempfile to ``0o600`` before rename. Regression guard against
     the tempfile-default-umask leak (group/world-readable secrets)."""
     config_path = tmp_path / "config.toml"
     save_config(Config(), path=config_path)
-    assert _file_mode(config_path) == 0o600, (
-        f"R-A4: config.toml mode is {oct(_file_mode(config_path))}, expected 0o600 — "
-        "secrets in [blogger.oauth] / [medium] would be group/world-readable"
-    )
+    # R-A4: secrets in [blogger.oauth] / [medium] would be group/world-readable otherwise.
+    assert_file_mode(config_path, 0o600)
 
 
 def test_config_parent_dir_mode_is_0o700_after_save(tmp_path: Path) -> None:
@@ -250,9 +243,7 @@ def test_config_parent_dir_mode_is_0o700_after_save(tmp_path: Path) -> None:
     config_dir = tmp_path / "isolated-config"
     config_path = config_dir / "config.toml"
     save_config(Config(), path=config_path)
-    assert _file_mode(config_dir) == 0o700, (
-        f"R-A4: parent dir mode is {oct(_file_mode(config_dir))}, expected 0o700"
-    )
+    assert_file_mode(config_dir, 0o700)  # R-A4
 
 
 def test_config_file_mode_survives_caller_umask(tmp_path: Path) -> None:
@@ -266,10 +257,7 @@ def test_config_file_mode_survives_caller_umask(tmp_path: Path) -> None:
         save_config(Config(), path=config_path)
     finally:
         os.umask(previous_umask)
-    assert _file_mode(config_path) == 0o600, (
-        f"R-A4: under umask 0o022 the file landed at "
-        f"{oct(_file_mode(config_path))} (expected 0o600)"
-    )
+    assert_file_mode(config_path, 0o600)  # R-A4: must survive caller umask 0o022
 
 
 def test_snapshot_file_mode_is_0o600_and_dir_is_0o700(tmp_path: Path) -> None:
@@ -295,19 +283,13 @@ def test_snapshot_file_mode_is_0o600_and_dir_is_0o700(tmp_path: Path) -> None:
     assert snapshot_dir.exists(), (
         "R-A4: .config-history/ was not created by _snapshot_config"
     )
-    assert _file_mode(snapshot_dir) == 0o700, (
-        f"R-A4: .config-history/ mode is {oct(_file_mode(snapshot_dir))}, "
-        "expected 0o700"
-    )
+    assert_file_mode(snapshot_dir, 0o700)  # R-A4
 
     snapshots = sorted(snapshot_dir.glob("*.toml"))
     assert snapshots, "R-A4: no snapshot file found in .config-history/"
     for snap in snapshots:
-        assert _file_mode(snap) == 0o600, (
-            f"R-A4: snapshot {snap.name} mode is {oct(_file_mode(snap))}, "
-            "expected 0o600 — credential subsections persist into snapshots, "
-            "so this is a leak surface"
-        )
+        # R-A4: credential subsections persist into snapshots, so this is a leak surface.
+        assert_file_mode(snap, 0o600)
 
 
 # ─── Integration: branches do not interfere ──────────────────────────────────
@@ -364,5 +346,5 @@ def test_mixed_branches_in_one_file_round_trip_cleanly(tmp_path: Path) -> None:
     assert "[future_feature]" in text
 
     # R-A4: file-mode invariants survive the mixed write.
-    assert _file_mode(config_path) == 0o600
-    assert _file_mode(config_path.parent) == 0o700
+    assert_file_mode(config_path, 0o600)
+    assert_file_mode(config_path.parent, 0o700)
