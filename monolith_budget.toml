@@ -257,8 +257,8 @@ ceiling = 810
 rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ranking_trend() query functions (+85 SLOC). Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 330. Ceiling 370 = round_up_to_10(330+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=774, ceiling 810 = round_up_to_10(774+30))"
 
 [files."webui_app/api/v1/spec.py"]
-ceiling = 1650
-rationale = "OpenAPI 3.1 contract spec.py. Grows per migrated endpoint group. Plan 2026-07-02-001 U6 adds health-dashboard endpoints (+~70 SLOC to merged 1507). Ceiling 1650 = round_up_to_10(1507+70+30) per policy. Concurrent-branch merge: U6 + U5 pagination + U4 Unit 2 MonitorCardItemSchema + W4 soft-delete."
+ceiling = 1690
+rationale = "OpenAPI 3.1 contract spec.py. Grows per migrated endpoint group. Plan 2026-07-02-001 U6 adds health-dashboard endpoints (+~70 SLOC to merged 1507). Ceiling 1650 = round_up_to_10(1507+70+30) per policy. Concurrent-branch merge: U6 + U5 pagination + U4 Unit 2 MonitorCardItemSchema + W4 soft-delete. Re-seeded 2026-07-07: actual SLOC=1652 after further concurrent merges, ceiling 1690 = round_up_to_10(1652+30) per policy."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Plan 2026-07-06-002 Unit B1: hidden-debt hardening sweep — SLOC budget
