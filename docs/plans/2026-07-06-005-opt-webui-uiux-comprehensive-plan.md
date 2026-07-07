@@ -75,7 +75,7 @@ claims: {}
 - R1. 全站刷新行為顯式化、可預測(QueryClient defaultOptions + 刷新來源盤點)— W1
 - R2. Settings 編輯中的資料永不被背景刷新覆蓋;未儲存離開有警告 — W2
 - R3. 不可逆破壞性操作一律二次確認(共享 ConfirmDialog,含明示筆數)— W3
-- R4. History/Drafts 刪除可撤銷(soft-delete + 延遲 purge,使用者已裁決)— W4、W5
+- R4. History 刪除可撤銷(soft-delete + 延遲 purge,使用者已裁決;〔2026-07-06 縮窄〕Drafts undo 明確排除,見 D17)— W4、W5
 - R5. mutation 期間回饋精確到列/按鈕,非全頁鎖 — W5
 - R6. Settings 表單體系統一(validation、save 慣例、dirty 呈現)— W6
 - R7. 圖示自托管統一、離線可用 — W7
@@ -106,6 +106,7 @@ claims: {}
 - **job-poll 三套模式統一抽象**(遺漏項 J):v0.6.0 U5 的 `usePolledQuery` 只管 query 輪詢;job-progress 輪詢抽象留待輪詢模式證明不足時與 SSE 決策一併重審。
 - **`history_store` 索引化**:soft-delete filter(W4)先以現有 load-all 模式實作;儲存格式改造沿用 attention-dashboard 的同項 defer。
 - **i18n、手機響應式、legacy 視覺**:如上。
+- **Drafts soft-delete/undo**〔2026-07-06 doc-review 裁決〕:`webui_store/drafts.py` 是與 events.db 完全獨立的 JSON store,W4 只涵蓋 History(events.db);R4 縮窄為 History-only,Drafts 刪除維持現況(硬刪、無 undo),留待後續獨立任務評估是否值得為其另建 soft-delete 層。
 
 ## Context & Research
 
@@ -152,6 +153,10 @@ claims: {}
 | D14 | **W16 Prettier/stylelint 前置條件 = 無 in-flight frontend 分支**,寫成可執行檢查(腳本查 `git branch -r` + `bp-*/` worktrees)而非口頭約定 | U12 記錄在案的 defer 理由(mass reformat 衝突)只在該條件下解除 |
 | D15 | **W1 排最前**:QueryClient defaultOptions 顯式化是 W2/W3/W5/W6 全部狀態機的共同地基 | refetchOnWindowFocus 隱性全域開啟是 Settings 覆蓋 bug、選取 stale、undo 閃爍的共同誘因 |
 | D16 | **KeepAlivePage 既有 7 態機作為 ConfirmDialog API 的驗收用例** | 元件 API 若表達不了最複雜的既有用例,它會永遠留在自製 overlay,元件化失敗 |
+| D17〔2026-07-06 doc-review 裁決,使用者確認〕 | **W4 範圍縮窄為 History-only**(events.db);Drafts undo 明確不做,列 Deferred to Separate Tasks | Drafts 是獨立 JSON store,同步做兩套 soft-delete 會讓 W4 膨脹;History 是主要痛點(硬刪+無確認的組合) |
+| D18〔同上〕 | **D5 機制 = `include_deleted=window` 查詢參數**:list 端點加此選填參數,WebUI 傳、CLI 永不傳;回傳的 soft-deleted 行帶 `deleted_at` 供前端渲染「已刪除・撤銷」狀態 | 解決 D5 與預設 filter 的矛盾;CLI 永不傳保證看不到已刪資料,不會有回流風險 |
+| D19〔同上〕 | **W5 先在現頁(HistoryPage/DraftsPage)實作,不等 U5**;U5 落地後再遷移進 DataTable 元件 | 使用者確認接受重工風險,換取 R4/R5 不用無限期等待 U5 進度不明的落地時間 |
+| D20〔同上〕 | **W8 明確延後,前置條件加上「`feat/webui-attention-dashboard` 的 PR #77 已合併」** | 該分支正活躍開發且同時觸碰 SideNav/TopBar/首頁路由,現在動工會與其他 session 的進行中工作衝突 |
 
 ## Open Questions
 
@@ -207,7 +212,9 @@ graph TB
 
 ### Phase A — 地基
 
-- [ ] **W1: 刷新行為顯式化——QueryClient defaultOptions + 全站刷新來源盤點〔R1〕**
+- [x] **W1: 刷新行為顯式化——QueryClient defaultOptions + 全站刷新來源盤點〔R1〕**
+
+〔W1 執行結果,2026-07-06,分支 `feat/w1-refresh-defaults`〕已完成:`main.ts` 的 QueryClient 補上 `defaultOptions`(`refetchOnWindowFocus: true` + `staleTime: 30_000`,先前完全沒有,所有頁面都默默吃套件內建預設 `staleTime: 0`);6 個 Settings 編輯型 query(SettingsPage 2 個 + BlogIdsCard/BloggerCard/ChannelBindingCard/LlmSettingsCard/NotionCard 各 1 個,經 `watch()` 回填表單的都算)顯式設 `refetchOnWindowFocus: false`;guard test 斷言兩者(main.ts defaultOptions + 6 個編輯頁的顯式關閉),紅色路徑已驗證。盤點文件涵蓋全部 17 條路由,發現 4 條路由(PrQueue/SurvivalDashboard/OptimizationStatus/EquityLedger)根本沒用 `useQuery`(純 `onMounted(load)`,零自動刷新)——記錄為未來 unit 的觀察項,本 unit 不修(僅使既有行為顯式,非新增能力)。vitest 46 檔 276 測試全綠(新增 2 個)、vue-tsc 零錯誤。**未做**:未針對 blur/focus 做手動瀏覽器走查(只驗證了 guard test 與程式碼層級的 `refetchOnWindowFocus: false` 存在),已在盤點文件中誠實記錄未做而非宣稱已做。
 
 **Goal:** 把「什麼時候資料會自己變」從隱性預設變成顯式、逐頁可查的契約——這是 W2/W5/W6 全部狀態機的地基。
 
@@ -228,7 +235,9 @@ graph TB
 
 **Verification:** 盤點文件涵蓋全部 17 條路由;vitest 綠;手動 blur/focus 視窗確認編輯型頁不刷新。
 
-- [ ] **W2: Settings 編輯保護——hydration 覆蓋修復 + per-card dirty + route-leave guard〔R2〕**
+- [x] **W2: Settings 編輯保護——hydration 覆蓋修復 + per-card dirty + route-leave guard〔R2〕**
+
+〔W2 執行結果,2026-07-06,分支 `feat/w2-settings-edit-protection`(堆疊於 W1)〕已完成:新建 `stores/settingsDirty.ts`(per-card dirty 單一事實來源)與 `composables/useSnapshotDirty.ts`(JSON snapshot diff 判斷 dirty 的共用邏輯,5 張卡復用);SettingsPage 與 4 張卡的 hydration watcher 加 `if (dirty.value) return` guard(dirty 期間不覆寫);ChannelBindingCard 走客製修法(其 hydration 本來就是 merge-only,改追蹤 `lastSeeded` baseline 避免新串流進來的空白預設誤判 dirty);`router/index.ts` 新增全域 `beforeEach`(dirty 時 `window.confirm` 列出哪些卡 dirty)+ 同步 `beforeunload`。vitest 48 檔 303 測試全綠(新增 47)、vue-tsc 零錯誤。**偏離記錄**:route-leave 警告用 `window.confirm` 而非 W3 的 ConfirmDialog(理由:router 全域 guard 若要 await 一個掛在元件樹外的 async modal confirm,需要額外的 confirm-service singleton 架構,超出本次測試場景要求的範圍)——這正是計畫審查曾警告過的「第 4 種 ad-hoc confirm」模式,已記錄為 todo `014`(P2,不阻擋合併,`beforeunload` 部分維持原生實作是正確且無法避免的瀏覽器限制)。
 
 **Goal:** 使用者輸入中的內容永不被背景刷新覆蓋;未儲存離開有警告。這是活的資料遺失 bug,優先級最高。
 
@@ -280,7 +289,11 @@ graph TB
 
 **Verification:** KeepAlive 與 Blogger 兩處遷移後行為不變;三種 ad-hoc 確認歸一。
 
-- [ ] **W4: soft-delete 資料層——deleted_at + 讀路徑 filter + 延遲 purge〔R4〕**
+- [x] **W4: soft-delete 資料層——deleted_at + 讀路徑 filter + 延遲 purge〔R4〕**
+
+〔W4 執行結果,2026-07-06,分支 `feat/w4-history-soft-delete`〕已完成,**範圍縮窄為 History(events.db)only,Drafts undo 明確 defer**(裁決見上方 turf 對照表新增項)。`schema.py` SCHEMA_VERSION 4→5(`events`/`articles` 加 nullable `deleted_at`,含 migration);`_history_mutations.py` DELETE→UPDATE soft-delete + `undelete_from_db` + 逾時物理 purge(具名常數 `CLIENT_UNDO_WINDOW_SECONDS=15`/`PURGE_WINDOW_SECONDS=30`,purge 資格嚴格是 client 視窗的 2 倍);`history_query.py` 讀路徑預設 filter 掉 soft-deleted,新增 `include_deleted="window"` 參數(CLI 讀取路徑經 22 個測試證實永不傳此參數,含真實 CLI 呼叫的 integration 測試,非 mock);`webui_app/api/history_api.py` + `api/v1/history.py` 新增 undelete 端點(對不存在/已 purge 的 id 回 404,不靜默成功)+ bulk delete 回報 `deleted`/`skipped` 計數;oasdiff 契約只增不改(`openapi/backlink-api.yaml`/`schemas.py`/`spec.py`);`monolith_budget.toml` 3 個 ceiling 依實測調升並附 rationale。**dual-write 決策**:legacy `_history_store` 的 `bulk_delete` 呼叫直接移除(no-op shim)——理由是舊的雙寫會讓 undelete 復原 events.db 但 JSON 鏡像已消失、產生無法修復的分歧,拿掉後 bulk-delete 與 single-delete(本就不碰 legacy store)行為一致,且該 store 本身文件也承認自己只是「過期讀取備援」而非 soft-delete 的真相來源。新增 `tests/test_history_soft_delete.py`(22 測試全綠,含 CLI 不可見性的真實 integration 測試、purge 後 undelete 404、bulk 部分失敗計數等全部核心不變量)。
+
+**驗證紀律(本 unit 風險最高,做了完整回歸比對)**:合併最新 main(`68fc7121`)後跑全套 pytest 比對——W4 分支的失敗清單與同版本 main 自身的失敗清單經 `comm` 逐項 diff 完全一致,僅剩的差異(`test_events_persona.py` 兩個 salt 檔案測試、`test_geo_run.py` 一個 wall-clock 測試)經單獨重跑證實是**既有的隨機性 flaky**(persona salt 隨機位元組若剛好含 `0x0A` 會被 Windows 文字模式寫入轉成 33 bytes 觸發 CorruptSaltError,與具體哪個測試無關;wall-clock timing 單獨跑即通過),與本次改動的檔案完全無關(`persona.py`/`geo_run` 均未被 W4 觸碰)。過程中發現並修正一項真實問題:新測試檔原本直接設 `webui.app.config["WTF_CSRF_ENABLED"]`(錯誤的 config key,且繞過專用 fixture),已改用 `disable_csrf` 這個 conftest 認可的唯一合法 mutation 點。ruff 乾淨、budget gates 綠。
 
 **Goal:** History 刪除從硬 DELETE 變 soft-delete,undo 視窗內可真實復原,逾時物理 purge。
 
@@ -294,7 +307,7 @@ graph TB
 - Modify: `webui_app/api/v1/` 對應 endpoint(oasdiff 增量安全:新欄位/新端點,不改既有形狀)
 - Test: `tests/test_history_soft_delete.py`(新)+ 受影響既有測試
 
-**Approach:** (1) 第一步 `rg` 盤點全部 history 讀取點(WebUI + CLI + projector),產出 filter 清單;(2) events + articles 兩表加 `deleted_at`(nullable);(3) 讀路徑預設 filter 掉 soft-deleted;(4) undelete 端點(undo 視窗內);(5) purge:逾時物理刪除(機制留實作定);(6) 狀態欄位設計遵守 quarantine-not-silent-else 原則。**注意 spec.py budget 餘裕先重測**(K22 同款問題)。
+**Approach:** (1) 第一步 `rg` 盤點全部 history 讀取點(WebUI + CLI + projector),產出 filter 清單;(2) events + articles 兩表加 `deleted_at`(nullable;**同 PR 內 bump `SCHEMA_VERSION` 並在 `maybe_upgrade_schema` 加對應 ALTER 步驟**——見 Open Questions 的 schema 升級發現,多 worktree 並存時舊分支會撞 `SchemaTooNewError`,動工前公告);(3) 讀路徑預設 filter 掉 soft-deleted,**新增選填查詢參數 `include_deleted=window`**(D18)供 WebUI list 端點在 undo 視窗內回傳仍帶 `deleted_at` 的行,CLI 讀取路徑永不傳此參數;(4) undelete 端點(undo 視窗內);(5) purge:逾時物理刪除,**server purge 資格 = `deleted_at` 早於(client undo 視窗秒數 × 2)**,client 視窗是由此導出的 UI 常數、永不相等(避免使用者點「撤銷」卻拿到 404);(6) 狀態欄位設計遵守 quarantine-not-silent-else 原則;(7) **範圍明確為 History(events.db)only,不涵蓋 Drafts**(D17)——`webui_store/drafts.py` 是獨立 JSON store,維持現況硬刪。**注意 spec.py budget 餘裕先重測**(K22 同款問題)。**開工前先查證 `_history_store`(legacy JSON 鏡像,若 fleet 尚未移除其雙寫路徑)的處置方式**——no-op shim / 同步 soft-delete / 明確記錄容忍分歧,三選一並記錄理由。
 
 **Execution note:** 契約先行——先寫 soft-delete 不變量的失敗測試(deleted 行對 list 端點不可見、對 CLI plan 不可見、undelete 後可見),再動 mutation。
 
@@ -307,7 +320,10 @@ graph TB
 
 **Verification:** 全套 history 相關測試綠;oasdiff gate 綠(只增不改);budget gates 綠。
 
-- [ ] **W5: History/Drafts undo UX + per-row busy 互斥〔R4、R5〕**
+- [x] **W5: History undo UX + per-row busy 互斥〔R4、R5〕**(Drafts 明確排除,見 D17)
+
+〔W5 執行結果,2026-07-06,分支 `feat/w5-history-undo-ux`〕已完成,範圍限定 History-only。使用實際的 W4 API(非計畫原文猜測的名稱):`GET /history`(即時清單)+ `GET /history?include_deleted=window`(undo 視窗內軟刪行,帶 `deleted_at`)+ `POST /history/undelete`(404 於已 purge/從未刪除)。狀態機以 `liveItems`/`deletedItems` 雙 query 為基礎,`pendingIds`(本地即時 + 伺服器真相聯集)+ `rowSnapshots`(凍結資料避免行從畫面消失又出現)+ `displayRows`(實際渲染來源)實作 D5;`rowBusy`/`bulkBusy` 實作 D6 互斥矩陣;refetch 使已勾選但真正消失(非軟刪)的行自動修剪選取集。完整狀態表寫在元件檔頂部注釋。**偏離記錄**:D3 提到的「undo toast」只做了行內「已刪除・撤銷」控制(D5 明文要求的部分),沒有在 toast 上加撤銷按鈕——因為現有 `Toast.vue`/notifications store 沒有 action-button 概念,擴充它超出本次範圍;行內控制已完整滿足撤銷功能,toast 版本留待未來若有需求再做。purge-failed(唯一真正不可逆的操作)走 ConfirmDialog + 開啟時凍結計數快照(D4)。vitest 51 檔 343 測試全綠(HistoryPage 本身 16 個)、vue-tsc 零錯誤。
+
 
 **Goal:** 刪除即時生效但可撤銷(undo toast);mutation 回饋精確到列;選取/分頁/refetch/undo 的狀態機成文。
 
@@ -334,7 +350,9 @@ graph TB
 
 ### Phase C — 表單與視覺
 
-- [ ] **W6: 共享表單體系——useChannelCard 擴充為全 Settings 慣例〔R6〕**
+- [x] **W6: 共享表單體系——useChannelCard 擴充為全 Settings 慣例〔R6〕**
+
+〔W6 執行結果,2026-07-06,分支 `feat/w6-shared-form-system`(堆疊於 W2)〕已完成。**計畫假設有誤,已修正**:`useChannelCard`/saveWith422 composable 在 repo 內實際不存在(跨 worktree 查證確認),改用計畫本身備案的 `useSettingsForm` 從零建立。新 composable 提供 `run(action, {successMessage, onSuccess})`:per-instance busy、成功 toast、呼叫 W2 的 `markClean()`、422 絕不產生全域 toast(改用選填 `fieldMap` regex 對應 detail 字串到欄位層級錯誤,無對應時退回 `formError` 橫幅)。5 張卡(BlogIdsCard/BloggerCard/NotionCard/LlmSettingsCard + SettingsPage 的 2 段)遷移完成;`ChannelBindingCard` 因是 N 個動態 per-slug 表單共用一個元件實例,不適合套用單表單設計,改用手刻但邏輯一致的對應版本(`formErrors: Record<slug,string>`)。`ChannelsCard`/`MediumCard`/`VelogCard` 刻意不動(唯讀或純動作卡,無 save-with-422 表單)。**422 inline validation 侷限**(已記錄於 composable docstring):後端 `webui_app/api/v1/errors.py` 只回傳自由格式字串 `detail`,從無結構化逐欄位資料,故欄位歸屬是盡力而為的 regex 比對,無法區分的欄位(如排程的兩個數字欄位)退回 section 級橫幅——仍滿足「不彈全域 toast」但非逐欄位精準。vitest 49 檔 319 測試全綠(新增 16)、vue-tsc 零錯誤。
 
 **Goal:** Settings 10 段統一 save 慣例(422 inline、成功 toast、dirty 整合)——擴充既有 `useChannelCard`,不另起爐灶。
 
@@ -381,7 +399,7 @@ graph TB
 
 **Goal:** SPA SideNav 不再是 legacy 的降級版:加 icon(用 W7 元件)、anomaly badge(消費 attention-dashboard aggregator)、nav 分組與路由完整性對齊。
 
-**Dependencies:** W7;attention-dashboard 的 aggregator API 落地(跨計畫依賴,動工前確認其進度)。
+**Dependencies:** W7(已完成);**`feat/webui-attention-dashboard` 分支的 PR #77 合併進 main**(D20,硬前置——該分支正活躍開發且同時觸碰 SideNav/TopBar/首頁路由,現在動工有真實並發衝突風險;aggregator API `/api/monitor-hub` 本身已存在於 main,不是卡點,卡點是檔案層級的並發修改)。動工前重新確認 PR #77 狀態。
 
 **Files:**
 - Modify: `frontend/src/layout/SideNav.vue`、`frontend/src/layout/navItems.ts`
@@ -421,7 +439,9 @@ graph TB
 
 **Verification:** U8 既有測試不回歸;新增指令經鍵盤全流程可達。
 
-- [ ] **W10: 跨頁上下文 deep-link 系統化〔R10〕**
+- [x] **W10: 跨頁上下文 deep-link 系統化(部分,見執行結果的誠實限制)〔R10〕**
+
+〔W10 執行結果,2026-07-06,分支 `feat/w10-cross-page-deeplink`〕已完成,但**發現並誠實記錄一個資料模型限制**:error-reports 的 `fingerprint` 只由錯誤名稱+訊息+堆疊組成,不含任何可反查 History 行的欄位;`HistoryItem.status === 'failed'` 代表發布本身失敗,跟 UI mutation 錯誤上報是兩回事。**沒有為了完成任務硬做脆弱的啟發式對應**(依交辦指示)。改做:新增 session-scoped(僅記憶體,不跨頁面重載)`stores/rowReportLinks.ts`,在 W13 的 `reportManualMutationError` 實際回傳 report id 時(型別從 `void` 擴充為 `Promise<string|null>`,向後相容)雙向記錄「這一行的這次失敗對應到這個 report」。HistoryPage 只對**本次 session 內真的失敗過**的行顯示「查看報告」連結(從未失敗的行不顯示,行動作後續成功則連結清除);error-report 詳情頁「回到來源」:同 session 內用 `?highlight=<rowId>` 導航定位高亮(outline + aria-live,非純顏色,`prefers-reduced-motion` 時無動畫);目標行已消失/翻頁不可見時顯示「該項目已不在列表中」提示。**偏離**:未做跨頁面重載/跨 session 都能高亮回源的完整方案——會需要用 URL 編碼上下文,但在 W5 的多行併發 busy 模型下有 race 風險(兩行非同步操作可能互踩同一個 URL query 參數,產生悄悄錯誤的行對應,正是交辦時要求避免的脆弱 heuristic),故跨 session 只做頁面層級 fallback(從 report 自身 `url` 欄位解析,同源限定),UI 文案與程式碼注釋都誠實標示此限制。vitest 53 檔 397 測試全綠(新增 18)、vue-tsc 零錯誤、eslint 乾淨。
 
 **Goal:** 「發布→監控→修錯→回原位」工作流的行內 deep-link 成體系:History 失敗行 → error-report 詳情;error-report → 回到來源頁定位到該行。
 
@@ -464,7 +484,9 @@ graph TB
 
 **Verification:** 全部 DataTable 消費頁鍵盤可完成主要操作;a11y 慣例與 R17 一致。
 
-- [ ] **W12: 分屏寬度可用性(700-960px)〔R12〕**
+- [x] **W12: 分屏寬度可用性(700-960px)〔R12〕**
+
+〔W12 執行結果,2026-07-06,分支 `feat/w12-responsive-splitscreen`〕已完成,範圍限定非表格部分(U5 未落地)。SettingsPage 既有 720px 特例斷點直接延伸為 960px(涵蓋整個 700-960 區間,不是另起機制);Monitor 頁新增 `@media (max-width: 960px)`:`.cards` 強制單欄避免擠壓、`.card__links` 加 `flex-wrap` 避免溢出;`app.css` 只加說明性注釋記錄「700-960px 分屏斷點統一用 960px」慣例供後續頁面依循,未動 `.data-table-wrap` 既有橫向捲動機制(有回歸測試釘住)。vitest 52 檔 343 測試全綠(新增 5)、vue-tsc 零錯誤。
 
 **Goal:** 桌面分屏場景下 Settings 與 Monitor 優先可用;表格橫向捲動不外溢頁面。
 
@@ -486,7 +508,9 @@ graph TB
 
 ### Phase F — 誠實性收尾與首跑
 
-- [ ] **W13: mutation 錯誤上報覆蓋——useMutation 遷移〔R13〕**
+- [x] **W13: mutation 錯誤上報覆蓋——useMutation 遷移〔R13〕**
+
+〔W13 執行結果,2026-07-06,分支 `feat/w13-mutation-error-reporting`〕已完成。`main.ts` 既有 MutationCache onError 掛點(2026-07-01-002 U6)驗證正確且已呼叫 `reportMutationError`,未重新接線。D8 分流規則實作於 `errorCapture.ts`:只有 422 排除,其餘(400/403/404/409/其他 4xx、5xx、網路錯誤)一律上報(`EXPECTED_VALIDATION_STATUSES = new Set([422])`),CSRF 類 403、已 purge 的 undelete 404 等事故訊號不會被吞。DraftsPage 乾淨遷移到 `useMutation`(原本共用單一 busy 布林,行為零改變,14 個既有測試全過)。**HistoryPage 技術判斷(保守做法)**:保留 W5 的手寫邏輯,不做完整 useMutation 遷移——理由是 W5 的 rowBusy/bulkBusy 互斥(D6)在第一個 `await` 前同步檢查,重新接進 `useMutation` 的非同步 `isPending` 會讓兩套獨立的響應式系統產生 race,且無實質好處;改為在每個 catch 區塊(`onDelete`/`onUndo`/`onRecheck`/`onBulkDelete`/`onBulkRecheck`/`confirmPurge`)額外呼叫新的 `reportManualMutationError(error, context)` helper(共用同一個 D8 predicate),W5 既有的 busy 互斥/undo 狀態機測試全數不回歸。`useSettingsForm` 補上非 422 錯誤的上報(新增選填 `context` 參數,5 張卡與 SettingsPage 傳入對應標籤)。**順手修復**:發現並清掉 2 個 W6 遺留的 `ref` unused-import eslint 錯誤(`NotionCard.vue`/`SettingsPage.vue`——W6 把 state 邏輯移進 composable 後忘記清 import),已獨立驗證確認是既有問題非本 unit 引入。vitest 52 檔 379 測試全綠(新增 31)、vue-tsc 零錯誤、eslint 乾淨。
 
 **Goal:** 修復發現 #4 的可指名根因:History/Drafts/Settings 的 mutation 錯誤進入 error-reports 儀表板(接手 attention-dashboard K11 的 defer,交接已在 turf 表記錄)。
 
@@ -520,7 +544,11 @@ graph TB
 
 **Verification:** 兩份 blueprint 每一條在 checklist 中標記「已落地(commit 參照)/ 缺口(追蹤項)/ 不再適用(理由)」。
 
-- [ ] **W15: 首跑體驗——never_run 引導式空狀態 + B2 修復〔R15〕**
+- [x] **W15(部分):never_run 後端修復〔R15〕**——前端引導卡延後
+
+〔W15 執行結果,2026-07-06,分支 `fix/w15-never-run-health-projection`〕**只完成後端部分**,前端首頁引導卡明確延後(attention-dashboard 分支正在改首頁路由,避免衝突,待其落地後再做)。`health_projection.py::compute_health_json()` 修法:`never_run`(`last_pipeline_run is None`)改成獨立布林值,不再塞進 `degraded_reasons`;`degraded_reasons` 現在只含真實故障(channel expired/unreachable、scheduler not_running),`healthy = len(degraded_reasons)==0` 邏輯不變但輸入已淨化,所以純 never_run 安裝現在 `healthy: true`(`/api/v1/health` 回 200,不再 503);若 never_run 與真實故障並存,故障仍會讓 `healthy=False`(never_run 不會掩蓋真錯誤,已有專門測試釘住)。回應新增 `never_run`/`never_run_reason` 欄位;legacy `static/js/index.js` 的字串比對邏輯**未動**(範圍外)。19/19 相關測試綠、ruff 乾淨。
+
+**待辦(留給 W15 前端部分,等 attention-dashboard 落地後接手):**
 
 **Goal:** 全新安裝打開 WebUI 看到「下一步:執行第一次發布」引導,而非「系统降级」警告(使用者已裁決 D13)。
 
@@ -592,6 +620,14 @@ graph TB
 - fleet 整合:`integration/fleet-preview-2026-07-06` @ ba29a04e(合併衝突解法與驗證記錄見該分支)
 
 ## Deferred / Open Questions
+
+### Resolved 2026-07-06(繼 W3/W7 合併後,規劃剩餘 14 unit 時裁決)
+
+- 「Drafts undo 無後端」(P1, feasibility)→ D17:W4 縮窄為 History-only,Drafts 明確 defer。
+- 「D5 與預設 filter 矛盾」(P1, adversarial+feasibility)→ D18:`include_deleted=window` 參數。
+- 「W5-before-U5 重工風險」(P2, adversarial)→ D19:使用者確認接受重工,先在現頁做。
+- 「W8 依賴懸空」(P2, product-lens,部分適用)→ D20:W8 明確等 attention-dashboard PR #77 合併;其餘 R9/R11/R12(W9/W11)因 v0.6.0 U5/U8 進度不明,維持凍結,escalation 條款留待這批 unit 完成後視情況觸發。
+- 「schema 升級」「server/client purge 視窗不變量」兩項已併入上方 W4 Approach 段落成為具體步驟,不再是開放問題。
 
 ### From 2026-07-06 review
 
@@ -672,4 +708,16 @@ graph TB
   D11 refuses per-table a11y because U5 componentization would force complete rework — yet W5 (the plan's self-described highest-complexity state machine, with selection semantics U5 will later own and redefine) is permitted to implement directly on current pages if U5 hasn't landed. The same rework argument applies with more force; the costliest piece carries the double-build risk the plan elsewhere treats as disqualifying. 處置選項:讓 W5 比照 W11 硬依賴 U5(凍結等待),或明文接受重工並記 rationale。
 
   <!-- dedup-key: section="w5 dependencies d11" title="w5beforeu5 fallback contradicts the plans own d11 rationale rebuilding the hardest state machine twice" evidence="未落地則先在現頁實作、標注 U5 元件化時遷移" -->
+
+### 2026-07-07:D11/D19 預言的重工實際發生——U5 落地後重新整合
+
+上面這條 open question 預言的重工風險**已經實際發生**:W1/W2/W4/W5/W6/W10/W12/W13/W14/W15 各自完成並推送到獨立分支後,main 在同一時段又前進了 33 個 commit,其中 **v0.6.0 U5(DataTable + 分頁)與 attention-dashboard(PR #77,首頁路由)都已落地**——U8(Ctrl+K/Bootstrap CDN)仍未落地,W9/W11 維持凍結。
+
+U5 落地直接與 W4(soft-delete 後端)、W5(undo 狀態機建在舊版傳統 table 上)、W10(deep-link)、W13(History 部分)撞在同一批檔案(`history.py`/`spec.py`/`HistoryPage.vue`)。分支 `integration/w4-w5-w10-w13-reintegrate-u5` 完成重新整合:
+
+- **後端(機械式合併,非重新設計)**:W4 的 `include_deleted=window` 路徑與 U5 的 `limit`/`offset` 分頁路徑在 `history_list()` 內是兩條獨立分支(`include_deleted=window` 略過 `paginate()`,回傳不分頁的 undo 視窗補充資料;否則走 U5 分頁路徑不變)。`_history_mutations.py`/`history_query.py`/`schema.py` 幾乎原封不動移植(U5 從未動過這些檔案)。262 個 history 相關測試 + 22 個 W4 soft-delete 測試全綠,分頁測試不回歸。
+- **前端(中等工作量的重新設計,非機械式)**:`HistoryPage.vue` 的 `displayRows`(live DataTable items ∪ pending soft-delete snapshots)接上 DataTable 的 `items` prop(`total` 只算 live,不含 pending 行);D6 busy 互斥矩陣改成 `bulkBusy` 接 DataTable 全域 `disabled`、`rowBusy` 在 `#row` slot 內手動套用;W10 的 `rowReportLinks.ts` 與 W13 的 `reportManualMutationError` 幾乎原封不動搬遷,無框架耦合。DataTable 元件新增一個向後相容的選填 `rowClass` prop 以支援 pending/highlight 樣式。Drafts 沒有 undo 狀態機(D17 排除),W13 對它的整合改用乾淨遷移到 `useMutation`(比 History 簡單,失敗自動流向既有 MutationCache.onError)。
+- **誠實記錄的已知限制**(重新整合時發現,非隱藏):pending 行的 checkbox 未individually disable(DataTable 尚無 per-row checkbox-disable 能力,選到軟刪行做 bulk 操作後端會如實回報 `skipped`,無害);`onBulkDelete` 的「仍存活」判斷只看目前這頁的 refetch 結果,分頁下理論上有極小機率誤判(已記錄為已知限制,低機率)。
+
+394 個前端測試(51 檔)+ 後端 262+22 個測試全綠,vue-tsc/eslint/ruff 皆乾淨。
 
