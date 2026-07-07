@@ -11,7 +11,27 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import time
 from typing import Any
+
+# Windows' MoveFileEx (which Path.replace uses under the hood) can transiently
+# raise PermissionError (WinError 5, ERROR_ACCESS_DENIED) when another
+# process's replace onto the same destination -- or a moment of antivirus
+# real-time scanning -- holds a transient handle open. POSIX rename() has no
+# such window, so this retry is a no-op there.
+_REPLACE_RETRIES = 5
+_REPLACE_RETRY_DELAY_S = 0.05
+
+
+def _replace_with_retry(tmp: Path, path: Path) -> None:
+    for attempt in range(_REPLACE_RETRIES):
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_RETRIES - 1:
+                raise
+            time.sleep(_REPLACE_RETRY_DELAY_S)
 
 
 def atomic_write_json(path: Path, data: Any, mode: int = 0o600) -> None:
@@ -27,6 +47,9 @@ def atomic_write_json(path: Path, data: Any, mode: int = 0o600) -> None:
     another's ``replace`` with ``FileNotFoundError`` (matches the per-PID temp
     in ``events.persona`` and the unique temp in ``persistence.safe_write``). A
     failed write unlinks its own temp so a crash mid-write leaves no orphan.
+    The final rename retries a few times on Windows' transient
+    ``PermissionError`` (see ``_replace_with_retry``) since concurrent writers
+    racing to replace the same destination can otherwise spuriously fail.
 
     ``mode`` defaults to 0o600 (owner read/write). Failures to chmod the temp
     file are swallowed because the rename is the load-bearing step; we still
@@ -39,7 +62,7 @@ def atomic_write_json(path: Path, data: Any, mode: int = 0o600) -> None:
             os.chmod(tmp, mode)
         except OSError:
             pass
-        tmp.replace(path)
+        _replace_with_retry(tmp, path)
     except BaseException:
         try:
             tmp.unlink()

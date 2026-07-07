@@ -9,6 +9,8 @@ import sqlite3
 
 import pytest
 
+from _mode_assertions import assert_file_mode
+
 
 class TestConnectionMixin:
     """Tests for ConnectionMixin connection management."""
@@ -143,10 +145,4 @@ class TestConnectionMixin:
         store = TestStore(db_path)
         with store.connect() as conn:
             pass
-        # Check file permissions (0o600 = owner read/write only)
-        import stat
-        mode = db_path.stat().st_mode
-        assert mode & stat.S_IRUSR  # Owner read
-        assert mode & stat.S_IWUSR  # Owner write
-        assert not (mode & stat.S_IRGRP)  # No group read
-        assert not (mode & stat.S_IWGRP)  # No group write
+        assert_file_mode(db_path, 0o600)

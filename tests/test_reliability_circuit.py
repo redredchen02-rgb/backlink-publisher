@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher._util.errors import AuthExpiredError
 from backlink_publisher.publishing.reliability.circuit import (
     _DEFAULT_COOLDOWN_S,
@@ -117,9 +118,7 @@ def test_state_file_created_with_0600_perms(cfg):
     trip("medium", cfg)
     state_path = cfg.config_dir / _STATE_FILE
     assert state_path.exists()
-    import stat
-    mode = state_path.stat().st_mode & 0o777
-    assert mode == 0o600
+    assert_file_mode(state_path, 0o600)
 
 
 def test_state_file_is_valid_json(cfg):
