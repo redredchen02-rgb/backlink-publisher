@@ -70,6 +70,8 @@ const { dirty: keywordsDirty, markClean: markKeywordsClean } = useSnapshotDirty(
 // this section's `markKeywordsClean()`, per-section `saving` busy.
 const { saving: savingKeywords, formError: keywordsFormError, run: runKeywords } = useSettingsForm(
   markKeywordsClean,
+  {},
+  'settings.keywords',
 )
 
 watch(
@@ -138,6 +140,8 @@ const { dirty: scheduleDirty, markClean: markScheduleClean } = useSnapshotDirty(
 // `markScheduleClean()`, per-section `saving` busy.
 const { saving: savingSchedule, formError: scheduleFormError, run: runSchedule } = useSettingsForm(
   markScheduleClean,
+  {},
+  'settings.schedule',
 )
 
 watch(

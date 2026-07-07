@@ -66,14 +66,18 @@ const { dirty, markClean } = useSnapshotDirty('settings-llm', '进阶 LLM 整合
 // on one card). Declaration order matters: the `image_gen_*` patterns are
 // tried first so a detail like "image_gen_endpoint 必须以 https:// 开头"
 // attributes to the image-gen field, not the plain `endpoint` one below it.
-const { saving, formError, fieldErrors, run } = useSettingsForm(markClean, {
-  image_gen_endpoint: /image[_ ]gen(eration)?[_ ]?endpoint/i,
-  image_gen_api_key: /image[_ ]gen(eration)?[_ ]?api[_ ]?key/i,
-  image_gen_model: /image[_ ]gen(eration)?[_ ]?model/i,
-  endpoint: /\bendpoint\b/i,
-  api_key: /api[_ ]?key/i,
-  model: /\bmodel\b/i,
-})
+const { saving, formError, fieldErrors, run } = useSettingsForm(
+  markClean,
+  {
+    image_gen_endpoint: /image[_ ]gen(eration)?[_ ]?endpoint/i,
+    image_gen_api_key: /image[_ ]gen(eration)?[_ ]?api[_ ]?key/i,
+    image_gen_model: /image[_ ]gen(eration)?[_ ]?model/i,
+    endpoint: /\bendpoint\b/i,
+    api_key: /api[_ ]?key/i,
+    model: /\bmodel\b/i,
+  },
+  'settings.llm',
+)
 
 watch(
   () => query.data.value,

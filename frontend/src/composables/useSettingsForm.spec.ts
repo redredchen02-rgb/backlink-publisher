@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useSettingsForm } from './useSettingsForm'
-import { ApiError } from '../api/client'
+import { ApiError, _resetCsrfForTest } from '../api/client'
 import { useNotificationsStore } from '../stores/notifications'
+import { _resetCaptureStateForTest } from '../lib/errorCapture'
 
 // useSettingsForm only touches plain `ref`/`reactive` + a Pinia store — none
 // of that requires an active component instance, so the composable can be
@@ -123,5 +124,83 @@ describe('useSettingsForm', () => {
     resolveAction({ message: 'done' })
     await p1
     expect(action).toHaveBeenCalledTimes(1)
+  })
+
+  // ── W13: error-reports coverage (discovery #4 / D8) ────────────────────────
+  //
+  // End-to-end through the REAL lib/errorCapture module (not mocked) —
+  // stubs `fetch` and asserts on POST /error-reports calls, exactly like
+  // HistoryPage.spec.ts's equivalent block.
+
+  interface ReportCall {
+    url: string
+    body: Record<string, unknown>
+  }
+
+  function installErrorReportFetchStub(): ReportCall[] {
+    const calls: ReportCall[] = []
+    let nextId = 1
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : {} })
+        return new Response(
+          JSON.stringify({ id: `settings-report-${nextId++}` }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        )
+      }),
+    )
+    return calls
+  }
+
+  describe('W13: error-reports coverage (D8)', () => {
+    beforeEach(() => {
+      _resetCaptureStateForTest()
+      document.head.innerHTML = '<meta name="csrf-token" content="test-token">'
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      _resetCsrfForTest()
+      document.head.innerHTML = ''
+    })
+
+    it('a 500 save failure shows the classified toast AND submits an error-report', async () => {
+      const calls = installErrorReportFetchStub()
+      const form = useSettingsForm(vi.fn(), {}, 'settings.llm')
+      await form.run(() => Promise.reject(new ApiError('server exploded', 500, { detail: 'boom' })))
+
+      const notify = useNotificationsStore()
+      expect(notify.toasts.at(-1)?.severity).toBe('error')
+      expect(calls).toHaveLength(1)
+      expect(calls[0].url).toContain('/error-reports')
+      expect(calls[0].body.message).toContain('settings.llm')
+    })
+
+    it('a 422 save failure (inline validation) does NOT submit an error-report (D8)', async () => {
+      const calls = installErrorReportFetchStub()
+      const form = useSettingsForm(vi.fn())
+      await form.run(() => Promise.reject(new ApiError('rejected', 422, { detail: '校验失败' })))
+
+      expect(form.formError.value).toBe('校验失败')
+      expect(calls).toHaveLength(0)
+    })
+
+    it('a 403 (non-422 4xx, e.g. CSRF) save failure IS reported', async () => {
+      const calls = installErrorReportFetchStub()
+      const form = useSettingsForm(vi.fn(), {}, 'settings.notion')
+      await form.run(() => Promise.reject(new ApiError('forbidden', 403, {})))
+
+      expect(calls).toHaveLength(1)
+      expect(calls[0].body.message).toContain('settings.notion')
+    })
+
+    it('a network error (TypeError) save failure is reported', async () => {
+      const calls = installErrorReportFetchStub()
+      const form = useSettingsForm(vi.fn())
+      await form.run(() => Promise.reject(new TypeError('Failed to fetch')))
+
+      expect(calls).toHaveLength(1)
+    })
   })
 })

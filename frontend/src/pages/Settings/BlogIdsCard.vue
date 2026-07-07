@@ -41,7 +41,7 @@ const { dirty, markClean } = useSnapshotDirty('settings-blogids', 'Blogger Blog 
 // Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline
 // (`formError`, no fixed field set for a dynamic row list so no `fieldMap`),
 // success toast + this card's own `markClean()`, per-card `saving` busy.
-const { saving, formError, run } = useSettingsForm(markClean)
+const { saving, formError, run } = useSettingsForm(markClean, {}, 'settings.blog-ids')
 
 watch(
   () => query.data.value,

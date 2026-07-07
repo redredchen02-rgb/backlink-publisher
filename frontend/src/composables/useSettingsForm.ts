@@ -15,9 +15,18 @@
 // `formError` rather than a toast; it just isn't attributed to one specific
 // input. Either way the invariant holds for every caller: a 422 NEVER
 // produces a global error toast, only inline text the card renders itself.
+// Plan 2026-07-06-005 W13 (D7/D8): this composable is already the shape W13
+// wants (per-card busy + toast + dirty integration) — it is NOT migrated to
+// `useMutation` (that would mean rewriting its 422-vs-toast branching, out of
+// this unit's scope). Its non-422 catch branch (below) is instead wired to
+// `reportManualMutationError`, the same manual-reporting helper HistoryPage
+// uses, so a save failure reaches error-reports exactly like a real
+// MutationCache-observed mutation would. The 422 branch never calls it — a
+// 422 here is expected inline-validation, not an incident (D8).
 import { reactive, ref, type Ref } from 'vue'
 import { ApiError } from '../api/client'
 import { useErrorToast } from './useErrorToast'
+import { reportManualMutationError } from '../lib/errorCapture'
 import { useNotificationsStore } from '../stores/notifications'
 
 /** field name -> pattern tested against the 422 `detail` string. */
@@ -69,8 +78,16 @@ function detailOf(payload: unknown): string {
  * @param fieldMap optional field name -> RegExp tested against the 422 `detail`, in declaration
  *   order — attributes the error to one input's `fieldErrors[name]` instead of the shared
  *   `formError` banner.
+ * @param context optional free-form label (never raw call arguments) identifying which card's
+ *   save this is, e.g. `'settings.llm'` — forwarded to `reportManualMutationError` (W13) so a
+ *   non-422 failure's error-report is traceable back to its card. Defaults to `'settings.save'`
+ *   for existing call sites that don't pass one.
  */
-export function useSettingsForm(markClean: () => void, fieldMap: SettingsFormFieldMap = {}): SettingsForm {
+export function useSettingsForm(
+  markClean: () => void,
+  fieldMap: SettingsFormFieldMap = {},
+  context = 'settings.save',
+): SettingsForm {
   const notify = useNotificationsStore()
   const { toastError } = useErrorToast()
   const saving = ref(false)
@@ -103,6 +120,10 @@ export function useSettingsForm(markClean: () => void, fieldMap: SettingsFormFie
         else formError.value = detail
         return undefined
       }
+      // D8: non-422 is an incident-class signal (CSRF 403, invariant-violation
+      // 400, 5xx, network) — report it, same as a real MutationCache-observed
+      // mutation would, in addition to the existing toast.
+      reportManualMutationError(e, context)
       toastError(e)
       return undefined
     } finally {

@@ -61,10 +61,14 @@ const { dirty, markClean } = useSnapshotDirty('settings-blogger', 'Blogger', () 
 // see useSettingsForm's module docstring for why a freeform `detail` string
 // can only be attributed heuristically), success toast + this card's
 // `markClean()`, per-card `saving` busy.
-const { saving, formError, fieldErrors, run } = useSettingsForm(markClean, {
-  client_secret: /client[ _]?secret/i,
-  client_id: /client[ _]?id/i,
-})
+const { saving, formError, fieldErrors, run } = useSettingsForm(
+  markClean,
+  {
+    client_secret: /client[ _]?secret/i,
+    client_id: /client[ _]?id/i,
+  },
+  'settings.blogger',
+)
 
 watch(
   () => status.value,
