@@ -83,7 +83,12 @@ echo Open: http://127.0.0.1:%PORT%
 echo (Close this window to stop the service.)
 echo.
 
-"%PYTHON_EXE%" "%PKG_DIR%\app\webui.py"
+REM serve.py (not webui.py) is the production entrypoint -- it reuses the
+REM same Flask app but serves it via waitress instead of the Werkzeug dev
+REM server, so packaged end users never see the "development server"
+REM warning banner. webui.py must still ship in app\ since serve.py
+REM imports the app instance from it.
+"%PYTHON_EXE%" "%PKG_DIR%\app\serve.py"
 set "EXITCODE=%ERRORLEVEL%"
 
 popd
