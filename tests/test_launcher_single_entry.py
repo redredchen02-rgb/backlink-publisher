@@ -43,3 +43,23 @@ def test_launcher_activates_lite_edition():
 def test_launcher_self_identifies_as_canonical():
     body = _LAUNCHER.read_text(encoding="utf-8")
     assert "canonical" in body.lower()
+
+
+def test_launcher_defaults_to_production_entrypoint():
+    # Plan 2026-07-07-002: the dev-server warning the operator sees on every
+    # launch is closed by defaulting to serve.py (waitress), not webui.py
+    # (Werkzeug dev server). The override mechanism stays intact for the
+    # manual crash-stub test.
+    body = _LAUNCHER.read_text(encoding="utf-8")
+    assert 'WEBUI_SCRIPT="${WEBUI_SCRIPT:-serve.py}"' in body
+
+
+def test_launcher_stale_process_match_follows_webui_script_variable():
+    # Plan 2026-07-07-002: is_our_webui()'s stale-process detector used to
+    # hardcode `*webui.py*`, which would have failed to recognize a leftover
+    # serve.py process as "ours" for port reuse once serve.py became the
+    # default. It must match $WEBUI_SCRIPT dynamically instead.
+    body = _LAUNCHER.read_text(encoding="utf-8")
+    assert '[[ "$cmdline" == *"$WEBUI_SCRIPT"* ]]' in body
+    assert '[[ "$cmdline" == *webui.py* ]]' not in body
+
