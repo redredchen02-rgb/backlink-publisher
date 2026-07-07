@@ -94,13 +94,13 @@ User request: "幫我MERGE 分支還有pr" (help me merge branches and PRs). Inv
 ### Resolved During Planning
 
 - Whether to push local `main` now vs. keep it local-only → push early.
-- Disposition of `bp-baseline-preref`'s uncommitted changes → discard, with a diff snapshot taken first — **not yet executed** (see Deferred to Implementation).
+- Disposition of `bp-baseline-preref`'s uncommitted changes → discard, with a diff snapshot taken first — **executed 2026-07-07**: diff snapshot saved off-repo before discard; `git checkout -- .` in the worktree confirmed clean afterward. The worktree itself (detached HEAD at `f835820e`, tagged `pre-reconcile-local-main`, already an ancestor of `main`) was left in place as a baseline reference — only the disposable scratch changes were discarded.
 - Whether this plan's broader-than-literal scope is authorized → yes, consistent with both prior rounds' established practice.
 - Whether PR #75's closure represents lost work → no; confirmed its content landed via PR #73's merge.
 
 ### Deferred to Implementation
 
-- `bp-baseline-preref`'s discard (approved, never executed — Unit 8's audit was overtaken by the concurrent-session discovery before reaching it).
+- ~~`bp-baseline-preref`'s discard~~ — executed 2026-07-07 (see Resolved During Planning above).
 - The live in-progress merge found in the canonical worktree during Unit 8 (`integration/w-batch-2` into `main`, `MERGE_HEAD` present, conflicts in `frontend/src/api/history.ts`, `HistoryPage.spec.ts`, `HistoryPage.vue`) belongs entirely to another concurrent session and is explicitly left untouched by this plan — not resolved, not aborted, not committed. Whoever owns that session should find their conflict markers and stash (`stash@{0}`, labeled "SAFETY: unintended checkout artifact... do not discard, may contain another session's WIP") exactly as they left them.
 - Whether the 5 archive-tagged, deleted-remote-branch PRs from this session need any further follow-up once the wider concurrent W-unit integration effort (observed reaching a "final-integration"/"reintegrate" stage during Unit 8) settles.
 
@@ -137,7 +137,7 @@ User request: "幫我MERGE 分支還有pr" (help me merge branches and PRs). Inv
 | This plan's own plan-doc file was never committed and was found missing from disk after the canonical-worktree collision | Recreated from this session's own record and committed to `main` this time, rather than left as a vulnerable untracked loose file |
 | PR #77's and PR #79's genuine (non-textual) merge conflicts required understanding intent, not mechanical resolution | Verified via the branch's own and the full local test suite after every resolution, not just "conflict markers gone"; several real gaps were caught this way and fixed before pushing |
 | Weak-verification deletions (superseded-duplicate branches identified by diff-stat comparison rather than exact `git cherry` patch match) turn out wrong | R6: archive-tag every deletion first and push the tag to `origin`, independent of reflog timing or this workspace's survival — 12 tags created and confirmed on `origin` |
-| `bp-baseline-preref`'s approved discard was never executed | Explicitly named as deferred in Open Questions rather than silently dropped |
+| `bp-baseline-preref`'s approved discard was never executed | Executed 2026-07-07: diff snapshot taken, then discarded via `git checkout -- .`; worktree itself left in place as a baseline reference |
 
 ## Sources & References
 
@@ -148,3 +148,14 @@ User request: "幫我MERGE 分支還有pr" (help me merge branches and PRs). Inv
 - `docs/solutions/workflow-issues/verify-repo-state-before-planning-2026-05-18.md`, `multi-agent-turf-check-before-claiming-work-2026-05-20.md`, `scan-parallel-prs-before-blocker-2026-05-18.md`, `push-early-committed-survives-branch-deletion-2026-05-27.md`, `foreign-agent-wip-spreads-across-worktrees-2026-05-20.md`, `external-agent-edits-in-shared-worktree-2026-05-18.md`
 - PRs: #78, #76, #70, #77, #79, #80 (all merged), #75 (closed, superseded by #73), #74/#72/#73 (merged, prior rounds)
 - Archive tags created this round (all on `origin`): `archive/docs-convergence-006-execution`, `archive/docs-convergence-006-u3-branch-disposal`, `archive/fix-ruff-lint-debt`, `archive/fix-ruff-lint-debt-v2`, `archive/feat-u4-dual-live-route-convergence`, `archive/fix-pr-queue-lite-error-message`, `archive/fix-pr-queue-lite-error-message-v2`, `archive/feat-webui-attention-dashboard`, `archive/feat-u5-datatable-pagination-polling`, `archive/fix-pr-queue-lite-error-message-2`, `archive/opt-hidden-debt-hardening-sweep`, `archive/fix-webui-windows-encoding-crash`
+
+## Addendum (2026-07-07): closeout verification
+
+While confirming `main` was in a clean, done state after this plan's execution, two unrelated CI regressions were found on `main` — introduced by another concurrent session's own subsequent work (a `u16` module rename and further History-page reintegration), not by this plan. Fixed as small, isolated, out-of-scope hygiene commits rather than left for later discovery, since both were breaking (or, for the SLOC one, contributing to) CI gates:
+
+- `6e7661f0` — two stale `backlink_publisher.validate.*` references (should have read `_validate_engine` post-rename) in `tests/test_validate_engine.py` and `tests/test_payload_types.py`, breaking the required `e2e (3.12)` check.
+- `e4ee8f38` — `webui_app/api/v1/spec.py`'s SLOC ceiling re-seeded 1650→1690 after concurrent merges pushed actual SLOC to 1652, breaking the non-required `unit (3.11)` job's `test_no_monolith_regrowth.py`.
+
+`frontend/src/components/DataTable.vue`, `HistoryPage.vue`, and `HistoryPage.spec.ts` were seen being actively live-edited by another session during this verification pass and were deliberately left untouched throughout — that session landed its own fix (`cbedc299`) independently.
+
+`bp-baseline-preref`'s previously-deferred discard was also executed at this point (see Open Questions / Risks table above).
