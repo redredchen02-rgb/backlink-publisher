@@ -12,11 +12,11 @@ __tier__ = "unit"
 from datetime import datetime
 import json
 import os
-import stat
 from unittest.mock import patch
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from webui_app.services import settings_service
 
 
@@ -72,8 +72,7 @@ def test_record_preserves_existing_keys(cfg_dir):
 def test_record_keeps_file_mode_0600(cfg_dir):
     _write_settings({"endpoint": "https://api.example.com", "api_key": "k"})
     settings_service.record_llm_test_result(ok=True, message="ok")
-    mode = stat.S_IMODE(settings_service.llm_settings_file().stat().st_mode)
-    assert mode == 0o600
+    assert_file_mode(settings_service.llm_settings_file(), 0o600)
 
 
 def test_record_message_never_contains_api_key(cfg_dir):
@@ -88,7 +87,7 @@ def test_record_absent_file_creates_valid_0600(cfg_dir):
     settings_service.record_llm_test_result(ok=True, message="ok")
     path = settings_service.llm_settings_file()
     assert path.exists()
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert_file_mode(path, 0o600)
     assert json.loads(path.read_text("utf-8"))["last_test"]["ok"] is True
 
 

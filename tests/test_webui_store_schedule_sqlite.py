@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from webui_store.base import Store
 from webui_store.schedule import _JSON_FILENAME, _SENTINEL_NAME, ScheduleSqliteStore
 from webui_store.sqlite_base import WebUIDatabase
@@ -84,7 +85,7 @@ class TestStartupMigration:
         store.migrate_from_json(tmp_path)
         migrated = tmp_path / (_JSON_FILENAME + ".migrated")
         assert migrated.exists()
-        assert (migrated.stat().st_mode & 0o777) == 0o600
+        assert_file_mode(migrated, 0o600)
 
     def test_idempotent_when_sentinel_exists(self, tmp_path):
         data = {"a": 1}
