@@ -13,6 +13,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import NotionCard from './NotionCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 let pinia: ReturnType<typeof createPinia>
 
@@ -32,6 +33,14 @@ function mountCard() {
   return mount(NotionCard, {
     global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
   })
+}
+
+function mountCardWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(NotionCard, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
 }
 
 function btn(w: ReturnType<typeof mountCard>, text: string) {
@@ -98,5 +107,33 @@ describe('NotionCard', () => {
     expect(api.clearNotionToken).toHaveBeenCalled()
     const notify = useNotificationsStore()
     expect(notify.toasts.at(-1)?.severity).toBe('success')
+  })
+
+  it('REGRESSION (W2): unsaved database_id edit survives a non-focus query-data change', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    await w.find('#nt-db').setValue('typed-db-id')
+
+    queryClient.setQueryData(['settings', 'notion-status'], statusValue({ database_id: 'server-db-id' }))
+    await flushPromises()
+
+    expect((w.find('#nt-db').element as HTMLInputElement).value).toBe('typed-db-id')
+  })
+
+  it('marks the card dirty while editing and clean again after a successful save', async () => {
+    vi.mocked(api.saveNotionToken).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountCard()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('#nt-token').setValue('typing…')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('Notion')
+
+    await w.find('#nt-db').setValue('db_123')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
   })
 })

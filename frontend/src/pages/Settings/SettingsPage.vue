@@ -15,6 +15,7 @@ import {
   type ScheduleSettings,
 } from '../../api/settings'
 import { ApiError } from '../../api/client'
+import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
 import StateBlock from '../../components/StateBlock.vue'
 import ChannelsCard from './ChannelsCard.vue'
 import ChannelBindingCard from './ChannelBindingCard.vue'
@@ -53,13 +54,31 @@ const keywordTargets = computed<string[]>(() => keywordsQuery.data.value?.target
 const keywordEdits = reactive<Record<string, string>>({})
 const savingKeywords = ref(false)
 
+// Plan 2026-07-06-005 W2 — the hydration-overwrite bug fix. Before this, the
+// watch below unconditionally overwrote `keywordEdits` any time
+// `keywordsQuery.data` changed — including a refetch fired by *anything*
+// other than window focus (query invalidation elsewhere, a manual refetch,
+// coming back from another route), silently discarding whatever the user had
+// typed and not yet saved. `keywordsDirty` guards that: while the user has
+// unsaved edits, hydration is skipped entirely; `markKeywordsClean()` re-
+// baselines right after a hydration actually runs (including the one
+// triggered by this card's own successful save, so the post-save refetch's
+// echo of what was just submitted doesn't itself look "dirty").
+const { dirty: keywordsDirty, markClean: markKeywordsClean } = useSnapshotDirty(
+  'settings-keywords',
+  'SEO 关键词池',
+  () => keywordEdits,
+)
+
 watch(
   () => keywordsQuery.data.value,
   (data) => {
     if (!data) return
+    if (keywordsDirty.value) return
     for (const domain of data.targets) {
       keywordEdits[domain] = (data.pools[domain] ?? []).join('\n')
     }
+    markKeywordsClean()
   },
   { immediate: true },
 )
@@ -87,6 +106,9 @@ async function onSaveKeywords(): Promise<void> {
     for (const domain of keywordTargets.value) pools[domain] = poolLines(domain)
     const r = await saveKeywordPools(pools)
     notify.push(r.message || '关键词已保存', 'success')
+    // Clear dirty *before* the refetch so the hydration watch (guarded above)
+    // is allowed to run when the saved data comes back.
+    markKeywordsClean()
     await keywordsQuery.refetch()
   } catch (e) {
     // 422 = a keyword failed the >60-char rule; the problem+json detail is the
@@ -115,12 +137,22 @@ const scheduleQuery = useQuery({
 const scheduleForm = reactive<ScheduleSettings>({ min_interval_hours: 4, jitter_minutes: 30 })
 const savingSchedule = ref(false)
 
+// Plan 2026-07-06-005 W2 — same hydration-overwrite fix as the keyword pool
+// editor above; see that block's comment for the full rationale.
+const { dirty: scheduleDirty, markClean: markScheduleClean } = useSnapshotDirty(
+  'settings-schedule',
+  '排程发布设定',
+  () => scheduleForm,
+)
+
 watch(
   () => scheduleQuery.data.value,
   (data) => {
     if (!data) return
+    if (scheduleDirty.value) return
     scheduleForm.min_interval_hours = data.min_interval_hours ?? 4
     scheduleForm.jitter_minutes = data.jitter_minutes ?? 30
+    markScheduleClean()
   },
   { immediate: true },
 )
@@ -140,6 +172,7 @@ async function onSaveSchedule(): Promise<void> {
       jitter_minutes: Number(scheduleForm.jitter_minutes),
     })
     notify.push(r.message || '排程设定已保存', 'success')
+    markScheduleClean()
     await scheduleQuery.refetch()
   } catch (e) {
     if (e instanceof ApiError && e.status === 422) {

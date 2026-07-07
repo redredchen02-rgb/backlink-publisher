@@ -17,6 +17,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import LlmSettingsCard from './LlmSettingsCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 const CONFIG = {
   endpoint: 'https://api.openai.com/v1',
@@ -47,6 +48,14 @@ function mountCard() {
   return mount(LlmSettingsCard, {
     global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
   })
+}
+
+function mountCardWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(LlmSettingsCard, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
 }
 
 describe('LlmSettingsCard', () => {
@@ -112,5 +121,34 @@ describe('LlmSettingsCard', () => {
     expect(api.clearLlmConfig).toHaveBeenCalled()
     const notify = useNotificationsStore()
     expect(notify.toasts.at(-1)?.severity).toBe('success')
+  })
+
+  it('REGRESSION (W2): an unsaved endpoint edit survives a non-focus query-data change', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    await w.find('#llm-ep').setValue('https://typed.example.com/v1')
+
+    queryClient.setQueryData(['settings', 'llm'], { ...CONFIG, endpoint: 'https://server-changed.example.com/v1' })
+    await flushPromises()
+
+    expect((w.find('#llm-ep').element as HTMLInputElement).value).toBe(
+      'https://typed.example.com/v1',
+    )
+  })
+
+  it('marks the card dirty while editing and clean again after a successful save', async () => {
+    vi.mocked(api.saveLlmConfig).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountCard()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('#llm-model').setValue('gpt-4.1')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('进阶 LLM 整合')
+
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
   })
 })

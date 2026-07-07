@@ -18,6 +18,7 @@ import { ApiError, csrfToken } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
+import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -48,10 +49,20 @@ const state = computed<FourState>(() => {
 const form = reactive({ client_id: '', client_secret: '' })
 const saving = ref(false)
 
+// Plan 2026-07-06-005 W2 — hydration-overwrite fix: while the operator has
+// unsaved edits (client_id and/or client_secret typed but not yet saved), a
+// query refetch must not clobber them. `markClean()` re-baselines right after
+// a hydration actually runs, including the one echoing this card's own
+// successful save (where `client_secret` gets programmatically blanked).
+const { dirty, markClean } = useSnapshotDirty('settings-blogger', 'Blogger', () => form)
+
 watch(
   () => status.value,
   (s) => {
-    if (s) form.client_id = s.client_id
+    if (!s) return
+    if (dirty.value) return
+    form.client_id = s.client_id
+    markClean()
   },
   { immediate: true },
 )
@@ -67,6 +78,7 @@ async function onSave(): Promise<void> {
     const r = await saveBloggerOauth(form.client_id, form.client_secret)
     notify.push(r.message || '凭据已确认绑定', 'success')
     form.client_secret = ''
+    markClean()
     await qc.invalidateQueries({ queryKey: ['settings', 'blogger-status'] })
   } catch (e) {
     if (e instanceof ApiError && e.status === 422) {

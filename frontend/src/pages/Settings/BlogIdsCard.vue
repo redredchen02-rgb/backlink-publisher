@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getBlogIds, saveBlogIds } from '../../api/settings'
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
+import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -35,15 +36,23 @@ const query = useQuery({
 const rows = reactive<Row[]>([])
 const saving = ref(false)
 
+// Plan 2026-07-06-005 W2 — hydration-overwrite fix: while the operator has
+// unsaved row edits, a query refetch (invalidation, refocus, revisit) must
+// not clobber `rows`. `markClean()` re-baselines right after a hydration
+// actually runs, including the one echoing this card's own successful save.
+const { dirty, markClean } = useSnapshotDirty('settings-blogids', 'Blogger Blog ID 映射', () => rows)
+
 watch(
   () => query.data.value,
   (data) => {
     if (!data) return
+    if (dirty.value) return
     rows.splice(0, rows.length)
     for (const [domain, blog_id] of Object.entries(data.blog_ids)) {
       rows.push({ domain, blog_id })
     }
     if (rows.length === 0) rows.push({ domain: '', blog_id: '' })
+    markClean()
   },
   { immediate: true },
 )
@@ -75,6 +84,7 @@ async function onSave(): Promise<void> {
     }
     const r = await saveBlogIds(mapping)
     notify.push(r.message || 'Blog ID 映射已保存', 'success')
+    markClean()
     await qc.invalidateQueries({ queryKey: ['settings', 'blog-ids'] })
   } catch (e) {
     toastError(e)
