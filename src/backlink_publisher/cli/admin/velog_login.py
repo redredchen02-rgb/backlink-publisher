@@ -27,7 +27,7 @@ import sys
 from typing import Any
 
 from backlink_publisher._util.errors import handle_error, UsageError
-from backlink_publisher.cli import bind_channel
+from backlink_publisher.cli.admin import bind_channel
 
 _BANNER = "velog-login is an alias for: bind-channel --channel velog"
 

@@ -34,7 +34,7 @@ from typing import Any
 
 from backlink_publisher._util.errors import DependencyError, handle_error, PipelineError, UsageError
 from backlink_publisher._util.logger import PipelineLogger, set_log_level
-from backlink_publisher.cli._canary_flip_hint import format_canary_hint
+from backlink_publisher.cli.spray._canary_flip_hint import format_canary_hint
 from backlink_publisher.config import load_config
 
 # Populate the adapter registry so dofollow_status() and registered_platforms()

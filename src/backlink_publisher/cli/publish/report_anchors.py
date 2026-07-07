@@ -15,7 +15,7 @@ from backlink_publisher._util.errors import emit_envelope_and_exit
 from backlink_publisher._util.jsonl import read_jsonl
 
 # Re-export format helpers so callers that import them from here still find them.
-from backlink_publisher.cli._report_format import (  # noqa: F401
+from backlink_publisher.cli.publish._report_format import (  # noqa: F401
     _build_profile_report,
     _build_report,
     _build_tier_summary,

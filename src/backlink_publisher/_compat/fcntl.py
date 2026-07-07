@@ -55,7 +55,7 @@ def flock(fd: int | IO, operation: int) -> None:
 
     if operation & LOCK_UN:
         # Unlock
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]  # Windows-only
         return
 
     exclusive = operation & LOCK_EX
@@ -64,10 +64,10 @@ def flock(fd: int | IO, operation: int) -> None:
     if exclusive:
         if non_blocking:
             try:
-                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]  # Windows-only
             except OSError as e:
-                if e.winerror in (33,):  # 33 = ERROR_LOCK_VIOLATION
+                if e.winerror in (33,):  # type: ignore[attr-defined]  # Windows-only  # 33 = ERROR_LOCK_VIOLATION
                     raise OSError(errno.EAGAIN, "Resource temporarily unavailable")
                 raise
         else:
-            msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+            msvcrt.locking(fd, msvcrt.LK_LOCK, 1)  # type: ignore[attr-defined]  # Windows-only

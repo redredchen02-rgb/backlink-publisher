@@ -77,11 +77,6 @@ def _post_publish_delay_s() -> int:
         env_var="MEDIUM_PUBLISH_DELAY_S",
         default=_DEFAULT_MEDIUM_PUBLISH_DELAY_S,
     )
-    from backlink_publisher.config import load_config
-    toml_val = load_config().platform_throttle.get("medium")
-    if toml_val is not None:
-        return int(toml_val)
-    return _DEFAULT_MEDIUM_PUBLISH_DELAY_S
 
 
 def _json_log(**kwargs: Any) -> str:

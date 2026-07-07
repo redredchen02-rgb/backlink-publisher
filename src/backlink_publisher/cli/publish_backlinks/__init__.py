@@ -139,7 +139,7 @@ def _prepare_publish_rows(args: Any) -> tuple[list[dict[str, Any]], set, Any]:
     if args.preview_manifest:
         # Read-only dedup preview over the validated planned rows. Emits verdicts
         # and exits 0 before any lease/checkpoint/dispatch side effect (U3).
-        from backlink_publisher.cli.preview_manifest import emit_manifest
+        from backlink_publisher.cli.ops.preview_manifest import emit_manifest
         emit_manifest(rows, args.platform)
         raise SystemExit(0)
 

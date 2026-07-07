@@ -480,7 +480,7 @@ def register(
 
 def _ensure_adapters_initialized() -> None:
     """Trigger adapter-registry lazy init so _REGISTRY is populated."""
-    import backlink_publisher.publishing.adapters as _adapters  # type: ignore[import-untyped]
+    import backlink_publisher.publishing.adapters as _adapters
 
     _adapters._lazy_init()
 

@@ -234,7 +234,7 @@ def _check_once(
         return False, "network_error", None
     except Exception as exc:
         opencli_logger.warning(
-            "content_fetch: unexpected error for %s: %s %s", url, type(exc).__name__, exc
+            f"content_fetch: unexpected error for {url}: {type(exc).__name__} {exc}"
         )
         return False, "network_error", None
 
