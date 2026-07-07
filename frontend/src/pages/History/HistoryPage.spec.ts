@@ -47,7 +47,7 @@ function makeRouter() {
 beforeEach(async () => {
   pinia = createPinia()
   setActivePinia(pinia)
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   vi.mocked(api.listHistoryDeletedWindow).mockResolvedValue({ items: [] })
   vi.mocked(errorCapture.reportManualMutationError).mockResolvedValue(null)
   router = makeRouter()
@@ -62,11 +62,8 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-let lastQueryClient: QueryClient
-
 function mountPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  lastQueryClient = queryClient
   return mount(HistoryPage, {
     global: { plugins: [pinia, router, [VueQueryPlugin, { queryClient }]] },
   })
@@ -418,6 +415,7 @@ describe('HistoryPage', () => {
     it('deleting the last row on the last page clamps back to the previous page', async () => {
       vi.mocked(api.listHistory)
         .mockResolvedValueOnce({ items: [PUBLISHED], total: 101, limit: 50, offset: 0 })
+        .mockResolvedValueOnce({ items: [OTHER], total: 101, limit: 50, offset: 50 })
         .mockResolvedValueOnce({ items: [FAILED], total: 101, limit: 50, offset: 100 })
       const w = mountPage()
       await flushPromises()
@@ -522,6 +520,5 @@ describe('HistoryPage', () => {
       await flushPromises()
       expect(w.find('.highlight-missing').exists()).toBe(false)
     })
-  })
   })
 })

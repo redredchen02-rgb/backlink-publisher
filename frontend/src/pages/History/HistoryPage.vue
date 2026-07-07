@@ -64,7 +64,6 @@ const PAGE_SIZE = 50
 // backend purge. Keep these two constants in sync if the backend changes.
 const CLIENT_UNDO_WINDOW_MS = 15_000
 
-const QKEY = ['history']
 const DELETED_QKEY = ['history', 'deleted-window']
 const qc = useQueryClient()
 const notify = useNotificationsStore()
@@ -88,12 +87,6 @@ const deletedQuery = useQuery({
   queryFn: () => listHistoryDeletedWindow(),
 })
 const deletedItems = computed<HistoryItem[]>(() => deletedQuery.data.value?.items ?? [])
-
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (query.isPending.value) return 'loading'
-  if (query.isError.value) return 'error'
-  return displayRows.value.length ? 'ready' : 'empty'
-})
 
 // ── undo-window bookkeeping (W5) ────────────────────────────────────────────
 const localPending = ref<Set<string>>(new Set())
@@ -285,7 +278,6 @@ function rowDisabled(id: string): boolean {
   return bulkBusy.value || rowBusy.value.has(id)
 }
 
-const tableLocked = computed(() => bulkBusy.value)
 const bulkButtonsDisabled = computed(() => bulkBusy.value || rowBusy.value.size > 0)
 
 /**
@@ -336,8 +328,8 @@ async function onDelete(id: string): Promise<void> {
   if (!row) return
   setRowBusy(id, true)
   try {
-    const r = await deleteHistory(id)
-    qc.setQueryData(QKEY, { items: r.items })
+    await deleteHistory(id)
+    await afterMutation()
     beginUndoWindow(row)
   } catch (e) {
     reportError(e, 'history.delete', [id])
@@ -350,8 +342,8 @@ async function onUndo(id: string): Promise<void> {
   if (rowDisabled(id)) return
   setRowBusy(id, true)
   try {
-    const r = await undeleteHistory(id)
-    qc.setQueryData(QKEY, { items: r.items })
+    await undeleteHistory(id)
+    await afterMutation()
     clearFinalizeTimer(id)
     localPending.value = withoutId(localPending.value, id)
     rowSnapshots.delete(id)
@@ -372,8 +364,7 @@ async function onRecheck(id: string): Promise<void> {
   setRowBusy(id, true)
   try {
     const r = await recheckHistory(id)
-    qc.setQueryData(QKEY, { items: r.items })
-    selected.value = withoutId(selected.value, id)
+    await afterMutation([id])
     if (r.message) notify.push(r.message, 'info')
   } catch (e) {
     reportError(e, 'history.recheck', [id])
