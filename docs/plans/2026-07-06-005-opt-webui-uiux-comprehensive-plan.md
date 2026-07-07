@@ -530,7 +530,9 @@ graph TB
 
 **Verification:** 三頁全部 mutation 路徑經 mock 驗證上報分流正確;儀表板實際出現記錄(手動觸發一次)。
 
-- [ ] **W14: 誠實性 blueprint 落地審計〔R14〕**
+- [x] **W14: 誠實性 blueprint 落地審計〔R14〕**
+
+〔W14 執行結果,2026-07-06,分支 `chore/w14-blueprint-audit`〕已完成:產出 `docs/audits/2026-07-06-honesty-blueprint-closeout.md`。Blueprint A(webui-false-success-resolution)9 條主張 → 7 已落地、1 缺口、1 備註;Blueprint B(adapter-silent-exceptions-resolution)7 條 → 6 已落地(全數經 commit `a5f8ba3a` 落地,Medium Save Draft 修法甚至超出 blueprint 原始要求)、0 缺口、1 不再適用(原目標 pattern 已被 `SessionManager`/`DefaultCredentialProvider` 取代)。**唯一缺口**:`webui_app/routes/pipeline_plan.py:228-235`(`ce_preview`)仍回原始字串而非結構化 JSON,但疑似已無前端呼叫者(被 `webui_app/api/v1/pipeline.py::pipeline_preview()` 取代)——列追蹤項,未在本 unit 修復(K24 唯讀紀律)。另記錄一個範圍外觀察:`publishing/session/provider.py:266-272` 有未記錄細節的 `except Exception`,非本 blueprint 主張範圍。
 
 **Goal:** fleet merge 後,對 `webui-false-success-resolution.md` 與 `adapter-silent-exceptions-resolution.md` 兩份 blueprint 逐條核對落地狀態,產出 checklist;殘餘缺口列修復項或顯式記錄。
 
