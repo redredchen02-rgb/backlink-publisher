@@ -16,6 +16,9 @@ __tier__ = "unit"
 import io
 import logging
 import re
+import sys
+
+import pytest
 
 from backlink_publisher.config import (
     Config,
@@ -327,6 +330,10 @@ class TestWarnIfLooseConfigPermissions:
         _warn_if_loose_config_permissions(cfg_path, {"blogger": {}})
         assert not caplog.records
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_blogger_oauth_triggers_warning(self, tmp_path, caplog):
         """S1: config.toml with blogger.oauth + 0644 → warning mentions [blogger.oauth]."""
         cfg_path = tmp_path / "config.toml"
@@ -352,6 +359,10 @@ class TestWarnIfLooseConfigPermissions:
         })
         assert not caplog.records
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_llm_api_key_triggers_legacy_warning(self, tmp_path, caplog):
         """S4: legacy LLM api_key + 0644 → warning preserved (SEC-6 backward compat)."""
         cfg_path = tmp_path / "config.toml"
@@ -365,6 +376,10 @@ class TestWarnIfLooseConfigPermissions:
         assert len(caplog.records) == 1
         assert "[llm].api_key" in caplog.records[0].message
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_medium_oauth_triggers_warning(self, tmp_path, caplog):
         """medium.oauth + 0644 → warning mentions [medium.oauth]."""
         cfg_path = tmp_path / "config.toml"

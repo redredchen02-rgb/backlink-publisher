@@ -25,7 +25,12 @@ def test_config_dir_returns_override_when_set(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", "/tmp/bp-test-config")
     monkeypatch.setenv(SANDBOX_SENTINEL, "1")
     result = _config_dir()
-    assert str(result) == "/tmp/bp-test-config"
+    # .as_posix(), not str(): on Windows, Path("/tmp/...") is a real,
+    # drive-rooted WindowsPath, and str() of it legitimately renders with
+    # backslashes -- that's correct pathlib behavior, not a bug. as_posix()
+    # normalizes for this cross-platform comparison against the fixture's
+    # POSIX-style override string.
+    assert result.as_posix() == "/tmp/bp-test-config"
 
 
 def test_cache_dir_returns_override_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -33,7 +38,7 @@ def test_cache_dir_returns_override_when_set(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("BACKLINK_PUBLISHER_CACHE_DIR", "/tmp/bp-test-cache")
     monkeypatch.setenv(SANDBOX_SENTINEL, "1")
     result = _cache_dir()
-    assert str(result) == "/tmp/bp-test-cache"
+    assert result.as_posix() == "/tmp/bp-test-cache"
 
 
 # ── Fail-closed paths ────────────────────────────────────────────────────────
