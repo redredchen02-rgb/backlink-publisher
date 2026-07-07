@@ -11,9 +11,11 @@
 // registered in components/Icon.vue's ICONS table (bootstrap-icons v1.11.0
 // path data, offline). Chosen to match the legacy Jinja sidebar's own
 // `bi-*` icon per nav_item() call in webui_app/templates/base.html wherever
-// that page has an equivalent entry (keep-alive → shield-check, error-reports
-// → exclamation-triangle-fill, monitor aggregator → grid-1x2, etc.) so the
-// two shells read as the same product; SPA-only items (history/drafts/
+// that page has an equivalent entry (keep-alive → shield-check, monitor
+// aggregator → grid-1x2, etc.) so the two shells read as the same product;
+// error-reports/PR-queue got a best-fit icon instead (bug/people — 2026-07-07
+// follow-up, more semantically fitting than the icons originally picked).
+// SPA-only items (history/drafts/
 // optimization-status/equity-ledger, which the legacy sidebar doesn't list at
 // all) got a best-fit icon of their own. `showAnomalyBadge` marks the single
 // item (the monitor aggregator, now the homepage) that SideNav.vue attaches
@@ -54,7 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '排程', group: 'operations', icon: 'calendar-week', to: '/schedule' }, // migrated in U7
   { label: '批量', group: 'operations', icon: 'stack', to: '/batch-campaign' }, // migrated in U7
   { label: '设置', group: 'config', icon: 'gear', to: '/settings' }, // migrated in U7 §5 — SPA settings page now complete (was legacy href)
-  { label: 'PR 机会', group: 'operations', icon: 'newspaper', to: '/pr-queue' }, // migrated in P12 A1
+  { label: 'PR 机会', group: 'operations', icon: 'people', to: '/pr-queue' }, // migrated in P12 A1
   { label: '存活率', group: 'monitoring', icon: 'graph-up', to: '/survival' }, // migrated in P13 B1
   { label: '优化权重', group: 'monitoring', icon: 'graph-up-arrow', to: '/optimization-status' }, // migrated in P13 B2
   { label: '权益总账', group: 'monitoring', icon: 'wallet2', to: '/equity-ledger' }, // migrated in P14 B1
@@ -74,7 +76,7 @@ export const NAV_ITEMS: NavItem[] = [
   // real benefit, so the SPA-only-ness alone isn't treated as a reason to hide
   // it — see SideNav.vue's module docstring for the general policy this
   // follows.
-  { label: '错误报告', group: 'operations', icon: 'exclamation-triangle-fill', to: '/error-reports' },
+  { label: '错误报告', group: 'operations', icon: 'bug', to: '/error-reports' },
 
 ]
 
