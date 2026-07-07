@@ -8,6 +8,7 @@ vi.mock('../../api/monitor', () => ({
   monitorSummary: vi.fn(),
   retryQueueTask: vi.fn(),
   verifyChannel: vi.fn(),
+  fetchPipelineHealth: vi.fn(),
 }))
 vi.mock('../../api/errorReports', () => ({ updateErrorReport: vi.fn() }))
 vi.mock('../../api/keepAlive', () => ({ startRecheck: vi.fn(), pollRecheck: vi.fn() }))
@@ -47,6 +48,12 @@ beforeEach(() => {
   pinia = createPinia()
   setActivePinia(pinia)
   vi.clearAllMocks()
+  // Default: an established install (never_run: false) — most existing tests
+  // below don't care about the guidance card, so they get the "no guidance"
+  // baseline unless a test overrides this mock explicitly.
+  vi.mocked(api.fetchPipelineHealth).mockResolvedValue({
+    healthy: true, never_run: false, never_run_reason: null, degraded_reasons: [],
+  })
 })
 
 afterEach(() => {
@@ -566,5 +573,74 @@ describe('MonitorDashboard — focus management after item removal (accessibilit
     const head = w.find('.card__head')
     expect(document.activeElement).toBe(head.element)
     expect(document.activeElement).not.toBe(document.body)
+  })
+})
+
+// ── Never-run guidance card (Plan 2026-07-06-005 W15 / D13) ─────────────────
+// The guidance card reads a SEPARATE data source (fetchPipelineHealth(),
+// legacy bare /health — see api/monitor.ts) than the anomaly cards above
+// (monitorSummary(), /api/v1/monitor/summary). The two queries are
+// independent, so these tests vary each one on its own.
+
+describe('MonitorDashboard — never-run guidance card', () => {
+  it('happy path: never_run + no other faults shows the guidance card, no degraded styling', async () => {
+    vi.mocked(api.monitorSummary).mockResolvedValue({
+      cards: [OK_CARD], anomaly_count: 0, degraded: false,
+    })
+    vi.mocked(api.fetchPipelineHealth).mockResolvedValue({
+      healthy: true, never_run: true, never_run_reason: 'pipeline:never_run', degraded_reasons: [],
+    })
+    const { w } = await mountDashboard()
+
+    const guidance = w.find('.guidance-card')
+    expect(guidance.exists()).toBe(true)
+    expect(guidance.text()).toContain('下一步：执行第一次发布')
+    // Actionable link to the publish workbench, not a dead-end.
+    const action = guidance.find('.guidance-card__action')
+    expect(action.attributes('href')).toBe('/publish')
+    // Not styled/labeled as a degraded/failure warning.
+    expect(w.find('.degraded-note').exists()).toBe(false)
+    expect(guidance.find('[data-severity="danger"]').exists()).toBe(false)
+  })
+
+  it('edge case: never_run coincides with a real fault — both the guidance card and the fault card show (D13: guidance never masks a real error)', async () => {
+    vi.mocked(api.monitorSummary).mockResolvedValue({
+      cards: [DANGER_CARD], anomaly_count: 1, degraded: false,
+    })
+    vi.mocked(api.fetchPipelineHealth).mockResolvedValue({
+      healthy: false, never_run: true, never_run_reason: 'pipeline:never_run',
+      degraded_reasons: ['channel:medium:expired'],
+    })
+    const { w } = await mountDashboard()
+
+    expect(w.find('.guidance-card').exists()).toBe(true)
+    const dangerCard = w.find('.card[data-severity="danger"]')
+    expect(dangerCard.exists()).toBe(true)
+    expect(dangerCard.text()).toContain('渠道凭证失效')
+  })
+
+  it('regression: never_run=false (has publish history) never shows the guidance card', async () => {
+    vi.mocked(api.monitorSummary).mockResolvedValue({
+      cards: [OK_CARD], anomaly_count: 0, degraded: false,
+    })
+    vi.mocked(api.fetchPipelineHealth).mockResolvedValue({
+      healthy: true, never_run: false, never_run_reason: null, degraded_reasons: [],
+    })
+    const { w } = await mountDashboard()
+    expect(w.find('.guidance-card').exists()).toBe(false)
+  })
+
+  it('edge case: the health call fails — no guidance card, but the rest of the dashboard is unaffected (fail-open)', async () => {
+    vi.mocked(api.monitorSummary).mockResolvedValue({
+      cards: [OK_CARD], anomaly_count: 0, degraded: false,
+    })
+    vi.mocked(api.fetchPipelineHealth).mockRejectedValue(new Error('network error'))
+    const { w } = await mountDashboard()
+
+    expect(w.find('.guidance-card').exists()).toBe(false)
+    // The primary dashboard (driven entirely by monitorSummary) still renders
+    // normally — the failed, independent health query must not regress it.
+    expect(w.findAll('.card')).toHaveLength(1)
+    expect(w.find('.monitor__summary').text()).toContain('今日无异常')
   })
 })
