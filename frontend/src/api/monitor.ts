@@ -61,6 +61,18 @@ export interface MonitorSummary {
 
 export const monitorSummary = (): Promise<MonitorSummary> => getJson('/monitor/summary')
 
+// Plan 2026-07-06-005 W8 (R8): shared query-key constant so SideNav.vue's
+// anomaly badge and pages/Monitor/MonitorDashboard.vue's own poll read the
+// SAME TanStack Query cache entry (keys are matched by deep-equality on the
+// array's contents, not by reference — no import wiring required for the
+// sharing itself to work). MonitorDashboard.vue is out of this unit's scope
+// (owned by a parallel unit) and still defines its own literal
+// `['monitor-summary']` locally; that file was deliberately left untouched,
+// so if its literal ever drifts from this constant's value the cache-sharing
+// silently stops (no compile-time link between the two) — flagged here so a
+// future edit to either site notices the coupling.
+export const MONITOR_SUMMARY_QUERY_KEY = ['monitor-summary'] as const
+
 // ── Queue-task retry (Plan 2026-07-06-004 Unit 3 endpoint, Unit 6 caller) ────
 //
 // A genuine /api/v1 endpoint, so sendJson's automatic API_BASE prefix applies
