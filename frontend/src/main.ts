@@ -33,7 +33,35 @@ pinia.use(errorCapturePlugin)
 // SECURITY: only the error + the query/mutation KEY are forwarded — never
 // `variables` (a mutation's raw call arguments, which may carry a plaintext
 // secret such as api/settings.ts's saveLlmConfig `api_key`).
+//
+// Plan 2026-07-06-005 W1 (D15) — refresh behavior, explicit not implicit.
+// Before this unit the QueryClient had no `defaultOptions` at all, so every
+// page silently inherited the library defaults (`staleTime: 0`,
+// `refetchOnWindowFocus: true`). That implicit default was a common enabler
+// of the Settings hydration-overwrite bug (W2) and other refetch surprises —
+// see docs/audits/2026-07-06-webui-refresh-inventory.md for the full per-page
+// audit. This block makes the site-wide contract explicit and
+// name-checkable — see the guard test in
+// frontend/src/__tests__/query-defaults.spec.ts.
+//
+// - `refetchOnWindowFocus: true` — kept ON (not silently disabled) and
+//   written here so it is a decision, not an accident: most pages are
+//   read-mostly dashboards that benefit from a focus-triggered refresh.
+// - `staleTime: 30_000` — previously implicit 0 (always stale, so every
+//   mount/focus fired a network call even for data fetched a moment ago).
+//   30s matches the order of magnitude of MonitorDashboard's own 30s poll
+//   interval and cuts redundant-refetch noise without materially staling any
+//   page's data. Pages that need different freshness (Monitor's poll,
+//   Schedule's explicit focus-refetch, the Settings edit surface's
+//   frozen-on-focus contract) override this explicitly at the query
+//   site — see the inventory doc for the full per-page list.
 const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      staleTime: 30_000,
+    },
+  },
   queryCache: new QueryCache({
     onError: (error, query) => reportQueryError(error, query.queryKey),
   }),

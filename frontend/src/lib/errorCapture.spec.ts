@@ -16,11 +16,13 @@ import {
   reportRouterError,
   reportQueryError,
   reportMutationError,
+  reportManualMutationError,
+  shouldReportMutationError,
   _resetGlobalErrorListenersForTest,
   _resetCaptureStateForTest,
 } from './errorCapture'
 import { errorCapturePlugin } from '../stores/errorCapturePlugin'
-import { _resetCsrfForTest } from '../api/client'
+import { ApiError, _resetCsrfForTest } from '../api/client'
 
 
 interface FetchCall {
@@ -259,6 +261,65 @@ describe('hook 4b: MutationCache onError', () => {
     // Negative, paired with the positive assertion above.
     expect(raw).not.toContain('sk-anothersecret456')
     expect(raw).not.toContain('api_key')
+  })
+})
+
+// ── D8 mutation error-report routing rule (Plan 2026-07-06-005 W13) ─────────
+
+describe('D8 mutation error-report routing', () => {
+  it('a 422 ApiError (expected form-validation outcome) is excluded', () => {
+    expect(shouldReportMutationError(new ApiError('bad input', 422, {}))).toBe(false)
+  })
+
+  it.each([400, 403, 404, 409, 500])(
+    'a %i ApiError is incident-class and IS reported (only 422 is excluded)',
+    (status) => {
+      expect(shouldReportMutationError(new ApiError('failed', status, {}))).toBe(true)
+    },
+  )
+
+  it('a non-ApiError (network failure, TypeError, etc.) is always reported', () => {
+    expect(shouldReportMutationError(new TypeError('Failed to fetch'))).toBe(true)
+  })
+
+  it('reportMutationError (hook 4b) is filtered by the D8 predicate: no submission for a 422', async () => {
+    const calls = installFetchStub()
+    reportMutationError(new ApiError('bad input', 422, {}), ['settings', 'llm'])
+    await flushPromises()
+    expect(calls).toHaveLength(0)
+  })
+})
+
+// ── reportManualMutationError (Plan 2026-07-06-005 W13 D7) ───────────────────
+
+describe('reportManualMutationError', () => {
+  it('submits a non-422 failure with the call-site context prefixed into the message', async () => {
+    const calls = installFetchStub()
+    const reportId = await reportManualMutationError(new ApiError('server blew up', 500, {}), 'history.delete')
+    await flushPromises()
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].body.message).toContain('history.delete')
+    expect(calls[0].body.message).toContain('server blew up')
+    expect(reportId).toMatch(/^f6a7b8c9-/)
+  })
+
+  it('a 422 is not submitted and resolves to null (same D8 filter as reportMutationError)', async () => {
+    const calls = installFetchStub()
+    const reportId = await reportManualMutationError(new ApiError('validation failed', 422, {}), 'settings.save')
+    await flushPromises()
+
+    expect(calls).toHaveLength(0)
+    expect(reportId).toBeNull()
+  })
+
+  it('a 404 (e.g. History undelete on an aged-out row) is incident-class and IS submitted', async () => {
+    const calls = installFetchStub()
+    const reportId = await reportManualMutationError(new ApiError('not found', 404, {}), 'history.undelete')
+    await flushPromises()
+
+    expect(calls).toHaveLength(1)
+    expect(reportId).not.toBeNull()
   })
 })
 

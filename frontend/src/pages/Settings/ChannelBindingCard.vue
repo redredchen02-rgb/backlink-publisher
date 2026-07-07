@@ -9,7 +9,7 @@
 // Secrets are never pre-filled: a password field shows a "已设置" placeholder when
 // bound and a blank submit preserves the stored value (leave-as-is). oauth /
 // browser-login channels are not here — they get card actions in a later slice.
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   getChannelForms,
@@ -22,6 +22,7 @@ import { ApiError } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
@@ -29,7 +30,16 @@ const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
-const formsQuery = useQuery({ queryKey: ['settings', 'channel-forms'], queryFn: getChannelForms })
+// Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `edits`) —
+// window-focus refetch explicitly OFF. See
+// docs/audits/2026-07-06-webui-refresh-inventory.md.
+const formsQuery = useQuery({
+  queryKey: ['settings', 'channel-forms'],
+  queryFn: getChannelForms,
+  refetchOnWindowFocus: false,
+})
+// Read-only status display (bound/identity badges), not hydrated into any
+// editable field — inherits the site default (refetchOnWindowFocus: true).
 const overviewQuery = useQuery({ queryKey: ['settings', 'channels'], queryFn: getChannels })
 
 const forms = computed<ChannelBindingForm[]>(() => formsQuery.data.value?.forms ?? [])
@@ -53,18 +63,78 @@ const state = computed<FourState>(() => {
 const edits = reactive<Record<string, Record<string, string>>>({})
 const savingSlug = ref<string | null>(null)
 
+// Plan 2026-07-06-005 W6 — shared save convention, per-slug variant: a 422
+// renders inline under THAT slug's form (never a global toast), keyed by
+// slug rather than by `useSettingsForm`'s single fieldMap because this card
+// hosts N independent dynamic forms (one per fixed-credential channel) in
+// one component instance — `useSettingsForm` assumes one form per instance,
+// which doesn't fit here, so the same detail-extraction + no-toast-on-422
+// behavior is reproduced directly (see useSettingsForm's module docstring
+// for the same field-attribution caveat: the backend detail is a freeform
+// string, not structured per-field data).
+const formErrors = reactive<Record<string, string>>({})
+
+function detailOf(payload: unknown): string {
+  if (payload && typeof payload === 'object' && 'detail' in payload) {
+    const d = (payload as Record<string, unknown>).detail
+    if (d != null) return String(d)
+  }
+  return '校验失败'
+}
+
+// Plan 2026-07-06-005 W2 — this card's hydration was already non-destructive
+// (the loop below only ever seeds a *missing* field key blank, it never
+// overwrites a key that's already present — so a refetch triggered while
+// mid-edit never clobbers `edits`). What it lacked was dirty tracking for the
+// route-leave guard / beforeunload handler.
+//
+// It deliberately does NOT reuse `useSnapshotDirty`'s single-baseline
+// approach: that composable snapshots the *whole* source once and diffs
+// against it, but here new keys get seeded into `edits` incrementally as
+// more channel forms/fields stream in (each seed pass would otherwise look
+// like "the user changed something" even though nothing was typed). Instead,
+// `lastSeeded` mirrors only the seeded *blank defaults* — every key in it is
+// updated in lockstep with `edits` at seed time (both blank, so no apparent
+// diff) and left alone afterwards, so a real edit is exactly the divergence
+// between `edits` and `lastSeeded` for that key. Reactive (not a plain
+// object) so `markSlugClean()` — called after a successful save, even one
+// that doesn't itself mutate `edits` (the "清除" path) — reliably triggers
+// the `dirty` computed below to re-evaluate.
+const lastSeeded = reactive<Record<string, Record<string, string>>>({})
+
+function markSlugClean(slug: string): void {
+  lastSeeded[slug] = { ...(edits[slug] ?? {}) }
+}
+
 watch(
   () => formsQuery.data.value,
   (data) => {
     for (const f of data?.forms ?? []) {
       if (!edits[f.slug]) edits[f.slug] = {}
+      if (!lastSeeded[f.slug]) lastSeeded[f.slug] = {}
       for (const fld of f.fields) {
-        if (!(fld.name in edits[f.slug])) edits[f.slug][fld.name] = ''
+        if (!(fld.name in edits[f.slug])) {
+          edits[f.slug][fld.name] = ''
+          lastSeeded[f.slug][fld.name] = ''
+        }
       }
     }
   },
   { immediate: true },
 )
+
+const dirty = computed(() => JSON.stringify(edits) !== JSON.stringify(lastSeeded))
+
+const dirtyStore = useSettingsDirtyStore()
+watch(
+  dirty,
+  (v) => {
+    if (v) dirtyStore.setDirty('settings-channel-binding', '渠道凭据绑定')
+    else dirtyStore.clearDirty('settings-channel-binding')
+  },
+  { immediate: true },
+)
+onUnmounted(() => dirtyStore.clearDirty('settings-channel-binding'))
 
 function isBound(slug: string): boolean {
   return Boolean(boundMap.value[slug]?.bound)
@@ -84,6 +154,7 @@ function clearSecretInputs(form: ChannelBindingForm): void {
 async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   if (savingSlug.value) return
   savingSlug.value = form.slug
+  delete formErrors[form.slug]
   try {
     const body: Record<string, string | number> = { auth_type: form.auth_type }
     if (clear) {
@@ -97,6 +168,11 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
     const r = await save(form.slug, body)
     notify.push(r.message, r.ok ? 'success' : 'info')
     if (!clear) clearSecretInputs(form)
+    // This slug's fields now match what was just persisted — re-baseline so
+    // it stops counting toward the route-leave guard's dirty set. (The
+    // `clear` path never touched `edits`, but re-baselining is still correct
+    // and cheap: it's a no-op diff-wise.)
+    markSlugClean(form.slug)
     await Promise.all([
       qc.invalidateQueries({ queryKey: ['settings', 'channels'] }),
       qc.invalidateQueries({ queryKey: ['settings', 'channel-forms'] }),
@@ -104,10 +180,10 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
   } catch (e) {
     // 422 = a credential failed a validation gate (SSRF / cookie schema / hostname
     // / both-userpass-required); the problem+json detail is the server-sanitized,
-    // actionable message (rendered text-only by the toast).
+    // actionable message — W6: rendered inline under THIS slug's form, never a
+    // global toast (see the `formErrors` comment above `edits`).
     if (e instanceof ApiError && e.status === 422) {
-      const detail = (e.payload as { detail?: string })?.detail
-      notify.push(detail || '凭据校验失败', 'warning')
+      formErrors[form.slug] = detailOf(e.payload)
       return
     }
     toastError(e)
@@ -165,6 +241,10 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
             />
             <small v-if="fld.help" class="muted">{{ fld.help }}</small>
           </div>
+
+          <p v-if="formErrors[f.slug]" class="form-error" :data-test="`bind-error-${f.slug}`">
+            {{ formErrors[f.slug] }}
+          </p>
 
           <div class="bind__actions">
             <button type="submit" :disabled="savingSlug === f.slug">
@@ -260,5 +340,10 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 }
 .tag--muted {
   color: var(--text-secondary);
+}
+.form-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin: 0.25rem 0 0;
 }
 </style>

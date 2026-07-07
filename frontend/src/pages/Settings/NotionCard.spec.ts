@@ -13,6 +13,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import NotionCard from './NotionCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 let pinia: ReturnType<typeof createPinia>
 
@@ -32,6 +33,14 @@ function mountCard() {
   return mount(NotionCard, {
     global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
   })
+}
+
+function mountCardWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(NotionCard, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
 }
 
 function btn(w: ReturnType<typeof mountCard>, text: string) {
@@ -74,7 +83,7 @@ describe('NotionCard', () => {
     expect((w.find('#nt-token').element as HTMLInputElement).value).toBe('')
   })
 
-  it('surfaces a 422 missing-field rejection as a warning toast', async () => {
+  it('W6: a 422 mentioning Integration Token renders inline under that field, not a toast', async () => {
     vi.mocked(api.saveNotionToken).mockRejectedValue(
       new ApiError('rejected', 422, { detail: 'Integration Token 不能为空' }),
     )
@@ -82,9 +91,23 @@ describe('NotionCard', () => {
     await flushPromises()
     await w.find('form').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="err-token"]').text()).toContain('Integration Token')
+    expect(w.find('[data-test="notion-form-error"]').exists()).toBe(false)
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('Integration Token')
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: a 422 mentioning Database ID renders inline under that field', async () => {
+    vi.mocked(api.saveNotionToken).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: 'Database ID 格式无效' }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="err-db"]').text()).toContain('Database ID')
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('clears the credential after confirm → success toast', async () => {
@@ -98,5 +121,33 @@ describe('NotionCard', () => {
     expect(api.clearNotionToken).toHaveBeenCalled()
     const notify = useNotificationsStore()
     expect(notify.toasts.at(-1)?.severity).toBe('success')
+  })
+
+  it('REGRESSION (W2): unsaved database_id edit survives a non-focus query-data change', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    await w.find('#nt-db').setValue('typed-db-id')
+
+    queryClient.setQueryData(['settings', 'notion-status'], statusValue({ database_id: 'server-db-id' }))
+    await flushPromises()
+
+    expect((w.find('#nt-db').element as HTMLInputElement).value).toBe('typed-db-id')
+  })
+
+  it('marks the card dirty while editing and clean again after a successful save', async () => {
+    vi.mocked(api.saveNotionToken).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountCard()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('#nt-token').setValue('typing…')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('Notion')
+
+    await w.find('#nt-db').setValue('db_123')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
   })
 })

@@ -17,6 +17,11 @@ export interface HistoryItem {
   verified_at?: number | null
   publish_mode?: string
   target_dofollow?: string
+  // W4/W5: only populated on rows returned by `?include_deleted=window` --
+  // the ISO timestamp the row was soft-deleted at, used to compute the
+  // undo window's *remaining* time (rather than restarting a fresh timer)
+  // when a page reload rediscovers a still-pending row.
+  deleted_at?: string | null
 }
 
 export interface HistoryList {
@@ -30,6 +35,11 @@ export interface HistoryList {
 export interface HistoryMutationResult {
   items: HistoryItem[]
   message?: string
+  // W4 bulk-delete only: honest per-call counts (additive, oasdiff-safe) --
+  // a partially-stale selection (some ids already gone) reports exactly how
+  // many were actually deleted vs skipped instead of an all-or-nothing result.
+  deleted?: number
+  skipped?: number
 }
 
 export const listHistory = (params?: { limit?: number; offset?: number }): Promise<HistoryList> => {
@@ -41,8 +51,22 @@ export const listHistory = (params?: { limit?: number; offset?: number }): Promi
   return getJson(`/history?${qs}`)
 }
 
+/**
+ * W4/W5 — unpaginated: only soft-deleted rows still within the undo window,
+ * each carrying `deleted_at`. Intentionally never combined with `?limit=&
+ * offset=` (see webui_app/api/v1/history.py's `history_list` docstring).
+ */
+export const listHistoryDeletedWindow = (): Promise<HistoryList> =>
+  getJson('/history?include_deleted=window')
+
 export const deleteHistory = (id: string): Promise<HistoryMutationResult> =>
   sendJson('POST', '/history/delete', { id })
+
+/** W4/W5 — restore a soft-deleted row still within the undo window. 404s
+ *  (aged past the window / never deleted / unknown id) reject as an
+ *  `ApiError`, same as every other mutation here. */
+export const undeleteHistory = (id: string): Promise<HistoryMutationResult> =>
+  sendJson('POST', '/history/undelete', { id })
 
 export const bulkDeleteHistory = (ids: string[]): Promise<HistoryMutationResult> =>
   sendJson('POST', '/history/bulk-delete', { ids })

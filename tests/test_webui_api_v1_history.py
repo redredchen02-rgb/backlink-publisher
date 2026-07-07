@@ -47,6 +47,24 @@ def test_webui_history_delete_missing_id_returns_422(client):
     assert resp.get_json()["type"].endswith("invalid_request")
 
 
+def test_webui_history_undelete_returns_refreshed_list(client, monkeypatch):
+    _patch(monkeypatch, undelete=lambda _id: {"ok": True, "history": [_ROW]})
+    resp = client.post("/api/v1/history/undelete", json={"id": "7"})
+    assert resp.status_code == 200
+    assert resp.get_json()["items"] == [_ROW]
+
+
+def test_webui_history_undelete_not_found_returns_404(client, monkeypatch):
+    _patch(
+        monkeypatch,
+        undelete=lambda _id: {"ok": False, "error_code": "not_found", "flash_msg": "记录不存在或已过期"},
+    )
+    resp = client.post("/api/v1/history/undelete", json={"id": "does-not-exist"})
+    assert resp.status_code == 404
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+    assert resp.get_json()["type"].endswith("not_found")
+
+
 def test_webui_history_bulk_delete_returns_list_and_message(client, monkeypatch):
     _patch(
         monkeypatch,

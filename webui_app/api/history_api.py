@@ -21,6 +21,7 @@ from backlink_publisher.events.history_query import (
     get_history_item,
     list_history,
     purge_failed_from_db,
+    undelete_from_db,
     update_status_in_db,
 )
 from backlink_publisher.events.publish_writer import (
@@ -76,17 +77,39 @@ class HistoryAPI:
     def _normalize_items(items: list[dict]) -> list[dict]:
         return [HistoryAPI._normalize_item(item) for item in items]
 
-    def list(self) -> list[dict]:
-        """Return all history items from events.db, normalised."""
-        return self._normalize_items(list_history())
+    def list(self, include_deleted: str | None = None) -> list[dict]:
+        """Return history items from events.db, normalised.
+
+        ``include_deleted`` is only ever passed by the WebUI (D18's
+        ``include_deleted=window``); the CLI facade never supplies it.
+        """
+        return self._normalize_items(list_history(include_deleted=include_deleted))
 
     # ── delete ────────────────────────────────────────────────────────────
 
     def delete(self, item_id: str) -> dict[str, Any]:
-        """Delete a single history entry."""
+        """Soft-delete a single history entry (undo-able within the purge window)."""
         if not item_id:
             return {"ok": False, "flash_msg": "参数缺失"}
         delete_from_db(item_id)
+        return {
+            "ok": True,
+            "history": self._normalize_items(list_history()),
+        }
+
+    def undelete(self, item_id: str) -> dict[str, Any]:
+        """Restore a soft-deleted history entry within the undo window.
+
+        Returns ``ok: False`` with ``error_code: "not_found"`` for an id
+        that never existed, was never deleted, or already aged past the
+        purge window -- never a silent success (mirrors the retry_task
+        not-silent-else fix precedent).
+        """
+        if not item_id:
+            return {"ok": False, "error_code": "missing_id", "flash_msg": "参数缺失"}
+        restored = undelete_from_db(item_id)
+        if not restored:
+            return {"ok": False, "error_code": "not_found", "flash_msg": "记录不存在或已过期"}
         return {
             "ok": True,
             "history": self._normalize_items(list_history()),
@@ -131,12 +154,27 @@ class HistoryAPI:
     # ── bulk operations ──────────────────────────────────────────────────
 
     def bulk_delete(self, ids: list[str]) -> dict[str, Any]:
-        """Delete multiple history entries by id."""
+        """Soft-delete multiple history entries by id.
+
+        W4 dual-write decision: this no longer also calls
+        ``_history_store.bulk_delete`` (the legacy JSON mirror). Before W4,
+        bulk-delete physically mutated both events.db AND the JSON file,
+        so an undelete could restore the events.db row while the JSON
+        copy stayed gone -- a divergence undelete could never fix. Making
+        the legacy call a no-op shim here matches the single-item delete
+        path (which never touched history_store at all) and keeps the
+        JSON store what its own docstring already claims it degrades
+        towards: a stale, read-only migration remnant, not a second
+        source of truth that must track soft-delete state.
+        """
         if not ids:
             return {"ok": False, "flash_msg": "未选择任何项"}
-        removed = bulk_delete_from_db(ids)
-        removed += _history_store.bulk_delete(ids)
-        return {"ok": True, "flash_msg": f"已删除 {removed} 条历史记录"}
+        counts = bulk_delete_from_db(ids)
+        deleted, skipped = counts["deleted"], counts["skipped"]
+        msg = f"已删除 {deleted} 条历史记录"
+        if skipped:
+            msg += f"，{skipped} 条已跳过（不存在或已删除）"
+        return {"ok": True, "deleted": deleted, "skipped": skipped, "flash_msg": msg}
 
     def purge_failed(self) -> dict[str, Any]:
         """Delete every history entry whose status is exactly ``failed``."""

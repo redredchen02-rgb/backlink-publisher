@@ -11,8 +11,24 @@
 // the FULL table (unchanged contract), not a page-shaped envelope, so
 // mutations refetch this page from the server rather than reshaping the
 // full-table response locally.
+//
+// Plan 2026-07-06-005 W13 (D7) reintegration: every draft mutation now runs
+// through a single shared `useMutation` (rather than a bare try/catch), so a
+// failure is observed by main.ts's `MutationCache.onError` and flows into
+// the error-reports dashboard automatically (D8 filters out expected 422s).
+// One shared mutation (not one per action) preserves this page's existing
+// "single shared `busy` lock across every action, row or bulk" semantics --
+// `mutation.isPending` stands in for the old plain `busy` ref 1:1. Drafts has
+// no undo state machine to protect (W5 explicitly excludes Drafts, D17 -- no
+// soft-delete backend for the Drafts JSON store), so unlike HistoryPage
+// there's no reason to keep a hand-rolled mutation runner here: `useMutation`
+// is strictly simpler for this page's flat busy/disabled model. The
+// mutation's "variables" is a closure (`fn`), so it can never carry a page's
+// raw call arguments/secrets even though `useMutation` makes `variables`
+// available to `MutationCache.onError` (see lib/errorCapture.ts's module
+// docstring for why that boundary matters).
 import { computed, reactive, ref } from 'vue'
-import { keepPreviousData, useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/vue-query'
 import {
   bulkCancelDrafts,
   bulkDeleteDrafts,
@@ -44,7 +60,17 @@ const total = computed(() => query.data.value?.total)
 
 const scheduleInputs = reactive<Record<string, string>>({})
 const selected = ref<Set<string>>(new Set())
-const busy = ref(false)
+
+// Single shared mutation for every draft action (row or bulk) — see the
+// script-block header comment for why this replaces the old plain `busy`
+// ref/try-catch runner: `mutation.isPending` now backs the SAME `busy`
+// external contract (name unchanged) so every existing template binding and
+// test assertion against `busy` keeps working unmodified.
+const mutation = useMutation({
+  mutationKey: ['drafts', 'mutate'],
+  mutationFn: (fn: () => Promise<DraftMutationResult>) => fn(),
+})
+const busy = computed(() => mutation.isPending.value)
 
 function reportError(e: unknown): void {
   toastError(e)
@@ -61,9 +87,11 @@ function reportError(e: unknown): void {
  */
 async function run(fn: () => Promise<DraftMutationResult>, idsToDeselect?: string[]): Promise<void> {
   if (busy.value) return
-  busy.value = true
   try {
-    const r = await fn()
+    // mutateAsync rethrows on failure (so the local catch below still runs
+    // classifyError -> toast), while main.ts's MutationCache.onError
+    // independently observes every failure -> error-reports (D7/D8).
+    const r = await mutation.mutateAsync(fn)
     if (r.message) notify.push(r.message, 'info')
     await query.refetch()
     const newTotal = query.data.value?.total
@@ -78,8 +106,6 @@ async function run(fn: () => Promise<DraftMutationResult>, idsToDeselect?: strin
     }
   } catch (e) {
     reportError(e)
-  } finally {
-    busy.value = false
   }
 }
 

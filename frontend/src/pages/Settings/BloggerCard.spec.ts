@@ -13,6 +13,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import BloggerCard from './BloggerCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 let pinia: ReturnType<typeof createPinia>
 
@@ -40,6 +41,14 @@ function mountCard() {
   return mount(BloggerCard, {
     global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
   })
+}
+
+function mountCardWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(BloggerCard, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
 }
 
 function btn(w: ReturnType<typeof mountCard>, text: string) {
@@ -81,17 +90,31 @@ describe('BloggerCard', () => {
     expect((w.find('#bg-secret').element as HTMLInputElement).value).toBe('')
   })
 
-  it('surfaces a 422 missing-creds rejection as a warning toast', async () => {
+  it('W6: a 422 mentioning Client Secret renders inline under that field, not a global toast', async () => {
     vi.mocked(api.saveBloggerOauth).mockRejectedValue(
-      new ApiError('rejected', 422, { detail: '请填写 Client ID 和 Client Secret' }),
+      new ApiError('rejected', 422, { detail: '请填写 Client Secret' }),
     )
     const w = mountCard()
     await flushPromises()
     await w.find('form').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="err-client-secret"]').text()).toContain('Client Secret')
+    expect(w.find('[data-test="blogger-form-error"]').exists()).toBe(false)
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('Client ID')
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: a 422 with an unattributable detail renders the shared form-error banner', async () => {
+    vi.mocked(api.saveBloggerOauth).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: '未知校验错误' }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="blogger-form-error"]').text()).toBe('未知校验错误')
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('Google login submits a full-page form to the legacy oauth-start route with CSRF', async () => {
@@ -148,5 +171,32 @@ describe('BloggerCard', () => {
     await btn(w, '取消')!.trigger('click')
     expect(w.find('[role="dialog"]').exists()).toBe(false)
     expect(api.revokeBlogger).not.toHaveBeenCalled()
+  })
+
+  it('REGRESSION (W2): unsaved client_id edit survives a non-focus query-data change', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    await w.find('#bg-cid').setValue('typed-cid.apps')
+
+    queryClient.setQueryData(['settings', 'blogger-status'], statusValue({ client_id: 'server-cid.apps' }))
+    await flushPromises()
+
+    expect((w.find('#bg-cid').element as HTMLInputElement).value).toBe('typed-cid.apps')
+  })
+
+  it('marks the card dirty while editing and clean again after a successful save', async () => {
+    vi.mocked(api.saveBloggerOauth).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountCard()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('#bg-cid').setValue('typing…')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('Blogger')
+
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
   })
 })

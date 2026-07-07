@@ -1,7 +1,7 @@
 ---
 status: pending
 priority: p3
-issue_id: "013"
+issue_id: "020"
 tags: [frontend, confirm-dialog, race-condition, latent]
 dependencies: []
 ---
