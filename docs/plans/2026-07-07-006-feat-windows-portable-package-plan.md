@@ -1,7 +1,7 @@
 ---
 title: "feat: Windows 零安裝可攜式啟動包 (build-once, unzip-and-run)"
 type: feat
-status: active
+status: completed
 date: 2026-07-07
 claims: {}  # 封裝建置計畫，無需 claims 追蹤
 ---
