@@ -448,7 +448,7 @@ path the user hit the dev-server warning through.
   machine no longer prints the Werkzeug "development server" warning.
 - `restart_webui.bat` successfully cycles the process using `serve.py`.
 
-- [ ] **Unit 4: Update command references in docs**
+- [x] **Unit 4: Update command references in docs**
 
 **Goal:** Contributors reading the repo's own command docs see the
 production entrypoint, not just the dev one.

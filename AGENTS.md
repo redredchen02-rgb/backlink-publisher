@@ -25,6 +25,7 @@ ruff check src/ webui_app/ webui_store/
 	
 	# WebUI
 	python webui.py                                    # start dev server on :8888
+	python serve.py                                     # production entrypoint (waitress, no dev-server warning)
 	scripts/launcher.command                           # canonical operator launcher (FLASK_DEBUG=0 + pinned SECRET_KEY, crash-restart loop)
 	```
 	
@@ -45,6 +46,7 @@ REM Lint (ruff, not Black/flake8)
 	
 	REM WebUI
 	.venv\Scripts\python webui.py                                    # dev server on :8888
+	.venv\Scripts\python serve.py                                     # production entrypoint (waitress, no dev-server warning)
 	powershell -ExecutionPolicy Bypass -File scripts\launcher.ps1     # canonical operator launcher (Windows)
 	```
 	
@@ -71,7 +73,7 @@ REM Lint (ruff, not Black/flake8)
 
 ### WebUI
 
-Flask app at `webui_app/` (37 route modules, `create_app()` factory). State persistence at `webui_store/` — **11** `_LazyStore`-backed singletons total (live-recounted 2026-07-06 via `grep -rn "_LazyStore(" webui_store/*.py` — 12 matching lines, minus the docstring example in `webui_store/base.py`; supersedes the earlier "10" figure — see also `CLAUDE.md`'s WebUI Layout section for the same count and method): eight declared and exported in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`), plus `channel_status_store` (`webui_store/channel_status.py`, imported eagerly into `__init__.py`'s namespace but itself `_LazyStore`-wrapped like the rest), plus `verify_health_store` (`webui_store/verify_health.py`, never re-exported through `webui_store/__init__.py.__all__`, which is why early counts missed it), plus `error_report_store` (`webui_store/error_reports.py`, landed via `docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md`). Launcher: `python webui.py`.
+Flask app at `webui_app/` (37 route modules, `create_app()` factory). State persistence at `webui_store/` — **11** `_LazyStore`-backed singletons total (live-recounted 2026-07-06 via `grep -rn "_LazyStore(" webui_store/*.py` — 12 matching lines, minus the docstring example in `webui_store/base.py`; supersedes the earlier "10" figure — see also `CLAUDE.md`'s WebUI Layout section for the same count and method): eight declared and exported in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`), plus `channel_status_store` (`webui_store/channel_status.py`, imported eagerly into `__init__.py`'s namespace but itself `_LazyStore`-wrapped like the rest), plus `verify_health_store` (`webui_store/verify_health.py`, never re-exported through `webui_store/__init__.py.__all__`, which is why early counts missed it), plus `error_report_store` (`webui_store/error_reports.py`, landed via `docs/plans/2026-07-01-002-feat-frontend-error-reporting-plan.md`). Launcher: `python webui.py` (dev, Werkzeug); production entrypoint: `python serve.py` (waitress, `threads=1` by default — see `serve.py`'s own docstring for why).
 
 App-level CSRF guard `_global_csrf_guard` (PR #143, `webui_app/__init__.py`) enforces a token on every POST/PUT/PATCH/DELETE. Tests opt out via `app.config['CSRF_ENABLED'] = False` (or the legacy `WTF_CSRF_ENABLED` flag — both honored). The `_check_csrf_or_abort` helper has a single production call site inside the global guard; PR #148 removed all inline per-route calls.
 
