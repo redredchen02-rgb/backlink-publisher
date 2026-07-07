@@ -5,7 +5,7 @@
 // cover-image). As of §5 the console nav points here (navItems `to`), so this is
 // the PRIMARY settings entry; the legacy Jinja /settings page survives only until
 // U8 retirement (a few legacy-only escape hatches still link out to it).
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import {
   getKeywordPools,

@@ -7,7 +7,7 @@
 // (mirrors the legacy form), so the secret is never pre-filled and a blank submit
 // is a 422 the user must resolve by re-entering the token. database_id is NOT a
 // secret, so it hydrates from the status GET for display/edit.
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getNotionStatus, saveNotionToken, clearNotionToken } from '../../api/settings'
 import StateBlock from '../../components/StateBlock.vue'
