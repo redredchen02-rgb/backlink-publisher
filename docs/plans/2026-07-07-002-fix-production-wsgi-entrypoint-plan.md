@@ -65,11 +65,13 @@ should run production-style at it instead of `webui.py`.
 - R3. The security posture must not regress: bind stays loopback-only
   (`_resolve_bind_host()` unchanged), `FLASK_DEBUG`/Werkzeug interactive
   debugger must never be reachable through the production entrypoint.
-- R4. No new concurrency bugs: a documented pre-existing gap
-  (`webui_app/api/v1/drafts.py:44-52`) relies on the dev server's de facto
-  single-threaded request handling to avoid a double-schedule race on the
-  legacy `POST /ce:draft/bulk-publish-now` route. Switching WSGI servers
-  must not silently turn that into a live race.
+- R4. No new concurrency bugs: a documented pre-existing gap in the legacy
+  `POST /ce:draft/bulk-publish-now` route (`webui_app/routes/drafts.py`, no
+  lock — documented in a comment at `webui_app/api/v1/drafts.py:44-52` on
+  the sibling `/api/v1` route, which itself already has a lock) relies on
+  the dev server's de facto single-threaded request handling to avoid a
+  double-schedule race. Switching WSGI servers must not silently turn that
+  into a live race.
 
 ## Scope Boundaries
 
@@ -124,11 +126,15 @@ should run production-style at it instead of `webui.py`.
 - `webui_app/helpers/cli_runner.py::_wire_content_fetch_ttl_from_env` —
   called by `webui.py` before `app.run(...)`; `serve.py` needs the same
   call for parity.
-- `webui_app/api/v1/drafts.py:39-52` — documents the single-flight lock gap:
-  the legacy route has no lock, and the comment explicitly says this is
-  "low practical urgency today" only because `app.run()` has no
-  `threaded=True`. This is the concrete reason `serve.py` must not default
-  to multi-threaded serving.
+- `webui_app/api/v1/drafts.py:39-52` — a comment on this file's own
+  (already-locked) `/api/v1` bulk-publish-now route documents the actual
+  gap: `webui_app/routes/drafts.py`'s legacy route has no lock, and the
+  comment explicitly says this is "low practical urgency today" only
+  because `app.run()` has no `threaded=True`. This is the concrete reason
+  `serve.py` must not default to multi-threaded serving. (An earlier draft
+  of this plan and of `serve.py`'s warning text misattributed the missing
+  lock to `api/v1/drafts.py` itself — caught and fixed during the code
+  review pass; see Risks & Dependencies.)
 - `scripts/launcher.command` (macOS, git-tracked canonical, `WEBUI_SCRIPT`
   variable defaults to `webui.py`, already overridable via env for the
   manual crash-stub test) and `scripts/launcher.ps1` (Windows git-tracked
@@ -168,10 +174,15 @@ should run production-style at it instead of `webui.py`.
   servers"). Avoids a second app-construction path drifting from the dev
   entrypoint's.
 - **`waitress.serve(..., threads=1)` by default, overridable via
-  `WSGI_THREADS`.** `webui_app/api/v1/drafts.py` documents a real,
-  currently-latent race (no lock on the legacy bulk-publish-now route) that
-  is only safe because today's dev server can't serve two requests
-  concurrently. Defaulting to 1 thread preserves that same effective
+  `WSGI_THREADS`, with `_resolve_threads()` rejecting values below 1.**
+  `webui_app/routes/drafts.py`'s legacy bulk-publish-now route has a real,
+  currently-latent race (no lock) that is only safe because today's dev
+  server can't serve two requests concurrently — confirmed independently
+  during the code-review pass by
+  `docs/solutions/ux-honesty/webui-false-success-resolution.md`, which
+  documents the same route's store-update-then-scheduler.add_job pair as
+  non-atomic, so `threads=1` is doing real defensive work here, not just
+  being conservative. Defaulting to 1 thread preserves that same effective
   serialization exactly, so this plan introduces zero new concurrency
   exposure. Raising the thread count later is a separate, deliberate
   decision that should first close the drafts.py gap. Because the only
@@ -181,7 +192,13 @@ should run production-style at it instead of `webui.py`.
   Unit 1) — a source comment and this plan document are not something a
   future operator tuning throughput in a deploy config is likely to
   consult, so the warning has to live where it will actually be seen: at
-  startup, in the process they're launching.
+  startup, in the process they're launching. `_resolve_threads()` treats
+  `WSGI_THREADS<=0` or non-numeric values as a hard error rather than
+  silently accepting them — waitress's own thread dispatcher never starts a
+  worker when `threads<=0` (verified against the vendored waitress 3.0.2
+  source during code review), which would silently hang every request
+  forever, a strictly worse failure mode than the race this default
+  guards against.
 - **`serve.py` forces `app.debug = False` before serving, independent of
   `FLASK_DEBUG`.** Waitress has no Werkzeug-style interactive debugger, but
   leaving `app.debug` however `create_app()`/Flask left it risks verbose
@@ -245,7 +262,10 @@ long-dead `serve.py` reference.
 - `from webui import app` (do not call `create_app()` again).
 - Top-level helper functions mirroring `webui.py`'s testable-helper
   convention (`_resolve_debug_mode`, `_resolve_bind_host`), e.g.
-  `_resolve_threads() -> int` reading `WSGI_THREADS` (default `"1"`).
+  `_resolve_threads() -> int` reading `WSGI_THREADS` (default `"1"`),
+  raising `ValueError` for non-numeric or non-positive values rather than
+  silently passing them to waitress (which never starts a worker thread
+  when `threads<=0`, hanging every request).
 - `if __name__ == '__main__':` block: disable the urllib3 insecure-request
   warning (parity with `webui.py`), call
   `_wire_content_fetch_ttl_from_env()`, resolve `PORT` (default 8888) and
@@ -255,7 +275,7 @@ long-dead `serve.py` reference.
   then `waitress.serve(app, host=bind_host, port=port,
   threads=_resolve_threads())`.
 - When `_resolve_threads()` resolves above `1`, print a loud, unmissable
-  startup warning naming the `webui_app/api/v1/drafts.py` bulk-publish-now
+  startup warning naming the `webui_app/routes/drafts.py` bulk-publish-now
   single-flight gap before calling `waitress.serve(...)` — a warning, not a
   hard refusal, since raising thread count is a legitimate future choice
   once that gap is closed; this just makes the tradeoff visible at the
@@ -275,9 +295,16 @@ long-dead `serve.py` reference.
 - Happy path: `_resolve_threads()` returns `1` when `WSGI_THREADS` is unset.
 - Edge case: `_resolve_threads()` returns the parsed int when
   `WSGI_THREADS` is set to a valid override (e.g. `"4"`).
-- Edge case: a startup warning naming the drafts.py gap is printed when
-  `WSGI_THREADS` resolves above `1`, and is *not* printed when it resolves
-  to `1` (default or explicit).
+- Error path: `_resolve_threads()` raises `ValueError` when `WSGI_THREADS`
+  is `"0"`, negative, or non-numeric (code-review finding — waitress never
+  starts a worker thread when `threads<=0`, which would silently hang every
+  request forever; failing loudly at startup is strictly better than a
+  silent hang).
+- Edge case: a startup warning naming the `webui_app/routes/drafts.py` gap
+  (the exact file, not just the substrings "drafts.py"/"bulk-publish-now",
+  since the sibling `webui_app/api/v1/drafts.py` also matches those and is
+  not the gap) is printed when `WSGI_THREADS` resolves above `1`, and is
+  *not* printed when it resolves to `1` (default or explicit).
 - Integration: the plan's core safety claim — that `threads=1` preserves
   the dev server's de facto request serialization, so the drafts.py
   bulk-publish-now gap stays latent — is asserted in Key Technical
@@ -516,7 +543,9 @@ production entrypoint, not just the dev one.
 | Risk | Mitigation |
 |------|------------|
 | Multi-threaded waitress could turn the known drafts.py bulk-publish-now single-flight gap into a live, exploitable race | Default `threads=1` in `serve.py`, verified by an automated concurrency test (Unit 1); a loud startup warning fires if `WSGI_THREADS>1` is ever set, naming the gap explicitly so the risk isn't silent even if someone overrides the default |
-| `scripts/launcher.command`'s crash-restart loop keys off Werkzeug's Ctrl-C exit codes (0 or 130); waitress may report a different exit code on SIGINT, causing a clean shutdown to be misclassified as a crash | Attempted during Unit 2 from this Windows session, but Git Bash on Windows does not deliver POSIX SIGINT to a native Windows Python process reliably (the test hung), so the result is inconclusive here — `scripts/launcher.command` is a bash script that only really runs on macOS/Linux anyway. Still unverified; remains a real, open risk for whoever next runs the launcher on macOS/Linux |
+| `WSGI_THREADS<=0` would make waitress accept connections but never service them — a silent, total hang strictly worse than the race the default guards against (found in code review, verified against the vendored waitress 3.0.2 source) | `_resolve_threads()` now raises `ValueError` for any value below 1 or non-numeric, failing loudly at startup instead of hanging silently (Unit 1) |
+| An earlier draft of `serve.py`'s `_DRAFTS_GAP_NOTE` (and this plan) cited `webui_app/api/v1/drafts.py` as the unlocked route; the actual unlocked route is `webui_app/routes/drafts.py` — `api/v1/drafts.py`'s own route already has a lock | Found and fixed in code review: corrected the file path in `serve.py`, strengthened the test assertion to check the exact path (not just the substrings "drafts.py"/"bulk-publish-now", which both files satisfy), and corrected this plan's references throughout |
+| `scripts/launcher.command`'s crash-restart loop keys off Werkzeug's Ctrl-C exit codes (0 or 130); waitress may report a different exit code on SIGINT, causing a clean shutdown to be misclassified as a crash | Unresolved by live testing (Git Bash on Windows does not deliver POSIX SIGINT to a native Windows Python process reliably — the attempt hung; `scripts/launcher.command` only really runs on macOS/Linux anyway). Code review read waitress 3.0.2's own source (`waitress/server.py`): a `KeyboardInterrupt` is caught internally and `waitress.serve()` returns normally, so `serve.py` should exit 0 on a clean Ctrl-C, landing inside the launcher's accepted `{0, 130}` set — but this is source-level reasoning, not an empirical confirmation on the actual target platform. Remains a real, open verification gap for whoever next runs the launcher on macOS/Linux |
 | Workspace-root launcher edits (Unit 3) are outside the git repo and have zero automated test coverage | Manual verification steps enumerated per-unit; flagged explicitly so the operator knows these changes won't show up in a PR diff |
 | No macOS environment available in this session to verify `scripts/launcher.command` / `启动WebUI.command` end-to-end | Called out as a deferred manual check in Unit 3's test scenarios rather than silently assumed correct |
 | `Dockerfile`/`docker-compose.yml` still reference `serve.py` with `BIND_HOST=0.0.0.0`, which will now find the file but immediately crash with `RuntimeError` from `_resolve_bind_host()` instead of `FileNotFoundError` | Explicitly out of scope (see Scope Boundaries); failure mode changes from "file not found" to "refused non-loopback bind," which is at least a clearer error, but full container support is deferred |
@@ -525,9 +554,14 @@ production entrypoint, not just the dev one.
 
 - Related code: `webui.py`, `webui_app/helpers/security.py::_resolve_bind_host`,
   `webui_app/helpers/cli_runner.py::_wire_content_fetch_ttl_from_env`,
-  `webui_app/api/v1/drafts.py:39-52`, `scripts/launcher.command`,
+  `webui_app/routes/drafts.py` (the unlocked legacy route),
+  `webui_app/api/v1/drafts.py:39-52` (documents the gap; its own `/api/v1`
+  route already has the lock), `scripts/launcher.command`,
   `scripts/launcher.ps1`, `Dockerfile`, `docker-compose.yml`
 - Related plans: `docs/plans/2026-07-02-001-opt-v060-uiux-pipeline-upgrade-plan.md`
   (confirms `serve.py` never existed), `docs/plans/2026-07-03-001-fix-windows-webui-encoding-crash-plan.md`
   (defers R9 launcher-consolidation and serve.py encoding hardening)
+- `docs/solutions/ux-honesty/webui-false-success-resolution.md` — confirms
+  the `webui_app/routes/drafts.py` bulk-publish-now split-state hazard
+  independently (surfaced by `ce-learnings-researcher` during code review)
 - `AGENTS.md` — "One launcher (R9)" convention

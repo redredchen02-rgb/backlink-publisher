@@ -7,7 +7,9 @@ helpers (``_resolve_threads``, ``_force_production_debug_off``,
 ``_warn_if_multithreaded``), and the plan's core safety claim: that
 ``threads=1`` preserves the dev server's de facto request serialization,
 so the documented drafts.py bulk-publish-now single-flight gap
-(``webui_app/api/v1/drafts.py:39-52``) stays latent.
+(``webui_app/routes/drafts.py`` -- the legacy, unlocked route; see
+``webui_app/api/v1/drafts.py:39-52`` for the sibling ``/api/v1`` route's
+own lock, which already exists and is not the gap) stays latent.
 """
 from __future__ import annotations
 
@@ -40,6 +42,27 @@ def test_resolve_threads_honors_override(monkeypatch):
     assert serve._resolve_threads() == 4
 
 
+def test_resolve_threads_rejects_zero(monkeypatch):
+    # waitress's own dispatcher never starts a worker when threads<=0, so
+    # every request would hang forever -- worse than the race this default
+    # guards against. Fail loudly at startup instead of hanging silently.
+    monkeypatch.setenv("WSGI_THREADS", "0")
+    with pytest.raises(ValueError, match="positive integer"):
+        serve._resolve_threads()
+
+
+def test_resolve_threads_rejects_negative(monkeypatch):
+    monkeypatch.setenv("WSGI_THREADS", "-1")
+    with pytest.raises(ValueError, match="positive integer"):
+        serve._resolve_threads()
+
+
+def test_resolve_threads_rejects_non_numeric(monkeypatch):
+    monkeypatch.setenv("WSGI_THREADS", "many")
+    with pytest.raises(ValueError, match="positive integer"):
+        serve._resolve_threads()
+
+
 def test_force_production_debug_off_disables_debug_regardless_of_flag():
     app = Flask(__name__)
     app.debug = True
@@ -56,9 +79,13 @@ def test_warn_if_multithreaded_silent_at_one_thread(capsys):
 def test_warn_if_multithreaded_names_the_drafts_gap(capsys):
     result = serve._warn_if_multithreaded(4)
     assert result is not None
-    assert "drafts.py" in result
-    assert "bulk-publish-now" in result
-    assert "drafts.py" in capsys.readouterr().out
+    # Assert the exact unlocked route's path, not just the substrings
+    # "drafts.py"/"bulk-publish-now" -- both webui_app/routes/drafts.py
+    # (unlocked) and webui_app/api/v1/drafts.py (already locked) satisfy
+    # those substrings, so a weaker assertion wouldn't catch a citation of
+    # the wrong file.
+    assert "webui_app/routes/drafts.py" in result
+    assert "webui_app/routes/drafts.py" in capsys.readouterr().out
 
 
 def _free_port() -> int:

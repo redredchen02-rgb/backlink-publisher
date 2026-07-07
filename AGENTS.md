@@ -308,6 +308,7 @@ Additional workflows (all path-filtered, PR-only unless noted): `frontend.yml` (
 | `BACKLINK_FETCH_MAX_BODY_BYTES` | Max response body bytes before truncation (default 1048576) |
 | `BACKLINK_FETCH_BODY_TOO_SMALL` | Minimum body bytes to consider a page valid (default 2048) |
 | `BIND_HOST` / `PORT` | WebUI address |
+| `WSGI_THREADS` | `serve.py`'s waitress worker-thread count (default `1`). Keep at `1` unless the `webui_app/routes/drafts.py` bulk-publish-now single-flight gap is closed first — raising it prints a startup warning but does not block |
 | `PYTHONHASHSEED=0` | Required for footprint regression tests |
 
 ## Known Quirks
