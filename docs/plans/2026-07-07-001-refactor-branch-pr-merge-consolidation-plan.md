@@ -1,7 +1,7 @@
 ---
 title: "chore: Branch & PR Merge Consolidation — Round 4"
 type: refactor
-status: active
+status: completed
 date: 2026-07-07
 claims: {}  # pure git/PR housekeeping — no new application logic authored by this plan itself; W10/W13 feature code was already authored on their own branches under plan 2026-07-06-005
 ---
@@ -75,7 +75,7 @@ Investigation found the actual remaining work is much smaller than Round 3's: no
 
 ## Implementation Units
 
-- [ ] **Unit 1: Sync local `main` with `origin/main`**
+- [x] **Unit 1: Sync local `main` with `origin/main`**
 
 **Goal:** bring local `main` current before any merge or prune work begins.
 
@@ -91,7 +91,7 @@ Investigation found the actual remaining work is much smaller than Round 3's: no
 
 **Verification:** local `main`'s tip matches `origin/main`'s tip; `git status` clean.
 
-- [ ] **Unit 2: Review and merge the W10/W13 SPA units via `feat/w10-cross-page-deeplink`**
+- [x] **Unit 2: Review and merge the W10/W13 SPA units via `feat/w10-cross-page-deeplink`** — **major rescope during execution.** Opened PR #84, then found (via a live 3-way merge attempt, not just `merge-tree`) 6 real conflicting files. Investigation revealed `origin/main` already carries a *separately-authored, more mature* implementation of W10 and most of W13 (via `integration/w4-w5-w10-w13-reintegrate-u5`, confirmed an ancestor of `origin/main`) — `rowReportLinks.ts`, `HistoryPage.vue`'s deep-link wiring, and `DraftsPage.vue`'s `useMutation` migration were all already shipped and integrated with unrelated later work (e.g. U5's pagination-aware refetch, which `feat/w10-cross-page-deeplink`'s copy predates — merging it would have been a regression). Only Settings-card mutation error-reporting (`useSettingsForm.ts` + 5 callers) was genuinely missing. Closed PR #84 unmerged with an explanation; hand-ported just the Settings files into a fresh branch (`feat/w13-settings-mutation-error-reporting`); full suite green (484/484 vitest, typecheck, eslint, build); opened and merged PR #85. Archive-tagged and pruned `feat/w10-cross-page-deeplink`, `feat/w13-mutation-error-reporting`, `integration/2026-07-06-005-w1-w2-w4-w5-w6-w10-w12-w13-w14-w15` (redundant with the same content), and PR #85's own source branch.
 
 **Goal:** land the two genuinely outstanding units from plan `2026-07-06-005` — cross-page deep-linking between History rows and error-reports (W10), and mutation error-report coverage for History/Drafts/Settings (W13).
 
@@ -114,7 +114,7 @@ Investigation found the actual remaining work is much smaller than Round 3's: no
 
 **Verification:** PR opened for `feat/w10-cross-page-deeplink`; CI green (or only pre-existing unrelated failures remain, explicitly confirmed as such); merged; `origin/main` advances to include both W10 and W13.
 
-- [ ] **Unit 3: Confirm and prune `docs/u4-test-measurement` (stale, content already landed)**
+- [x] **Unit 3: Confirm and prune `docs/u4-test-measurement` (stale, content already landed)** — both signals (CC-30 backstop test, measurement doc) re-verified present on `origin/main`. Archive-tagged, pruned via `scripts/prune-stale-worktrees.sh --dry-run` confirmation + manual removal (script's `--force` would have also swept up `bp-baseline-preref`, explicitly out of scope — removed only this one worktree directly).
 
 **Goal:** remove a branch+worktree whose entire unique content is independently confirmed already on `origin/main`.
 
@@ -130,7 +130,7 @@ Investigation found the actual remaining work is much smaller than Round 3's: no
 
 **Verification:** `archive/docs-u4-test-measurement` tag exists on `origin`; branch and worktree gone; `origin/main` unaffected.
 
-- [ ] **Unit 4: Confirm and prune `fix/main-mypy-breakage` (stale, content already landed via PR #83)**
+- [x] **Unit 4: Confirm and prune `fix/main-mypy-breakage` (stale, content already landed via PR #83)** — PR #83 re-confirmed `MERGED`. Archive-tagged and pruned. Note: worktree directory removal hit a Windows file lock ("device or resource busy") both here and for `bp-u6-health-dashboard` in Unit 5 — git's own worktree registration was cleanly removed in both cases (confirmed via `git worktree list`), but the empty directory itself resisted deletion; `bp-fix-main-mypy`'s directory is still on disk as harmless empty cruft as of this writing (`bp-u6-health-dashboard`'s cleared on retry).
 
 **Goal:** remove a branch+worktree whose mypy-fix content already merged under PR #83.
 
@@ -146,7 +146,7 @@ Investigation found the actual remaining work is much smaller than Round 3's: no
 
 **Verification:** same pattern as Unit 3.
 
-- [ ] **Unit 5: Prune the remaining already-merged branches/worktrees**
+- [x] **Unit 5: Prune the remaining already-merged branches/worktrees** — all 18 originally-listed candidates re-verified as live ancestors of `origin/main` and pruned, plus `integration/w8-w11-w15-frontend` (the branch this plan's own document-review pass caught as dropped from the original inventory). Once Unit 2 completed, `feat/w13-mutation-error-reporting` and `integration/2026-07-06-005-...` were pruned too (the latter via content-verification, confirmed redundant with what Unit 2 established). `feat/w8-spa-shell-upgrade`/`bp-w8-shell` and `bp-baseline-preref` left untouched throughout, exactly as scoped.
 
 **Goal:** clear out the branches confirmed as ancestors of `origin/main`, keeping the workspace legible for the next round.
 
@@ -168,7 +168,7 @@ For each confirmed-ancestor or confirmed-redundant branch: archive-tag, push tag
 
 **Verification:** `git branch -a` shows only `main` plus any branch that re-verification found still genuinely unmerged or active; every archive tag present on `origin`; `bp-w8-shell` untouched and still exactly as dirty as found at plan time.
 
-- [ ] **Unit 6: Refresh `AGENTS.md`'s branch/worktree documentation**
+- [x] **Unit 6: Refresh `AGENTS.md`'s branch/worktree documentation** — replaced the round-3-dated block with a round-4 summary reflecting this round's actual outcome (including the Unit 2 rescope and the confirmed-live-active `bp-w8-shell` exclusion). Committed directly to `main` (`b1ff0682`).
 
 **Goal:** keep `AGENTS.md`'s branch section accurate for whoever runs the next round.
 
@@ -208,3 +208,12 @@ For each confirmed-ancestor or confirmed-redundant branch: archive-tag, push tag
 - `docs/solutions/workflow-issues/verify-repo-state-before-planning-2026-05-18.md`, `multi-agent-turf-check-before-claiming-work-2026-05-20.md`, `scan-parallel-prs-before-blocker-2026-05-18.md`, `push-early-committed-survives-branch-deletion-2026-05-27.md`, `foreign-agent-wip-spreads-across-worktrees-2026-05-20.md`, `external-agent-edits-in-shared-worktree-2026-05-18.md`
 - `docs/solutions/test-failures/post-fleet-merge-full-suite-measurement-2026-07-06.md`
 - PRs merged since Round 3's closeout: #77 (attention-dashboard), #78 (debt-registry fix), #79 (DataTable/pagination U5), #80 (Windows encoding), #81 (U6 health-dashboard SPA), #82 (u16 closeout), #83 (main mypy breakage fix)
+- PRs from this round: #84 (opened, closed unmerged — see Addendum), #85 (Settings mutation error-report coverage, merged)
+
+## Addendum (2026-07-07): Unit 2's rescope
+
+The single most consequential discovery this round: `feat/w10-cross-page-deeplink` (and the `feat/w13-mutation-error-reporting` commit it carried) was **not** the sole unlanded copy of W10/W13 that planning-time research believed it to be. A separate branch, `integration/w4-w5-w10-w13-reintegrate-u5` (already merged into `main` by the time this plan's execution began), had independently carried a more advanced implementation of the same units into `main` — its `DraftsPage.vue` was integrated with the later U5 pagination/DataTable rewrite in a way `feat/w10-cross-page-deeplink`'s copy predated, so merging the latter as planned would have silently reverted that integration.
+
+This was only caught because Unit 2's execution ran an actual 3-way merge (`git merge --no-commit --no-ff`) rather than trusting `git merge-tree`'s dry-run output, which had reported zero conflicts at planning time against an earlier `origin/main` tip. By execution time `origin/main` had moved and PR #84 showed real `CONFLICTING` status on GitHub; investigating *why* rather than resolving conflicts file-by-file surfaced the redundancy — and, on closer inspection, that main's competing implementation was strictly better, not just different. The lesson for future rounds of this recurring task: when a "simple merge" unit suddenly shows conflicts against a branch believed to be purely additive, treat it as a signal to check for a parallel reintegration path before resolving conflicts mechanically.
+
+Net effect: the plan's assumed 1-PR Unit 2 became close-1-PR (#84, unmerged) + hand-port-7-files + open-1-new-PR (#85, merged) + prune-1-extra-redundant-branch (`integration/2026-07-06-005-...`). The final tree state matches the plan's intent either way — `main` now has full W10/W13 coverage including Settings, which it lacked before this round — just reached by a narrower, more surgical path than planned.
