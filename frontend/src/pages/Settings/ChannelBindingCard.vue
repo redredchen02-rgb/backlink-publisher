@@ -29,7 +29,16 @@ const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
-const formsQuery = useQuery({ queryKey: ['settings', 'channel-forms'], queryFn: getChannelForms })
+// Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `edits`) —
+// window-focus refetch explicitly OFF. See
+// docs/audits/2026-07-06-webui-refresh-inventory.md.
+const formsQuery = useQuery({
+  queryKey: ['settings', 'channel-forms'],
+  queryFn: getChannelForms,
+  refetchOnWindowFocus: false,
+})
+// Read-only status display (bound/identity badges), not hydrated into any
+// editable field — inherits the site default (refetchOnWindowFocus: true).
 const overviewQuery = useQuery({ queryKey: ['settings', 'channels'], queryFn: getChannels })
 
 const forms = computed<ChannelBindingForm[]>(() => formsQuery.data.value?.forms ?? [])

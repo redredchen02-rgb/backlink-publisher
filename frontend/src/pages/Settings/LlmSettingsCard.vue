@@ -27,7 +27,14 @@ type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
 const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
-const query = useQuery({ queryKey: ['settings', 'llm'], queryFn: getLlmConfig })
+// Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `form`) —
+// window-focus refetch explicitly OFF. See
+// docs/audits/2026-07-06-webui-refresh-inventory.md.
+const query = useQuery({
+  queryKey: ['settings', 'llm'],
+  queryFn: getLlmConfig,
+  refetchOnWindowFocus: false,
+})
 
 const form = reactive({
   endpoint: '',
