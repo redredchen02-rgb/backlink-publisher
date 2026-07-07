@@ -3,6 +3,7 @@ title: Replace Werkzeug dev server with a production WSGI entrypoint
 type: fix
 status: completed
 date: 2026-07-07
+claims: {}
 ---
 
 # Replace Werkzeug dev server with a production WSGI entrypoint
