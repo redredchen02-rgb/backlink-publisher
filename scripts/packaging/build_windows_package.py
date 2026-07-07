@@ -6,12 +6,20 @@ core runtime dependencies installed) that does NOT depend on any host Python
 installation. This is the build-time tool referenced by
 ``docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md``.
 
-Implements Unit 1 (interpreter provisioning, ``provision_interpreter``) and
-Unit 2 (CLI shim generation, ``generate_cli_shims``). Units 3 and 5 (SPA
-build + directory assembly, and full build orchestration / zip output)
-extend this same file — the CLI entrypoint below is deliberately minimal
-until Unit 5 adds the full ``dist/backlink-publisher-vX.Y.Z-win64.zip``
-pipeline on top of it.
+Implements Unit 1 (interpreter provisioning, ``provision_interpreter``),
+Unit 2 (CLI shim generation, ``generate_cli_shims``), and Unit 3 (SPA build +
+package assembly, ``assemble_package``). Unit 5 (full build orchestration /
+zip output) extends this same file — the CLI entrypoint below is
+deliberately minimal until Unit 5 adds the full
+``dist/backlink-publisher-vX.Y.Z-win64.zip`` pipeline on top of it.
+
+Note on ``webui.py`` vs ``serve.py``: the plan's original Output Structure
+text names ``webui.py`` as the WebUI entrypoint copied into ``app/``. Since
+that text was written, ``serve.py`` landed on ``main`` as the intended
+production entrypoint (wraps the same Flask ``app`` in ``waitress`` instead
+of Werkzeug's dev server). ``assemble_package`` copies BOTH into ``app/`` —
+``serve.py`` does ``from webui import app``, so ``webui.py`` must still be
+present alongside it.
 
 Why an official *embeddable* interpreter rather than a copied ``venv/``: see
 "已驗證的關鍵發現" in the plan — a regular ``venv`` created by ``uv`` (or any
@@ -681,6 +689,210 @@ def generate_cli_shims(
         ensure_app_dir_importable(python_embed_dir)
 
     return final_dir
+
+
+# ── Unit 3: SPA build + package assembly ────────────────────────────────────
+#
+# Builds the Vue 3 SPA (`frontend/` -> `webui_app/spa_dist/`) and copies the
+# WebUI backend code into the package's `app/` directory. Does NOT call
+# provision_interpreter/generate_cli_shims itself -- that orchestration
+# belongs to Unit 5, which is expected to call, in this order:
+#
+#   1. provision_interpreter(pkg_dir / "python-embed", repo_root=...)
+#   2. generate_cli_shims(pkg_dir, repo_root=...)
+#   3. assemble_package(pkg_dir, repo_root=...)
+#
+# `pkg_dir` is decided by Unit 5 BEFORE any of the three calls (steps 1-2
+# already need it) -- see `package_dir_name` / `resolve_dist_package_dir`
+# below for the version-derived-name helper Unit 5 should use to compute it.
+
+
+def _npm_executable() -> str | None:
+    """Locate `npm` on PATH. Isolated as its own function (rather than
+    inlining `shutil.which("npm")` at each call site) so tests can
+    monkeypatch just the detection step without needing a real Node.js
+    install for the "npm not found" error path."""
+    return shutil.which("npm")
+
+
+def _run_npm_step(npm_exe: str, args: list[str], *, cwd: Path, step_label: str) -> None:
+    """Run one `npm <args>` step in `cwd`, raising `BuildError` (with a
+    message distinguishable from "npm not found") on a non-zero exit."""
+    result = subprocess.run(
+        [npm_exe, *args], cwd=str(cwd), capture_output=True, text=True, encoding="utf-8"
+    )
+    if result.returncode != 0:
+        raise BuildError(
+            f"{step_label} failed (exit {result.returncode}) in {cwd} — aborting the "
+            f"SPA build; refusing to proceed with a stale or missing spa_dist/.\n"
+            f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+        )
+
+
+def build_spa(frontend_dir: Path) -> Path:
+    """Build the Vue 3 SPA via `npm ci && npm run build` in `frontend_dir`.
+
+    Raises `BuildError` immediately — with a message that's clearly
+    distinguishable from a build-script failure — if `npm` is not found on
+    PATH at all (a different failure mode: the build machine itself is
+    missing Node.js/npm, vs. the build script running but failing). Also
+    raises `BuildError` if `npm ci` or `npm run build` exits non-zero, or if
+    `npm run build` reports success but the expected output file is
+    nonetheless missing (defensive — catches a misconfigured
+    `vite.config.*` build.outDir silently diverging from where
+    `webui_app/routes/spa.py` expects to find it).
+
+    Returns the path to the built `webui_app/spa_dist/` directory (a sibling
+    of `frontend_dir`'s parent's `webui_app/`, i.e.
+    `frontend_dir.parent / "webui_app" / "spa_dist"` — matches
+    `frontend/package.json`'s own description of the build target and what
+    `webui_app/routes/spa.py` reads from).
+    """
+    frontend_dir = Path(frontend_dir)
+    npm_exe = _npm_executable()
+    if npm_exe is None:
+        raise BuildError(
+            "npm was not found on PATH — building the Vue 3 SPA requires "
+            "Node.js/npm on the BUILD machine (only the built static output, "
+            "webui_app/spa_dist/, ships to end users; Node.js itself is never "
+            "part of the package). Install Node.js (https://nodejs.org) and "
+            "ensure `npm` is on PATH, then re-run the build."
+        )
+
+    _run_npm_step(npm_exe, ["ci"], cwd=frontend_dir, step_label="`npm ci`")
+    _run_npm_step(npm_exe, ["run", "build"], cwd=frontend_dir, step_label="`npm run build`")
+
+    spa_dist_dir = frontend_dir.parent / "webui_app" / "spa_dist"
+    index_html = spa_dist_dir / "index.html"
+    if not index_html.is_file():
+        raise BuildError(
+            f"`npm run build` reported success but {index_html} was not "
+            f"produced — check frontend/vite.config.* build.outDir still "
+            f"points at ../webui_app/spa_dist (see frontend/package.json's "
+            f"description field)."
+        )
+    return spa_dist_dir
+
+
+def package_dir_name(repo_root: Path = REPO_ROOT) -> str:
+    """Read `version` from `repo_root/pyproject.toml`'s `[project]` table and
+    return the versioned package directory name
+    `backlink-publisher-vX.Y.Z-win64` (matches the plan's Output Structure).
+
+    Deliberately NOT called internally by `assemble_package` — Unit 5 needs
+    the same versioned name to compute `pkg_dir` BEFORE calling
+    `provision_interpreter`/`generate_cli_shims` (both need `pkg_dir`
+    already decided), i.e. before `assemble_package` ever runs. Exposed here
+    (plus `resolve_dist_package_dir`) so Unit 5 doesn't need to reimplement
+    the `pyproject.toml` version lookup.
+    """
+    pyproject_path = repo_root / "pyproject.toml"
+    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    version = data.get("project", {}).get("version")
+    if not version:
+        raise BuildError(f"No [project].version found in {pyproject_path}")
+    return f"backlink-publisher-v{version}-win64"
+
+
+def resolve_dist_package_dir(repo_root: Path = REPO_ROOT, *, dist_dir: Path | None = None) -> Path:
+    """Compute the full versioned package output path, e.g.
+    `<repo_root>/dist/backlink-publisher-v0.5.0-win64` — convenience wrapper
+    around `package_dir_name` for Unit 5's orchestration. `dist_dir` defaults
+    to `repo_root / "dist"` (matches the plan's Output Structure and
+    `dist/`'s existing `.gitignore` entry).
+    """
+    resolved_dist_dir = Path(dist_dir) if dist_dir is not None else repo_root / "dist"
+    return resolved_dist_dir / package_dir_name(repo_root)
+
+
+# Files/directories copied from repo_root into pkg_dir/app/ verbatim. Order
+# matters only for readability here — copying is unconditional for each
+# entry regardless of position.
+_APP_COPY_ITEMS: tuple[str, ...] = (
+    "webui.py",
+    "serve.py",
+    "webui_app",
+    "webui_store",
+    "config.example.toml",
+)
+
+
+def assemble_package(pkg_dir: Path, *, repo_root: Path = REPO_ROOT) -> Path:
+    """Build the SPA and assemble `pkg_dir/app/` — the Unit 3 stage of the
+    Windows portable package build.
+
+    `pkg_dir` is taken as an already-decided package root (e.g. produced by
+    `resolve_dist_package_dir`) rather than computed here, because Unit 5's
+    orchestration needs the SAME `pkg_dir` for `provision_interpreter`
+    (`pkg_dir / "python-embed"`) and `generate_cli_shims` (`pkg_dir`) BEFORE
+    this function ever runs — see the plan's confirmed call order:
+    `provision_interpreter` -> `generate_cli_shims` -> `assemble_package`.
+
+    Steps, in order:
+
+    1. `build_spa(repo_root / "frontend")` — runs BEFORE anything under
+       `pkg_dir` is touched, so an SPA build failure (bad `npm`, failing
+       build script) never leaves `pkg_dir/app/` half-populated: nothing in
+       `pkg_dir` is modified until the SPA build has already fully
+       succeeded.
+    2. Clean-and-recreate `pkg_dir / "app"` (NOT the whole `pkg_dir` —
+       `pkg_dir/python-embed` and `pkg_dir/scripts` are populated by Units 1
+       and 2 earlier in the same build and must survive this call; deleting
+       the whole `pkg_dir` here would destroy them). This still directly
+       prevents the plan's motivating nested-duplicate-directory bug: a
+       second `assemble_package` call against the same `pkg_dir` always
+       replaces `app/` in place rather than nesting a new copy inside a
+       stale one. Unit 5 owns the *top-level* "delete the whole versioned
+       `pkg_dir` if it exists" idempotency step, run once before step 1 of
+       its own orchestration (before `provision_interpreter`) — this
+       function does not need to (and must not) repeat that here.
+    3. Copy `webui.py`, `serve.py`, `webui_app/` (including the just-built
+       `spa_dist/`), `webui_store/`, and `config.example.toml` from
+       `repo_root` into `pkg_dir/app/`.
+
+    Raises `BuildError` (propagated from `build_spa`, or raised directly
+    here if an expected source file/directory is missing) on any failure.
+
+    Returns `pkg_dir`.
+    """
+    pkg_dir = Path(pkg_dir)
+    repo_root = Path(repo_root)
+    frontend_dir = repo_root / "frontend"
+
+    # Step 1: build the SPA fully BEFORE touching pkg_dir at all.
+    build_spa(frontend_dir)
+
+    # Step 2: clean-and-recreate pkg_dir/app only (see docstring for why not
+    # the whole pkg_dir).
+    app_dir = pkg_dir / "app"
+    if app_dir.exists():
+        shutil.rmtree(app_dir)
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    # Step 3: copy backend + built SPA into app/.
+    for name in _APP_COPY_ITEMS:
+        src = repo_root / name
+        dest = app_dir / name
+        if not src.exists():
+            raise BuildError(
+                f"Expected {src} to exist for packaging but it was not found — "
+                f"check the repo layout before trusting assemble_package's "
+                f"copy list ({_APP_COPY_ITEMS})."
+            )
+        if src.is_dir():
+            shutil.copytree(src, dest)
+        else:
+            shutil.copy2(src, dest)
+
+    assembled_index = app_dir / "webui_app" / "spa_dist" / "index.html"
+    if not assembled_index.is_file():
+        raise BuildError(
+            f"Assembly completed but {assembled_index} is missing — the SPA "
+            f"build succeeded but its output was not copied correctly into "
+            f"app/webui_app/spa_dist/."
+        )
+
+    return pkg_dir
 
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
