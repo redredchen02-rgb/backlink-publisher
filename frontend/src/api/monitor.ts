@@ -73,6 +73,38 @@ export const monitorSummary = (): Promise<MonitorSummary> => getJson('/monitor/s
 // future edit to either site notices the coupling.
 export const MONITOR_SUMMARY_QUERY_KEY = ['monitor-summary'] as const
 
+// ── Pipeline health (never-run guidance — Plan 2026-07-06-005 W15) ──────────
+//
+// GET /health is a LEGACY-namespaced route (webui_app/routes/health.py,
+// backed by services/health_projection.py::compute_health_json()) — bare
+// '/health', NOT under the '/api/v1' prefix that getJson/sendJson always
+// add — so it needs its own raw fetch(), same reason/pattern as
+// verifyChannel() above. It intentionally returns HTTP 503 whenever
+// `healthy` is false (a REAL failure, e.g. a channel down) — that is still a
+// perfectly valid, parseable JSON body for our purposes here (we only read
+// `never_run`/`never_run_reason` off it), not a "this call failed" signal,
+// so 503 must NOT be treated as a fetch failure the way ApiError normally
+// would. Only a genuine network/parse failure should reject this promise —
+// callers treat that failure as fail-open (no guidance card shown, page
+// otherwise unaffected; see MonitorDashboard.vue).
+export interface PipelineHealth {
+  healthy: boolean
+  never_run: boolean
+  never_run_reason: string | null
+  degraded_reasons: string[]
+}
+
+export async function fetchPipelineHealth(): Promise<PipelineHealth> {
+  const resp = await fetch('/health', {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  })
+  // Any JSON body (200 healthy OR 503 degraded) is a valid read; only a
+  // non-JSON response (e.g. an unexpected HTML error page) should surface
+  // as a real failure to the caller.
+  return (await resp.json()) as PipelineHealth
+}
+
 // ── Queue-task retry (Plan 2026-07-06-004 Unit 3 endpoint, Unit 6 caller) ────
 //
 // A genuine /api/v1 endpoint, so sendJson's automatic API_BASE prefix applies

@@ -17,10 +17,10 @@
 // (never a full-page overlay) and writes its result straight into the
 // ['monitor-summary'] query cache rather than waiting for the next poll tick.
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
-  monitorSummary, retryQueueTask, verifyChannel,
+  fetchPipelineHealth, monitorSummary, retryQueueTask, verifyChannel,
   type MonitorCard, type MonitorCardItem, type MonitorSummary,
 } from '../../api/monitor'
 import { updateErrorReport } from '../../api/errorReports'
@@ -102,6 +102,31 @@ const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
 const cards = computed(() => query.data.value?.cards ?? [])
 const anomalyCount = computed(() => query.data.value?.anomaly_count ?? 0)
 const degraded = computed(() => query.data.value?.degraded ?? false)
+
+// ── never-run guidance card (Plan 2026-07-06-005 W15 / D13) ─────────────────
+// Independent query against the separate legacy /health endpoint (see
+// api/monitor.ts's fetchPipelineHealth() docstring for why it's a different
+// data source than /api/v1/monitor/summary above). Deliberately its OWN
+// query rather than folded into `query` above: a failure here (network error
+// or an unexpected non-JSON body) must fail OPEN — no guidance card, but the
+// rest of the dashboard (cards/anomaly banner/degraded-note, all driven
+// solely by `query`) is completely unaffected. `retry: false` mirrors the
+// "don't retry — either show it or don't" nature of a purely cosmetic
+// guidance affordance; nothing here is safety/correctness critical enough to
+// warrant TanStack's default retry backoff.
+const healthQuery = useQuery({
+  queryKey: ['pipeline-health'],
+  queryFn: fetchPipelineHealth,
+  refetchInterval: POLL_MS,
+  retry: false,
+})
+
+// D13: never_run only means "nothing has published yet" — it must never be
+// used to SUPPRESS a real fault. The guidance card below is purely additive
+// (rendered alongside, never instead of, the existing severity-ranked
+// `cards` list), so a real fault's own card (e.g. credentials/danger) always
+// keeps rendering regardless of `showGuidance`.
+const showGuidance = computed(() => healthQuery.data.value?.never_run === true)
 
 // ── Accessibility helpers (R17) ──────────────────────────────────────────────
 
@@ -406,6 +431,25 @@ function pollKeepaliveJob(jobId: string): void {
       empty-text="监控数据暂不可用，请稍后重试"
       @retry="query.refetch()"
     >
+      <!-- Never-run guidance (Plan 2026-07-06-005 W15 / D13): purely additive —
+           rendered ALONGSIDE the cards below, never replacing them, so a real
+           fault card (e.g. credentials/danger) still shows even when this
+           install has also never published. Distinguished from the
+           danger/warning cards below by more than color alone: a dashed
+           border, a rocket icon, and an explicit "引导" text badge (not a
+           colored dot) for screen-reader/no-color parity. -->
+      <div v-if="showGuidance" class="guidance-card" role="note" aria-label="引导：执行第一次发布">
+        <span class="guidance-card__badge">引导</span>
+        <span class="guidance-card__icon" aria-hidden="true">🚀</span>
+        <div class="guidance-card__body">
+          <p class="guidance-card__title">下一步：执行第一次发布</p>
+          <p class="guidance-card__detail muted">
+            这套安装还没有发布过任何内容。完成渠道设置后，前往发布工作台开始第一次发布。
+          </p>
+        </div>
+        <RouterLink class="guidance-card__action" to="/publish">前往发布工作台 →</RouterLink>
+      </div>
+
       <ul class="cards">
         <li v-for="card in cards" :key="card.key" class="card" :data-severity="card.severity">
           <div class="card__head" tabindex="-1" :ref="(el) => setCardHeadRef(card.key, el)">
@@ -543,6 +587,53 @@ function pollKeepaliveJob(jobId: string): void {
 .degraded-note {
   color: var(--warning);
   font-weight: 600;
+}
+/* Never-run guidance card (Plan 2026-07-06-005 W15 / D13). Deliberately NOT
+   `.card`/`data-severity` styled — a dashed border (vs. the solid
+   border-left-width severity cards below) plus the icon + "引导" badge keep
+   it visually distinct from both the danger/warning fault cards and the plain
+   `ok`/`info` cards, without relying on color alone (a11y). Sits above
+   `.cards` in normal document flow, so W12's `@media (max-width: 960px)`
+   single-column rule for `.cards` below is untouched by this block. */
+.guidance-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border: 1px dashed var(--primary);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.guidance-card__badge {
+  flex: 0 0 auto;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-md);
+  padding: 0.1rem 0.5rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--primary);
+}
+.guidance-card__icon {
+  flex: 0 0 auto;
+  font-size: 1.25rem;
+}
+.guidance-card__body {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.guidance-card__title {
+  margin: 0;
+  font-weight: 600;
+}
+.guidance-card__detail {
+  margin: 0.15rem 0 0;
+}
+.guidance-card__action {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--primary);
+  white-space: nowrap;
 }
 .cards {
   list-style: none;
