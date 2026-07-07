@@ -36,6 +36,13 @@ from ... import config_echo
 def main(argv: list[str] | None = None) -> None:
     import argparse
 
+    # Markdown output can contain glyphs (e.g. "↳") outside some console
+    # codepages (e.g. Windows cp950/cp1252); replace instead of crashing the
+    # print() calls below with UnicodeEncodeError.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(
         prog="report-anchors",
         description=(

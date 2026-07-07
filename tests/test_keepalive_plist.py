@@ -5,8 +5,9 @@ __tier__ = "integration"
 
 
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import plistlib
+import sys
 
 import pytest
 
@@ -60,15 +61,20 @@ def test_keepalive_plist_schedule_has_hour_and_minute():
 
 
 def test_keepalive_plist_working_directory_is_absolute():
+    # launchd plists are always macOS/POSIX content regardless of the host
+    # platform running this test -- PurePosixPath (not the local Path, which
+    # on Windows treats a leading "/" as drive-relative, not absolute) is the
+    # correct semantics for validating the string's shape.
     data = _load(KEEPALIVE_PLIST)
-    wd = Path(data["WorkingDirectory"])
+    wd = PurePosixPath(data["WorkingDirectory"])
     assert wd.is_absolute(), f"WorkingDirectory must be absolute: {wd}"
 
 
 @pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason="WorkingDirectory is the owner's machine-specific absolute path; it can only "
-    "exist on that machine. CI validates the portable shape via the is_absolute test instead.",
+    os.environ.get("CI") == "true" or sys.platform != "darwin",
+    reason="WorkingDirectory is the owner's machine-specific macOS absolute path; it can "
+    "only exist on that machine. CI and non-macOS hosts validate the portable shape via "
+    "the is_absolute test instead.",
 )
 def test_keepalive_plist_working_directory_exists():
     data = _load(KEEPALIVE_PLIST)

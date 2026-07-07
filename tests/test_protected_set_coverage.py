@@ -279,7 +279,7 @@ def test_scanner_recurses_into_adapters_and_webui() -> None:
     # At least one hit must come from the adapter tree
     from_adapters = [
         s for s in source_paths
-        if "publishing/adapters" in str(s)
+        if "publishing/adapters" in s.as_posix()
     ]
     assert from_adapters, (
         "Scanner found no credential namers under publishing/adapters/ — "

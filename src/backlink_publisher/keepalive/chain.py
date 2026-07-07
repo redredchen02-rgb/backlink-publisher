@@ -228,9 +228,13 @@ def _run_recheck_stage(
 ) -> list[dict]:
     """Step 1: Probe all candidates; emit recheck events; respect batch budget."""
     results: list[dict] = []
-    deadline = time.monotonic() + _BATCH_BUDGET_S
+    # perf_counter (not monotonic): on some Windows builds monotonic() is
+    # GetTickCount64-backed with ~15.6ms resolution, coarse enough that a
+    # zero/near-zero budget can silently let several candidates through
+    # before the deadline check ever observes a strictly-later timestamp.
+    deadline = time.perf_counter() + _BATCH_BUDGET_S
     for candidate in candidates:
-        if time.monotonic() > deadline:
+        if time.perf_counter() > deadline:
             log.warning("keepalive: recheck batch budget exhausted, deferring remaining")
             break
         try:

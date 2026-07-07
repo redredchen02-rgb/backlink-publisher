@@ -115,7 +115,7 @@ def test_cli_exit_code_literals_are_documented(path: Path) -> None:
 def test_scanner_recurses_into_cli_subpackages() -> None:
     """The scan must reach the nested ``plan_backlinks/`` and ``_bind/`` packages
     where exit-code literals live -- a non-recursive glob would miss them."""
-    scanned = {str(p.relative_to(CLI_DIR)) for p in _cli_source_files()}
+    scanned = {p.relative_to(CLI_DIR).as_posix() for p in _cli_source_files()}
     assert any(p.startswith("plan_backlinks/") for p in scanned), scanned
     assert any(p.startswith("_bind/") for p in scanned), scanned
 

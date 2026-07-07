@@ -315,7 +315,7 @@ def test_no_inner_import_shadowing(path: Path) -> None:
 
 def test_scanner_recurses_into_webui_and_adapters() -> None:
     """The scan must reach webui_app/, webui_store/, and the adapters sub-package."""
-    scanned = {str(p.relative_to(_REPO_ROOT)) for p in _source_files()}
+    scanned = {p.relative_to(_REPO_ROOT).as_posix() for p in _source_files()}
     assert any(p.startswith("webui_app/") for p in scanned), scanned
     assert any(p.startswith("webui_store/") for p in scanned), scanned
     assert any("backlink_publisher/publishing/adapters/" in p for p in scanned), scanned

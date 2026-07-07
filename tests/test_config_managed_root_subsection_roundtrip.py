@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 from pathlib import Path
+import tempfile
 import uuid
 
 from backlink_publisher.config import (
@@ -209,7 +210,13 @@ def test_medium_browser_user_data_dir_survives_roundtrip(tmp_path: Path) -> None
     A uuid suffix makes the value unforgeable so any test that accidentally
     passes by reading the fallback would still fail this assertion.
     """
-    custom_path = f"/tmp/bp-medium-profile-{uuid.uuid4()}"
+    # Build the fixture path from this platform's own temp root (not a
+    # hardcoded "/tmp/..." literal) so the round-trip comparison below is
+    # meaningful on Windows too -- a POSIX literal would come back from the
+    # loader rendered with backslashes and fail the string-equality check
+    # for a reason unrelated to what this test verifies.
+    custom_path = str(Path(tempfile.gettempdir()) / f"bp-medium-profile-{uuid.uuid4()}")
+    toml_path = custom_path.replace("\\", "\\\\")
     src = tmp_path / "config.toml"
     src.write_text(
         '[blogger]\n'
@@ -218,7 +225,7 @@ def test_medium_browser_user_data_dir_survives_roundtrip(tmp_path: Path) -> None
         '[medium]\n'
         '\n'
         '[medium.browser]\n'
-        f'user_data_dir = "{custom_path}"\n',
+        f'user_data_dir = "{toml_path}"\n',
         encoding="utf-8",
     )
 
@@ -234,7 +241,10 @@ def test_medium_browser_user_data_dir_survives_roundtrip(tmp_path: Path) -> None
 
     text = src.read_text(encoding="utf-8")
     assert "[medium.browser]" in text
-    assert custom_path in text
+    # TOML string-escapes backslashes on serialization -- on Windows the
+    # raw custom_path contains literal "\", so compare against the escaped
+    # form actually written, not the unescaped path.
+    assert custom_path.replace("\\", "\\\\") in text
 
 
 # ─── R8b: [blogger.oauth] conditional-emit gate ─────────────────────────────

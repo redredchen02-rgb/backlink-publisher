@@ -427,7 +427,7 @@ def test_chain_module_has_no_webui_app_edge_for_e2_e3():
 
     import backlink_publisher.keepalive.chain as chain
 
-    src = Path(chain.__file__).read_text()
+    src = Path(chain.__file__).read_text(encoding="utf-8")
     tree = ast.parse(src)
     webui_imports: list[str] = []
     for node in ast.walk(tree):

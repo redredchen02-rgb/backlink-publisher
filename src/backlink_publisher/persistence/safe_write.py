@@ -47,7 +47,10 @@ def atomic_write_stream(
             text=False,
         )
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
+            # newline="\n": prevent universal-newline translation from turning
+            # "\n" into os.linesep ("\r\n" on Windows) — JSONL/text output must
+            # be byte-identical across platforms for downstream consumers.
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
                 write_fn(f)
             os.chmod(tmp, mode)
             os.replace(tmp, path)

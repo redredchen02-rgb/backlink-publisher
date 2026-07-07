@@ -330,7 +330,11 @@ def _build_manual_verdict_ref(evidence_log: str | None, repo_root: Path) -> dict
     content = full.read_bytes()
     return {
         "kind": "manual",
-        "evidence_path": str(rel),
+        # as_posix(), not str(): the note is compared against git's own
+        # ls-files output and read cross-platform (R7a reads it at PR head);
+        # git paths are always forward-slash regardless of host OS, but
+        # str(Path) renders native separators (backslashes on Windows).
+        "evidence_path": rel.as_posix(),
         "evidence_sha256": hashlib.sha256(content).hexdigest(),
     }
 
