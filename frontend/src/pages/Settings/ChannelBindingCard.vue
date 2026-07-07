@@ -106,12 +106,21 @@ function markSlugClean(slug: string): void {
   lastSeeded[slug] = { ...(edits[slug] ?? {}) }
 }
 
+// Plan 2026-07-07-004 — expand/collapse state, seeded once per slug the first
+// time it appears (same seed-on-first-appearance shape as `edits`/`lastSeeded`
+// above) and never recomputed from `isBound()` afterwards. A live binding would
+// snap a just-submitted form shut the moment the post-save `invalidateQueries`
+// resolves and flips `isBound()` true — this decouples "which group a channel
+// is displayed in" (still live) from "whether its form is open" (sticky).
+const openState = reactive<Record<string, boolean>>({})
+
 watch(
   () => formsQuery.data.value,
   (data) => {
     for (const f of data?.forms ?? []) {
       if (!edits[f.slug]) edits[f.slug] = {}
       if (!lastSeeded[f.slug]) lastSeeded[f.slug] = {}
+      if (!(f.slug in openState)) openState[f.slug] = !isBound(f.slug)
       for (const fld of f.fields) {
         if (!(fld.name in edits[f.slug])) {
           edits[f.slug][fld.name] = ''
@@ -139,6 +148,23 @@ onUnmounted(() => dirtyStore.clearDirty('settings-channel-binding'))
 function isBound(slug: string): boolean {
   return Boolean(boundMap.value[slug]?.bound)
 }
+
+// Plan 2026-07-07-004 — same unbound-first grouping as ChannelsCard.vue, over
+// the credential forms instead of the read-only overview rows. Order within
+// each group is preserved from `forms`; only the group partition is new.
+interface FormGroup {
+  key: 'unbound' | 'bound'
+  label: string
+  items: ChannelBindingForm[]
+}
+
+const formGroups = computed<FormGroup[]>(() => {
+  const groups: FormGroup[] = [
+    { key: 'unbound', label: '未绑定', items: forms.value.filter((f) => !isBound(f.slug)) },
+    { key: 'bound', label: '已绑定', items: forms.value.filter((f) => isBound(f.slug)) },
+  ]
+  return groups.filter((g) => g.items.length > 0)
+})
 
 function fieldPlaceholder(slug: string, field: ChannelBindingForm['fields'][number]): string {
   if (isBound(slug) && field.secret) return '已设置 — 空白表示保留现有值'
@@ -206,62 +232,73 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
       empty-text="无可直接填表绑定的渠道。"
       @retry="formsQuery.refetch()"
     >
-      <details v-for="f in forms" :key="f.slug" class="bind" data-test="bind">
-        <summary>
-          <strong>{{ f.display_name }}</strong>
-          <span class="tag tag--muted">{{ f.auth_type }}</span>
-          <span class="tag" :class="isBound(f.slug) ? 'tag--ok' : 'tag--muted'">
-            {{ isBound(f.slug) ? '已绑定' : '未绑定' }}
-          </span>
-          <span v-if="boundMap[f.slug]?.identity" class="muted bind__id">
-            {{ boundMap[f.slug]?.identity }}
-          </span>
-        </summary>
+      <template v-for="g in formGroups" :key="g.key">
+        <div :id="`bind-group-${g.key}`" class="group-label">{{ g.label }} · {{ g.items.length }}</div>
+        <div role="group" :aria-labelledby="`bind-group-${g.key}`">
+          <details
+            v-for="f in g.items"
+            :key="f.slug"
+            class="bind"
+            data-test="bind"
+            :open="openState[f.slug]"
+          >
+            <summary>
+              <strong>{{ f.display_name }}</strong>
+              <span class="tag tag--muted">{{ f.auth_type }}</span>
+              <span class="tag" :class="isBound(f.slug) ? 'tag--ok' : 'tag--muted'">
+                {{ isBound(f.slug) ? '已绑定' : '未绑定' }}
+              </span>
+              <span v-if="boundMap[f.slug]?.identity" class="muted bind__id">
+                {{ boundMap[f.slug]?.identity }}
+              </span>
+            </summary>
 
-        <form class="bind__form" @submit.prevent="submit(f, false)">
-          <div v-for="fld in f.fields" :key="fld.name" class="field">
-            <label :for="`${f.slug}-${fld.name}`">{{ fld.label }}</label>
-            <textarea
-              v-if="fld.type === 'textarea'"
-              :id="`${f.slug}-${fld.name}`"
-              v-model="edits[f.slug][fld.name]"
-              rows="5"
-              spellcheck="false"
-              autocomplete="off"
-              :placeholder="fieldPlaceholder(f.slug, fld)"
-            />
-            <input
-              v-else
-              :id="`${f.slug}-${fld.name}`"
-              v-model="edits[f.slug][fld.name]"
-              :type="fld.type === 'password' ? 'password' : fld.type === 'url' ? 'url' : 'text'"
-              spellcheck="false"
-              autocomplete="off"
-              :placeholder="fieldPlaceholder(f.slug, fld)"
-            />
-            <small v-if="fld.help" class="muted">{{ fld.help }}</small>
-          </div>
+            <form class="bind__form" @submit.prevent="submit(f, false)">
+              <div v-for="fld in f.fields" :key="fld.name" class="field">
+                <label :for="`${f.slug}-${fld.name}`">{{ fld.label }}</label>
+                <textarea
+                  v-if="fld.type === 'textarea'"
+                  :id="`${f.slug}-${fld.name}`"
+                  v-model="edits[f.slug][fld.name]"
+                  rows="5"
+                  spellcheck="false"
+                  autocomplete="off"
+                  :placeholder="fieldPlaceholder(f.slug, fld)"
+                />
+                <input
+                  v-else
+                  :id="`${f.slug}-${fld.name}`"
+                  v-model="edits[f.slug][fld.name]"
+                  :type="fld.type === 'password' ? 'password' : fld.type === 'url' ? 'url' : 'text'"
+                  spellcheck="false"
+                  autocomplete="off"
+                  :placeholder="fieldPlaceholder(f.slug, fld)"
+                />
+                <small v-if="fld.help" class="muted">{{ fld.help }}</small>
+              </div>
 
-          <p v-if="formErrors[f.slug]" class="form-error" :data-test="`bind-error-${f.slug}`">
-            {{ formErrors[f.slug] }}
-          </p>
+              <p v-if="formErrors[f.slug]" class="form-error" :data-test="`bind-error-${f.slug}`">
+                {{ formErrors[f.slug] }}
+              </p>
 
-          <div class="bind__actions">
-            <button type="submit" :disabled="savingSlug === f.slug">
-              {{ savingSlug === f.slug ? '保存中…' : isBound(f.slug) ? '更新' : '绑定' }}
-            </button>
-            <button
-              v-if="f.supports_clear && isBound(f.slug)"
-              type="button"
-              class="danger"
-              :disabled="savingSlug === f.slug"
-              @click="submit(f, true)"
-            >
-              清除
-            </button>
-          </div>
-        </form>
-      </details>
+              <div class="bind__actions">
+                <button type="submit" :disabled="savingSlug === f.slug">
+                  {{ savingSlug === f.slug ? '保存中…' : isBound(f.slug) ? '更新' : '绑定' }}
+                </button>
+                <button
+                  v-if="f.supports_clear && isBound(f.slug)"
+                  type="button"
+                  class="danger"
+                  :disabled="savingSlug === f.slug"
+                  @click="submit(f, true)"
+                >
+                  清除
+                </button>
+              </div>
+            </form>
+          </details>
+        </div>
+      </template>
     </StateBlock>
   </section>
 </template>
@@ -280,6 +317,13 @@ async function submit(form: ChannelBindingForm, clear: boolean): Promise<void> {
 .muted {
   color: var(--text-secondary);
   font-size: var(--text-base);
+}
+.group-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  padding: 0.5rem 0 0.25rem;
 }
 .bind {
   border: 1px solid var(--border);

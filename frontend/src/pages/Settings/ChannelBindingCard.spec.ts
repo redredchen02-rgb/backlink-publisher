@@ -77,6 +77,58 @@ describe('ChannelBindingCard', () => {
     expect(w.find('input[type="url"]').exists()).toBe(true)
   })
 
+  it('defaults an unbound channel form to open and a bound channel form to collapsed', async () => {
+    vi.mocked(api.getChannels).mockResolvedValue({
+      channels: [{
+        slug: 'wordpresscom', display_name: 'WordPress', auth_type: 'token_fields',
+        bound: true, identity: 'me@blog', dofollow: true, last_verify_result: 'ok', blockers: [],
+      }],
+    })
+    const w = mountCard()
+    await flushPromises()
+    const details = w.find('[data-test="bind"]')
+    expect((details.element as HTMLDetailsElement).open).toBe(false)
+  })
+
+  it('defaults an unbound channel form to open when no overview data exists yet', async () => {
+    const w = mountCard()
+    await flushPromises()
+    const details = w.find('[data-test="bind"]')
+    expect((details.element as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('groups forms into 未绑定 (first) and 已绑定 (second), each with role=group/aria-labelledby', async () => {
+    vi.mocked(api.getChannelForms).mockResolvedValue({ forms: [TOKEN_FIELDS_FORM, TOKEN_PASTE_FORM] })
+    vi.mocked(api.getChannels).mockResolvedValue({
+      channels: [{
+        slug: 'wordpresscom', display_name: 'WordPress', auth_type: 'token_fields',
+        bound: true, identity: 'me@blog', dofollow: true, last_verify_result: 'ok', blockers: [],
+      }],
+    })
+    const w = mountCard()
+    await flushPromises()
+    expect(w.text()).toContain('未绑定 · 1')
+    expect(w.text()).toContain('已绑定 · 1')
+    const cards = w.findAll('[data-test="bind"]')
+    expect(cards[0].text()).toContain('GitHub Pages') // unbound (ghpages), first
+    expect(cards[1].text()).toContain('WordPress') // bound, second
+
+    const groups = w.findAll('[role="group"]')
+    expect(groups).toHaveLength(2)
+    for (const g of groups) {
+      const labelledBy = g.attributes('aria-labelledby')
+      expect(labelledBy).toBeTruthy()
+      expect(w.find(`#${labelledBy}`).exists()).toBe(true)
+    }
+  })
+
+  it('shows only the 未绑定 group when every fixed-credential channel is unbound', async () => {
+    const w = mountCard()
+    await flushPromises()
+    expect(w.text()).not.toContain('已绑定 ·')
+    expect(w.text()).toContain('未绑定 · 1')
+  })
+
   it('submits the typed credential fields with auth_type, then clears secret inputs', async () => {
     vi.mocked(api.saveChannelCredential).mockResolvedValue({ ok: true, message: '已绑定 ✓' })
     const w = mountCard()
@@ -95,6 +147,33 @@ describe('ChannelBindingCard', () => {
     // secret field is wiped after a successful save; non-secret is left intact
     expect((w.find('input[type="password"]').element as HTMLInputElement).value).toBe('')
     expect((w.find('input[type="url"]').element as HTMLInputElement).value).toBe('https://me.wordpress.com')
+  })
+
+  it('post-save: a just-bound channel keeps its form open even after isBound() flips true', async () => {
+    // Plan 2026-07-07-004 — the earlier design bound `<details open>` live to
+    // isBound(), which would auto-collapse the form the user just filled in
+    // the moment this invalidateQueries-triggered refetch resolved. openState
+    // is seeded once and must not react to this.
+    vi.mocked(api.getChannels)
+      .mockResolvedValueOnce({ channels: [] })
+      .mockResolvedValueOnce({
+        channels: [{
+          slug: 'wordpresscom', display_name: 'WordPress', auth_type: 'token_fields',
+          bound: true, identity: 'me@blog', dofollow: true, last_verify_result: 'ok', blockers: [],
+        }],
+      })
+    vi.mocked(api.saveChannelCredential).mockResolvedValue({ ok: true, message: '已绑定 ✓' })
+    const w = mountCard()
+    await flushPromises()
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(true)
+
+    await w.find('input[type="password"]').setValue('sekret-token')
+    await w.find('input[type="url"]').setValue('https://me.wordpress.com')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(w.text()).toContain('已绑定 ·')
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(true)
   })
 
   it('offers a Clear button only when the channel is bound, posting clear=1', async () => {
@@ -208,5 +287,26 @@ describe('ChannelBindingCard', () => {
     )
     const dirtyStore = useSettingsDirtyStore()
     expect(dirtyStore.anyDirty).toBe(true)
+  })
+
+  it('a channel moving groups when the overview query resolves late keeps its open state and unsaved edits', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    // No overview data yet → treated as unbound → open by default.
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(true)
+    await w.find('input[type="password"]').setValue('typed-token')
+
+    // Overview query resolves later, revealing the channel is actually bound.
+    queryClient.setQueryData(['settings', 'channels'], {
+      channels: [{
+        slug: 'wordpresscom', display_name: 'WordPress', auth_type: 'token_fields',
+        bound: true, identity: 'me@blog', dofollow: true, last_verify_result: 'ok', blockers: [],
+      }],
+    })
+    await flushPromises()
+
+    expect(w.text()).toContain('已绑定 ·')
+    expect((w.find('[data-test="bind"]').element as HTMLDetailsElement).open).toBe(true)
+    expect((w.find('input[type="password"]').element as HTMLInputElement).value).toBe('typed-token')
   })
 })
