@@ -1,7 +1,7 @@
 ---
 title: "opt: 後端程式碼健康與技術債收斂計畫"
 type: optimization
-status: active
+status: completed
 date: 2026-07-07
 priority: medium
 claims: {}
@@ -94,7 +94,7 @@ claims: {}
 
 ## Implementation Units
 
-- [ ] **Unit 1: 核實 2026-06-01 架構健康稽核在 fleet-merge 後的現況**
+- [x] **Unit 1: 核實 2026-06-01 架構健康稽核在 fleet-merge 後的現況**
 
 **Goal:** 用最小成本確認上次稽核結論是否仍成立,避免重工,同時為後續 unit 建立乾淨的現況基準。
 
@@ -123,7 +123,7 @@ claims: {}
 
 ---
 
-- [ ] **Unit 2: Debt registry 時效性抽查**
+- [x] **Unit 2: Debt registry 時效性抽查**
 
 **Goal:** 對 `debt_registry.toml` 中 43 個 `accepted` 項目做時效性抽查,標出應維持、應重開、或可以正式關閉(轉 `resolved`)的項目。
 
@@ -150,7 +150,7 @@ claims: {}
 
 ---
 
-- [ ] **Unit 3: Adapter 吞錯模式掃描與修復**
+- [x] **Unit 3: Adapter 吞錯模式掃描與修復**
 
 **Goal:** 消除 `linkedin_api.py`、`medium_browser.py`(以及掃描發現的其他 adapter)中會靜默吞錯、無可觀測痕跡的 except 區塊。
 
@@ -185,7 +185,7 @@ claims: {}
 
 ---
 
-- [ ] **Unit 4: Retired adapter(hashnode/writeas)處置決策**
+- [x] **Unit 4: Retired adapter(hashnode/writeas)處置決策**
 
 **Goal:** 對 `hashnode`、`writeas` 的 `visibility="retired"` 狀態做出明確決策並落地。
 
@@ -213,7 +213,7 @@ claims: {}
 
 ---
 
-- [ ] **Unit 5: 複雜度熱點降複雜度**
+- [x] **Unit 5: 複雜度熱點降複雜度**
 
 **Goal:** 將 4 個 D 級複雜度函式重構到 `complexity_budget.toml` 的綠燈範圍,不改變既有行為。
 
@@ -255,7 +255,7 @@ claims: {}
 
 ---
 
-- [ ] **Unit 6: 測試隔離機制強化(env-var teardown 毒害套件)**
+- [x] **Unit 6: 測試隔離機制強化(env-var teardown 毒害套件)**
 
 **Goal:** 針對「fixture teardown 期間操作 `os.environ` 毒害同套件其他測試」這一類根因,新增結構性防護,而非逐一修補案例。
 
@@ -289,7 +289,7 @@ claims: {}
 
 ---
 
-- [ ] **Unit 7: Workspace 衛生——dangling worktree 處置**
+- [x] **Unit 7: Workspace 衛生——dangling worktree 處置**
 
 **Goal:** 對 `bp-baseline-preref` 這個 detached-HEAD 殘留 worktree 做出明確處置決策。
 
