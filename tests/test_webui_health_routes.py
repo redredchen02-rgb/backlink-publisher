@@ -134,8 +134,32 @@ class TestHealthJsonEndpoint:
         assert resp.status_code == 503
         assert resp.get_json()["scheduler_running"] is False
 
-    def test_get_health_returns_503_when_never_run(self, client, _mock_health):
-        """GET /health returns 503 when last_pipeline_run is None (R15)."""
+    def test_get_health_returns_200_when_never_run_only(self, client, _mock_health):
+        """GET /health returns 200 when last_pipeline_run is None but nothing
+        else is broken — never_run is a neutral third state, not degraded
+        (Plan 2026-07-06-005 W15 / D13)."""
+        _mock_health(
+            {
+                "healthy": True,
+                "webui": "ok",
+                "last_pipeline_run": None,
+                "scheduler_running": True,
+                "scheduler_job_count": 1,
+                "channels": {},
+                "degraded_reasons": [],
+                "never_run": True,
+            }
+        )
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["last_pipeline_run"] is None
+        assert data["never_run"] is True
+
+    def test_get_health_returns_503_when_never_run_and_real_failure(self, client, _mock_health):
+        """never_run does not mask a real failure: if a channel is also
+        expired while nothing has ever published, health is still degraded
+        and /health still 503s (D13 edge case)."""
         _mock_health(
             {
                 "healthy": False,
@@ -143,13 +167,17 @@ class TestHealthJsonEndpoint:
                 "last_pipeline_run": None,
                 "scheduler_running": True,
                 "scheduler_job_count": 1,
-                "channels": {},
-                "degraded_reasons": ["pipeline:never_run"],
+                "channels": {"blogger": "expired"},
+                "degraded_reasons": ["channel:blogger:expired"],
+                "never_run": True,
             }
         )
         resp = client.get("/health")
         assert resp.status_code == 503
-        assert resp.get_json()["last_pipeline_run"] is None
+        data = resp.get_json()
+        assert data["last_pipeline_run"] is None
+        assert data["never_run"] is True
+        assert "channel:blogger:expired" in data["degraded_reasons"]
 
     def test_get_health_no_csrf_token_required(self, csrf_client, _mock_health):
         """GET /health succeeds without a CSRF token (GET is exempt from guard)."""
@@ -213,7 +241,9 @@ class TestComputeHealthJson:
         assert result["healthy"] is False
         assert any("blogger" in r for r in result["degraded_reasons"])
 
-    def test_degraded_when_no_history(self, monkeypatch):
+    def test_never_run_only_is_healthy_not_degraded(self, monkeypatch):
+        """A brand-new install (no publish history, nothing else broken) is
+        a neutral never_run state — NOT degraded, no 503 (D13 happy path)."""
         import webui_app.services.health_projection as hp
 
         monkeypatch.setattr("webui_store.channel_status.list_all", lambda: {})
@@ -222,9 +252,45 @@ class TestComputeHealthJson:
         import webui_store as _ws
         monkeypatch.setattr(_ws.history_store, "load", lambda: [])
         result = hp.compute_health_json()
-        assert result["healthy"] is False
-        assert "pipeline:never_run" in result["degraded_reasons"]
+        assert result["healthy"] is True
+        assert result["never_run"] is True
+        assert "pipeline:never_run" not in result["degraded_reasons"]
+        assert result["degraded_reasons"] == []
         assert result["last_successful_pipeline_run"] is None
+
+    def test_never_run_does_not_mask_real_failure(self, monkeypatch):
+        """never_run only exempts 'nothing has run yet' — it must not hide a
+        genuine concurrent failure (D13 edge case)."""
+        import webui_app.services.health_projection as hp
+
+        monkeypatch.setattr(
+            "webui_store.channel_status.list_all",
+            lambda: {"blogger": {"status": "expired"}},
+        )
+        _sched = type("S", (), {"running": True, "get_jobs": lambda self: []})()
+        monkeypatch.setattr("webui_app.scheduler._scheduler", _sched)
+        import webui_store as _ws
+        monkeypatch.setattr(_ws.history_store, "load", lambda: [])
+        result = hp.compute_health_json()
+        assert result["never_run"] is True
+        assert result["healthy"] is False
+        assert any("blogger" in r for r in result["degraded_reasons"])
+        assert "pipeline:never_run" not in result["degraded_reasons"]
+
+    def test_never_run_false_when_history_present(self, monkeypatch):
+        """Regression: once there is publish history, never_run is False and
+        existing healthy/degraded logic is unaffected."""
+        import webui_app.services.health_projection as hp
+
+        monkeypatch.setattr("webui_store.channel_status.list_all", lambda: {})
+        _sched = type("S", (), {"running": True, "get_jobs": lambda self: []})()
+        monkeypatch.setattr("webui_app.scheduler._scheduler", _sched)
+        import webui_store as _ws
+        monkeypatch.setattr(_ws.history_store, "load",
+                            lambda: [{"created_at": "2026-06-09T10:00:00Z"}])
+        result = hp.compute_health_json()
+        assert result["never_run"] is False
+        assert result["healthy"] is True
 
     def test_last_successful_pipeline_run_picks_latest_published(self, monkeypatch):
         """Sprint E3: informational timestamp of the last *successful* run,

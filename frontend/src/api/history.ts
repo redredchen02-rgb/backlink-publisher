@@ -17,6 +17,9 @@ export interface HistoryItem {
   verified_at?: number | null
   publish_mode?: string
   target_dofollow?: string
+  /** ISO-8601 UTC timestamp of the soft-delete, present while the row is still
+   *  within the undo window. Absent/undefined on live rows (W4/W5). */
+  deleted_at?: string | null
 }
 
 export interface HistoryList {
@@ -30,6 +33,10 @@ export interface HistoryList {
 export interface HistoryMutationResult {
   items: HistoryItem[]
   message?: string
+  /** How many of the submitted ids were actually soft-deleted vs. already
+   *  gone (W4 bulk-delete only — additive, oasdiff-safe). */
+  deleted?: number
+  skipped?: number
 }
 
 export const listHistory = (params?: { limit?: number; offset?: number }): Promise<HistoryList> => {
@@ -41,8 +48,22 @@ export const listHistory = (params?: { limit?: number; offset?: number }): Promi
   return getJson(`/history?${qs}`)
 }
 
+/**
+ * W4/W5 — unpaginated: only soft-deleted rows still within the undo window,
+ * each carrying `deleted_at`. Intentionally never combined with `?limit=&
+ * offset=` (see webui_app/api/v1/history.py's `history_list` docstring).
+ */
+export const listHistoryDeletedWindow = (): Promise<HistoryList> =>
+  getJson('/history?include_deleted=window')
+
 export const deleteHistory = (id: string): Promise<HistoryMutationResult> =>
   sendJson('POST', '/history/delete', { id })
+
+/** W4/W5 — restore a soft-deleted row still within the undo window. 404s
+ *  (aged past the window / never deleted / unknown id) reject as an
+ *  `ApiError`, same as every other mutation here. */
+export const undeleteHistory = (id: string): Promise<HistoryMutationResult> =>
+  sendJson('POST', '/history/undelete', { id })
 
 export const bulkDeleteHistory = (ids: string[]): Promise<HistoryMutationResult> =>
   sendJson('POST', '/history/bulk-delete', { ids })

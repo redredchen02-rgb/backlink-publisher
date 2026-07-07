@@ -140,7 +140,7 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 100  # routes with CSRF but no inline Origin guard as of 2026-07-06
+_CSRF_ONLY_SNAPSHOT_COUNT = 101  # raised 2026-07-07: new POST /api/v1/history/undelete (plan 2026-07-06-005 W4) follows the same CSRF-only pattern as its sibling delete/bulk-delete/purge-failed/recheck history mutation routes, none of which carry the inline Origin guard either.
 # +1 (96->97): Plan 2026-07-06-004 Unit 3 — POST /api/v1/queue/<task_id>/retry
 # (webui_app/api/v1/history.py). Same protection level as its 4 sibling
 # endpoints in the same file (/history/delete, /bulk-delete, /purge-failed,

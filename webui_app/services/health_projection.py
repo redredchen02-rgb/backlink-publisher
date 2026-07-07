@@ -11,6 +11,16 @@ from typing import Any
 
 from backlink_publisher.events.reconcile import ReadProjectionResult
 
+# Identifier for the "never published yet" neutral state (Plan
+# 2026-07-06-005 W15 / D13). Kept as a module-level string (rather than only
+# a bare bool) so any consumer — including the legacy static/js health bar,
+# which still greps for this exact literal (see
+# tests/test_webui_feedback_states.py::test_health_bar_never_run_literal_matches_backend)
+# — has one canonical spelling to key off of. It intentionally never enters
+# ``degraded_reasons``; see ``never_run``/``never_run_reason`` in the
+# ``compute_health_json`` payload.
+_NEVER_RUN_REASON = "pipeline:never_run"
+
 
 def project_on_read() -> ReadProjectionResult:
     """Run the load-time projection backstop. Never raises (see reconcile)."""
@@ -24,10 +34,19 @@ def project_on_read() -> ReadProjectionResult:
 
 def compute_health_json() -> dict[str, Any]:
     """Return the /health payload (Plan 2026-06-09-001 U3; Sprint E3 added
-    ``last_successful_pipeline_run``).
+    ``last_successful_pipeline_run``; Plan 2026-07-06-005 W15 / D13 split out
+    ``never_run``).
 
-    503-triggering conditions: any channel expired/unreachable, scheduler not
-    running, or last_pipeline_run is None.  All fields always present.
+    503-triggering conditions: any channel expired/unreachable, or scheduler
+    not running. All fields always present. A brand-new install that has
+    never published (``last_pipeline_run is None``) is a neutral third state,
+    not a degraded one: it never contributes to ``degraded_reasons`` and
+    never fails the ``healthy`` check on its own. It is surfaced only via the
+    dedicated ``never_run`` boolean. If ``never_run`` coincides with a *real*
+    failure (a channel down, the scheduler stopped), that real reason still
+    lands in ``degraded_reasons`` and ``healthy`` is still ``False`` —
+    never_run only exempts "nothing has run yet", it never masks an actual
+    fault (D13).
     ``last_successful_pipeline_run`` is informational only (does not affect
     ``healthy``/``degraded_reasons``) — it is ``None`` whenever there is no
     history yet, or every recorded run so far ended failed/unverified.
@@ -81,14 +100,19 @@ def compute_health_json() -> dict[str, Any]:
         pass
 
     # ── degraded reasons ──────────────────────────────────────────────
+    # never_run is a neutral third state (D13): a fresh install that has
+    # never published is NOT the same as a real failure, so it is tracked
+    # separately and deliberately excluded from `degraded_reasons` — it must
+    # never contribute to `healthy` being False on its own. Real failures
+    # (channel down, scheduler stopped) still land in `degraded_reasons`
+    # exactly as before, even when never_run is also True.
+    never_run = last_pipeline_run is None
     degraded_reasons: list[str] = []
     for ch, st in channels.items():
         if st in ("expired", "unreachable"):
             degraded_reasons.append(f"channel:{ch}:{st}")
     if not scheduler_running:
         degraded_reasons.append("scheduler:not_running")
-    if last_pipeline_run is None:
-        degraded_reasons.append("pipeline:never_run")
 
     healthy = len(degraded_reasons) == 0
 
@@ -101,4 +125,6 @@ def compute_health_json() -> dict[str, Any]:
         "scheduler_job_count": scheduler_job_count,
         "channels": channels,
         "degraded_reasons": degraded_reasons,
+        "never_run": never_run,
+        "never_run_reason": _NEVER_RUN_REASON if never_run else None,
     }

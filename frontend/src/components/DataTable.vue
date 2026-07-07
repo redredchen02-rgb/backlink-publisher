@@ -31,6 +31,15 @@ const props = withDefaults(
      * (code review finding, U5).
      */
     disabled?: boolean
+    /**
+     * Optional per-row class map, keyed by the row itself (Plan
+     * 2026-07-06-reintegrate-u5 W5/W10 reintegration) -- lets a caller mark
+     * an individual `<tr>` (e.g. a soft-deleted row pending undo, or a row
+     * highlighted via a cross-page deep-link) without DataTable needing to
+     * know anything about *why*. Optional/undefined is a pure no-op, so
+     * existing callers (Drafts, etc.) are unaffected.
+     */
+    rowClass?: (row: T) => Record<string, boolean>
   }>(),
   { loading: false, emptyText: '暂无数据', selected: () => new Set(), disabled: false },
 )
@@ -107,7 +116,12 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in items" :key="row.id" :data-id="row.id">
+            <tr
+              v-for="row in items"
+              :key="row.id"
+              :data-id="row.id"
+              :class="rowClass ? rowClass(row) : undefined"
+            >
               <td class="col-select">
                 <input
                   type="checkbox"

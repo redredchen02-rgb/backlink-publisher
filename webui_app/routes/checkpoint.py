@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 import uuid
 
-from flask import Blueprint, request, session
+from flask import Blueprint, request, session, url_for
 
 from backlink_publisher import checkpoint as _checkpoint_mod
 from backlink_publisher._util.logger import plan_logger
@@ -14,11 +14,7 @@ from backlink_publisher._util.logger import plan_logger
 from ..api.pipeline_api import PipelineAPI
 from ..helpers.contexts import _render
 from ..helpers.history import _parse_publish_results, _push_history_aggregate
-from ..helpers.security import (
-    _check_localhost,
-    _safe_flash_redirect,
-    _validate_webui_run_id,
-)
+from ..helpers.security import _check_localhost, _safe_flash_redirect, _validate_webui_run_id
 
 bp = Blueprint("checkpoint", __name__)
 
@@ -36,51 +32,73 @@ def checkpoint_resume() -> Any:
     platform = publish_results[0].get("platform", "unknown") if publish_results else "unknown"
 
     if result.exit_code == 0:
-        article_urls = [u for u in (
-            (r.get("published_url") or r.get("draft_url", ""))
-            for r in publish_results if r
-        ) if u]
+        article_urls = [
+            u
+            for u in (
+                (r.get("published_url") or r.get("draft_url", "")) for r in publish_results if r
+            )
+            if u
+        ]
         # exit 0 + 无可解析结果 / 无 URL = stale checkpoint or silent no-op.
         # Do NOT persist a fake "published" row — mirror the invariant that
         # _push_history_per_row enforces for the other publish routes
         # (Plan 2026-05-19-006 Unit 1).
         if not publish_results or not article_urls:
-            return _render('index.html', config=config, history_active=True,
-                flash={"type": "warning",
-                       "msg": "没有可恢复的发布任务（checkpoint 已无待处理项），未写入历史记录"})
-        history = _push_history_aggregate({
-            "id": str(uuid.uuid4())[:8],
-            "target_url": config.get("target_url", "unknown"),
-            "platform": platform,
-            "language": config.get("target_language", "zh-CN"),
-            "status": "published",
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "article_urls": article_urls,
-        })
-        return _render('index.html',
-            publish_results=publish_results, config=config,
-            history=history, history_active=True,
-            flash={"type": "success", "msg": f"恢复发布成功，共 {len(publish_results)} 篇"})
+            return _render(
+                "index.html",
+                config=config,
+                history_active=True,
+                flash={
+                    "type": "warning",
+                    "msg": "没有可恢复的发布任务（checkpoint 已无待处理项），未写入历史记录",
+                },
+            )
+        history = _push_history_aggregate(
+            {
+                "id": str(uuid.uuid4())[:8],
+                "target_url": config.get("target_url", "unknown"),
+                "platform": platform,
+                "language": config.get("target_language", "zh-CN"),
+                "status": "published",
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "article_urls": article_urls,
+            }
+        )
+        return _render(
+            "index.html",
+            publish_results=publish_results,
+            config=config,
+            history=history,
+            history_active=True,
+            flash={"type": "success", "msg": f"恢复发布成功，共 {len(publish_results)} 篇"},
+        )
     elif result.exit_code == 4:
         done = [r for r in publish_results if r.get("error") is None]
-        _push_history_aggregate({
-            "id": str(uuid.uuid4())[:8],
-            "target_url": config.get("target_url", "unknown"),
-            "platform": platform,
-            "language": config.get("target_language", "zh-CN"),
-            "status": "failed_partial",
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "article_urls": [r.get("published_url") or r.get("draft_url", "")
-                             for r in done],
-            "stderr_summary": result.error,
-        })
-        return _render('index.html',
-            publish_results=publish_results, config=config,
+        _push_history_aggregate(
+            {
+                "id": str(uuid.uuid4())[:8],
+                "target_url": config.get("target_url", "unknown"),
+                "platform": platform,
+                "language": config.get("target_language", "zh-CN"),
+                "status": "failed_partial",
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "article_urls": [r.get("published_url") or r.get("draft_url", "") for r in done],
+                "stderr_summary": result.error,
+            }
+        )
+        return _render(
+            "index.html",
+            publish_results=publish_results,
+            config=config,
             history_active=True,
-            error=f"部分发布失败。{result.error}")
+            error=f"部分发布失败。{result.error}",
+        )
     else:
-        return _render('index.html', config=config,
-            error=f"恢复发布失败 (exit {result.exit_code}): {result.error}")
+        return _render(
+            "index.html",
+            config=config,
+            error=f"恢复发布失败 (exit {result.exit_code}): {result.error}",
+        )
 
 
 @bp.route("/checkpoint/dismiss", methods=["POST"])
@@ -97,8 +115,12 @@ def checkpoint_dismiss() -> Any:
     except Exception as exc:
         # Genuine delete failure (e.g. permission/OS error): the checkpoint is
         # still present. Do NOT pretend it was dismissed — surface it.
-        plan_logger.warn("checkpoint_dismiss_failed", run_id=run_id,
-                         reason=type(exc).__name__)
-        return _safe_flash_redirect('/', flash_type='danger',
-                                    msg='删除检查点失败，该检查点仍然存在')
-    return _safe_flash_redirect('/', flash_type='success', msg='检查点已删除')
+        plan_logger.warn("checkpoint_dismiss_failed", run_id=run_id, reason=type(exc).__name__)
+        return _safe_flash_redirect(
+            url_for("spa.spa", subpath=""),
+            flash_type="danger",
+            msg="删除检查点失败，该检查点仍然存在",
+        )
+    return _safe_flash_redirect(
+        url_for("spa.spa", subpath=""), flash_type="success", msg="检查点已删除"
+    )
