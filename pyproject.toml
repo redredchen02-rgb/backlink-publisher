@@ -42,7 +42,7 @@ browser = ["playwright>=1.55,<2"]
 analytics = ["google-analytics-data>=0.18,<1"]
 # webwright: Microsoft Research's browser agent framework (microsoft/Webwright).
 # The PyPI package "webwright==0.0.7" is an unrelated project from MittaAI and MUST NOT be used.
-# Pin to a specific commit SHA — upstream is in rapid iteration with no formal releases.
+# Pin to a specific commit SHA -- upstream is in rapid iteration with no formal releases.
 # Upgrade manually after evaluating upstream changelog: https://github.com/microsoft/Webwright/commits/main
 dev-webwright = ["webwright @ git+https://github.com/microsoft/Webwright.git@4a46f282ec37f27d6003cc498a977939d62d9015"]
 
@@ -101,7 +101,7 @@ resume = "backlink_publisher.cli.resume:main"
 where = ["src"]
 
 [tool.ruff]
-# Ruff configuration — unified Python linter and formatter.
+# Ruff configuration -- unified Python linter and formatter.
 # Replaces black/flake8/isort for this project.
 # See https://docs.astral.sh/ruff/ for all options.
 
@@ -131,7 +131,7 @@ select = [
 # (~465 sites at last count), duplicating the tracking the debt registry already
 # provides instead of adding new signal. C1 only removed the ~218 `# noqa: BLE001`
 # comments that were dead (BLE was never enabled, so they suppressed nothing) plus
-# other noqa already redundant with per-file-ignores below — it did not change this
+# other noqa already redundant with per-file-ignores below -- it did not change this
 # select list. Re-evaluate enabling BLE once the D2/D3 except-Exception
 # classification work (see this repo's hardening-sweep plan, Sprint D) has
 # produced enough data to judge whether a second, rule-based governance layer is
@@ -139,23 +139,23 @@ select = [
 
 # Rules we explicitly allow for this codebase's patterns
 ignore = [
-    "E501",  # line-too-long — handled by formatter
+    "E501",  # line-too-long -- handled by formatter
 ]
 
 # Per-file rule overrides
 [tool.ruff.lint.per-file-ignores]
 # Test files: allow short variable names, multi-statement lines, etc.
 "tests/*" = [
-    "E741",   # ambiguous-variable-name — test helpers use single-letter vars
-    "E702",   # multiple-statements-on-one-line — test idioms
-    "E731",   # lambda-assignment — test patterns
-    "UP038",  # isinstance() with union — tests use this pattern
-    "F401",   # unused-import — test fixtures import for side effects
+    "E741",   # ambiguous-variable-name -- test helpers use single-letter vars
+    "E702",   # multiple-statements-on-one-line -- test idioms
+    "E731",   # lambda-assignment -- test patterns
+    "UP038",  # isinstance() with union -- tests use this pattern
+    "F401",   # unused-import -- test fixtures import for side effects
 ]
 # __init__.py files: allow F401 for re-exports + E402 for late re-exports
 "*/__init__.py" = [
-    "F401",   # unused-import — re-exports are intentional
-    "E402",   # module-import-not-at-top-of-file — late re-exports
+    "F401",   # unused-import -- re-exports are intentional
+    "E402",   # module-import-not-at-top-of-file -- late re-exports
 ]
 # Generated/migration files: be lenient
 "**/migrations/*" = ["E402"]
@@ -221,7 +221,7 @@ markers = [
     "unit: fast, isolated tests with no external dependencies; run on every push (default tier)",
     "integration: tests that touch disk, database, or external services; run on CI per-PR",
     "e2e: full end-to-end tests requiring real network or browser; opt-in, run pre-merge or nightly",
-    "seam: test module directly imports a seam module (backlink_publisher.events/gap/idempotency/ledger or webui_app.api) — auto-applied by conftest.py's import-based AST scan (Plan 2026-06-30-001 C1a); excluded from --reruns in ci.yml so a real intermittent failure in these I/O/state-heavy modules can't be silently retried away",
+    "seam: test module directly imports a seam module (backlink_publisher.events/gap/idempotency/ledger or webui_app.api) -- auto-applied by conftest.py's import-based AST scan (Plan 2026-06-30-001 C1a); excluded from --reruns in ci.yml so a real intermittent failure in these I/O/state-heavy modules can't be silently retried away",
 ]
 
 [tool.towncrier]
@@ -246,11 +246,11 @@ fail_under = 80
 [tool.coverage.json]
 pretty_print = true
 
-# ── import-linter ──────────────────────────────────────────────────────────
+# -- import-linter ----------------------------------------------------------
 # Static import-graph enforcement. Uses `forbidden` contracts (not `layers`)
 # because domain packages may legitimately import each other; only the
-# cli→domain→_util direction must be enforced one-way.
-# See docs/plans/2026-06-24-002-refactor-codebase-decoupling-plan.md §U7.
+# cli->domain->_util direction must be enforced one-way.
+# See docs/plans/2026-06-24-002-refactor-codebase-decoupling-plan.md U7.
 
 [tool.importlinter]
 root_packages = ["backlink_publisher"]
@@ -290,14 +290,14 @@ source_modules = [
 forbidden_modules = ["backlink_publisher.cli"]
 # Pre-existing violations that require deeper refactoring (deferred):
 ignore_imports = [
-    # publishing.adapters.instant_web → cli._bind.chrome_backend
+    # publishing.adapters.instant_web -> cli._bind.chrome_backend
     "backlink_publisher.publishing.adapters.instant_web -> backlink_publisher.cli._bind.chrome_backend",
-    # SDK → CLI (SDK wraps CLI commands; layer fixing deferred)
+    # SDK -> CLI (SDK wraps CLI commands; layer fixing deferred)
     "backlink_publisher.sdk._publish_runtime -> backlink_publisher.cli.publish_backlinks",
     "backlink_publisher.sdk._publish_runtime -> backlink_publisher.cli._publish_helpers",
     "backlink_publisher.sdk.api -> backlink_publisher.cli.plan_backlinks._engine",
     "backlink_publisher.sdk.api -> backlink_publisher.cli._report_engine",
-    # keepalive → SDK (SDK wraps CLI)
+    # keepalive -> SDK (SDK wraps CLI)
     "backlink_publisher.keepalive.chain -> backlink_publisher.sdk.api",
 ]
 
@@ -333,7 +333,7 @@ forbidden_modules = [
 	    "backlink_publisher.gsc",
 	    "backlink_publisher.anchor",
 ]
-# Pre-existing _util → domain violations (P14 A1-A5: all resolved — violations
+# Pre-existing _util -> domain violations (P14 A1-A5: all resolved -- violations
 # extracted to _util.paths, _util.text_validation, _util.constants):
 ignore_imports = [
 ]
