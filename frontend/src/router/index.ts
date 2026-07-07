@@ -103,6 +103,13 @@ export const router = createRouter({
       component: () => import('../pages/KeepAlive/KeepAlivePage.vue'),
     },
     {
+      // Publishing health dashboard (Plan 2026-07-02-001 U6 — migrated from
+      // the legacy /ce:health Jinja page; that route retires in U9).
+      path: '/health',
+      name: 'health',
+      component: () => import('../pages/Health/HealthPage.vue'),
+    },
+    {
       // Campaign progress (P13 B3 — migrated from Jinja).
       path: '/campaign/:campaignId',
       name: 'campaign-progress',

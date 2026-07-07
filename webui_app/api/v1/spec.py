@@ -43,7 +43,15 @@ from .schemas import (
     DraftListSchema,
     DraftMutationResultSchema,
     DraftScheduleRequestSchema,
+    HealthActionPlatformRequestSchema,
+    HealthActionResultSchema,
+    HealthPanelSchema,
+    HealthProjectionSchema,
+    HealthRecheckLinkRequestSchema,
+    HealthRecheckLinkResultSchema,
     HealthSchema,
+    HealthScorecardLinksSchema,
+    HealthSummarySchema,
     HistoryIdRequestSchema,
     HistoryIdsRequestSchema,
     HistoryListSchema,
@@ -144,6 +152,14 @@ def build_spec() -> APISpec:
     spec.components.schema("RegenBodyResponse", schema=RegenBodyResponseSchema)
     spec.components.schema("MonitorCardItem", schema=MonitorCardItemSchema)
     spec.components.schema("MonitorSummary", schema=MonitorSummarySchema)
+    spec.components.schema("HealthPanel", schema=HealthPanelSchema)
+    spec.components.schema("HealthProjection", schema=HealthProjectionSchema)
+    spec.components.schema("HealthSummary", schema=HealthSummarySchema)
+    spec.components.schema("HealthScorecardLinks", schema=HealthScorecardLinksSchema)
+    spec.components.schema("HealthRecheckLinkRequest", schema=HealthRecheckLinkRequestSchema)
+    spec.components.schema("HealthRecheckLinkResult", schema=HealthRecheckLinkResultSchema)
+    spec.components.schema("HealthActionPlatformRequest", schema=HealthActionPlatformRequestSchema)
+    spec.components.schema("HealthActionResult", schema=HealthActionResultSchema)
     spec.components.schema("HistoryList", schema=HistoryListSchema)
     spec.components.schema("HistoryMutationResult", schema=HistoryMutationResultSchema)
     spec.components.schema("HistoryIdRequest", schema=HistoryIdRequestSchema)
@@ -1540,6 +1556,99 @@ def build_spec() -> APISpec:
             }
         },
     )
+    spec.path(
+        path="/api/v1/health/summary",
+        operations={
+            "get": {
+                "operationId": "getHealthSummary",
+                "summary": "Full publishing-health dashboard aggregate (Plan 2026-07-02-001 U6).",
+                "description": (
+                    "Versioned binding of the legacy /ce:health Jinja page. Always 200 -- "
+                    "each of the ~20 panels carries its own `degraded` flag and a safe "
+                    "empty-shape fallback, so one bad data source never drags down the rest "
+                    "of the dashboard. `projection.degraded` (not `agg_degraded`, a pure "
+                    "belt-and-suspenders flag) is the primary signal for the aggregate "
+                    "health/projection block."
+                ),
+                "tags": ["health"],
+                "responses": {"200": _ok("Health dashboard aggregate.", HealthSummarySchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/health/scorecard/{channel}/links",
+        operations={
+            "get": {
+                "operationId": "getHealthScorecardLinks",
+                "summary": "Per-link drill-down for one channel's scorecard card.",
+                "description": "Fetch-on-expand; fail-open with an explicit `ok` flag.",
+                "tags": ["health"],
+                "parameters": [
+                    {"name": "channel", "in": "path", "required": True,
+                     "schema": {"type": "string"}},
+                ],
+                "responses": {"200": _ok("Per-channel link list.", HealthScorecardLinksSchema)},
+            }
+        },
+    )
+    spec.path(
+        path="/api/v1/health/scorecard/recheck-link",
+        operations={
+            "post": {
+                "operationId": "postHealthRecheckLink",
+                "summary": "Re-probe one already-published link.",
+                "description": (
+                    "Outbound probe -- enforces the bind-origin guard inline on top of the "
+                    "app-level CSRF guard. Anti-SSRF: `live_url` is a lookup key only; an "
+                    "unpublished URL is rejected with no probe fired -- the probe target is "
+                    "always the stored event row's live_url, never the client string."
+                ),
+                "tags": ["health"],
+                "requestBody": _body(HealthRecheckLinkRequestSchema),
+                "responses": {
+                    "200": _ok("Recheck result (or a fail-soft probe_failed).", HealthRecheckLinkResultSchema),
+                    "400": _problem_response("Missing `live_url`."),
+                    "403": _problem_response("Bind-origin check failed."),
+                    "404": _problem_response("URL not published -- no probe fired."),
+                },
+            }
+        },
+    )
+    for _action, _summary, _paused_note in (
+        ("pause", "Pause or resume a platform.", ""),
+        ("reverify", "Re-run offline adapter setup verification for a platform.",
+         " The request body's `paused` field is ignored on this endpoint (pause-only)."),
+        ("circuit-reset", "Reset a platform's tripped reliability circuit breaker.",
+         " The request body's `paused` field is ignored on this endpoint (pause-only)."),
+    ):
+        spec.path(
+            path=f"/api/v1/health/actions/{_action}",
+            operations={
+                "post": {
+                    "operationId": "postHealthAction" + "".join(
+                        p.capitalize() for p in _action.split("-")
+                    ),
+                    "summary": _summary,
+                    "description": (
+                        "Loopback-only (enforced per-view -- api_v1 is a single shared "
+                        "blueprint, so the legacy blueprint-scoped loopback hook doesn't "
+                        "carry over). Also covered by the app-level CSRF and Origin/Referer "
+                        "guards applied to every /api/v1/* mutating route automatically "
+                        "(not an outbound probe, so no additional inline bind-origin check "
+                        "is needed here, unlike recheck-link). Fail-soft: a store/breaker "
+                        "error returns `{ok: false}` with 200, never a 500. An unknown "
+                        "platform is a 400 with no side effect." + _paused_note
+                    ),
+                    "tags": ["health"],
+                    "requestBody": _body(HealthActionPlatformRequestSchema),
+                    "responses": {
+                        "200": _ok("Action result.", HealthActionResultSchema),
+                        "400": _problem_response("Unknown platform."),
+                        "403": _problem_response("Non-loopback caller."),
+                    },
+                }
+            },
+        )
     spec.path(
         path="/api/v1/pipeline/regen-body",
         operations={

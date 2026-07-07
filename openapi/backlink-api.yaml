@@ -1885,6 +1885,201 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MonitorSummary'
+  /api/v1/health/summary:
+    get:
+      operationId: getHealthSummary
+      summary: Full publishing-health dashboard aggregate (Plan 2026-07-02-001 U6).
+      description: Versioned binding of the legacy /ce:health Jinja page. Always 200
+        -- each of the ~20 panels carries its own `degraded` flag and a safe empty-shape
+        fallback, so one bad data source never drags down the rest of the dashboard.
+        `projection.degraded` (not `agg_degraded`, a pure belt-and-suspenders flag)
+        is the primary signal for the aggregate health/projection block.
+      tags:
+      - health
+      responses:
+        '200':
+          description: Health dashboard aggregate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSummary'
+  /api/v1/health/scorecard/{channel}/links:
+    get:
+      operationId: getHealthScorecardLinks
+      summary: Per-link drill-down for one channel's scorecard card.
+      description: Fetch-on-expand; fail-open with an explicit `ok` flag.
+      tags:
+      - health
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Per-channel link list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthScorecardLinks'
+  /api/v1/health/scorecard/recheck-link:
+    post:
+      operationId: postHealthRecheckLink
+      summary: Re-probe one already-published link.
+      description: 'Outbound probe -- enforces the bind-origin guard inline on top
+        of the app-level CSRF guard. Anti-SSRF: `live_url` is a lookup key only; an
+        unpublished URL is rejected with no probe fired -- the probe target is always
+        the stored event row''s live_url, never the client string.'
+      tags:
+      - health
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthRecheckLinkRequest'
+      responses:
+        '200':
+          description: Recheck result (or a fail-soft probe_failed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthRecheckLinkResult'
+        '400':
+          description: Missing `live_url`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Bind-origin check failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: URL not published -- no probe fired.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/health/actions/pause:
+    post:
+      operationId: postHealthActionPause
+      summary: Pause or resume a platform.
+      description: 'Loopback-only (enforced per-view -- api_v1 is a single shared
+        blueprint, so the legacy blueprint-scoped loopback hook doesn''t carry over).
+        Also covered by the app-level CSRF and Origin/Referer guards applied to every
+        /api/v1/* mutating route automatically (not an outbound probe, so no additional
+        inline bind-origin check is needed here, unlike recheck-link). Fail-soft:
+        a store/breaker error returns `{ok: false}` with 200, never a 500. An unknown
+        platform is a 400 with no side effect.'
+      tags:
+      - health
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthActionPlatformRequest'
+      responses:
+        '200':
+          description: Action result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthActionResult'
+        '400':
+          description: Unknown platform.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Non-loopback caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/health/actions/reverify:
+    post:
+      operationId: postHealthActionReverify
+      summary: Re-run offline adapter setup verification for a platform.
+      description: 'Loopback-only (enforced per-view -- api_v1 is a single shared
+        blueprint, so the legacy blueprint-scoped loopback hook doesn''t carry over).
+        Also covered by the app-level CSRF and Origin/Referer guards applied to every
+        /api/v1/* mutating route automatically (not an outbound probe, so no additional
+        inline bind-origin check is needed here, unlike recheck-link). Fail-soft:
+        a store/breaker error returns `{ok: false}` with 200, never a 500. An unknown
+        platform is a 400 with no side effect. The request body''s `paused` field
+        is ignored on this endpoint (pause-only).'
+      tags:
+      - health
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthActionPlatformRequest'
+      responses:
+        '200':
+          description: Action result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthActionResult'
+        '400':
+          description: Unknown platform.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Non-loopback caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/health/actions/circuit-reset:
+    post:
+      operationId: postHealthActionCircuitReset
+      summary: Reset a platform's tripped reliability circuit breaker.
+      description: 'Loopback-only (enforced per-view -- api_v1 is a single shared
+        blueprint, so the legacy blueprint-scoped loopback hook doesn''t carry over).
+        Also covered by the app-level CSRF and Origin/Referer guards applied to every
+        /api/v1/* mutating route automatically (not an outbound probe, so no additional
+        inline bind-origin check is needed here, unlike recheck-link). Fail-soft:
+        a store/breaker error returns `{ok: false}` with 200, never a 500. An unknown
+        platform is a 400 with no side effect. The request body''s `paused` field
+        is ignored on this endpoint (pause-only).'
+      tags:
+      - health
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthActionPlatformRequest'
+      responses:
+        '200':
+          description: Action result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthActionResult'
+        '400':
+          description: Unknown platform.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Non-loopback caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/pipeline/regen-body:
     post:
       operationId: regenArticleBody
@@ -2314,6 +2509,149 @@ components:
       - anomaly_count
       - cards
       - degraded
+      additionalProperties: false
+    HealthPanel:
+      type: object
+      properties:
+        data: {}
+        degraded:
+          type: boolean
+          description: True if this panel's own data source raised.
+      required:
+      - data
+      - degraded
+      additionalProperties: false
+    HealthProjection:
+      type: object
+      properties:
+        events_inserted:
+          type: integer
+        sources_projected:
+          type: integer
+        latest_event_utc:
+          type:
+          - string
+          - 'null'
+        gap:
+          type: boolean
+        gap_reason:
+          type:
+          - string
+          - 'null'
+        degraded:
+          type: boolean
+        degraded_reason:
+          type:
+          - string
+          - 'null'
+          description: Sanitized to an exception class name, never str(exc).
+      required:
+      - degraded
+      - events_inserted
+      - gap
+      - sources_projected
+      additionalProperties: false
+    HealthSummary:
+      type: object
+      properties:
+        projection:
+          $ref: '#/components/schemas/HealthProjection'
+        health:
+          description: health_metrics.Health dataclass (window/success/per_adapter/errors/broken).
+        agg_degraded:
+          type: boolean
+          description: Belt-and-suspenders flag; _health_agg self-reports via projection
+            instead.
+        panels:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HealthPanel'
+      required:
+      - agg_degraded
+      - health
+      - panels
+      - projection
+      additionalProperties: false
+    HealthScorecardLinks:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        links:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - links
+      - ok
+      additionalProperties: false
+    HealthRecheckLinkRequest:
+      type: object
+      properties:
+        live_url:
+          type: string
+      required:
+      - live_url
+      additionalProperties: false
+    HealthRecheckLinkResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        verdict: {}
+        live_url:
+          type:
+          - string
+          - 'null'
+        last_recheck_ts:
+          type:
+          - string
+          - 'null'
+        error_code:
+          type:
+          - string
+          - 'null'
+      required:
+      - ok
+      additionalProperties: false
+    HealthActionPlatformRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+        paused:
+          type:
+          - boolean
+          - 'null'
+          description: Pause action only; defaults true.
+      required:
+      - platform
+      additionalProperties: false
+    HealthActionResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        platform:
+          type: string
+        paused:
+          type:
+          - boolean
+          - 'null'
+          description: Pause action only.
+        ready:
+          type:
+          - boolean
+          - 'null'
+          description: Reverify action only.
+        reason:
+          type:
+          - string
+          - 'null'
+      required:
+      - ok
+      - platform
       additionalProperties: false
     HistoryItem:
       type: object
