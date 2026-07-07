@@ -583,7 +583,7 @@ class TestValidateEngineTypedValidation:
         # which re-executes the module body and creates a new ValidateOutcome class
         # object, breaking isinstance() checks in test_validate_engine.py tests.
         source = importlib.util.find_spec(
-            "backlink_publisher.validate.engine"
-        ).loader.get_source("backlink_publisher.validate.engine")
+            "backlink_publisher._validate_engine.engine"
+        ).loader.get_source("backlink_publisher._validate_engine.engine")
         assert "validate_and_convert_output" in source
         assert "validate_output_payload" not in source

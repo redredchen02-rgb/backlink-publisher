@@ -146,7 +146,7 @@ def test_url_check_failure_raises_external_service_error(monkeypatch):
     def _boom(_urls):
         raise errors.ExternalServiceError("https://example.com unreachable")
 
-    monkeypatch.setattr("backlink_publisher.validate.engine.check_urls_strict", _boom)
+    monkeypatch.setattr("backlink_publisher._validate_engine.engine.check_urls_strict", _boom)
     with pytest.raises(errors.ExternalServiceError):
         validate_rows([_make_valid_payload()], None, check_urls=True)
 
