@@ -552,6 +552,20 @@ function pollKeepaliveJob(jobId: string): void {
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   gap: 0.75rem;
 }
+/* Plan 2026-07-06-005 W12 (D12): desktop split-screen range (700-960px — see
+   the matching note in SettingsPage.vue). auto-fill/minmax(15rem, 1fr) alone
+   can still land two cramped columns in that band, squeezing card__links
+   (the deep-dive / action ↪ links) to the point they're hard to hit. Force a
+   single column so every card gets the full available width and its action
+   links stay comfortably tappable/clickable. */
+@media (max-width: 960px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+  .card__links {
+    flex-wrap: wrap;
+  }
+}
 .card {
   border: 1px solid var(--border);
   border-left-width: 3px;

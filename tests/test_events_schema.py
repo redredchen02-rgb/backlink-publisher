@@ -89,6 +89,7 @@ def test_events_columns_match_plan(tmp_path):
         "host",
         "article_id",
         "payload_json",
+        "deleted_at",  # W4 soft-delete (2026-07-06)
     ]
 
 
@@ -111,6 +112,7 @@ def test_articles_columns_match_plan(tmp_path):
         "verified_at",
         "verify_error",
         "migration_dedup_key",
+        "deleted_at",  # W4 soft-delete (2026-07-06)
     ]
 
 
@@ -148,9 +150,9 @@ def test_schema_version_initialized_to_two(tmp_path):
     store = EventStore()
     with store.connect() as conn:
         rows = list(conn.execute("SELECT version FROM schema_version"))
-    # Bumped to 3 when quarantine_log.row_id was added
-    # (Plan 2026-05-28-004).
-    assert rows == [(4,)]
+    # Bumped to 5 when events.deleted_at/articles.deleted_at were added
+    # (W4 soft-delete, 2026-07-06).
+    assert rows == [(5,)]
 
 
 def test_events_kind_is_not_null(tmp_path):
