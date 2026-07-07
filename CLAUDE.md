@@ -17,6 +17,9 @@ pytest tests/test_foo.py -k "bar"             # single test
 # WebUI dev server
 python webui.py                               # :8888
 
+# WebUI production entrypoint (waitress, no dev-server warning)
+python serve.py                               # :8888
+
 # SLOC budget check (before editing monitored files)
 python -m radon raw -s src/backlink_publisher/cli/plan_backlinks/core.py
 ```

@@ -128,7 +128,7 @@ Write-Host "  关闭此窗口即可停止服务"
 Write-Host "================================================"
 Write-Host ""
 
-& $PY webui.py
+& $PY serve.py
 
 Write-Host "服务已停止"
 pause

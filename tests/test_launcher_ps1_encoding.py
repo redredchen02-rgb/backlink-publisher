@@ -31,3 +31,10 @@ def test_launcher_ps1_sets_console_output_encoding():
     body = _LAUNCHER_PS1.read_text(encoding="utf-8-sig")
     assert "[Console]::OutputEncoding" in body
     assert "UTF8" in body
+
+
+def test_launcher_ps1_launches_production_entrypoint():
+    # Plan 2026-07-07-002: launch serve.py (waitress) instead of webui.py
+    # (Werkzeug dev server) so operators stop seeing the dev-server warning.
+    body = _LAUNCHER_PS1.read_text(encoding="utf-8-sig")
+    assert "& $PY serve.py" in body
