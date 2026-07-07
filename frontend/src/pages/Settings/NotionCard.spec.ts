@@ -83,7 +83,7 @@ describe('NotionCard', () => {
     expect((w.find('#nt-token').element as HTMLInputElement).value).toBe('')
   })
 
-  it('surfaces a 422 missing-field rejection as a warning toast', async () => {
+  it('W6: a 422 mentioning Integration Token renders inline under that field, not a toast', async () => {
     vi.mocked(api.saveNotionToken).mockRejectedValue(
       new ApiError('rejected', 422, { detail: 'Integration Token 不能为空' }),
     )
@@ -91,9 +91,23 @@ describe('NotionCard', () => {
     await flushPromises()
     await w.find('form').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="err-token"]').text()).toContain('Integration Token')
+    expect(w.find('[data-test="notion-form-error"]').exists()).toBe(false)
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('Integration Token')
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: a 422 mentioning Database ID renders inline under that field', async () => {
+    vi.mocked(api.saveNotionToken).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: 'Database ID 格式无效' }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="err-db"]').text()).toContain('Database ID')
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('clears the credential after confirm → success toast', async () => {

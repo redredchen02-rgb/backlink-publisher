@@ -9,6 +9,7 @@ vi.mock('../../api/settings', () => ({
 }))
 
 import * as api from '../../api/settings'
+import { ApiError } from '../../api/client'
 import BlogIdsCard from './BlogIdsCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
 import { useSettingsDirtyStore } from '../../stores/settingsDirty'
@@ -111,6 +112,42 @@ describe('BlogIdsCard', () => {
 
     const after = w.findAll('[data-test="blogid-row"] input')
     expect((after[1].element as HTMLInputElement).value).toBe('typed-999')
+  })
+
+  it('W6: 422 renders an inline form error, not a global toast', async () => {
+    vi.mocked(api.saveBlogIds).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: '域名格式无效' }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    const inputs = w.findAll('[data-test="blogid-row"] input')
+    await inputs[0].setValue('not-a-url')
+    await inputs[1].setValue('111')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="blogids-form-error"]').text()).toBe('域名格式无效')
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: the submit button is busy only while its own save is in flight', async () => {
+    let resolveSave: (v: { ok: boolean; message: string }) => void = () => {}
+    vi.mocked(api.saveBlogIds).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve
+      }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    const inputs = w.findAll('[data-test="blogid-row"] input')
+    await inputs[0].setValue('https://a.com')
+    await inputs[1].setValue('111')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    const submitBtn = w.findAll('button').find((b) => b.text().includes('保存中'))
+    expect(submitBtn?.attributes('disabled')).toBeDefined()
+    resolveSave({ ok: true, message: '保存' })
+    await flushPromises()
   })
 
   it('marks the card dirty while editing and clean again after a successful save', async () => {

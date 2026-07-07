@@ -90,17 +90,31 @@ describe('BloggerCard', () => {
     expect((w.find('#bg-secret').element as HTMLInputElement).value).toBe('')
   })
 
-  it('surfaces a 422 missing-creds rejection as a warning toast', async () => {
+  it('W6: a 422 mentioning Client Secret renders inline under that field, not a global toast', async () => {
     vi.mocked(api.saveBloggerOauth).mockRejectedValue(
-      new ApiError('rejected', 422, { detail: '请填写 Client ID 和 Client Secret' }),
+      new ApiError('rejected', 422, { detail: '请填写 Client Secret' }),
     )
     const w = mountCard()
     await flushPromises()
     await w.find('form').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="err-client-secret"]').text()).toContain('Client Secret')
+    expect(w.find('[data-test="blogger-form-error"]').exists()).toBe(false)
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('Client ID')
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: a 422 with an unattributable detail renders the shared form-error banner', async () => {
+    vi.mocked(api.saveBloggerOauth).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: '未知校验错误' }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="blogger-form-error"]').text()).toBe('未知校验错误')
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('Google login submits a full-page form to the legacy oauth-start route with CSRF', async () => {

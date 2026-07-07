@@ -18,15 +18,13 @@ import {
   type LlmDiagnostic,
   type ImageGenDiagnostic,
 } from '../../api/settings'
-import { ApiError } from '../../api/client'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
+import { useSettingsForm } from '../../composables/useSettingsForm'
 import StateBlock from '../../components/StateBlock.vue'
-import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
-const notify = useNotificationsStore()
 const { toastError } = useErrorToast()
 // Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `form`) —
 // window-focus refetch explicitly OFF. See
@@ -61,6 +59,22 @@ const hasImageGenApiKey = ref(false)
 // (where the two API-key fields get programmatically blanked).
 const { dirty, markClean } = useSnapshotDirty('settings-llm', '进阶 LLM 整合', () => form)
 
+// Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline (best-
+// effort field attribution via regex — see useSettingsForm's docstring),
+// success toast + this card's `markClean()`, per-card `saving` busy (shared
+// by save AND clear, same as before W6 — they're mutually-exclusive actions
+// on one card). Declaration order matters: the `image_gen_*` patterns are
+// tried first so a detail like "image_gen_endpoint 必须以 https:// 开头"
+// attributes to the image-gen field, not the plain `endpoint` one below it.
+const { saving, formError, fieldErrors, run } = useSettingsForm(markClean, {
+  image_gen_endpoint: /image[_ ]gen(eration)?[_ ]?endpoint/i,
+  image_gen_api_key: /image[_ ]gen(eration)?[_ ]?api[_ ]?key/i,
+  image_gen_model: /image[_ ]gen(eration)?[_ ]?model/i,
+  endpoint: /\bendpoint\b/i,
+  api_key: /api[_ ]?key/i,
+  model: /\bmodel\b/i,
+})
+
 watch(
   () => query.data.value,
   (d) => {
@@ -90,7 +104,6 @@ const state = computed<FourState>(() => {
   return 'ready'
 })
 
-const saving = ref(false)
 const testingConn = ref(false)
 const testingGen = ref(false)
 const testingImg = ref(false)
@@ -102,57 +115,44 @@ const sampleResult = ref<ImageGenDiagnostic | null>(null)
 
 
 async function onSave(): Promise<void> {
-  if (saving.value) return
-  saving.value = true
-  try {
-    const r = await saveLlmConfig({
-      endpoint: form.endpoint,
-      api_key: form.api_key,
-      model: form.model,
-      temperature: Number(form.temperature),
-      system_prompt: form.system_prompt,
-      use_article_gen: form.use_article_gen,
-      article_system_prompt: form.article_system_prompt,
-      use_image_gen: form.use_image_gen,
-      image_gen_api_key: form.image_gen_api_key,
-      image_gen_endpoint: form.image_gen_endpoint,
-      image_gen_model: form.image_gen_model,
-      image_gen_banner_size: form.image_gen_banner_size,
-    })
-    notify.push(r.message || 'LLM 设定已保存', 'success')
-    form.api_key = ''
-    form.image_gen_api_key = ''
-    markClean()
-    await query.refetch()
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 422) {
-      const detail = (e.payload as { detail?: string })?.detail
-      notify.push(detail || 'LLM 设定校验失败', 'warning')
-      return
-    }
-    toastError(e)
-  } finally {
-    saving.value = false
-  }
+  const result = await run(
+    () =>
+      saveLlmConfig({
+        endpoint: form.endpoint,
+        api_key: form.api_key,
+        model: form.model,
+        temperature: Number(form.temperature),
+        system_prompt: form.system_prompt,
+        use_article_gen: form.use_article_gen,
+        article_system_prompt: form.article_system_prompt,
+        use_image_gen: form.use_image_gen,
+        image_gen_api_key: form.image_gen_api_key,
+        image_gen_endpoint: form.image_gen_endpoint,
+        image_gen_model: form.image_gen_model,
+        image_gen_banner_size: form.image_gen_banner_size,
+      }),
+    {
+      successMessage: 'LLM 设定已保存',
+      onSuccess: () => {
+        form.api_key = ''
+        form.image_gen_api_key = ''
+      },
+    },
+  )
+  if (result) await query.refetch()
 }
 
 async function onClear(): Promise<void> {
-  if (saving.value) return
-  saving.value = true
-  try {
-    const r = await clearLlmConfig()
-    notify.push(r.message || 'LLM 配置已清除', 'success')
-    form.api_key = ''
-    form.image_gen_api_key = ''
-    connResult.value = genResult.value = null
-    imgResult.value = sampleResult.value = null
-    markClean()
-    await query.refetch()
-  } catch (e) {
-    toastError(e)
-  } finally {
-    saving.value = false
-  }
+  const result = await run(() => clearLlmConfig(), {
+    successMessage: 'LLM 配置已清除',
+    onSuccess: () => {
+      form.api_key = ''
+      form.image_gen_api_key = ''
+      connResult.value = genResult.value = null
+      imgResult.value = sampleResult.value = null
+    },
+  })
+  if (result) await query.refetch()
 }
 
 async function onTestConnection(): Promise<void> {
@@ -227,6 +227,9 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
           <legend>① 连接配置</legend>
           <label for="llm-ep">LLM Endpoint</label>
           <input id="llm-ep" v-model="form.endpoint" type="text" placeholder="https://api.openai.com/v1" />
+          <small v-if="fieldErrors.endpoint" class="field-error" data-test="err-endpoint">
+            {{ fieldErrors.endpoint }}
+          </small>
           <div class="row2">
             <div class="field">
               <label for="llm-key">API Key</label>
@@ -237,10 +240,16 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
                 autocomplete="off"
                 :placeholder="hasApiKey ? '已设置（留空保留现值）' : 'sk-…'"
               />
+              <small v-if="fieldErrors.api_key" class="field-error" data-test="err-api-key">
+                {{ fieldErrors.api_key }}
+              </small>
             </div>
             <div class="field">
               <label for="llm-model">Model</label>
               <input id="llm-model" v-model="form.model" type="text" placeholder="gpt-4o" />
+              <small v-if="fieldErrors.model" class="field-error" data-test="err-model">
+                {{ fieldErrors.model }}
+              </small>
             </div>
           </div>
           <div class="diag">
@@ -288,15 +297,24 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
                 autocomplete="off"
                 :placeholder="hasImageGenApiKey ? '已设置（留空保留现值）' : '输入 Image Gen API Key'"
               />
+              <small v-if="fieldErrors.image_gen_api_key" class="field-error" data-test="err-img-key">
+                {{ fieldErrors.image_gen_api_key }}
+              </small>
             </div>
             <div class="row2">
               <div class="field">
                 <label for="img-ep">Image Endpoint</label>
                 <input id="img-ep" v-model="form.image_gen_endpoint" type="text" placeholder="https://api.example.com/v1" />
+                <small v-if="fieldErrors.image_gen_endpoint" class="field-error" data-test="err-img-ep">
+                  {{ fieldErrors.image_gen_endpoint }}
+                </small>
               </div>
               <div class="field">
                 <label for="img-model">Image Model</label>
                 <input id="img-model" v-model="form.image_gen_model" type="text" placeholder="gpt-image-1" />
+                <small v-if="fieldErrors.image_gen_model" class="field-error" data-test="err-img-model">
+                  {{ fieldErrors.image_gen_model }}
+                </small>
               </div>
               <div class="field field--sm">
                 <label for="img-size">尺寸</label>
@@ -333,6 +351,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
           <textarea id="sys-p" v-model="form.system_prompt" rows="4" />
         </details>
 
+        <p v-if="formError" class="form-error" data-test="llm-form-error">{{ formError }}</p>
         <div class="actions">
           <button type="submit" :disabled="saving">{{ saving ? '保存中…' : '保存 LLM 设定' }}</button>
           <button type="button" class="danger" :disabled="saving" @click="onClear">清除配置</button>
@@ -441,5 +460,11 @@ textarea {
 }
 .actions .danger {
   color: var(--danger);
+}
+.field-error,
+.form-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin: 0.25rem 0 0;
 }
 </style>

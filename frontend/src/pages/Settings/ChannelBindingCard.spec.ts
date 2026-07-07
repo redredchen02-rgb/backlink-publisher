@@ -118,7 +118,7 @@ describe('ChannelBindingCard', () => {
     })
   })
 
-  it('surfaces a 422 credential rejection as a warning toast carrying the detail', async () => {
+  it('W6: a 422 credential rejection renders inline under that slug, not a global toast', async () => {
     vi.mocked(api.saveChannelCredential).mockRejectedValue(
       new ApiError('rejected', 422, { detail: 'site 必须以 https:// 开头' }),
     )
@@ -126,9 +126,9 @@ describe('ChannelBindingCard', () => {
     await flushPromises()
     await w.find('form').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="bind-error-wordpresscom"]').text()).toContain('https://')
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('https://')
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('routes a save_via="token" channel (devto / ghpages) to the token-paste endpoint', async () => {

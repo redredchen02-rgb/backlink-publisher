@@ -14,8 +14,8 @@ import {
   saveScheduleSettings,
   type ScheduleSettings,
 } from '../../api/settings'
-import { ApiError } from '../../api/client'
 import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
+import { useSettingsForm } from '../../composables/useSettingsForm'
 import StateBlock from '../../components/StateBlock.vue'
 import ChannelsCard from './ChannelsCard.vue'
 import ChannelBindingCard from './ChannelBindingCard.vue'
@@ -26,13 +26,8 @@ import NotionCard from './NotionCard.vue'
 import BlogIdsCard from './BlogIdsCard.vue'
 import LlmSettingsCard from './LlmSettingsCard.vue'
 import SettingsSidebar from './SettingsSidebar.vue'
-import { useErrorToast } from '../../composables/useErrorToast'
-import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
-
-const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 
 // ── keyword pools ────────────────────────────────────────────────────────────
 
@@ -52,7 +47,6 @@ const keywordTargets = computed<string[]>(() => keywordsQuery.data.value?.target
 // Editable copy: domain → textarea string (one keyword per line). Hydrated from
 // the query and kept local so edits don't fight TanStack's cached server state.
 const keywordEdits = reactive<Record<string, string>>({})
-const savingKeywords = ref(false)
 
 // Plan 2026-07-06-005 W2 — the hydration-overwrite bug fix. Before this, the
 // watch below unconditionally overwrote `keywordEdits` any time
@@ -68,6 +62,14 @@ const { dirty: keywordsDirty, markClean: markKeywordsClean } = useSnapshotDirty(
   'settings-keywords',
   'SEO 关键词池',
   () => keywordEdits,
+)
+
+// Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline
+// (`keywordsFormError`, no fixed field set — the >60-char rule can hit any
+// domain's pool, and the detail doesn't name which one), success toast +
+// this section's `markKeywordsClean()`, per-section `saving` busy.
+const { saving: savingKeywords, formError: keywordsFormError, run: runKeywords } = useSettingsForm(
+  markKeywordsClean,
 )
 
 watch(
@@ -99,29 +101,15 @@ function poolCount(domain: string): string {
 }
 
 async function onSaveKeywords(): Promise<void> {
-  if (savingKeywords.value) return
-  savingKeywords.value = true
-  try {
-    const pools: Record<string, string[]> = {}
-    for (const domain of keywordTargets.value) pools[domain] = poolLines(domain)
-    const r = await saveKeywordPools(pools)
-    notify.push(r.message || '关键词已保存', 'success')
-    // Clear dirty *before* the refetch so the hydration watch (guarded above)
-    // is allowed to run when the saved data comes back.
-    markKeywordsClean()
-    await keywordsQuery.refetch()
-  } catch (e) {
-    // 422 = a keyword failed the >60-char rule; the problem+json detail is the
-    // server-sanitized, actionable message (rendered text-only by the toast).
-    if (e instanceof ApiError && e.status === 422) {
-      const detail = (e.payload as { detail?: string })?.detail
-      notify.push(detail || '关键词校验失败（需 ≤60 字符）', 'warning')
-      return
-    }
-    toastError(e)
-  } finally {
-    savingKeywords.value = false
-  }
+  const pools: Record<string, string[]> = {}
+  for (const domain of keywordTargets.value) pools[domain] = poolLines(domain)
+  // markKeywordsClean() (via useSettingsForm's markClean callback) fires
+  // before the refetch below, same ordering as before W6, so the hydration
+  // watch (guarded above) is allowed to run when the saved data comes back.
+  const result = await runKeywords(() => saveKeywordPools(pools), {
+    successMessage: '关键词已保存',
+  })
+  if (result) await keywordsQuery.refetch()
 }
 
 // ── publish cadence ──────────────────────────────────────────────────────────
@@ -135,7 +123,6 @@ const scheduleQuery = useQuery({
   refetchOnWindowFocus: false,
 })
 const scheduleForm = reactive<ScheduleSettings>({ min_interval_hours: 4, jitter_minutes: 30 })
-const savingSchedule = ref(false)
 
 // Plan 2026-07-06-005 W2 — same hydration-overwrite fix as the keyword pool
 // editor above; see that block's comment for the full rationale.
@@ -143,6 +130,14 @@ const { dirty: scheduleDirty, markClean: markScheduleClean } = useSnapshotDirty(
   'settings-schedule',
   '排程发布设定',
   () => scheduleForm,
+)
+
+// Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline
+// (`scheduleFormError`; the "填数字" rejection doesn't name which of the two
+// numeric fields failed, so no `fieldMap`), success toast + this section's
+// `markScheduleClean()`, per-section `saving` busy.
+const { saving: savingSchedule, formError: scheduleFormError, run: runSchedule } = useSettingsForm(
+  markScheduleClean,
 )
 
 watch(
@@ -164,25 +159,15 @@ const scheduleState = computed<FourState>(() => {
 })
 
 async function onSaveSchedule(): Promise<void> {
-  if (savingSchedule.value) return
-  savingSchedule.value = true
-  try {
-    const r = await saveScheduleSettings({
-      min_interval_hours: Number(scheduleForm.min_interval_hours),
-      jitter_minutes: Number(scheduleForm.jitter_minutes),
-    })
-    notify.push(r.message || '排程设定已保存', 'success')
-    markScheduleClean()
-    await scheduleQuery.refetch()
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 422) {
-      notify.push('排程数值无效（请填数字）', 'warning')
-      return
-    }
-    toastError(e)
-  } finally {
-    savingSchedule.value = false
-  }
+  const result = await runSchedule(
+    () =>
+      saveScheduleSettings({
+        min_interval_hours: Number(scheduleForm.min_interval_hours),
+        jitter_minutes: Number(scheduleForm.jitter_minutes),
+      }),
+    { successMessage: '排程设定已保存' },
+  )
+  if (result) await scheduleQuery.refetch()
 }
 </script>
 
@@ -240,6 +225,9 @@ async function onSaveSchedule(): Promise<void> {
               placeholder="品牌词&#10;行业关键词&#10;长尾短语…"
             />
           </details>
+          <p v-if="keywordsFormError" class="form-error" data-test="keywords-form-error">
+            {{ keywordsFormError }}
+          </p>
           <button type="submit" :disabled="savingKeywords">
             {{ savingKeywords ? '保存中…' : '保存所有关键词池' }}
           </button>
@@ -281,6 +269,9 @@ async function onSaveSchedule(): Promise<void> {
             />
             <small class="muted">在间隔上随机增减的分钟数，模拟自然节奏</small>
           </div>
+          <p v-if="scheduleFormError" class="form-error" data-test="schedule-form-error">
+            {{ scheduleFormError }}
+          </p>
           <button type="submit" :disabled="savingSchedule">
             {{ savingSchedule ? '保存中…' : '保存设定' }}
           </button>
@@ -387,5 +378,10 @@ async function onSaveSchedule(): Promise<void> {
 }
 button[type='submit'] {
   margin-top: 0.75rem;
+}
+.form-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin: 0.5rem 0 0;
 }
 </style>

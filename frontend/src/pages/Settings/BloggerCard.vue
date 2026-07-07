@@ -14,11 +14,12 @@ import {
   saveBloggerOauth,
   revokeBlogger,
 } from '../../api/settings'
-import { ApiError, csrfToken } from '../../api/client'
+import { csrfToken } from '../../api/client'
 import StateBlock from '../../components/StateBlock.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
+import { useSettingsForm } from '../../composables/useSettingsForm'
 import { useNotificationsStore } from '../../stores/notifications'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
@@ -47,7 +48,6 @@ const state = computed<FourState>(() => {
 // Editable creds. client_secret starts blank (never pre-filled); a blank submit
 // preserves the stored secret. client_id hydrates from status (it's not a secret).
 const form = reactive({ client_id: '', client_secret: '' })
-const saving = ref(false)
 
 // Plan 2026-07-06-005 W2 — hydration-overwrite fix: while the operator has
 // unsaved edits (client_id and/or client_secret typed but not yet saved), a
@@ -55,6 +55,16 @@ const saving = ref(false)
 // a hydration actually runs, including the one echoing this card's own
 // successful save (where `client_secret` gets programmatically blanked).
 const { dirty, markClean } = useSnapshotDirty('settings-blogger', 'Blogger', () => form)
+
+// Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline, keyed
+// to the field the backend's detail text names (best-effort regex match —
+// see useSettingsForm's module docstring for why a freeform `detail` string
+// can only be attributed heuristically), success toast + this card's
+// `markClean()`, per-card `saving` busy.
+const { saving, formError, fieldErrors, run } = useSettingsForm(markClean, {
+  client_secret: /client[ _]?secret/i,
+  client_id: /client[ _]?id/i,
+})
 
 watch(
   () => status.value,
@@ -72,24 +82,13 @@ const secretPlaceholder = computed(() =>
 )
 
 async function onSave(): Promise<void> {
-  if (saving.value) return
-  saving.value = true
-  try {
-    const r = await saveBloggerOauth(form.client_id, form.client_secret)
-    notify.push(r.message || '凭据已确认绑定', 'success')
-    form.client_secret = ''
-    markClean()
-    await qc.invalidateQueries({ queryKey: ['settings', 'blogger-status'] })
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 422) {
-      const detail = (e.payload as { detail?: string })?.detail
-      notify.push(detail || '请填写 Client ID 和 Client Secret', 'warning')
-      return
-    }
-    toastError(e)
-  } finally {
-    saving.value = false
-  }
+  const result = await run(() => saveBloggerOauth(form.client_id, form.client_secret), {
+    successMessage: '凭据已确认绑定',
+    onSuccess: () => {
+      form.client_secret = ''
+    },
+  })
+  if (result) await qc.invalidateQueries({ queryKey: ['settings', 'blogger-status'] })
 }
 
 // Google login: the consent handshake is a full-page POST to the legacy
@@ -165,6 +164,9 @@ async function doRevoke(): Promise<void> {
             autocomplete="off"
             placeholder="xxxx.apps.googleusercontent.com"
           />
+          <small v-if="fieldErrors.client_id" class="field-error" data-test="err-client-id">
+            {{ fieldErrors.client_id }}
+          </small>
         </div>
         <div class="field">
           <label for="bg-secret">Client Secret</label>
@@ -176,7 +178,11 @@ async function doRevoke(): Promise<void> {
             autocomplete="off"
             :placeholder="secretPlaceholder"
           />
+          <small v-if="fieldErrors.client_secret" class="field-error" data-test="err-client-secret">
+            {{ fieldErrors.client_secret }}
+          </small>
         </div>
+        <p v-if="formError" class="form-error" data-test="blogger-form-error">{{ formError }}</p>
         <div class="blogger__actions">
           <button type="submit" :disabled="saving">
             {{ saving ? '保存中…' : '确认绑定' }}
@@ -279,5 +285,11 @@ async function doRevoke(): Promise<void> {
 .tag--err {
   color: var(--danger);
   border-color: currentColor;
+}
+.field-error,
+.form-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin: 0.25rem 0 0;
 }
 </style>

@@ -147,7 +147,7 @@ describe('SettingsPage — global config', () => {
     expect(notify.toasts.at(-1)?.severity).toBe('success')
   })
 
-  it('surfaces a 422 keyword rejection as a warning toast carrying the detail', async () => {
+  it('W6: a 422 keyword rejection renders inline under the keyword form, not a global toast', async () => {
     vi.mocked(api.saveKeywordPools).mockRejectedValue(
       new ApiError('rejected', 422, { detail: '关键词过长（>60字符）: XXX…' }),
     )
@@ -155,9 +155,22 @@ describe('SettingsPage — global config', () => {
     await flushPromises()
     await w.find('[data-test="keyword-form"]').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="keywords-form-error"]').text()).toContain('关键词过长')
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('关键词过长')
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: a 422 schedule rejection renders inline under the schedule form, not a global toast', async () => {
+    vi.mocked(api.saveScheduleSettings).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: '保存失败: ValueError' }),
+    )
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="schedule-form"]').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="schedule-form-error"]').text()).toContain('保存失败')
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('saves schedule settings → success toast', async () => {

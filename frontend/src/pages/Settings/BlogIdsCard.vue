@@ -3,13 +3,12 @@
 // 6 — channel section finale). Edits the domain → Blogger Blog ID routing map
 // consulted at publish time. Dynamic add/remove rows; the server strips, drops
 // blank pairs and dedups by domain, so the client just sends what's typed.
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getBlogIds, saveBlogIds } from '../../api/settings'
 import StateBlock from '../../components/StateBlock.vue'
-import { useErrorToast } from '../../composables/useErrorToast'
 import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
-import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsForm } from '../../composables/useSettingsForm'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
@@ -18,8 +17,6 @@ interface Row {
   blog_id: string
 }
 
-const notify = useNotificationsStore()
-const { toastError } = useErrorToast()
 const qc = useQueryClient()
 
 // Plan 2026-07-06-005 W1 (D15): edit-surface query (hydrates `rows`) —
@@ -34,13 +31,17 @@ const query = useQuery({
 // Editable rows, kept local so edits don't fight the cached server state. Always
 // keep at least one (blank) row so the operator has somewhere to type.
 const rows = reactive<Row[]>([])
-const saving = ref(false)
 
 // Plan 2026-07-06-005 W2 — hydration-overwrite fix: while the operator has
 // unsaved row edits, a query refetch (invalidation, refocus, revisit) must
 // not clobber `rows`. `markClean()` re-baselines right after a hydration
 // actually runs, including the one echoing this card's own successful save.
 const { dirty, markClean } = useSnapshotDirty('settings-blogids', 'Blogger Blog ID 映射', () => rows)
+
+// Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline
+// (`formError`, no fixed field set for a dynamic row list so no `fieldMap`),
+// success toast + this card's own `markClean()`, per-card `saving` busy.
+const { saving, formError, run } = useSettingsForm(markClean)
 
 watch(
   () => query.data.value,
@@ -73,24 +74,14 @@ function removeRow(i: number): void {
 }
 
 async function onSave(): Promise<void> {
-  if (saving.value) return
-  saving.value = true
-  try {
-    const mapping: Record<string, string> = {}
-    for (const r of rows) {
-      const d = r.domain.trim()
-      const b = r.blog_id.trim()
-      if (d && b) mapping[d] = b
-    }
-    const r = await saveBlogIds(mapping)
-    notify.push(r.message || 'Blog ID 映射已保存', 'success')
-    markClean()
-    await qc.invalidateQueries({ queryKey: ['settings', 'blog-ids'] })
-  } catch (e) {
-    toastError(e)
-  } finally {
-    saving.value = false
+  const mapping: Record<string, string> = {}
+  for (const r of rows) {
+    const d = r.domain.trim()
+    const b = r.blog_id.trim()
+    if (d && b) mapping[d] = b
   }
+  const result = await run(() => saveBlogIds(mapping), { successMessage: 'Blog ID 映射已保存' })
+  if (result) await qc.invalidateQueries({ queryKey: ['settings', 'blog-ids'] })
 }
 </script>
 
@@ -124,6 +115,7 @@ async function onSave(): Promise<void> {
             ✕
           </button>
         </div>
+        <p v-if="formError" class="form-error" data-test="blogids-form-error">{{ formError }}</p>
         <div class="actions">
           <button type="button" class="secondary" @click="addRow">新增一行</button>
           <button type="submit" :disabled="saving">
@@ -179,5 +171,10 @@ async function onSave(): Promise<void> {
   border-color: currentColor;
   background: transparent;
   padding: 0 0.6rem;
+}
+.form-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin: 0.5rem 0 0;
 }
 </style>
