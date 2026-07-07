@@ -17,6 +17,7 @@ import * as api from '../../api/settings'
 import { ApiError } from '../../api/client'
 import LlmSettingsCard from './LlmSettingsCard.vue'
 import { useNotificationsStore } from '../../stores/notifications'
+import { useSettingsDirtyStore } from '../../stores/settingsDirty'
 
 const CONFIG = {
   endpoint: 'https://api.openai.com/v1',
@@ -49,6 +50,14 @@ function mountCard() {
   })
 }
 
+function mountCardWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = mount(LlmSettingsCard, {
+    global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] },
+  })
+  return { wrapper, queryClient }
+}
+
 describe('LlmSettingsCard', () => {
   it('hydrates endpoint/model and shows the "已设置" placeholder when a key is stored', async () => {
     const w = mountCard()
@@ -75,17 +84,35 @@ describe('LlmSettingsCard', () => {
     expect((w.find('#llm-key').element as HTMLInputElement).value).toBe('')
   })
 
-  it('surfaces a 422 save rejection as a warning toast carrying the detail', async () => {
+  it('W6: a 422 mentioning Endpoint renders inline under that field, not a toast', async () => {
     vi.mocked(api.saveLlmConfig).mockRejectedValue(
-      new ApiError('rejected', 422, { detail: 'LLM Endpoint 必须是 https://' }),
+      new ApiError('rejected', 422, { detail: 'Endpoint 必须以 https:// 开头' }),
     )
     const w = mountCard()
     await flushPromises()
     await w.find('form').trigger('submit')
     await flushPromises()
+    expect(w.find('[data-test="err-endpoint"]').text()).toContain('https')
+    expect(w.find('[data-test="llm-form-error"]').exists()).toBe(false)
     const notify = useNotificationsStore()
-    expect(notify.toasts.at(-1)?.severity).toBe('warning')
-    expect(notify.toasts.at(-1)?.message).toContain('https')
+    expect(notify.toasts).toHaveLength(0)
+  })
+
+  it('W6: a 422 mentioning image_gen_endpoint attributes to the image-gen field, not the plain endpoint one', async () => {
+    vi.mocked(api.saveLlmConfig).mockRejectedValue(
+      new ApiError('rejected', 422, { detail: 'image_gen_endpoint 必须以 https:// 开头' }),
+    )
+    const w = mountCard()
+    await flushPromises()
+    // the image-gen fields only render once the feature toggle is on
+    const toggles = w.findAll('.switch input[type="checkbox"]')
+    await toggles[1].setValue(true)
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('[data-test="err-img-ep"]').exists()).toBe(true)
+    expect(w.find('[data-test="err-endpoint"]').exists()).toBe(false)
+    const notify = useNotificationsStore()
+    expect(notify.toasts).toHaveLength(0)
   })
 
   it('renders the connection probe result inline (ok → 连接成功 + model count)', async () => {
@@ -112,5 +139,34 @@ describe('LlmSettingsCard', () => {
     expect(api.clearLlmConfig).toHaveBeenCalled()
     const notify = useNotificationsStore()
     expect(notify.toasts.at(-1)?.severity).toBe('success')
+  })
+
+  it('REGRESSION (W2): an unsaved endpoint edit survives a non-focus query-data change', async () => {
+    const { wrapper: w, queryClient } = mountCardWithClient()
+    await flushPromises()
+    await w.find('#llm-ep').setValue('https://typed.example.com/v1')
+
+    queryClient.setQueryData(['settings', 'llm'], { ...CONFIG, endpoint: 'https://server-changed.example.com/v1' })
+    await flushPromises()
+
+    expect((w.find('#llm-ep').element as HTMLInputElement).value).toBe(
+      'https://typed.example.com/v1',
+    )
+  })
+
+  it('marks the card dirty while editing and clean again after a successful save', async () => {
+    vi.mocked(api.saveLlmConfig).mockResolvedValue({ ok: true, message: 'ok' })
+    const w = mountCard()
+    await flushPromises()
+    const dirtyStore = useSettingsDirtyStore()
+    expect(dirtyStore.anyDirty).toBe(false)
+
+    await w.find('#llm-model').setValue('gpt-4.1')
+    expect(dirtyStore.anyDirty).toBe(true)
+    expect(dirtyStore.dirtyLabels).toContain('进阶 LLM 整合')
+
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(dirtyStore.anyDirty).toBe(false)
   })
 })

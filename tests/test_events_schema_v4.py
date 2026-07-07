@@ -30,7 +30,9 @@ def test_schema_v3_upgrades_to_v4(tmp_path):
         version = conn.execute(
             "SELECT MAX(version) FROM schema_version"
         ).fetchone()[0]
-    assert version == 4
+    # W4 (2026-07-06) bumped SCHEMA_VERSION again for deleted_at; assert
+    # against the live constant rather than hardcoding the v4-era number.
+    assert version == schema_module.SCHEMA_VERSION
     with store.connect() as conn:
         cols = {row[1] for row in conn.execute("PRAGMA table_info(articles)")}
     for col in ("platform", "verified_at", "verify_error", "migration_dedup_key"):
@@ -46,7 +48,7 @@ def test_v4_is_idempotent_on_reconnect(tmp_path):
         version = conn.execute(
             "SELECT MAX(version) FROM schema_version"
         ).fetchone()[0]
-    assert version == 4
+    assert version == schema_module.SCHEMA_VERSION
 
 
 def test_add_article_with_platform_stores_column(tmp_path):

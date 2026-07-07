@@ -44,7 +44,7 @@ import {
   classifySeverity,
   DedupTracker,
 } from '../../../webui_app/static/js/lib/error-capture-core.js'
-import { sendJson } from '../api/client'
+import { ApiError, sendJson } from '../api/client'
 import { useNotificationsStore } from '../stores/notifications'
 
 interface ErrorInfo {
@@ -174,19 +174,26 @@ function notifySuccess(message: string, reportId: string): void {
   }
 }
 
-async function captureAndSubmit(errorInfo: ErrorInfo): Promise<void> {
+// Plan 2026-07-06-005 W13 reintegration: returns the minted report id (or
+// `null` when nothing was actually submitted -- ignored/deduped/failed) so
+// `reportManualMutationError` below can hand that id to callers that need to
+// correlate a specific failure with a specific UI row (W10's rowReportLinks).
+async function captureAndSubmit(errorInfo: ErrorInfo): Promise<string | null> {
   try {
-    if (shouldIgnoreError(errorInfo)) return
+    if (shouldIgnoreError(errorInfo)) return null
     const fingerprint = computeFingerprint(errorInfo)
     const decision = tracker.record(fingerprint)
-    if (!decision.shouldSubmitNow) return
+    if (!decision.shouldSubmitNow) return null
     const payload = buildPayload(errorInfo, fingerprint)
     const result = await submitReport(payload)
-    if (result) notifySuccess(errorInfo.message || errorInfo.name, result.id)
+    if (!result) return null
+    notifySuccess(errorInfo.message || errorInfo.name, result.id)
+    return result.id
   } catch {
     // A bug in this module's own capture/submission logic must never itself
     // become a new uncaught error — isSelfOriginatedError guards against the
     // resulting self-report loop, but only if we never let it escape here.
+    return null
   }
 }
 
@@ -306,11 +313,65 @@ export function reportQueryError(error: unknown, queryKey?: unknown): void {
   void captureAndSubmit(info)
 }
 
+// ── D8 mutation error-report routing rule ───────────────────────────────────
+//
+// Plan 2026-07-06-005 W13 (D8), refined per the plan's doc-review adversarial
+// finding "D8 error-report routing is unspecified for 4xx codes other than
+// 422": the ONLY status excluded from error-reports is the explicitly-
+// enumerated expected validation code, 422 — e.g. Settings' 422 inline-
+// validation contract (useSettingsForm.ts), where a 422 is a normal,
+// user-correctable form-validation outcome, not an incident.
+//
+// Every OTHER 4xx is an incident-class signal and MUST be reported:
+//   - 403 (e.g. a CSRF-guard regression) — never assume "permission errors
+//     are expected", a real one is exactly what an operator needs to see.
+//   - 400 (a data-invariant violation) — the corresponding History/Drafts
+//     action is now silently rejecting valid-looking input.
+//   - 404 (e.g. History's undelete on a row that aged out of the undo
+//     window and got purged server-side) — an operator race, worth
+//     surfacing.
+//   - 409, or anything else not explicitly listed above.
+// 5xx and network failures (TypeError, timeout/AbortError) are always
+// reported; they never reach this predicate's `false` branch.
+//
+// Do NOT rewrite this as "exclude all 4xx" — that recreates the exact
+// invisible-mutation-error class W13 exists to fix (quarantine-not-silent-
+// else principle the plan itself cites).
+const EXPECTED_VALIDATION_STATUSES: ReadonlySet<number> = new Set([422])
+
+export function shouldReportMutationError(error: unknown): boolean {
+  return !(error instanceof ApiError && EXPECTED_VALIDATION_STATUSES.has(error.status))
+}
+
 /** Hook 4b — MutationCache constructor onError (useMutation failures).
  *  `mutationKey` must be the mutation's KEY only — never its `variables`. */
 export function reportMutationError(error: unknown, mutationKey?: unknown): void {
+  if (!shouldReportMutationError(error)) return
   const info = withContextPrefix(toErrorInfo(error, 'mutation-error'), keyToString(mutationKey))
   void captureAndSubmit(info)
+}
+
+/**
+ * Manual counterpart to `reportMutationError`, for pages that keep a
+ * hand-written try/catch mutation call instead of migrating to `useMutation`
+ * (plan 2026-07-06-005 W13 D7 — HistoryPage's D6 busy mutex + undo state
+ * machine was judged too risky to re-thread through `useMutation`, but its
+ * non-422 failures must still reach error-reports exactly like a real
+ * mutation would). Applies the same D8 filter as `reportMutationError`, and
+ * resolves to the minted report id (or `null`) so a caller can correlate the
+ * failure with a specific row (see stores/rowReportLinks.ts).
+ *
+ * `context` must be a short free-form label identifying the call site (e.g.
+ * `'history.delete'`) — never call-site variables/payload, per this file's
+ * module-level SECURITY note.
+ */
+export async function reportManualMutationError(
+  error: unknown,
+  context: string,
+): Promise<string | null> {
+  if (!shouldReportMutationError(error)) return null
+  const info = withContextPrefix(toErrorInfo(error, 'mutation-error'), context)
+  return captureAndSubmit(info)
 }
 
 // ── hook 5: Pinia $onAction onError ──────────────────────────────────────────

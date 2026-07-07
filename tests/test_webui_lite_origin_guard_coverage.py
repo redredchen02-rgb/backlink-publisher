@@ -24,6 +24,7 @@ realistic attack surface for the CSRF_ONLY tier — is now closed by the app-lev
 Origin guard, on top of the bind-to-loopback-only invariant
 (``test_webui_lite_loopback_enforced.py``).
 """
+
 from __future__ import annotations
 
 __tier__ = "unit"
@@ -38,6 +39,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from webui_app import create_app
+
     a = create_app(start_scheduler=False)
     a.config["TESTING"] = True
     a.config["PROPAGATE_EXCEPTIONS"] = False  # turn runtime errors into 500 responses
@@ -58,6 +60,7 @@ def _seed_csrf(client) -> str:
 
 def _loopback_origin() -> str:
     from webui_app.helpers.security import _FLASK_PORT
+
     return f"http://127.0.0.1:{_FLASK_PORT}"
 
 
@@ -105,27 +108,27 @@ _GUARDED_ROUTES: list[tuple[str, str, dict]] = [
 _EVIL_ORIGIN = "http://evil.example.com"
 
 
-@pytest.mark.parametrize("rule,method,form_data", _GUARDED_ROUTES,
-                         ids=[r[0] for r in _GUARDED_ROUTES])
+@pytest.mark.parametrize(
+    "rule,method,form_data", _GUARDED_ROUTES, ids=[r[0] for r in _GUARDED_ROUTES]
+)
 def test_guarded_route_rejects_evil_origin(client, rule, method, form_data):
     """Forged Origin + valid CSRF → 403 (Origin guard fires)."""
     csrf = _seed_csrf(client)
     data = dict(form_data, csrf_token=csrf)
-    resp = client.open(rule, method=method, data=data,
-                       headers={"Origin": _EVIL_ORIGIN})
+    resp = client.open(rule, method=method, data=data, headers={"Origin": _EVIL_ORIGIN})
     assert resp.status_code == 403, (
         f"{method} {rule}: expected 403 from Origin guard, got {resp.status_code}"
     )
 
 
-@pytest.mark.parametrize("rule,method,form_data", _GUARDED_ROUTES,
-                         ids=[r[0] for r in _GUARDED_ROUTES])
+@pytest.mark.parametrize(
+    "rule,method,form_data", _GUARDED_ROUTES, ids=[r[0] for r in _GUARDED_ROUTES]
+)
 def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
     """Loopback Origin + valid CSRF → NOT 403 (Origin guard passes)."""
     csrf = _seed_csrf(client)
     data = dict(form_data, csrf_token=csrf)
-    resp = client.open(rule, method=method, data=data,
-                       headers={"Origin": _loopback_origin()})
+    resp = client.open(rule, method=method, data=data, headers={"Origin": _loopback_origin()})
     assert resp.status_code != 403, (
         f"{method} {rule}: loopback Origin should not be rejected, got 403"
     )
@@ -140,20 +143,10 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 103  # routes with CSRF but no inline Origin guard as of 2026-07-07
-# +3 (100->103): Plan 2026-07-02-001 U6 — POST /api/v1/health/actions/pause,
-# POST /api/v1/health/actions/reverify, POST /api/v1/health/actions/circuit-
-# reset. Mirrors the legacy health_actions.py's own perimeter exactly
-# (loopback-only + app-level CSRF, no inline bind-origin call) — these are
-# maintenance toggles, not outbound-probe endpoints, so they don't carry the
-# DNS-rebinding risk the inline guard defends against on e.g. recheck-link
-# (which DOES call _check_bind_origin_or_abort() inline, and is NOT in this
-# count). Covered at runtime by the app-level _global_origin_guard, same as
-# every other route in this snapshot (proven unconditionally by
-# test_global_guard_covers_every_mutating_route); the additional per-view
-# loopback gate (_enforce_loopback_addr, since api_v1 is one shared blueprint
-# and can't inherit health_actions.py's blueprint-scoped before_request) is
-# the actual defense specific to these 3 routes.
+_CSRF_ONLY_SNAPSHOT_COUNT = 104  # routes with CSRF but no inline Origin guard as of 2026-07-07
+# +1 (100->101): W4 history/undelete (merged via integration/w4-w5-w10-w13-reintegrate-u5)
+# +3 (101->104): Plan 2026-07-02-001 U6 — POST /api/v1/health/actions/pause,
+# POST /api/v1/health/actions/reverify, POST /api/v1/health/actions/circuit-reset.
 # +1 (96->97): Plan 2026-07-06-004 Unit 3 — POST /api/v1/queue/<task_id>/retry
 # (webui_app/api/v1/history.py). Same protection level as its 4 sibling
 # endpoints in the same file (/history/delete, /bulk-delete, /purge-failed,
@@ -280,6 +273,7 @@ def test_csrf_only_route_count_snapshot(app):
 # Regression: adding a fake guarded route without guard still fails
 # ---------------------------------------------------------------------------
 
+
 def test_regression_new_unguarded_route_detected():
     """Validate the snapshot mechanism catches new unguarded routes.
 
@@ -315,6 +309,7 @@ _ORIGIN_GUARD_ALLOWLIST: frozenset[str] = frozenset()
 @pytest.fixture
 def guard_on_app():
     from webui_app import create_app
+
     a = create_app(start_scheduler=False)
     a.config["TESTING"] = True
     a.config["PROPAGATE_EXCEPTIONS"] = False
@@ -342,9 +337,12 @@ def _verb(rule):
 def _open(client, path, verb, origin):
     with client.session_transaction() as sess:
         sess["csrf_token"] = "test-csrf-token"
-    return client.open(path, method=verb,
-                       headers={"X-CSRFToken": "test-csrf-token", "Origin": origin},
-                       data={"csrf_token": "test-csrf-token"})
+    return client.open(
+        path,
+        method=verb,
+        headers={"X-CSRFToken": "test-csrf-token", "Origin": origin},
+        data={"csrf_token": "test-csrf-token"},
+    )
 
 
 def test_global_guard_covers_every_mutating_route(guard_on_app):
@@ -373,8 +371,11 @@ def test_global_guard_allows_loopback_origin(guard_on_app):
     proving the 403s above are Origin-attributable (not some unrelated 403)."""
     client = guard_on_app.test_client()
     for rule in guard_on_app.url_map.iter_rules():
-        if (not (rule.methods & _MUTATING) or rule.arguments
-                or rule.endpoint in _ORIGIN_GUARD_ALLOWLIST):
+        if (
+            not (rule.methods & _MUTATING)
+            or rule.arguments
+            or rule.endpoint in _ORIGIN_GUARD_ALLOWLIST
+        ):
             continue
         path = _build_path(rule)
         if path is None:
@@ -390,6 +391,7 @@ def test_global_guard_off_by_default_under_pytest():
     """The guard auto-disables under pytest so the existing suite stays green;
     only the gates above force it on."""
     from webui_app import create_app
+
     a = create_app(start_scheduler=False)
     assert a.config.get("ORIGIN_GUARD_ENABLED") is False
 

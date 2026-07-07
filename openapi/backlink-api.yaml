@@ -255,7 +255,9 @@ paths:
       description: 'Read-only: publish-history entries from events.db, normalised
         for display. Omitting `limit` returns every entry in the original flat shape;
         passing `limit` returns a page envelope with `total`/`limit`/`offset` (Plan
-        2026-07-02-001 U5).'
+        2026-07-02-001 U5). `?include_deleted=window` (W4/D18) instead returns soft-deleted
+        rows still within the undo window, each with `deleted_at` populated; any other
+        value 422s. This path is never paginated.'
       tags:
       - history
       parameters:
@@ -276,6 +278,15 @@ paths:
           type: integer
           minimum: 0
           default: 0
+      - name: include_deleted
+        in: query
+        required: false
+        description: 'W4/D18: when ''window'', return in-window soft-deleted rows
+          instead of the live list. CLI callers never send this parameter.'
+        schema:
+          type: string
+          enum:
+          - window
       responses:
         '200':
           description: History list (paginated if `limit` given).
@@ -289,12 +300,19 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Invalid include_deleted value.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/history/delete:
     post:
       operationId: deleteHistoryItem
-      summary: "Delete one history entry \u2192 refreshed list."
-      description: Removes the entry with the given `id` and returns the refreshed
-        list so the SPA re-renders without a second GET.
+      summary: "Soft-delete one history entry \u2192 refreshed list."
+      description: Soft-deletes the entry with the given `id` (undo-able within the
+        purge window via POST /history/undelete) and returns the refreshed list so
+        the SPA re-renders without a second GET.
       tags:
       - history
       requestBody:
@@ -316,12 +334,48 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/history/undelete:
+    post:
+      operationId: undeleteHistoryItem
+      summary: "Restore a soft-deleted history entry \u2192 refreshed list."
+      description: 'W4: clears `deleted_at` for the given `id` if it is currently
+        soft-deleted and within the purge window. 404s (never a silent 200) when the
+        id doesn''t exist, was never deleted, or has already been physically purged.'
+      tags:
+      - history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryIdRequest'
+      responses:
+        '200':
+          description: Refreshed list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryMutationResult'
+        '404':
+          description: Item not found, not deleted, or already purged.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Missing id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/history/bulk-delete:
     post:
       operationId: bulkDeleteHistory
-      summary: "Delete multiple history entries \u2192 refreshed list."
-      description: Removes every entry whose id appears in `ids`, then returns the
-        refreshed list plus a flash-style `message`.
+      summary: "Soft-delete multiple history entries \u2192 refreshed list."
+      description: Soft-deletes every entry whose id appears in `ids`, then returns
+        the refreshed list plus a flash-style `message` and `deleted`/`skipped` counts
+        (ids that don't exist or are already deleted are skipped, not treated as a
+        hard failure).
       tags:
       - history
       requestBody:
@@ -2632,6 +2686,13 @@ components:
         target_dofollow:
           type: string
           description: dofollow | dofollow_lost | stripped | unverified.
+        deleted_at:
+          type:
+          - string
+          - 'null'
+          description: 'W4 soft-delete (D18): ISO-8601 UTC deletion timestamp. Only
+            populated when the item was read via `?include_deleted=window`; absent
+            on the normal (live) list.'
       required:
       - id
       - target_url
@@ -2661,6 +2722,13 @@ components:
             $ref: '#/components/schemas/HistoryItem'
         message:
           type: string
+        deleted:
+          type: integer
+          description: 'W4: count of rows soft-deleted (bulk-delete only).'
+        skipped:
+          type: integer
+          description: 'W4: count of requested ids that didn''t exist or were already
+            deleted (bulk-delete only).'
       required:
       - items
       additionalProperties: false

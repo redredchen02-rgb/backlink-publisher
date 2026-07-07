@@ -3,6 +3,7 @@
 // refreshes on /app/<route> are served index.html by Flask, then resolved here.
 import { createRouter, createWebHistory } from 'vue-router'
 import { reportRouterError } from '../lib/errorCapture'
+import { useSettingsDirtyStore } from '../stores/settingsDirty'
 
 export const router = createRouter({
   history: createWebHistory('/app/'),
@@ -152,5 +153,57 @@ router.afterEach(() => {
 // this is the only interception point that catches this failure surface.
 router.onError((error) => {
   reportRouterError(error)
+})
+
+// Plan 2026-07-06-005 W2 — Settings edit-protection: route-leave guard.
+// Any Settings card with unsaved edits registers itself (by id + a
+// human-readable label) with the shared settingsDirty store — see
+// stores/settingsDirty.ts and the cards in pages/Settings/*.vue. This guard
+// is the single place that store is *read* for navigation purposes: it
+// blocks every route change (not just SideNav clicks) while anything is
+// dirty, lists which card(s), and only clears the dirty set if the operator
+// explicitly confirms leaving. Cancelling leaves both the route and the
+// unsaved form contents untouched (this is a plain `beforeEach`, not a
+// component-local `onBeforeRouteLeave`, precisely so it fires regardless of
+// which page the navigation originates from or lands on).
+function confirmLeaveIfDirty(): boolean {
+  let dirtyStore: ReturnType<typeof useSettingsDirtyStore>
+  try {
+    dirtyStore = useSettingsDirtyStore()
+  } catch {
+    // No active Pinia instance (e.g. this module imported standalone, outside
+    // a mounted app) — never block navigation in that case.
+    return true
+  }
+  if (!dirtyStore.anyDirty) return true
+  const names = dirtyStore.dirtyLabels.join('、')
+  const proceed = window.confirm(
+    `以下设置项有未保存的更改，确定要离开吗？\n${names}`,
+  )
+  if (proceed) dirtyStore.clearAll()
+  return proceed
+}
+
+router.beforeEach((to, from) => {
+  if (to.fullPath === from.fullPath) return true
+  return confirmLeaveIfDirty()
+})
+
+// Plan 2026-07-06-005 W2 — tab-close / reload protection. Browsers require
+// this listener to be synchronous and to call `preventDefault()` (and, for
+// older engines, set a non-empty `returnValue`) — an async confirm dialog is
+// not possible here, so this only ever shows the browser's own native
+// "leave site?" prompt, never the app's confirm copy above.
+window.addEventListener('beforeunload', (event) => {
+  let dirtyStore: ReturnType<typeof useSettingsDirtyStore>
+  try {
+    dirtyStore = useSettingsDirtyStore()
+  } catch {
+    return
+  }
+  if (dirtyStore.anyDirty) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
 })
 
