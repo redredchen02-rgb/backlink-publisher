@@ -52,10 +52,14 @@ const { dirty, markClean } = useSnapshotDirty('settings-notion', 'Notion', () =>
 // Plan 2026-07-06-005 W6 — shared save convention: 422 renders inline (best-
 // effort field attribution via regex — see useSettingsForm's docstring),
 // success toast + this card's `markClean()`, per-card `saving` busy.
-const { saving, formError, fieldErrors, run } = useSettingsForm(markClean, {
-  integration_token: /integration[ _]?token/i,
-  database_id: /database[ _]?id/i,
-})
+const { saving, formError, fieldErrors, run } = useSettingsForm(
+  markClean,
+  {
+    integration_token: /integration[ _]?token/i,
+    database_id: /database[ _]?id/i,
+  },
+  'settings.notion',
+)
 
 watch(
   () => status.value,
