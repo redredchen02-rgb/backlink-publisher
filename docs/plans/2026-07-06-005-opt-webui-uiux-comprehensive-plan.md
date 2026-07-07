@@ -395,7 +395,9 @@ graph TB
 
 **Verification:** 斷網走查全部 SPA 頁面;legacy 現役頁 icon 正常。
 
-- [ ] **W8: SPA shell 升級——SideNav icon + anomaly badge + nav 分組對齊〔R8〕**
+- [x] **W8: SPA shell 升級——SideNav icon + anomaly badge + nav 分組對齊〔R8〕**
+
+〔W8 執行結果,2026-07-07,分支 `feat/w8-sidenav-icon-badge`〕已完成。每個 nav 項目加上 `Icon.vue`(裝飾性,`aria-hidden`),補了 13 個新 icon(路徑資料取自 bootstrap-icons v1.11.0,沿用 W7 的取用慣例)。anomaly badge 沒有新建端點,直接共用 `MonitorDashboard.vue` 同一條 `monitor/summary` query key(`MONITOR_SUMMARY_QUERY_KEY`),失敗時 fail-open(隱藏 badge、不吐 toast)。`/error-reports` 保留在 nav 中——SPA-only 不是排除理由,它是 W10 deep-link 的落點,屬於會被反覆造訪的主要目的地。**驗證後推翻計畫假設**:「Pro pill 三態」不存在,`TopBar.vue` 裡只是普通布林值(`llm_configured`),已如實記錄、未動它(超出 SideNav 範圍)。vitest 461 測試全綠、vue-tsc/eslint 乾淨。
 
 **Goal:** SPA SideNav 不再是 legacy 的降級版:加 icon(用 W7 元件)、anomaly badge(消費 attention-dashboard aggregator)、nav 分組與路由完整性對齊。
 
@@ -466,7 +468,9 @@ graph TB
 
 ### Phase E — a11y 與響應式(依賴 v0.6.0 U5)
 
-- [ ] **W11: 表格 a11y——caption/scope/select-all 三態/鍵盤導航,以 DataTable prop 交付〔R11〕**
+- [x] **W11: 表格 a11y——caption/scope/select-all 三態/鍵盤導航,以 DataTable prop 交付〔R11〕**
+
+〔W11 執行結果,2026-07-07,分支 `feat/w11-table-a11y`〕已完成,一次在 DataTable 元件層交付,全部消費頁自動獲得。新增選填 `caption`(sr-only)、header checkbox `scope="col"` + `:indeterminate`(三態 select-all,aria-label 隨全選/部分/未選變化)、`rowKeyboardNav` prop(↑↓ 移動行焦點、Enter 觸發 `rowActivate`,roving tabindex)。**接手時修好草稿裡兩個真實 bug**:(1)roving-tabindex 初始全部是 -1,導致整張表在按過方向鍵之前完全無法 Tab 進入;(2)缺少 Enter 觸發行主操作(計畫測試場景明文要求)。消費頁:History 開啟 `row-keyboard-nav`(Enter 開啟目標網址,對應既有滑鼠路徑),Drafts 只給 caption、不開鍵盤導航(每列有多個狀態相依的變更性按鈕,沒有單一安全的「主操作」,強行把 Enter 綁到其中一個有誤觸風險)。`data-table-adoption.spec.ts` guard 確認不受影響、仍通過。vitest 新增 19 個測試、vue-tsc/eslint 乾淨。
 
 **Goal:** 表格語義與鍵盤操作一次性在 DataTable 元件層交付,全部消費頁自動獲得。
 
@@ -546,11 +550,11 @@ graph TB
 
 **Verification:** 兩份 blueprint 每一條在 checklist 中標記「已落地(commit 參照)/ 缺口(追蹤項)/ 不再適用(理由)」。
 
-- [x] **W15(部分):never_run 後端修復〔R15〕**——前端引導卡延後
+- [x] **W15: never_run 首跑體驗——後端修復 + 前端引導卡〔R15〕**
 
 〔W15 執行結果,2026-07-06,分支 `fix/w15-never-run-health-projection`〕**只完成後端部分**,前端首頁引導卡明確延後(attention-dashboard 分支正在改首頁路由,避免衝突,待其落地後再做)。`health_projection.py::compute_health_json()` 修法:`never_run`(`last_pipeline_run is None`)改成獨立布林值,不再塞進 `degraded_reasons`;`degraded_reasons` 現在只含真實故障(channel expired/unreachable、scheduler not_running),`healthy = len(degraded_reasons)==0` 邏輯不變但輸入已淨化,所以純 never_run 安裝現在 `healthy: true`(`/api/v1/health` 回 200,不再 503);若 never_run 與真實故障並存,故障仍會讓 `healthy=False`(never_run 不會掩蓋真錯誤,已有專門測試釘住)。回應新增 `never_run`/`never_run_reason` 欄位;legacy `static/js/index.js` 的字串比對邏輯**未動**(範圍外)。19/19 相關測試綠、ruff 乾淨。
 
-**待辦(留給 W15 前端部分,等 attention-dashboard 落地後接手):**
+〔W15 前端執行結果,2026-07-07,分支 `feat/w15-neverrun-frontend-guidance`〕已完成。**重要架構發現,推翻計畫原本假設**:首頁(`/` → `MonitorDashboard.vue`)根本不吃 `/api/v1/health`/`health_projection.py`,而是完全由另一條獨立的 `/api/v1/monitor/summary` 聚合資料源(`command_center.py`)驅動;「系统降级」字樣只存在於 legacy Jinja 版首頁(`static/js/index.js`),SPA 版全新安裝原本只會顯示安靜的「今日无异常」,真正的落差是**缺少引導**而非「顯示了錯誤的降級警告」。實作:在 `MonitorDashboard.vue` 加一條獨立的 `useQuery(['pipeline-health'], fetchPipelineHealth)`(直接打 legacy `/health` 端點,因為 `never_run` 欄位只存在那裡),`showGuidance` 計算屬性控制引導卡顯示,**純疊加渲染**(引導卡是 `.cards` 的 sibling,不是取代),故 D13(引導不掩蓋真故障)結構上成立而非僅靠慣例——即使 `never_run` 為真,真實故障(如 channel expired)仍會從既有的 `monitorSummary` query 顯示自己的卡片。失敗時 fail-open(不影響主儀表板)。a11y:引導卡用虛線框 + 🚀 icon + 「引导」文字徽章區別於故障卡,不只靠顏色。vitest 新增 4 個測試、vue-tsc/eslint 乾淨。
 
 **Goal:** 全新安裝打開 WebUI 看到「下一步:執行第一次發布」引導,而非「系统降级」警告(使用者已裁決 D13)。
 
