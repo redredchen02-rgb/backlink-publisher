@@ -296,7 +296,7 @@ ignore_imports = [
     "backlink_publisher.sdk._publish_runtime -> backlink_publisher.cli.publish_backlinks",
     "backlink_publisher.sdk._publish_runtime -> backlink_publisher.cli._publish_helpers",
     "backlink_publisher.sdk.api -> backlink_publisher.cli.plan_backlinks._engine",
-    "backlink_publisher.sdk.api -> backlink_publisher.cli._report_engine",
+    "backlink_publisher.sdk.api -> backlink_publisher.cli.publish._report_engine",
     # keepalive → SDK (SDK wraps CLI)
     "backlink_publisher.keepalive.chain -> backlink_publisher.sdk.api",
 ]

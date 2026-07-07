@@ -147,3 +147,34 @@ Net: 3 of 4 original findings hold up as before; the 4th (dead code) is confirme
 resolved; and re-running the linter surfaced one live, CI-blocking config drift plus
 one masked pre-existing `_util` contract violation — both worth a follow-up unit to
 fix `pyproject.toml`'s `ignore_imports` list.
+
+## Addendum (post-unit, applied fix + second anomaly found)
+
+The stale `sdk.api -> cli._report_engine` ignore-list string above was corrected in
+`pyproject.toml` (now `sdk.api -> cli.publish._report_engine`) as part of this same
+branch — a one-line, low-risk, high-value fix (it was breaking `lint-imports`
+outright for anyone who ran it, including CI). Verified: `lint-imports` (run with
+`PYTHONPATH=src` to work around the [[per-worktree-venv]] gotcha, and
+`PYTHONUTF8=1 PYTHONIOENCODING=utf-8` to work around a Windows `cp950` console
+codec crash on the banner art) now runs to completion instead of aborting.
+
+However, the real (non-scratch) run surfaces a **second, more concerning anomaly**:
+only the first of the two declared `[[tool.importlinter.contracts]]` entries
+("Domain packages must not import from cli/") appears in the report at all —
+`Contracts: 1 kept, 0 broken`. The second contract ("_util must not import from
+domain or cli") is silently absent: not KEPT, not BROKEN, not listed as invalid.
+This contradicts this doc's earlier finding (above) that the second contract is
+"BROKEN" with specific transitive violations — that finding came from a scratch,
+non-tool-invoked analysis and should be treated as unverified until the real CLI
+actually reports on that contract.
+
+Root cause not identified within this unit's scope (ruled out: TOML parses both
+contracts correctly via `tomllib`; `read_user_options()` returns both in
+`contracts_options`; cache-clearing and `--no-cache` don't change the result). This
+looks like either an import-linter 2.12 quirk specific to two `type = "forbidden"`
+contracts in one pyproject.toml, or something else that needs a maintainer-level
+dig into `importlinter.application.use_cases._build_report`'s per-contract loop.
+**Flagging as a follow-up item, not fixing here** — this is a tooling-visibility gap
+(a contract that may or may not be silently never-enforced), not a newly introduced
+architecture problem, and diagnosing it further is disproportionate to this audit
+unit's scope.
