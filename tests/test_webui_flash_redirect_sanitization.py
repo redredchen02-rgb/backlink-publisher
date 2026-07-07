@@ -9,11 +9,13 @@ settings_basic.py, llm.py, main.py). This covers:
 
   * checkpoint.py's 2 call sites now call ``_safe_flash_redirect`` directly.
   * drafts.py's 8 call sites now go through the local ``_draft_redirect``
-    helper, which calls ``_safe_flash_redirect`` and prepends a static
-    ``tab=draft`` onto the already-sanitized Location header (kept for
-    backward compat with main.py's ``/jinja`` fallback and the existing
-    test suite — see drafts.py's ``_draft_redirect`` docstring) without
-    producing an invalid double-``?`` URL.
+    helper, which calls ``_safe_flash_redirect``.
+
+Both now redirect straight to the SPA (``/app/``) rather than the legacy
+``/`` route, per the U4 closeout (commit e92fcea2): the old ``/`` → ``/app/``
+double-hop redirect was replaced with a direct one, so there is no more
+``tab=draft`` query param to preserve (the SPA reads state from its own
+route, not a query-string tab flag).
 
 Uses the shared ``client`` fixture from tests/conftest.py (CSRF disabled,
 ``webui.app`` singleton) — the same fixture already used by
@@ -47,15 +49,16 @@ class TestCheckpointFlashRedirectSanitization:
     _VALID_RUN_ID = "20260528T120000-deadbeef"
 
     def test_dismiss_success_uses_safe_flash_redirect_path(self, client):
-        """Success path: Location is bare '/' + sanitized/quoted query params
-        (no tab=draft — checkpoint.py has no draft-tab concept)."""
+        """Success path: Location is '/app/' (direct SPA redirect, U4
+        closeout) + sanitized/quoted query params (no tab=draft —
+        checkpoint.py has no draft-tab concept)."""
         with patch("backlink_publisher.checkpoint.delete", return_value=None):
             resp = client.post(
                 "/checkpoint/dismiss", data={"run_id": self._VALID_RUN_ID},
             )
         assert resp.status_code == 302
         loc = resp.headers["Location"]
-        assert loc.startswith("/?")
+        assert loc.startswith("/app/?")
         q = _location_query(resp)
         assert q["flash_type"] == "success"
         assert q["flash_msg"] == "检查点已删除"
@@ -88,17 +91,16 @@ class TestCheckpointFlashRedirectSanitization:
 
 
 class TestDraftFlashRedirectSanitization:
-    def test_save_redirect_preserves_tab_draft_and_sanitizes(self, client):
-        """tab=draft is still emitted (backward compat), followed by the
+    def test_save_redirect_targets_spa_and_sanitizes(self, client):
+        """Redirects straight to the SPA (/app/, U4 closeout) followed by the
         sanitized flash_type/flash_msg — no double '?'."""
         resp = client.post("/ce:draft/save", data={"plans": ""})
         assert resp.status_code == 302
         loc = resp.headers["Location"]
-        assert loc.startswith("/?tab=draft&")
+        assert loc.startswith("/app/?")
         assert "??" not in loc
         assert loc.count("?") == 1
         q = _location_query(resp)
-        assert q["tab"] == "draft"
         assert "flash_type" in q
         assert "flash_msg" in q
 
@@ -114,7 +116,6 @@ class TestDraftFlashRedirectSanitization:
         loc = resp.headers["Location"]
         assert loc.count("?") == 1
         q = _location_query(resp)
-        assert q["tab"] == "draft"
         assert q["flash_type"] == "success"
         # CR/LF collapsed to a space by the sanitizer; '&'/'#' preserved as
         # literal characters once decoded (they were quoted for transit).
@@ -150,4 +151,4 @@ class TestDraftFlashRedirectSanitization:
         assert resp.status_code == 302
         loc = resp.headers["Location"]
         assert loc.count("?") == 1
-        assert loc.startswith("/?tab=draft")
+        assert loc.startswith("/app/?")
