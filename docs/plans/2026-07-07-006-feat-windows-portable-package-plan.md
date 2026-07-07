@@ -169,7 +169,7 @@ backlink-publisher/scripts/packaging/
 
 ---
 
-- [ ] **Unit 2: 從 pyproject.toml 產生 CLI shim 與更新 WebUI/CLI 啟動腳本**
+- [x] **Unit 2: 從 pyproject.toml 產生 CLI shim 與更新 WebUI/CLI 啟動腳本**
 
 **Goal:** 讓 49 個 `[project.scripts]` 指令與 WebUI 都能透過相對路徑呼叫內嵌直譯器啟動，不依賴 pip 產生的 console-script exe。
 
