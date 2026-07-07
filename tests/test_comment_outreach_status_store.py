@@ -13,6 +13,7 @@ import threading
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher._util.errors import PipelineError, UsageError
 from backlink_publisher.cli import comment
 from backlink_publisher.comment_outreach import schema, store
@@ -85,8 +86,7 @@ def test_concurrent_same_key_no_silent_loss(config_dir):
 # --- 0o600 assert-and-repair -----------------------------------------------
 def test_store_created_0600(config_dir):
     store.set_status("t1", "pending")
-    mode = store._store_path().stat().st_mode & 0o777
-    assert mode == 0o600
+    assert_file_mode(store._store_path(), 0o600)
 
 
 def test_preseeded_0644_store_is_tightened(config_dir):
@@ -94,7 +94,7 @@ def test_preseeded_0644_store_is_tightened(config_dir):
     path.write_text(json.dumps({"target_id": "old", "status": "pending"}) + "\n")
     path.chmod(0o644)
     store.set_status("t2", "pending")  # one call must repair the loose mode
-    assert (path.stat().st_mode & 0o777) == 0o600
+    assert_file_mode(path, 0o600)
 
 
 # --- CONFIG_DIR re-resolution ----------------------------------------------

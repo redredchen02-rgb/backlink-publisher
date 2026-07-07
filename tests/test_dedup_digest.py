@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher.idempotency._dedup_connection import ConnectionMixin
 from backlink_publisher.idempotency._dedup_digest import DigestMixin
 from backlink_publisher.idempotency._store_types import _DIGEST_LEN, _SECRET_SUFFIX, DedupKey
@@ -79,10 +80,7 @@ class TestLoadOrCreateSecret:
     def test_load_or_create_secret_file_permissions(self, digest_store: TestDigestStore) -> None:
         digest_store._load_or_create_secret()
         secret_path = digest_store._secret_path()
-        # Check file permissions (0o600 = owner read/write only)
-        mode = secret_path.stat().st_mode
-        assert mode & 0o600  # Owner read/write
-        assert not (mode & 0o066)  # No group/other access
+        assert_file_mode(secret_path, 0o600)
 
 
 class TestKeyDigest:

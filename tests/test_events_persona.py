@@ -274,7 +274,13 @@ def test_existing_salt_file_is_read_back(tmp_path):
     salt_path = tmp_path / "persona.salt"
     salt_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fixed_salt = bytes(range(persona._SALT_BYTES))  # 0..31, 32 distinct bytes
-    fd = os.open(str(salt_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    # O_BINARY (Windows-only, 0 elsewhere): without it, os.write() would
+    # translate the \n (0x0A) byte in fixed_salt to \r\n, corrupting it.
+    fd = os.open(
+        str(salt_path),
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0),
+        0o600,
+    )
     try:
         os.write(fd, fixed_salt)
     finally:

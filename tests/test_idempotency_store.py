@@ -7,11 +7,11 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import os
-import stat
 import threading
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher.idempotency.store import DedupKey, DedupStore
 
 
@@ -235,8 +235,7 @@ def test_store_files_are_0600(tmp_path):
     for suffix in ("", "-wal", "-shm"):
         p = db.parent / (db.name + suffix)
         if p.exists():
-            mode = stat.S_IMODE(p.stat().st_mode)
-            assert mode == 0o600, f"{p.name} is {oct(mode)}, expected 0o600"
+            assert_file_mode(p, 0o600)
 
 
 def test_transition_expect_from_mismatch_raises(store):
