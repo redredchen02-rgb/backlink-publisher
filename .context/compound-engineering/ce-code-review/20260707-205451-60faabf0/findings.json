@@ -1,0 +1,174 @@
+{
+  "run_id": "20260707-205451-60faabf0",
+  "mode": "autofix",
+  "scope": {
+    "base": "a1dd72d9e9dbb8b77102d0e5ce4de6180bb9f0d0",
+    "branch": "feat/windows-portable-package",
+    "files_changed": 16
+  },
+  "reviewers": [
+    "ce-correctness-reviewer",
+    "ce-testing-reviewer",
+    "ce-maintainability-reviewer",
+    "ce-project-standards-reviewer",
+    "ce-security-reviewer",
+    "ce-reliability-reviewer",
+    "ce-adversarial-reviewer",
+    "ce-cli-readiness-reviewer",
+    "ce-kieran-python-reviewer",
+    "ce-agent-native-reviewer",
+    "ce-learnings-researcher"
+  ],
+  "applied_fixes": [
+    {
+      "title": "SECRET_KEY generator produced 16 chars/~44 bits of entropy, not 64/256",
+      "severity": "P1",
+      "reviewer": "security",
+      "file": "scripts/packaging/templates/launch-webui.bat.tmpl",
+      "fix": "Replaced Get-Random -Count 64 (sampling-without-replacement over a fixed 16-item set) with RNGCryptoServiceProvider.GetBytes over 32 bytes, hex-encoded to 64 chars. Verified independently by direct reproduction of both the bug and the fix."
+    },
+    {
+      "title": "Generated CLI shims discarded the return value of comment/phase0-seal/weights, always exiting 0",
+      "severity": "P1",
+      "reviewer": "cli-readiness",
+      "file": "scripts/packaging/build_windows_package.py",
+      "fix": "Wrapped every shim's -c invocation in sys.exit(<function>()) instead of a bare <function>() call. Verified independently: python -c \"def f(): return 1\\nf()\" exits 0; python -c \"...sys.exit(f())\" exits 1."
+    },
+    {
+      "title": "_rmtree_long_path_safe had no retry for locked files, despite exactly this failure being hit during this feature's own development",
+      "severity": "P1",
+      "reviewer": "reliability",
+      "file": "scripts/packaging/build_windows_package.py",
+      "fix": "Added bounded retry-with-backoff (5 attempts, 1s delay) on PermissionError before raising BuildError."
+    },
+    {
+      "title": "Subprocess calls decoding child text output without errors=replace / PYTHONIOENCODING, reproducing an already-fixed encoding-crash bug class",
+      "severity": "P2",
+      "reviewer": "reliability, kieran-python, ce-learnings-researcher (cross-reviewer agreement, 3 independent reviewers)",
+      "file": "scripts/packaging/build_windows_package.py",
+      "fix": "Added a local _utf8_child_env() helper (mirrors backlink_publisher._util.subprocess_env.utf8_child_env without importing the package) and applied errors=\"replace\" + PYTHONIOENCODING=utf-8 to all 6 subprocess.run call sites."
+    },
+    {
+      "title": "Network-touching downloads and subprocess calls had no timeout, could hang the build indefinitely",
+      "severity": "P2",
+      "reviewer": "reliability, kieran-python",
+      "file": "scripts/packaging/build_windows_package.py",
+      "fix": "Added _NETWORK_TIMEOUT_S (300s) to all download/pip/npm/pip-audit calls and _LOCAL_SUBPROCESS_TIMEOUT_S (60s) to the local CLI-shim existence check. Switched _http_get_to_file from urlretrieve (no timeout parameter) to urlopen(timeout=...)."
+    },
+    {
+      "title": "pip-audit fallback install directory (tempfile.mkdtemp()) was never cleaned up",
+      "severity": "P2",
+      "reviewer": "kieran-python",
+      "file": "scripts/packaging/build_windows_package.py",
+      "fix": "Switched to tempfile.TemporaryDirectory() context manager; extracted _run_pip_audit_cmd() helper to keep both call sites consistent."
+    },
+    {
+      "title": "_create_zip_and_checksum deleted any pre-existing zip before confirming the new archive built successfully",
+      "severity": "P2",
+      "reviewer": "correctness",
+      "file": "scripts/packaging/build_windows_package.py",
+      "fix": "Builds to a <pkg_name>.staging.zip name, computes the checksum, then atomically os.replace()s onto the real path -- the last-known-good zip is never deleted until its replacement is proven good."
+    },
+    {
+      "title": "Plan doc missing required claims: {} frontmatter (CI-blocking per plan-claims-gate)",
+      "severity": "P2",
+      "reviewer": "project-standards",
+      "file": "docs/plans/2026-07-07-006-feat-windows-portable-package-plan.md",
+      "fix": "Added claims: {} with the same opt-out rationale style as the sibling same-day plan doc."
+    }
+  ],
+  "residual_actionable_work": [
+    {
+      "title": "build_windows_package.py (~1350 SLOC) is a monolith-split candidate along its own Unit 1/2/3/5 section boundaries",
+      "severity": "P2",
+      "autofix_class": "manual",
+      "owner": "human",
+      "reviewer": "maintainability",
+      "note": "Not CI-enforced (monolith_budget.toml only scans src/backlink_publisher, webui_app, webui_store) -- a design choice for a future pass, not a blocker."
+    },
+    {
+      "title": "provision_interpreter's output_dir means python-embed/ itself; generate_cli_shims' output_dir means the package root -- same param name, opposite semantics",
+      "severity": "P2",
+      "autofix_class": "manual",
+      "owner": "human",
+      "reviewer": "maintainability",
+      "note": "A real footgun for future maintainers despite thorough docstrings; a rename touches multiple call sites so was deferred rather than rushed."
+    },
+    {
+      "title": "Unit 1's provision_interpreter success path (extract -> patch _pth -> pip bootstrap -> install -> catalog check -> pip-audit) has no fast/mocked test, only the network+Windows-gated real e2e test",
+      "severity": "P2",
+      "autofix_class": "manual",
+      "owner": "human",
+      "reviewer": "testing"
+    },
+    {
+      "title": "CLI shim existence-check defaults to sys.executable (build host) rather than the shipped python-embed interpreter for 48 of 49 commands; real e2e only exercises bp.bat end-to-end",
+      "severity": "P2",
+      "autofix_class": "advisory",
+      "owner": "human",
+      "reviewer": "adversarial, cli-readiness"
+    },
+    {
+      "title": "Generated CLI shims and setup-scheduler/install-playwright/setup-wizard templates have no python.exe-missing guard or BP_NONINTERACTIVE bypass, unlike the hand-written launch-webui/launch-cli scripts",
+      "severity": "P2",
+      "autofix_class": "manual",
+      "owner": "human",
+      "reviewer": "adversarial, cli-readiness"
+    },
+    {
+      "title": "launch-webui.bat.tmpl's port-detection has a TOCTOU race between the probe and the real bind on double-launch",
+      "severity": "P2",
+      "autofix_class": "advisory",
+      "owner": "human",
+      "reviewer": "adversarial"
+    },
+    {
+      "title": "MAX_PATH is only guarded at build time (_rmtree_long_path_safe); the shipped runtime (deep extraction paths, CJK usernames) has no equivalent guard",
+      "severity": "P2",
+      "autofix_class": "advisory",
+      "owner": "human",
+      "reviewer": "adversarial"
+    },
+    {
+      "title": "Maintainer build CLI collapses every BuildError to exit code 1 rather than typed exit codes matching _util.errors' convention",
+      "severity": "P2",
+      "autofix_class": "advisory",
+      "owner": "human",
+      "reviewer": "cli-readiness"
+    },
+    {
+      "title": "e2e test's taskkill cleanup doesn't check its own exit code before waiting, risking an orphaned server process on a taskkill failure",
+      "severity": "P2",
+      "autofix_class": "manual",
+      "owner": "human",
+      "reviewer": "reliability",
+      "note": "Test-only robustness, not shipped-product-affecting."
+    },
+    {
+      "title": "Duplicated test boilerplate (_REAL_ENV, _real_packaging_build_enabled(), REPO_ROOT) copy-pasted across all 4 test files; no tests/packaging/conftest.py",
+      "severity": "P3",
+      "autofix_class": "manual",
+      "owner": "human",
+      "reviewer": "maintainability"
+    },
+    {
+      "title": "Zip-archiving step (shutil.make_archive) not wrapped with the same long-path-safe technique as the rmtree operations in the same file",
+      "severity": "P3",
+      "autofix_class": "manual",
+      "owner": "human",
+      "reviewer": "correctness"
+    }
+  ],
+  "advisory_only": [
+    "CLI shim %* argument passthrough has no escaping for cmd.exe-special characters (percent signs, embedded quotes) -- documented parity gap, not fixed.",
+    "get-pip.py bootstrap and pip-installed transitive dependencies are not individually pinned/audited beyond the pip-audit gate on the final install -- accepted residual risk, already documented in the plan's Risks table.",
+    "subprocess.run calls don't pin stdin=DEVNULL; a wrapped tool (pip/npm) attempting an interactive read with no attached TTY could hang silently instead of failing fast. Low-priority defense-in-depth (agent-native review).",
+    "setup-wizard.bat.tmpl's Y/N prompt is a legitimate human-only convenience wrapper -- launch-webui.bat itself has zero interactive prompts and is the true non-interactive/agent-drivable entrypoint (agent-native review, verdict PASS)."
+  ],
+  "testing_gaps": [
+    "No test extracts the built package to a path with spaces/apostrophe/CJK characters, despite the target docs being entirely Traditional Chinese.",
+    "Real e2e test exercises only 1 of 49 CLI shims (bp.bat) end-to-end against the real shipped interpreter.",
+    "No test simulates two concurrent launch-webui.bat invocations to catch the port-detection race.",
+    "No test covers a pre-existing valid .zip surviving a failed rebuild attempt (the exact scenario the zip-staging fix addresses)."
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "reviewer": "testing",
+  "findings": [
+    {
+      "title": "provision_interpreter's core orchestration (extract zip, patch _pth, bootstrap pip, install pinned deps + backlink_publisher, remove build-tools path, pip-audit, atomic move) has no fast/mocked happy-path test",
+      "severity": "P1",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 949,
+      "confidence": 0.85,
+      "autofix_class": "manual",
+      "owner": "downstream-resolver",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Add a mocked-through test (monkeypatching _http_get_to_file for both the embed zip and get-pip.py, subprocess.run for _bootstrap_pip/_run_embedded_pip/_run_pip_audit, and providing a fake extracted zip fixture with python.exe + a real ._pth file) that drives provision_interpreter end-to-end and asserts: (a) the pinned-requirements file is written and passed via -r to the pip install step, (b) _remove_build_tools_path runs before _run_pip_audit (order matters per the docstring), (c) the staging dir is only moved to output_dir after every step succeeds. Currently only the two early pre-flight-abort paths (checksum mismatch, unknown version) are unit tested (test_build_windows_package.py lines 81-137); the entire success path is exercised only by the real_packaging_build-gated e2e test, which never runs in CI."
+    },
+    {
+      "title": "_bootstrap_pip and _run_embedded_pip non-zero-exit error paths have zero test coverage, unlike sibling subprocess wrappers (_run_pip_audit, _run_npm_step) which are explicitly tested",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 279,
+      "confidence": 0.85,
+      "autofix_class": "manual",
+      "owner": "downstream-resolver",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Add tests mirroring test_run_pip_audit_aborts_on_known_vulnerabilities / test_build_spa_raises_on_npm_ci_failure: monkeypatch bwp.subprocess.run to return a non-zero CompletedProcess and assert _bootstrap_pip / _run_embedded_pip raise BuildError with the step_label and stdout/stderr embedded in the message."
+    },
+    {
+      "title": "_create_zip_and_checksum's error paths (archive-creation exception cleanup, and the defensive make_archive path-mismatch check) are entirely untested, and build_package's separate 'BUILD FAILED at zip/checksum step' except block is never triggered by any test",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1165,
+      "confidence": 0.8,
+      "autofix_class": "manual",
+      "owner": "downstream-resolver",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Add a test that monkeypatches shutil.make_archive to raise, calling _create_zip_and_checksum (or build_package with all six stages mocked) directly, and assert BuildError is raised with the partial-zip-cleanup guarantee (zip_path.unlink() called / no stale zip left) and that build_package's zip-step except block prints 'BUILD FAILED at zip/checksum step' and re-raises without producing a .zip. The only current zip/checksum coverage is the happy path via test_build_package_happy_path_produces_zip_and_checksum and the gated real e2e test."
+    },
+    {
+      "title": "build_package's stage-failure parametrized test omits copy_helper_scripts/copy_docs, and the generic 'except Exception as exc' catch-all (non-BuildError -> BuildError conversion) is never exercised by any test",
+      "severity": "P3",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1278,
+      "confidence": 0.72,
+      "autofix_class": "manual",
+      "owner": "downstream-resolver",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "Extend the fail_at parametrize list in test_build_package_stage_failure_propagates_and_produces_no_zip to include 'copy_helper_scripts' and 'copy_docs' for symmetry, and add one test where a mocked stage raises a plain RuntimeError (not bwp.BuildError) to prove the generic except-Exception branch correctly wraps it as BuildError('Unexpected error during build: ...') and still leaves no zip."
+    },
+    {
+      "title": "main()'s --version CLI argument is never exercised through argparse -- only build_package(version=...) is tested directly with a version kwarg",
+      "severity": "P3",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1314,
+      "confidence": 0.6,
+      "autofix_class": "manual",
+      "owner": "downstream-resolver",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "Add a test calling bwp.main(['--version', '2.5.0']) with build_package mocked, asserting build_package was invoked with version='2.5.0' (proves the argparse-to-orchestration wiring, not just build_package's own logic)."
+    }
+  ],
+  "residual_risks": [
+    "The provisioning step that actually installs packages into the shipped interpreter (_bootstrap_pip, both _run_embedded_pip calls inside provision_interpreter, and their sequencing relative to _assert_catalog_resources/_remove_build_tools_path/_run_pip_audit) is verified for correctness only by the opt-in real_packaging_build e2e test (Windows + network + BACKLINK_PUBLISHER_REAL_PACKAGING_BUILD=1), which never runs in CI. A regression that breaks the install-step wiring, argument order, or error-message formatting in this section would ship silently through normal CI runs and only surface the next time an operator manually runs the real build.",
+    "Unlike Unit 1 (provision_interpreter), Units 2 (generate_cli_shims) and 3 (assemble_package) both have full mocked/lightweight happy-path coverage in the fast tier that closely parallels what their real gated tests exercise, so the overall gating strategy is reasonable for those units but asymmetric for Unit 1."
+  ],
+  "testing_gaps": [
+    "provision_interpreter (scripts/packaging/build_windows_package.py:949-1062) has no fast/mocked test exercising its full success path -- only the checksum-mismatch and unknown-version pre-flight-abort branches are unit tested; the multi-step pip-install/patch/audit/move orchestration is proven only by the network+Windows-gated real test.",
+    "_bootstrap_pip (line 279) and _run_embedded_pip (line 296) have no test at all, mocked or real-isolated, for their non-zero-exit BuildError-wrapping behavior.",
+    "_create_zip_and_checksum's exception-cleanup and defensive-check branches (lines 1165-1213) and build_package's corresponding zip-step except block (lines 1290-1299) have zero test coverage.",
+    "The gating strategy for @pytest.mark.real_packaging_build tests (opt-in via BACKLINK_PUBLISHER_REAL_PACKAGING_BUILD=1 + win32 skipif, network unblocked via pytest_socket.enable_socket()) mirrors the existing real_live_publish pattern in this repo and is reasonable overall; the fast/mocked tier gives strong parity with the real tests for Units 2 (CLI shim generation) and 3 (SPA/package assembly), but weak parity for Unit 1 (interpreter provisioning) as detailed above."
+  ]
+}

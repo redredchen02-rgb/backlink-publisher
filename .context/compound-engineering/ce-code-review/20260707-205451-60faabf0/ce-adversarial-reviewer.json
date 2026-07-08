@@ -1,0 +1,64 @@
+{
+  "reviewer": "adversarial",
+  "findings": [
+    {
+      "title": "Cascade: double-launching launch-webui.bat races the TCP-listener port probe against the real bind, crashing the second instance",
+      "severity": "P2",
+      "file": "scripts/packaging/templates/launch-webui.bat.tmpl",
+      "line": 43,
+      "confidence": 0.78,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "TOCTOU race between the PowerShell TcpListener probe (Start then Stop) and serve.py real bind. Double-clicking launch-webui.bat twice (or relaunching before a prior instance has finished starting) lets both instances' for-loops see port 8888 as free, both set PORT=8888, then both try to bind; the second bind fails with an unhandled address-in-use error. No lock file or mutex guards this. Consider a lock file or retrying the port scan closer to the actual bind."
+    },
+    {
+      "title": "Assumption violation: generated CLI shims have no python.exe existence check or pause, unlike every other launcher script, but are the explicit invocation target for Task Scheduler and direct double-click use",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 482,
+      "confidence": 0.8,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "render_cli_shim_bat's generated .bat invokes python-embed's python.exe directly with no existence guard and no pause on failure, unlike launch-webui.bat.tmpl, launch-cli.bat.tmpl, and install-playwright.bat.tmpl, which all check first and print an actionable re-extract message. setup-scheduler.bat.tmpl wires schtasks directly at a cli-shims .bat (bypassing launch-cli.bat), and README-package.md's Task Scheduler walkthrough tells users to do the same manually. If AV quarantines python-embed's python.exe while the shim .bat itself survives (a distinct case from the AV-quarantine section README-package.md already documents, which only covers a .bat file vanishing), a scheduled task or directly-double-clicked shim fails with a bare cmd.exe path-not-found error and no guidance, and the console window closes immediately since there is no pause. Add the same existence guard used by the other launcher templates."
+    },
+    {
+      "title": "Composition gap: the CLI shim existence-check never actually runs against the combination that ships (pinned python-embed interpreter plus assembled app dir) for 48 of 49 commands",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1254,
+      "confidence": 0.72,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "build_package calls generate_cli_shims(pkg_dir, repo_root=repo_root) without verify_python_exe, so the existence check runs against sys.executable (the dev/CI interpreter) with PYTHONPATH=repo_root, not against the shipped python-embed interpreter (only the 16 pinned deps plus resolver-picked transitive versions) combined with the assembled app dir (which does not exist yet at this point in the real build order). The only test proving a shim works against the real final artifact exercises exactly one of 49 commands (bp.bat), never any of the roughly 10 modules that motivated choosing -c over -m in the first place. Consider a post-assemble_package verification pass that re-checks target resolvability against the literal shipped python-embed python.exe once app is populated."
+    },
+    {
+      "title": "Assumption violation: long or deep extraction paths can hit Windows MAX_PATH at runtime, the same class of failure this code already fixed for itself at build time but only at build time",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 146,
+      "confidence": 0.6,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "The rmtree long-path helper's own docstring proves, from a real failure observed during this unit's own testing, that this repo's site-packages tree combined with a sufficiently long checkout path already exceeds the classic 260-char MAX_PATH. That fix is scoped to the build's own rmtree call only. Nothing in the shipped package addresses the same failure class at runtime for end users extracting into an already-long path (deep OneDrive-synced folder, descriptive Desktop subfolder, or, given the README targets Traditional Chinese users, a long CJK username or folder path) on top of python-embed's own deep site-packages tree. Recommend an explicit runtime test on a long/CJK path, or documenting a practical extraction-depth ceiling."
+    }
+  ],
+  "residual_risks": [
+    "No evidence rules out that a native-extension transitive dependency (for example pydantic-core, pulled in by the pinned pydantic package) dynamically links against MSVC runtime DLLs that ship with a full Python installer or Visual C++ Redistributable but are not guaranteed present on a machine that never had Python installed. No test exercises a genuinely bare Windows VM without dev tooling or the VC++ Redistributable pre-installed.",
+    "pip-audit is a build-time-only, network-dependent gate that falls back to installing itself into a throwaway directory when not already available; a transient PyPI or OSV outage, or a newly-disclosed CVE with no fix yet, turns every future build into a hard failure with no override. Intentional fail-closed behavior, but worth naming as a build-availability risk.",
+    "The module docstring's claim that the build script can run under any interpreter satisfying requires-python >=3.11 is misleading about platform, not just interpreter version: the pip bootstrap and dependency install steps subprocess.run() the freshly-extracted Windows PE python.exe directly, so the build host itself must be able to execute Windows binaries regardless of which Python runs the script -- worth calling out given WSL2 Ubuntu is readily available in this workspace as an alternative shell."
+  ],
+  "testing_gaps": [
+    "No test extracts the built zip to a path containing spaces, an apostrophe, or non-ASCII CJK characters, despite this being the most probable real-world deployment path for the target audience (the package docs are entirely Traditional Chinese). The only R4 portability proof extracts to a plain ASCII temp-directory path.",
+    "The real end-to-end test exercises exactly one of the 49 generated CLI shims (bp.bat) and the WebUI happy path only; none of the roughly 10 script-target modules lacking a __main__ guard are ever actually executed post-assembly against the real shipped interpreter and app directory.",
+    "No test simulates two concurrent launch-webui.bat invocations, or a stale still-running instance, to catch the port-detection race identified above.",
+    "No test simulates python-embed's python.exe (as opposed to a .bat file) being missing or quarantined at the moment a CLI shim, rather than a launcher script, is invoked, despite setup-scheduler.bat.tmpl and the README's Task Scheduler walkthrough both wiring scheduled tasks directly at a cli-shims .bat."
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "reviewer": "maintainability",
+  "findings": [
+    {
+      "title": "build_windows_package.py is a 658-SLOC / 1345-line monolith combining 4 distinct concerns, and sits entirely outside monolith_budget.toml's governance (scripts/ is not scanned)",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 1,
+      "confidence": 0.68,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "Verified via tests/test_no_monolith_regrowth.py that the auto-scan warning canary only walks src/backlink_publisher, webui_app, and webui_store (test_warning_canary_for_undeclared_large_files / test_warning_canary_covers_webui_roots) -- scripts/ is not scanned at all, so this file is not a CI-blocking violation and adding a monolith_budget.toml entry would have no enforcement effect without extending the scanner. That said, radon reports SLOC=658 (LOC=1345), well above this repo's own established split threshold (WARNING_CANARY_SLOC_THRESHOLD=500) and above every other file's ceiling except the largest declarative-schema/spec files. The file's own section banners ('Unit 1', 'Unit 2', 'Unit 3', 'Unit 5') already delineate clean boundaries -- interpreter provisioning (~500 lines), CLI shim generation (~285 lines), SPA build + package assembly (~215 lines), and final zip/checksum orchestration (~280 lines) -- mirroring exactly the shape this repo splits into cohesive submodules elsewhere (e.g. cli/spray_backlinks/{core,_args,_run,_gates,_engine}.py). Consider splitting into scripts/packaging/{interpreter,shims,assembly,build}.py before this grows further, since no automated guardrail will flag continued growth here."
+    },
+    {
+      "title": "Parameter name output_dir means two different directories in two adjacent functions in the same file",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 660,
+      "confidence": 0.66,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "provision_interpreter(output_dir, ...) (line 949) treats output_dir as the python-embed/ directory itself -- called as provision_interpreter(pkg_dir / \"python-embed\", repo_root=repo_root) in build_package (line 1252). generate_cli_shims(output_dir, ...) (line 660) treats the identically-named parameter as the package root one level up -- called as generate_cli_shims(pkg_dir, repo_root=repo_root) (line 1255), and internally computes python_embed_dir = output_dir / \"python-embed\" (line 721). Both functions are documented thoroughly (their docstrings explain the distinction), but a repeated parameter name with opposite semantics in two functions called back-to-back in build_package is a real footgun for the next person adding a third stage or reordering the pipeline -- a positional-arg swap or copy-pasted call site would silently point one function at the wrong directory with no type error. Rename one of the two parameters (e.g. generate_cli_shims's output_dir -> pkg_dir) to make the difference visible at the call site rather than relying on docstrings."
+    },
+    {
+      "title": "generate_cli_shims silently changes behavior based on filesystem state left by a separate stage, with no warning on skip",
+      "severity": "P3",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 721,
+      "confidence": 0.58,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "generate_cli_shims only calls ensure_app_dir_importable (patching python-embed's ._pth so app/ is importable) if python_embed_dir.is_dir() (lines 721-723) -- i.e. only if provision_interpreter already ran against the same output_dir. If a future caller invokes generate_cli_shims before provision_interpreter (build_package's documented order is followed today, but nothing enforces it for other callers), the function returns successfully with no warning or error, silently producing a package whose CLI shims fail at runtime because app/ was never added to the interpreter's _pth search path. The docstring explains this is deliberate for the function's own unit tests, but correctness depends on call ORDER rather than an explicit contract. Consider raising/warning explicitly when python_embed_dir is absent and the caller did not opt out, or return a flag indicating whether the patch was applied so build_package can assert on it."
+    },
+    {
+      "title": "Real-build skip-gate boilerplate (_REAL_ENV / _real_packaging_build_enabled / REPO_ROOT) is copy-pasted verbatim across all 4 packaging test files instead of a shared conftest.py fixture",
+      "severity": "P3",
+      "file": "tests/packaging/test_cli_shim_generation.py",
+      "line": 313,
+      "confidence": 0.66,
+      "autofix_class": "manual",
+      "owner": "review-fixer",
+      "requires_verification": false,
+      "pre_existing": false,
+      "suggested_fix": "tests/packaging/test_build_windows_package.py (lines 400-404), tests/packaging/test_build_windows_package_e2e.py (~lines 260-264), tests/packaging/test_cli_shim_generation.py (lines 313-317), and tests/packaging/test_package_assembly.py (lines 357-361) each independently redefine _REAL_ENV = \"BACKLINK_PUBLISHER_REAL_PACKAGING_BUILD\" and def _real_packaging_build_enabled(): return os.environ.get(_REAL_ENV) == \"1\", plus REPO_ROOT = Path(__file__).resolve().parents[2] in all 4 files. test_cli_shim_generation.py's own comment at line 311 (Reuses the exact gate from tests/packaging/test_build_windows_package.py) confirms the author knew this was a duplicate rather than a coincidence. There is no tests/packaging/conftest.py. Extract _real_packaging_build_enabled(), the env var name, and REPO_ROOT into tests/packaging/conftest.py, keeping each file's custom skipif reason string local since those differ meaningfully (Windows-required vs npm/cross-platform-only messaging)."
+    }
+  ],
+  "residual_risks": [
+    "scripts/packaging/build_windows_package.py's SLOC growth is entirely unmonitored by this repo's monolith_budget.toml tooling (scripts/ is excluded from both the ceiling table and the >500-SLOC warning canary), so it can grow indefinitely without any automated signal, unlike equivalent-sized files under src/backlink_publisher or webui_app.",
+    "The provision_interpreter -> generate_cli_shims call-order dependency (finding 3) is only exercised end-to-end by the real_packaging_build-marked test, which is opt-in, requires Windows + network, and never runs in CI -- an accidental reorder inside build_package would pass every CI-running pure-unit test (which mocks both stage functions) and only surface on a human's manual real-build run."
+  ],
+  "testing_gaps": [
+    "No CI-running test asserts build_package() invokes provision_interpreter before generate_cli_shims (the pure-unit orchestration tests in test_build_windows_package_e2e.py monkeypatch both stage functions, so a reordering regression would not fail CI); only the opt-in real_packaging_build e2e test exercises the real call order.",
+    "No test covers generate_cli_shims() being pointed at an output_dir whose python-embed/ subdirectory exists but belongs to a stale/unrelated prior build -- low priority given ensure_app_dir_importable is idempotent, but the silent-skip behavior in finding 3 has no explicit negative-path test for 'caller forgot to provision first, expected the shim to still work'."
+  ]
+}

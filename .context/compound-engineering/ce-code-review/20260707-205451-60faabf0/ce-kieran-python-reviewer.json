@@ -1,0 +1,52 @@
+{
+  "reviewer": "kieran-python",
+  "findings": [
+    {
+      "title": "_run_pip_audit's fallback tool_dir (tempfile.mkdtemp) is never cleaned up",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 406,
+      "confidence": 0.82,
+      "autofix_class": "gated_auto",
+      "owner": "review-fixer",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Every other scratch-directory need in this module (provision_interpreter, _check_script_targets_resolvable) uses `with tempfile.TemporaryDirectory(...) as tmp:` so cleanup is automatic and exception-safe. _run_pip_audit instead calls `tool_dir = Path(tempfile.mkdtemp(prefix=\"bp-pip-audit-tool-\"))` directly and never removes it (no try/finally, no shutil.rmtree). Every build run that hits this fallback path (pip-audit not importable in the interpreter running the build script -- i.e. any operator who didn't `pip install -e .[dev]`) leaks a directory containing a full pip-audit install into the OS temp dir. The docstring's own words ('a throwaway directory') are inaccurate given nothing throws it away. Wrap `tool_dir` in `tempfile.TemporaryDirectory()` for parity with the rest of the file, or add an explicit `shutil.rmtree(tool_dir, ignore_errors=True)` in a finally block."
+    },
+    {
+      "title": "No timeout on any subprocess.run call in the build pipeline",
+      "severity": "P3",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 288,
+      "confidence": 0.62,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "None of the subprocess.run() call sites (_bootstrap_pip:288, _run_embedded_pip:298, _run_pip_audit's install/audit calls:417,430, _check_script_targets_resolvable:584, _run_npm_step:755) pass timeout=. Every one of these is a network-touching or otherwise externally-dependent step (PyPI installs, pip-audit's OSV query, npm ci/build) inside a script whose entire design goal is 'abort with a clear BuildError rather than hang or half-build' (per the module's own docstrings and error-path tests). A stalled network call or a wedged npm process currently hangs the build indefinitely instead of producing the same clear BuildError the rest of the file is careful to guarantee. Consider adding a generous timeout= (e.g. a few minutes) to each subprocess.run call and catching subprocess.TimeoutExpired alongside the existing returncode check."
+    },
+    {
+      "title": "subprocess.run calls decode child output as strict UTF-8 without reusing the codebase's own Windows-encoding-crash fix",
+      "severity": "P2",
+      "file": "scripts/packaging/build_windows_package.py",
+      "line": 755,
+      "confidence": 0.65,
+      "autofix_class": "advisory",
+      "owner": "human",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "_run_npm_step, _bootstrap_pip, _run_embedded_pip, _run_pip_audit and _check_script_targets_resolvable all call subprocess.run(..., text=True, encoding=\"utf-8\") with no errors= handling and without forcing the child's own PYTHONIOENCODING via the repo's existing backlink_publisher._util.subprocess_env.utf8_child_env() helper. This project already hit and fixed exactly this class of bug for another subprocess path (docs/plans/2026-07-03-001-fix-windows-webui-encoding-crash-plan.md), and this PR's own tests/packaging/test_build_windows_package_e2e.py needed errors=\"replace\" (and cites that plan) to keep one real subprocess.run call from crashing on non-UTF-8 bytes from a .bat's redirected stdout. On a non-en-US-codepage Windows build machine, npm/pip output containing native-codepage bytes can raise an uncaught UnicodeDecodeError from inside subprocess.run itself, which defeats the module's whole 'never let a failure look like a confusing traceback -- always raise a clear BuildError' design intent. Reuse utf8_child_env() (or at least pass errors=\"replace\") on these production call sites the same way the test file already had to."
+    }
+  ],
+  "residual_risks": [
+    "provision_interpreter's supply-chain integrity depends entirely on two hand-maintained, manually-cross-checked SHA-256 constants (PYTHON_EMBED_SHA256_BY_VERSION, GET_PIP_SHA256) with no automated re-verification mechanism -- a future contributor bumping PYTHON_VERSION or refreshing GET_PIP_SHA256 without following the documented manual cross-check procedure would silently reintroduce the exact risk the checksums exist to close. This is already flagged in the module's own comments, so treat as a process risk rather than a code defect.",
+    "PINNED_DEPENDENCIES only pins the 16 direct dependencies; transitive dependencies are left to pip's resolver at build time (acknowledged in the module's own comments), so two builds on different days are not guaranteed byte-identical even though pip-audit gates each one.",
+    "The real end-to-end test (test_real_build_extract_launch_and_cli_shim_end_to_end) and all other real_packaging_build-marked tests never run in CI (win32 + explicit env var gated) -- the only automated coverage of the actual provisioned python-embed/, real npm build, and real launched WebUI is whatever a human operator chooses to run manually before a release.",
+    "tests/packaging/test_build_windows_package_e2e.py's real e2e test opens webui-stdout.log/webui-stderr.log via bare open(...) passed to subprocess.Popen without ever closing the file handles (success or failure) -- low-impact since this test never runs in CI and the process exits shortly after, but inconsistent with the file's own careful resource-safety elsewhere."
+  ],
+  "testing_gaps": [
+    "No test asserts that _run_pip_audit's fallback tool_dir is removed after use (or even records its path) -- would have caught the tempfile.mkdtemp leak directly.",
+    "No test exercises a subprocess emitting non-UTF-8 bytes on stdout/stderr for any of the production subprocess.run call sites (_run_npm_step, _bootstrap_pip, _run_embedded_pip, _run_pip_audit, _check_script_targets_resolvable) to confirm the module raises a clean BuildError rather than an uncaught UnicodeDecodeError.",
+    "No test exercises a hung/never-returning subprocess (simulating a stalled npm/pip/network call) to confirm build_package() fails predictably rather than hanging -- consistent with there being no timeout= anywhere in the module."
+  ]
+}

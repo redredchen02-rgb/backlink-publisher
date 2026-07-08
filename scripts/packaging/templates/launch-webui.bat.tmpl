@@ -1,0 +1,100 @@
+@echo off
+REM launch-webui.bat - Backlink Publisher portable-package WebUI launcher.
+REM
+REM Source-controlled copy for scripts/launch-webui.bat in the built package
+REM (Plan 2026-07-07-006 Unit 2). This file uses ONLY relative paths
+REM (%~dp0-derived) and environment-variable substitution, so no build-time
+REM templating is needed -- Unit 3's package assembly step copies it as-is
+REM into the output package's scripts/ directory.
+REM
+REM chcp 65001 guards against the non-UTF-8-console encoding crash fixed in
+REM docs/plans/2026-07-03-001-fix-windows-webui-encoding-crash-plan.md.
+chcp 65001 >nul
+
+REM This file lives at <pkg_dir>\scripts\launch-webui.bat, so the package
+REM root is one level up. pushd is used deliberately instead of CD's /D
+REM switch: CD /D cannot make a UNC/network-share path the current
+REM directory, but pushd maps it to a temporary drive letter, so this still
+REM works when the package is unzipped onto e.g. \\server\share\backlink-publisher\.
+set "PKG_DIR=%~dp0.."
+pushd "%PKG_DIR%" || (
+    echo ERROR: could not change to the package directory "%PKG_DIR%".
+    pause
+    exit /b 1
+)
+set "PKG_DIR=%CD%"
+
+set "PYTHON_EXE=%PKG_DIR%\python-embed\python.exe"
+if not exist "%PYTHON_EXE%" (
+    echo ERROR: %PYTHON_EXE% was not found.
+    echo This package looks incomplete or corrupted -- please re-download
+    echo or re-extract the zip and try again.
+    echo.
+    pause
+    popd
+    exit /b 1
+)
+
+REM webui_store / webui_app live under app\, not in python-embed's
+REM site-packages, so PYTHONPATH must point there for the WebUI to import
+REM correctly (see the plan's Key Technical Decisions).
+set "PYTHONPATH=%PKG_DIR%\app"
+
+REM -- Port detection: try 8888, then 8889..8907 --------------------------
+set "PORT="
+for /L %%P in (8888,1,8907) do (
+    if not defined PORT (
+        powershell -NoProfile -Command "$l = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, %%P); try { $l.Start(); $l.Stop(); exit 0 } catch { exit 1 }" >nul 2>&1
+        if not errorlevel 1 set "PORT=%%P"
+    )
+)
+if not defined PORT (
+    echo ERROR: every port from 8888 to 8907 is already in use.
+    echo Close whatever is using one of those ports, then run this script again.
+    echo.
+    pause
+    popd
+    exit /b 1
+)
+if not "%PORT%"=="8888" (
+    echo Port 8888 is busy -- using %PORT% instead.
+)
+
+REM -- First-run config.toml ------------------------------------------------
+set "CONFIG_DIR=%USERPROFILE%\.config\backlink-publisher"
+if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%" >nul 2>&1
+if not exist "%CONFIG_DIR%\config.toml" (
+    copy /Y "%PKG_DIR%\app\config.example.toml" "%CONFIG_DIR%\config.toml" >nul
+    echo First run: created %CONFIG_DIR%\config.toml from the example config.
+)
+
+REM -- Persistent SECRET_KEY (kept across restarts and package updates) ---
+REM Uses RNGCryptoServiceProvider (not Get-Random -Count 64, which on
+REM PowerShell's *fixed* 16-item hex-digit set only returns a shuffled
+REM permutation of those 16 items -- 16 chars of ~44 bits of entropy, not
+REM the intended 64 chars / 256 bits -- and not RandomNumberGenerator::Fill,
+REM which requires a newer .NET than ships with Windows PowerShell 5.1).
+set "SECRET_KEY_FILE=%CONFIG_DIR%\.webui_secret_key"
+if not exist "%SECRET_KEY_FILE%" (
+    powershell -NoProfile -Command "$b = New-Object byte[] 32; $rng = [Security.Cryptography.RNGCryptoServiceProvider]::new(); $rng.GetBytes($b); $rng.Dispose(); -join ($b | ForEach-Object { $_.ToString('x2') })" > "%SECRET_KEY_FILE%"
+)
+set /p SECRET_KEY=<"%SECRET_KEY_FILE%"
+
+REM -- Auto-open the default browser once the server has had a moment -----
+start "" /min cmd /c "timeout /t 3 /nobreak >nul & start "" http://127.0.0.1:%PORT%"
+
+echo Starting Backlink Publisher WebUI...
+echo Open: http://127.0.0.1:%PORT%
+echo (Close this window to stop the service.)
+echo.
+
+REM serve.py (not webui.py) is the production entrypoint -- it reuses the
+REM same Flask app but serves it via waitress instead of the Werkzeug dev
+REM server, so packaged end users never see the "development server"
+REM warning banner. webui.py must still ship in app\ since serve.py
+REM imports the app instance from it.
+"%PYTHON_EXE%" "%PKG_DIR%\app\serve.py"
+set "EXITCODE=%ERRORLEVEL%"
+
+popd
+exit /b %EXITCODE%

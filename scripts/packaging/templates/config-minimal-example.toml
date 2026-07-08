@@ -1,0 +1,44 @@
+# backlink-publisher — minimal starter config
+#
+# This is a SHORT starter version of config.toml. The full reference with
+# every optional section (Google Search Console integration, AI banner
+# image generation, Mastodon, adapter canary monitoring, anchor-distribution
+# alarms, GitHub/GitLab Pages, etc.) ships alongside this package at
+# app\config.example.toml — copy from there instead if you need any of
+# those advanced features.
+#
+# Quick start:
+#   1. Copy this file to %USERPROFILE%\.config\backlink-publisher\config.toml
+#      (the first launch of scripts\launch-webui.bat does this automatically
+#      from app\config.example.toml if no config.toml exists yet — you only
+#      need to copy THIS file instead if you'd rather start from a shorter
+#      example).
+#   2. Telegraph needs NO configuration here at all — it's the easiest way
+#      to confirm everything works end-to-end first (see ONBOARDING.md).
+#   3. Uncomment and fill in ONE platform section below once you're ready
+#      for more than Telegraph.
+#   4. Uncomment [targets."https://your-site.com"] and fill in your own
+#      site + anchor pools.
+
+# ────────────────────────────────────────────────────────────
+# One platform to start with (Blogger shown as an example — see
+# ONBOARDING.md's "Choose a publishing platform" section for the dev.to /
+# Medium / Velog equivalents instead).
+# ────────────────────────────────────────────────────────────
+# [blogger]
+# "https://your-site.com" = "1234567890123456789"   # your Blogger blog_id
+#
+# [blogger.oauth]
+# client_id     = "your-client-id.apps.googleusercontent.com"
+# client_secret = "your-client-secret"
+
+# ────────────────────────────────────────────────────────────
+# Your target site + anchor pools (Work-Themed, recommended for new
+# projects)
+# ────────────────────────────────────────────────────────────
+# [targets."https://your-site.com"]
+# main_url = "https://your-site.com/"
+# list_url = "https://your-site.com/list"
+# branded_pool = ["Your Site", "Your Site Hub"]
+# partial_pool = ["site hub partial keyword"]
+# exact_pool = ["site keyword"]
