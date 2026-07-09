@@ -110,6 +110,90 @@ def _apply_target_dofollow(
     item["target_dofollow"] = derive_target_dofollow(verdict, expected_nofollow)
 
 
+def _apply_article_fields(
+    item: dict[str, Any],
+    article_row: tuple,
+    verdict_map: dict[int, tuple[str | None, bool]] | None,
+) -> None:
+    """Populate ``item`` from an article row (see ``_build_history_item``)."""
+    (
+        art_id,
+        _body,
+        _anchors,
+        _tgt_urls_json,
+        lang,
+        _host,
+        live_url,
+        _pub_raw,
+        pub_utc,
+        run_id,
+        platform,
+        verified_at,
+        verify_error,
+        _dedup_key,
+    ) = article_row
+    item["id"] = str(art_id)
+    _apply_target_dofollow(item, art_id, verdict_map)
+    item["created_at"] = pub_utc or ""
+    item["platform"] = platform or ""
+    item["language"] = lang or ""
+    item["run_id"] = run_id or ""
+    item["verified_at"] = verified_at
+    item["verify_error"] = verify_error or ""
+    if live_url:
+        item["article_urls"] = [live_url]
+
+
+def _apply_event_fields(item: dict[str, Any], event_row: tuple) -> None:
+    """Populate ``item`` from an event row (see ``_build_history_item``)."""
+    (
+        evt_id,
+        ts_utc,
+        _ts_raw,
+        evt_run_id,
+        kind,
+        target_url,
+        _host_evt,
+        _art_id_evt,
+        payload_json,
+    ) = event_row
+    item["id"] = item["id"] or f"evt-{evt_id}"
+    item["target_url"] = target_url or item["target_url"]
+    item["status"] = _status_from_kind(kind)
+    if not item["created_at"] and ts_utc:
+        item["created_at"] = ts_utc
+    if not item["run_id"] and evt_run_id:
+        item["run_id"] = evt_run_id
+    if kind == KIND_FAILED:
+        payload = json.loads(payload_json) if payload_json else {}
+        error_msg = (
+            payload.get("error_message_clean")
+            or payload.get("error_class")
+            or ""
+        )
+        item["error"] = error_msg
+        if payload.get("error_class"):
+            item["error_class"] = payload["error_class"]
+        if not item["platform"]:
+            item["platform"] = payload.get("platform", "")
+    elif kind in (KIND_CONFIRMED, KIND_UNVERIFIED):
+        payload = json.loads(payload_json) if payload_json else {}
+        live = payload.get("live_url")
+        if live:
+            item["article_urls"] = [live]
+        if not item["platform"]:
+            item["platform"] = payload.get("platform", "")
+        title = payload.get("title") or ""
+        if title:
+            item["title"] = title
+        if kind == KIND_UNVERIFIED:
+            item["status"] = payload.get("ui_status") or "published_unverified"
+        else:
+            item["status"] = "published"
+        if payload.get("adapter"):
+            item["adapter"] = payload["adapter"]
+
+
 def _build_history_item(
     article_row: tuple | None,
     event_row: tuple | None,
@@ -142,85 +226,11 @@ def _build_history_item(
 
     # ── article fields ────────────────────────────────────────────────
     if article_row is not None:
-        (
-            art_id,
-            _body,
-            _anchors,
-            _tgt_urls_json,
-            lang,
-            _host,
-            live_url,
-            _pub_raw,
-            pub_utc,
-            run_id,
-            platform,
-            verified_at,
-            verify_error,
-            _dedup_key,
-        ) = article_row
-        item["id"] = str(art_id)
-        _apply_target_dofollow(item, art_id, verdict_map)
-        item["created_at"] = pub_utc or ""
-        item["platform"] = platform or ""
-        item["language"] = lang or ""
-        item["run_id"] = run_id or ""
-        item["verified_at"] = verified_at
-        item["verify_error"] = verify_error or ""
-        if live_url:
-            item["article_urls"] = [live_url]
+        _apply_article_fields(item, article_row, verdict_map)
 
     # ── event fields ──────────────────────────────────────────────────
     if event_row is not None:
-        (
-            evt_id,
-            ts_utc,
-            _ts_raw,
-            evt_run_id,
-            kind,
-            target_url,
-            _host_evt,
-            _art_id_evt,
-            payload_json,
-        ) = event_row
-        item["id"] = item["id"] or f"evt-{evt_id}"
-        item["target_url"] = target_url or item["target_url"]
-        item["status"] = _status_from_kind(kind)
-        if not item["created_at"] and ts_utc:
-            item["created_at"] = ts_utc
-        if not item["run_id"] and evt_run_id:
-            item["run_id"] = evt_run_id
-        if kind == KIND_FAILED:
-            payload = json.loads(payload_json) if payload_json else {}
-            error_msg = (
-                payload.get("error_message_clean")
-                or payload.get("error_class")
-                or ""
-            )
-            item["error"] = error_msg
-            if payload.get("error_class"):
-                item["error_class"] = payload["error_class"]
-            # If there's no article, use payload for platform
-            if not item["platform"]:
-                item["platform"] = payload.get("platform", "")
-        elif kind in (KIND_CONFIRMED, KIND_UNVERIFIED):
-            payload = json.loads(payload_json) if payload_json else {}
-            live = payload.get("live_url")
-            if live:
-                item["article_urls"] = [live]
-            if not item["platform"]:
-                item["platform"] = payload.get("platform", "")
-            title = payload.get("title") or ""
-            if title:
-                item["title"] = title
-            if kind == KIND_UNVERIFIED:
-                # Prefer the original ui_status from the payload to distinguish
-                # "drafted_unverified" from "published_unverified" — older rows
-                # without this key fall back to "published_unverified".
-                item["status"] = payload.get("ui_status") or "published_unverified"
-            else:
-                item["status"] = "published"
-            if payload.get("adapter"):
-                item["adapter"] = payload["adapter"]
+        _apply_event_fields(item, event_row)
 
     return item
 
