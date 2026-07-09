@@ -26,6 +26,8 @@ from .channel_status import channel_status_store
 from .drafts import DraftsSqliteStore, DraftsStore
 from .error_reports import error_report_store
 from .history import HistoryStore
+from .onboarding import OnboardingSqliteStore
+from .operation_store import OperationSqliteStore, OperationStore
 from .profiles import ProfilesSqliteStore
 from .publish_defaults import PublishDefaultsSqliteStore
 from .queue_store import QueueSqliteStore
@@ -108,8 +110,20 @@ def _make_batch_ops_store() -> BatchOpsSqliteStore:
     return BatchOpsSqliteStore(_get_webui_db())
 
 
+def _make_operation_store() -> OperationSqliteStore:
+    return OperationSqliteStore(_get_webui_db())
+
+
 publish_defaults_store = _LazyStore(_make_publish_defaults_store)
 batch_ops_store = _LazyStore(_make_batch_ops_store)
+operation_store = _LazyStore(_make_operation_store)
+
+
+def _make_onboarding_store() -> OnboardingSqliteStore:
+    return OnboardingSqliteStore(_get_webui_db())
+
+
+onboarding_store = _LazyStore(_make_onboarding_store)
 
 
 def _refresh_paths() -> None:
@@ -126,7 +140,8 @@ def _refresh_paths() -> None:
     for store in (history_store, profiles_store, drafts_store,
                   schedule_store, queue_store, channel_status_store,
                   campaign_store, publish_defaults_store, batch_ops_store,
-                  verify_health_store, error_report_store):
+                  operation_store, onboarding_store, verify_health_store,
+                  error_report_store):
         store.reset()
 
 
@@ -155,5 +170,7 @@ __all__ = [
     "publish_defaults_store",
     "verify_health_store",
     "error_report_store",
+    "OnboardingSqliteStore",
+    "onboarding_store",
     "_refresh_paths",
 ]

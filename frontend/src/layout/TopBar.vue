@@ -25,10 +25,12 @@ import { useRouter } from 'vue-router'
 import { getJson } from '../api/client'
 import { useThemeStore } from '../stores/theme'
 import { useReportPanelStore } from '../stores/reportPanel'
+import { useOnboardingStore } from '../stores/onboarding'
 import ReportProblemPanel from '../components/ReportProblemPanel.vue'
 import { SIDENAV_DRAWER_KEY, useSidenavDrawer } from '../composables/useSidenavDrawer'
 
 const router = useRouter()
+const onboarding = useOnboardingStore()
 
 interface AppConfig {
   lite_edition: boolean
@@ -80,6 +82,9 @@ onMounted(() => {
       </span>
       <button type="button" class="topbar__new-publish" @click="router.push('/publish')">
         新建发布
+      </button>
+      <button type="button" class="topbar__onboarding" @click="onboarding.openWizard()">
+        新手引导
       </button>
       <button type="button" class="topbar__report" @click="reportPanel.open()">
         报告问题
@@ -149,6 +154,15 @@ onMounted(() => {
   cursor: pointer;
 }
 .topbar__new-publish {
+  font-size: var(--text-sm);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.topbar__onboarding {
   font-size: var(--text-sm);
   padding: 0.3rem 0.6rem;
   border-radius: var(--radius-sm);
