@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, UTC
-from typing import Any
+from typing import Any, cast
 
 from .signals import PlatformSignal
 
@@ -147,7 +147,7 @@ def _resolve_live_dofollow_platforms(
     target_url = row.get("url") or row.get("target_url") or row.get("uri") or ""
     if ledger_map and target_url in ledger_map:
         lr = ledger_map[target_url]
-        return lr.get("live_dofollow_platforms", [])
+        return cast(list[str], lr.get("live_dofollow_platforms", []))
     return []
 
 
