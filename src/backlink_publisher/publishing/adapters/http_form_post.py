@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from html.parser import HTMLParser
+import threading
 from typing import Any
 from urllib.parse import urlparse
 
@@ -43,6 +44,26 @@ from backlink_publisher._util.errors import AntiBotChallengeError, ExternalServi
 from backlink_publisher._util.net_safety import _check_url_for_ssrf
 
 from .link_attr_verifier import verify_link_attributes
+
+# Per-host requests.Session pool. Reusing a Session per host lets urllib3 pool
+# TCP/TLS connections across the fetch_form -> submit_form round-trip to the
+# SAME target, while keeping cookies isolated between DIFFERENT target hosts
+# (a single shared Session would leak cookies across arbitrary backlink
+# targets). Sessions are thread-safe: the dict lookup is locked and urllib3
+# pools connections internally.
+_host_sessions: dict[str, requests.Session] = {}
+_host_sessions_lock = threading.Lock()
+
+
+def _session_for_host(url: str) -> requests.Session:
+    host = urlparse(url).netloc
+    with _host_sessions_lock:
+        sess = _host_sessions.get(host)
+        if sess is None:
+            sess = requests.Session()
+            _host_sessions[host] = sess
+        return sess
+
 
 DEFAULT_TIMEOUT: float = 15.0
 _USER_AGENT = (
@@ -120,8 +141,9 @@ def _guard_ssrf(url: str) -> None:
 def fetch_form(url: str, *, timeout: float = DEFAULT_TIMEOUT) -> requests.Response:
     """GET the form page. Raise on challenge or transport/HTTP failure."""
     _guard_ssrf(url)
+    sess = _session_for_host(url)
     try:
-        resp = requests.get(
+        resp = sess.get(
             url, timeout=timeout, headers={"User-Agent": _USER_AGENT}
         )
     # debt: http-form-post-safe-error-construction-accepted
@@ -185,8 +207,9 @@ def submit_form(
     ``ExternalServiceError``.
     """
     _guard_ssrf(url)
+    sess = _session_for_host(url)
     try:
-        resp = requests.post(
+        resp = sess.post(
             url,
             data=data,
             timeout=timeout,

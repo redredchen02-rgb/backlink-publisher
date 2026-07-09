@@ -81,7 +81,7 @@ def test_detect_challenge_plain_403_without_cf_or_marker_is_not_challenge() -> N
 
 def test_fetch_form_happy_path_returns_response() -> None:
     resp = _Resp(status_code=200, text="<form></form>")
-    with mock.patch.object(hfp.requests, "get", return_value=resp) as mget:
+    with mock.patch.object(hfp.requests.Session, "get", return_value=resp) as mget:
         out = hfp.fetch_form("https://txt.fyi/")
     assert out is resp
     assert mget.call_args.kwargs["headers"]["User-Agent"].endswith("backlink-publisher")
@@ -89,20 +89,20 @@ def test_fetch_form_happy_path_returns_response() -> None:
 
 def test_fetch_form_challenge_raises_antibot() -> None:
     resp = _Resp(status_code=503, text="Attention Required! | Cloudflare", server="cloudflare")
-    with mock.patch.object(hfp.requests, "get", return_value=resp):
+    with mock.patch.object(hfp.requests.Session, "get", return_value=resp):
         with pytest.raises(AntiBotChallengeError):
             hfp.fetch_form("https://txt.fyi/")
 
 
 def test_fetch_form_http_error_raises_external_service() -> None:
     resp = _Resp(status_code=404, text="not found")
-    with mock.patch.object(hfp.requests, "get", return_value=resp):
+    with mock.patch.object(hfp.requests.Session, "get", return_value=resp):
         with pytest.raises(ExternalServiceError):
             hfp.fetch_form("https://txt.fyi/")
 
 
 def test_fetch_form_network_error_raises_external_service_no_body_leak() -> None:
-    with mock.patch.object(hfp.requests, "get", side_effect=OSError("connection reset to 10.0.0.1")):
+    with mock.patch.object(hfp.requests.Session, "get", side_effect=OSError("connection reset to 10.0.0.1")):
         with pytest.raises(ExternalServiceError) as exc:
             hfp.fetch_form("https://txt.fyi/secret-path")
     msg = str(exc.value)
@@ -147,7 +147,7 @@ def test_extract_hidden_fields_value_absent_becomes_empty_string() -> None:
 
 def test_submit_form_happy_path() -> None:
     resp = _Resp(status_code=200, text='<a href="https://txt.fyi/abc/def">link</a>')
-    with mock.patch.object(hfp.requests, "post", return_value=resp) as mpost:
+    with mock.patch.object(hfp.requests.Session, "post", return_value=resp) as mpost:
         out = hfp.submit_form("https://txt.fyi/edit.php", {"txt": "hi", "go": "PUBLISH"})
     assert out is resp
     assert mpost.call_args.kwargs["data"]["go"] == "PUBLISH"
@@ -157,7 +157,7 @@ def test_submit_form_challenge_raises_antibot_distinct_from_dependency() -> None
     # The whole point of AntiBotChallengeError: a challenge must be
     # distinguishable from "platform not configured" (DependencyError).
     resp = _Resp(status_code=403, text="Just a moment...", server="cloudflare")
-    with mock.patch.object(hfp.requests, "post", return_value=resp):
+    with mock.patch.object(hfp.requests.Session, "post", return_value=resp):
         with pytest.raises(AntiBotChallengeError) as exc:
             hfp.submit_form("https://txt.fyi/edit.php", {"txt": "hi"})
     assert not isinstance(exc.value, DependencyError)
@@ -166,7 +166,7 @@ def test_submit_form_challenge_raises_antibot_distinct_from_dependency() -> None
 
 def test_submit_form_http_error_raises_external_service_no_body_leak() -> None:
     resp = _Resp(status_code=500, text="<html>stacktrace with secret token tok_123</html>")
-    with mock.patch.object(hfp.requests, "post", return_value=resp):
+    with mock.patch.object(hfp.requests.Session, "post", return_value=resp):
         with pytest.raises(ExternalServiceError) as exc:
             hfp.submit_form("https://txt.fyi/edit.php", {"txt": "secret body content"})
     msg = str(exc.value)
@@ -190,7 +190,7 @@ def test_submit_form_does_not_retry_nonidempotent_post(exc_name: str) -> None:
         calls["n"] += 1
         raise err
 
-    with mock.patch.object(hfp.requests, "post", side_effect=_post):
+    with mock.patch.object(hfp.requests.Session, "post", side_effect=_post):
         with pytest.raises(ExternalServiceError) as exc:
             hfp.submit_form("https://txt.fyi/edit.php", {"txt": "hi"})
     assert calls["n"] == 1  # single attempt — non-idempotent POST never retried
@@ -241,7 +241,7 @@ def test_attach_link_verification_never_raises_on_verifier_skip() -> None:
 def test_fetch_form_blocks_ssrf_before_request() -> None:
     """A blocked URL must raise before any request is issued."""
     with mock.patch.object(hfp, "_check_url_for_ssrf", return_value="blocked_ip:169.254.0.0/16"):
-        with mock.patch.object(hfp.requests, "get") as mget:
+        with mock.patch.object(hfp.requests.Session, "get") as mget:
             with pytest.raises(ExternalServiceError) as exc:
                 hfp.fetch_form("http://169.254.169.254/latest/meta-data")
     mget.assert_not_called()
@@ -251,7 +251,7 @@ def test_fetch_form_blocks_ssrf_before_request() -> None:
 def test_submit_form_blocks_ssrf_before_request() -> None:
     """The create-POST must not fire when SSRF-blocked."""
     with mock.patch.object(hfp, "_check_url_for_ssrf", return_value="blocked_ip:127.0.0.0/8"):
-        with mock.patch.object(hfp.requests, "post") as mpost:
+        with mock.patch.object(hfp.requests.Session, "post") as mpost:
             with pytest.raises(ExternalServiceError):
                 hfp.submit_form("http://127.0.0.1/edit.php", {"txt": "x"})
     mpost.assert_not_called()
