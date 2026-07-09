@@ -33,7 +33,13 @@ reconcile-check:
 
 .PHONY: test-js
 test-js:
-	node --test tests/js/test_lib_api.mjs tests/js/test_lib_dom.mjs tests/js/test_notifications.mjs tests/js/test_ui_states.mjs tests/js/test_ui_nav_badge.mjs
+	node --test tests/js/test_lib_api.mjs tests/js/test_lib_dom.mjs tests/js/test_notifications.mjs tests/js/test_ui_states.mjs tests/js/test_ui_nav_badge.mjs tests/js/test_sites.mjs tests/js/test_ui_error_capture.mjs tests/js/test_ui_error_report_entry.mjs tests/js/test_static_js_syntax.mjs
+
+# CI-equivalent guard: fail if any legacy static ES module has a parse error
+# (e.g. an orphaned brace left by a refactor — see fix 85a9e1a7).
+.PHONY: check-static-js
+check-static-js:
+	@node tests/js/test_static_js_syntax.mjs
 
 # ── Browser selector-drift checks (Plan 2026-06-15-001 B3) ───────────────────
 # Static guard (CI, no browser): selector constants present + success regex valid.

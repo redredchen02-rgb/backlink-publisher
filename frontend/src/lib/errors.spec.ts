@@ -31,4 +31,34 @@ describe('classifyError', () => {
     expect(c.title).toBe('服务器出错了') // fixed template, not raw text
     expect(c.detail).not.toContain('\x00')
   })
+
+  it('surfaces structured per-row errors from a problem+json payload', () => {
+    // Mirror an ApiError: the server body (with `errors`) lives on `.payload`.
+    const apiError = {
+      name: 'ApiError',
+      message: 'validation failed: 2 errors (0 passed, 1 failed)',
+      status: 422,
+      payload: {
+        type: 'https://backlink-publisher/problems/input-validation-error',
+        title: 'Pipeline invocation failed',
+        status: 422,
+        detail: 'validation failed: 2 errors (0 passed, 1 failed)',
+        error_class: 'InputValidationError',
+        errors: [
+          { detail: 'row 1: missing required output field \'target_url\'' },
+          { detail: 'row 1: link count 3 is not between 6 and 8' },
+        ],
+      },
+    }
+    const c = classifyError(apiError)
+    expect(c.errors).toEqual([
+      "row 1: missing required output field 'target_url'",
+      'row 1: link count 3 is not between 6 and 8',
+    ])
+  })
+
+  it('leaves errors undefined when the server sends none', () => {
+    const c = classifyError({ status: 500, error: 'boom' })
+    expect(c.errors).toBeUndefined()
+  })
 })

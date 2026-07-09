@@ -417,6 +417,32 @@ jobs:
   # Tests test quality by mutating code and checking if tests catch the changes.
   # Initially targets high-value pure-function modules only.
   # ═══════════════════════════════════════════════════════════════════════════
+  # ── Legacy static JS syntax gate ──────────────────────────────────────
+  # Closes the gap that let an orphaned top-level brace in notifications.js
+  # (fix 85a9e1a7) ship silently to every legacy Jinja page for over a
+  # week. The SPA lane (frontend.yml) path-filters on frontend/** and never
+  # reaches webui_app/static/js/**, and frontend-lint below only builds
+  # frontend/, so the legacy ES modules had zero CI syntax coverage. This
+  # job runs node --check over every file under webui_app/static/js on every
+  # push/PR (unfiltered), failing the build on any parse error.
+  legacy-js-syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax-check legacy static JS (node --check)
+        # test_static_js_syntax.mjs walks webui_app/static/js/** and runs
+        # `node --check` on each .js, failing with file + diagnostic on any
+        # syntax error. Self-locates the repo root from its own URL.
+        run: |
+          node --test tests/js/test_static_js_syntax.mjs
+
   mutation:
     runs-on: ubuntu-latest
     timeout-minutes: 30

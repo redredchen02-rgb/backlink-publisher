@@ -52,6 +52,11 @@ class PipeResult:
     error: str | None = None
     error_class: str | None = None
     exit_code: int | None = None
+    # Per-row structured errors (e.g. validate-backlinks row failures). Carried
+    # so callers can surface *which* rows failed instead of only a summary count
+    # (the in-process validate path previously dropped these — only the count
+    # reached the WebUI, so operators couldn't tell what to fix).
+    errors: list[str] | None = None
 
     # ── derived helpers ──────────────────────────────────────────────────
 
@@ -381,6 +386,7 @@ class PipelineAPI:
                 error=message,
                 error_class="InputValidationError",
                 exit_code=2,
+                errors=list(outcome.errors),
             )
 
         return PipeResult(stdout=_jsonl(outcome.outputs), success=True, exit_code=0)

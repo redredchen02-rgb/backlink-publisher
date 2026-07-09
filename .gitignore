@@ -187,3 +187,4 @@ frontend/dist/
 webui_app/spa_dist/
 .gstack/
 nul
+.worktrees

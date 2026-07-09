@@ -588,6 +588,24 @@ def monitor_hub() -> Any:
     return redirect(url_for("spa.spa", subpath=""), 302)
 
 
+@bp.route("/error-reports", methods=["GET"])
+@bp.route("/error-reports/<report_id>", methods=["GET"])
+def error_reports_redirect(report_id: str | None = None) -> Any:
+    """Redirect top-level /error-reports → SPA /app/error-reports.
+
+    The command-center card (``_build_error_reports_card``) links to the bare
+    ``/error-reports`` path, but the SPA dashboard lives at ``/app/error-reports``
+    (vite base ``/app/`` + router path ``/error-reports``), and the SPA
+    catch-all only matches ``/app/*`` — so the bare top-level path previously
+    had no server route and rendered blank / 404'd. Mirror the legacy→SPA
+    redirect pattern used by equity_ledger / keep_alive / pr_queue so both the
+    card link and a manual bookmark resolve to the real page. The detail variant
+    forwards the report id to ``/app/error-reports/<id>``.
+    """
+    subpath = f"error-reports/{report_id}" if report_id else "error-reports"
+    return redirect(url_for("spa.spa", subpath=subpath), 302)
+
+
 @bp.route("/monitor-hub/jinja", methods=["GET"])
 def monitor_hub_jinja() -> Any:
     """Legacy Jinja fallback — kept for LITE mode."""

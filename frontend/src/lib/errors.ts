@@ -13,6 +13,10 @@ export interface Classified {
   retryable: boolean
   status: number | null
   detail: string
+  // Per-row / structured error details when the server provides them (e.g.
+  // validate-backlinks row failures). Surfaced so the operator can see *what*
+  // failed instead of only a summary count. Absent when the server sends none.
+  errors?: string[]
 }
 
 const TEMPLATES: Record<Category, { title: string; message: string; retryable: boolean }> = {
@@ -48,6 +52,30 @@ function statusOf(x: unknown): number | null {
   return m ? Number(m[1]) : null
 }
 
+// Pull a flat list of per-row error strings out of an RFC 9457 problem+json
+// `errors` array (each entry is `{"detail": "…"}` or a bare string). Sanitized
+// like detailOf (control-char strip + collapse) since the text can embed
+// untrusted content (target URLs / fetched snippets). Returns undefined when the
+// server sent nothing structured — callers must not rely on it being present.
+function errorsOf(x: unknown): string[] | undefined {
+  const obj = x as Record<string, unknown> | null
+  const raw = obj && typeof obj === 'object' ? obj.errors : null
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const out: string[] = []
+  for (const item of raw) {
+    if (item == null) continue
+    const s =
+      typeof item === 'string'
+        ? item
+        : typeof item === 'object' && 'detail' in (item as Record<string, unknown>)
+          ? String((item as Record<string, unknown>).detail)
+          : String(item)
+    const cleaned = s.replace(CONTROL_CHARS, ' ').replace(/\s+/g, ' ').trim()
+    if (cleaned) out.push(cleaned)
+  }
+  return out.length ? out : undefined
+}
+
 export function classifyError(input: unknown): Classified {
   let category: Category = 'unknown'
   const status = statusOf(input)
@@ -69,6 +97,12 @@ export function classifyError(input: unknown): Classified {
   const obj = input as Record<string, unknown> | null
   const rawDetail =
     (obj && typeof obj === 'object' && 'error' in obj ? obj.error : null) ?? msg ?? ''
+  // ApiError keeps the server body on `.payload`; structured `errors` live there
+  // (not directly on the instance). Fall back to a plain object with `.errors`.
+  const payloadObj =
+    obj && typeof obj === 'object' && 'payload' in obj && obj.payload && typeof obj.payload === 'object'
+      ? (obj.payload as Record<string, unknown>)
+      : obj
   return {
     category,
     title: tpl.title,
@@ -76,5 +110,6 @@ export function classifyError(input: unknown): Classified {
     retryable: tpl.retryable,
     status,
     detail: detailOf(rawDetail),
+    errors: errorsOf(payloadObj),
   }
 }

@@ -256,6 +256,9 @@ function applyProfile(p: Profile): void {
         {{ store.validating ? '验证中…' : '验证' }}
       </button>
       <p v-if="validateError" class="section-error" role="alert">{{ validateError.title }}：{{ validateError.message }}</p>
+      <ul v-if="validateError && validateError.errors && validateError.errors.length" class="section-error-list" role="alert">
+        <li v-for="(err, i) in validateError.errors" :key="i">{{ err }}</li>
+      </ul>
     </fieldset>
 
     <!-- Step 3 — preview / edit → confirm publish -->
@@ -367,6 +370,11 @@ function applyProfile(p: Profile): void {
 .section-error {
   color: var(--danger);
   margin: 0;
+}
+.section-error-list {
+  color: var(--danger);
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
 }
 .empty-notice {
   margin: 0;

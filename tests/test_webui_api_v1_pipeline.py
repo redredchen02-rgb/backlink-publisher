@@ -141,6 +141,52 @@ def test_webui_pipeline_validate_missing_plans_returns_422(client):
     assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
 
 
+def test_webui_pipeline_validate_failure_surfaces_row_errors(client, monkeypatch):
+    """Regression: per-row validation failures must reach the SPA as a structured
+    ``errors`` array, not just the summary count — otherwise the operator sees
+    "2 errors (0 passed, 1 failed)" with no way to know what to fix."""
+
+    def fake_validate(jsonl, **kw):
+        return PipeResult(
+            stdout="",
+            success=False,
+            error="validation failed: 2 errors (0 passed, 1 failed)",
+            error_class="InputValidationError",
+            exit_code=2,
+            errors=["row 1: missing required output field 'target_url'",
+                    "row 1: link count 3 is not between 6 and 8"],
+        )
+
+    _patch_api(monkeypatch, validate=fake_validate)
+    resp = client.post("/api/v1/pipeline/validate", json={"plans": [{"id": "x"}]})
+    body = resp.get_json()
+    assert resp.status_code == 422
+    assert resp.headers["Content-Type"].startswith(PROBLEM_CT)
+    assert body["error_class"] == "InputValidationError"
+    assert "errors" in body
+    assert body["errors"] == [
+        {"detail": "row 1: missing required output field 'target_url'"},
+        {"detail": "row 1: link count 3 is not between 6 and 8"},
+    ]
+
+
+def test_from_pipe_result_forwards_errors():
+    """``from_pipe_result`` must map a ``PipeResult.errors`` list into the
+    ApiProblem ``errors`` array (str → {detail: …}), and leave it absent when the
+    result carries none."""
+    from webui_app.api.v1.errors import from_pipe_result
+
+    with_errs = from_pipe_result(
+        PipeResult(success=False, error="boom", errors=["row 1: x", "row 1: y"]),
+        status=422,
+    )
+    assert with_errs.errors == [{"detail": "row 1: x"}, {"detail": "row 1: y"}]
+
+    no_errs = from_pipe_result(PipeResult(success=False, error="boom"), status=502)
+    assert no_errs.errors is None
+
+
+
 # ── publish ──────────────────────────────────────────────────────────────────
 
 

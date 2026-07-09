@@ -57,6 +57,31 @@ def test_validate_delegates_with_no_check_urls() -> None:
     assert kwargs == {"no_check_urls": False}
 
 
+def test_validate_surfaces_per_row_errors() -> None:
+    """The in-process validate() must carry the engine's per-row error list out
+    on the PipeResult so the WebUI can show *which* rows failed (previously only
+    the summary count reached the caller and the row detail was dropped)."""
+
+    class _Outcome:
+        errors = ["row 1: missing required output field 'target_url'",
+                  "row 1: link count 3 is not between 6 and 8"]
+        outputs: list[dict] = []
+        failed_count = 1
+        input_count = 1
+
+    with mock.patch("backlink_publisher._validate_engine.engine.load_config_tolerant",
+                     return_value=None), \
+         mock.patch("backlink_publisher._validate_engine.engine.validate_rows",
+                    return_value=_Outcome()):
+        result = sdk.PipelineAPI().validate('{"platform":"medium"}', no_check_urls=True)
+    assert result.success is False
+    assert result.error_class == "InputValidationError"
+    assert result.errors == [
+        "row 1: missing required output field 'target_url'",
+        "row 1: link count 3 is not between 6 and 8",
+    ]
+
+
 def test_publish_delegates_to_publish_seed() -> None:
     """sdk.publish forwards to publish_seed (rows are self-describing) — NOT the
     platform/mode publish()."""

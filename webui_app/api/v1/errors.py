@@ -102,13 +102,23 @@ def from_pipe_result(result: Any, *, status: int = 502) -> ApiProblem:
     """Map a failed ``PipeResult`` (success=False) to an ApiProblem.
 
     Reuses ``error_class`` / ``error`` so the API error vocabulary stays a single
-    source of truth with the CLI envelope.
+    source of truth with the CLI envelope. When the result carries a structured
+    ``errors`` list (per-row failures, e.g. validate-backlinks), it is forwarded
+    as an ``errors`` array so the SPA can show *which* rows failed rather than
+    only the summary count.
     """
+    raw_errors = getattr(result, "errors", None)
+    errors_field: list[dict[str, Any]] | None = None
+    if raw_errors:
+        errors_field = [
+            {"detail": e} if isinstance(e, str) else e for e in raw_errors
+        ]
     return ApiProblem(
         status,
         "Pipeline invocation failed",
         detail=getattr(result, "error", None),
         error_class=getattr(result, "error_class", None) or "pipeline_error",
+        errors=errors_field,
     )
 
 

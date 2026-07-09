@@ -16,7 +16,7 @@ Requires-Dist: apscheduler<4,>=3.11
 Requires-Dist: apiflask<4,>=3.1
 Requires-Dist: pydantic>=2.5
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: structlog<26,>=24.1
+Requires-Dist: structlog<27,>=24.1
 Requires-Dist: flask-compress<2,>=1.14
 Requires-Dist: waitress<4,>=3.0
 Provides-Extra: dev
@@ -38,6 +38,7 @@ Requires-Dist: mutmut>=2.4; extra == "dev"
 Requires-Dist: vulture>=2.16; extra == "dev"
 Requires-Dist: import-linter>=1.6; extra == "dev"
 Requires-Dist: pip-audit>=2.7; extra == "dev"
+Requires-Dist: playwright<2,>=1.55; extra == "dev"
 Provides-Extra: browser
 Requires-Dist: playwright<2,>=1.55; extra == "browser"
 Provides-Extra: analytics

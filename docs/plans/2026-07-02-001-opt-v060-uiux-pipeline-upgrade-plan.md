@@ -56,6 +56,19 @@ Phase 3（`docs/plans/2026-06-30-001-opt-phase3-post-v050-iteration-plan.md`，a
 4. 註冊表現況已漂移:9 True / 10 False / **10** uncertain / 2 retired(計畫原文 7/9/8 過期;U11 的「uncertain 清零」目標基數以此為準)。
 5. **〔doc-review 新增,product-lens 高信心發現〕零 telemetry 本身是產品訊號,不只是技術缺口**:本機 events.db/webui.db 目前 0 events/0 articles/0 tasks——代表這套工具近期沒有真實跑過 publish。本計畫（U16/U17/分支落地）整輪都是 meta-work,對「實際存活的 dofollow 反鏈產出量」這個 repo 自己認定的唯一業務瓶頸零貢獻。**建議在本輪內執行至少 1 次真實 publish campaign**(對已確認 `dofollow=True` 的平台),其產出同時餵給三處:(a) U10 的恢復觸發 telemetry、(b) U17「有真實發佈歷史」渲染路徑測試所需的資料、(c) 錯誤儀表板的真實壓力測試。若 operator 決定本輪不執行,應明確記錄理由——這個決定本身會重新定型整份計畫的優先序。
 
+### 2026-07-07 對帳:U1/U16 real-CI 驗證收尾,U15 落地狀態校正〔本次修訂〕
+
+> 本節由「分析專案狀況進行優化BUG」的規劃請求觸發,對 U1/U15/U16 做即時重量測(不沿用任何舊快照數字)。結論:main 上的 unit CI gate 現況是**綠的**,U16 的兩個真 bug**已被其他收斂工作連帶修掉**,U15 的分支**已合併 main**——這三項的計畫敘述已過期,以下逐項標注「已落地 vs 待辦」。
+
+- **main @ `7b6441a7`(即時 `git fetch` 確認落後 origin/main 0 個 commit,無需再對帳落差)。**
+- **U1/U16(a)real-CI 驗證——結論:綠,U1 checkbox 可打勾。** 最新一次 push 的 CI run(`https://github.com/redredchen02-rgb/backlink-publisher/actions/runs/28847416642`,commit `7b6441a7`,2026-07-07T06:52 UTC)`unit (3.11)`/`unit (3.12)` 兩個 job 皆 ✓;`gh run view --job=<id> --log` 逐行核對(非只看 job 狀態圓點——job log 裡有幾條與最終結果無關的 stray `exit code 1` annotation,已排除是 socket-block 測試 fixture 自己 raise 的例外文字,不是真失敗):`Run unit tests (seam — no reruns)` 806 passed / 1 skipped;`Run unit tests (rest — reruns enabled)` 9805 passed / 13 skipped——3.11 與 3.12 兩個 Python 版本數字完全一致,**全程 0 個 FAILED**(`grep -c FAILED` 於完整 job log 核實為 0)。`mutation`/`e2e`/`frontend-lint`/`integration`/`benchmark` 五個 job 亦全 ✓。U1 描述的「~90 殘餘 Windows 假象」在真實 ubuntu CI 上完全不重現,U16(a) 的驗證目標已達成。
+- **U16(b) 兩個真 bug——結論:已修,非本次修的,是其他收斂工作連帶解決的。**
+  - Bug 1(PEP 562 facade 被 `dispatch`/`validate` 子套件遮蔽):即時讀 `src/backlink_publisher/__init__.py` 與 `src/backlink_publisher/` 目錄——子套件現名為 `_dispatch_router`/`_validate_engine`(底線前綴、與 facade 屬性名 `dispatch`/`validate` 完全不撞名),架構決策已落定為「改子套件名」而非「改 facade 協定」。順序依賴問題已從命名層面根除。
+  - Bug 2(`tests/test_benchmarks.py` benchmark payload 與 schema 漂移):即時讀該檔 `_make_publish_payload()`——`links` 陣列現為 6 筆(落在計畫描述的 6–8 區間內)、`seo` 欄位(`title`/`description`/`canonical_url`)已存在。`benchmark` CI job 本身也在上述 run 中綠燈,間接佐證 payload 與現行 schema相容。
+  - 兩者均未在本次修訂中變更任何原始碼——U16 的架構決策與機械修復顯然已被其他 session/PR 完成並落地 main,只是本計畫檔的 checkbox 未同步。**U16 checkbox 可打勾。**
+- **U15 落地狀態校正:「分支未合併 main」的舊敘述已過期。** `git log --oneline --all --grep="pr-queue-lite" -i` 確認 `304368ef Merge pull request #76 from redredchen02-rgb/fix/pr-queue-lite-error-message-2` 已在 main 歷史中(現 HEAD 往前數第 66 個 commit);`docs/audits/2026-07-03-webui-feature-error-backlog.md` 已存在於 main 工作樹。B1–B5 backlog 文件內逐條標記「已修復」屬實;**B6、B7 仍是「待處理,未排入本輪修復範圍」**——backlog 文件自己的「待辦」清單另列 4 個未走查路徑(legacy `/ce:equity-ledger`、`/ce:keep-alive`、`/campaign/<id>`、`/publish/defaults` 204 語意)。
+- **淨結論:本計畫此刻唯一具體、待執行的 bug 修復工作是 U17**(B6 + B7 + 上述 4 個殘餘走查路徑)——U1/U16 已閉環,U15 已落地,U17 的依賴(U16 CI 可信、U15 落地 main)均已滿足,可直接動工,不再有前置阻塞。
+
 ### 技術棧
 
 - 後端：Python ≥3.11、Flask 3.1 + APIFlask、APScheduler 3.x、pydantic 2、playwright、GA4/GSC Google client、structlog；49 個 console scripts；版本 0.5.0。
@@ -257,7 +270,7 @@ graph TB
 
 ### Phase 0 — Foundation（地基）
 
-- [ ] **U1: 測試套件 triage——main 的 unit gate 復綠〔R1〕**
+- [x] **U1: 測試套件 triage——main 的 unit gate 復綠〔R1〕** ✅ 2026-07-07:real CI(ubuntu-latest,run `28847416642`,commit `7b6441a7`)`unit (3.11)`/`unit (3.12)` 兩個 job 皆綠,pytest 全量 0 個 FAILED——見下方〔2026-07-07 收尾〕與計畫上方「2026-07-07 對帳」小節。
 
 **Goal:** main 上 `pytest -m "unit"` 全綠，CI unit job 恢復可信 gate。
 
@@ -270,6 +283,8 @@ graph TB
 **建議下一步：** push 此分支並在真實 CI（ubuntu-latest）上跑一次確認 unit gate 實際狀態；若確認綠燈（或僅剩已知的 2 個真實 bug），可將此 checkbox 打勾並把 2 個真實 bug 轉為獨立追蹤項；若 CI 上仍有 Windows 假象未涵蓋到的意外失敗，回頭深挖。
 
 〔2026-07-06 對帳〕gh 帳號已恢復、PR 通道重開——上述「無法實測驗證」的阻塞已解除。U1 內容出現雙世系:稽核文件+部分 test repoints 已經由 reconcile PR #56/#66 進 main,而 `fix/u1-test-suite-triage`(4e6c5cd9,領先 main 5 commits)仍未合併——收尾時先 diff 該分支對 main 的**淨殘值**再決定 cherry-pick 或棄置,不要整支盲合。收尾工作(real-CI 驗證 + 2 個真 bug)已立為 U16,本 checkbox 的勾選條件不變(CI 綠 = 勾)。
+
+〔2026-07-07 收尾,U16(a) 一併完成〕real CI 已可連線,不需要再 diff/cherry-pick `fix/u1-test-suite-triage`(其淨殘值已由其他併發收斂工作實質吸收——main 上 unit gate 現況即為驗證結果)。`gh run view --job=85555325374 --log`(3.12)與 `--job=85555325376`(3.11)逐行核對:`seam` 步驟 806 passed/1 skipped,`rest`步驟 9805 passed/13 skipped,兩版本數字一致、**0 FAILED**。checkbox 依原定條件(CI 綠=勾)打勾。
 
 **Files:**
 - Modify: `src/backlink_publisher/cli/` 下的 re-export shim 檔（實測定位，已知例：`src/backlink_publisher/cli/plan/plan_check.py` 缺 `SCHEMA_VERSION` re-export）
@@ -358,7 +373,7 @@ graph TB
 
 **Verification:** backlog 文件存在且每條目有「報告來源、優先序、去重狀態」三個欄位；37 個 legacy route 模組與 15 個 SPA 頁面在文件中全部被至少提及一次（有報告，或明確標記「已走查、無異常」）。
 
-- [x] **U15: 高優先序功能錯誤修復迴圈（第一批）〔R15〕** ✅ 2026-07-06:第一批於分支 `fix/pr-queue-lite-error-message-2` 全數完成(a341bfa9 收尾):B1(698ac012+11b3aee6)、B2(0d5ced34+4e188a17——「系统降级」橫幅在從未發佈情境的誤報,根因 `webui_app/services/health_projection.py` `/health` 503)、B3/B4/B5 timeout+request-generation guards(86aa6583、71e19232,測試 ad0fa1a0);新發現 B6/B7 記入 backlog(f5ebca14);發現 #4 parked 為獨立計畫(090f54d6)。**分支未合併 main**——落地屬 bug 佇列序 0;B6/B7 與殘餘缺口由新 U17 接手。
+- [x] **U15: 高優先序功能錯誤修復迴圈（第一批）〔R15〕** ✅ 2026-07-06:第一批於分支 `fix/pr-queue-lite-error-message-2` 全數完成(a341bfa9 收尾):B1(698ac012+11b3aee6)、B2(0d5ced34+4e188a17——「系统降级」橫幅在從未發佈情境的誤報,根因 `webui_app/services/health_projection.py` `/health` 503)、B3/B4/B5 timeout+request-generation guards(86aa6583、71e19232,測試 ad0fa1a0);新發現 B6/B7 記入 backlog(f5ebca14);發現 #4 parked 為獨立計畫(090f54d6)。〔2026-07-07 校正〕「分支未合併 main」已過期——`fix/pr-queue-lite-error-message-2` 已由 PR #76(`304368ef`)合併進 main(即時 `git log --all --grep` 確認,`docs/audits/2026-07-03-webui-feature-error-backlog.md` 現存在於 main 工作樹,B1–B5 均標記已修復);B6/B7 與殘餘缺口由新 U17 接手,U17 已無分支落地前置阻塞。
 
 **Goal:** 依 U14 backlog 的優先序，修復第一批真正獨立於既有 unit 範圍的功能錯誤（本輪範圍：backlog 中所有「阻斷主要流程」等級的項目；確切條目數 N 待 U14 完成後依實際 backlog 大小決定，不預先假設規模），並在儀表板上標記已解決。
 
@@ -391,7 +406,7 @@ graph TB
 
 **Verification:** 本輪範圍內的 backlog 條目在儀表板全部標記 `resolved`；對應回歸測試進 CI 且綠；backlog 文件更新反映實際完成狀態，剩餘條目明確列為後續迭代範圍。
 
-- [ ] **U16: U1 收尾——real-CI 驗證 + 兩個真 bug 修復〔R1;2026-07-06 新增〕**
+- [x] **U16: U1 收尾——real-CI 驗證 + 兩個真 bug 修復〔R1;2026-07-06 新增〕** ✅ 2026-07-07:real-CI 驗證見 U1 執行記錄(run `28847416642`,0 FAILED);兩個真 bug 經即時原始碼核對確認**已由其他收斂工作連帶修掉**(非本次修復)——facade 遮蔽:`dispatch`/`validate` 子套件已改名為 `_dispatch_router`/`_validate_engine`,與 facade 屬性名不再撞名;benchmark payload:`tests/test_benchmarks.py::_make_publish_payload` 現有 6 筆 `links`(落在 6–8 區間)與完整 `seo` 欄位,`benchmark` CI job 綠燈佐證相容。詳見計畫上方「2026-07-07 對帳」小節。
 
 **Goal:** 把 U1 從「本機判定、未經 CI 驗證」推到終局:ubuntu CI 實測 unit gate 狀態,並修掉 U1 診斷出的 2 個非 Windows 真 bug。
 
@@ -423,7 +438,7 @@ graph TB
 
 **Goal:** 承接 U15 第一批:修 B6/B7,補完 U14 的殘餘走查缺口,讓「37 legacy + 15 SPA 全覆蓋」的 R15 目標閉環。
 
-**Dependencies:** U15 分支(-2)落地 main(B 系列修復與 backlog 文件都在該分支);建議在 U16 的 CI 可信之後。
+**Dependencies:** U15 分支(-2)落地 main(B 系列修復與 backlog 文件都在該分支);建議在 U16 的 CI 可信之後。〔2026-07-07 校正〕兩個依賴均已滿足——U15 已合併 main(`304368ef`),U16 CI 已驗證綠燈;U17 無前置阻塞,可直接動工。
 
 **Files:**
 - Modify: `docs/audits/2026-07-03-webui-feature-error-backlog.md`(續寫:B6/B7 修復記錄 + 殘餘缺口走查結果)
