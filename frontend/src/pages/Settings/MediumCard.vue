@@ -8,7 +8,7 @@
 // The legacy Integration-Token block (save/clear-medium-token) stays on the old
 // settings page until U8 — it's a stop-gap for old accounts and Medium no longer
 // issues new tokens, so it doesn't justify migrating two more write endpoints now.
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   getMediumStatus,
@@ -21,6 +21,7 @@ import {
 import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore, type Severity } from '../../stores/notifications'
+import ConfirmDialog from '../../components/ConfirmDialog.vue'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
@@ -56,11 +57,24 @@ const badge = computed(() => {
 
 const playwrightMissing = computed(() => browser.value?.state === 'not_installed')
 
+const confirmOpen = ref(false)
+const confirmMessage = ref('')
+let pendingFn: (() => Promise<MediumActionResult>) | null = null
+
 async function runAction(
   fn: () => Promise<MediumActionResult>,
   confirmMsg?: string,
 ): Promise<void> {
-  if (confirmMsg && !window.confirm(confirmMsg)) return
+  if (confirmMsg) {
+    confirmMessage.value = confirmMsg
+    pendingFn = fn
+    confirmOpen.value = true
+    return
+  }
+  await execAction(fn)
+}
+
+async function execAction(fn: () => Promise<MediumActionResult>): Promise<void> {
   try {
     const r = await fn()
     notify.push(r.message, severityOf(r.level))
@@ -70,8 +84,19 @@ async function runAction(
   }
 }
 
-async function onClearOauth(): Promise<void> {
-  if (!window.confirm('确认清除 Medium OAuth token？发布时将改用浏览器登录态。')) return
+async function onConfirmed(): Promise<void> {
+  const fn = pendingFn
+  pendingFn = null
+  if (fn) await execAction(fn)
+}
+
+const oauthClearOpen = ref(false)
+
+function onClearOauth(): void {
+  oauthClearOpen.value = true
+}
+
+async function doClearOauth(): Promise<void> {
   try {
     const r = await clearMediumOauth()
     notify.push(r.message, 'success')
@@ -127,6 +152,26 @@ async function onClearOauth(): Promise<void> {
         <button type="button" class="danger" :disabled="busy" @click="onClearOauth">清除</button>
       </div>
     </StateBlock>
+
+    <ConfirmDialog
+      v-model:open="confirmOpen"
+      danger
+      title="清除浏览器登录"
+      confirm-label="确认清除"
+      :confirm="onConfirmed"
+    >
+      <p>{{ confirmMessage }}</p>
+    </ConfirmDialog>
+
+    <ConfirmDialog
+      v-model:open="oauthClearOpen"
+      danger
+      title="清除 Medium OAuth token"
+      confirm-label="确认清除"
+      :confirm="doClearOauth"
+    >
+      <p>确认清除 Medium OAuth token？发布时将改用浏览器登录态。</p>
+    </ConfirmDialog>
   </section>
 </template>
 

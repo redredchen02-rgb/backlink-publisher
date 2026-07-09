@@ -97,13 +97,18 @@ describe('MediumCard', () => {
     expect(w.text()).toContain('playwright install chromium')
   })
 
-  it('offers a clear button when an OAuth token exists and revokes it', async () => {
+  it('offers a clear button when an OAuth token exists and revokes it via the confirm dialog', async () => {
     vi.mocked(api.getMediumStatus).mockResolvedValue(status({ state: 'logged_in', logged_in: true }, true))
     vi.mocked(api.clearMediumOauth).mockResolvedValue({ ok: true, message: 'Medium token 已清除' })
     const w = mountCard()
     await flushPromises()
     expect(w.text()).toContain('OAuth token 已存在')
     await btn(w, '清除')!.trigger('click')
+    await flushPromises()
+    // destructive clear now opens the shared ConfirmDialog (W2) — confirm to proceed
+    const confirmBtn = btn(w, '确认清除')
+    expect(confirmBtn).toBeTruthy()
+    await confirmBtn!.trigger('click')
     await flushPromises()
     expect(api.clearMediumOauth).toHaveBeenCalled()
     const notify = useNotificationsStore()
