@@ -256,6 +256,38 @@ class TestRouteStrategies:
         platform, _ = _route(sigs, strategy="spread", ledger_map=ledger)
         assert platform == "velog"  # velog has 0 covers -> highest spread
 
+    def test_non_default_dispatch_weight_reflected_in_reason(self):
+        """Characterization: a winner with a non-1.0 dispatch_weight surfaces it
+        in the reason string, and dispatch_weight scales the final score
+        (a heavily discounted platform loses to an undiscounted lower-tier one).
+        """
+        sigs = {
+            "blogger": _signal("blogger", dofollow=True),
+            "medium": _signal("medium", dofollow=True),
+        }
+        sigs["blogger"].dispatch_weight = 0.9
+        sigs["medium"].dofollow = "uncertain"
+        platform, dispatch = _route(sigs)
+        assert platform == "blogger"
+        assert "dispatch_weight=0.9" in dispatch["reason"]
+
+        # A heavily discounted top-tier platform can lose to an undiscounted
+        # lower-tier one.
+        sigs2 = {
+            "blogger": _signal("blogger", dofollow=True),
+            "medium": _signal("medium", dofollow=True),
+        }
+        sigs2["blogger"].dispatch_weight = 0.1
+        platform2, dispatch2 = _route(sigs2)
+        assert platform2 == "medium"
+        assert "dispatch_weight" not in dispatch2["reason"]  # medium kept default 1.0
+
+    def test_default_dispatch_weight_omitted_from_reason(self):
+        sigs = {"blogger": _signal("blogger")}
+        platform, dispatch = _route(sigs)
+        assert platform == "blogger"
+        assert "dispatch_weight" not in dispatch["reason"]
+
 
 class TestRouteDegradedNoLedger:
     """Behaviour when ledger data is unavailable."""

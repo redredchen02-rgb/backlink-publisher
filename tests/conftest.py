@@ -730,6 +730,110 @@ def _restore_global_state_net():
                 os.environ[key] = prev
 
 
+# ── Generic os.environ leak guard (Plan 2026-07-07-003 Unit 6) ──────────────
+#
+# R6: docs/solutions/test-failures/del-os-environ-poisons-session-scoped-
+# config-dir-fixture-2026-05-27.md (and its two sibling docs in the same
+# directory) all point at the same root-cause CLASS, not a one-off bug: a
+# test mutates ``os.environ`` directly (bare assignment, or "restoring" with
+# ``del os.environ[...]``) and never puts the prior value back. Because the
+# session-scoped ``_isolate_user_dirs`` fixture only resets its OWN two keys
+# at session end, a mid-session bare-``del`` silently poisons every later
+# test that resolves state through that env var -- and the failure only
+# reproduces under full-suite ordering, never in isolation. The existing
+# ``_reassert_config_isolation`` fixture above hardens exactly the two keys
+# that bit us before; this guard generalizes the same protection to ALL of
+# ``os.environ`` so a *new* leaking key doesn't require a new hand-maintained
+# fixture, mirroring this file's structural (AST-scan) philosophy rather than
+# a per-key allowlist-of-watched-vars.
+#
+# Comparison logic is a plain, dependency-free function (not inlined in the
+# fixture) so tests can exercise it directly without needing to trigger a
+# real leak inside this suite's own autouse fixture (see
+# tests/test_env_isolation_guard.py for why that matters).
+_ENV_GUARD_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        # Pinned globally via pytest-env: pyproject.toml
+        # [tool.pytest.ini_options] env = ["PYTHONHASHSEED=0"], required by
+        # the Footprint Regression Gate (R10, Plan 2026-05-18-007).
+        # pytest-env applies this once via its own plugin hook, outside of
+        # monkeypatch, so it is legitimately constant for the whole session
+        # rather than something an individual test is expected to restore.
+        "PYTHONHASHSEED",
+        # pytest core itself (not test code) sets/updates this to
+        # "<nodeid> (setup|call|teardown)" around every phase of every test
+        # and clears it at session end -- discovered empirically running
+        # this guard for the first time (test_prior_test_env_var_did_not_
+        # leak_forward failed on this key with no test code touching it).
+        # It is pytest's own bookkeeping, not a leak.
+        "PYTEST_CURRENT_TEST",
+    }
+)
+
+
+def _env_isolation_offenders(
+    before: dict[str, str],
+    after: dict[str, str],
+    allowlist: frozenset[str] = _ENV_GUARD_ALLOWLIST,
+) -> list[str]:
+    """Return the sorted keys that differ between two ``os.environ`` snapshots.
+
+    Catches all three shapes named in Unit 6's approach: a key present
+    before and absent after (bare ``del``), a key absent before and present
+    after (leaked new var), and a key present in both with a changed value
+    (direct reassignment). Keys in ``allowlist`` are never reported.
+    """
+    offenders = []
+    for key in sorted(set(before) | set(after)):
+        if key in allowlist:
+            continue
+        if before.get(key) != after.get(key):
+            offenders.append(key)
+    return offenders
+
+
+@pytest.fixture(autouse=True)
+def _env_isolation_guard(request: pytest.FixtureRequest):
+    """Fail the offending test, by name, if it leaves ``os.environ`` mutated.
+
+    Snapshots ``os.environ`` before the test body runs and compares it
+    against a fresh snapshot after all of the test's OWN fixtures (including
+    ``monkeypatch``, which auto-reverts its own ``setenv``/``delenv`` calls on
+    teardown) have finished tearing down. Being autouse with no fixture
+    dependencies, this fixture's setup is scheduled before any explicitly
+    requested function-scoped fixture in the test (per pytest's "autouse
+    fixtures instantiate before explicit ones, within the same scope" rule),
+    so its teardown -- LIFO -- runs *after* ``monkeypatch``'s teardown has
+    already restored whatever the test changed via the sanctioned API. A
+    test using ``monkeypatch.setenv``/``delenv`` therefore never trips this
+    guard; only a test that mutated ``os.environ`` directly and skipped
+    restoring it does.
+
+    On a leak, restores ``os.environ`` to the pre-test snapshot (so the
+    *next* test isn't also poisoned) and then fails loudly, naming the test
+    and the offending key(s) -- turning a "mystery failure three files later"
+    into "this test broke this key."
+    """
+    before = dict(os.environ)
+    yield
+    after = dict(os.environ)
+    offenders = _env_isolation_offenders(before, after)
+    if not offenders:
+        return
+    # Restore first so subsequent tests in the session aren't also poisoned,
+    # then fail -- detection AND containment, not just detection.
+    os.environ.clear()
+    os.environ.update(before)
+    pytest.fail(
+        f"{request.node.nodeid} left os.environ mutated after teardown "
+        f"(and was not restored via monkeypatch.setenv/delenv). Offending "
+        f"key(s): {', '.join(offenders)}. Use monkeypatch.setenv/delenv "
+        f"instead of direct os.environ mutation or bare `del os.environ[...]` "
+        f"-- see docs/solutions/test-failures/"
+        f"del-os-environ-poisons-session-scoped-config-dir-fixture-2026-05-27.md."
+    )
+
+
 @pytest.fixture
 def disable_csrf():
     """Sanctioned, restoring way to disable the global CSRF guard for a test.

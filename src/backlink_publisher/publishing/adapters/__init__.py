@@ -199,6 +199,15 @@ def register_all_adapters() -> None:
         referral_value="high",
         **WORDPRESSCOM_MANIFEST,
     )
+    # hashnode/writeas stay registered with visibility="retired" *by design*
+    # (Unit 4, docs/plans/2026-07-07-003-...-plan.md): this is not dead code
+    # awaiting cleanup. It keeps HashnodeGraphQLAdapter/WriteasAPIAdapter
+    # resolvable for explicit, operator-directed dispatch (e.g.
+    # `plan-backlinks --platform hashnode`) while excluding both from
+    # default seeding/canary cohorts — canary_seed.py filters on
+    # `visibility(name) != "retired"` and config/_toml_utils.py mirrors the
+    # same filter. Full rationale: docs/notes/retired-platforms/hashnode.md
+    # and docs/notes/retired-platforms/writeas.md.
     register(
         "hashnode",
         HashnodeGraphQLAdapter,
