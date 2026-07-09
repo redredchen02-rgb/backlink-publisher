@@ -146,6 +146,97 @@ def _probe(url: str, ua_key: str, ua: str) -> Hit:
     )
 
 
+def _ua_2xx(all_hits: list[Hit], key: str) -> bool:
+    return any(h.ua == key and h.status and 200 <= h.status < 300 for h in all_hits)
+
+
+def _ua_only_403(all_hits: list[Hit], key: str) -> bool:
+    ks = [h for h in all_hits if h.ua == key and h.status is not None]
+    return bool(ks) and all(h.status == 403 for h in ks)
+
+
+@dataclass
+class _TriageFlags:
+    """Booleans derived from the flattened hit list, used by both the
+    signal-list builder and the verdict-selection logic below.
+    """
+
+    coded: list[Hit]
+    preflight_2xx: bool
+    preflight_403: bool
+    googlebot_403: bool
+    browser_2xx: bool
+    any_2xx: bool
+    any_login: bool
+    any_cf: bool
+
+
+def _compute_triage_flags(all_hits: list[Hit]) -> _TriageFlags:
+    coded = [h for h in all_hits if h.status is not None]
+    return _TriageFlags(
+        coded=coded,
+        preflight_2xx=_ua_2xx(all_hits, "preflight-bot"),
+        preflight_403=_ua_only_403(all_hits, "preflight-bot"),
+        googlebot_403=_ua_only_403(all_hits, "googlebot"),
+        browser_2xx=_ua_2xx(all_hits, "browser"),
+        any_2xx=any(h.status and 200 <= h.status < 300 for h in coded),
+        any_login=any(h.looks_login_wall for h in all_hits),
+        any_cf=any(h.looks_cloudflare for h in all_hits),
+    )
+
+
+def _build_triage_signals(flags: _TriageFlags) -> list[str]:
+    signals: list[str] = []
+
+    if not flags.coded:
+        signals.append("No HTTP response from any UA (DNS/connection failure).")
+    if flags.preflight_2xx:
+        signals.append("Our preflight verifier UA receives 2xx (HTTP-fetchable).")
+    if flags.preflight_403:
+        signals.append(
+            "Our preflight verifier UA is 403'd — link_attr_verifier cannot fetch this channel."
+        )
+    if flags.googlebot_403 and not flags.preflight_403:
+        signals.append(
+            "Googlebot UA hard-403'd while a generic UA passes — likely Cloudflare "
+            "anti-spoofing (it verifies Googlebot by IP, not UA). The REAL Googlebot "
+            "may or may not be blocked; confirm via the `site:` index check, do not assume."
+        )
+    if flags.any_cf:
+        signals.append("Cloudflare/WAF challenge detected (403 + CF markers).")
+    if flags.any_login:
+        signals.append(
+            "Login wall detected — an HTTP 200 here is a gated SPA shell, NOT proof of "
+            "a public content surface. Browser tier required to see real content/links."
+        )
+
+    return signals
+
+
+_TRIAGE_NEXT_CHECKS = [
+    "Render a content/post page in a REAL browser (JS-capable). Does it "
+    "pass the challenge, or hit a login wall?",
+    "On the rendered page, extract ALL outbound <a href> + rel. Is there a "
+    "real link to the source blog / target — and is it dofollow or nofollow?",
+    "Google index: `site:<domain>` — are fresh dated content pages indexed, "
+    "or only stale structural pages?",
+]
+
+
+def _select_triage_verdict(flags: _TriageFlags) -> str:
+    if not flags.coded:
+        return "no-go-unreachable"
+    if flags.preflight_403 and not flags.browser_2xx:
+        return "no-go-unreachable"
+    if flags.any_login:
+        return "needs-browser-tier"
+    if flags.preflight_403 and flags.browser_2xx:
+        return "needs-browser-tier"
+    if flags.any_2xx:
+        return "needs-canary"
+    return "needs-browser-tier"
+
+
 def _triage(results: list[UrlResult]) -> tuple[str, list[str], list[str]]:
     """Return (verdict, signals, next_checks).
 
@@ -157,66 +248,10 @@ def _triage(results: list[UrlResult]) -> tuple[str, list[str], list[str]]:
     public, linkable surface.
     """
     all_hits = [h for r in results for h in r.hits]
-    coded = [h for h in all_hits if h.status is not None]
-
-    def _ua_2xx(key: str) -> bool:
-        return any(h.ua == key and h.status and 200 <= h.status < 300 for h in all_hits)
-
-    def _ua_only_403(key: str) -> bool:
-        ks = [h for h in all_hits if h.ua == key and h.status is not None]
-        return bool(ks) and all(h.status == 403 for h in ks)
-
-    signals: list[str] = []
-    preflight_2xx = _ua_2xx("preflight-bot")
-    preflight_403 = _ua_only_403("preflight-bot")
-    googlebot_403 = _ua_only_403("googlebot")
-    browser_2xx = _ua_2xx("browser")
-    any_2xx = any(h.status and 200 <= h.status < 300 for h in coded)
-    any_login = any(h.looks_login_wall for h in all_hits)
-    any_cf = any(h.looks_cloudflare for h in all_hits)
-
-    if not coded:
-        signals.append("No HTTP response from any UA (DNS/connection failure).")
-    if preflight_2xx:
-        signals.append("Our preflight verifier UA receives 2xx (HTTP-fetchable).")
-    if preflight_403:
-        signals.append(
-            "Our preflight verifier UA is 403'd — link_attr_verifier cannot fetch this channel."
-        )
-    if googlebot_403 and not preflight_403:
-        signals.append(
-            "Googlebot UA hard-403'd while a generic UA passes — likely Cloudflare "
-            "anti-spoofing (it verifies Googlebot by IP, not UA). The REAL Googlebot "
-            "may or may not be blocked; confirm via the `site:` index check, do not assume."
-        )
-    if any_cf:
-        signals.append("Cloudflare/WAF challenge detected (403 + CF markers).")
-    if any_login:
-        signals.append(
-            "Login wall detected — an HTTP 200 here is a gated SPA shell, NOT proof of "
-            "a public content surface. Browser tier required to see real content/links."
-        )
-
-    next_checks = [
-        "Render a content/post page in a REAL browser (JS-capable). Does it "
-        "pass the challenge, or hit a login wall?",
-        "On the rendered page, extract ALL outbound <a href> + rel. Is there a "
-        "real link to the source blog / target — and is it dofollow or nofollow?",
-        "Google index: `site:<domain>` — are fresh dated content pages indexed, "
-        "or only stale structural pages?",
-    ]
-
-    if not coded:
-        return "no-go-unreachable", signals, next_checks
-    if preflight_403 and not browser_2xx:
-        return "no-go-unreachable", signals, next_checks
-    if any_login:
-        return "needs-browser-tier", signals, next_checks
-    if preflight_403 and browser_2xx:
-        return "needs-browser-tier", signals, next_checks
-    if any_2xx:
-        return "needs-canary", signals, next_checks
-    return "needs-browser-tier", signals, next_checks
+    flags = _compute_triage_flags(all_hits)
+    signals = _build_triage_signals(flags)
+    verdict = _select_triage_verdict(flags)
+    return verdict, signals, list(_TRIAGE_NEXT_CHECKS)
 
 
 def probe_url(url: str) -> dict:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, UTC
-from typing import Any
+from typing import Any, cast
 
 from .signals import PlatformSignal
 
@@ -100,6 +100,122 @@ class RouteResult:
     dispatch: dict[str, Any] = field(default_factory=dict)
 
 
+def _filter_candidates(
+    signals: dict[str, PlatformSignal],
+    row_language: str,
+) -> tuple[list[PlatformSignal], dict[str, str]]:
+    """Phase 1: exclude unavailable platforms.
+
+    Gates (in order): visibility, binding, language whitelist, quarantine.
+    Returns (surviving candidates, {excluded_name: reason}).
+    """
+    candidates: list[PlatformSignal] = []
+    excluded: dict[str, str] = {}
+
+    for name, sig in signals.items():
+        # Visibility gate
+        if sig.visibility in ("retired", "hidden"):
+            excluded[name] = "visibility"
+            continue
+
+        # Binding gate (bound/anon only)
+        if sig.binding not in ("bound",):
+            excluded[name] = "binding"
+            continue
+
+        # Language whitelist gate
+        if sig.language_whitelist and row_language:
+            if row_language not in sig.language_whitelist:
+                excluded[name] = "language"
+                continue
+
+        # Canary quarantine gate
+        if sig.quarantined:
+            excluded[name] = "quarantined"
+            continue
+
+        candidates.append(sig)
+
+    return candidates, excluded
+
+
+def _resolve_live_dofollow_platforms(
+    row: dict[str, Any],
+    ledger_map: dict[str, dict[str, Any]] | None,
+) -> list[str]:
+    """Look up the live-dofollow platform list for this row's target URL."""
+    target_url = row.get("url") or row.get("target_url") or row.get("uri") or ""
+    if ledger_map and target_url in ledger_map:
+        lr = ledger_map[target_url]
+        return cast(list[str], lr.get("live_dofollow_platforms", []))
+    return []
+
+
+def _strategy_score(
+    strategy: str,
+    base_score: float,
+    spread_bonus: int,
+) -> float:
+    """Combine base score and spread bonus per strategy (pre dispatch_weight)."""
+    if strategy == "quality":
+        # Pure quality: dofollow/referral only
+        return base_score
+
+    if strategy == "spread":
+        # Favor platforms that have fewer existing covers
+        return base_score * 0.5 + float(spread_bonus) * 3.0
+
+    # balanced (default)
+    return base_score + float(spread_bonus)
+
+
+def _score_candidate(
+    sig: PlatformSignal,
+    strategy: str,
+    canary_stale_days: int | None,
+    now: datetime,
+    live_dofollow_platforms: list[str],
+) -> float:
+    """Phase 2 (per-candidate): apply staleness downgrade, tier/referral
+    scoring, strategy combination, and dispatch_weight scaling.
+    """
+    # Apply canary-stale downgrade
+    effective_dofollow = _downgrade_if_stale(sig, canary_stale_days, now)
+
+    tier_score = _score_dofollow_tier(effective_dofollow)
+    referral_bonus = _score_nofollow_bonus(effective_dofollow, sig.referral)
+    base_score = float(tier_score + referral_bonus)
+
+    cover_count = live_dofollow_platforms.count(sig.name)
+    spread_bonus = max(0, _MAX_SPREAD_BONUS - cover_count)
+
+    score = _strategy_score(strategy, base_score, spread_bonus)
+    return score * sig.dispatch_weight
+
+
+def _build_reason(
+    strategy: str,
+    sig: PlatformSignal | None,
+    live_dofollow_platforms: list[str],
+) -> str:
+    """Phase 3: build the human-readable reason string for the winner."""
+    reason_parts: list[str] = [strategy]
+
+    if sig:
+        dof_str = str(sig.dofollow) if sig.dofollow is not None else "unknown"
+        reason_parts.append(f"dofollow={dof_str}")
+        if sig.dispatch_weight != 1.0:
+            reason_parts.append(f"dispatch_weight={sig.dispatch_weight}")
+        if live_dofollow_platforms:
+            if sig.name not in live_dofollow_platforms:
+                reason_parts.append("new_platform")
+            else:
+                n = live_dofollow_platforms.count(sig.name)
+                reason_parts.append(f"existing_cover={n}")
+
+    return ", ".join(reason_parts)
+
+
 def route(
     row: dict[str, Any],
     signals: dict[str, PlatformSignal],
@@ -131,32 +247,7 @@ def route(
     row_language = row.get("language") or row.get("lang") or ""
 
     # ── Phase 1: Filter ──────────────────────────────────────────────
-    candidates: list[PlatformSignal] = []
-    excluded: dict[str, str] = {}
-
-    for name, sig in signals.items():
-        # Visibility gate
-        if sig.visibility in ("retired", "hidden"):
-            excluded[name] = "visibility"
-            continue
-
-        # Binding gate (bound/anon only)
-        if sig.binding not in ("bound",):
-            excluded[name] = "binding"
-            continue
-
-        # Language whitelist gate
-        if sig.language_whitelist and row_language:
-            if row_language not in sig.language_whitelist:
-                excluded[name] = "language"
-                continue
-
-        # Canary quarantine gate
-        if sig.quarantined:
-            excluded[name] = "quarantined"
-            continue
-
-        candidates.append(sig)
+    candidates, excluded = _filter_candidates(signals, row_language)
 
     if not candidates:
         return RouteResult(
@@ -171,64 +262,22 @@ def route(
         )
 
     # ── Phase 2: Score ───────────────────────────────────────────────
-    scored: list[tuple[float, str]] = []
+    live_dofollow_platforms = _resolve_live_dofollow_platforms(row, ledger_map)
 
-    # Compute live-dofollow platform count per target from ledger_map
-    target_url = row.get("url") or row.get("target_url") or row.get("uri") or ""
-    live_dofollow_platforms: list[str] = []
-    if ledger_map and target_url in ledger_map:
-        lr = ledger_map[target_url]
-        live_dofollow_platforms = lr.get("live_dofollow_platforms", [])
-
-    for sig in candidates:
-        # Apply canary-stale downgrade
-        effective_dofollow = _downgrade_if_stale(sig, canary_stale_days, now)
-
-        tier_score = _score_dofollow_tier(effective_dofollow)
-        referral_bonus = _score_nofollow_bonus(effective_dofollow, sig.referral)
-
-        base_score = float(tier_score + referral_bonus)
-
-        if strategy == "quality":
-            # Pure quality: dofollow/referral only
-            score = base_score
-
-        elif strategy == "spread":
-            # Favor platforms that have fewer existing covers
-            cover_count = live_dofollow_platforms.count(sig.name)
-            spread_bonus = max(0, _MAX_SPREAD_BONUS - cover_count)
-            score = base_score * 0.5 + float(spread_bonus) * 3.0
-
-        else:  # balanced (default)
-            cover_count = live_dofollow_platforms.count(sig.name)
-            spread_bonus = max(0, _MAX_SPREAD_BONUS - cover_count)
-            score = base_score + float(spread_bonus)
-
-        final_score = score * sig.dispatch_weight
-        scored.append((final_score, sig.name))
+    scored: list[tuple[float, str]] = [
+        (
+            _score_candidate(sig, strategy, canary_stale_days, now, live_dofollow_platforms),
+            sig.name,
+        )
+        for sig in candidates
+    ]
 
     # ── Phase 3: Select ──────────────────────────────────────────────
     scored.sort(key=lambda x: (-x[0], x[1]))  # desc score, asc name tiebreak
     best_name = scored[0][1] if scored else None
 
-    reason_parts: list[str] = []
-    if strategy == "balanced":
-        reason_parts.append("balanced")
-    else:
-        reason_parts.append(strategy)
-
-    sig = signals.get(best_name) if best_name else None  # type: ignore[assignment]
-    if sig:
-        dof_str = str(sig.dofollow) if sig.dofollow is not None else "unknown"
-        reason_parts.append(f"dofollow={dof_str}")
-        if sig.dispatch_weight != 1.0:
-            reason_parts.append(f"dispatch_weight={sig.dispatch_weight}")
-        if live_dofollow_platforms:
-            if sig.name not in live_dofollow_platforms:
-                reason_parts.append("new_platform")
-            else:
-                n = live_dofollow_platforms.count(sig.name)
-                reason_parts.append(f"existing_cover={n}")
+    sig = signals.get(best_name) if best_name else None
+    reason = _build_reason(strategy, sig, live_dofollow_platforms)
 
     return RouteResult(
         platform=best_name,
@@ -237,6 +286,6 @@ def route(
             "engine_version": ENGINE_VERSION,
             "candidates": [s.name for s in candidates],
             "excluded": excluded,
-            "reason": ", ".join(reason_parts),
+            "reason": reason,
         },
     )

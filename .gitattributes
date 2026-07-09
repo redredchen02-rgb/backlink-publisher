@@ -1,0 +1,20 @@
+# Normalize line endings to LF on checkout for every text file.
+# Stops the cross-platform "LF will be replaced by CRLF" churn that dirtied
+# the working tree on Windows dev machines (see plan 2026-07-09-001).
+* text=auto eol=lf
+
+# Binary assets must never be line-ending normalized or diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.gz binary
+*.pdf binary
+*.pyc binary

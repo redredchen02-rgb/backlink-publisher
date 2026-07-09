@@ -106,6 +106,100 @@ def _verdict(
     return VERDICT_WORTHWHILE, f"{would_skip} would-skip(s) — enforce would catch these"
 
 
+def _bucket_for(agg: dict[str, dict], channel: str) -> dict:
+    return agg.setdefault(
+        channel, {"attempts": 0, "would_skip": 0, "earliest": None}
+    )
+
+
+def _note_ts(bucket: dict, ts: datetime | None) -> None:
+    if ts is not None and (bucket["earliest"] is None or ts < bucket["earliest"]):
+        bucket["earliest"] = ts
+
+
+def _accumulate_attempts(
+    store: EventStore, agg: dict[str, dict], cutoff: datetime
+) -> None:
+    """Attempt denominator — one bucket increment per publish.* row.
+
+    A malformed/missing ``platform`` field still counts the attempt (under
+    UNATTRIBUTED); only channel attribution is lost.
+    """
+    placeholders = ",".join("?" for _ in _ATTEMPT_KINDS)
+    for row in store.query(
+        f"SELECT payload_json, ts_utc FROM events WHERE kind IN ({placeholders})",
+        _ATTEMPT_KINDS,
+    ):
+        ts = _parse_ts(row["ts_utc"])
+        if ts is not None and ts < cutoff:
+            continue
+        try:
+            channel = json.loads(row["payload_json"] or "{}").get("platform")
+        except (ValueError, TypeError):
+            channel = None
+        bucket = _bucket_for(agg, channel or UNATTRIBUTED)
+        bucket["attempts"] += 1
+        _note_ts(bucket, ts)
+
+
+def _accumulate_would_skips(
+    store: EventStore, agg: dict[str, dict], cutoff: datetime
+) -> None:
+    """Would-skip numerator — reliability.decision rows with a would_skip_*
+    decision. A malformed payload_json row is dropped entirely (no credit).
+    """
+    for row in store.query(
+        "SELECT payload_json, ts_utc FROM events WHERE kind = ?",
+        (kinds.RELIABILITY_DECISION,),
+    ):
+        ts = _parse_ts(row["ts_utc"])
+        if ts is not None and ts < cutoff:
+            continue
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (ValueError, TypeError):
+            continue
+        if not str(payload.get("decision", "")).startswith(_WOULD_SKIP_PREFIX):
+            continue
+        bucket = _bucket_for(agg, payload.get("platform") or UNATTRIBUTED)
+        bucket["would_skip"] += 1
+        _note_ts(bucket, ts)
+
+
+def _readiness_row(
+    channel: str,
+    bucket: dict,
+    *,
+    now: datetime,
+    small_sample_max: int,
+    min_attempts: int,
+    min_days_observed: int,
+) -> ChannelReadiness:
+    attempts = bucket["attempts"]
+    would_skip = bucket["would_skip"]
+    earliest = bucket["earliest"]
+    days_observed = (now - earliest).days if earliest is not None else 0
+    small_sample = attempts <= small_sample_max
+    verdict, reason = _verdict(
+        attempts=attempts,
+        would_skip=would_skip,
+        days_observed=days_observed,
+        small_sample=small_sample,
+        min_attempts=min_attempts,
+        min_days=min_days_observed,
+    )
+    return ChannelReadiness(
+        channel=channel,
+        observed_attempts=attempts,
+        would_skip_count=would_skip,
+        would_skip_rate=(round(would_skip / attempts, 3) if attempts else None),
+        days_observed=days_observed,
+        small_sample=small_sample,
+        verdict=verdict,
+        reason=reason,
+    )
+
+
 def channel_readiness(
     *,
     window_days: int = DEFAULT_WINDOW_DAYS,
@@ -124,78 +218,20 @@ def channel_readiness(
 
     # channel -> {"attempts", "would_skip", "earliest"}
     agg: dict[str, dict] = {}
+    _accumulate_attempts(store, agg, cutoff)
+    _accumulate_would_skips(store, agg, cutoff)
 
-    def _bucket(channel: str) -> dict:
-        return agg.setdefault(
-            channel, {"attempts": 0, "would_skip": 0, "earliest": None}
-        )
-
-    def _note_ts(bucket: dict, ts: datetime | None) -> None:
-        if ts is not None and (bucket["earliest"] is None or ts < bucket["earliest"]):
-            bucket["earliest"] = ts
-
-    # 1. attempt denominator — publish.* kinds
-    placeholders = ",".join("?" for _ in _ATTEMPT_KINDS)
-    for row in store.query(
-        f"SELECT payload_json, ts_utc FROM events WHERE kind IN ({placeholders})",
-        _ATTEMPT_KINDS,
-    ):
-        ts = _parse_ts(row["ts_utc"])
-        if ts is not None and ts < cutoff:
-            continue
-        try:
-            channel = json.loads(row["payload_json"] or "{}").get("platform")
-        except (ValueError, TypeError):
-            channel = None
-        bucket = _bucket(channel or UNATTRIBUTED)
-        bucket["attempts"] += 1
-        _note_ts(bucket, ts)
-
-    # 2. would-skip numerator — reliability.decision rows with a would_skip_* decision
-    for row in store.query(
-        "SELECT payload_json, ts_utc FROM events WHERE kind = ?",
-        (kinds.RELIABILITY_DECISION,),
-    ):
-        ts = _parse_ts(row["ts_utc"])
-        if ts is not None and ts < cutoff:
-            continue
-        try:
-            payload = json.loads(row["payload_json"] or "{}")
-        except (ValueError, TypeError):
-            continue
-        if not str(payload.get("decision", "")).startswith(_WOULD_SKIP_PREFIX):
-            continue
-        bucket = _bucket(payload.get("platform") or UNATTRIBUTED)
-        bucket["would_skip"] += 1
-        _note_ts(bucket, ts)
-
-    per_channel: list[ChannelReadiness] = []
-    for channel, bucket in agg.items():
-        attempts = bucket["attempts"]
-        would_skip = bucket["would_skip"]
-        earliest = bucket["earliest"]
-        days_observed = (now - earliest).days if earliest is not None else 0
-        small_sample = attempts <= small_sample_max
-        verdict, reason = _verdict(
-            attempts=attempts,
-            would_skip=would_skip,
-            days_observed=days_observed,
-            small_sample=small_sample,
+    per_channel = [
+        _readiness_row(
+            channel,
+            bucket,
+            now=now,
+            small_sample_max=small_sample_max,
             min_attempts=min_attempts,
-            min_days=min_days_observed,
+            min_days_observed=min_days_observed,
         )
-        per_channel.append(
-            ChannelReadiness(
-                channel=channel,
-                observed_attempts=attempts,
-                would_skip_count=would_skip,
-                would_skip_rate=(round(would_skip / attempts, 3) if attempts else None),
-                days_observed=days_observed,
-                small_sample=small_sample,
-                verdict=verdict,
-                reason=reason,
-            )
-        )
+        for channel, bucket in agg.items()
+    ]
 
     per_channel.sort(key=lambda c: c.channel)
     return ReadinessReport(window_days=window_days, per_channel=per_channel)

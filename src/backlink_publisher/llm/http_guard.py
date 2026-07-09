@@ -21,6 +21,10 @@ from backlink_publisher._util.net_safety import _check_url_for_ssrf
 # could return a multi-GB body and exhaust memory.
 LLM_MAX_RESPONSE_BYTES = 64 * 1024
 
+# Reused across calls to the same configured LLM host so TCP/TLS handshakes are
+# pooled instead of re-negotiated on every request.
+_SESSION = requests.Session()
+
 
 def guard_llm_endpoint(url: str) -> tuple[str | None, str | None]:
     """Return (rejection_reason, detail) or (None, None) if URL is acceptable.
@@ -100,7 +104,7 @@ def safe_post_json(
         ValueError: on redirect, bad content-type, body-too-large, or JSON parse error.
         requests.RequestException: on network failure.
     """
-    resp = requests.post(
+    resp = _SESSION.post(
         url,
         headers=headers,
         json=payload,

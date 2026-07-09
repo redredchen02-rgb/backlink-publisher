@@ -189,7 +189,13 @@ def _refresh_cookies(context: Any) -> None:
             os.chmod(tmp_path, 0o600)
             os.replace(tmp_path, target)
         # debt: medium-browser-cookie-refresh-best-effort-accepted
-        except Exception:
+        except Exception as exc:
+            log.debug(
+                "Failed to write refreshed medium-cookies.json; cleaning up "
+                "temp file before propagating",
+                exc_type=type(exc).__name__,
+                exc=str(exc),
+            )
             try:
                 if tmp_path.exists():
                     tmp_path.unlink()

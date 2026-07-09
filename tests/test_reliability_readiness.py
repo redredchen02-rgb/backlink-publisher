@@ -134,3 +134,58 @@ def test_rows_outside_window_are_excluded(store):
 def test_default_thresholds_are_provisional_but_present():
     assert DEFAULT_MIN_ATTEMPTS == 30
     assert DEFAULT_MIN_DAYS_OBSERVED == 7
+
+
+# ── Characterization: missing-data / malformed-payload branches ──────────
+# (Unit 5 complexity refactor — pinning current behavior before splitting
+# channel_readiness into helpers.)
+
+
+def _insert_raw(store, kind, payload_json, ts_utc):
+    """Insert an events row bypassing store.append()'s JSON serialization,
+    so we can exercise malformed/missing-field payloads directly.
+    """
+    with store.connect() as conn:
+        conn.execute(
+            "INSERT INTO events "
+            "(ts_raw, ts_utc, run_id, kind, target_url, host, article_id, payload_json) "
+            "VALUES (?, ?, NULL, ?, NULL, NULL, NULL, ?)",
+            (ts_utc, ts_utc, kind, payload_json),
+        )
+
+
+def test_attempt_missing_platform_falls_back_to_unattributed(store):
+    _insert_raw(store, PUBLISH_CONFIRMED, '{"live_url": "https://x/1"}', _T0_ISO)
+    c = _one(store, now=_T0 + timedelta(days=5))
+    assert c.channel == "(unattributed)"
+    assert c.observed_attempts == 1
+
+
+def test_attempt_malformed_json_falls_back_to_unattributed_but_still_counted(store):
+    """A malformed payload_json still counts as an attempt (channel=None ->
+    UNATTRIBUTED) — only the channel attribution is lost, not the row."""
+    _insert_raw(store, PUBLISH_CONFIRMED, "{not valid json", _T0_ISO)
+    c = _one(store, now=_T0 + timedelta(days=5))
+    assert c.channel == "(unattributed)"
+    assert c.observed_attempts == 1
+
+
+def test_decision_missing_platform_falls_back_to_unattributed(store):
+    _seed_attempts(store, "(unattributed)", 6)
+    _insert_raw(
+        store, RELIABILITY_DECISION,
+        '{"decision": "would_skip_policy", "mode": "observe"}', _T0_ISO,
+    )
+    c = _one(store, now=_T0 + timedelta(days=5))
+    assert c.channel == "(unattributed)"
+    assert c.would_skip_count == 1
+
+
+def test_decision_malformed_json_row_is_skipped_entirely(store):
+    """Unlike the attempt-side malformed-JSON case, a malformed
+    reliability.decision row is dropped outright (no would-skip credit)."""
+    _seed_attempts(store, "medium", 6)
+    _insert_raw(store, RELIABILITY_DECISION, "{not valid json", _T0_ISO)
+    c = _one(store, now=_T0 + timedelta(days=5))
+    assert c.would_skip_count == 0
+    assert c.verdict == VERDICT_POINTLESS

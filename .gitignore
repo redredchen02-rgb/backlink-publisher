@@ -188,3 +188,9 @@ webui_app/spa_dist/
 .gstack/
 nul
 .worktrees
+
+# Local analysis / type-check dumps (e.g. mypy_full.txt)
+mypy_full.txt
+
+# Tool-generated context output (compound-engineering, etc.)
+.context/
