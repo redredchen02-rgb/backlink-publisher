@@ -307,9 +307,14 @@ def update_status_in_db(
     new_kind = _STATUS_TO_KIND.get(new_status, KIND_UNVERIFIED)
     s = store or _EventStore()
     with s.connect_immediate() as conn:
+        # Target the latest PUBLISH event, never the latest event of any kind: a
+        # keep-alive link.rechecked shares the article_id and would otherwise be
+        # rewritten here, silently destroying the recheck verdict AND leaving the
+        # real publish event unchanged (audit finding [20]).
         row = conn.execute(
-            "SELECT id, payload_json FROM events WHERE article_id = ? ORDER BY id DESC LIMIT 1",
-            (aid,),
+            "SELECT id, payload_json FROM events WHERE article_id = ? "
+            "AND kind IN (?, ?, ?) ORDER BY id DESC LIMIT 1",
+            (aid, KIND_CONFIRMED, KIND_UNVERIFIED, KIND_FAILED),
         ).fetchone()
         if row is None:
             return False
@@ -320,7 +325,9 @@ def update_status_in_db(
         else:
             payload.pop("ui_status", None)
         conn.execute(
+            # payload_json is NOT NULL — an empty payload must serialize to "{}",
+            # never SQL NULL (audit finding [20], secondary hardening).
             "UPDATE events SET kind = ?, payload_json = ? WHERE id = ?",
-            (new_kind, json.dumps(payload) if payload else None, evt_id),
+            (new_kind, json.dumps(payload), evt_id),
         )
         return True
