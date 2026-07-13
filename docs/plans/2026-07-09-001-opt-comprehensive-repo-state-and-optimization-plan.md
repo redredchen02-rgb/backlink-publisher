@@ -121,21 +121,25 @@ claims: {}
 ### Phase C — 效能地基（讓後續優化可被守護）
 - [x] **C1: 建立效能回歸基準（第一塊）** — routing benchmark 已落地（`d25a89d3`），
   `pytest-benchmark` 已入 dev deps，`.benchmarks/` 有基線。
-- [ ] **C1': 擴充基準涵蓋面** — 對 `publish_backlinks`（單 row 全流程，mock adapter）、
-  `plan_backlinks/core`、`sdk/api` 建立基線，使 C4 與 v060 計畫的 H1 改造可被回歸守護。
+- [x] **C1': 擴充基準涵蓋面** — 完成（2026-07-13）。盤點發現 `tests/test_benchmarks.py`
+  已有 plan（單 row + 100 row）、publish dry-run（50 row）、JSONL、webui_store 熱路徑、
+  link-attr verifier 基線；本輪補上缺的 `sdk/api`（`PipelineAPI.plan()` seam 開銷,
+  與 kernel 基線分離使退化可歸因）。10 個基準全綠。
 - [ ] **C2: 追蹤平行發佈引擎落地**（歸 `v060-uiux-pipeline-upgrade-plan` 認領，本計畫不動手）——
   實測確認 `_engine.py` 仍為順序執行；H1 假說仍須 cProfile 實測證實後再動。
 - [x] **C3: 連線複用小優化** — `http_form_post` per-host Session pool（`2269b14e`）+
   LLM HTTP session 複用（`cf656fab`）完成。
-- [ ] **C4（原 H2）: SQLite 連線複用評估** — 10+ 處 per-call `sqlite3.connect`
-  （`events/store.py`、`idempotency/store.py`、`publishing/_throttle.py` 等）。
-  先以 C1' 基準量測連線開銷佔比；**只有量測證明值得才改**（SQLite 連線在本地檔案上
-  開銷通常小，貿然引入連線快取反而有跨執行緒/鎖風險）。
+- [x] **C4（原 H2）: SQLite 連線複用評估** — 已量測，**決定不做**（2026-07-13）。
+  微基準（1000-row 表，200 次/項）：connect_only 0.079ms、connect+query 0.192ms vs
+  query_reused 0.027ms、connect+write 0.227ms vs write_reused 0.052ms。
+  每操作省 ~0.15ms，比管線每 row 的網路/LLM 呼叫低 3-4 個數量級；引入連線快取的
+  跨執行緒/鎖生命週期/_refresh_paths 複雜度風險不對稱。依「量測證明值得才改」守則收案。
 
 ### Phase D — 殘餘品質債
 - [ ] **D1: 29 個 CC≥21 熱點（2026-07-13 實測）** — 小步萃取重構，先攻 Top 8（見 Snapshot B5）。
-  注意其中 `report_bug/` 2 處在未追蹤新碼——應在 A3 分流後於該功能分支上處理。
   每改一處同步核對 `complexity_budget.toml`；調 ceiling 須同 PR 附 ≥80 字 rationale。
+  ⚠️ 2026-07-13 暫緩：另一 session 正於 `fix/audit-batch1` / `fix/windows-test-suite-triage`
+  修 adapters/events 等區域的 bug——與 D1 目標檔高度重疊，等其落地後再開工以免重構壓修復。
 - [x] **D2': 修復 mypy cp950 crash** — 完成（2026-07-13，`7edd7326` + CI 引用修正 `0d01d2d9`，
   已合併 main）。採方案 (a) 遷入 `pyproject.toml [tool.mypy]` 並刪 `mypy.ini`；同步修掉 INI 引號
   `platform = "linux"` 的字面值問題與 `ci.yml`/`AGENTS.md` 的 `--config-file mypy.ini` 引用。
