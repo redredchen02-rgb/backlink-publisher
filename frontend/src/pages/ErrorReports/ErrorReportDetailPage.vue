@@ -32,6 +32,7 @@ import {
   type ErrorReportStatus,
 } from '../../api/errorReports'
 import StateBlock from '../../components/StateBlock.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { useRowReportLinksStore } from '../../stores/rowReportLinks'
@@ -199,12 +200,10 @@ function fmtTime(iso: string | undefined): string {
         </p>
 
         <div class="summary">
-          <span class="status" :data-status="report.status">
-            {{ STATUS_LABELS[report.status] ?? report.status }}
-          </span>
-          <span v-if="report.severity" class="badge">严重度：{{ report.severity }}</span>
-          <span v-if="report.source" class="badge">来源：{{ report.source }}</span>
-          <span class="badge">发生次数：{{ report.occurrences ?? 1 }}</span>
+          <StatusBadge :status="report.status" :label="STATUS_LABELS[report.status]" />
+          <span v-if="report.severity" class="chip">严重度：{{ report.severity }}</span>
+          <span v-if="report.source" class="chip">来源：{{ report.source }}</span>
+          <span class="chip">发生次数：{{ report.occurrences ?? 1 }}</span>
         </div>
 
         <dl class="meta">
@@ -307,23 +306,6 @@ function fmtTime(iso: string | undefined): string {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
-}
-.status[data-status='open'] {
-  color: var(--danger);
-  font-weight: var(--font-weight-semibold);
-}
-.status[data-status='acknowledged'] {
-  color: var(--warning);
-  font-weight: var(--font-weight-semibold);
-}
-.status[data-status='resolved'] {
-  color: var(--success);
-  font-weight: var(--font-weight-semibold);
-}
-.badge {
-  background: var(--surface-overlay);
-  padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-pill);
 }
 .meta {
   display: grid;

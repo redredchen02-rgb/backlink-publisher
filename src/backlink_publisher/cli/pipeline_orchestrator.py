@@ -427,7 +427,7 @@ def _write_scheduler_state(state: dict[str, Any]) -> None:
     """Write the scheduler state JSON file atomically."""
     SCHEDULER_STATE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = SCHEDULER_STATE_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=2))
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
     tmp.rename(SCHEDULER_STATE_FILE)
 
 

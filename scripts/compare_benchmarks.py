@@ -7,9 +7,19 @@ main's last successful CI run, one from the current run), diffs the ``mean``
 timing per benchmark by ``fullname``, and flags anything that regressed
 beyond ``--threshold-pct``.
 
-Blocking by design: exits non-zero when any benchmark regresses beyond the
-threshold. The 20% threshold is deliberately lenient to absorb shared-runner
-noise; tighten once real-world variance is measured across several weeks.
+Advisory / warn-only END TO END, by spec: regressions beyond the threshold
+emit ``::warning::`` annotations and the exit code is ALWAYS 0. Three truth
+sources pin this contract — the ``ci.yml`` step comment ("always exits 0
+… this step never fails the build"), ``AGENTS.md`` §CI ("advisory/warn-only
+end to end"), and the originating plan's acceptance test (simulated 30%
+regression → ``::warning::`` + exit 0). The initial implementation shipped
+``::error::`` + exit 1 against that spec and hard-failed PRs #90/#92 on
+cross-runner noise: the baseline artifact is timed on whatever runner main
+last got, the PR on another — measured same-machine A/B of the same diff
+showed ±2.5% where CI claimed +33% (2026-07-13). A blocking gate needs a
+same-runner baseline (run main's benchmarks in the same job) — tracked as a
+follow-up; do NOT flip this back to blocking while the baseline crosses
+runner generations.
 
 Usage:
   compare_benchmarks.py --baseline baseline/benchmark-result.json \\
@@ -19,7 +29,7 @@ If ``--baseline`` does not exist (e.g. first run after enabling this gate,
 or the baseline-artifact fetch step failed), the comparison is skipped with
 a warning rather than treated as an error.
 
-Exit code: 0 on success, 1 when regressions exceed threshold.
+Exit code: always 0 (the table + annotations are the signal).
 """
 from __future__ import annotations
 
@@ -89,13 +99,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if regressions:
         for name, pct in regressions:
-            print(f"::error::Benchmark '{name}' regressed {pct:.1f}% vs main "
-                  f"baseline (threshold: {args.threshold_pct:.0f}%)")
-        return 1
+            print(f"::warning::Benchmark '{name}' regressed {pct:.1f}% vs main "
+                  f"baseline (threshold: {args.threshold_pct:.0f}%) - advisory "
+                  f"only; cross-runner baseline noise regularly exceeds this.")
     else:
         print(f"No benchmarks regressed beyond the {args.threshold_pct:.0f}% "
               f"threshold.")
-        return 0
+    return 0
 
 
 if __name__ == "__main__":

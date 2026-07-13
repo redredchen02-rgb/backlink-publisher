@@ -13,6 +13,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { fetchCampaignStatus } from '../../api/campaign'
 import { usePolledQuery } from '../../composables/usePolledQuery'
 import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,6 +43,10 @@ const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
 
 const progressPct = computed(() => Math.round((status.value?.progress_pct ?? 0) * 100))
 
+const seedRows = computed(() =>
+  (status.value?.seeds ?? []).map((s) => ({ ...s, id: String(s.idx) })),
+)
+
 const goBack = () => {
   router.push('/batch-campaign')
 }
@@ -64,9 +70,10 @@ const goBack = () => {
     >
       <div v-if="status" class="camp-progress__content">
         <div class="camp-progress__summary">
-          <span class="badge" :class="status.done ? 'bg-success' : 'bg-primary'">
-            {{ status.done ? '已完成' : '进行中' }}
-          </span>
+          <StatusBadge
+            :tone="status.done ? 'success' : 'primary'"
+            :label="status.done ? '已完成' : '进行中'"
+          />
           <code class="ms-2">{{ status.campaign_id }}</code>
         </div>
 
@@ -78,8 +85,11 @@ const goBack = () => {
           <div class="progress" style="height: 20px">
             <div
               class="progress-bar"
-              :class="status.done ? 'bg-success' : 'progress-bar-striped progress-bar-animated'"
-              :style="{ width: progressPct + '%' }"
+              :class="!status.done && 'progress-bar-striped progress-bar-animated'"
+              :style="{
+                width: progressPct + '%',
+                backgroundColor: status.done ? 'var(--success)' : undefined,
+              }"
               :aria-valuenow="progressPct"
               aria-valuemin="0"
               aria-valuemax="100"
@@ -88,36 +98,32 @@ const goBack = () => {
         </div>
 
         <div v-if="status.seeds?.length" class="data-table-wrap mt-3">
-        <table class="data-table">
-          <thead>
-            <tr>
+          <DataTable
+            :items="seedRows"
+            empty-text="任务未找到。"
+            caption="种子进度列表"
+          >
+            <template #head>
               <th>#</th>
               <th>内容</th>
               <th>状态</th>
               <th>草稿</th>
               <th>已发布</th>
               <th>错误</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="seed in status.seeds" :key="seed.idx">
+            </template>
+            <template #row="{ row: seed }">
               <td class="col-num">{{ seed.idx }}</td>
               <td class="col-text">
                 <code class="text-truncate d-inline-block" style="max-width: 200px">
                   {{ seed.text_preview ?? '—' }}
                 </code>
               </td>
-              <td class="col-status">
-                <span class="badge" :class="seed.status === 'success' ? 'bg-success' : 'bg-secondary'">
-                  {{ seed.status }}
-                </span>
-              </td>
+              <td><StatusBadge :status="seed.status" /></td>
               <td class="col-num">{{ seed.draft_count ?? 0 }}</td>
               <td class="col-num">{{ seed.published_count ?? 0 }}</td>
               <td class="col-text text-danger">{{ seed.error ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
+            </template>
+          </DataTable>
         </div>
 
         <p v-if="status.running" class="text-muted mt-2">
@@ -130,6 +136,7 @@ const goBack = () => {
 </template>
 
 <style scoped>
+/* DataTable owns .data-table/.data-table-wrap layout; page-specific styles below */
 .camp-progress {
   display: flex;
   flex-direction: column;

@@ -151,4 +151,47 @@ describe('ErrorReportsPage', () => {
     expect(w.find('b').exists()).toBe(false)
     expect(w.text()).toContain('<script>alert(1)</script><b>bold</b>')
   })
+
+  it('renders each row status via StatusBadge, not a hand-rolled status span', async () => {
+    vi.mocked(api.listErrorReports).mockResolvedValue({ items: [OPEN_REPORT, RESOLVED_REPORT], total: 2 })
+    const { w } = await mountPage()
+    await flushPromises()
+
+    const badges = w.findAll('[data-testid="status-badge"]')
+    expect(badges).toHaveLength(2)
+    expect(badges[0]!.text()).toBe('待处理')
+    expect(badges[1]!.text()).toBe('已解决')
+    expect(w.find('.status[data-status]').exists()).toBe(false)
+  })
+
+  it('clicking the next-page control refetches with an advanced offset (server pagination)', async () => {
+    vi.mocked(api.listErrorReports).mockResolvedValue({ items: [OPEN_REPORT], total: 60 })
+    const { w } = await mountPage()
+    await flushPromises()
+
+    const nextBtn = w.findAll('button').find((b) => b.text() === '下一页')!
+    expect(nextBtn.attributes('disabled')).toBeUndefined()
+    await nextBtn.trigger('click')
+    await flushPromises()
+
+    const lastCall = vi.mocked(api.listErrorReports).mock.calls.at(-1)!
+    expect(lastCall[0]).toMatchObject({ limit: 50, offset: 50 })
+  })
+
+  it('changing a filter resets the offset back to 0', async () => {
+    vi.mocked(api.listErrorReports).mockResolvedValue({ items: [OPEN_REPORT], total: 60 })
+    const { w } = await mountPage()
+    await flushPromises()
+
+    const nextBtn = w.findAll('button').find((b) => b.text() === '下一页')!
+    await nextBtn.trigger('click')
+    await flushPromises()
+    expect(vi.mocked(api.listErrorReports).mock.calls.at(-1)![0]).toMatchObject({ offset: 50 })
+
+    await w.find('select[aria-label="按状态筛选"]').setValue('resolved')
+    await flushPromises()
+
+    const lastCall = vi.mocked(api.listErrorReports).mock.calls.at(-1)!
+    expect(lastCall[0]).toMatchObject({ status: 'resolved', offset: 0 })
+  })
 })

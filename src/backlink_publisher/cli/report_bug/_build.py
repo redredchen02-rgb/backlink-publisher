@@ -230,7 +230,12 @@ def _git_available() -> bool:
     try:
         ok = (
             subprocess.run(
-                ["git", "--version"], capture_output=True, text=True, timeout=2
+                ["git", "--version"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=2,
             ).returncode == 0
         )
     except Exception:  # noqa: BLE001 — git optional
@@ -270,12 +275,16 @@ def build_env_snapshot() -> dict[str, Any]:
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=2,
             ).stdout.strip() or "unknown"
             git_sha = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=2,
             ).stdout.strip() or "unknown"
         except Exception:  # noqa: BLE001 — git optional

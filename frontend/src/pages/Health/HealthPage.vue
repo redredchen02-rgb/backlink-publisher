@@ -236,6 +236,7 @@ const secondaryPanels = computed(() => {
           <h2>渠道价值记分卡 <span v-if="panels.channel_scorecard.degraded" class="degraded-tag">数据不可用</span></h2>
           <div class="data-table-wrap" v-if="panels.channel_scorecard.data.length">
             <table class="data-table">
+              <caption class="sr-only">渠道价值记分卡</caption>
               <thead>
                 <tr><th>渠道</th><th></th></tr>
               </thead>
@@ -280,6 +281,7 @@ const secondaryPanels = computed(() => {
             <h2>常青探针 <span v-if="panels.canary.degraded" class="degraded-tag">数据不可用</span></h2>
             <div class="data-table-wrap" v-if="panels.canary.data.length">
               <table class="data-table">
+                <caption class="sr-only">常青探针（金丝雀）状态</caption>
                 <thead><tr><th>平台</th><th>状态</th><th>连续失败</th><th>已隔离</th></tr></thead>
                 <tbody>
                   <tr v-for="row in panels.canary.data" :key="row.platform">
@@ -298,6 +300,7 @@ const secondaryPanels = computed(() => {
             <h2>发布路径探针 <span v-if="panels.forward_path.degraded" class="degraded-tag">数据不可用</span></h2>
             <div class="data-table-wrap" v-if="panels.forward_path.data.length">
               <table class="data-table">
+                <caption class="sr-only">发布路径探针（转发路径）状态</caption>
                 <thead><tr><th>平台</th><th>状态</th><th>连续失败</th><th>降级</th></tr></thead>
                 <tbody>
                   <tr v-for="row in panels.forward_path.data" :key="row.platform">
@@ -318,6 +321,7 @@ const secondaryPanels = computed(() => {
           <h2>平台状态与操作 <span v-if="panels.platform_health.degraded" class="degraded-tag">数据不可用</span></h2>
           <div class="data-table-wrap" v-if="Object.keys(panels.platform_health.data).length">
             <table class="data-table">
+              <caption class="sr-only">平台健康状态与操作</caption>
               <thead>
                 <tr>
                   <th>平台</th><th>暂停</th><th>连续失败</th><th>熔断</th><th>最近失败</th><th>操作</th>
@@ -367,6 +371,7 @@ const secondaryPanels = computed(() => {
             <h3>{{ entry.label }} <span v-if="entry.panel.degraded" class="degraded-tag">数据不可用</span></h3>
             <div class="data-table-wrap" v-if="entry.rows.length">
               <table class="data-table">
+                <caption class="sr-only">{{ entry.label }}</caption>
                 <thead>
                   <tr><th v-for="col in columnsOf(entry.rows)" :key="col">{{ col }}</th></tr>
                 </thead>
@@ -467,5 +472,16 @@ const secondaryPanels = computed(() => {
 }
 .health__more .health__section {
   margin-top: 1rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

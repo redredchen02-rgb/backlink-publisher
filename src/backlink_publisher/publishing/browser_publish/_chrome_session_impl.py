@@ -161,6 +161,8 @@ def _lsof_listener_pid(port: int) -> int | None:
             ["lsof", f"-iTCP:{port}", "-sTCP:LISTEN", "-Fp", "-n", "-P"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=_OS_PROBE_TIMEOUT_S,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -186,6 +188,8 @@ def _ps_command(pid: int) -> str | None:
             ["ps", "-o", "command=", "-p", str(pid)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=_OS_PROBE_TIMEOUT_S,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -251,7 +255,7 @@ def _write_pid_file(pid: int, start_time: float) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     payload = json.dumps({"pid": pid, "start_time": round(start_time, 3)})
-    tmp.write_text(payload)
+    tmp.write_text(payload, encoding="utf-8")
     os.chmod(tmp, 0o600)
     os.replace(tmp, path)
 
