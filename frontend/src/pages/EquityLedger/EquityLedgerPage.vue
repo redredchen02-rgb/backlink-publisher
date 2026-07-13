@@ -2,7 +2,8 @@
 // Equity ledger — Plan P14 B1 (SPA migration).
 import { computed, onMounted, ref } from 'vue'
 import { fetchEquityLedger, triggerRecheck, type EquityRow } from '../../api/equityLedger'
-import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 
 const rows = ref<EquityRow[]>([])
 const filteredRows = ref<EquityRow[]>([])
@@ -20,12 +21,6 @@ const statusCounts = computed(() => {
   return { total, live, weak, dead }
 })
 
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (loading.value) return 'loading'
-  if (error.value) return 'error'
-  if (rows.value.length === 0) return 'empty'
-  return 'ready'
-})
 
 const applyFilters = () => {
   let result = [...rows.value]
@@ -46,6 +41,10 @@ const applyFilters = () => {
   }
   filteredRows.value = result
 }
+
+const tableRows = computed(() =>
+  filteredRows.value.map((r) => ({ ...r, id: `${r.target_url}|${r.platform}` })),
+)
 
 const load = async () => {
   loading.value = true
@@ -90,14 +89,14 @@ onMounted(load)
       </div>
     </header>
 
-    <div v-if="blockState === 'ready'" class="equity__stats d-flex gap-3 mb-2">
+    <div v-if="rows.length > 0" class="equity__stats d-flex gap-3 mb-2">
       <span>总计: <strong>{{ statusCounts.total }}</strong></span>
       <span class="text-success">存活: <strong>{{ statusCounts.live }}</strong></span>
       <span class="text-warning">弱: <strong>{{ statusCounts.weak }}</strong></span>
       <span class="text-danger">失效: <strong>{{ statusCounts.dead }}</strong></span>
     </div>
 
-    <div v-if="blockState === 'ready'" class="equity__filters d-flex gap-2 mb-2 flex-wrap">
+    <div v-if="rows.length > 0" class="equity__filters d-flex gap-2 mb-2 flex-wrap">
       <div class="btn-group btn-group-sm">
         <button :class="['btn', filterStatus === 'all' ? 'btn-primary' : 'btn-outline-secondary']" @click="filterStatus = 'all'; applyFilters()">全部</button>
         <button :class="['btn', filterStatus === 'needs-attention' ? 'btn-warning' : 'btn-outline-secondary']" @click="filterStatus = 'needs-attention'; applyFilters()">需关注</button>
@@ -114,49 +113,29 @@ onMounted(load)
       />
     </div>
 
-    <StateBlock
-      :state="blockState"
+    <DataTable
+      :items="tableRows"
+      :loading="loading"
       :error="error"
       empty-text="暂无权益数据。"
-      @retry="load"
+      caption="外链权益台账"
+      @retry="load()"
     >
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>目标 URL</th>
-              <th>主域</th>
-              <th>平台</th>
-              <th>Dofollow</th>
-              <th>存活</th>
-              <th>相关度</th>
-              <th>首次发现</th>
-              <th>最后检查</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in filteredRows" :key="row.target_url + row.platform">
-              <td class="col-url"><code class="text-truncate d-inline-block" style="max-width: 200px">{{ row.target_url }}</code></td>
-              <td>{{ row.main_domain }}</td>
-              <td>{{ row.platform }}</td>
-              <td class="col-status">
-                <span :class="['badge', row.dofollow ? 'bg-success' : 'bg-secondary']">
-                  {{ row.dofollow ? '是' : '否' }}
-                </span>
-              </td>
-              <td class="col-status">
-                <span :class="['badge', row.live ? 'bg-success' : 'bg-danger']">
-                  {{ row.live ? '存活' : '失效' }}
-                </span>
-              </td>
-              <td class="col-num">{{ (row.relevance_score ?? 0).toFixed(2) }}</td>
-              <td class="col-date text-muted" style="font-size: var(--text-sm)">{{ row.first_seen ?? '—' }}</td>
-              <td class="col-date text-muted" style="font-size: var(--text-sm)">{{ row.last_checked ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </StateBlock>
+      <template #head>
+        <th>目标 URL</th><th>主域</th><th>平台</th><th>Dofollow</th><th>存活</th>
+        <th>相关度</th><th>首次发现</th><th>最后检查</th>
+      </template>
+      <template #row="{ row }">
+        <td class="col-url"><code>{{ row.target_url }}</code></td>
+        <td>{{ row.main_domain }}</td>
+        <td>{{ row.platform }}</td>
+        <td><StatusBadge :tone="row.dofollow ? 'success' : 'neutral'" :label="row.dofollow ? '是' : '否'" /></td>
+        <td><StatusBadge :tone="row.live ? 'success' : 'danger'" :label="row.live ? '存活' : '失效'" /></td>
+        <td class="col-num">{{ (row.relevance_score ?? 0).toFixed(2) }}</td>
+        <td class="col-date">{{ row.first_seen }}</td>
+        <td class="col-date">{{ row.last_checked }}</td>
+      </template>
+    </DataTable>
   </section>
 </template>
 

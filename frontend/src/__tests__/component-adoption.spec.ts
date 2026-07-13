@@ -31,7 +31,6 @@ const LIST_PAGES = [
 
 // Ratchet: pages still hand-rolling <table>. Page tasks delete their entry.
 const TABLE_TOLERANCE = new Set([
-  'EquityLedger/EquityLedgerPage.vue',
   'ErrorReports/ErrorReportsPage.vue',
   'KeepAlive/KeepAlivePage.vue',
   'OptimizationStatus/OptimizationStatusPage.vue',
@@ -43,7 +42,6 @@ const TABLE_TOLERANCE = new Set([
 // class="status" :data-status, or STATUS_COLORS-style class maps).
 const BADGE_TOLERANCE = new Set([
   'Drafts/DraftsPage.vue',
-  'EquityLedger/EquityLedgerPage.vue',
   'ErrorReports/ErrorReportsPage.vue',
   'ErrorReports/ErrorReportDetailPage.vue',
   'History/HistoryPage.vue',
