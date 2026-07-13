@@ -52,6 +52,7 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("recheck-overlay",        "Re-check overlay state for published items"),
         ("debt-report",            "Report link debt and outstanding obligations"),
         ("decay-alert",            "Alert on decayed or degraded backlinks"),
+        ("bp-report-bug",          "Capture a failure into a coding-agent-ready bundle"),
     ]),
     ("State", [
         ("backup-state",           "Back up all state stores to a timestamped archive"),

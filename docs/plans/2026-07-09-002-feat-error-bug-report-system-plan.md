@@ -8,10 +8,13 @@ deepened: 2026-07-09
 claims:
   # Restored 2026-07-13 after feat/error-bug-report merged to origin/main
   # (schema note: only paths/shas keys are allowed — the original summary key
-  # was rejected by plan-check). Not claimed because still open: the
-  # bp-report-bug pyproject entrypoint and the WebUI 匯出診斷包 button
-  # (webui_app/static/js/ui/error-report-entry.js was never created).
+  # was rejected by plan-check). The bp-report-bug pyproject entrypoint +
+  # bp.py listing landed 2026-07-13 (feat/report-bug-entrypoint). Still open:
+  # the WebUI 匯出診斷包 button (webui_app/static/js/ui/error-report-entry.js
+  # was never created).
   paths:
+    - pyproject.toml
+    - src/backlink_publisher/cli/bp.py
     - src/backlink_publisher/cli/report_bug/__init__.py
     - src/backlink_publisher/cli/report_bug/_build.py
     - src/backlink_publisher/cli/report_bug/main.py
