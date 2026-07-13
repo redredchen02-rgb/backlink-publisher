@@ -8,7 +8,7 @@
 // listener is attached here. The LLM Q&A footer ships dark in v1 (U5/U6); this
 // module never sends anything off-machine.
 
-import { fetchJson } from './lib/api.js';
+import { fetchJson, postJson } from './lib/api.js';
 import { esc, on, qs, delegate } from './lib/dom.js';
 
 const SEV_BADGE = {
