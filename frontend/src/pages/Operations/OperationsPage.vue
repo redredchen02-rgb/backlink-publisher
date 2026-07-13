@@ -51,10 +51,18 @@ function openDetail(opId: string): void {
       <span class="text-muted small">进行中：{{ activeCount }}</span>
     </header>
 
+    <!-- Data-wins error gating (CampaignProgressPage precedent, commit
+         326b093a): DataTable's own blockState checks `error` BEFORE
+         `items.length` (see DataTable.vue's blockState computed), so
+         wiring the raw query.isError straight through replaces an
+         already-rendered list with the error/retry UI on every single
+         failed poll tick, even though keepPreviousData still has the last
+         good page cached. Only surface the error when there is no cached
+         data left to show. -->
     <DataTable
       :items="list"
       :loading="query.isPending.value"
-      :error="query.isError.value ? query.error.value : undefined"
+      :error="!query.data.value && query.isError.value ? query.error.value : undefined"
       empty-text="还没有任务。"
       caption="后台任务列表"
       row-keyboard-nav

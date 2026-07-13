@@ -68,10 +68,17 @@ const resolved = computed<{ tone: Tone; text: string }>(() => {
   white-space: nowrap;
 }
 .badge--neutral { background: var(--surface-overlay); color: var(--text-secondary); }
+/* --primary IS theme-overridden (light theme darkens it to sky-700 for
+   contrast), so color-mix over it stays legible in both themes. */
 .badge--primary { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
-.badge--success { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
-.badge--danger  { background: color-mix(in srgb, var(--danger) 18%, transparent);  color: var(--danger); }
-.badge--warning { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
-.badge--info    { background: color-mix(in srgb, var(--info, var(--primary)) 18%, transparent); color: var(--info, var(--primary)); }
+/* --success/--danger/--warning/--info must NOT be used as text color here --
+   they have no light-theme override in tokens.css, so text set from them
+   lands at ~2:1 contrast over the *-soft tint on a light background. The
+   paired --*-soft (background) / --*-text (foreground) tokens exist
+   specifically for badge/pill text and carry real light-theme values. */
+.badge--success { background: var(--success-soft); color: var(--success-text); }
+.badge--danger  { background: var(--danger-soft);  color: var(--danger-text); }
+.badge--warning { background: var(--warning-soft); color: var(--warning-text); }
+.badge--info    { background: var(--info-soft);    color: var(--info-text); }
 .badge--dark    { background: var(--surface-overlay); color: var(--text-primary); }
 </style>

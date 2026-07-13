@@ -33,6 +33,10 @@ dynamic panels) keeps the `.data-table` CSS convention with sr-only captions.
   Known legacy remnants (unstyled since the Bootstrap CDN removal, pending
   cleanup): `spinner-border` elements in CampaignProgressPage.vue (~line 130,
   recheck action) and KeepAlivePage.vue (~line 444). Do not copy them.
+- Filter toolbars should stay always-visible once wired, so clear-filters
+  remains reachable from a filtered-empty state (the ErrorReports pattern);
+  EquityLedger's ready-gated toolbar predates this convention and reconciles
+  in Phase B.
 
 ## Breakpoint
 

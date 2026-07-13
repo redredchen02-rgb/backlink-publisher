@@ -63,6 +63,32 @@ describe('EquityLedgerPage', () => {
     expect(w.text()).not.toContain('暂无权益数据。')
   })
 
+  it('renders a fallback dash when first_seen/last_checked are missing (optional fields)', async () => {
+    vi.mocked(api.fetchEquityLedger).mockResolvedValue({
+      ok: true,
+      rows: [
+        {
+          target_url: 'https://c.example.com/post-3',
+          main_domain: 'c.example.com',
+          platform: 'medium',
+          status: 'live',
+          first_seen: undefined,
+          last_checked: undefined,
+          dofollow: true,
+          live: true,
+          relevance_score: 0.3,
+        },
+      ],
+    })
+    const w = mountPage()
+    await flushPromises()
+
+    const cells = w.findAll('td.col-date')
+    expect(cells).toHaveLength(2)
+    expect(cells[0].text()).toBe('—')
+    expect(cells[1].text()).toBe('—')
+  })
+
   it('shows the dataset-empty message (not the filter message) when the dataset itself is empty', async () => {
     vi.mocked(api.fetchEquityLedger).mockResolvedValue({ ok: true, rows: [] })
     const w = mountPage()

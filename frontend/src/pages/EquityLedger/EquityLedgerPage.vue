@@ -140,8 +140,8 @@ onMounted(load)
         <td><StatusBadge :tone="row.dofollow ? 'success' : 'neutral'" :label="row.dofollow ? '是' : '否'" /></td>
         <td><StatusBadge :tone="row.live ? 'success' : 'danger'" :label="row.live ? '存活' : '失效'" /></td>
         <td class="col-num">{{ (row.relevance_score ?? 0).toFixed(2) }}</td>
-        <td class="col-date">{{ row.first_seen }}</td>
-        <td class="col-date">{{ row.last_checked }}</td>
+        <td class="col-date">{{ row.first_seen ?? '—' }}</td>
+        <td class="col-date">{{ row.last_checked ?? '—' }}</td>
       </template>
     </DataTable>
   </section>
