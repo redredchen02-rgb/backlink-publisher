@@ -21,6 +21,14 @@ const statusCounts = computed(() => {
   return { total, live, weak, dead }
 })
 
+// Reflects the page's actual filter state (btn-group selection away from
+// 'all', or a non-empty search query) -- drives the DataTable empty-text so
+// a filtered-to-zero result reads distinctly from a genuinely empty dataset
+// (reviewer finding, Task 8).
+const hasActiveFilters = computed(
+  () => filterStatus.value !== 'all' || searchQuery.value.trim() !== '',
+)
+
 
 const applyFilters = () => {
   let result = [...rows.value]
@@ -89,14 +97,14 @@ onMounted(load)
       </div>
     </header>
 
-    <div v-if="rows.length > 0" class="equity__stats d-flex gap-3 mb-2">
+    <div v-if="!loading && !error && rows.length > 0" class="equity__stats d-flex gap-3 mb-2">
       <span>总计: <strong>{{ statusCounts.total }}</strong></span>
       <span class="text-success">存活: <strong>{{ statusCounts.live }}</strong></span>
       <span class="text-warning">弱: <strong>{{ statusCounts.weak }}</strong></span>
       <span class="text-danger">失效: <strong>{{ statusCounts.dead }}</strong></span>
     </div>
 
-    <div v-if="rows.length > 0" class="equity__filters d-flex gap-2 mb-2 flex-wrap">
+    <div v-if="!loading && !error && rows.length > 0" class="equity__filters d-flex gap-2 mb-2 flex-wrap">
       <div class="btn-group btn-group-sm">
         <button :class="['btn', filterStatus === 'all' ? 'btn-primary' : 'btn-outline-secondary']" @click="filterStatus = 'all'; applyFilters()">全部</button>
         <button :class="['btn', filterStatus === 'needs-attention' ? 'btn-warning' : 'btn-outline-secondary']" @click="filterStatus = 'needs-attention'; applyFilters()">需关注</button>
@@ -117,7 +125,7 @@ onMounted(load)
       :items="tableRows"
       :loading="loading"
       :error="error"
-      empty-text="暂无权益数据。"
+      :empty-text="hasActiveFilters ? '没有符合筛选条件的记录' : '暂无权益数据。'"
       caption="外链权益台账"
       @retry="load()"
     >
