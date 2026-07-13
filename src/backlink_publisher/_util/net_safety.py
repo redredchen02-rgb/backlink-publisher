@@ -8,9 +8,16 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import ssl
 from typing import Any
 from urllib.error import URLError
-from urllib.request import build_opener, HTTPRedirectHandler, OpenerDirector, Request
+from urllib.request import (
+    build_opener,
+    HTTPRedirectHandler,
+    HTTPSHandler,
+    OpenerDirector,
+    Request,
+)
 
 from backlink_publisher._util.url import safe_urlparse
 
@@ -149,16 +156,24 @@ class _SSRFSafeRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def _make_ssrf_opener(max_redirects: int = 10) -> OpenerDirector:
+def _make_ssrf_opener(
+    max_redirects: int = 10, context: ssl.SSLContext | None = None
+) -> OpenerDirector:
     """Build a fresh SSRF-safe :class:`OpenerDirector` with a redirect cap.
 
     ``max_redirects`` is settable per-call because the stdlib stores the cap
     on the handler instance (``max_redirections`` class attr is overridable
     on an instance). Default 10 matches the stdlib default. Used by
     ``content_fetch._check_once`` when a caller threads down a custom cap.
+
+    ``context`` optionally installs an :class:`HTTPSHandler` carrying a specific
+    TLS context (e.g. linkcheck's env-gated verification mode), so a caller can
+    keep its SSL policy while still getting per-hop redirect SSRF re-checks.
     """
     handler = _SSRFSafeRedirectHandler()
     setattr(handler, "max_redirections", max_redirects)
+    if context is not None:
+        return build_opener(HTTPSHandler(context=context), handler)
     return build_opener(handler)
 
 
