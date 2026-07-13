@@ -137,7 +137,15 @@ def _setup_resume(
         for s in ckpt.get("seeds", []):
             checkpoint_seeds.append(s)
             if s.get("status") == "completed":
-                seed_indices_to_process.remove(s["index"])
+                idx = s["index"]
+                if idx not in seed_indices_to_process:
+                    raise UsageError(
+                        f"spray-backlinks: checkpoint {args.resume!r} marks seed "
+                        f"index {idx} completed, but the resumed input has only "
+                        f"{len(rows)} row(s) (valid indices 0..{len(rows) - 1}); "
+                        f"the input file does not match the checkpoint"
+                    )
+                seed_indices_to_process.remove(idx)
                 for pair in s.get("cross_seed_pairs", []):
                     cross_seed_used.add((pair[0], pair[1]))
         run_id = args.resume
