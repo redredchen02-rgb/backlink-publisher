@@ -175,7 +175,8 @@ describe('ErrorReportDetailPage', () => {
       global: { plugins: [pinia, [VueQueryPlugin, { queryClient: qc }], listRouter] },
     })
     await flushPromises()
-    expect(listWrapper.find('.status[data-status="open"]').exists()).toBe(true)
+    // List page migrated to StatusBadge (Task 10) -- no more .status[data-status].
+    expect(listWrapper.find('[data-testid="status-badge"]').text()).toBe('待处理')
 
     const { w: detailWrapper } = await mountDetail(qc, makeRouter('/error-reports/report-1'))
     await flushPromises()
@@ -188,7 +189,7 @@ describe('ErrorReportDetailPage', () => {
 
     // No re-mount / manual refetch call here — the shared QueryClient's
     // invalidateQueries triggered the list page's own background refetch.
-    expect(listWrapper.find('.status[data-status="resolved"]').exists()).toBe(true)
+    expect(listWrapper.find('[data-testid="status-badge"]').text()).toBe('已解决')
   })
 
   // ── W10: "回到来源" (back to source) ─────────────────────────────────────

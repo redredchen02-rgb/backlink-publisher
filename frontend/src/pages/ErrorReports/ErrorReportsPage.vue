@@ -2,32 +2,39 @@
 // Error-reports dashboard list — Plan 2026-07-01-002 Unit 8 (R5).
 //
 // Filterable, paginated read surface over Unit 3's GET /api/v1/error-reports.
-// Data-fetching mirrors api/history.ts + HistoryPage.vue's list+filter shape
-// (TanStack Query, queryKey includes the filters so changing a filter
-// re-fetches automatically).
+// Data-fetching mirrors api/drafts.ts + DraftsPage.vue's list+filter+paginate
+// shape (TanStack Query, queryKey includes filters + offset so changing
+// either re-fetches; `placeholderData: keepPreviousData` keeps the last page
+// on screen while the next one loads instead of flashing to the loading
+// skeleton).
 //
-// Four-state rendering goes through the shared StateBlock.vue, with `isError`
-// evaluated BEFORE the empty check (blockState below) — getting this order
-// backwards would render a failed fetch as "no error reports", the exact
-// false-success shape docs/solutions/ux-honesty/webui-false-success-resolution.md
-// warns against, and especially dishonest on the one page whose entire job is
-// reporting problems.
+// Task 10 (Phase A consistency): migrated to the shared DataTable (which
+// embeds its own StateBlock — loading/empty/error/ready) + StatusBadge.
+// `query.isError`/`query.isPending` are wired directly into DataTable's
+// props: unlike CampaignProgressPage's usePolledQuery (which repeatedly
+// refetches the SAME query key every 2s, so a failed poll after a successful
+// one leaves real cached data sitting next to a truthy isError — the
+// regression DataTable's error-before-items.length check would otherwise
+// surface), this page has no polling loop. Each filter/offset combination is
+// its own query key, matching the same direct-wiring shape already used by
+// DraftsPage.vue / HistoryPage.vue for their paginated DataTables.
 //
 // Two distinct empty-state strings, not one: a genuinely empty dataset reads
 // differently from "filtered down to zero", which also offers a clear-filters
-// action — conflating them would make an operator believe there are zero
-// errors when the filters may just be hiding dozens.
-import { computed, reactive } from 'vue'
+// action. That action lives in the always-visible filter toolbar (below) —
+// DataTable does not forward a `#empty-action` slot the way the page's old
+// hand-rolled StateBlock usage did, so the button moved out of the (now
+// removed) empty-state slot into the toolbar, where it was already
+// duplicated defensively; this migration just drops the now-impossible
+// second copy.
+import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import { listErrorReports, type ErrorReportFilters, type ErrorReportItem } from '../../api/errorReports'
-import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 
-const STATUS_LABELS: Record<string, string> = {
-  open: '待处理',
-  acknowledged: '已确认',
-  resolved: '已解决',
-}
+const PAGE_SIZE = 50
 
 const filters = reactive<{ status: string; severity: string; source: string }>({
   status: '',
@@ -53,22 +60,23 @@ const activeFilters = computed<ErrorReportFilters>(() => {
   return f
 })
 
-const QKEY = computed(() => ['error-reports', activeFilters.value] as const)
+const offset = ref(0)
+
+// Reset to page 1 whenever the filter set changes -- an offset carried over
+// from a previous filter could point past the end of the newly-filtered
+// result set (or just land on a confusingly different page of it).
+watch(activeFilters, () => {
+  offset.value = 0
+})
 
 const query = useQuery({
-  queryKey: QKEY,
-  queryFn: () => listErrorReports(activeFilters.value),
+  queryKey: computed(() => ['error-reports', activeFilters.value, offset.value] as const),
+  queryFn: () => listErrorReports({ ...activeFilters.value, limit: PAGE_SIZE, offset: offset.value }),
+  placeholderData: keepPreviousData,
 })
 
 const items = computed<ErrorReportItem[]>(() => query.data.value?.items ?? [])
 const total = computed<number>(() => query.data.value?.total ?? 0)
-
-// isError checked BEFORE items.length === 0 — see file header.
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (query.isPending.value) return 'loading'
-  if (query.isError.value) return 'error'
-  return items.value.length ? 'ready' : 'empty'
-})
 
 const emptyText = computed(() =>
   isFiltering.value ? '没有符合目前筛选条件的错误报告' : '尚无任何错误报告',
@@ -116,51 +124,42 @@ function preview(text: string | undefined): string {
       </button>
     </form>
 
-    <StateBlock
-      :state="blockState"
-      :error="query.error.value"
+    <DataTable
+      :items="items"
+      :loading="query.isPending.value"
+      :error="query.isError.value ? query.error.value : undefined"
       :empty-text="emptyText"
+      caption="错误报告列表"
+      :total="total"
+      :limit="PAGE_SIZE"
+      :offset="offset"
       @retry="query.refetch()"
+      @update:offset="offset = $event"
     >
-      <template #empty-action>
-        <button v-if="isFiltering" type="button" class="clear-filters" @click="clearFilters">
-          清除筛选
-        </button>
+      <template #head>
+        <th>状态</th>
+        <th>严重度</th>
+        <th>来源</th>
+        <th>消息</th>
+        <th>次数</th>
+        <th>最后发生</th>
+        <th><span class="sr-only">详情</span></th>
       </template>
-
-      <div class="data-table-wrap">
-        <table class="rows data-table">
-          <thead>
-            <tr>
-              <th>状态</th>
-              <th>严重度</th>
-              <th>来源</th>
-              <th>消息</th>
-              <th>次数</th>
-              <th>最后发生</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in items" :key="row.id" :data-status="row.status">
-              <td><span class="status" :data-status="row.status">{{ STATUS_LABELS[row.status] ?? row.status }}</span></td>
-              <td>{{ row.severity ?? '—' }}</td>
-              <td>{{ row.source ?? '—' }}</td>
-              <td class="col-message" :title="row.message">{{ preview(row.message) }}</td>
-              <td>{{ row.occurrences ?? 1 }}</td>
-              <td class="muted">{{ fmtTime(row.last_seen_at) }}</td>
-              <td>
-                <RouterLink :to="`/error-reports/${row.id}`" class="detail-link">查看详情</RouterLink>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </StateBlock>
+      <template #row="{ row }">
+        <td><StatusBadge :status="row.status" /></td>
+        <td>{{ row.severity ?? '—' }}</td>
+        <td>{{ row.source ?? '—' }}</td>
+        <td class="col-text" :title="row.message">{{ preview(row.message) }}</td>
+        <td class="col-num">{{ row.occurrences ?? 1 }}</td>
+        <td class="col-date">{{ fmtTime(row.last_seen_at) }}</td>
+        <td><RouterLink :to="`/error-reports/${row.id}`" class="detail-link">查看详情</RouterLink></td>
+      </template>
+    </DataTable>
   </section>
 </template>
 
 <style scoped>
+/* DataTable owns .data-table/.data-table-wrap layout; page-specific styles below */
 .error-reports {
   display: flex;
   flex-direction: column;
@@ -197,21 +196,6 @@ function preview(text: string | undefined): string {
 .clear-filters {
   cursor: pointer;
 }
-.status[data-status='open'] {
-  color: var(--danger);
-}
-.status[data-status='acknowledged'] {
-  color: var(--warning);
-}
-.status[data-status='resolved'] {
-  color: var(--success);
-}
-.col-message {
-  max-width: 26rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .detail-link {
   color: var(--primary);
   text-decoration: none;
@@ -221,5 +205,16 @@ function preview(text: string | undefined): string {
 }
 .muted {
   color: var(--text-secondary);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>
