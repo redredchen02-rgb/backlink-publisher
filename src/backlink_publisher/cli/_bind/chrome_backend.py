@@ -157,7 +157,9 @@ class RealChromeBrowserRunner:
                     "cookies": filtered,
                     "origins": [],
                 }
-                Path(path).write_text(json.dumps(state, ensure_ascii=False))
+                Path(path).write_text(
+                    json.dumps(state, ensure_ascii=False), encoding="utf-8"
+                )
             finally:
                 cdp.close()
                 self._terminate_proc()

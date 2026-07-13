@@ -530,7 +530,9 @@ class _PlaywrightBrowserRunner:
             try:
                 raw_state = cast(dict[str, Any], context.storage_state())
                 filtered = _apply_host_filter(raw_state, recipe.cookie_host_filter)
-                Path(path).write_text(json.dumps(filtered, ensure_ascii=False))
+                Path(path).write_text(
+                    json.dumps(filtered, ensure_ascii=False), encoding="utf-8"
+                )
             finally:
                 try:
                     context.close()

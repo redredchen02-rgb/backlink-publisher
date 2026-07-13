@@ -144,6 +144,8 @@ def _run_wrapped(cmd: str, shell: bool = False) -> tuple[int, str]:
         stdout=None,  # inherit — never mask the wrapped command's output
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,
         shell=shell,
     )

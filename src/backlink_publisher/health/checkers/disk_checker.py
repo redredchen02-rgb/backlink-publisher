@@ -21,7 +21,7 @@ class DiskAccessChecker(HealthChecker):
         else:
             try:
                 probe = config_dir / ".health_write_probe"
-                probe.write_text("ok")
+                probe.write_text("ok", encoding="utf-8")
                 probe.unlink(missing_ok=True)
             except OSError as exc:
                 issues.append(f"Config dir not writable: {exc}")
@@ -31,7 +31,7 @@ class DiskAccessChecker(HealthChecker):
         else:
             try:
                 probe = cache_dir / ".health_write_probe"
-                probe.write_text("ok")
+                probe.write_text("ok", encoding="utf-8")
                 probe.unlink(missing_ok=True)
             except OSError as exc:
                 issues.append(f"Cache dir not writable: {exc}")
@@ -39,7 +39,7 @@ class DiskAccessChecker(HealthChecker):
         canary_path = config_dir / "canary-health.json"
         if config_dir.exists():
             try:
-                canary_path.write_text("{}")
+                canary_path.write_text("{}", encoding="utf-8")
                 canary_path.unlink(missing_ok=True)
             except OSError as exc:
                 issues.append(f"canary-health.json not writable: {exc}")

@@ -67,7 +67,7 @@ def discover_worktree_heads(
     try:
         out = subprocess.run(
             ["git", "worktree", "list", "--porcelain"],
-            cwd=cwd, capture_output=True, text=True, check=True,
+            cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
         ).stdout
     except (subprocess.CalledProcessError, FileNotFoundError):
         out = ""
@@ -97,7 +97,7 @@ def discover_worktree_heads(
     try:
         out = subprocess.run(
             ["git", "for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads/"],
-            cwd=cwd, capture_output=True, text=True, check=True,
+            cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
         ).stdout
     except (subprocess.CalledProcessError, FileNotFoundError):
         out = ""
@@ -155,7 +155,7 @@ def _check_clean(path: Path) -> bool | None:
     try:
         out = subprocess.run(
             ["git", "-C", str(path), "status", "--porcelain"],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
         ).stdout
         return out.strip() == ""
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -183,7 +183,7 @@ def _check_detached(path: Path) -> bool | None:
     try:
         proc = subprocess.run(
             ["git", "-C", str(path), "symbolic-ref", "--quiet", "HEAD"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         return proc.returncode != 0
     except FileNotFoundError:

@@ -476,7 +476,7 @@ def _single_run_lock(config_dir: Path) -> Iterator[bool]:
 
     config_dir.mkdir(parents=True, exist_ok=True)
     lock_path = config_dir / ".probe-citations.lock"
-    handle = open(lock_path, "w")
+    handle = open(lock_path, "w", encoding="utf-8")
     try:
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)

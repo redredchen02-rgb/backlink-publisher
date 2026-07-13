@@ -84,6 +84,8 @@ def _fetch_head_age_seconds() -> float:
             ["git", "rev-parse", "--git-common-dir"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=_git_env(),
             check=False,
         )
@@ -158,6 +160,8 @@ def _maybe_fetch_origin_main(threshold_seconds: int = 300) -> FetchOutcome:
             ["git", "fetch", "origin", "main", "--quiet"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=_git_env(),
             check=False,
         )
@@ -212,6 +216,8 @@ def _path_exists_on_main(
             ["git", "cat-file", "-e", f"origin/main:{path}"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=_git_env(),
             check=False,
         )
@@ -251,6 +257,8 @@ def _sha_reachable_from_main(
             ["git", "merge-base", "--is-ancestor", sha, "origin/main"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=_git_env(),
             check=False,
         )
