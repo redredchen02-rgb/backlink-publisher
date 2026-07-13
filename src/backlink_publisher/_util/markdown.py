@@ -12,7 +12,7 @@ _mdit_safe_instance = None
 def _install_link_hook(mdit: Any) -> Any:
     """Make ``<a>`` tags open in a new tab with ``rel="noopener"`` (shared by
     both the passthrough and the sanitizing renderer)."""
-    default_link_open = mdit.renderer.rules.get("link_open")  # type: ignore[attr-defined]
+    default_link_open = mdit.renderer.rules.get("link_open")
 
     def _link_open(
         tokens: Any, idx: int, options: Any, env: Any,
@@ -22,9 +22,9 @@ def _install_link_hook(mdit: Any) -> Any:
         token.attrSet("rel", "noopener")
         if default_link_open is not None:
             return default_link_open(tokens, idx, options, env)  # type: ignore[no-any-return]
-        return mdit.renderer.renderToken(tokens, idx, options, env)  # type: ignore[no-any-return,attr-defined]
+        return mdit.renderer.renderToken(tokens, idx, options, env)  # type: ignore[no-any-return]
 
-    mdit.renderer.rules["link_open"] = _link_open  # type: ignore[attr-defined]
+    mdit.renderer.rules["link_open"] = _link_open
     return mdit
 
 
