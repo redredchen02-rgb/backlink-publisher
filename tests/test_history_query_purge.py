@@ -104,3 +104,32 @@ def test_purge_returns_zero_when_nothing_to_remove():
 def test_purge_handles_empty_db():
     store = EventStore()
     assert purge_failed_from_db(store) == 0
+
+
+def test_dead_event_query_helpers_removed():
+    """Finding [15]: list_events / list_publish_events / count_publish_events /
+    _event_row_to_dict had zero callers and were deleted. Guard against
+    accidental reintroduction."""
+    import backlink_publisher.events.history_query as _hq
+
+    for name in (
+        "list_events",
+        "list_publish_events",
+        "count_publish_events",
+        "_event_row_to_dict",
+    ):
+        assert not hasattr(_hq, name), f"{name} should have been deleted (dead code)"
+
+
+def test_read_path_api_still_present():
+    """Regression guard: the deletion must not over-reach into the live API."""
+    import backlink_publisher.events.history_query as _hq
+
+    for name in (
+        "list_history",
+        "get_history_item",
+        "latest_publish_timestamp",
+        "get_article_by_live_url",
+        "purge_failed_from_db",
+    ):
+        assert hasattr(_hq, name)

@@ -30,6 +30,45 @@ def _html(*a_tags: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Chunked-stream realism (wave-b [6]): under real 16 KB socket chunks the body
+# reader must not stop at </h1> — post-publish anchors live BELOW the title.
+# ---------------------------------------------------------------------------
+
+def test_anchors_after_h1_counted_under_chunked_stream():
+    from backlink_publisher.content import _preflight_fetch as pf
+
+    body = (
+        b"<html><body><h1>Title</h1><p>" + b"x" * 40_000 + b"</p>"
+        b'<a href="https://a.com" rel="nofollow">link</a></body></html>'
+    )
+    resp = MagicMock()
+    resp.getcode.return_value = 200
+    resp.geturl.return_value = "https://example.com/post"
+    import email.message
+
+    resp.info.return_value = email.message.Message()
+    state = {"pos": 0}
+
+    def _read(n: int = -1) -> bytes:
+        if n is None or n < 0:
+            n = len(body) - state["pos"]
+        chunk = body[state["pos"] : state["pos"] + n]
+        state["pos"] += len(chunk)
+        return chunk
+
+    resp.read.side_effect = _read
+    resp.close.return_value = None
+
+    with patch.object(pf, "_check_url_for_ssrf", return_value=None), \
+         patch.object(pf._PREFLIGHT_OPENER, "open", return_value=resp):
+        result = verify_link_attributes("https://example.com/post")
+
+    assert result["verification"] == "ok"
+    assert result["total_anchors"] == 1
+    assert result["nofollow_detected"] is True
+
+
+# ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
 

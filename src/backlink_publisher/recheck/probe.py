@@ -97,9 +97,14 @@ def probe_liveness(
         }
 
     ``indexability`` is orthogonal contract-drift metadata (like ``anchor_drift``)
-    read via a second ``fetch_target`` call for any page we successfully read; it
-    NEVER changes the liveness verdict. ``fetch_fn`` is injectable for tests.
+    for any page we successfully read; it NEVER changes the liveness verdict.
+    On the default path it is derived from the SAME response as the anchor
+    inspection (``capture_page_facts`` — one download per page, halving the
+    recheck request footprint). An injected ``inspect_fn`` that returns no
+    ``page_facts`` falls back to the second ``fetch_target`` call via the
+    injectable ``fetch_fn`` (tests / custom transports keep working unchanged).
     """
+    default_inspector = inspect_fn is None
     inspect = inspect_fn or link_attr_verifier.inspect_target_anchor
     out: dict[str, Any] = {
         "verdict": None,
@@ -114,12 +119,23 @@ def probe_liveness(
     target = (target_url or "").strip()
 
     try:
-        res = inspect(
-            live_url,
-            target,
-            timeout=timeout,
-            capture_anchor_text=bool(baseline_anchor),
-        )
+        if default_inspector:
+            # Single-fetch path: capture PreflightFacts off the same response
+            # so no second download is needed for the indexability axis.
+            res = inspect(
+                live_url,
+                target,
+                timeout=timeout,
+                capture_anchor_text=bool(baseline_anchor),
+                capture_page_facts=True,
+            )
+        else:
+            res = inspect(
+                live_url,
+                target,
+                timeout=timeout,
+                capture_anchor_text=bool(baseline_anchor),
+            )
     except Exception as exc:
         log.warning("recheck probe error url=%s: %s", live_url, exc)
         out["verdict"] = verdicts.PROBE_ERROR
@@ -141,9 +157,17 @@ def probe_liveness(
     # Page was successfully read — compute the orthogonal indexability axis once,
     # before any verdict-specific early return, so every readable-page outcome
     # (alive / link_stripped / dofollow_lost) carries it. Never changes verdict.
-    out["indexability"], out["indexability_reason"] = _probe_indexability(
-        live_url, timeout, fetch_fn
-    )
+    # Prefer the facts captured off the SAME response (single-fetch path);
+    # fall back to the second fetch only when the inspector supplied none.
+    page_facts = res.get("page_facts")
+    if page_facts is not None:
+        out["indexability"], out["indexability_reason"] = (
+            indexability.classify_indexability(page_facts)
+        )
+    else:
+        out["indexability"], out["indexability_reason"] = _probe_indexability(
+            live_url, timeout, fetch_fn
+        )
 
     if not target:
         # No backlink target to inspect — can only confirm the page is live.

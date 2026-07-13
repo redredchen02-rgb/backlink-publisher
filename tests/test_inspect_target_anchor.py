@@ -215,6 +215,129 @@ def test_malformed_ipv6_url_never_raises():
 
 
 # --------------------------------------------------------------------------
+# Chunked-stream realism (Plan wave-b [6]): the MagicMock read() above returns
+# the whole body in one call, which hides `_read_body_prefix`'s `</h1>`
+# early-stop. A real socket yields 16 KB chunks — these tests honor read(n).
+# --------------------------------------------------------------------------
+
+
+def _chunked_resp(
+    *,
+    status: int = 200,
+    final_url: str = "https://blog.example/post",
+    body: bytes = b"<html><body></body></html>",
+    headers: dict[str, str] | None = None,
+) -> MagicMock:
+    """A mock response whose ``read(n)`` honors ``n`` like a real socket."""
+    resp = MagicMock()
+    resp.getcode.return_value = status
+    resp.geturl.return_value = final_url
+    import email.message
+
+    msg = email.message.Message()
+    for k, v in (headers or {}).items():
+        msg[k] = v
+    resp.info.return_value = msg
+    state = {"pos": 0}
+
+    def _read(n: int = -1) -> bytes:
+        if n is None or n < 0:
+            n = len(body) - state["pos"]
+        chunk = body[state["pos"] : state["pos"] + n]
+        state["pos"] += len(chunk)
+        return chunk
+
+    resp.read.side_effect = _read
+    resp.close.return_value = None
+    return resp
+
+
+def test_anchor_after_h1_found_under_chunked_stream():
+    """The target anchor normally sits in the article body BELOW the <h1>
+    title. The body reader must not stop at ``</h1>`` for anchor inspection —
+    a truncated scan would report the backlink stripped (false deterministic
+    dead) on any page whose anchor lies past the first 16 KB chunk."""
+    filler = b"<p>" + b"x" * 40_000 + b"</p>"
+    body = (
+        b"<html><head><title>t</title></head><body><h1>Title</h1>"
+        + filler
+        + b'<a href="https://example.com/page">my backlink</a></body></html>'
+    )
+    with patch.object(pf, "_check_url_for_ssrf", return_value=None), \
+         patch.object(pf._PREFLIGHT_OPENER, "open", return_value=_chunked_resp(body=body)):
+        result = lav.inspect_target_anchor(
+            "https://blog.example/post", "https://example.com/page"
+        )
+    assert result["page_readable"] is True
+    assert result["target_anchor_found"] is True
+
+
+# --------------------------------------------------------------------------
+# Real-opener error semantics: urllib RAISES HTTPError for non-2xx statuses
+# (the returned-404-response mocks above only exist in tests). The reason
+# taxonomy must still say http_404/http_410 or host_gone is unreachable in
+# production and dead links stay "transient" forever.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("code", [404, 410, 500])
+def test_raised_http_error_maps_to_http_status_reason(code):
+    from urllib.error import HTTPError
+
+    err = HTTPError("https://blog.example/post", code, "err", None, None)
+    with patch.object(pf, "_check_url_for_ssrf", return_value=None), \
+         patch.object(pf._PREFLIGHT_OPENER, "open", side_effect=err):
+        result = lav.inspect_target_anchor(
+            "https://blog.example/post", "https://example.com"
+        )
+    assert result["page_readable"] is False
+    assert result["reason"] == f"http_{code}"
+
+
+def test_raised_redirect_cap_http_error_maps_to_redirect_capped():
+    from urllib.error import HTTPError
+
+    err = HTTPError("https://blog.example/post", 301, "cap", None, None)
+    with patch.object(pf, "_check_url_for_ssrf", return_value=None), \
+         patch.object(pf._PREFLIGHT_OPENER, "open", side_effect=err):
+        result = lav.inspect_target_anchor(
+            "https://blog.example/post", "https://example.com"
+        )
+    assert result["page_readable"] is False
+    assert result["reason"] == "redirect_capped"
+
+
+# --------------------------------------------------------------------------
+# capture_page_facts opt-in (Plan wave-b [6]): the recheck probe derives
+# indexability from the SAME response instead of a second fetch_target call.
+# --------------------------------------------------------------------------
+
+
+def test_capture_page_facts_returns_preflight_facts():
+    body = (
+        b'<html><head><meta name="robots" content="noindex"><title>t</title></head>'
+        b'<body><h1>T</h1><a href="https://example.com">l</a></body></html>'
+    )
+    with patch.object(pf, "_check_url_for_ssrf", return_value=None), \
+         patch.object(pf._PREFLIGHT_OPENER, "open", return_value=_chunked_resp(body=body)):
+        result = lav.inspect_target_anchor(
+            "https://blog.example/post", "https://example.com",
+            capture_page_facts=True,
+        )
+    facts = result["page_facts"]
+    assert facts is not None
+    assert facts.status == 200
+    assert facts.noindex is True
+    assert facts.head_complete is True
+
+
+def test_page_facts_absent_by_default():
+    body = b'<html><body><a href="https://example.com">l</a></body></html>'
+    result = _inspect(body, "https://example.com")
+    assert "page_facts" not in result
+
+
+# --------------------------------------------------------------------------
 # marker presence
 # --------------------------------------------------------------------------
 

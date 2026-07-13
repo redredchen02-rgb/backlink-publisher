@@ -210,8 +210,8 @@ rationale = "Wave 3 Unit 1 (2026-06-11): extracted from core.py — cross-seed g
 
 # Wave 3 Unit 2 (2026-06-11): events/history_query.py split into read-path + write-path (mutations).
 [files."src/backlink_publisher/events/history_query.py"]
-ceiling = 440
-rationale = "Wave 3 Unit 2 (2026-06-11): write-path mutations (purge_failed_from_db, delete_from_db, bulk_delete_from_db, update_status_in_db, _STATUS_TO_KIND) extracted to _history_mutations.py. history_query.py now holds read-path only plus re-exports for backward compat. SLOC dropped from 465 to 356. Ceiling 390 = round_up_to_10(356+30) per policy. W4 soft-delete reintegration (2026-07-07, U5/W4 merge): list_history/get_history_item gained the include_deleted='window' branch, the _deleted_at_cutoff_iso helper, and re-exports for undelete_from_db/CLIENT_UNDO_WINDOW_SECONDS/PURGE_WINDOW_SECONDS. SLOC 356->405. Ceiling 440 = round_up_to_10(405+30) per policy."
+ceiling = 380
+rationale = "Wave 3 Unit 2 (2026-06-11): write-path mutations (purge_failed_from_db, delete_from_db, bulk_delete_from_db, update_status_in_db, _STATUS_TO_KIND) extracted to _history_mutations.py. history_query.py now holds read-path only plus re-exports for backward compat. SLOC dropped from 465 to 356. Ceiling 390 = round_up_to_10(356+30) per policy. W4 soft-delete reintegration (2026-07-07, U5/W4 merge): list_history/get_history_item gained the include_deleted='window' branch, the _deleted_at_cutoff_iso helper, and re-exports for undelete_from_db/CLIENT_UNDO_WINDOW_SECONDS/PURGE_WINDOW_SECONDS. SLOC 356->405. Ceiling 440 = round_up_to_10(405+30) per policy. Wave-B [15] (2026-07-13): deleted 4 zero-caller dead functions (list_events/list_publish_events/count_publish_events/_event_row_to_dict). SLOC 405->344. Ceiling lowered 440->380 = round_up_to_10(344+30) per policy."
 
 [files."src/backlink_publisher/events/_history_mutations.py"]
 ceiling = 260
