@@ -239,6 +239,10 @@ def retry_transient_call(
                         * random.uniform(1.0 - jitter, 1.0 + jitter)
                     )
 
+            # jitter>=1.0 makes random.uniform's lower bound (1-jitter) <= 0, so
+            # wait can go negative; time.sleep(negative) raises ValueError. Never
+            # pass a negative wait (audit [08]).
+            wait = max(0.0, wait)
             exc_name = type(exc).__name__
             _emit_retry(attempt, max_attempts, exc_name, wait, adapter, status_code)
             time.sleep(wait)

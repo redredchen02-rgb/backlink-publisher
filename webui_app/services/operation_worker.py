@@ -18,6 +18,7 @@ from __future__ import annotations
 from concurrent.futures import Future, ThreadPoolExecutor
 import json
 import logging
+import threading
 from typing import Any
 
 _log = logging.getLogger(__name__)
@@ -37,6 +38,10 @@ class OperationWorker:
     def __init__(self, max_workers: int = 4) -> None:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._running: dict[str, Future] = {}
+        # Reentrant so start() can call _any_single_flight_running() while held.
+        # Guards every read/mutation of self._running so the single-flight
+        # check-then-reserve is atomic (audit [12] TOCTOU).
+        self._lock = threading.RLock()
 
     # ── Public API ─────────────────────────────────────────────────────────
 
@@ -47,18 +52,21 @@ class OperationWorker:
             AlreadyRunningError: if a single-flight kind (publish/chain) is
                 already running.
         """
-        if kind in _SINGLE_FLIGHT_KINDS and self._any_single_flight_running():
-            running_id = next(
-                (oid for oid, f in self._running.items()
-                 if not f.done() and self._kind_of(oid) in _SINGLE_FLIGHT_KINDS),
-                "unknown",
-            )
-            raise AlreadyRunningError(
-                f"A {kind} operation is already in progress (op_id={running_id}). "
-                f"Wait for it to finish before starting another."
-            )
-        future = self._executor.submit(_execute_operation, op_id, kind, cfg)
-        self._running[op_id] = future
+        # Atomic check-then-reserve: two concurrent single-flight submissions
+        # must not both pass the guard before either records its future.
+        with self._lock:
+            if kind in _SINGLE_FLIGHT_KINDS and self._any_single_flight_running():
+                running_id = next(
+                    (oid for oid, f in self._running.items()
+                     if not f.done() and self._kind_of(oid) in _SINGLE_FLIGHT_KINDS),
+                    "unknown",
+                )
+                raise AlreadyRunningError(
+                    f"A {kind} operation is already in progress (op_id={running_id}). "
+                    f"Wait for it to finish before starting another."
+                )
+            future = self._executor.submit(_execute_operation, op_id, kind, cfg)
+            self._running[op_id] = future
 
     def get_status(self, op_id: str) -> dict[str, Any] | None:
         """Return the op's current state from ``operation_store`` (+ running/done).
@@ -71,7 +79,8 @@ class OperationWorker:
         if op is None:
             return None
         result = dict(op)
-        future = self._running.get(op_id)
+        with self._lock:
+            future = self._running.get(op_id)
         if future is not None:
             result["_running"] = future.running()
             result["_done"] = future.done()
@@ -91,7 +100,8 @@ class OperationWorker:
         (e.g. a worker restart between submit and pick-up) so the operator can
         always recover a stuck task.
         """
-        future = self._running.get(op_id)
+        with self._lock:
+            future = self._running.get(op_id)
         if future is not None and not future.done():
             cancelled = future.cancel()
             from webui_store import operation_store
@@ -113,10 +123,11 @@ class OperationWorker:
 
     def is_running(self) -> bool:
         """Return ``True`` if any operation is currently executing."""
-        done_ids = [cid for cid, f in self._running.items() if f.done()]
-        for cid in done_ids:
-            self._running.pop(cid, None)
-        return bool(self._running)
+        with self._lock:
+            done_ids = [cid for cid, f in self._running.items() if f.done()]
+            for cid in done_ids:
+                self._running.pop(cid, None)
+            return bool(self._running)
 
     def shutdown(self, wait: bool = True) -> None:
         """Shut down the worker pool."""
@@ -125,10 +136,11 @@ class OperationWorker:
     # ── Internals ──────────────────────────────────────────────────────────
 
     def _any_single_flight_running(self) -> bool:
-        return any(
-            not f.done() and self._kind_of(oid) in _SINGLE_FLIGHT_KINDS
-            for oid, f in self._running.items()
-        )
+        with self._lock:
+            return any(
+                not f.done() and self._kind_of(oid) in _SINGLE_FLIGHT_KINDS
+                for oid, f in list(self._running.items())
+            )
 
     def _kind_of(self, op_id: str) -> str | None:
         from webui_store import operation_store

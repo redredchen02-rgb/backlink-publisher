@@ -89,6 +89,27 @@ def test_sleep_duration_within_jitter_bounds(mock_sleep):
 
 
 @patch("backlink_publisher.publishing.adapters.retry.time.sleep")
+@patch("backlink_publisher.publishing.adapters.retry.random.uniform", return_value=-0.5)
+def test_high_jitter_negative_draw_clamps_sleep_to_non_negative(mock_uniform, mock_sleep):
+    """jitter>=1.0 lets random.uniform draw a factor whose lower bound (1-jitter)
+    is <=0, so wait can go negative -> time.sleep(negative) raises ValueError.
+    wait must be clamped to >=0 before every time.sleep (audit [08])."""
+    calls = []
+
+    def fn():
+        calls.append(1)
+        if len(calls) < 2:
+            raise _TransientError("rate limited")
+        return "ok"
+
+    result = retry_transient_call(fn, is_retryable=_always_retry, jitter=1.5, max_attempts=3)
+    assert result == "ok"
+    assert mock_sleep.called
+    for call in mock_sleep.call_args_list:
+        assert call.args[0] >= 0.0, f"time.sleep received a negative wait: {call.args[0]}"
+
+
+@patch("backlink_publisher.publishing.adapters.retry.time.sleep")
 def test_retry_recovery_on_attempt_3(mock_sleep):
     calls = []
 

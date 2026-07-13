@@ -30,6 +30,10 @@ from backlink_publisher._util.url import normalize_url_for_fetch, safe_urlparse
 _VERIFY_TIMEOUT = 12  # seconds per individual request
 _RETRY_INTERVAL = 6   # seconds between poll attempts
 _USER_AGENT = "backlink-publisher/1.0 verify"
+# A required backlink can sit anywhere in <body> (footer/comments/sidebar) and
+# rendered pages routinely exceed 512KB; match the comment_outreach body budget
+# so body-wide title/link matching isn't truncated (audit [07]).
+_MAX_BODY_BYTES = 1_500_000
 
 
 def _get_ssl_context() -> ssl.SSLContext:
@@ -65,7 +69,7 @@ def _get_body(url: str) -> tuple[int, str]:
         req.add_header("User-Agent", _USER_AGENT)
         with _open(req, timeout=_VERIFY_TIMEOUT) as resp:
             code = resp.getcode()
-            body = resp.read(512 * 1024).decode("utf-8", errors="replace")
+            body = resp.read(_MAX_BODY_BYTES).decode("utf-8", errors="replace")
         return code, body
     except (OSError, ValueError) as exc:
         return 0, str(exc)

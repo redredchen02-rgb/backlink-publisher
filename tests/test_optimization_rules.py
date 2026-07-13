@@ -114,6 +114,46 @@ class TestCanaryDrift:
         assert results[0].applied is True
         assert results[0].new_weight > results[0].old_weight
 
+    def test_drift_zero_does_not_restore_non_canary_suppression(self, state):
+        """A platform suppressed by a DIFFERENT rule (e.g. survival) must NOT be
+        restored to base by canary_drift just because drift_count==0 — the
+        restore branch must check the suppression was BY canary_drift, matching
+        the cooldown branch's ownership guard (audit [10])."""
+        state.set_weight("blogger", 0.3, rule="survival_threshold", reason="survival penalty")
+        state.update_stats("blogger", {"drift_count": 0, "total_published": 10, "alive_count": 2})
+
+        data = state.load()
+        results = evaluate_rules(data, rule_filter=RULE_CANARY_DRIFT)
+
+        restores = [r for r in results if r.applied and r.new_weight > r.old_weight]
+        assert not restores, (
+            f"canary_drift restored a platform it did not suppress (rule=survival): {restores}"
+        )
+
+    def test_apply_results_reduces_colliding_platform_to_strongest(self, state):
+        """Two rules applying to one platform in a cycle must not last-write-wins
+        in update_many_weights; the strongest (lowest resulting weight) must win
+        so a restore can't silently override a survival/aggregated penalty (audit [11])."""
+        from backlink_publisher.optimization.models import RuleResult
+
+        penalty = RuleResult(
+            platform="medium", rule_name="survival_threshold",
+            old_weight=1.0, new_weight=0.2, multiplier=0.2,
+            reason="survival penalty", applied=True,
+        )
+        restore = RuleResult(
+            platform="medium", rule_name="canary_drift",
+            old_weight=1.0, new_weight=1.0, multiplier=1.0,
+            reason="restore to base", applied=True,
+        )
+        # restore listed LAST: on the buggy last-write-wins path it would win (1.0).
+        apply_results(state, [penalty, restore])
+
+        current = state.load()["weights"]["default"]["medium"]["current"]
+        assert current == 0.2, (
+            f"colliding rule results not reduced to the strongest; medium current={current}"
+        )
+
     def test_multiple_platforms(self):
         data = _make_state_data(
             stats={

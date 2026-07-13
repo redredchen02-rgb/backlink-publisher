@@ -131,6 +131,58 @@ def test_single_flight_rejects_concurrent_publish(fake_pipeline: None) -> None:
         sdk_api.PipelineAPI = original
 
 
+def test_single_flight_atomic_under_concurrent_start(fake_pipeline: None) -> None:
+    """Concurrent start() of single-flight ops must admit EXACTLY ONE.
+
+    The check (_any_single_flight_running) and the reserve (self._running[id]=fut)
+    must be atomic; otherwise two near-simultaneous submissions both pass the
+    check before either inserts and two publishes run at once, racing dedup.db
+    and spawning two Chrome subprocesses (audit [12] TOCTOU).
+    """
+    import threading
+
+    slow = _FakeAPI(publish_sleep=0.5)
+    original = sdk_api.PipelineAPI
+    sdk_api.PipelineAPI = lambda: slow
+    try:
+        worker = ow.OperationWorker(max_workers=16)
+        n = 16
+        op_ids = [
+            operation_store.create(kind="publish", cfg={"plans": [], "platform": "blogger"})
+            for _ in range(n)
+        ]
+        barrier = threading.Barrier(n)
+        admitted: list[str] = []
+        rejected = {"n": 0}
+        guard = threading.Lock()
+
+        def _submit(oid: str) -> None:
+            barrier.wait()  # release all threads into start() simultaneously
+            try:
+                worker.start(oid, "publish", operation_store.get(oid)["cfg"])
+                with guard:
+                    admitted.append(oid)
+            except ow.AlreadyRunningError:
+                with guard:
+                    rejected["n"] += 1
+
+        threads = [threading.Thread(target=_submit, args=(oid,)) for oid in op_ids]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=15)
+
+        assert len(admitted) == 1, (
+            f"admitted {len(admitted)} concurrent single-flight ops (expected 1) — "
+            f"check-then-insert is not atomic"
+        )
+        assert rejected["n"] == n - 1
+        worker._running[admitted[0]].result(timeout=5)
+        worker.shutdown()
+    finally:
+        sdk_api.PipelineAPI = original
+
+
 def test_cancel_pending_op(fake_pipeline: None) -> None:
     op_id = operation_store.create(kind="publish", cfg={"plans": [], "platform": "blogger"})
     worker = ow.OperationWorker()
