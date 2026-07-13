@@ -163,7 +163,7 @@ jobs:
 
       - name: Type check (mypy)
         run: |
-          python -m mypy src/backlink_publisher --config-file mypy.ini
+          python -m mypy src/backlink_publisher
 
   # ═══════════════════════════════════════════════════════════════════════════
   # U2: Integration tests — touch disk, database, or external fakes
