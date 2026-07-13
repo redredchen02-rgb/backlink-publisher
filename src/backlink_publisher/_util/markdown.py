@@ -12,7 +12,7 @@ _mdit_safe_instance = None
 def _install_link_hook(mdit: Any) -> Any:
     """Make ``<a>`` tags open in a new tab with ``rel="noopener"`` (shared by
     both the passthrough and the sanitizing renderer)."""
-    default_link_open = mdit.renderer.rules.get("link_open")  # type: ignore[attr-defined]
+    default_link_open = mdit.renderer.rules.get("link_open")
 
     def _link_open(
         tokens: Any, idx: int, options: Any, env: Any,
@@ -21,10 +21,13 @@ def _install_link_hook(mdit: Any) -> Any:
         token.attrSet("target", "_blank")
         token.attrSet("rel", "noopener")
         if default_link_open is not None:
-            return default_link_open(tokens, idx, options, env)  # type: ignore[no-any-return]
-        return mdit.renderer.renderToken(tokens, idx, options, env)  # type: ignore[no-any-return,attr-defined]
+            # str() narrows the Any coming back through the untyped mdit
+            # renderer chain (warn_return_any); both branches already return
+            # rendered-HTML strings.
+            return str(default_link_open(tokens, idx, options, env))
+        return str(mdit.renderer.renderToken(tokens, idx, options, env))
 
-    mdit.renderer.rules["link_open"] = _link_open  # type: ignore[attr-defined]
+    mdit.renderer.rules["link_open"] = _link_open
     return mdit
 
 
@@ -65,7 +68,7 @@ def render_to_html(md: str) -> str:
     """
     if not md:
         return ""
-    return _get_mdit().render(md)  # type: ignore[no-any-return]
+    return _get_mdit().render(md)
 
 
 def render_to_html_safe(md: str) -> str:
@@ -78,7 +81,7 @@ def render_to_html_safe(md: str) -> str:
     """
     if not md:
         return ""
-    return _get_mdit_safe().render(md)  # type: ignore[no-any-return]
+    return _get_mdit_safe().render(md)
 
 
 _URL_MODE_OFFSETS = {"A": 0, "B": 1, "C": 2}
