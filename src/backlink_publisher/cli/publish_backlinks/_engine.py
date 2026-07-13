@@ -185,20 +185,60 @@ def run_publish_loop(
     Returns normally. Sets state.auth_aborted=True when an AuthExpiredError
     fires mid-loop; main() must skip _publish_epilogue in that case (R3a).
     """
+    # Per-row wall-time telemetry (Plan 2026-07-09-001 C2 measurement gate /
+    # v0.6.0 H1): stderr-diagnostics only — stdout JSONL stays byte-identical,
+    # so the footprint gates are unaffected. This is the evidence base for the
+    # "would per-platform-lane parallel publishing pay off?" decision, which is
+    # blocked until real runs record their row timings (events.db has zero
+    # rows on the operator machine as of 2026-07-13).
+    import time as _time
+
+    from backlink_publisher._util.logger import publish_logger as _plog
+
+    timings: list[float] = []
     for row_idx, row in enumerate(rows):
+        _t0 = _time.monotonic()
         result = _publish_one_row(
             row_idx, row, state, args, config, ts, banner_emit,
             forced_keys, throttle_min, throttle_max, initial_token_revs,
         )
+        elapsed = _time.monotonic() - _t0
+        timings.append(elapsed)
+        _plog.info(
+            "row_timing",
+            row=row_idx,
+            platform=str(row.get("platform", "")),
+            elapsed_s=round(elapsed, 3),
+        )
         if result == _AUTH_ABORT:
             state.auth_aborted = True
+            _emit_timing_summary(_plog, timings)
             return
         if result == _DEP_ABORT:
             state.dependency_aborted = True
+            _emit_timing_summary(_plog, timings)
             return
         if result == _CONFLICT_ABORT:
             state.conflict_aborted = True
+            _emit_timing_summary(_plog, timings)
             return
+    _emit_timing_summary(_plog, timings)
+
+
+def _emit_timing_summary(plog: Any, timings: list[float]) -> None:
+    """Aggregate row-timing line — H1's headline number: if ``total_s`` is
+    dominated by ``n_rows × mean_s`` across distinct platforms, per-platform
+    lanes would collapse it toward ``max_s``; if rows are sub-second, they
+    would not. Diagnostics-only (stderr)."""
+    if not timings:
+        return
+    plog.info(
+        "row_timing_summary",
+        n_rows=len(timings),
+        total_s=round(sum(timings), 3),
+        mean_s=round(sum(timings) / len(timings), 3),
+        max_s=round(max(timings), 3),
+    )
 
 
 def publish_rows(
