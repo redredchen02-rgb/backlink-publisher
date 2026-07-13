@@ -175,7 +175,12 @@ _NO_CONTACT_STATUSES = {"won", "lost"}
 
 
 def is_do_not_contact(target_id: str) -> bool:
-    """Return ``True`` if *target_id* has a terminal CRM status (won/lost/rejected/removed).
+    """Return ``True`` if *target_id* has a closed-won/closed-lost CRM status.
+
+    Only ``won``/``lost`` block outreach (see ``_NO_CONTACT_STATUSES``).
+    ``rejected``/``removed`` rows are physically deleted for secrets hygiene
+    (module docstring property #2), so they are intentionally *not* blocked here:
+    a removed target is re-contactable and this returns ``False`` for it.
 
     Use before initiating any new outreach to avoid re-contacting closed contacts.
     Returns ``False`` when no record exists (never-contacted is safe to reach out to).
