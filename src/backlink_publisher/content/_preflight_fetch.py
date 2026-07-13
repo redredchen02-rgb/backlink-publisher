@@ -122,13 +122,18 @@ def _is_http_url(url: str) -> bool:
     return parsed is not None and parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-def _read_body_prefix(resp: Any, max_bytes: int) -> bytes:
+def _read_body_prefix(resp: Any, max_bytes: int, *, stop_at_h1: bool = True) -> bytes:
     """Stream ``resp`` until ``</h1>``, EOF, or ``max_bytes`` — whichever first.
 
     Mirrors ``_html_utils.read_html_head_window``'s streaming-cap discipline but
     stops at ``</h1>`` (in ``<body>``) instead of ``</head>``, so the first
     ``<h1>`` is captured. Counts wire bytes; no ``Accept-Encoding: gzip`` is
     sent, so a compression bomb cannot amplify past the cap.
+
+    ``stop_at_h1=False`` disables the early stop and reads to ``max_bytes``/EOF:
+    anchor-scanning callers (``link_attr_verifier``) need the article body BELOW
+    the ``<h1>`` title, where the operator's backlink actually lives — stopping
+    at the title would report every deep anchor as stripped.
     """
     buf = bytearray()
     chunk_size = 16_384
@@ -139,6 +144,8 @@ def _read_body_prefix(resp: Any, max_bytes: int) -> bytes:
         if not chunk:
             break
         buf.extend(chunk)
+        if not stop_at_h1:
+            continue
         tail_start = max(0, len(buf) - probe_window)
         if _H1_SENTINEL in bytes(buf[tail_start:]).lower():
             break
@@ -248,12 +255,29 @@ def _build_facts_from_response(resp: Any, normalized: str) -> PreflightFacts:
             host_diff=host_diff, reason=reason,
         )
 
+    return _facts_for_ok_page(final_url, headers, body, normalized)
+
+
+def _facts_for_ok_page(
+    final_url: str | None, headers: Any, body: bytes, normalized: str
+) -> PreflightFacts:
+    """Assemble :class:`PreflightFacts` for an already-verified clean-200 page.
+
+    The single source for the 200-path fact derivation (title / soft404 /
+    noindex / X-Robots-Tag / ``head_complete``), shared by ``fetch_target``
+    and ``link_attr_verifier``'s captured-page path — so the recheck probe's
+    indexability reading can never drift from the canary's (both feed
+    ``recheck.indexability.classify_indexability``). Callers must have done
+    the scheme/SSRF/redirect checks already; this is pure classification.
+    """
+    redirected = bool(final_url) and final_url != normalized
+    host_diff = redirected and safe_hostname(final_url) != safe_hostname(normalized)
     title = extract_title(body) or ""
     x_robots = _x_robots_value(headers)
     noindex = _meta_noindex(body) or bool(x_robots and _has_noindex_directive(x_robots))
 
     return PreflightFacts(
-        status=status,
+        status=200,
         final_url=final_url,
         redirected=redirected,
         host_diff=host_diff,

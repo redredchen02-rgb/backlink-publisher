@@ -296,6 +296,7 @@ def inspect_target_anchor(
     expected_marker: str | None = None,
     timeout: float | None = None,
     capture_anchor_text: bool = False,
+    capture_page_facts: bool = False,
 ) -> dict:
     """Fetch ``url`` (SSRF-guarded) and inspect the anchor pointing at
     ``target_url``.
@@ -326,6 +327,12 @@ def inspect_target_anchor(
     switches the scan to the full ``<a>...</a>`` element regex; default callers
     keep the unchanged opening-tag scan.
 
+    ``capture_page_facts`` (default False) opts into a ``page_facts`` key: a
+    ``content._preflight_fetch.PreflightFacts`` derived from the SAME response
+    (via the shared ``_facts_for_ok_page`` assembly), so the recheck probe can
+    classify indexability without downloading the page a second time. Only set
+    on a readable page; absent entirely when not requested.
+
     Honest limitation (R13): the preflight UA is distinct so the target can rate
     limit it separately, but a platform could UA-cloak (serve dofollow to the
     canary, nofollow to real traffic). The verdict is a *contract-drift signal*,
@@ -345,15 +352,20 @@ def inspect_target_anchor(
         "reason": None,
     }
 
-    body, reason = _fetch_body_via_preflight(url, _pf, timeout)
-    if reason is not None:
-        result["reason"] = reason
+    page = _fetch_page_via_preflight(url, _pf, timeout)
+    if page.reason is not None:
+        result["reason"] = page.reason
         return result
+    body = page.body
     if not body:
         result["reason"] = "empty_body"
         return result
 
     result["page_readable"] = True
+    if capture_page_facts:
+        result["page_facts"] = _pf._facts_for_ok_page(
+            page.final_url, page.headers, body, page.normalized_url or url
+        )
     text = body.decode("utf-8", "ignore")
 
     if expected_marker is not None:
@@ -459,19 +471,63 @@ def body_has_required_link(body: str, required_urls: Sequence[str]) -> bool:
 def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tuple[bytes, str | None]:
     """Fetch ``url`` through the preflight SSRF-guarded opener.
 
+    Back-compat 2-tuple wrapper over :func:`_fetch_page_via_preflight` — the
+    post-publish ``verify_link_attributes`` path needs only ``(body, reason)``.
+    """
+    page = _fetch_page_via_preflight(url, _pf, timeout)
+    return page.body, page.reason
+
+
+class _FetchedPage:
+    """One preflight-guarded page fetch: body + taxonomy reason + the response
+    metadata (final URL / headers / normalized request URL) needed to derive
+    ``PreflightFacts`` from the SAME download instead of a second fetch."""
+
+    __slots__ = ("body", "reason", "final_url", "headers", "normalized_url")
+
+    def __init__(
+        self,
+        body: bytes = b"",
+        reason: str | None = None,
+        final_url: str | None = None,
+        headers: Any = None,
+        normalized_url: str | None = None,
+    ) -> None:
+        self.body = body
+        self.reason = reason
+        self.final_url = final_url
+        self.headers = headers
+        self.normalized_url = normalized_url
+
+
+def _fetch_page_via_preflight(url: str, _pf: Any, timeout: float | None) -> _FetchedPage:
+    """Fetch ``url`` through the preflight SSRF-guarded opener.
+
     Reuses ``_preflight_fetch``'s scheme gate (``_is_http_url``), never-raising
     SSRF check (``_safe_ssrf_check``), the module-level ``_PREFLIGHT_OPENER``
-    (per-hop + post-redirect SSRF re-check), body-prefix streaming cap, and UA —
-    so building a fresh opener (which would only check the initial URL) is
-    avoided. Returns ``(body, None)`` on a clean 200 or ``(b"", reason)``.
+    (per-hop + post-redirect SSRF re-check), body streaming cap, and UA — so
+    building a fresh opener (which would only check the initial URL) is
+    avoided. Returns a clean-200 :class:`_FetchedPage` or one with ``reason``.
+
+    Reads the FULL body prefix (``stop_at_h1=False``): anchor scanning needs
+    the article body below the ``<h1>`` title — the preflight verb's
+    ``</h1>`` early-stop would truncate the scan and report deep anchors as
+    stripped (false deterministic-dead verdicts on recheck).
+
+    A raised :class:`HTTPError` maps to the same ``http_<status>`` taxonomy as
+    the returned-response path — the real opener RAISES for non-2xx, so
+    without this branch a production 404 would read as ``network_error`` and
+    ``host_gone`` could never fire.
     """
+    from urllib.error import HTTPError
+
     # Scheme gate — also guards urlparse(malformed IPv6) → ValueError.
     if not _pf._is_http_url(url):
-        return b"", "invalid_url"
+        return _FetchedPage(reason="invalid_url")
 
     blocked = _pf._safe_ssrf_check(url)
     if blocked is not None:
-        return b"", _pf._ssrf_reason_to_taxonomy(blocked)
+        return _FetchedPage(reason=_pf._ssrf_reason_to_taxonomy(blocked))
 
     from backlink_publisher._util.url import normalize_url_for_fetch
 
@@ -482,15 +538,29 @@ def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tupl
 
     try:
         resp = _pf._PREFLIGHT_OPENER.open(req, timeout=effective_timeout)
+    except HTTPError as exc:
+        try:
+            exc.close()
+        # debt: link-attr-verifier-fetch-classify-never-raises-accepted
+        except Exception:
+            pass
+        if 300 <= exc.code < 400:
+            # Redirect cap exceeded — urllib re-raises with the last 3xx code
+            # (mirrors fetch_target's distinct fact for a too-long chain).
+            return _FetchedPage(reason="redirect_capped")
+        return _FetchedPage(reason=f"http_{exc.code}")
     # debt: link-attr-verifier-fetch-classify-never-raises-accepted
     except Exception as exc:
-        return b"", _classify_fetch_error(exc)
+        return _FetchedPage(reason=_classify_fetch_error(exc))
 
     try:
         status = resp.getcode()
         final_url = resp.geturl() or normalized
+        headers = resp.info()
         try:
-            body = _pf._read_body_prefix(resp, _pf.PREFLIGHT_BODY_BYTES)
+            body = _pf._read_body_prefix(
+                resp, _pf.PREFLIGHT_BODY_BYTES, stop_at_h1=False
+            )
         finally:
             try:
                 resp.close()
@@ -499,17 +569,22 @@ def _fetch_body_via_preflight(url: str, _pf: Any, timeout: float | None) -> tupl
                 pass
     # debt: link-attr-verifier-fetch-classify-never-raises-accepted
     except Exception:
-        return b"", "network_error"
+        return _FetchedPage(reason="network_error")
 
     # Post-redirect SSRF re-check of the final URL (narrows DNS-rebinding window).
     if final_url and final_url != normalized:
         final_blocked = _pf._safe_ssrf_check(final_url)
         if final_blocked is not None and final_blocked.startswith("blocked_ip"):
-            return b"", "ssrf_blocked"
+            return _FetchedPage(reason="ssrf_blocked")
 
     if status != 200:
-        return b"", f"http_{status}"
-    return body, None
+        return _FetchedPage(reason=f"http_{status}")
+    return _FetchedPage(
+        body=body,
+        final_url=final_url,
+        headers=headers,
+        normalized_url=normalized,
+    )
 
 
 def _classify_fetch_error(exc: Exception) -> str:

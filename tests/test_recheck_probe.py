@@ -117,6 +117,76 @@ def test_never_raises_returns_probe_error():
     assert "probe_exception" in out["reason"]
 
 
+# ── single-fetch default path (wave-b [6]) ───────────────────────────────────
+
+
+def _one_shot_resp(body: bytes):
+    """Minimal chunk-honoring fake response for the preflight opener."""
+    import email.message
+    from unittest.mock import MagicMock
+
+    resp = MagicMock()
+    resp.getcode.return_value = 200
+    resp.geturl.return_value = LIVE
+    resp.info.return_value = email.message.Message()
+    state = {"pos": 0}
+
+    def _read(n: int = -1) -> bytes:
+        if n is None or n < 0:
+            n = len(body) - state["pos"]
+        chunk = body[state["pos"] : state["pos"] + n]
+        state["pos"] += len(chunk)
+        return chunk
+
+    resp.read.side_effect = _read
+    resp.close.return_value = None
+    return resp
+
+
+def test_default_probe_fetches_once_and_derives_indexability():
+    """[6]: with no injected fns, the probe must hit the network ONCE per
+    readable page — indexability comes from the same response, not a second
+    fetch_target download (which doubled recheck's request footprint)."""
+    from backlink_publisher.content import _preflight_fetch as pf
+
+    body = (
+        b'<html><head><meta name="robots" content="noindex"></head>'
+        b'<body><h1>T</h1><a href="https://my.site/">link</a></body></html>'
+    )
+    calls = {"n": 0}
+
+    def _open(req, timeout=None):
+        calls["n"] += 1
+        return _one_shot_resp(body)
+
+    with patch.object(pf, "_check_url_for_ssrf", return_value=None), \
+         patch.object(pf._PREFLIGHT_OPENER, "open", side_effect=_open):
+        out = probe_liveness(LIVE, TARGET)
+
+    assert out["verdict"] == verdicts.ALIVE
+    assert out["indexability"] == INDEXABILITY_BLOCKED
+    assert out["indexability_reason"] == "meta_noindex"
+    assert calls["n"] == 1
+
+
+def test_injected_inspect_without_facts_still_uses_fetch_fn():
+    """Back-compat seam: an injected inspect_fn (tests, custom transports)
+    carries no page_facts — the probe must keep deriving indexability via the
+    injectable fetch_fn second fetch, exactly as before."""
+    calls = {"n": 0}
+
+    def _fetch(url, *, timeout=None):
+        calls["n"] += 1
+        return PreflightFacts(
+            status=200, reason=None, noindex=False, head_complete=True
+        )
+
+    out = probe_liveness(LIVE, TARGET, inspect_fn=_inspect(), fetch_fn=_fetch)
+    assert out["verdict"] == verdicts.ALIVE
+    assert out["indexability"] == INDEXABILITY_OK
+    assert calls["n"] == 1
+
+
 # ── dofollow drift cross-check against the real manifest registry ────────────
 
 def test_dofollow_lost_when_channel_is_dofollow():
