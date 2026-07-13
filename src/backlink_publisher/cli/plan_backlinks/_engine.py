@@ -231,15 +231,24 @@ def plan_rows(
             n_unrestricted=len(unrestricted),
         )
 
+    # [26] Validate every seed once (build the SeedPayload once). Previously
+    # validated twice — the prefetch filter pass + the generation loop. `errs`
+    # is non-empty iff the model would be None (validate_and_convert_input
+    # returns a None model exactly when errs is non-empty), and passing the real
+    # line_num reproduces the exact error strings the generation loop emits.
+    row_errors: list[list[str]] = [
+        validate_and_convert_input(row, line_num)[1]
+        for line_num, row in enumerate(rows, start=1)
+    ]
+
     # ── Prefetch batch (optional, controlled by caller flag) ───────────────
     if fetch_verify_enabled:
-        validated_rows: list[dict[str, Any]] = []
-        for row in rows:
-            _, errs = validate_and_convert_input(row, 0)
-            if not errs:
-                validated_rows.append(row)
         prefetch_set: set[str] = set()
-        for row in validated_rows:
+        n_valid = 0
+        for row, errs in zip(rows, row_errors):
+            if errs:
+                continue
+            n_valid += 1
             prefetch_set.update(_collect_candidate_urls_for_row(row, cfg))
         prefetch_set.update(_SUPPORTING_URLS_FOR_PREFETCH)
         if prefetch_set:
@@ -247,13 +256,12 @@ def plan_rows(
             plan_logger.recon(
                 "content_fetch_prefetch",
                 n_urls_prefetched=len(prefetch_set),
-                n_rows=len(validated_rows),
+                n_rows=n_valid,
             )
 
     # ── Per-row generation loop ────────────────────────────────────────────
-    for line_num, row in enumerate(rows, start=1):
-        seed, errs = validate_and_convert_input(row, line_num)
-        if errs or seed is None:
+    for line_num, (row, errs) in enumerate(zip(rows, row_errors), start=1):
+        if errs:
             outcome.errors.extend(errs)
             outcome.validation_drops.append(line_num)
             continue

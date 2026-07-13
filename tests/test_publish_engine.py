@@ -381,3 +381,22 @@ def test_terminal_exit_code_short_circuits_on_abort():
     st2.auth_aborted = True
     oc2 = PublishOutcome(state=st2, options=_opts())
     assert oc2.terminal_exit_code == 3
+
+
+def test_supported_platforms_computed_once_across_rows():
+    """Finding [27]: supported_platforms() must be built once per run, not once
+    per row. Before the hoist, 3 rows → 3 rebuilds of frozenset(registered_
+    platforms()); after, the run-scoped cache builds it once."""
+    import backlink_publisher.schema as _schema
+
+    rows = [_payload(f"r{i}") for i in range(3)]
+    orig = _schema.supported_platforms
+    with patch("backlink_publisher.schema.supported_platforms", wraps=orig) as m:
+        outcome = _run_rows(lambda *a, **k: _ok(), rows, _opts())
+    assert m.call_count == 1  # was 3 before the hoist
+    assert outcome.fail_count == 0  # membership gate still admits supported platforms
+    assert len(outcome.outputs) == 3
+
+
+def test_publish_run_state_supported_platforms_defaults_none():
+    assert PublishRunState().supported_platforms is None

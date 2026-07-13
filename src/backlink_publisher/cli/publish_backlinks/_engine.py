@@ -91,6 +91,11 @@ class PublishRunState:
     run_id: str | None = None
     # Dedup warning deduplication per platform
     canary_warned: set[str] = field(default_factory=set)
+    # [27] Registry snapshot cached for the run: supported_platforms() rebuilds a
+    # frozenset(registered_platforms()) every call, but the adapter registry is
+    # static for a publish run. Compute lazily on the first row that reaches the
+    # unsupported-platform gate and reuse thereafter (was rebuilt once per row).
+    supported_platforms: frozenset[str] | None = None
     # R3a: signals main() to skip _publish_epilogue after AuthExpiredError
     auth_aborted: bool = False
     # U4-1: AuthExpiredError no longer SystemExits inside the loop (so the engine
@@ -333,7 +338,6 @@ def _check_publish_preconditions(
         _medium_throttle_sleep,
     )
     from backlink_publisher.cli.publish_backlinks import adapter_publish
-    from backlink_publisher.schema import supported_platforms
 
     _medium_throttle_sleep(
         row_idx, state.last_medium_success_idx,
@@ -379,7 +383,10 @@ def _check_publish_preconditions(
             return _ROW_CONTINUE
 
     # ── Unsupported platform gate ────────────────────────────────────────
-    if platform not in supported_platforms():
+    if state.supported_platforms is None:
+        from backlink_publisher.schema import supported_platforms
+        state.supported_platforms = supported_platforms()
+    if platform not in state.supported_platforms:
         state.outputs.append(_build_failure_row(
             "failed", row, platform,
             f"unsupported platform: {platform}",
