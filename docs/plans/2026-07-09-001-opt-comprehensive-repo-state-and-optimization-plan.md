@@ -84,7 +84,11 @@ claims: {}
 - [x] **A1: 審查並合併 `opt/backend-code-health`** — 已於 2026-07-09 完成（`93365059`，`--no-ff`）。
 - [x] **A2: 將 `main` 上的 WIP 移出** — 以變體形式完成：per-row-errors WIP 直接提交為
   baseline（`9591b43e`）。偏離原設計（未走分支），記錄為既成事實。
-- [ ] **A3: 分流新一批 `main` WIP（operation-progress + error-bug-report）**
+- [x] **A3: 分流新一批 `main` WIP（operation-progress + error-bug-report）** —
+  完成（2026-07-13）。實際分流為**三**個分支（歸屬盤點發現 25 個修改檔屬 wave-2 W3 token 清掃，
+  而非兩功能）：`feat/error-bug-report`（+blueprint 註冊修復，25/25 測試綠）、
+  `feat/operation-progress`（+`operation_store` _LazyStore 門面與 blueprint 註冊修復，17/17 測試綠）、
+  `opt/webui-uiux-wave2-tokens`（+修復 4 處殘留 `var(--radius)` 消費者）。main 工作樹已淨空。
   - 動作：
     1. 先單獨提交三份純文件（兩份 plan doc + `docs/solutions/ui-bugs/notifications-js-*.md`）
        到 `main`——純文件、零風險，消除計畫文件遺失風險。
@@ -105,16 +109,14 @@ claims: {}
   過渡期正常；可選在某次乾淨工作樹時 `git add --renormalize .` 一次收尾。
 - [x] **B3: 修剪過期 worktree（第一批）** — `bp-wsgi-prod`、`.worktrees/feat/windows-portable-package`
   已移除。
-- [ ] **B3': 殘餘 worktree / 死目錄收尾**
-  - `bp-w8-shell`：分支 `feat/w8-spa-shell-upgrade` 已 merged。先確認 worktree 內無未提交/未推送
-    改動、且無其他 session 活躍（shared-directory 教訓），再 `git worktree remove` + 刪分支。
-  - `bp-fix-main-mypy/`：已非 git checkout（fatal: not a git repository）。掃描有無獨有檔案後 `rm -rf`。
-- [ ] **B4': 根目錄與分支收尾**
-  - 刪除已合併分支：`opt/backend-code-health`、`fix/production-wsgi-entrypoint`；
-    確認 #88 內容一致後刪 `feat/windows-portable-package`。
-  - 刪除實體 `nul` 檔（Windows 裝置名保留字，需 `rm //./nul` 或
-    `del "\\.\C:\...\nul"` 語法）。
-  - 確認 workspace 根 `__pycache__/` 已被忽略。
+- [x] **B3': 殘餘 worktree / 死目錄收尾** — 完成（2026-07-13）。
+  `bp-w8-shell` 內發現 4 檔未提交 WIP（+176/−18，2026-07-07 停更）→ 先提交到
+  `feat/w8-spa-shell-upgrade`（`ed482165`，該分支現有 1 個未合併 commit，**保留分支**）再移除 worktree；
+  `bp-fix-main-mypy/` 實為空目錄，已刪。
+- [x] **B4': 根目錄與分支收尾** — 完成（2026-07-13）。
+  已刪分支：`opt/backend-code-health`、`fix/production-wsgi-entrypoint`、
+  `feat/windows-portable-package`（以 `git diff main <branch> -- <packaging paths>` 驗證零差異後 `-D`）。
+  `nul` 已刪（PowerShell `\\?\` 擴展路徑語法）；workspace 根 `__pycache__/` 已刪。
 
 ### Phase C — 效能地基（讓後續優化可被守護）
 - [x] **C1: 建立效能回歸基準（第一塊）** — routing benchmark 已落地（`d25a89d3`），
@@ -134,12 +136,12 @@ claims: {}
 - [ ] **D1: 29 個 CC≥21 熱點（2026-07-13 實測）** — 小步萃取重構，先攻 Top 8（見 Snapshot B5）。
   注意其中 `report_bug/` 2 處在未追蹤新碼——應在 A3 分流後於該功能分支上處理。
   每改一處同步核對 `complexity_budget.toml`；調 ceiling 須同 PR 附 ≥80 字 rationale。
-- [ ] **D2': 修復 mypy cp950 crash（取代原 D2，優先級提升）**
-  - 根因：`mypy.ini` 含非 ASCII 字元（如 em-dash），`configparser` 以 locale 編碼（cp950）讀取即 crash。
-  - 修法（擇一）：(a) 把 mypy 設定遷入 `pyproject.toml [tool.mypy]`（TOML 規範強制 UTF-8，一勞永逸）；
-    (b) 把 `mypy.ini` 改為純 ASCII。建議 (a)。
-  - 驗證：繁中 Windows locale 下 `python -m mypy src/backlink_publisher` 可執行且與 CI 結果一致。
-- [ ] **D3: 清 `Unused "type: ignore"`** — 待 D2' 修復、mypy 可跑後重新量測數量再清。
+- [x] **D2': 修復 mypy cp950 crash** — 完成（2026-07-13，`7edd7326` + CI 引用修正 `0d01d2d9`，
+  已合併 main）。採方案 (a) 遷入 `pyproject.toml [tool.mypy]` 並刪 `mypy.ini`；同步修掉 INI 引號
+  `platform = "linux"` 的字面值問題與 `ci.yml`/`AGENTS.md` 的 `--config-file mypy.ini` 引用。
+  驗證：本地 `python -m mypy src/backlink_publisher` → **Success: no issues found in 457 source files**。
+- [x] **D3: 清 `Unused "type: ignore"`** — 隨 D2' 歸零：`warn_unused_ignores = true` 之下 mypy
+  全綠、零警告（先前的 ~5 處已在 `cf656fab` 輪清掉）。
 - [ ] **D4: 維持 debt_registry 時效**（持續性原則，不設完成點）。
 
 ## Execution Safeguards（沿用 `docs/solutions/` 制度性教訓）
