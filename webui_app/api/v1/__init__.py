@@ -49,6 +49,7 @@ from . import (
     channel_bind,
     channels,
     drafts,
+    error_report_bundle,
     error_reports,
     global_settings,
     health_dashboard,
