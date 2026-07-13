@@ -16,7 +16,7 @@ import {
   fetchSummary, startRecheck, pollRecheck, cancelRecheck,
   getRepublishToken, executeRepublish, pollRepublish,
   fetchCycleStatus, resetExhausted,
-  type KeepAliveSummary, type KeepAliveGap, type RepublishResult,
+  type KeepAliveSummary, type KeepAliveGap,
 } from '../../api/keepAlive'
 import StateBlock from '../../components/StateBlock.vue'
 import { usePolledQuery } from '../../composables/usePolledQuery'
@@ -176,11 +176,13 @@ const startConfirm = async () => {
   if (!hasGaps.value) return
   try {
     const result = await getRepublishToken()
-    if (!result.ok) {
-      flashMessage.value = result.error ?? '获取确认令牌失败'
+    // Backend returns {confirm_token, targets, seeds} (no `ok`/`token`). Gate on
+    // the presence of the confirm nonce, not a non-existent `ok` (audit [01]).
+    if (!result.confirm_token) {
+      flashMessage.value = '获取确认令牌失败'
       return
     }
-    republishToken.value = (result as RepublishResult & { token: string }).token
+    republishToken.value = result.confirm_token
     actionState.value = 'confirming'
   } catch (e) {
     flashMessage.value = `获取令牌失败: ${e instanceof Error ? e.message : String(e)}`
@@ -202,20 +204,22 @@ const doRepublish = async () => {
   // poll result (code review finding, U5).
   republishStage.value = ''
   republishMessage.value = ''
-  const gapKeys = Array.from(selectedGaps.value).map(k => {
-    const [target_url, platform] = k.split(':')
-    return JSON.stringify({ target_url, platform })
-  })
+  // Backend wants the sticky target_url list, not per-gap keys. Extract each
+  // target_url from its gap key (`${target_url}:${platform}`) via the LAST ':'
+  // so the scheme colon in an https:// URL doesn't corrupt the split (audit [01]).
+  const targets = Array.from(
+    new Set(Array.from(selectedGaps.value).map(k => k.slice(0, k.lastIndexOf(':')))),
+  )
   try {
-    const result = await executeRepublish(republishToken.value, gapKeys)
-    if (!result.ok) {
-      flashMessage.value = result.message ?? '发布失败'
+    const result = await executeRepublish(targets, republishToken.value)
+    if (!result.job_id) {
+      flashMessage.value = result.error ?? result.message ?? '发布失败'
       actionState.value = 'idle'
       return
     }
     // Setting a truthy job id flips usePolledQuery's `enabled` -- vue-query
     // fires the first poll on its own, no explicit "start" call needed.
-    republishJobId.value = result.job_id ?? ''
+    republishJobId.value = result.job_id
   } catch (e) {
     flashMessage.value = `发布失败: ${e instanceof Error ? e.message : String(e)}`
     actionState.value = 'idle'
