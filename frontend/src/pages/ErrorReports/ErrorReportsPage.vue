@@ -18,6 +18,12 @@
 // surface), this page has no polling loop. Each filter/offset combination is
 // its own query key, matching the same direct-wiring shape already used by
 // DraftsPage.vue / HistoryPage.vue for their paginated DataTables.
+// Caveat (Task 10 review): "no polling" is not a full safety proof — a
+// window-focus refetch (refetchOnWindowFocus is on globally) of an
+// already-succeeded key that fails still leaves cached rows next to a truthy
+// isError, briefly showing the error UI over good data. That low-frequency
+// gap is shared with Drafts/History (accepted risk profile), not introduced
+// by this migration.
 //
 // Two distinct empty-state strings, not one: a genuinely empty dataset reads
 // differently from "filtered down to zero", which also offers a clear-filters
