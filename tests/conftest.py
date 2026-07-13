@@ -238,9 +238,11 @@ GRANDFATHERED_EXPANDUSER_SITES: frozenset[tuple[str, int]] = frozenset(
         ),
         # _parse_velog(): expands an operator-supplied [velog].cookies_path from
         # config.toml (not an operator-state-root construction).
+        # (line re-anchored 2026-07-13: the D1 load_config decomposition moved
+        # the [velog] parse into _parse_channel_sections.)
         (
             "src/backlink_publisher/config/loader.py",
-            177,
+            124,
         ),
     }
 )
