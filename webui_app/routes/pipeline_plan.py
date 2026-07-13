@@ -13,7 +13,7 @@ from typing import Any
 from flask import Blueprint, request, session
 
 from backlink_publisher._util.logger import plan_logger
-from backlink_publisher._util.markdown import render_to_html
+from backlink_publisher._util.markdown import render_to_html_safe
 
 from ..api import PipelineAPI
 from ..helpers.contexts import _persist_three_tier_config, _render
@@ -253,7 +253,7 @@ def ce_preview() -> Any:
 
     fmt = request.args.get('format', 'md')
     if fmt == 'html':
-        return render_to_html(content)
+        return render_to_html_safe(content)
     return content
 
 
@@ -307,5 +307,5 @@ def ce_regen_body() -> Any:
         from backlink_publisher.llm.client import _redact_for_log
         return jsonify({'error': 'llm_call_failed', 'detail': _redact_for_log(str(exc))}), 502
 
-    content_html = render_to_html(body)
+    content_html = render_to_html_safe(body)
     return jsonify({'content_markdown': body, 'content_html': content_html, 'content_source': 'llm'})

@@ -6,28 +6,49 @@ import re
 from typing import Any
 
 _mdit_instance = None
+_mdit_safe_instance = None
+
+
+def _install_link_hook(mdit: Any) -> Any:
+    """Make ``<a>`` tags open in a new tab with ``rel="noopener"`` (shared by
+    both the passthrough and the sanitizing renderer)."""
+    default_link_open = mdit.renderer.rules.get("link_open")  # type: ignore[attr-defined]
+
+    def _link_open(
+        tokens: Any, idx: int, options: Any, env: Any,
+    ) -> str:
+        token = tokens[idx]
+        token.attrSet("target", "_blank")
+        token.attrSet("rel", "noopener")
+        if default_link_open is not None:
+            return default_link_open(tokens, idx, options, env)  # type: ignore[no-any-return]
+        return mdit.renderer.renderToken(tokens, idx, options, env)  # type: ignore[no-any-return,attr-defined]
+
+    mdit.renderer.rules["link_open"] = _link_open  # type: ignore[attr-defined]
+    return mdit
 
 
 def _get_mdit() -> Any:
     global _mdit_instance
     if _mdit_instance is None:
         from markdown_it import MarkdownIt
-        mdit = MarkdownIt("commonmark").enable(["table", "strikethrough"])
-        default_link_open = mdit.renderer.rules.get("link_open")  # type: ignore[attr-defined]
-
-        def _link_open(
-            tokens: Any, idx: int, options: Any, env: Any,
-        ) -> str:
-            token = tokens[idx]
-            token.attrSet("target", "_blank")
-            token.attrSet("rel", "noopener")
-            if default_link_open is not None:
-                return default_link_open(tokens, idx, options, env)  # type: ignore[no-any-return]
-            return mdit.renderer.renderToken(tokens, idx, options, env)  # type: ignore[no-any-return,attr-defined]
-
-        mdit.renderer.rules["link_open"] = _link_open  # type: ignore[attr-defined]
-        _mdit_instance = mdit
+        _mdit_instance = _install_link_hook(
+            MarkdownIt("commonmark").enable(["table", "strikethrough"])
+        )
     return _mdit_instance
+
+
+def _get_mdit_safe() -> Any:
+    global _mdit_safe_instance
+    if _mdit_safe_instance is None:
+        from markdown_it import MarkdownIt
+        # html=False escapes raw HTML in the source, neutralizing embedded
+        # <script>/<img onerror=...> etc.; markdown-it's default link validator
+        # already refuses javascript:/vbscript:/data: URLs.
+        _mdit_safe_instance = _install_link_hook(
+            MarkdownIt("commonmark", {"html": False}).enable(["table", "strikethrough"])
+        )
+    return _mdit_safe_instance
 
 
 def render_to_html(md: str) -> str:
@@ -37,10 +58,27 @@ def render_to_html(md: str) -> str:
     ``target="_blank" rel="noopener"`` so that clicking a link opens it in a
     new tab (preserving dwell time on the host article) without exposing the
     opener window via ``window.opener``.
+
+    NOTE: raw HTML in ``md`` passes through verbatim (``html=True``). This is
+    intended for the PUBLISH path (real article bodies). For operator-facing
+    previews of untrusted LLM output, use :func:`render_to_html_safe`.
     """
     if not md:
         return ""
     return _get_mdit().render(md)  # type: ignore[no-any-return]
+
+
+def render_to_html_safe(md: str) -> str:
+    """Render markdown to HTML with raw-HTML passthrough DISABLED (``html=False``).
+
+    For operator-facing PREVIEWS of untrusted (LLM-generated) content: embedded
+    ``<script>`` / ``<img onerror=...>`` / ``<svg onload=...>`` are HTML-escaped
+    rather than emitted as live elements, closing the stored/DOM XSS sinks in the
+    admin plan preview and the regen-body innerHTML path (audit [26][27]).
+    """
+    if not md:
+        return ""
+    return _get_mdit_safe().render(md)  # type: ignore[no-any-return]
 
 
 _URL_MODE_OFFSETS = {"A": 0, "B": 1, "C": 2}
