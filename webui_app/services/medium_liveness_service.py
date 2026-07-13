@@ -79,10 +79,15 @@ def medium_liveness_check(timeout_s: float = 10.0) -> LivenessResult:
     if storage_state is None:
         return LivenessResult.NEVER_BOUND
 
+    # NOT a `with` block: on timeout the probe thread is still running and cannot
+    # be cancelled, and the context manager's __exit__ calls shutdown(wait=True),
+    # which would JOIN that thread and block the request far past timeout_s —
+    # defeating the "render without blocking" contract. Detach with wait=False and
+    # let the orphaned probe finish in the background.
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(_active_probe, storage_state)
-            result = future.result(timeout=timeout_s)
+        future = pool.submit(_active_probe, storage_state)
+        result = future.result(timeout=timeout_s)
     except concurrent.futures.TimeoutError:
         log.warn(
             f"medium_liveness: probe exceeded {timeout_s}s budget; needs_recheck"
@@ -94,6 +99,8 @@ def medium_liveness_check(timeout_s: float = 10.0) -> LivenessResult:
             f"{type(exc).__name__}: {exc}"
         )
         return LivenessResult.NEEDS_RECHECK
+    finally:
+        pool.shutdown(wait=False)
 
     if result == LivenessResult.LOGGED_IN:
         try:
