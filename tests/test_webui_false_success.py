@@ -283,7 +283,7 @@ class TestPipelineGenerateCorruptJson:
         # The route either renders an error OR falls back — but with corrupt
         # non-empty input it must NOT call plan with the stale URLs silently
         # (the actual behavior is to render error page with 200 for the WebUI)
-        assert "无效" in data or "invalid" in data.lower() or "error" in data.lower() or resp.status_code == 200
+        assert "无效" in data or "invalid" in data.lower()
 
     def test_empty_urls_json_falls_back_to_session(self, client, monkeypatch):
         """Empty urls_json is a legitimate fallback — not an error."""

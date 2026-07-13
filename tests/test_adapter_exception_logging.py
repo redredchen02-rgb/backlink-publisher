@@ -46,7 +46,7 @@ class TestMediumBrowserScreenshotExceptionHandling:
             # debug was called with the error
             mock_log.debug.assert_called_once()
             call_args = mock_log.debug.call_args
-            assert "Failed to capture" in str(call_args) or mock_log.debug.called
+            assert "Failed to capture" in str(mock_log.debug.call_args)
 
     def test_screenshot_os_error_is_logged_not_raised(self):
         """OSError (permission denied for screenshot path) must not propagate."""

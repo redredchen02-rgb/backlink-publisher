@@ -107,7 +107,7 @@ def test_referral_attribution_integration(tmp_path: Path, capsys) -> None:
         referral_cli.main(["--property", "123", "--store-path", str(db_path), "example.com"])
 
     out, _ = capsys.readouterr()
-    assert "dry-run" in out or "dry-run" in _ or True
+    assert "dry-run" in out or "dry-run" in _
     assert not db_path.exists()
 
     # 2. Probe run test
