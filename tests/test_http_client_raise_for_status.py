@@ -21,6 +21,9 @@ from backlink_publisher._util.http_client import HttpClient
 def _resp(status: int) -> MagicMock:
     resp = MagicMock(spec=requests.Response)
     resp.status_code = status
+    # Terminal (non-redirect) response: model is_redirect as a real bool so the
+    # client's per-hop redirect loop treats it as the final hop, not a 3xx.
+    resp.is_redirect = False
     resp.raise_for_status.side_effect = (
         requests.HTTPError(f"{status}") if status >= 400 else None
     )
