@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 from ..phase0 import validation as V
-from ..phase0.worktree import discover_worktree_heads
+from ..phase0.worktree import discover_worktree_heads, WorktreeEntry
 
 
 def _now_iso() -> str:
@@ -100,6 +100,79 @@ def _handle_init(args: argparse.Namespace) -> int:
         return EXIT_WORKTREE
 
     # Refuse if any worktree is missing / dirty / detached / mid-rebase (R20a)
+    worktree_exit = _reject_unhealthy_worktrees(entries)
+    if worktree_exit is not None:
+        return worktree_exit
+
+    # For manual-verdict, also require evidence file committed on EACH unit's branch.
+    if args.manual_verdict:
+        evidence_exit = _reject_uncommitted_evidence(
+            entries, verdict_ref["evidence_path"]
+        )
+        if evidence_exit is not None:
+            return evidence_exit
+
+    main_sha = _get_main_sha(repo_root)
+    sealed_at = _now_iso()
+
+    # Build per-SHA seal bodies
+    bodies: dict[str, str] = {}
+    for e in entries:
+        body = {
+            "unit": e.unit,
+            "branch": e.branch,
+            "main_sha": main_sha,
+            "sealed_at": sealed_at,
+            "last_resealed_at": None,
+            "sealed_by": "operator:init",
+            "verdict_ref": verdict_ref,
+        }
+        # Validate before writing — strict-positive (catches our own construction bugs)
+        V.validate_seal_schema(body)
+        bodies[e.sha] = json.dumps(body, sort_keys=True, separators=(",", ":"))
+
+    # Confirmation prompt (skip with -y)
+    if not args.yes and not _operator_confirms(bodies):
+        return EXIT_OK
+
+    write_exit = _write_seal_notes(repo_root, bodies)
+    if write_exit is not None:
+        return write_exit
+
+    # Push notes ref to origin
+    push_proc = subprocess.run(
+        ["git", "-C", str(repo_root), "push", "origin", f"{_NOTES_REF}:{_NOTES_REF}"],
+        capture_output=True, text=True,
+    )
+    if push_proc.returncode != 0:
+        print(
+            f"phase0-seal init: pushing notes ref to origin failed: {push_proc.stderr.strip()}; "
+            f"retry init after fixing the cause (network, refs/notes/ branch protection)",
+            file=sys.stderr,
+        )
+        return EXIT_MISUSE
+
+    # Post-push verify (v3 BLOCKER fix #1 — closes v2-review adversarial F1)
+    try:
+        _post_push_verify(repo_root, bodies)
+    except _NotesPushDidNotLand as exc:
+        print(f"phase0-seal init: {exc}", file=sys.stderr)
+        return EXIT_MISUSE
+
+    print(
+        f"phase0-seal init: wrote and verified seal notes for {len(bodies)} unit(s); "
+        f"sealed_at={sealed_at}",
+        file=sys.stderr,
+    )
+    return EXIT_OK
+
+
+def _reject_unhealthy_worktrees(entries: list[WorktreeEntry]) -> int | None:
+    """R20a: refuse if any worktree is missing / dirty / detached / mid-rebase.
+
+    Prints the failure to stderr and returns ``EXIT_WORKTREE``; ``None`` when
+    every entry is healthy.
+    """
     for e in entries:
         if e.path is None:
             print(
@@ -129,58 +202,53 @@ def _handle_init(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return EXIT_WORKTREE
+    return None
 
-    # For manual-verdict, also require evidence file committed on EACH unit's branch.
-    if args.manual_verdict:
-        rel = verdict_ref["evidence_path"]
-        for e in entries:
-            check = subprocess.run(
-                ["git", "-C", str(e.path), "ls-files", "--error-unmatch", rel],
-                capture_output=True, text=True,
-            )
-            if check.returncode != 0:
-                print(
-                    f"phase0-seal init: --manual-verdict evidence file {rel!r} "
-                    f"is NOT committed at HEAD on unit {e.unit}'s branch "
-                    f"(R7a reads it at PR head — file must exist there); "
-                    f"commit it on each unit branch first",
-                    file=sys.stderr,
-                )
-                return EXIT_WORKTREE
 
-    main_sha = _get_main_sha(repo_root)
-    sealed_at = _now_iso()
+def _reject_uncommitted_evidence(entries: list[WorktreeEntry], rel: str) -> int | None:
+    """Require the manual-verdict evidence file committed on EACH unit's branch.
 
-    # Build per-SHA seal bodies
-    bodies: dict[str, str] = {}
+    Prints the failure to stderr and returns ``EXIT_WORKTREE``; ``None`` when
+    the file is committed everywhere.
+    """
     for e in entries:
-        body = {
-            "unit": e.unit,
-            "branch": e.branch,
-            "main_sha": main_sha,
-            "sealed_at": sealed_at,
-            "last_resealed_at": None,
-            "sealed_by": "operator:init",
-            "verdict_ref": verdict_ref,
-        }
-        # Validate before writing — strict-positive (catches our own construction bugs)
-        V.validate_seal_schema(body)
-        bodies[e.sha] = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        check = subprocess.run(
+            ["git", "-C", str(e.path), "ls-files", "--error-unmatch", rel],
+            capture_output=True, text=True,
+        )
+        if check.returncode != 0:
+            print(
+                f"phase0-seal init: --manual-verdict evidence file {rel!r} "
+                f"is NOT committed at HEAD on unit {e.unit}'s branch "
+                f"(R7a reads it at PR head — file must exist there); "
+                f"commit it on each unit branch first",
+                file=sys.stderr,
+            )
+            return EXIT_WORKTREE
+    return None
 
-    # Confirmation prompt (skip with -y)
-    if not args.yes:
-        print("phase0-seal init: about to write seal notes:", file=sys.stderr)
-        for sha, body_str in bodies.items():
-            print(f"  {sha}: {body_str[:160]}{'...' if len(body_str) > 160 else ''}", file=sys.stderr)
-        try:
-            resp = input("Continue? [y/N]: ")
-        except EOFError:
-            resp = ""
-        if resp.strip().lower() not in ("y", "yes"):
-            print("phase0-seal init: cancelled by operator", file=sys.stderr)
-            return EXIT_OK
 
-    # Write notes (no -f; refuses if a note already exists at the SHA)
+def _operator_confirms(bodies: dict[str, str]) -> bool:
+    """Interactive confirmation prompt; True when the operator answers yes."""
+    print("phase0-seal init: about to write seal notes:", file=sys.stderr)
+    for sha, body_str in bodies.items():
+        print(f"  {sha}: {body_str[:160]}{'...' if len(body_str) > 160 else ''}", file=sys.stderr)
+    try:
+        resp = input("Continue? [y/N]: ")
+    except EOFError:
+        resp = ""
+    if resp.strip().lower() not in ("y", "yes"):
+        print("phase0-seal init: cancelled by operator", file=sys.stderr)
+        return False
+    return True
+
+
+def _write_seal_notes(repo_root: Path, bodies: dict[str, str]) -> int | None:
+    """Write notes (no -f; refuses if a note already exists at the SHA).
+
+    Prints the failure to stderr and returns ``EXIT_MISUSE``; ``None`` when
+    every note was written.
+    """
     for sha, body_str in bodies.items():
         proc = subprocess.run(
             ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-m", body_str, sha],
@@ -200,33 +268,7 @@ def _handle_init(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return EXIT_MISUSE
-
-    # Push notes ref to origin
-    push_proc = subprocess.run(
-        ["git", "-C", str(repo_root), "push", "origin", f"{_NOTES_REF}:{_NOTES_REF}"],
-        capture_output=True, text=True,
-    )
-    if push_proc.returncode != 0:
-        print(
-            f"phase0-seal init: pushing notes ref to origin failed: {push_proc.stderr.strip()}; "
-            f"retry init after fixing the cause (network, refs/notes/ branch protection)",
-            file=sys.stderr,
-        )
-        return EXIT_MISUSE
-
-    # Post-push verify (v3 BLOCKER fix #1 — closes v2-review adversarial F1)
-    try:
-        _post_push_verify(repo_root, bodies)
-    except _NotesPushDidNotLand as exc:
-        print(f"phase0-seal init: {exc}", file=sys.stderr)
-        return EXIT_MISUSE
-
-    print(
-        f"phase0-seal init: wrote and verified seal notes for {len(bodies)} unit(s); "
-        f"sealed_at={sealed_at}",
-        file=sys.stderr,
-    )
-    return EXIT_OK
+    return None
 
 
 class _InitError(Exception):
