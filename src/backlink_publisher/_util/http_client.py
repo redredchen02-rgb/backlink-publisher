@@ -25,6 +25,7 @@ from backlink_publisher._util.net_safety import _check_url_for_ssrf
 _DEFAULT_TIMEOUT = int(os.environ.get("BACKLINK_LINKCHECK_REQUEST_TIMEOUT", "10"))
 _DEFAULT_MAX_RETRIES = int(os.environ.get("BACKLINK_LINKCHECK_MAX_RETRIES", "2"))
 _DEFAULT_RETRY_DELAY = 1.0
+_MAX_REDIRECTS = 10
 _USER_AGENT = "backlink-publisher/0.3 (+https://github.com/dexvn/backlink-publisher)"
 
 # Thread-local storage for HttpClient instances
@@ -83,16 +84,43 @@ class HttpClient:
         allow_private: bool = False,
         **kwargs: Any,
     ) -> requests.Response:
-        self._check_ssrf(url, allow_private=allow_private)
         kwargs.setdefault("timeout", self._timeout)
+        # SSRF gate is one-shot at input; requests' default allow_redirects=True
+        # would re-issue the request against a server-chosen Location, bypassing
+        # the gate (audit [25]). Follow redirects manually, re-checking SSRF on
+        # every hop (mirrors _util/http_probe._probe). urllib3.Retry still handles
+        # status_forcelist retries on the adapter; only redirect-following moves here.
+        from urllib.parse import urljoin
 
-        # Retry is handled by urllib3.Retry configured on the adapter — no
-        # manual loop needed (previously caused up to 9x redundant requests).
+        kwargs["allow_redirects"] = False
+        current_method = method
+        current_url = url
         try:
-            resp = self._session.request(method, url, **kwargs)
-            if raise_for_status:
-                resp.raise_for_status()
-            return resp
+            for _hop in range(_MAX_REDIRECTS + 1):
+                self._check_ssrf(current_url, allow_private=allow_private)
+                resp = self._session.request(current_method, current_url, **kwargs)
+                location = (
+                    resp.headers.get("Location", "").strip() if resp.is_redirect else ""
+                )
+                if not location:
+                    if raise_for_status:
+                        resp.raise_for_status()
+                    return resp
+                if not location.startswith(("http://", "https://")):
+                    location = urljoin(resp.url, location)
+                # 303 (and 301/302 on a POST) drop to GET without a body, per
+                # browser/requests redirect semantics, so the followed hop is a
+                # safe re-fetch rather than a re-POST to the new target.
+                if resp.status_code == 303 or (
+                    resp.status_code in (301, 302) and current_method.upper() == "POST"
+                ):
+                    current_method = "GET"
+                    for _body_kw in ("data", "json", "files"):
+                        kwargs.pop(_body_kw, None)
+                current_url = location
+            raise ExternalServiceError(
+                f"HTTP {method.upper()} {url!r} failed: too many redirects (>{_MAX_REDIRECTS})"
+            )
         except requests.RequestException as exc:
             raise ExternalServiceError(
                 f"HTTP {method.upper()} {url!r} failed: {exc}"

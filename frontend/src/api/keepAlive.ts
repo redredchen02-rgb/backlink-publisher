@@ -49,17 +49,23 @@ export interface RecheckResult {
   message?: string
 }
 
-export interface RepublishToken {
-  token?: string
-  expires_at?: string
-  ok?: boolean
-  error?: string
+// GET /ce:keep-alive/republish-token payload (issue_confirm_token). Audit [01]:
+// the backend returns a confirm nonce + the server-derived sticky target set and
+// per-seed destinations — NOT an {ok, token} envelope.
+export interface RepublishTokenResponse {
+  confirm_token: string
+  gap_fingerprint?: string
+  targets: string[]
+  seed_count?: number
+  seeds: { target_url: string; platform: string }[]
 }
 
+// POST /ce:keep-alive/republish response: {status:'started', job_id} (202) on
+// success, {status:'error', error} otherwise. No `ok` field.
 export interface RepublishResult {
-  ok: boolean
-  error?: string
+  status?: string
   job_id?: string
+  error?: string
   message?: string
 }
 
@@ -113,18 +119,20 @@ export const cancelRecheck = async (jobId: string): Promise<JobStatus> => {
   return (await resp.json()) as JobStatus
 }
 
-export const getRepublishToken = async (): Promise<RepublishResult> => {
+export const getRepublishToken = async (): Promise<RepublishTokenResponse> => {
   const resp = await fetch('/ce:keep-alive/republish-token', {
     headers: { Accept: 'application/json' }, credentials: 'same-origin',
   })
-  return (await resp.json()) as RepublishResult
+  return (await resp.json()) as RepublishTokenResponse
 }
 
-export const executeRepublish = async (token: string, gapKeys: string[]): Promise<RepublishResult> => {
+export const executeRepublish = async (
+  targets: string[], confirmToken: string,
+): Promise<RepublishResult> => {
   const resp = await fetch('/ce:keep-alive/republish', {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': await _csrf() },
-    body: JSON.stringify({ token, gap_keys: gapKeys }),
+    body: JSON.stringify({ targets, confirm_token: confirmToken }),
   })
   return (await resp.json()) as RepublishResult
 }
