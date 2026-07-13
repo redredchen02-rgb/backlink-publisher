@@ -132,14 +132,14 @@ def _run_burst(
     # _finish_run's exit-2 branch fires — a burst whose publishes failed must
     # NOT exit 0 with success-looking output.
     seed_failed = summary.n_succeeded == 0 and summary.n_failed > 0
-    err_msg: str | None = None
+    dispatch_err: str | None = None
     if summary.n_failed > 0:
         failed_plats = ", ".join(plat for plat, _ in summary.failed)
-        err_msg = (
+        dispatch_err = (
             f"{seed_label}: {summary.n_failed}/{len(surviving)} shots failed to "
             f"{verb} ({failed_plats})"
         )
-    return seed_failed, seed_rows, err_msg, pairs
+    return seed_failed, seed_rows, dispatch_err, pairs
 
 
 def _process_seed(
