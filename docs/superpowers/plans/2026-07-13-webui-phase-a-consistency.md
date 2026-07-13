@@ -70,21 +70,27 @@ describe('DataTable selectable prop', () => {
 })
 
 describe('DataTable click-to-activate', () => {
-  it('emits rowActivate on row click when rowKeyboardNav', async () => {
-    const w = make({ rowKeyboardNav: true })
+  it('emits rowActivate on row click when rowClickActivate', async () => {
+    const w = make({ rowClickActivate: true })
     await w.findAll('tbody tr')[0].trigger('click')
     expect(w.emitted('rowActivate')?.[0]).toEqual([items[0]])
   })
 
-  it('does not emit rowActivate without rowKeyboardNav', async () => {
-    const w = make()
+  it('does not emit rowActivate without rowClickActivate (even with rowKeyboardNav)', async () => {
+    const w = make({ rowKeyboardNav: true })
+    await w.findAll('tbody tr')[0].trigger('click')
+    expect(w.emitted('rowActivate')).toBeUndefined()
+  })
+
+  it('does not emit rowActivate when disabled, even with rowClickActivate', async () => {
+    const w = make({ rowClickActivate: true, disabled: true })
     await w.findAll('tbody tr')[0].trigger('click')
     expect(w.emitted('rowActivate')).toBeUndefined()
   })
 
   it('does not emit rowActivate for clicks on nested interactive controls', async () => {
     const w = mount(DataTable, {
-      props: { items, rowKeyboardNav: true },
+      props: { items, rowClickActivate: true },
       slots: {
         head: '<th>操作</th>',
         row: `<template #row="{ row }"><td><button type="button">编辑</button></td></template>`,
@@ -108,20 +114,25 @@ Add to the props type (inside the existing `defineProps<{…}>`):
 ```ts
     /** Opt-in row-selection checkbox column. Off by default: most list pages are read-only. */
     selectable?: boolean
+    /** Opt-in mouse path for rowActivate. Decoupled from rowKeyboardNav so pages with
+     * keyboard nav (History) don't silently gain whole-row click behavior. */
+    rowClickActivate?: boolean
 ```
 
-and to the `withDefaults` defaults object: `selectable: false,`.
+and to the `withDefaults` defaults object: `selectable: false, rowClickActivate: false,`.
 
 Add the click handler next to `onRowKeydown` (reuse its nested-control guard idea):
 
 ```ts
 function onRowClick(event: MouseEvent, row: T) {
-  if (!props.rowKeyboardNav || props.disabled) return
+  if (!props.rowClickActivate || props.disabled) return
   const target = event.target as HTMLElement | null
   if (target?.closest('a, button, input, select, textarea, label')) return
   emit('rowActivate', row)
 }
 ```
+
+Add a cursor affordance: the `<tr>` carries class `row--activatable` when `rowClickActivate && !disabled`, with scoped style `.row--activatable { cursor: pointer; }`.
 
 Template changes:
 - `<th class="col-select" …>` → add `v-if="selectable"`
