@@ -30,11 +30,11 @@ const LIST_PAGES = [
  * captions instead (see Task 13). Re-evaluate if DataTable grows row-details. */
 
 // Ratchet: pages still hand-rolling <table>. Page tasks delete their entry.
-const TABLE_TOLERANCE = new Set<string>([])
+const TABLE_TOLERANCE = new Set<string>()
 
 // Ratchet: files still hand-rolling status badges/pills (class="badge",
 // class="status" :data-status, or STATUS_COLORS-style class maps).
-const BADGE_TOLERANCE = new Set<string>([])
+const BADGE_TOLERANCE = new Set<string>()
 
 describe('DataTable component adoption (Phase A ratchet)', () => {
   for (const rel of LIST_PAGES) {
@@ -45,6 +45,11 @@ describe('DataTable component adoption (Phase A ratchet)', () => {
       expect(text, 'must not hand-roll <table>').not.toMatch(/<table\b/)
     })
   }
+})
+
+it('Phase A ratchet complete — tolerance lists are empty', () => {
+  expect(TABLE_TOLERANCE.size).toBe(0)
+  expect(BADGE_TOLERANCE.size).toBe(0)
 })
 
 describe('StatusBadge adoption (Phase A ratchet)', () => {
