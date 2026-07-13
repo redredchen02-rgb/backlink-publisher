@@ -68,7 +68,10 @@ describe('DataTable component adoption (Phase A ratchet)', () => {
 })
 
 describe('StatusBadge adoption (Phase A ratchet)', () => {
-  const OFFENDER = /class="badge|class="status"|:data-status=|STATUS_COLORS/
+  // Also catches dynamic bindings like :class="['badge', …]" and leftover
+  // Bootstrap bg-* classes, which the literal class="…" patterns miss.
+  const OFFENDER =
+    /class="badge|class="status"|:data-status=|STATUS_COLORS|'badge'|\bbg-(?:success|danger|secondary|warning|primary|info|dark|light)\b/
   const ALL = [...LIST_PAGES, 'ErrorReports/ErrorReportDetailPage.vue']
   for (const rel of ALL) {
     if (BADGE_TOLERANCE.has(rel)) continue
