@@ -504,6 +504,7 @@ async function confirmPurge(): Promise<void> {
       empty-text="还没有发布记录"
       caption="发布历史列表"
       row-keyboard-nav
+      selectable
       :selected="selected"
       :total="total"
       :limit="PAGE_SIZE"

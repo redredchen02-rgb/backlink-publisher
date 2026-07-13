@@ -172,6 +172,7 @@ const onBulkCancel = () => {
       :error="query.isError.value ? query.error.value : undefined"
       empty-text="草稿队列是空的"
       caption="草稿队列列表"
+      selectable
       :selected="selected"
       :total="total"
       :limit="PAGE_SIZE"

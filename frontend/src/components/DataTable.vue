@@ -44,8 +44,10 @@ const props = withDefaults(
     rowClass?: (row: T) => Record<string, boolean>
     /** Enable keyboard row navigation (Up/Down arrows, W11). */
     rowKeyboardNav?: boolean
+    /** Opt-in row-selection checkbox column. Off by default: most list pages are read-only. */
+    selectable?: boolean
   }>(),
-  { loading: false, emptyText: '暂无数据', caption: '', selected: () => new Set(), disabled: false, rowKeyboardNav: false },
+  { loading: false, emptyText: '暂无数据', caption: '', selected: () => new Set(), disabled: false, rowKeyboardNav: false, selectable: false },
 )
 
 const emit = defineEmits<{
@@ -113,6 +115,13 @@ function onRowKeydown(event: KeyboardEvent, index: number): void {
   }
 }
 
+function onRowClick(event: MouseEvent, row: T): void {
+  if (!props.rowKeyboardNav || props.disabled) return
+  const target = event.target as HTMLElement | null
+  if (target?.closest('a, button, input, select, textarea, label')) return
+  emit('rowActivate', row)
+}
+
 function _focusRow(index: number): void {
   focusedRowIndex.value = index
   const rows = tbodyRef.value?.querySelectorAll('tr')
@@ -156,7 +165,7 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
           <caption v-if="caption" class="sr-only">{{ caption }}</caption>
           <thead>
             <tr>
-              <th class="col-select" scope="col">
+              <th v-if="selectable" class="col-select" scope="col">
                 <input
                   type="checkbox"
                   :checked="allSelected"
@@ -178,8 +187,9 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
               :tabindex="rowKeyboardNav && !disabled ? (activeRowIndex === index ? 0 : -1) : undefined"
               @keydown="onRowKeydown($event, index)"
               @focus="onRowFocus(index)"
+              @click="onRowClick($event, row)"
             >
-              <td class="col-select">
+              <td v-if="selectable" class="col-select">
                 <input
                   type="checkbox"
                   :checked="selected.has(row.id)"
