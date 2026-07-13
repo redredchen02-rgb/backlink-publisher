@@ -31,21 +31,33 @@ describe('DataTable selectable prop', () => {
 })
 
 describe('DataTable click-to-activate', () => {
-  it('emits rowActivate on row click when rowKeyboardNav', async () => {
-    const w = make({ rowKeyboardNav: true })
+  it('emits rowActivate on row click when rowClickActivate', async () => {
+    const w = make({ rowClickActivate: true })
     await w.findAll('tbody tr')[0].trigger('click')
     expect(w.emitted('rowActivate')?.[0]).toEqual([items[0]])
   })
 
-  it('does not emit rowActivate without rowKeyboardNav', async () => {
+  it('does not emit rowActivate with only rowKeyboardNav (no rowClickActivate)', async () => {
+    const w = make({ rowKeyboardNav: true })
+    await w.findAll('tbody tr')[0].trigger('click')
+    expect(w.emitted('rowActivate')).toBeUndefined()
+  })
+
+  it('does not emit rowActivate without rowClickActivate', async () => {
     const w = make()
+    await w.findAll('tbody tr')[0].trigger('click')
+    expect(w.emitted('rowActivate')).toBeUndefined()
+  })
+
+  it('does not emit rowActivate when disabled, even with rowClickActivate', async () => {
+    const w = make({ rowClickActivate: true, disabled: true })
     await w.findAll('tbody tr')[0].trigger('click')
     expect(w.emitted('rowActivate')).toBeUndefined()
   })
 
   it('does not emit rowActivate for clicks on nested interactive controls', async () => {
     const w = mount(DataTable, {
-      props: { items, rowKeyboardNav: true },
+      props: { items, rowClickActivate: true },
       slots: {
         head: '<th>操作</th>',
         row: `<template #row="{ row }"><td><button type="button">编辑</button></td></template>`,

@@ -31,7 +31,7 @@
 
 **Interfaces:**
 - Consumes: existing `DataTable` contract (props `items/loading/error/emptyText/caption/selected/total/limit/offset/disabled/rowClass/rowKeyboardNav`; emits `retry`, `update:selected`, `update:offset`, `rowActivate`; slots `#head`, `#row="{ row }"`).
-- Produces: new prop `selectable?: boolean` (default `false`) — the `.col-select` `<th>/<td>` checkbox column renders **only** when `selectable` is true. New behavior: when `rowKeyboardNav` is true and `disabled` is false, a mouse click on a row emits `rowActivate: [T]`, unless the click originated inside `a, button, input, select, textarea, label`. All later page tasks rely on exactly this contract.
+- Produces: new prop `selectable?: boolean` (default `false`) — the `.col-select` `<th>/<td>` checkbox column renders **only** when `selectable` is true. New prop `rowClickActivate?: boolean` (default `false`, opt-in, independent of `rowKeyboardNav`): when true and `disabled` is false, a mouse click on a row emits `rowActivate: [T]`, unless the click originated inside `a, button, input, select, textarea, label`. `rowKeyboardNav` continues to gate only the keyboard (Enter/arrow) path -- a page must set both props to get both interaction modes. All later page tasks rely on exactly this contract.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -539,7 +539,7 @@ Replace the whole `StateBlock`+`<table class="table table-sm table-hover align-m
   :error="query.isError.value ? query.error.value : undefined"
   empty-text="还没有任务。"
   caption="后台任务列表"
-  row-keyboard-nav
+  row-keyboard-nav row-click-activate
   @retry="query.refetch()"
   @row-activate="(op) => openDetail(op.op_id)"
 >
@@ -1014,10 +1014,12 @@ AGENTS.md.
 Every list view renders through `src/components/DataTable.vue` (generic over
 `T extends { id: string }` — map a stable string `id` onto rows if the API
 lacks one). It embeds StateBlock (loading/empty/error), optional selection
-(`selectable`), pagination (`total`/`limit`/`offset`), and keyboard row nav
-(`rowKeyboardNav` + `rowActivate`, fired on Enter and on non-interactive row
-clicks). Exemption: Health/HealthPage.vue (expandable drill-down + dynamic
-panels) keeps the `.data-table` CSS convention with sr-only captions.
+(`selectable`), pagination (`total`/`limit`/`offset`), and row activation
+(`rowActivate`) via two independent opt-in props: `rowKeyboardNav` for the
+keyboard path (Enter on a focused row) and `rowClickActivate` for the mouse
+path (click on a non-interactive cell). A page must set both to get both
+interaction modes. Exemption: Health/HealthPage.vue (expandable drill-down +
+dynamic panels) keeps the `.data-table` CSS convention with sr-only captions.
 
 ## Status pills vs info chips
 - Status (has semantics: success/failure/progress) → `<StatusBadge :status>`
