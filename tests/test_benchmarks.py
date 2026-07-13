@@ -290,6 +290,28 @@ def test_benchmark_batch_ops_update_row(benchmark, tmp_path):
     assert result == row_id
 
 
+def test_benchmark_sdk_plan_single_row(benchmark):
+    """sdk.api PipelineAPI.plan() single-row latency (Plan 2026-07-09-001 C1').
+
+    The SDK is the WebUI's in-process bridge to the CLI kernels; this baseline
+    guards the wrapper overhead (arg marshalling, stdout capture, PipeResult
+    assembly) on top of the plan kernel measured by test_benchmark_plan_single_row
+    above — a regression here but not there means the seam itself got slower.
+    """
+    from backlink_publisher.sdk.api import PipelineAPI
+
+    seed = json.dumps(_make_seed())
+    api = PipelineAPI()
+
+    def _run():
+        result = api.plan(seed)
+        assert result.success, result.error
+        return len(result.rows)
+
+    result = benchmark(_run)
+    assert result > 0
+
+
 def test_benchmark_link_attr_verify_medium_content(benchmark):
     """link_attr_verifier.py verify_link_attributes: nested-loop target match +
     repeated full-text regex scan over medium-length HTML (~200 anchors)."""
