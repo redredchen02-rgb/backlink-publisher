@@ -143,8 +143,11 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
 
     # Share the publish-path markdown→HTML renderer with Jinja so preview
     # visual matches the published article (Plan 2026-05-19-007 Unit 2).
-    from backlink_publisher._util.markdown import render_to_html
+    from backlink_publisher._util.markdown import render_to_html, render_to_html_safe
     app.jinja_env.filters['render_markdown'] = render_to_html
+    # Sanitizing renderer for operator-facing previews of untrusted LLM output
+    # (audit [26]); html-passthrough render_markdown stays for the publish path.
+    app.jinja_env.filters['render_markdown_safe'] = render_to_html_safe
 
     # Register all blueprints
     from .routes import register_blueprints

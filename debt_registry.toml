@@ -113,7 +113,7 @@ rationale = "_util/net_safety.py::_resolve_host_ips narrows a bare except around
 discovered = "2026-07-02"
 owner = "unassigned"
 status = "accepted"
-location = ["src/backlink_publisher/_util/net_safety.py:81"]
+location = ["src/backlink_publisher/_util/net_safety.py:88"]
 
 [[items]]
 slug = "dedup-gate-key-canonicalization-failure"
