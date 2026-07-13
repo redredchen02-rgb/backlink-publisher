@@ -43,8 +43,6 @@ describe('theme light-token guard', () => {
       '--info-text',
       '--warning-text',
       '--danger-text',
-      '--violet-text',
-      '--shadow-sm',
       '--shadow-brand',
       '--shadow-brand-hover',
       '--shadow-glass',

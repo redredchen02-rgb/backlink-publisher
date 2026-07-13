@@ -111,6 +111,6 @@ function openDetail(opId: string): void {
   cursor: pointer;
 }
 .op-row:focus-visible {
-  outline: 2px solid var(--bs-primary, #0d6efd);
+  outline: 2px solid var(--primary);
 }
 </style>

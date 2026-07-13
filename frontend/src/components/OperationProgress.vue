@@ -143,15 +143,15 @@ watch(
   font-size: var(--text-xs);
 }
 .op-step--active .op-step__dot {
-  background: var(--bs-primary, #0d6efd);
+  background: var(--primary);
   color: #fff;
 }
 .op-step--done .op-step__dot {
-  background: var(--bs-success, #198754);
+  background: var(--success);
   color: #fff;
 }
 .op-step--failed .op-step__dot {
-  background: var(--bs-danger, #dc3545);
+  background: var(--danger);
   color: #fff;
 }
 .op-step--pending .op-step__label {
