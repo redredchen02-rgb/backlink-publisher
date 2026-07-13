@@ -9,11 +9,11 @@ import ssl
 import time
 from typing import Any
 from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from backlink_publisher._util.errors import ExternalServiceError
 from backlink_publisher._util.logger import opencli_logger
-from backlink_publisher._util.net_safety import _check_url_for_ssrf
+from backlink_publisher._util.net_safety import _check_url_for_ssrf, _make_ssrf_opener
 from backlink_publisher._util.url import (
     canonicalize_url,
     normalize_url_for_fetch,
@@ -62,10 +62,18 @@ def _ssl_context() -> ssl.SSLContext:
     return get_ssl_context()
 
 
+def _open(req: Request, timeout: float) -> Any:
+    """Fetch via the SSRF-safe opener so every 30x hop is re-validated and
+    https->http downgrades are refused (audit [22][24]). The stdlib default
+    opener behind bare ``urlopen`` would follow the server-supplied Location
+    with no SSRF re-check, defeating the one-shot input check."""
+    return _make_ssrf_opener(context=_ssl_context()).open(req, timeout=timeout)
+
+
 def _check_url_once(url: str) -> tuple[bool, str | None]:
     """Single attempt to check a URL. Returns (reachable, error_message)."""
     parsed = safe_urlparse(url)
-    if parsed is None or not parsed.scheme or not parsed.netloc:
+    if parsed is None or parsed.scheme not in ("http", "https") or not parsed.netloc:
         return False, f"invalid URL: {url}"
 
     ssrf_reason = _check_url_for_ssrf(url)
@@ -80,7 +88,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
     try:
         req = Request(fetch_url, method="HEAD")
         req.add_header("User-Agent", "backlink-publisher/0.1 linkcheck")
-        resp = urlopen(req, timeout=_request_timeout(), context=_ssl_context())
+        resp = _open(req, timeout=_request_timeout())
         code = resp.getcode()
         if code in ACCEPTABLE_CODES:
             return True, None
@@ -91,7 +99,7 @@ def _check_url_once(url: str) -> tuple[bool, str | None]:
     try:
         req = Request(fetch_url, method="GET")
         req.add_header("User-Agent", "backlink-publisher/0.1 linkcheck")
-        resp = urlopen(req, timeout=_request_timeout(), context=_ssl_context())
+        resp = _open(req, timeout=_request_timeout())
         code = resp.getcode()
         if code in ACCEPTABLE_CODES:
             return True, None

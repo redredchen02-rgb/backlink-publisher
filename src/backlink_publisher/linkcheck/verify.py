@@ -21,10 +21,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 import ssl
 import time
-from urllib.request import Request, urlopen
+from typing import Any
+from urllib.request import Request
 
-from backlink_publisher._util.net_safety import _check_url_for_ssrf
-from backlink_publisher._util.url import normalize_url_for_fetch
+from backlink_publisher._util.net_safety import _check_url_for_ssrf, _make_ssrf_opener
+from backlink_publisher._util.url import normalize_url_for_fetch, safe_urlparse
 
 _VERIFY_TIMEOUT = 12  # seconds per individual request
 _RETRY_INTERVAL = 6   # seconds between poll attempts
@@ -36,6 +37,13 @@ def _get_ssl_context() -> ssl.SSLContext:
     return get_ssl_context()
 
 
+def _open(req: Request, timeout: float) -> Any:
+    """Fetch via the SSRF-safe opener so every 30x hop is re-validated and
+    https->http downgrades are refused (audit [22][24]); bare ``urlopen`` would
+    follow the server-supplied Location with no SSRF re-check."""
+    return _make_ssrf_opener(context=_get_ssl_context()).open(req, timeout=timeout)
+
+
 @dataclass
 class VerificationResult:
     ok: bool
@@ -45,6 +53,9 @@ class VerificationResult:
 def _get_body(url: str) -> tuple[int, str]:
     """Fetch URL body. Returns (status_code, body_text). Never raises."""
     try:
+        parsed = safe_urlparse(url)
+        if parsed is None or parsed.scheme not in ("http", "https"):
+            return 0, f"invalid scheme: {url}"
         ssrf_reason = _check_url_for_ssrf(url)
         if ssrf_reason is not None:
             return 0, f"SSRF blocked: {ssrf_reason}"
@@ -52,7 +63,7 @@ def _get_body(url: str) -> tuple[int, str]:
         # urllib's ASCII request-line encoder. See Plan 2026-05-21-005.
         req = Request(normalize_url_for_fetch(url))
         req.add_header("User-Agent", _USER_AGENT)
-        with urlopen(req, timeout=_VERIFY_TIMEOUT, context=_get_ssl_context()) as resp:
+        with _open(req, timeout=_VERIFY_TIMEOUT) as resp:
             code = resp.getcode()
             body = resp.read(512 * 1024).decode("utf-8", errors="replace")
         return code, body

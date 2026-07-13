@@ -211,7 +211,7 @@ class TestNonAsciiUrls:
             return _Resp()
 
         with patch("backlink_publisher.linkcheck.verify._check_url_for_ssrf", return_value=None):
-            with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
+            with patch("backlink_publisher.linkcheck.verify._open", side_effect=fake_urlopen):
                 result = verify_published(
                     "https://velog.io/@한글유저/제목-슬러그",
                     title="제목",
@@ -229,7 +229,7 @@ class TestNonAsciiUrls:
             raise ConnectionRefusedError("connection refused")
 
         with patch("backlink_publisher.linkcheck.verify._check_url_for_ssrf", return_value=None):
-            with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
+            with patch("backlink_publisher.linkcheck.verify._open", side_effect=fake_urlopen):
                 with patch("backlink_publisher.linkcheck.verify.time.sleep"):
                     with patch("backlink_publisher.linkcheck.verify.time.monotonic") as mock_mono:
                         mock_mono.side_effect = [0, 0, 0, 100]
@@ -261,7 +261,7 @@ class TestNonAsciiUrls:
             return _Resp()
 
         with patch("backlink_publisher.linkcheck.verify._check_url_for_ssrf", return_value=None):
-            with patch("backlink_publisher.linkcheck.verify.urlopen", side_effect=fake_urlopen):
+            with patch("backlink_publisher.linkcheck.verify._open", side_effect=fake_urlopen):
                 verify_published(
                     "https://blog.example.com/post/1",
                     title="T",
