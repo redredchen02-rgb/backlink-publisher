@@ -423,7 +423,19 @@ def _lazy_init() -> None:
         return
     _INITIALIZED = True
     register_all_adapters()
-    register_catalog_entries(built_in_dir=_builtin_catalog)
+    # F3 (plan 2026-07-13-004): load operator-authored catalog YAMLs from
+    # ``<config_dir>/catalog`` in production too — previously only tests passed
+    # ``user_config_dir``, so operator channels (and verify-dofollow's YAML
+    # write-back) never registered at runtime. ``_config_dir()`` raises under
+    # the test-sandbox fail-closed sentinel when no override is set; fall back
+    # to built-in-only registration in that case rather than breaking import.
+    try:
+        from backlink_publisher._util.paths import _config_dir
+
+        _user_catalog = str(_Path(_config_dir()) / "catalog")
+    except RuntimeError:
+        _user_catalog = ""
+    register_catalog_entries(built_in_dir=_builtin_catalog, user_config_dir=_user_catalog)
 
 
 def __getattr__(name: str) -> Any:
