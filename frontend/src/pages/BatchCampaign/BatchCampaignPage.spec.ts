@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 
 vi.mock('../../api/campaigns', () => ({
@@ -26,23 +27,34 @@ const PARTITION_FORM: CampaignForm = {
 }
 
 let pinia: ReturnType<typeof createPinia>
-const origLocation = window.location
+let router: Router
+
+function makeRouter(): Router {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/batch-campaign', name: 'batch-campaign', component: { template: '<div />' } },
+      {
+        path: '/campaign/:campaignId',
+        name: 'campaign-progress',
+        component: { template: '<div>progress</div>' },
+      },
+    ],
+  })
+}
 
 beforeEach(() => {
   pinia = createPinia()
   setActivePinia(pinia)
   vi.clearAllMocks()
   vi.mocked(api.getCampaignForm).mockResolvedValue(FLAT_FORM)
-  // Stub navigation so window.location.href assignment doesn't hit jsdom.
-  Object.defineProperty(window, 'location', { value: { href: '' }, writable: true, configurable: true })
+  router = makeRouter()
 })
-afterEach(() => {
-  Object.defineProperty(window, 'location', { value: origLocation, writable: true, configurable: true })
-})
+afterEach(() => {})
 
 function mountPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return mount(BatchCampaignPage, { global: { plugins: [pinia, [VueQueryPlugin, { queryClient }]] } })
+  return mount(BatchCampaignPage, { global: { plugins: [pinia, router, [VueQueryPlugin, { queryClient }]] } })
 }
 
 function checkboxFor(w: VueWrapper, name: string) {
@@ -79,7 +91,9 @@ describe('BatchCampaignPage', () => {
     expect(api.createCampaign).toHaveBeenCalledWith(
       expect.objectContaining({ seeds: '{"seed_text": "x"}', platforms: ['blogger'], mode: 'draft' }),
     )
-    expect(window.location.href).toBe('/campaign/camp-9')
+    // In-SPA navigation (Plan 2026-07-09 P3) — no more full-page jump.
+    await router.isReady()
+    expect(router.currentRoute.value.path).toBe('/campaign/camp-9')
   })
 
   it('renders inline field errors from a 422 problem+json', async () => {

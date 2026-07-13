@@ -13,6 +13,7 @@
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { createOperation, type OperationStatus } from '../api/operations'
 import * as api from '../api/pipeline'
 
 export type Stage = 'input' | 'planned' | 'validated' | 'published'
@@ -64,6 +65,12 @@ export const usePublishStore = defineStore('publish', () => {
   const planning = ref(false)
   const validating = ref(false)
   const publishing = ref(false)
+  // Active async publish operation (Plan 2026-07-09 operation-progress P2).
+  // Set by runPublish() on the 202 response; the page renders
+  // <OperationProgress> off it and calls settlePublish() on the terminal
+  // status. `publishing` stays true for the whole run so the double-submit
+  // guard and the soft-timeout watcher keep one source of truth.
+  const publishOpId = ref<string | null>(null)
 
   const effectivePlans = computed<api.PlanRow[]>(() =>
     validated.value.map((row, i) =>
@@ -149,12 +156,15 @@ export const usePublishStore = defineStore('publish', () => {
   }
 
   async function runPublish(): Promise<void> {
-    // Hard guard against a double-submit racing the dedup.db single-flight.
+    // Hard guard against a double-submit racing the dedup.db single-flight
+    // (the backend worker additionally enforces single-flight per kind).
     if (publishing.value) return
     publishing.value = true
+    publishResult.value = null
     try {
       const c = config.value
-      publishResult.value = await api.publishBacklinks({
+      const { op_id } = await createOperation({
+        kind: 'publish',
         plans: effectivePlans.value,
         platform: c.platform,
         publish_mode: c.publishMode,
@@ -162,9 +172,40 @@ export const usePublishStore = defineStore('publish', () => {
         target_language: c.targetLanguage,
         target_url: urls.value[0],
       })
-    } finally {
+      publishOpId.value = op_id
+      // `publishing` intentionally NOT cleared here — the op runs in the
+      // backend worker; settlePublish() clears it on the terminal status.
+    } catch (e) {
       publishing.value = false
+      throw e
     }
+  }
+
+  /** Terminal-status handler for the async publish op (called by the page's
+   *  OperationProgress @settled). Maps the worker's result payload onto the
+   *  legacy PublishResult shape (`n_total` = ok + failed) so the existing
+   *  result panel renders unchanged. */
+  function settlePublish(op: OperationStatus): void {
+    publishing.value = false
+    if (op.status === 'success' && op.result) {
+      const r = op.result as {
+        state: 'all_success' | 'partial_success'
+        n_ok: number
+        n_failed: number
+        failure_detail?: string
+        results: api.PlanRow[]
+      }
+      publishResult.value = {
+        state: r.state,
+        n_ok: r.n_ok,
+        n_total: r.n_ok + r.n_failed,
+        failure_detail: r.failure_detail,
+        results: r.results,
+      }
+      publishOpId.value = null
+    }
+    // On failed/canceled: keep publishOpId so the page's OperationProgress
+    // stays visible with the terminal error until re-publish or reset.
   }
 
   function reset(): void {
@@ -174,6 +215,8 @@ export const usePublishStore = defineStore('publish', () => {
     validated.value = []
     clearEdits()
     publishResult.value = null
+    publishOpId.value = null
+    publishing.value = false
   }
 
   return {
@@ -189,6 +232,7 @@ export const usePublishStore = defineStore('publish', () => {
     planning,
     validating,
     publishing,
+    publishOpId,
     stage,
     busy,
     loadPlatforms,
@@ -196,6 +240,7 @@ export const usePublishStore = defineStore('publish', () => {
     runPlan,
     runValidate,
     runPublish,
+    settlePublish,
     patchRow,
     reset,
   }

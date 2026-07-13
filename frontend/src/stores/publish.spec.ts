@@ -7,8 +7,12 @@ vi.mock('../api/pipeline', () => ({
   publishBacklinks: vi.fn(),
   boundPlatforms: vi.fn(),
 }))
+vi.mock('../api/operations', () => ({
+  createOperation: vi.fn(),
+}))
 
 import * as api from '../api/pipeline'
+import { createOperation } from '../api/operations'
 import { usePublishStore } from './publish'
 
 beforeEach(() => {
@@ -38,16 +42,39 @@ describe('publish store — stage machine', () => {
     await s.runValidate()
     expect(s.stage).toBe('validated')
 
-    vi.mocked(api.publishBacklinks).mockResolvedValue({
-      state: 'all_success',
-      n_ok: 1,
-      n_total: 1,
-      results: [{ published_url: 'https://blog/x' }],
-    })
+    // Publish is async now (Plan 2026-07-09 P2): runPublish() enqueues the
+    // op (202) and stays `publishing`; settlePublish(op) lands the result.
+    vi.mocked(createOperation).mockResolvedValue({ op_id: 'op-1', kind: 'publish' })
     await s.runPublish()
+    expect(s.publishOpId).toBe('op-1')
+    expect(s.publishing).toBe(true)
+
+    s.settlePublish({
+      op_id: 'op-1',
+      kind: 'publish',
+      status: 'success',
+      result: {
+        state: 'all_success',
+        n_ok: 1,
+        n_failed: 0,
+        results: [{ published_url: 'https://blog/x' }],
+      },
+    } as never)
     expect(s.publishResult?.state).toBe('all_success')
+    expect(s.publishResult?.n_total).toBe(1)
     expect(s.stage).toBe('published')
     expect(s.publishing).toBe(false)
+    expect(s.publishOpId).toBeNull()
+  })
+
+  it('settlePublish on a failed op clears publishing but keeps the op visible', () => {
+    const s = usePublishStore()
+    s.publishing = true
+    s.publishOpId = 'op-9'
+    s.settlePublish({ op_id: 'op-9', kind: 'publish', status: 'failed', error: 'boom' } as never)
+    expect(s.publishing).toBe(false)
+    expect(s.publishResult).toBeNull()
+    expect(s.publishOpId).toBe('op-9') // terminal error stays on screen
   })
 
   it('runPlan passes the config-derived payload and invalidates downstream stages', async () => {
@@ -71,7 +98,15 @@ describe('publish store — stage machine', () => {
     const s = usePublishStore()
     s.publishing = true // simulate an in-flight publish
     await s.runPublish()
-    expect(api.publishBacklinks).not.toHaveBeenCalled()
+    expect(createOperation).not.toHaveBeenCalled()
+  })
+
+  it('runPublish clears publishing and rethrows when the enqueue itself fails', async () => {
+    const s = usePublishStore()
+    vi.mocked(createOperation).mockRejectedValue(new Error('409 conflict'))
+    await expect(s.runPublish()).rejects.toThrow('409 conflict')
+    expect(s.publishing).toBe(false)
+    expect(s.publishOpId).toBeNull()
   })
 
   it('loadPlatforms is tolerant of failure (keeps form usable)', async () => {
@@ -144,15 +179,11 @@ describe('edits and effectivePlans', () => {
     const s = usePublishStore()
     s.validated = [{ id: 'a', title: 'Original' }]
     s.patchRow(0, { custom_title: 'Edited' })
-    vi.mocked(api.publishBacklinks).mockResolvedValue({
-      state: 'all_success',
-      n_ok: 1,
-      n_total: 1,
-      results: [],
-    })
+    vi.mocked(createOperation).mockResolvedValue({ op_id: 'op-1', kind: 'publish' })
     await s.runPublish()
-    expect(api.publishBacklinks).toHaveBeenCalledWith(
+    expect(createOperation).toHaveBeenCalledWith(
       expect.objectContaining({
+        kind: 'publish',
         plans: expect.arrayContaining([
           expect.objectContaining({ id: 'a', title: 'Original', custom_title: 'Edited' }),
         ]),

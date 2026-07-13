@@ -4,14 +4,13 @@
 // The four-stage single-publish flow (input → planned → validated → published),
 // consuming the stateless /api/v1/pipeline/* endpoints via the publish store.
 //
-// Publish has NO pollable task-id (the backend publish path is synchronous; a
-// background task store would change the credential-holding flow — deferred).
-// So this is the DEGRADED busy-state branch the plan mandates:
-//   - the submit control is disabled while in flight (a double-submit would race
-//     the dedup.db single-flight);
-//   - a busy panel (aria-live) tells the operator not to close the page;
-//   - after a soft timeout the copy switches from "in progress" to "still
-//     running / may already be done — don't resubmit" so it never looks frozen.
+// Publish runs as a pollable async operation (Plan 2026-07-09
+// operation-progress P2): the store POSTs /api/v1/operations (202 + op_id),
+// <OperationProgress> polls it, and settlePublish() maps the terminal result
+// back onto the legacy result panel. The submit control stays disabled for
+// the whole run (a double-submit would race the dedup.db single-flight; the
+// worker additionally enforces single-flight per kind), and the soft-timeout
+// copy remains as a belt-and-suspenders signal if polling itself stalls.
 //
 // Action failures are surfaced through the classifyError taxonomy into a toast
 // (fixed copy, never raw server text); the result card branches on `state`.
@@ -21,9 +20,11 @@ import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 import { classifyError, type Classified } from '../../lib/errors'
 import type { PlanRow } from '../../api/pipeline'
+import type { OperationStatus } from '../../api/operations'
 import type { Profile } from '../../api/profiles'
 import ProfileSelector from '../../components/ProfileSelector.vue'
 import ArticleReviewRow from '../../components/ArticleReviewRow.vue'
+import OperationProgress from '../../components/OperationProgress.vue'
 
 const store = usePublishStore()
 const notify = useNotificationsStore()
@@ -132,7 +133,16 @@ async function onPublish(): Promise<void> {
   if (store.publishing) return // belt-and-suspenders with the disabled button
   stageError.value = null
   try {
+    // Enqueues the async op (202) — completion arrives via onPublishSettled.
     await store.runPublish()
+  } catch (e) {
+    reportError('publish', e)
+  }
+}
+
+function onPublishSettled(op: OperationStatus): void {
+  store.settlePublish(op)
+  if (op.status === 'success') {
     const r = store.publishResult
     if (r) {
       notify.push(
@@ -140,8 +150,10 @@ async function onPublish(): Promise<void> {
         r.state === 'all_success' ? 'success' : 'warning',
       )
     }
-  } catch (e) {
-    reportError('publish', e)
+  } else {
+    // failed / canceled — OperationProgress already shows the terminal error
+    // inline; mirror it into the stage-error slot + toast like the sync path.
+    reportError('publish', new Error(op.error || `发布${op.status === 'canceled' ? '已取消' : '失败'}`))
   }
 }
 
@@ -274,8 +286,12 @@ function applyProfile(p: Profile): void {
         />
       </div>
 
-      <div v-if="store.publishing" class="publish-busy" role="status" aria-live="polite">
-        <span class="spinner" aria-hidden="true" />
+      <OperationProgress
+        v-if="store.publishOpId"
+        :op-id="store.publishOpId"
+        @settled="onPublishSettled"
+      />
+      <div v-if="store.publishing && softTimedOut" class="publish-busy" role="status" aria-live="polite">
         <span class="publish-busy__copy">{{ busyCopy }}</span>
       </div>
 

@@ -9,6 +9,7 @@
 // campaign_id and we navigate OUT to the legacy /campaign/<id> progress page
 // (dual-stack: that progress view is a separate, not-yet-migrated route).
 import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import {
   createCampaign,
@@ -20,6 +21,7 @@ import StateBlock from '../../components/StateBlock.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 
 const { toastError } = useErrorToast()
+const router = useRouter()
 const formQuery = useQuery({ queryKey: ['campaigns', 'form'], queryFn: getCampaignForm })
 
 const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
@@ -74,8 +76,9 @@ async function onSubmit(): Promise<void> {
       cap: form.cap,
       seed_delay: form.seed_delay,
     })
-    // Leave the SPA for the legacy progress page (not yet migrated).
-    window.location.href = `/campaign/${r.campaign_id}`
+    // In-SPA navigation to the campaign progress page (P13 B3 migrated it;
+    // Plan 2026-07-09 P3 closes the last full-page jump out of the SPA).
+    router.push(`/campaign/${r.campaign_id}`)
   } catch (e) {
     if (e instanceof ApiError && e.status === 422) {
       const errs = (e.payload as { errors?: { field: string; message: string }[] })?.errors ?? []
