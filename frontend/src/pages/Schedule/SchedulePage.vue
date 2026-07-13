@@ -45,7 +45,7 @@ function fmt(iso?: string | null): string {
           </thead>
           <tbody>
             <tr v-for="(row, i) in items" :key="row.id ?? i">
-              <td><span class="badge">{{ row.platform || '—' }}</span></td>
+              <td><span class="chip">{{ row.platform || '—' }}</span></td>
               <td>{{ row.title || '无标题' }}</td>
               <td class="col-url">
                 <a v-if="row.target_url" :href="row.target_url" target="_blank" rel="noopener" :title="row.target_url">{{ row.target_url }}</a>
@@ -66,11 +66,5 @@ function fmt(iso?: string | null): string {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-.badge {
-  background: var(--surface-overlay);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-sm);
 }
 </style>

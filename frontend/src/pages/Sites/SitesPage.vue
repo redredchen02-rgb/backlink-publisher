@@ -339,8 +339,8 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
       <div class="plan-gap">
         <h2>⑤ Plan-Gap 周报</h2>
         <template v-if="widgetsQuery.data.value.plan_gap.status === 'ok'">
-          <span class="badge">补链 seed 候选：{{ widgetsQuery.data.value.plan_gap.candidate_count }}</span>
-          <span class="badge">涉及目标：{{ widgetsQuery.data.value.plan_gap.target_count }}</span>
+          <span class="chip">补链 seed 候选：{{ widgetsQuery.data.value.plan_gap.candidate_count }}</span>
+          <span class="chip">涉及目标：{{ widgetsQuery.data.value.plan_gap.target_count }}</span>
           <span class="muted">触发时间：{{ widgetsQuery.data.value.plan_gap.triggered_at }}</span>
         </template>
         <p v-else-if="widgetsQuery.data.value.plan_gap.status === 'invalid'" class="muted">
@@ -472,12 +472,6 @@ button.link {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-}
-.badge {
-  background: var(--surface-overlay);
-  padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-pill);
-  font-weight: var(--font-weight-semibold);
 }
 .muted {
   color: var(--text-secondary);

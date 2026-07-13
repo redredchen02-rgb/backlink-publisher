@@ -202,9 +202,9 @@ function fmtTime(iso: string | undefined): string {
           <span class="status" :data-status="report.status">
             {{ STATUS_LABELS[report.status] ?? report.status }}
           </span>
-          <span v-if="report.severity" class="badge">严重度：{{ report.severity }}</span>
-          <span v-if="report.source" class="badge">来源：{{ report.source }}</span>
-          <span class="badge">发生次数：{{ report.occurrences ?? 1 }}</span>
+          <span v-if="report.severity" class="chip">严重度：{{ report.severity }}</span>
+          <span v-if="report.source" class="chip">来源：{{ report.source }}</span>
+          <span class="chip">发生次数：{{ report.occurrences ?? 1 }}</span>
         </div>
 
         <dl class="meta">
@@ -319,11 +319,6 @@ function fmtTime(iso: string | undefined): string {
 .status[data-status='resolved'] {
   color: var(--success);
   font-weight: var(--font-weight-semibold);
-}
-.badge {
-  background: var(--surface-overlay);
-  padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-pill);
 }
 .meta {
   display: grid;
