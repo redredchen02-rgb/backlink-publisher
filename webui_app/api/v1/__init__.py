@@ -59,6 +59,7 @@ from . import (
     medium_login,
     monitor,
     oauth,
+    operations,
     pipeline,
     profiles,
     schedule,
