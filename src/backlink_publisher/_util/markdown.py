@@ -68,7 +68,7 @@ def render_to_html(md: str) -> str:
     """
     if not md:
         return ""
-    return _get_mdit().render(md)
+    return str(_get_mdit().render(md))
 
 
 def render_to_html_safe(md: str) -> str:
@@ -81,7 +81,7 @@ def render_to_html_safe(md: str) -> str:
     """
     if not md:
         return ""
-    return _get_mdit_safe().render(md)
+    return str(_get_mdit_safe().render(md))
 
 
 _URL_MODE_OFFSETS = {"A": 0, "B": 1, "C": 2}
