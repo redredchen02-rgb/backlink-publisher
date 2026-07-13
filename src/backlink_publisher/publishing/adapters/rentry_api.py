@@ -12,7 +12,7 @@ from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 RENTRY_BASE = "https://rentry.co"
@@ -75,6 +75,8 @@ class RentryAPIAdapter(Publisher):
                 timeout=_HTTP_TIMEOUT_S,
                 raise_for_status=False,
             )
+            if home_resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(home_resp.status_code)
             if home_resp.status_code != 200:
                 raise ExternalServiceError(
                     f"Rentry homepage returned HTTP {home_resp.status_code}"
@@ -92,13 +94,7 @@ class RentryAPIAdapter(Publisher):
         try:
             csrf_token, cookies = retry_transient_call(
                 _fetch_csrf,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc)
-                        for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="rentry",
             )
 
@@ -160,6 +156,10 @@ class RentryAPIAdapter(Publisher):
                 if not url_id:
                     raise ExternalServiceError("Rentry create returned no ID")
                 published_url = f"{RENTRY_BASE}/{url_id}"
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"rentry.co rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (ExternalServiceError):
             raise
         # debt: rentry-api-publish-boilerplate-accepted

@@ -55,7 +55,7 @@ from backlink_publisher._util.logger import opencli_logger as log
 from backlink_publisher.config import Config
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _HTTP_TIMEOUT_S = 30
@@ -219,8 +219,8 @@ class HatenaAtomPubAdapter(Publisher):
                     f"Hatena AtomPub rejected (HTTP {resp.status_code}) — check "
                     "hatena_id/blog_id and regenerate the API key in blog settings."
                 )
-            if resp.status_code == 429:
-                raise ExternalServiceError("Hatena AtomPub rate-limited (HTTP 429)")
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code != 201:
                 # Status only — never echo the response body (may carry account
                 # detail); mirrors the PR #316 no-leak contract.
@@ -241,14 +241,13 @@ class HatenaAtomPubAdapter(Publisher):
                 # never reached create). A network error after the request left
                 # the client is ambiguous on a non-idempotent create and could
                 # duplicate the entry, so it is NOT retried (PR #323 contract).
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc) for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="hatena",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"Hatena rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (DependencyError, ExternalServiceError):
             raise
         # debt: hatena-atompub-publish-boilerplate-accepted

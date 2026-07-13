@@ -11,7 +11,7 @@ from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 WPCOM_API_BASE = "https://public-api.wordpress.com/rest/v1.1"
@@ -99,6 +99,8 @@ class WordpresscomAPIAdapter(Publisher):
                     "WordPress.com access forbidden (HTTP 403) — "
                     "check scope/permissions of the token"
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code not in (200, 201):
                 raise ExternalServiceError(
                     f"WordPress.com API returned HTTP {resp.status_code}: "
@@ -120,15 +122,13 @@ class WordpresscomAPIAdapter(Publisher):
         try:
             published_url = retry_transient_call(
                 execute,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc)
-                        for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="wordpresscom",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"WordPress.com rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (DependencyError, ExternalServiceError):
             raise
         # debt: wordpresscom-api-publish-boilerplate-accepted

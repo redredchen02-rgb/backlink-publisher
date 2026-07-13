@@ -38,7 +38,7 @@ from backlink_publisher.config import Config, load_qiita_token
 from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _QIITA_ITEMS_API = "https://qiita.com/api/v2/items"
@@ -165,6 +165,8 @@ class QiitaAPIAdapter(Publisher):
                 raise ExternalServiceError(
                     f"Qiita rejected the item payload (HTTP 422): {msg}"
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code not in (200, 201):
                 raise ExternalServiceError(
                     f"Qiita API returned unexpected status {resp.status_code}: "
@@ -178,14 +180,16 @@ class QiitaAPIAdapter(Publisher):
                 )
             return url
 
-        published_url = retry_transient_call(
-            execute,
-            is_retryable=lambda exc: (
-                isinstance(exc, ExternalServiceError)
-                and any(f"HTTP {code}" in str(exc) for code in RETRYABLE_HTTP_STATUSES)
-            ),
-            adapter="qiita",
-        )
+        try:
+            published_url = retry_transient_call(
+                execute,
+                is_retryable=lambda exc: isinstance(exc, TransientError),
+                adapter="qiita",
+            )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"Qiita rate-limited (HTTP {exc.status_code})"
+            ) from exc
 
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         log.info(

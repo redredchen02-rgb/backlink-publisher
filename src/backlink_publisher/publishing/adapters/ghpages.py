@@ -49,7 +49,7 @@ from backlink_publisher.http import put as http_put
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 GITHUB_API = "https://api.github.com"
@@ -217,6 +217,8 @@ def _put_contents(
     if resp.status_code == 422:
         # Surface a typed signal so publish() knows to fetch sha + retry.
         raise _ShaRequired(None)
+    if resp.status_code in RETRYABLE_HTTP_STATUSES:
+        raise TransientError(resp.status_code)
     raise ExternalServiceError(
         f"GitHub PUT contents returned HTTP {resp.status_code} — unexpected response"
     )
@@ -512,14 +514,13 @@ class GitHubPagesAPIAdapter(Publisher):
         try:
             retry_transient_call(
                 execute,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc) for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="ghpages",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"GitHub Pages rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except DependencyError:
             raise
         except ExternalServiceError:

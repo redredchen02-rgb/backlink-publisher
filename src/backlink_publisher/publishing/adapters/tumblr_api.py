@@ -13,7 +13,7 @@ from backlink_publisher.config import Config
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 TUMBLR_API_BASE = "https://api.tumblr.com/v2"
@@ -137,6 +137,8 @@ class TumblrAPIAdapter(Publisher):
                     "Tumblr OAuth rejected (HTTP 401) — re-authorize "
                     "and update tumblr-credentials.json"
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code not in (200, 201):
                 raise ExternalServiceError(
                     f"Tumblr API returned HTTP {resp.status_code}: {resp.text[:200]}"
@@ -165,15 +167,13 @@ class TumblrAPIAdapter(Publisher):
         try:
             published_url = retry_transient_call(
                 execute,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc)
-                        for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="tumblr",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"Tumblr rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (DependencyError, ExternalServiceError):
             raise
         # debt: tumblr-api-publish-boilerplate-accepted

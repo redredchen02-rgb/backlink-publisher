@@ -47,7 +47,7 @@ from backlink_publisher.http import put as http_put
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .ghpages import _slugify
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
@@ -242,6 +242,8 @@ class GitLabPagesAPIAdapter(Publisher):
                     f"GitLab {verb} forbidden (HTTP 403){suffix} — token missing "
                     "scope or hit a secondary rate limit"
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             return False  # caller decides (400 markers / generic)
 
         def execute() -> Any:
@@ -276,15 +278,13 @@ class GitLabPagesAPIAdapter(Publisher):
         try:
             published_url = retry_transient_call(
                 execute,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc)
-                        for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="gitlabpages",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"GitLab Pages rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (DependencyError, ExternalServiceError):
             raise
         # debt: gitlabpages-publish-boilerplate-accepted

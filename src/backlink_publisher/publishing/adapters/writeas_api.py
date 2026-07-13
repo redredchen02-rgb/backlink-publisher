@@ -11,7 +11,7 @@ from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 WRITEAS_API_BASE = "https://write.as/api"
@@ -96,6 +96,8 @@ class WriteasAPIAdapter(Publisher):
                     "Write.as token rejected (HTTP 401) — check your "
                     "api token at https://write.as/settings#term"
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code not in (200, 201):
                 raise ExternalServiceError(
                     f"Write.as API returned HTTP {resp.status_code}: {resp.text[:200]}"
@@ -118,15 +120,13 @@ class WriteasAPIAdapter(Publisher):
         try:
             published_url = retry_transient_call(
                 execute,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc)
-                        for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="writeas",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"Write.as rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (DependencyError, ExternalServiceError):
             raise
         # debt: writeas-api-publish-boilerplate-accepted

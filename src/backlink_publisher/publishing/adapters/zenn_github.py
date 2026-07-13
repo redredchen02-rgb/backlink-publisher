@@ -42,7 +42,7 @@ from backlink_publisher.http import get as http_get
 from backlink_publisher.http import put as http_put
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _GITHUB_API = "https://api.github.com"
@@ -227,6 +227,8 @@ class ZennGitHubAdapter(Publisher):
                     "GitHub PAT lacks permission (HTTP 403) — ensure the PAT has "
                     "contents:write scope on the Zenn-connected repository."
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code not in (200, 201):
                 raise ExternalServiceError(
                     f"GitHub Contents API returned unexpected status {resp.status_code}: "
@@ -234,14 +236,16 @@ class ZennGitHubAdapter(Publisher):
                 )
             return published_url
 
-        result_url = retry_transient_call(
-            execute,
-            is_retryable=lambda exc: (
-                isinstance(exc, ExternalServiceError)
-                and any(f"HTTP {code}" in str(exc) for code in RETRYABLE_HTTP_STATUSES)
-            ),
-            adapter="zenn",
-        )
+        try:
+            result_url = retry_transient_call(
+                execute,
+                is_retryable=lambda exc: isinstance(exc, TransientError),
+                adapter="zenn",
+            )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"Zenn rate-limited (HTTP {exc.status_code})"
+            ) from exc
 
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         log.info(
