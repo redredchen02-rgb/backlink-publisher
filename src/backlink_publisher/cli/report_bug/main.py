@@ -109,7 +109,7 @@ def _open_report(output_dir: str) -> str | None:
     target = pairs[0][0]
     try:
         if hasattr(os, "startfile"):
-            os.startfile(str(target))  # type: ignore[attr-defined]
+            os.startfile(str(target))
         elif sys.platform == "darwin":
             subprocess.run(["open", str(target)], check=False)
         else:

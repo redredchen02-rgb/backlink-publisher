@@ -27,6 +27,12 @@ from .sqlite_base import BaseSqliteStore
 
 _OP_SCHEMA_VERSION = 1
 
+# Module-level alias: OperationSqliteStore defines a method named ``list``,
+# which shadows the builtin inside the class body — a bare ``list[...]``
+# annotation on later methods resolves to the method and mypy rejects it as
+# not-a-type. ruff (UP006) bans typing.List, so alias the builtin here instead.
+_OpRows = list[dict[str, Any]]
+
 _OP_STATUS_VALUES = frozenset({
     "pending", "running", "success", "failed", "canceled",
 })
@@ -290,8 +296,12 @@ class OperationSqliteStore(BaseSqliteStore):
             (int(limit),),
         )
 
-    def list_active(self) -> list[dict[str, Any]]:
-        """Return ops still pending or running, newest first."""
+    def list_active(self) -> _OpRows:
+        """Return ops still pending or running, newest first.
+
+        Annotated via the module-level ``_OpRows`` alias — see its comment
+        (the ``list`` method above shadows the builtin in this class body).
+        """
         return self._load_rows(
             "SELECT data_json FROM operations WHERE status IN ('pending', 'running') "
             "ORDER BY created_at DESC"
