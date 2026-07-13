@@ -125,7 +125,21 @@ def _run_burst(
         _write_per_seed_file(output_dir, seed_index, seed_main_domain, seed_rows)
 
     pairs = [(seed_main_domain, c.platform) for c in surviving]
-    return False, seed_rows, None, pairs
+
+    # Audit finding [04]: dispatch failures must reach the run's exit code.
+    # n_succeeded==0 (nothing landed) is a whole-seed failure; any failed shot
+    # is a PartialFailure. Returning err_msg populates seed_errors_list so
+    # _finish_run's exit-2 branch fires — a burst whose publishes failed must
+    # NOT exit 0 with success-looking output.
+    seed_failed = summary.n_succeeded == 0 and summary.n_failed > 0
+    err_msg: str | None = None
+    if summary.n_failed > 0:
+        failed_plats = ", ".join(plat for plat, _ in summary.failed)
+        err_msg = (
+            f"{seed_label}: {summary.n_failed}/{len(surviving)} shots failed to "
+            f"{verb} ({failed_plats})"
+        )
+    return seed_failed, seed_rows, err_msg, pairs
 
 
 def _process_seed(
