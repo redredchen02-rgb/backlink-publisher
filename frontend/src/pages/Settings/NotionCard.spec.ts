@@ -111,12 +111,16 @@ describe('NotionCard', () => {
   })
 
   it('clears the credential after confirm → success toast', async () => {
-    vi.stubGlobal('confirm', vi.fn(() => true))
     vi.mocked(api.getNotionStatus).mockResolvedValue(statusValue({ configured: true }))
     vi.mocked(api.clearNotionToken).mockResolvedValue({ ok: true, cleared: true, message: 'notion token 已清除' })
     const w = mountCard()
     await flushPromises()
     await btn(w, '清除')!.trigger('click')
+    await flushPromises()
+    // destructive clear now opens the shared ConfirmDialog (W2) — confirm to proceed
+    const confirmBtn = btn(w, '确认清除')
+    expect(confirmBtn).toBeTruthy()
+    await confirmBtn!.trigger('click')
     await flushPromises()
     expect(api.clearNotionToken).toHaveBeenCalled()
     const notify = useNotificationsStore()

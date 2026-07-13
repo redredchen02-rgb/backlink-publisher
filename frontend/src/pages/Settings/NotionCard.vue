@@ -7,7 +7,7 @@
 // (mirrors the legacy form), so the secret is never pre-filled and a blank submit
 // is a 422 the user must resolve by re-entering the token. database_id is NOT a
 // secret, so it hydrates from the status GET for display/edit.
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { getNotionStatus, saveNotionToken, clearNotionToken } from '../../api/settings'
 import StateBlock from '../../components/StateBlock.vue'
@@ -15,6 +15,7 @@ import { useErrorToast } from '../../composables/useErrorToast'
 import { useSnapshotDirty } from '../../composables/useSnapshotDirty'
 import { useSettingsForm } from '../../composables/useSettingsForm'
 import { useNotificationsStore } from '../../stores/notifications'
+import ConfirmDialog from '../../components/ConfirmDialog.vue'
 
 type FourState = 'loading' | 'empty' | 'error' | 'ready'
 
@@ -89,8 +90,13 @@ async function onSave(): Promise<void> {
   }
 }
 
-async function onClear(): Promise<void> {
-  if (!window.confirm('确认清除 Notion 凭据？')) return
+const clearOpen = ref(false)
+
+function onClear(): void {
+  clearOpen.value = true
+}
+
+async function doClearNotion(): Promise<void> {
   try {
     const r = await clearNotionToken()
     notify.push(r.message || 'Notion 凭据已清除', 'success')
@@ -160,6 +166,16 @@ async function onClear(): Promise<void> {
         </div>
       </form>
     </StateBlock>
+
+    <ConfirmDialog
+      v-model:open="clearOpen"
+      danger
+      title="清除 Notion 凭据"
+      confirm-label="确认清除"
+      :confirm="doClearNotion"
+    >
+      <p>确认清除 Notion 凭据？此操作不可撤销，需重新填入完整 token 才能再次绑定。</p>
+    </ConfirmDialog>
   </section>
 </template>
 
