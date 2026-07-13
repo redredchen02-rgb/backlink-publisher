@@ -473,13 +473,26 @@ describe('StatusBadge adoption (Phase A ratchet)', () => {
 ```ts
 // frontend/src/__tests__/breakpoint-convention.spec.ts
 // Split-screen breakpoint lock (app.css convention, Plan 2026-07-06-005 D12):
-// every max-width media query in the SPA must use the 960px literal.
+// every max-width media query in page-level styles must use the 960px
+// literal.
+//
+// Scope is deliberately src/pages + src/styles, NOT all of src. The 960px
+// rule is the split-screen PAGE convention; it does not apply to
+// src/layout/*. The app shell (AppShell.vue/SideNav.vue/TopBar.vue) uses its
+// own, older 1024px breakpoint on purpose: SideNav's drawer collapse
+// deliberately mirrors the legacy drawer breakpoint at
+// webui_app/static/css/global_nav.css:268 (`@media (max-width: 1024px)`), and
+// changing it would alter sidebar collapse behaviour in the 960-1024px range
+// and break legacy parity. This exemption is temporary — Phase B retires the
+// legacy shell, at which point src/layout/* can be revisited and folded into
+// (or reconciled with) this same 960px convention.
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const SCAN_DIRS = ['pages', 'styles'].map((d) => join(ROOT, d))
 
 function* walk(dir: string): Generator<string> {
   for (const name of readdirSync(dir)) {
@@ -492,12 +505,14 @@ function* walk(dir: string): Generator<string> {
 describe('breakpoint convention', () => {
   it('all max-width media queries use the 960px split-screen literal', () => {
     const violations: string[] = []
-    for (const file of walk(SRC)) {
-      const text = readFileSync(file, 'utf8')
-      const queries = text.match(/@media[^{]*max-width:\s*(\d+)px/g) ?? []
-      for (const q of queries) {
-        const px = /max-width:\s*(\d+)px/.exec(q)?.[1]
-        if (px !== '960') violations.push(`${file} — ${q.trim()}`)
+    for (const dir of SCAN_DIRS) {
+      for (const file of walk(dir)) {
+        const text = readFileSync(file, 'utf8')
+        const queries = text.match(/@media[^{]*max-width:\s*(\d+)px/g) ?? []
+        for (const q of queries) {
+          const px = /max-width:\s*(\d+)px/.exec(q)?.[1]
+          if (px !== '960') violations.push(`${file} — ${q.trim()}`)
+        }
       }
     }
     expect(violations, `\n${violations.join('\n')}`).toEqual([])
@@ -508,7 +523,7 @@ describe('breakpoint convention', () => {
 - [ ] **Step 3: Run both, fix any pre-existing breakpoint violations found**
 
 Run: `npm run test -- component-adoption && npm run test -- breakpoint-convention`
-Expected: component-adoption PASS (tolerance covers current offenders; History/Drafts/Sites+Schedule non-tolerated table entries pass because Drafts/History already use DataTable — note Sites/Schedule ARE tolerated). If breakpoint-convention FAILS, change the offending literal to 960px in the cited file (expected: none or 1–2 stragglers; SettingsPage/MonitorDashboard already use 960).
+Expected: component-adoption PASS (tolerance covers current offenders; History/Drafts/Sites+Schedule non-tolerated table entries pass because Drafts/History already use DataTable — note Sites/Schedule ARE tolerated). If breakpoint-convention FAILS, change the offending literal to 960px in the cited file — but ONLY for files under src/pages or src/styles (expected: none or 1–2 stragglers; SettingsPage/MonitorDashboard already use 960). Do NOT change src/layout/* — that's the app-shell drawer breakpoint, deliberately 1024px to mirror the legacy shell (see the guard's own exemption comment), and is out of this guard's scope entirely.
 
 - [ ] **Step 4: Commit**
 
@@ -1047,9 +1062,18 @@ dynamic panels) keeps the `.data-table` CSS convention with sr-only captions.
 - Never hand-roll spinners; StateBlock owns loading treatment.
 
 ## Breakpoint
-The only sanctioned max-width media query is `@media (max-width: 960px)`
-(desktop split-screen; mobile out of scope — app.css block comment). The
-breakpoint-convention guard fails any other literal.
+The only sanctioned max-width media query for page/style CSS is
+`@media (max-width: 960px)` (desktop split-screen; mobile out of scope —
+app.css block comment). The breakpoint-convention guard scans `src/pages` and
+`src/styles` and fails any other literal there.
+
+`src/layout/*` (AppShell.vue, SideNav.vue, TopBar.vue) is exempt from this
+guard: the app shell's drawer/hamburger breakpoint is deliberately `1024px`,
+mirroring the legacy drawer breakpoint at
+`webui_app/static/css/global_nav.css:268`. Do not "fix" it to 960px — that
+would change sidebar collapse behaviour in the 960-1024px range and break
+legacy parity. This is temporary until Phase B retires the legacy shell, at
+which point `src/layout/*` can be reconciled with the 960px convention.
 
 ## Copy
 UI copy is Simplified Chinese (zh-CN). No Bootstrap classes — style with
