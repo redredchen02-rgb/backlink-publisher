@@ -4,15 +4,20 @@
  */
 import { on, qs } from './lib/dom.js';
 
-const THEME_KEY = 'backlink-publisher-theme';
+// Canonical key, shared with the Vue SPA store (frontend/src/stores/theme.ts) so
+// the theme carries across every SPA<->Jinja navigation (audit [39]).
+const THEME_KEY = 'bp-theme';
+// Key this module used before the SPA unified on 'bp-theme'; read as a one-time
+// migration fallback so an existing legacy preference is not lost.
+const LEGACY_THEME_KEY = 'backlink-publisher-theme';
 const THEME_TRANSITION_CLASS = 'theme-transition';
 
 /**
  * Get the initial theme preference
- * Priority: localStorage > system preference > light (default)
+ * Priority: localStorage (canonical, then legacy) > system preference > dark
  */
 function getInitialTheme() {
-    const stored = localStorage.getItem(THEME_KEY);
+    const stored = localStorage.getItem(THEME_KEY) || localStorage.getItem(LEGACY_THEME_KEY);
     if (stored === 'dark' || stored === 'light') {
         return stored;
     }
@@ -79,8 +84,9 @@ function initTheme() {
     // Listen for system preference changes
     if (window.matchMedia) {
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-            // Only auto-switch if user hasn't manually set a preference
-            if (!localStorage.getItem(THEME_KEY)) {
+            // Only auto-switch if user hasn't manually set a preference (under
+            // either the canonical or the legacy key).
+            if (!localStorage.getItem(THEME_KEY) && !localStorage.getItem(LEGACY_THEME_KEY)) {
                 applyTheme(e.matches ? 'dark' : 'light', true);
             }
         });

@@ -6,15 +6,23 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 const STORAGE_KEY = 'bp-theme'
+// Legacy Jinja pages persisted under this key before both surfaces unified on
+// 'bp-theme'; read it as a one-time fallback so a preference set on a legacy page
+// carries into the SPA instead of silently resetting (audit [39]).
+const LEGACY_STORAGE_KEY = 'backlink-publisher-theme'
 type Theme = 'dark' | 'light'
 
 function apply(theme: Theme): void {
   document.documentElement.setAttribute('data-theme', theme)
 }
 
+function readStored(): Theme | null {
+  const v = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
+  return v === 'dark' || v === 'light' ? v : null
+}
+
 export const useThemeStore = defineStore('theme', () => {
-  const initial: Theme =
-    (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? 'dark'
+  const initial: Theme = readStored() ?? 'dark'
   const theme = ref<Theme>(initial)
   apply(theme.value)
 
