@@ -24,7 +24,7 @@ import {
   type SiteItem,
 } from '../../api/sites'
 import { ApiError } from '../../api/client'
-import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
@@ -37,12 +37,9 @@ const { toastError } = useErrorToast()
 const sitesQuery = useQuery({ queryKey: SITES_KEY, queryFn: listSites })
 const widgetsQuery = useQuery({ queryKey: WIDGETS_KEY, queryFn: getSitesWidgets })
 const items = computed<SiteItem[]>(() => sitesQuery.data.value?.items ?? [])
-
-const listState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (sitesQuery.isPending.value) return 'loading'
-  if (sitesQuery.isError.value) return 'error'
-  return items.value.length ? 'ready' : 'empty'
-})
+// DataTable requires a stable string `id` per row -- main_url is already the
+// row's natural unique key (used as :key on the old hand-rolled <tr>).
+const siteRows = computed(() => items.value.map((s) => ({ ...s, id: s.main_url })))
 
 // ── config form ─────────────────────────────────────────────────────────────
 const emptyForm = (): SiteForm => ({
@@ -267,63 +264,60 @@ async function onToggleAutopilot(site: SiteItem, enabled: boolean): Promise<void
     <!-- ④ autopilot -->
     <section class="autopilot">
       <h2>④ Autopilot 定时保活</h2>
-      <StateBlock
-        :state="listState"
+      <DataTable
+        class="ap-table"
+        :items="siteRows"
+        :loading="sitesQuery.isPending.value"
         :error="sitesQuery.error.value"
         empty-text="尚无已配置站点"
+        caption="站点 Autopilot 列表"
         @retry="sitesQuery.refetch()"
       >
-        <div class="data-table-wrap">
-        <table class="ap-table data-table">
-          <thead>
-            <tr><th>标签</th><th>main_url</th><th>启用</th><th>间隔</th><th>状态</th><th /></tr>
-          </thead>
-          <tbody>
-            <tr v-for="site in items" :key="site.main_url">
-              <td>{{ site.label }}</td>
-              <td class="col-url muted" :title="site.main_url">{{ site.main_url }}</td>
-              <td>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  :checked="site.autopilot_enabled"
-                  :disabled="togglingUrl === site.main_url"
-                  :aria-label="`启用 ${site.label} 的 Autopilot`"
-                  @change="onToggleAutopilot(site, ($event.target as HTMLInputElement).checked)"
-                />
-              </td>
-              <td>
-                <select
-                  :value="choiceFor(site)"
-                  :aria-label="`${site.label} 保活间隔`"
-                  @change="intervalChoice[site.main_url] = ($event.target as HTMLSelectElement).value"
-                >
-                  <option value="86400">每天（24h）</option>
-                  <option value="604800">每周（7d）</option>
-                  <option value="custom">自定义…</option>
-                </select>
-                <input
-                  v-if="choiceFor(site) === 'custom'"
-                  type="number"
-                  min="3600"
-                  max="2592000"
-                  :value="customFor(site)"
-                  placeholder="秒数（3600–2592000）"
-                  :aria-label="`${site.label} 自定义间隔秒数`"
-                  @input="customSeconds[site.main_url] = Number(($event.target as HTMLInputElement).value)"
-                />
-              </td>
-              <td>
-                <span class="ap-status" :data-tone="rowStatus(site).tone">{{ rowStatus(site).text }}</span>
-              </td>
-              <td>
-                <button type="button" class="link" @click="onEdit(site.main_url)">编辑</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        </div>
-      </StateBlock>
+        <template #head>
+          <th>标签</th><th>main_url</th><th>启用</th><th>间隔</th><th>状态</th><th />
+        </template>
+        <template #row="{ row: site }">
+          <td>{{ site.label }}</td>
+          <td class="col-url muted" :title="site.main_url">{{ site.main_url }}</td>
+          <td>
+            <input
+              type="checkbox"
+              role="switch"
+              :checked="site.autopilot_enabled"
+              :disabled="togglingUrl === site.main_url"
+              :aria-label="`启用 ${site.label} 的 Autopilot`"
+              @change="onToggleAutopilot(site, ($event.target as HTMLInputElement).checked)"
+            />
+          </td>
+          <td>
+            <select
+              :value="choiceFor(site)"
+              :aria-label="`${site.label} 保活间隔`"
+              @change="intervalChoice[site.main_url] = ($event.target as HTMLSelectElement).value"
+            >
+              <option value="86400">每天（24h）</option>
+              <option value="604800">每周（7d）</option>
+              <option value="custom">自定义…</option>
+            </select>
+            <input
+              v-if="choiceFor(site) === 'custom'"
+              type="number"
+              min="3600"
+              max="2592000"
+              :value="customFor(site)"
+              placeholder="秒数（3600–2592000）"
+              :aria-label="`${site.label} 自定义间隔秒数`"
+              @input="customSeconds[site.main_url] = Number(($event.target as HTMLInputElement).value)"
+            />
+          </td>
+          <td>
+            <span class="ap-status" :data-tone="rowStatus(site).tone">{{ rowStatus(site).text }}</span>
+          </td>
+          <td>
+            <button type="button" class="link" @click="onEdit(site.main_url)">编辑</button>
+          </td>
+        </template>
+      </DataTable>
     </section>
 
     <!-- ⑤ read-only widgets -->
@@ -446,7 +440,11 @@ button.link {
   max-height: 200px;
   overflow: auto;
 }
-/* .ap-table inherits .data-table layout */
+/* Task 12: the autopilot table now renders via the shared DataTable component,
+   which owns .data-table/.data-table-wrap internally. `.ap-table` moved from
+   the raw table element itself to a wrapper class on DataTable (Vue merges
+   it onto DataTable's root .data-table-component div) -- this descendant
+   selector still reaches every td regardless of the extra nesting level. */
 .ap-table td {
   vertical-align: top;  /* Sites rows can wrap (multi-value controls) */
 }

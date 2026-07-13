@@ -30,10 +30,7 @@ const LIST_PAGES = [
  * captions instead (see Task 13). Re-evaluate if DataTable grows row-details. */
 
 // Ratchet: pages still hand-rolling <table>. Page tasks delete their entry.
-const TABLE_TOLERANCE = new Set([
-  'KeepAlive/KeepAlivePage.vue',
-  'Sites/SitesPage.vue',
-])
+const TABLE_TOLERANCE = new Set<string>([])
 
 // Ratchet: files still hand-rolling status badges/pills (class="badge",
 // class="status" :data-status, or STATUS_COLORS-style class maps).
@@ -41,7 +38,6 @@ const BADGE_TOLERANCE = new Set([
   'Drafts/DraftsPage.vue',
   'ErrorReports/ErrorReportDetailPage.vue',
   'History/HistoryPage.vue',
-  'KeepAlive/KeepAlivePage.vue',
 ])
 
 describe('DataTable component adoption (Phase A ratchet)', () => {
