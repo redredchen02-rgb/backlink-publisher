@@ -34,7 +34,6 @@ const TABLE_TOLERANCE = new Set([
   'ErrorReports/ErrorReportsPage.vue',
   'KeepAlive/KeepAlivePage.vue',
   'OptimizationStatus/OptimizationStatusPage.vue',
-  'PrQueue/PrQueuePage.vue',
   'Sites/SitesPage.vue',
 ])
 
@@ -47,7 +46,6 @@ const BADGE_TOLERANCE = new Set([
   'History/HistoryPage.vue',
   'KeepAlive/KeepAlivePage.vue',
   'OptimizationStatus/OptimizationStatusPage.vue',
-  'PrQueue/PrQueuePage.vue',
 ])
 
 describe('DataTable component adoption (Phase A ratchet)', () => {

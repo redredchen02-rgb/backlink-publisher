@@ -20,12 +20,12 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 const PAGES_DIR = resolve(__dir, '../pages')
 
 // EXEMPT: CampaignProgress & EquityLedger — migrated to DataTable component (Task 7 & 8),
-// which provides .data-table/.data-table-wrap internally; those classes are not
-// visible in the page source and thus cannot satisfy source-text regex checks.
+// and PrQueue (Task 9) — same reason: DataTable provides .data-table/.data-table-wrap
+// internally; those classes are not visible in the page source and thus cannot
+// satisfy source-text regex checks.
 const TARGET_PAGES = [
   'KeepAlive/KeepAlivePage.vue',
   'OptimizationStatus/OptimizationStatusPage.vue',
-  'PrQueue/PrQueuePage.vue',
 ]
 
 const sources = TARGET_PAGES.map((rel) => ({
