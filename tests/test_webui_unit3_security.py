@@ -323,7 +323,12 @@ class TestLlmSsrfRedirectGuard:
             calls.append({"url": url, "allow_redirects": allow_redirects})
             return _FakeResp()
 
-        monkeypatch.setattr("webui_app.routes.llm.requests.post", fake_post)
+        # _safe_post_json re-exports backlink_publisher.llm.http_guard.safe_post_json,
+        # which posts via the module-level _SESSION (a requests.Session instance),
+        # not the bare requests.post function — patch the session's bound method.
+        monkeypatch.setattr(
+            "backlink_publisher.llm.http_guard._SESSION.post", fake_post
+        )
         with pytest.raises(ValueError, match="redirect_not_allowed"):
             _safe_post_json("https://api.openai.com/chat/completions",
                             {"Authorization": "Bearer sk-x"}, {})

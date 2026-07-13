@@ -115,9 +115,14 @@ def rotate_snapshots(
         )
         return
 
-    # UTC ISO timestamp with colons replaced (Windows-safe).
+    # UTC ISO timestamp with colons replaced (Windows-safe), plus a random
+    # suffix: the wall clock's actual update resolution can be coarser than
+    # the microsecond field suggests (observed on Windows), so two rotations
+    # issued back-to-back can otherwise render the identical filename and
+    # silently clobber each other.
     ts = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S.%fZ")
-    snap_path = snapshot_dir / f"{ts}{file_suffix}"
+    disambiguator = os.urandom(3).hex()
+    snap_path = snapshot_dir / f"{ts}-{disambiguator}{file_suffix}"
     try:
         if content is not None:
             snap_path.write_text(content, encoding="utf-8")

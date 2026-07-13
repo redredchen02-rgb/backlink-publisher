@@ -80,7 +80,7 @@ class TestConfigDrivenAdapterE2E:
         mock_resp = _mock_submit_resp(expected_url)
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
+            "backlink_publisher.publishing.adapters.http_form_post.requests.Session.post",
             return_value=mock_resp,
         ), patch(
             "backlink_publisher.publishing.adapters.http_form_post.verify_link_attributes",
@@ -104,7 +104,7 @@ class TestConfigDrivenAdapterE2E:
         mock_resp = _mock_submit_resp(expected_url)
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
+            "backlink_publisher.publishing.adapters.http_form_post.requests.Session.post",
             return_value=mock_resp,
         ):
             result = adapter.publish(payload, mode="draft", config=_mock_config())
@@ -124,7 +124,7 @@ class TestConfigDrivenAdapterE2E:
         mock_resp.headers = {}
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
+            "backlink_publisher.publishing.adapters.http_form_post.requests.Session.post",
             return_value=mock_resp,
         ):
             with pytest.raises(ExternalServiceError):
@@ -165,7 +165,7 @@ class TestConfigDrivenAdapterE2E:
         mock_resp.json.return_value = {"data": {"url": "https://test.example.com/posts/json1"}}
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
+            "backlink_publisher.publishing.adapters.http_form_post.requests.Session.post",
             return_value=mock_resp,
         ), patch(
             "backlink_publisher.publishing.adapters.http_form_post.verify_link_attributes",

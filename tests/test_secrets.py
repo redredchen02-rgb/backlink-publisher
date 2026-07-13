@@ -178,9 +178,11 @@ def test_orphan_archive_suffix_is_microsecond_utc(token_dir):
     secrets.write_frw_token("sk-2")
     path = secrets.frw_token_path()
     archive = next(path.parent.glob("frw-token.json.orphaned-*"))
-    # ``%Y%m%dT%H%M%S_%fZ`` — date T time _ microseconds Z
+    # ``%Y%m%dT%H%M%S_%fZ`` — date T time _ microseconds Z, plus a random
+    # hex disambiguator (the wall clock alone is not a reliable enough
+    # distinguisher on Windows — see _archive_orphan_token's docstring).
     suffix = archive.name.split(".orphaned-", 1)[1]
-    assert re.fullmatch(r"\d{8}T\d{6}_\d{6}Z", suffix), suffix
+    assert re.fullmatch(r"\d{8}T\d{6}_\d{6}Z-[0-9a-f]{6}", suffix), suffix
 
 
 def test_two_rotations_produce_two_distinct_archives(token_dir):
