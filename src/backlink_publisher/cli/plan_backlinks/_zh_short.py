@@ -167,103 +167,66 @@ def _build_zh_short_payload(
     }
 
 
-def _plan_zh_short_row(
-    row: dict[str, Any],
+def _resolve_secondary_anchors(
+    decision: ScheduleDecision,
+    cats_map: dict[str, str],
+    *,
+    keyword: str,
+    topic: Any,
     config: Config,
+    main_domain: str,
+    running_recent: list[str],
     llm_provider: OpenAICompatibleProvider | None,
-    rng: random.Random | None = None,
-) -> dict[str, Any] | None:
-    main_domain = row["main_domain"].rstrip("/")
-    cats_map = config.site_url_categories.get(main_domain, {})
-    available_cats = list(cats_map.keys())
-    if "home" not in cats_map or not any(c != "home" for c in cats_map):
-        return None
+    rng: random.Random,
+    language: str,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str, str, str]], list[str]]:
+    """Resolve an anchor for each scheduled secondary link.
 
-    rng = rng or random.Random()
-    style_seed = abs(hash(row.get("target_url", main_domain))) % 10_000
-    keyword = _extract_zh_keyword(row, main_domain)
-    home_url = cats_map["home"]
-    topic = row.get("topic")
-
-    last_errors: list[str] = []
-
-    for attempt in range(2):
-        profile = anchor_profile.load_profile(main_domain)
-        recent = anchor_profile.recent_texts(profile, n=20)
-        try:
-            decision = anchor_scheduler.schedule(
-                profile, config.anchor_proportions, available_cats,
-            )
-        except InputValidationError:
-            return None
-
-        main_anchor = anchor_resolver.resolve_anchor(
-            url_category="home",
-            anchor_type=decision.main_link_anchor_type,
+    Returns ``(sec_pairs, sec_records, errors)`` — ``errors`` is non-empty
+    (and resolution stopped early) when a category has no URL or an anchor
+    could not be resolved. Appends resolved anchors to ``running_recent``.
+    """
+    sec_pairs: list[tuple[str, str]] = []
+    sec_records: list[tuple[str, str, str, str]] = []
+    errors: list[str] = []
+    for sec in decision.secondary_links:
+        sec_url = cats_map.get(sec.url_category)
+        if not sec_url:
+            errors = [f"missing_url_for_category:{sec.url_category}"]
+            break
+        sec_anchor = anchor_resolver.resolve_anchor(
+            url_category=sec.url_category,
+            anchor_type=sec.anchor_type,
             keyword=keyword,
-            target_url=home_url,
+            target_url=sec_url,
             url_subject=topic,
             config=config,
             main_domain=main_domain,
-            recent_texts=recent,
+            recent_texts=running_recent,
             provider=llm_provider,
             rng=rng,
-            language=row["language"],
+            language=language,
         )
-        if main_anchor is None:
-            last_errors = ["main_anchor_resolution_failed"]
-            continue
+        if sec_anchor is None:
+            errors = ["secondary_anchor_resolution_failed"]
+            break
+        sec_pairs.append((sec_url, sec_anchor))
+        sec_records.append((sec.url_category, sec.anchor_type, sec_anchor, sec_url))
+        running_recent.append(sec_anchor)
+    return sec_pairs, sec_records, errors
 
-        running_recent = list(recent) + [main_anchor]
-        sec_pairs: list[tuple[str, str]] = []
-        sec_records: list[tuple[str, str, str, str]] = []
-        for sec in decision.secondary_links:
-            sec_url = cats_map.get(sec.url_category)
-            if not sec_url:
-                last_errors = [f"missing_url_for_category:{sec.url_category}"]
-                break
-            sec_anchor = anchor_resolver.resolve_anchor(
-                url_category=sec.url_category,
-                anchor_type=sec.anchor_type,
-                keyword=keyword,
-                target_url=sec_url,
-                url_subject=topic,
-                config=config,
-                main_domain=main_domain,
-                recent_texts=running_recent,
-                provider=llm_provider,
-                rng=rng,
-                language=row["language"],
-            )
-            if sec_anchor is None:
-                last_errors = ["secondary_anchor_resolution_failed"]
-                break
-            sec_pairs.append((sec_url, sec_anchor))
-            sec_records.append((sec.url_category, sec.anchor_type, sec_anchor, sec_url))
-            running_recent.append(sec_anchor)
 
-        if len(sec_pairs) != len(decision.secondary_links):
-            continue
-
-        html = markdown_utils.render_zh_short_article(
-            keyword=keyword,
-            main_domain=home_url,
-            main_anchor=main_anchor,
-            secondary_links=sec_pairs,
-            style_seed=style_seed + attempt,
-        )
-        expected = [main_anchor] + [a for _, a in sec_pairs]
-        ok, errors_out = markdown_utils.validate_zh_short_payload(html, expected)
-        if ok:
-            entries = _build_profile_entries(
-                decision, main_anchor, home_url, sec_records, degraded=False,
-            )
-            anchor_profile.record_article(main_domain, entries)
-            return _build_zh_short_payload(
-                row, html, main_domain, main_anchor, sec_pairs,
-            )
-        last_errors = errors_out
-
+def _plan_degraded_fallback(
+    row: dict[str, Any],
+    config: Config,
+    main_domain: str,
+    home_url: str,
+    keyword: str,
+    style_seed: int,
+    rng: random.Random,
+    last_errors: list[str],
+) -> dict[str, Any]:
+    """Branded-pool degraded path: both scheduled attempts failed validation."""
     recent_for_dedup = anchor_profile.recent_texts(
         anchor_profile.load_profile(main_domain), n=20,
     )
@@ -315,3 +278,92 @@ def _plan_zh_short_row(
     )
     anchor_profile.record_article(main_domain, entries)
     return _build_zh_short_payload(row, html, main_domain, main_anchor, sec_pairs)
+
+
+def _plan_zh_short_row(
+    row: dict[str, Any],
+    config: Config,
+    llm_provider: OpenAICompatibleProvider | None,
+    rng: random.Random | None = None,
+) -> dict[str, Any] | None:
+    main_domain = row["main_domain"].rstrip("/")
+    cats_map = config.site_url_categories.get(main_domain, {})
+    available_cats = list(cats_map.keys())
+    if "home" not in cats_map or not any(c != "home" for c in cats_map):
+        return None
+
+    rng = rng or random.Random()
+    style_seed = abs(hash(row.get("target_url", main_domain))) % 10_000
+    keyword = _extract_zh_keyword(row, main_domain)
+    home_url = cats_map["home"]
+    topic = row.get("topic")
+
+    last_errors: list[str] = []
+
+    for attempt in range(2):
+        profile = anchor_profile.load_profile(main_domain)
+        recent = anchor_profile.recent_texts(profile, n=20)
+        try:
+            decision = anchor_scheduler.schedule(
+                profile, config.anchor_proportions, available_cats,
+            )
+        except InputValidationError:
+            return None
+
+        main_anchor = anchor_resolver.resolve_anchor(
+            url_category="home",
+            anchor_type=decision.main_link_anchor_type,
+            keyword=keyword,
+            target_url=home_url,
+            url_subject=topic,
+            config=config,
+            main_domain=main_domain,
+            recent_texts=recent,
+            provider=llm_provider,
+            rng=rng,
+            language=row["language"],
+        )
+        if main_anchor is None:
+            last_errors = ["main_anchor_resolution_failed"]
+            continue
+
+        running_recent = list(recent) + [main_anchor]
+        sec_pairs, sec_records, sec_errors = _resolve_secondary_anchors(
+            decision, cats_map,
+            keyword=keyword,
+            topic=topic,
+            config=config,
+            main_domain=main_domain,
+            running_recent=running_recent,
+            llm_provider=llm_provider,
+            rng=rng,
+            language=row["language"],
+        )
+        if sec_errors:
+            last_errors = sec_errors
+
+        if len(sec_pairs) != len(decision.secondary_links):
+            continue
+
+        html = markdown_utils.render_zh_short_article(
+            keyword=keyword,
+            main_domain=home_url,
+            main_anchor=main_anchor,
+            secondary_links=sec_pairs,
+            style_seed=style_seed + attempt,
+        )
+        expected = [main_anchor] + [a for _, a in sec_pairs]
+        ok, errors_out = markdown_utils.validate_zh_short_payload(html, expected)
+        if ok:
+            entries = _build_profile_entries(
+                decision, main_anchor, home_url, sec_records, degraded=False,
+            )
+            anchor_profile.record_article(main_domain, entries)
+            return _build_zh_short_payload(
+                row, html, main_domain, main_anchor, sec_pairs,
+            )
+        last_errors = errors_out
+
+    return _plan_degraded_fallback(
+        row, config, main_domain, home_url, keyword, style_seed, rng, last_errors,
+    )
