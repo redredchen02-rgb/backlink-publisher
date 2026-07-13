@@ -100,11 +100,8 @@ const goBack = () => {
         <div v-if="status.seeds?.length" class="data-table-wrap mt-3">
           <DataTable
             :items="seedRows"
-            :loading="query.isPending.value"
-            :error="query.isError.value ? query.error.value : undefined"
             empty-text="任务未找到。"
             caption="种子进度列表"
-            @retry="query.refetch()"
           >
             <template #head>
               <th>#</th>
