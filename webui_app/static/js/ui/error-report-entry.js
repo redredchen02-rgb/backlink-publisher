@@ -48,6 +48,7 @@ import { getNotificationCenter } from '../notifications.js';
 import { classifyError } from './errors.js';
 
 const POST_URL = '/api/v1/error-reports';
+const EXPORT_URL = '/api/v1/error-reports/export-bundle';
 const DASHBOARD_URL = '/app/error-reports';
 const MOUNT_SELECTOR = '.app-topbar__actions';
 const BUTTON_ID = 'reportProblemBtn';
@@ -106,6 +107,32 @@ async function postManualReport(text) {
         throw err;
     }
     return resp.json().catch(() => ({}));
+}
+
+async function postExportBundle(description) {
+    const resp = await fetch(EXPORT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': readCsrf() },
+        body: JSON.stringify({ description }),
+    });
+    if (!resp.ok) {
+        const err = new Error(`bundle export failed: HTTP ${resp.status}`);
+        err.status = resp.status;
+        throw err;
+    }
+    return resp.json();
+}
+
+/** Client-side download of the returned markdown — no extra endpoint; the
+ *  server has already persisted its own copy (report_path in the response). */
+function downloadMarkdown(markdown) {
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = el('a', { href: url, download: `bug-report-${Date.now()}.md` });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 }
 
 async function patchReportDescription(reportId, text) {
@@ -176,7 +203,18 @@ class ReportPanel {
         });
         this.submitBtn.addEventListener('click', () => this._submit());
 
-        const actions = el('div', { class: 'error-report-panel__actions' }, [cancelBtn, this.submitBtn]);
+        // 匯出診斷包 (Plan 2026-07-09-002): POSTs the description to the
+        // export-bundle endpoint, which assembles a secret-redacted MD+JSON
+        // bundle server-side (shared builder with the bp-report-bug CLI) and
+        // returns the markdown for a client-side download.
+        this.exportBtn = el('button', {
+            type: 'button', class: 'error-report-panel__export', text: '匯出診斷包',
+        });
+        this.exportBtn.addEventListener('click', () => this._exportBundle());
+
+        const actions = el('div', { class: 'error-report-panel__actions' }, [
+            this.exportBtn, cancelBtn, this.submitBtn,
+        ]);
         const body = el('div', { class: 'error-report-panel__body' }, [
             this.textarea, this.errorBox, dashboardLink, actions,
         ]);
@@ -255,6 +293,27 @@ class ReportPanel {
             // Explicit inline failure state — panel stays open, nothing is
             // buffered to localStorage. See module docstring.
             this._showError(classifyError(err).message);
+        }
+    }
+
+    async _exportBundle() {
+        // Description is optional for a bundle (the endpoint builds a general
+        // diagnostic snapshot when no error source is given) — no blank guard.
+        this._hideError();
+        this.exportBtn.disabled = true;
+        this.exportBtn.textContent = '正在生成…';
+        try {
+            const result = await postExportBundle(this.textarea.value);
+            if (result && typeof result.markdown === 'string') {
+                downloadMarkdown(result.markdown);
+            }
+            this.close();
+            notifySuccess('诊断包已生成并下载，可直接交给 coding agent。');
+        } catch (err) {
+            this._showError(classifyError(err).message);
+        } finally {
+            this.exportBtn.disabled = false;
+            this.exportBtn.textContent = '匯出診斷包';
         }
     }
 }
