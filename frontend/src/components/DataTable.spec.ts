@@ -6,7 +6,7 @@ const ROWS = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
 
 function mountTable(props: Record<string, unknown> = {}, slots: Record<string, string> = {}) {
   return mount(DataTable, {
-    props: { items: ROWS, selected: new Set<string>(), ...props },
+    props: { items: ROWS, selected: new Set<string>(), selectable: true, ...props },
     slots: {
       head: '<th>Name</th>',
       row: '<td>{{ params.row.id }}</td>',

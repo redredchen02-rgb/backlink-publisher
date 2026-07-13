@@ -21,6 +21,15 @@ const RUNNING = {
 const DONE = {
   campaign_id: 'c1', progress_pct: 1, running: false, done: true, seeds: [],
 }
+const RUNNING_WITH_SEEDS = {
+  campaign_id: 'c1',
+  progress_pct: 0.4,
+  running: true,
+  done: false,
+  seeds: [
+    { idx: 0, text_preview: 'hello seed row', status: 'published', draft_count: 1, published_count: 1, error: undefined },
+  ],
+}
 
 let queryClient: QueryClient
 
@@ -69,6 +78,26 @@ describe('CampaignProgressPage', () => {
     await vi.advanceTimersByTimeAsync(2000) // next poll tick: fails
     expect(w.find('[role="alert"]').exists()).toBe(false)
     expect(w.text()).toContain('40%')
+    vi.useRealTimers()
+  })
+
+  it('a poll failure after a successful load with a non-empty seeds table keeps rendering the seed rows, not the table error/retry UI (regression: Task 7 DataTable migration wired raw query.isError/isPending into DataTable, which checks error before items.length)', async () => {
+    vi.useFakeTimers()
+    vi.mocked(api.fetchCampaignStatus)
+      .mockResolvedValueOnce(RUNNING_WITH_SEEDS)
+      .mockRejectedValueOnce(new Error('network blip'))
+    const w = mountPage()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(w.text()).toContain('hello seed row')
+
+    await vi.advanceTimersByTimeAsync(2000) // next poll tick: fails
+    // The seed row must still be rendered -- a transient poll failure must
+    // not hide already-rendered seed data behind DataTable's own error/retry UI.
+    expect(w.text()).toContain('hello seed row')
+    const table = w.find('table.data-table')
+    expect(table.exists()).toBe(true)
+    expect(table.find('[role="alert"]').exists()).toBe(false)
+    expect(w.findAll('table.data-table tbody tr').length).toBe(1)
     vi.useRealTimers()
   })
 })

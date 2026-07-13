@@ -44,8 +44,30 @@ const props = withDefaults(
     rowClass?: (row: T) => Record<string, boolean>
     /** Enable keyboard row navigation (Up/Down arrows, W11). */
     rowKeyboardNav?: boolean
+    /**
+     * Opt-in mouse path for rowActivate -- clicking a non-interactive cell of
+     * a row emits `rowActivate` the same as pressing Enter on a
+     * keyboard-focused row. Off by default: pages that already wire
+     * `rowKeyboardNav` for arrow-key navigation must NOT gain click-to-open
+     * behavior implicitly (review finding, Task 1 amendment) -- e.g.
+     * HistoryPage's `onRowActivate` calls `window.open(...)`, which must stay
+     * reachable only from the explicit link, not from clicking anywhere in
+     * the row, unless a page explicitly opts in here.
+     */
+    rowClickActivate?: boolean
+    /** Opt-in row-selection checkbox column. Off by default: most list pages are read-only. */
+    selectable?: boolean
   }>(),
-  { loading: false, emptyText: '暂无数据', caption: '', selected: () => new Set(), disabled: false, rowKeyboardNav: false },
+  {
+    loading: false,
+    emptyText: '暂无数据',
+    caption: '',
+    selected: () => new Set(),
+    disabled: false,
+    rowKeyboardNav: false,
+    rowClickActivate: false,
+    selectable: false,
+  },
 )
 
 const emit = defineEmits<{
@@ -113,6 +135,13 @@ function onRowKeydown(event: KeyboardEvent, index: number): void {
   }
 }
 
+function onRowClick(event: MouseEvent, row: T): void {
+  if (!props.rowClickActivate || props.disabled) return
+  const target = event.target as HTMLElement | null
+  if (target?.closest('a, button, input, select, textarea, label')) return
+  emit('rowActivate', row)
+}
+
 function _focusRow(index: number): void {
   focusedRowIndex.value = index
   const rows = tbodyRef.value?.querySelectorAll('tr')
@@ -156,7 +185,7 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
           <caption v-if="caption" class="sr-only">{{ caption }}</caption>
           <thead>
             <tr>
-              <th class="col-select" scope="col">
+              <th v-if="selectable" class="col-select" scope="col">
                 <input
                   type="checkbox"
                   :checked="allSelected"
@@ -174,12 +203,16 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
               v-for="(row, index) in items"
               :key="row.id"
               :data-id="row.id"
-              :class="rowClass ? rowClass(row) : undefined"
+              :class="[
+                rowClass ? rowClass(row) : undefined,
+                { 'row--activatable': rowClickActivate && !disabled },
+              ]"
               :tabindex="rowKeyboardNav && !disabled ? (activeRowIndex === index ? 0 : -1) : undefined"
               @keydown="onRowKeydown($event, index)"
               @focus="onRowFocus(index)"
+              @click="onRowClick($event, row)"
             >
-              <td class="col-select">
+              <td v-if="selectable" class="col-select">
                 <input
                   type="checkbox"
                   :checked="selected.has(row.id)"
@@ -220,6 +253,12 @@ const goNext = () => hasNext.value && goToOffset(currentOffset.value + safeLimit
 .data-table tbody tr:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: -2px;
+}
+/* Cursor affordance for the opt-in click-to-activate mouse path (Task 1
+   amendment) -- only applied when rowClickActivate is on and the table isn't
+   disabled, so read-only/keyboard-only tables never show a pointer cursor. */
+.row--activatable {
+  cursor: pointer;
 }
 .sr-only {
   position: absolute;

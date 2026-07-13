@@ -31,7 +31,7 @@
 
 **Interfaces:**
 - Consumes: existing `DataTable` contract (props `items/loading/error/emptyText/caption/selected/total/limit/offset/disabled/rowClass/rowKeyboardNav`; emits `retry`, `update:selected`, `update:offset`, `rowActivate`; slots `#head`, `#row="{ row }"`).
-- Produces: new prop `selectable?: boolean` (default `false`) — the `.col-select` `<th>/<td>` checkbox column renders **only** when `selectable` is true. New behavior: when `rowKeyboardNav` is true and `disabled` is false, a mouse click on a row emits `rowActivate: [T]`, unless the click originated inside `a, button, input, select, textarea, label`. All later page tasks rely on exactly this contract.
+- Produces: new prop `selectable?: boolean` (default `false`) — the `.col-select` `<th>/<td>` checkbox column renders **only** when `selectable` is true. New prop `rowClickActivate?: boolean` (default `false`, opt-in, independent of `rowKeyboardNav`): when true and `disabled` is false, a mouse click on a row emits `rowActivate: [T]`, unless the click originated inside `a, button, input, select, textarea, label`. `rowKeyboardNav` continues to gate only the keyboard (Enter/arrow) path -- a page must set both props to get both interaction modes. All later page tasks rely on exactly this contract.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -70,21 +70,27 @@ describe('DataTable selectable prop', () => {
 })
 
 describe('DataTable click-to-activate', () => {
-  it('emits rowActivate on row click when rowKeyboardNav', async () => {
-    const w = make({ rowKeyboardNav: true })
+  it('emits rowActivate on row click when rowClickActivate', async () => {
+    const w = make({ rowClickActivate: true })
     await w.findAll('tbody tr')[0].trigger('click')
     expect(w.emitted('rowActivate')?.[0]).toEqual([items[0]])
   })
 
-  it('does not emit rowActivate without rowKeyboardNav', async () => {
-    const w = make()
+  it('does not emit rowActivate without rowClickActivate (even with rowKeyboardNav)', async () => {
+    const w = make({ rowKeyboardNav: true })
+    await w.findAll('tbody tr')[0].trigger('click')
+    expect(w.emitted('rowActivate')).toBeUndefined()
+  })
+
+  it('does not emit rowActivate when disabled, even with rowClickActivate', async () => {
+    const w = make({ rowClickActivate: true, disabled: true })
     await w.findAll('tbody tr')[0].trigger('click')
     expect(w.emitted('rowActivate')).toBeUndefined()
   })
 
   it('does not emit rowActivate for clicks on nested interactive controls', async () => {
     const w = mount(DataTable, {
-      props: { items, rowKeyboardNav: true },
+      props: { items, rowClickActivate: true },
       slots: {
         head: '<th>操作</th>',
         row: `<template #row="{ row }"><td><button type="button">编辑</button></td></template>`,
@@ -108,20 +114,25 @@ Add to the props type (inside the existing `defineProps<{…}>`):
 ```ts
     /** Opt-in row-selection checkbox column. Off by default: most list pages are read-only. */
     selectable?: boolean
+    /** Opt-in mouse path for rowActivate. Decoupled from rowKeyboardNav so pages with
+     * keyboard nav (History) don't silently gain whole-row click behavior. */
+    rowClickActivate?: boolean
 ```
 
-and to the `withDefaults` defaults object: `selectable: false,`.
+and to the `withDefaults` defaults object: `selectable: false, rowClickActivate: false,`.
 
 Add the click handler next to `onRowKeydown` (reuse its nested-control guard idea):
 
 ```ts
 function onRowClick(event: MouseEvent, row: T) {
-  if (!props.rowKeyboardNav || props.disabled) return
+  if (!props.rowClickActivate || props.disabled) return
   const target = event.target as HTMLElement | null
   if (target?.closest('a, button, input, select, textarea, label')) return
   emit('rowActivate', row)
 }
 ```
+
+Add a cursor affordance: the `<tr>` carries class `row--activatable` when `rowClickActivate && !disabled`, with scoped style `.row--activatable { cursor: pointer; }`.
 
 Template changes:
 - `<th class="col-select" …>` → add `v-if="selectable"`
@@ -462,13 +473,26 @@ describe('StatusBadge adoption (Phase A ratchet)', () => {
 ```ts
 // frontend/src/__tests__/breakpoint-convention.spec.ts
 // Split-screen breakpoint lock (app.css convention, Plan 2026-07-06-005 D12):
-// every max-width media query in the SPA must use the 960px literal.
+// every max-width media query in page-level styles must use the 960px
+// literal.
+//
+// Scope is deliberately src/pages + src/styles, NOT all of src. The 960px
+// rule is the split-screen PAGE convention; it does not apply to
+// src/layout/*. The app shell (AppShell.vue/SideNav.vue/TopBar.vue) uses its
+// own, older 1024px breakpoint on purpose: SideNav's drawer collapse
+// deliberately mirrors the legacy drawer breakpoint at
+// webui_app/static/css/global_nav.css:268 (`@media (max-width: 1024px)`), and
+// changing it would alter sidebar collapse behaviour in the 960-1024px range
+// and break legacy parity. This exemption is temporary — Phase B retires the
+// legacy shell, at which point src/layout/* can be revisited and folded into
+// (or reconciled with) this same 960px convention.
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const SCAN_DIRS = ['pages', 'styles'].map((d) => join(ROOT, d))
 
 function* walk(dir: string): Generator<string> {
   for (const name of readdirSync(dir)) {
@@ -481,12 +505,14 @@ function* walk(dir: string): Generator<string> {
 describe('breakpoint convention', () => {
   it('all max-width media queries use the 960px split-screen literal', () => {
     const violations: string[] = []
-    for (const file of walk(SRC)) {
-      const text = readFileSync(file, 'utf8')
-      const queries = text.match(/@media[^{]*max-width:\s*(\d+)px/g) ?? []
-      for (const q of queries) {
-        const px = /max-width:\s*(\d+)px/.exec(q)?.[1]
-        if (px !== '960') violations.push(`${file} — ${q.trim()}`)
+    for (const dir of SCAN_DIRS) {
+      for (const file of walk(dir)) {
+        const text = readFileSync(file, 'utf8')
+        const queries = text.match(/@media[^{]*max-width:\s*(\d+)px/g) ?? []
+        for (const q of queries) {
+          const px = /max-width:\s*(\d+)px/.exec(q)?.[1]
+          if (px !== '960') violations.push(`${file} — ${q.trim()}`)
+        }
       }
     }
     expect(violations, `\n${violations.join('\n')}`).toEqual([])
@@ -497,7 +523,7 @@ describe('breakpoint convention', () => {
 - [ ] **Step 3: Run both, fix any pre-existing breakpoint violations found**
 
 Run: `npm run test -- component-adoption && npm run test -- breakpoint-convention`
-Expected: component-adoption PASS (tolerance covers current offenders; History/Drafts/Sites+Schedule non-tolerated table entries pass because Drafts/History already use DataTable — note Sites/Schedule ARE tolerated). If breakpoint-convention FAILS, change the offending literal to 960px in the cited file (expected: none or 1–2 stragglers; SettingsPage/MonitorDashboard already use 960).
+Expected: component-adoption PASS (tolerance covers current offenders; History/Drafts/Sites+Schedule non-tolerated table entries pass because Drafts/History already use DataTable — note Sites/Schedule ARE tolerated). If breakpoint-convention FAILS, change the offending literal to 960px in the cited file — but ONLY for files under src/pages or src/styles (expected: none or 1–2 stragglers; SettingsPage/MonitorDashboard already use 960). Do NOT change src/layout/* — that's the app-shell drawer breakpoint, deliberately 1024px to mirror the legacy shell (see the guard's own exemption comment), and is out of this guard's scope entirely.
 
 - [ ] **Step 4: Commit**
 
@@ -539,7 +565,7 @@ Replace the whole `StateBlock`+`<table class="table table-sm table-hover align-m
   :error="query.isError.value ? query.error.value : undefined"
   empty-text="还没有任务。"
   caption="后台任务列表"
-  row-keyboard-nav
+  row-keyboard-nav row-click-activate
   @retry="query.refetch()"
   @row-activate="(op) => openDetail(op.op_id)"
 >
@@ -1014,10 +1040,12 @@ AGENTS.md.
 Every list view renders through `src/components/DataTable.vue` (generic over
 `T extends { id: string }` — map a stable string `id` onto rows if the API
 lacks one). It embeds StateBlock (loading/empty/error), optional selection
-(`selectable`), pagination (`total`/`limit`/`offset`), and keyboard row nav
-(`rowKeyboardNav` + `rowActivate`, fired on Enter and on non-interactive row
-clicks). Exemption: Health/HealthPage.vue (expandable drill-down + dynamic
-panels) keeps the `.data-table` CSS convention with sr-only captions.
+(`selectable`), pagination (`total`/`limit`/`offset`), and row activation
+(`rowActivate`) via two independent opt-in props: `rowKeyboardNav` for the
+keyboard path (Enter on a focused row) and `rowClickActivate` for the mouse
+path (click on a non-interactive cell). A page must set both to get both
+interaction modes. Exemption: Health/HealthPage.vue (expandable drill-down +
+dynamic panels) keeps the `.data-table` CSS convention with sr-only captions.
 
 ## Status pills vs info chips
 - Status (has semantics: success/failure/progress) → `<StatusBadge :status>`
@@ -1034,9 +1062,18 @@ panels) keeps the `.data-table` CSS convention with sr-only captions.
 - Never hand-roll spinners; StateBlock owns loading treatment.
 
 ## Breakpoint
-The only sanctioned max-width media query is `@media (max-width: 960px)`
-(desktop split-screen; mobile out of scope — app.css block comment). The
-breakpoint-convention guard fails any other literal.
+The only sanctioned max-width media query for page/style CSS is
+`@media (max-width: 960px)` (desktop split-screen; mobile out of scope —
+app.css block comment). The breakpoint-convention guard scans `src/pages` and
+`src/styles` and fails any other literal there.
+
+`src/layout/*` (AppShell.vue, SideNav.vue, TopBar.vue) is exempt from this
+guard: the app shell's drawer/hamburger breakpoint is deliberately `1024px`,
+mirroring the legacy drawer breakpoint at
+`webui_app/static/css/global_nav.css:268`. Do not "fix" it to 960px — that
+would change sidebar collapse behaviour in the 960-1024px range and break
+legacy parity. This is temporary until Phase B retires the legacy shell, at
+which point `src/layout/*` can be reconciled with the 960px convention.
 
 ## Copy
 UI copy is Simplified Chinese (zh-CN). No Bootstrap classes — style with

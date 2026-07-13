@@ -19,6 +19,8 @@ import {
   type KeepAliveSummary, type KeepAliveGap,
 } from '../../api/keepAlive'
 import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 import { usePolledQuery } from '../../composables/usePolledQuery'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
 
@@ -57,6 +59,11 @@ const cycleStatus = ref<{ running: boolean; stage?: string; status?: string } | 
 
 // Computed
 const scorecardTargets = computed(() => summary.value?.targets ?? [])
+// DataTable requires a stable string `id` per row -- target_url is already
+// the row's natural unique key (used as :key on the old hand-rolled <tr>).
+const scorecardRows = computed(() =>
+  scorecardTargets.value.map((t) => ({ ...t, id: t.target_url })),
+)
 const gaps = computed(() => summary.value?.gaps ?? [])
 const aliveCount = computed(() => summary.value?.alive_count ?? 0)
 const strippedCount = computed(() => summary.value?.stripped_count ?? 0)
@@ -323,41 +330,46 @@ onMounted(load)
       <!-- S0: Scorecard -->
       <div class="ka__scorecard">
         <div class="ka__stats d-flex gap-3 mb-2 flex-wrap">
-          <span class="badge bg-success">存活 {{ aliveCount }}</span>
-          <span class="badge bg-danger">失效 {{ strippedCount }}</span>
-          <span class="badge bg-secondary">未知 {{ unknownCount }}</span>
+          <StatusBadge tone="success" :label="`存活 ${aliveCount}`" />
+          <StatusBadge tone="danger" :label="`失效 ${strippedCount}`" />
+          <StatusBadge tone="neutral" :label="`未知 ${unknownCount}`" />
         </div>
 
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>目标 URL</th>
-                <th>平台</th>
-                <th>存活</th>
-                <th>失效</th>
-                <th>衰减</th>
-                <th>检查失败</th>
-                <th>失效比率</th>
-                <th>趋势</th>
-                <th>最后验证</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in scorecardTargets" :key="t.target_url" :class="t.needs_attention ? 'needs-attention' : ''">
-                <td class="col-url"><code class="text-truncate d-inline-block" style="max-width:180px">{{ t.target_url }}</code></td>
-                <td>{{ t.platforms }}</td>
-                <td class="col-num text-center">{{ t.live_dofollow }}</td>
-                <td class="col-num text-center text-danger">{{ t.stripped }}</td>
-                <td class="col-num text-center">{{ t.decayed }}</td>
-                <td class="col-num text-center">{{ t.check_failed }}</td>
-                <td :class="['col-num text-center', stripRateClass(t.strip_rate)]">{{ (t.strip_rate * 100).toFixed(0) }}%</td>
-                <td><span :class="t.trend === 'up' ? 'text-success' : t.trend === 'down' ? 'text-danger' : ''">{{ t.trend }}</span></td>
-                <td class="col-date text-muted small">{{ t.last_verified ?? '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <!-- No :loading/:error wired here (CampaignProgressPage omission
+             pattern) -- this DataTable only ever renders inside the outer
+             StateBlock's 'ready' branch above, which already gates
+             loading/error/empty for the whole scorecard + cycle-status +
+             republish flow. Re-wiring pageState into DataTable's own props
+             would double-gate the same state and risk drifting out of sync
+             with the outer ternary (see report for the full reasoning). -->
+        <DataTable
+          :items="scorecardRows"
+          :row-class="(t) => ({ 'needs-attention': t.needs_attention })"
+          caption="保活状态列表"
+        >
+          <template #head>
+            <th>目标 URL</th>
+            <th>平台</th>
+            <th>存活</th>
+            <th>失效</th>
+            <th>衰减</th>
+            <th>检查失败</th>
+            <th>失效比率</th>
+            <th>趋势</th>
+            <th>最后验证</th>
+          </template>
+          <template #row="{ row: t }">
+            <td class="col-url"><code class="text-truncate d-inline-block" style="max-width:180px">{{ t.target_url }}</code></td>
+            <td>{{ t.platforms }}</td>
+            <td class="col-num text-center">{{ t.live_dofollow }}</td>
+            <td class="col-num text-center text-danger">{{ t.stripped }}</td>
+            <td class="col-num text-center">{{ t.decayed }}</td>
+            <td class="col-num text-center">{{ t.check_failed }}</td>
+            <td :class="['col-num text-center', stripRateClass(t.strip_rate)]">{{ (t.strip_rate * 100).toFixed(0) }}%</td>
+            <td><span :class="t.trend === 'up' ? 'text-success' : t.trend === 'down' ? 'text-danger' : ''">{{ t.trend }}</span></td>
+            <td class="col-date text-muted small">{{ t.last_verified ?? '—' }}</td>
+          </template>
+        </DataTable>
       </div>
 
       <!-- S0: Cycle status — a failed fetch here must not blank the scorecard
@@ -371,7 +383,7 @@ onMounted(load)
         <details>
           <summary class="text-muted" style="cursor:pointer">
             自动保活周期
-            <span v-if="cycleStatus.running" class="badge bg-primary ms-1">运行中</span>
+            <StatusBadge v-if="cycleStatus.running" status="running" class="ms-1" />
           </summary>
           <div class="mt-2 small">
             <p>状态: {{ cycleStatus.status ?? '—' }}</p>
@@ -399,7 +411,7 @@ onMounted(load)
           <div v-for="g in gaps" :key="gapKey(g)" class="form-check">
             <input class="form-check-input" type="checkbox" :checked="selectedGaps.has(gapKey(g))" @change="toggleGap(gapKey(g))" :id="gapKey(g)" />
             <label class="form-check-label" :for="gapKey(g)">
-              <code>{{ g.target_url }}</code> <span class="badge bg-secondary">{{ g.platform }}</span>
+              <code>{{ g.target_url }}</code> <span class="chip">{{ g.platform }}</span>
               <span class="text-muted small ms-2">失效于 {{ g.stripped_ts }}</span>
             </label>
           </div>
@@ -459,10 +471,13 @@ onMounted(load)
 .ka__head h1 { margin: 0; }
 .ka__actions { display: flex; gap: 0.5rem; }
 /* S4 confirm overlay/modal styles moved into the shared ConfirmDialog (W3). */
-/* "Needs attention" row highlight — Bootstrap's table-warning only paints via
-   a selector requiring an ancestor .table class, which the .data-table
-   migration removed from this page's <table>. Use the console's own token
-   instead of depending on Bootstrap's table-variant mechanism. */
+/* "Needs attention" row highlight — the scorecard now renders via the shared
+   DataTable component's :row-class prop (Task 12), which still emits
+   class="data-table" on its own raw table element, so this selector keeps
+   working unchanged. Bootstrap's table-warning only paints via a selector
+   requiring an ancestor .table class, which .data-table doesn't carry -- use
+   the console's own token instead of depending on Bootstrap's table-variant
+   mechanism. */
 .data-table tr.needs-attention td {
   background: var(--warning-soft);
 }

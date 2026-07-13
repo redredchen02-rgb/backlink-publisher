@@ -52,6 +52,7 @@ import {
 import DataTable from '../../components/DataTable.vue'
 import Icon from '../../components/Icon.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { reportManualMutationError } from '../../lib/errorCapture'
 import { useNotificationsStore } from '../../stores/notifications'
@@ -504,6 +505,7 @@ async function confirmPurge(): Promise<void> {
       empty-text="还没有发布记录"
       caption="发布历史列表"
       row-keyboard-nav
+      selectable
       :selected="selected"
       :total="total"
       :limit="PAGE_SIZE"
@@ -525,8 +527,9 @@ async function confirmPurge(): Promise<void> {
       </template>
       <template #row="{ row }">
         <td class="col-status">
-          <span v-if="pendingIds.has(row.id)" class="status status--deleted" data-status="deleted">
-            已删除 ·
+          <span v-if="pendingIds.has(row.id)" class="status--deleted">
+            <StatusBadge status="deleted" />
+            ·
             <button
               type="button"
               class="undo-link"
@@ -534,7 +537,7 @@ async function confirmPurge(): Promise<void> {
               @click="onUndo(row.id)"
             >撤销</button>
           </span>
-          <span v-else class="status" :data-status="row.status">{{ row.status }}</span>
+          <StatusBadge v-else :status="row.status" />
         </td>
         <td class="col-url target" :title="row.target_url">
           <a :href="row.target_url" target="_blank" rel="noopener" class="url-link">
@@ -647,12 +650,6 @@ async function confirmPurge(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.status[data-status='published'] {
-  color: var(--success);
-}
-.status[data-status='failed'] {
-  color: var(--danger);
 }
 .status--deleted {
   color: var(--text-secondary);
