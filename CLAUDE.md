@@ -37,7 +37,7 @@ stdout = clean JSONL; stderr = diagnostics; exit 0 on success. Full entrypoint t
 
 ## Adapter Registry (adding a new platform)
 
-One line in `publishing/adapters/__init__.py`: `register("x", XAdapter)`. The CLI argparse layer, `schema.validate_publish_payload`, throttle gating, and tier matrix all read from `publishing.registry.registered_platforms()` dynamically. **Never edit `cli/*.py` or `schema.py` when adding a platform.** Full recipe in `AGENTS.md → "Adding a new publisher adapter"`.
+One line in `publishing/adapters/__init__.py`: `register("x", XAdapter)`. The CLI argparse layer, `schema.validate_publish_payload`, throttle gating, and tier matrix all read from `publishing.registry.registered_platforms()` dynamically. **Never edit `cli/*.py` or `schema.py` when adding a platform.** Full recipe in `docs/recipes/adding-a-publisher-adapter.md` (invariants summarized in `AGENTS.md`).
 
 ## Import Paths
 
@@ -56,7 +56,10 @@ from backlink_publisher.image_gen import ImageGenAdapter
 ## WebUI Layout
 
 - `webui_app/` — Flask app (37 route modules, `create_app()` factory), including `webui_app/api/` (the `/api/v1/*` seam layer — see ARCHITECTURE.md and D2/C1b for its bare-except cleanup work)
-- `webui_store/` — state persistence. **13** `_LazyStore`-backed singleton stores total (live-recomputed 2026-07-13, method: `grep -rn "_LazyStore(" webui_store/*.py` — 14 matching lines, minus the docstring example in `webui_store/base.py`; supersedes the earlier "11" figure): the 10 declared in `webui_store/__init__.py` (`history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`, plus 2026-07-13 convergence additions `operation_store` and `onboarding_store` — both over the shared `_get_webui_db()`, wired into `_refresh_paths()`), plus `channel_status_store` (`webui_store/channel_status.py`), plus `verify_health_store` (`webui_store/verify_health.py`), plus `error_report_store` (`webui_store/error_reports.py`). Gotcha: `OperationSqliteStore` has a method named `list`, which shadows the builtin in its class body — later annotations there must use the module-level `_OpRows` alias.
+- `webui_store/` — state persistence. **13** `_LazyStore`-backed singleton stores (this list is the single source of truth for the count — recount method: `grep -rn "_LazyStore(" webui_store/*.py`, minus the docstring example in `webui_store/base.py`):
+  - 10 declared in `webui_store/__init__.py`: `history_store`, `profiles_store`, `drafts_store`, `schedule_store`, `queue_store`, `campaign_store`, `publish_defaults_store`, `batch_ops_store`, plus the 2026-07-13 convergence additions `operation_store` and `onboarding_store` (both over the shared `_get_webui_db()`, wired into `_refresh_paths()`)
+  - plus `channel_status_store` (`webui_store/channel_status.py`), `verify_health_store` (`webui_store/verify_health.py`), `error_report_store` (`webui_store/error_reports.py`)
+  - Gotcha: `OperationSqliteStore` has a method named `list`, which shadows the builtin in its class body — later annotations there must use the module-level `_OpRows` alias.
 - `webui_app/services/` — backend logic (24 modules as of 2026-07-13: bind jobs, browser login, recheck/keep-alive (+`_keepalive_engine`/`keepalive_job`), 4 `copilot_*` advisory modules, credential/oauth services, health projection, settings, survival, SEO viz, medium liveness, pipeline, themed-content, url-verify throttle, alerting, app_meta, `error_report_sanitizer`, and `operation_worker` — the async executor behind `/api/v1/operations`)
 - `templates/base.html` — owns the single `<head>`; every legacy Jinja page `{% extends 'base.html' %}`
 - `static/js/lib/` — shared ESM layer for legacy Jinja pages (`api.js`, `dom.js`, `profiles.js`)
