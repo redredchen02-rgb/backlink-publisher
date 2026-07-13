@@ -116,6 +116,19 @@ export const router = createRouter({
       component: () => import('../pages/CampaignProgress/CampaignProgressPage.vue'),
     },
     {
+      // Operations task center (Plan 2026-07-09 operation-progress P3) —
+      // lists recent async operations with live status; SPA-only.
+      path: '/operations',
+      name: 'operations',
+      component: () => import('../pages/Operations/OperationsPage.vue'),
+    },
+    {
+      // Single-operation drill-down; OperationDetailPage reads :opId.
+      path: '/operations/:opId',
+      name: 'operation-detail',
+      component: () => import('../pages/Operations/OperationDetailPage.vue'),
+    },
+    {
       // Error-reports dashboard (Plan 2026-07-01-002 Unit 8); navItems maps
       // 错误报告 → '/error-reports'. SPA-only — no legacy Jinja equivalent.
       path: '/error-reports',

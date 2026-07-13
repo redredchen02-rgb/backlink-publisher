@@ -7,11 +7,22 @@ origin: user request — analyze codebase, iterate UX, make interface usable, su
 deepened: 2026-07-09
 claims:
   # Restored 2026-07-13 after feat/operation-progress merged to origin/main.
-  # Backend + components + tests only — router/nav/PublishWorkbench wiring is
-  # still open (see plan body), so those files are not claimed yet. The
-  # original claim of webui_app/routes/operations.py was drift: the endpoint
-  # landed at webui_app/api/v1/operations.py.
+  # (The original claim of webui_app/routes/operations.py was drift: the
+  # endpoint landed at webui_app/api/v1/operations.py.)
+  # P2/P3 wiring landed later the same day (feat/operation-progress-wiring):
+  # router + nav ('任务中心', activity icon), async PublishWorkbench flow
+  # (createOperation 202 → OperationProgress poll → settlePublish), the
+  # OPERATION_WORKER create_app mount (endpoints previously 503'd in prod —
+  # only the test fixture ever set it), and BatchCampaign's in-SPA navigation.
+  # Still open: P4 polish (persistent notification history, nav badge).
   paths:
+    - frontend/src/router/index.ts
+    - frontend/src/layout/navItems.ts
+    - frontend/src/components/Icon.vue
+    - frontend/src/stores/publish.ts
+    - frontend/src/pages/Publish/PublishWorkbench.vue
+    - frontend/src/pages/BatchCampaign/BatchCampaignPage.vue
+    - webui_app/__init__.py
     - webui_store/operation_store.py
     - webui_app/services/operation_worker.py
     - webui_app/api/v1/operations.py

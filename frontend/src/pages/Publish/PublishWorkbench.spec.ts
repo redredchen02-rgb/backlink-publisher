@@ -18,7 +18,18 @@ vi.mock('../../api/profiles', () => ({
   deleteProfile: vi.fn(),
 }))
 
+// Publish runs as an async operation (Plan 2026-07-09 P2): the store enqueues
+// via createOperation and <OperationProgress> polls getOperation until terminal.
+vi.mock('../../api/operations', () => ({
+  createOperation: vi.fn(),
+  getOperation: vi.fn(),
+  cancelOperation: vi.fn(),
+  listOperations: vi.fn(),
+}))
+
 import * as api from '../../api/pipeline'
+import { createOperation, getOperation } from '../../api/operations'
+import OperationProgress from '../../components/OperationProgress.vue'
 import PublishWorkbench from './PublishWorkbench.vue'
 import { usePublishStore } from '../../stores/publish'
 import { useNotificationsStore } from '../../stores/notifications'
@@ -49,20 +60,36 @@ function btn(w: VueWrapper, text: string) {
   return w.findAll('button').find((b) => b.text() === text)!
 }
 
-describe('PublishWorkbench — busy-state publish UX (degraded, no task-id)', () => {
-  it('disables the submit control and shows the busy copy while publishing', async () => {
+/** Terminal op payload as the worker stores it (note n_failed, not n_total). */
+function successOp(result: Record<string, unknown>) {
+  return {
+    op_id: 'op-1',
+    kind: 'publish',
+    status: 'success',
+    stage: '发布',
+    stages: ['发布'],
+    progress_pct: 100,
+    running: false,
+    result,
+  }
+}
+
+describe('PublishWorkbench — async publish UX (operation-progress P2)', () => {
+  it('disables the submit control and renders OperationProgress while publishing', async () => {
     const w = mountWorkbench()
     const store = usePublishStore()
     store.validated = [{ id: 'a' }] // reveal the publish step
     store.publishing = true
+    store.publishOpId = 'op-1'
+    vi.mocked(getOperation).mockResolvedValue({
+      op_id: 'op-1', kind: 'publish', status: 'running', stage: '发布',
+      stages: ['发布'], progress_pct: 50, running: true,
+    } as never)
     await nextTick()
 
     const btn = w.find('.publish-btn')
     expect(btn.attributes('disabled')).toBeDefined()
-    const busy = w.find('.publish-busy')
-    expect(busy.exists()).toBe(true)
-    expect(busy.attributes('aria-live')).toBe('polite')
-    expect(busy.text()).toContain('发布进行中，请勿关闭此页')
+    expect(w.findComponent(OperationProgress).exists()).toBe(true)
   })
 
   it('switches to the soft-timeout copy after the timeout (never looks frozen)', async () => {
@@ -76,16 +103,18 @@ describe('PublishWorkbench — busy-state publish UX (degraded, no task-id)', ()
     vi.advanceTimersByTime(45_000)
     await nextTick()
 
-    expect(w.find('.publish-busy').text()).toContain('仍在进行，可能已完成，请勿重复提交')
+    const busy = w.find('.publish-busy')
+    expect(busy.attributes('aria-live')).toBe('polite')
+    expect(busy.text()).toContain('仍在进行，可能已完成，请勿重复提交')
   })
 
-  it('a publish failure surfaces a classifyError toast (never raw server text)', async () => {
+  it('a publish enqueue failure surfaces a classifyError toast (never raw server text)', async () => {
     const w = mountWorkbench()
     const store = usePublishStore()
     const notify = useNotificationsStore()
     store.validated = [{ id: 'a' }]
     await nextTick() // render the publish step
-    vi.mocked(api.publishBacklinks).mockRejectedValue({ status: 500, detail: 'stacktrace leak' })
+    vi.mocked(createOperation).mockRejectedValue({ status: 500, detail: 'stacktrace leak' })
 
     await w.find('.publish-btn').trigger('click')
     await flushPromises()
@@ -96,20 +125,22 @@ describe('PublishWorkbench — busy-state publish UX (degraded, no task-id)', ()
     expect(notify.toasts[0].message).not.toContain('stacktrace leak') // no raw text
   })
 
-  it('shows the result card with per-row outcomes after a successful publish', async () => {
+  it('shows the result card with per-row outcomes after the op settles successfully', async () => {
     const w = mountWorkbench()
     const store = usePublishStore()
     store.validated = [{ id: 'a' }]
     await nextTick() // render the publish step
-    vi.mocked(api.publishBacklinks).mockResolvedValue({
+    vi.mocked(createOperation).mockResolvedValue({ op_id: 'op-1', kind: 'publish' })
+    vi.mocked(getOperation).mockResolvedValue(successOp({
       state: 'partial_success',
       n_ok: 1,
-      n_total: 2,
+      n_failed: 1,
       failure_detail: 'one failed',
       results: [{ published_url: 'https://blog/ok' }, { error: 'nope' }],
-    })
+    }) as never)
 
     await w.find('.publish-btn').trigger('click')
+    await flushPromises() // enqueue → OperationProgress mounts → first poll settles
     await flushPromises()
 
     const result = w.find('.result')
@@ -124,15 +155,17 @@ describe('PublishWorkbench — busy-state publish UX (degraded, no task-id)', ()
     const store = usePublishStore()
     store.validated = [{ id: 'a' }]
     await nextTick()
-    vi.mocked(api.publishBacklinks).mockResolvedValue({
+    vi.mocked(createOperation).mockResolvedValue({ op_id: 'op-1', kind: 'publish' })
+    vi.mocked(getOperation).mockResolvedValue(successOp({
       state: 'partial_success',
       n_ok: 1,
-      n_total: 2,
+      n_failed: 1,
       failure_detail: 'one failed',
       results: [{ published_url: 'https://blog/ok' }, { error: 'nope' }],
-    })
+    }) as never)
 
     await w.find('.publish-btn').trigger('click')
+    await flushPromises()
     await flushPromises()
 
     const result = w.find('.result')
@@ -145,6 +178,29 @@ describe('PublishWorkbench — busy-state publish UX (degraded, no task-id)', ()
     expect(rows[1].find('.fail').exists()).toBe(true)
     expect(rows[1].find('.ok').exists()).toBe(false)
     expect(rows[1].text()).toContain('nope')
+  })
+
+  it('a failed op keeps OperationProgress visible and mirrors the error into stage-error + toast', async () => {
+    const w = mountWorkbench()
+    const store = usePublishStore()
+    const notify = useNotificationsStore()
+    store.validated = [{ id: 'a' }]
+    await nextTick()
+    vi.mocked(createOperation).mockResolvedValue({ op_id: 'op-1', kind: 'publish' })
+    vi.mocked(getOperation).mockResolvedValue({
+      op_id: 'op-1', kind: 'publish', status: 'failed', stage: '发布',
+      stages: ['发布'], progress_pct: 50, running: false, error: 'adapter blew up',
+    } as never)
+
+    await w.find('.publish-btn').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(store.publishing).toBe(false)
+    expect(store.publishOpId).toBe('op-1') // terminal error stays on screen
+    expect(w.findComponent(OperationProgress).exists()).toBe(true)
+    expect(w.find('.result').exists()).toBe(false)
+    expect(notify.toasts.length).toBeGreaterThan(0)
   })
 })
 

@@ -77,6 +77,10 @@ export const NAV_ITEMS: NavItem[] = [
   // it — see SideNav.vue's module docstring for the general policy this
   // follows.
   { label: '错误报告', group: 'operations', icon: 'bug', to: '/error-reports' },
+  // Operations task center (Plan 2026-07-09 operation-progress P3). SPA-only,
+  // same inclusion rationale as 错误报告 above: a primary, repeatedly-revisited
+  // destination (running publish/chain tasks live here), not a one-off utility.
+  { label: '任务中心', group: 'operations', icon: 'activity', to: '/operations' },
 
 ]
 

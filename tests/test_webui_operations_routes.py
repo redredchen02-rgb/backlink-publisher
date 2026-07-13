@@ -136,3 +136,14 @@ def test_cancel_finished_op_is_noop(op_client) -> None:
     assert resp.status_code == 200
     assert resp.get_json()["canceled"] is False
     assert resp.get_json()["status"] == "success"
+
+
+def test_create_app_mounts_operation_worker() -> None:
+    """The app factory must mount OPERATION_WORKER itself (P1 'mount in
+    create_app') — without it every POST /api/v1/operations fails closed
+    with 503 in production, and only test fixtures would ever set it."""
+    from webui_app import create_app
+    from webui_app.services.operation_worker import OperationWorker
+
+    app = create_app(start_scheduler=False)
+    assert isinstance(app.config.get("OPERATION_WORKER"), OperationWorker)

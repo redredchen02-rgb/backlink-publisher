@@ -447,6 +447,14 @@ def create_app(*, start_scheduler: bool | None = None) -> Flask:
     if start_scheduler is None:
         start_scheduler = 'PYTEST_CURRENT_TEST' not in os.environ
 
+    # Async operation worker (Plan 2026-07-09 operation-progress P1). Mounted
+    # unconditionally: /api/v1/operations fails closed with 503 when this is
+    # absent, and the worker itself is a lazy ThreadPoolExecutor (no threads
+    # until the first op starts), so it is safe under pytest too — tests that
+    # need a fresh instance overwrite app.config["OPERATION_WORKER"].
+    from .services.operation_worker import OperationWorker
+    app.config.setdefault("OPERATION_WORKER", OperationWorker())
+
     if start_scheduler:
         from .scheduler import _restore_scheduled_jobs, _scheduler
         if not _scheduler.running:
