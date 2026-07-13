@@ -313,7 +313,11 @@ class TestVelogApiRoutes:
         assert resp.is_json
         body = resp.get_json()
         assert body["ok"] is True
-        assert body["log_path"] == str(log_path)
+        # finding [41]: the legacy route must NOT leak the raw filesystem path
+        # (username/dir structure). Parity with /api/v1/settings/velog/login,
+        # which returns has_log only. Prior spec asserting the leak was wrong.
+        assert "log_path" not in body
+        assert body["has_log"] is True
 
     def test_velog_login_surfaces_subprocess_error(self, client, monkeypatch, tmp_path):
         """POST /api/velog/login returns 500 + tail when helper reports early death."""
@@ -335,7 +339,9 @@ class TestVelogApiRoutes:
         body = resp.get_json()
         assert body["ok"] is False
         assert "error_code" in body
-        assert body["log_path"] == str(log_path)
+        # finding [41]: no raw path leak even on the error path.
+        assert "log_path" not in body
+        assert body["has_log"] is True
 
     def test_velog_status_returns_json(self, client):
         """GET /api/velog/status returns JSON with a 'state' key."""

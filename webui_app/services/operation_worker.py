@@ -189,8 +189,50 @@ def _plans_to_jsonl(plans: Any) -> str:
     return "\n".join(json.dumps(r, ensure_ascii=False) for r in rows if isinstance(r, dict))
 
 
+def _publish_outcome_fields(publish_results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Map a completed publish's per-row results to operation-store fields.
+
+    Honest about a fully-failed publish: ``all_failed`` is recorded as
+    ``status="failed"`` (never ``"success"``), so the operator never sees a
+    green operation for zero published backlinks (finding [5] — the worker
+    previously set ``status="success"`` unconditionally after the summary).
+    Emits the unified envelope (``state``/``n_ok``/``n_failed``/``n_total``)
+    shared with the synchronous ``/pipeline/publish`` surface.
+    """
+    from backlink_publisher.sdk.api import publish_state_summary
+
+    summary = publish_state_summary(publish_results)
+    n_ok = summary["n_ok"]
+    n_failed = summary["n_failed"]
+    n_total = n_ok + n_failed
+    state = summary["state"]
+    if state == "all_failed":
+        status, detail = "failed", "发布失败：全部失败"
+    elif state == "partial_success":
+        status, detail = "success", f"部分成功：{n_ok}/{n_total} 成功"
+    else:
+        status, detail = "success", "发布完成"
+    fields: dict[str, Any] = {
+        "status": status,
+        "stage": "发布",
+        "progress_pct": 100,
+        "detail": detail,
+        "result": {
+            "state": state,
+            "n_ok": n_ok,
+            "n_failed": n_failed,
+            "n_total": n_total,
+            "failure_detail": summary.get("failure_detail"),
+            "results": publish_results,
+        },
+    }
+    if state == "all_failed":
+        fields["error"] = summary.get("failure_detail") or "全部失败"
+    return fields
+
+
 def _run_publish(op_id: str, cfg: dict[str, Any]) -> None:
-    from backlink_publisher.sdk.api import PipelineAPI, publish_state_summary
+    from backlink_publisher.sdk.api import PipelineAPI
     from webui_store import operation_store
 
     from ..helpers.history import _push_history_per_row, _push_history_single_failure
@@ -245,25 +287,11 @@ def _run_publish(op_id: str, cfg: dict[str, Any]) -> None:
         platform_fallback=platform,
         language_fallback=language,
     )
-    summary = publish_state_summary(publish_results)
-    operation_store.update_fields(
-        op_id,
-        status="success",
-        stage="发布",
-        progress_pct=100,
-        detail="发布完成",
-        result={
-            "state": summary["state"],
-            "n_ok": summary["n_ok"],
-            "n_failed": summary["n_failed"],
-            "failure_detail": summary.get("failure_detail"),
-            "results": publish_results,
-        },
-    )
+    operation_store.update_fields(op_id, **_publish_outcome_fields(publish_results))
 
 
 def _run_publish_chain(op_id: str, cfg: dict[str, Any]) -> None:
-    from backlink_publisher.sdk.api import PipelineAPI, publish_state_summary
+    from backlink_publisher.sdk.api import PipelineAPI
     from webui_store import operation_store
 
     from ..helpers.history import _push_history_per_row, _push_history_single_failure
@@ -344,21 +372,7 @@ def _run_publish_chain(op_id: str, cfg: dict[str, Any]) -> None:
             platform_fallback=platform,
             language_fallback=target_language,
         )
-        summary = publish_state_summary(publish_results)
-        operation_store.update_fields(
-            op_id,
-            status="success",
-            stage="发布",
-            progress_pct=100,
-            detail="发布完成",
-            result={
-                "state": summary["state"],
-                "n_ok": summary["n_ok"],
-                "n_failed": summary["n_failed"],
-                "failure_detail": summary.get("failure_detail"),
-                "results": publish_results,
-            },
-        )
+        operation_store.update_fields(op_id, **_publish_outcome_fields(publish_results))
     except Exception as exc:  # noqa: BLE001
         _log.warning("chain op %s raised: %s", op_id, exc)
         operation_store.update_fields(

@@ -265,7 +265,10 @@ def api_velog_login() -> Any:
     from ..api.velog_login_api import VelogLoginAPI
 
     r = VelogLoginAPI().login()
-    body = {"ok": r.ok, "message": r.message, "log_path": r.log_path}
+    # finding [41]: expose only presence, never the raw filesystem path (which
+    # reveals local username/dir structure). Parity with the redacted
+    # /api/v1/settings/velog/login surface.
+    body = {"ok": r.ok, "message": r.message, "has_log": bool(r.log_path)}
     if r.ok:
         return jsonify(body)
     body["error_code"] = r.error_code

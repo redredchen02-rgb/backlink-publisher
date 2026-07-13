@@ -204,6 +204,7 @@ def test_webui_pipeline_publish_full_success(client, monkeypatch, _no_history_wr
     body = resp.get_json()
     assert body["state"] == "all_success"
     assert body["n_ok"] == 1 and body["n_total"] == 1
+    assert body["n_failed"] == 0  # finding [5]: envelope parity with /operations
     assert len(_no_history_writes["per_row"]) == 1
 
 
@@ -220,6 +221,7 @@ def test_webui_pipeline_publish_partial_success(client, monkeypatch, _no_history
     body = resp.get_json()
     assert body["state"] == "partial_success"
     assert body["n_ok"] == 1 and body["n_total"] == 2
+    assert body["n_failed"] == 1  # finding [5]: envelope parity with /operations
     assert body["failure_detail"]
 
 
