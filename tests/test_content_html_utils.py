@@ -67,7 +67,7 @@ def test_empty_title_tag_returns_none() -> None:
 
 
 def test_malformed_html_does_not_raise() -> None:
-    assert extract_title(b"<<<not html at all>>>") is None or True
+    assert extract_title(b"<<<not html at all>>>") is None
 
 
 def test_empty_bytes_returns_none() -> None:

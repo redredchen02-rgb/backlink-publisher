@@ -97,7 +97,7 @@ class TestPublishBacklinksExitCodes:
         malformed = "this is not json at all\n"
         code = _run_publish(["--dry-run"], stdin_data=malformed)
         # read_jsonl will raise and be caught, likely exit 1 or 2
-        assert code in (1, 2, 5)
+        assert code == 2
 
     def test_force_manifest_without_dedup_enforce_exits_1(self):
         """--force-manifest without BACKLINK_PUBLISHER_DEDUP_ENFORCE=1 → exit 1."""
@@ -111,14 +111,29 @@ class TestPublishBacklinksExitCodes:
                 "language": "zh-CN",
                 "anchor": "test",
                 "article_title": "Test",
-                "article_body": "test body",
-                "links": [],
+                "publish_mode": "publish",
+                "url_mode": "A",
+                "title": "Test Title",
+                "slug": "test-title",
+                "excerpt": "An excerpt here.",
+                "tags": ["alpha", "beta"],
+                "seo": {"title": "T", "description": "d", "canonical_url": "https://example.com"},
+                "content_markdown": "Body mentioning https://example.com as the main domain in content.",
+                "main_domain": "https://example.com",
+                "links": [
+                    {"kind": "main_domain", "url": "https://example.com", "anchor": "a1", "required": True},
+                    {"kind": "supporting", "url": "https://s1.example.com", "anchor": "a2", "required": False},
+                    {"kind": "supporting", "url": "https://s2.example.com", "anchor": "a3", "required": False},
+                    {"kind": "supporting", "url": "https://s3.example.com", "anchor": "a4", "required": False},
+                    {"kind": "target", "url": "https://t1.example.com", "anchor": "a5", "required": True},
+                    {"kind": "target", "url": "https://t2.example.com", "anchor": "a6", "required": True},
+                ],
             })
             code = _run_publish(
                 ["--force-manifest", "/nonexistent.json"],
                 stdin_data=payload + "\n",
             )
-            assert code in (1, 2, 3)
+            assert code == 1
         finally:
             if env_backup is not None:
                 os.environ["BACKLINK_PUBLISHER_DEDUP_ENFORCE"] = env_backup
@@ -132,11 +147,11 @@ class TestPublishBacklinksExitCodes:
 class TestPlanBacklinksExitCodes:
     """Exit code contract for plan-backlinks."""
 
-    def test_empty_stdin_no_urls_exits_nonzero_or_zero(self):
-        """Empty input: plan-backlinks exits 0 with no rows (no error to report)."""
+    def test_empty_stdin_no_urls_exits_2(self):
+        """Empty input: plan-backlinks rejects it as InputValidationError (exit 2),
+        matching the sibling test_dry_run_empty_input_exits_2 contract."""
         code = _run_plan([], stdin_data="")
-        # No input → no rows → no output; exits 0 (not an error condition)
-        assert code in (0, 1, 2, 5)
+        assert code == 2
 
     def test_help_exits_0(self):
         """--help always exits 0."""
