@@ -7,14 +7,28 @@
 // SideNav.vue (drawer body) / TopBar.vue (hamburger toggle) since those are
 // sibling components that both need to read/drive the same isOpen state. Also
 // renders the overlay/backdrop here since it sits visually above both.
-import { provide } from 'vue'
+//
+// Plan 2026-07-09-001: hosts the onboarding wizard overlay and auto-opens it on
+// first load when setup is incomplete and the operator hasn't dismissed it.
+import { provide, watch } from 'vue'
 import SideNav from './SideNav.vue'
 import TopBar from './TopBar.vue'
 import Toast from '../components/Toast.vue'
+import OnboardingWizard from '../components/OnboardingWizard.vue'
 import { SIDENAV_DRAWER_KEY, useSidenavDrawer } from '../composables/useSidenavDrawer'
+import { useOnboardingStore } from '../stores/onboarding'
 
 const drawer = useSidenavDrawer()
 provide(SIDENAV_DRAWER_KEY, drawer)
+
+const onboarding = useOnboardingStore()
+// Auto-open the guide once the status query resolves to "incomplete + not dismissed".
+watch(
+  () => onboarding.showWizard,
+  (show) => {
+    if (show) onboarding.openWizard()
+  },
+)
 </script>
 
 <template>
@@ -34,6 +48,7 @@ provide(SIDENAV_DRAWER_KEY, drawer)
       </main>
     </div>
     <Toast />
+    <OnboardingWizard />
   </div>
 </template>
 

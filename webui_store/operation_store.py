@@ -23,8 +23,7 @@ import uuid
 
 from backlink_publisher.events._store_sqlite import _retry_sqlite
 
-from .base import _LazyStore
-from .sqlite_base import BaseSqliteStore, WebUIDatabase
+from .sqlite_base import BaseSqliteStore
 
 _OP_SCHEMA_VERSION = 1
 
@@ -309,15 +308,8 @@ def _json_or_none(value: Any) -> str | None:
 # Backward-compat alias.
 OperationStore = OperationSqliteStore
 
-
-def _make_operation_store() -> OperationSqliteStore:
-    from backlink_publisher.config.loader import _config_dir
-    return OperationSqliteStore(WebUIDatabase(_config_dir() / "webui.db"))
-
-
-#: Lazily-resolved singleton — mirrors ``error_reports.py``'s
-#: ``error_report_store``. Re-exported by ``webui_store/__init__.py`` so
-#: ``from webui_store import operation_store`` resolves to this proxy (the
-#: package attribute shadows the submodule name), matching how the API layer
-#: and operation_worker call ``operation_store.create(...)`` etc.
-operation_store: _LazyStore = _LazyStore(_make_operation_store)
+# The ``operation_store`` singleton lives in ``webui_store/__init__.py``
+# (package-level ``_LazyStore`` over the shared ``_get_webui_db()`` instance,
+# wired into ``_refresh_paths()`` for test isolation). ``from webui_store
+# import operation_store`` binds that package attribute, which shadows this
+# submodule's name — do not add a second singleton here.

@@ -28,6 +28,7 @@ from . import (
     channel_status_store,
     drafts_store,
     history_store,
+    onboarding_store,
     profiles_store,
     queue_store,
     schedule_store,
@@ -79,3 +80,7 @@ class WebUIStores:
     @property
     def channel_status(self) -> Store:
         return channel_status_store
+
+    @property
+    def onboarding(self) -> Store:
+        return onboarding_store
