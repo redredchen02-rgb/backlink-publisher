@@ -11,7 +11,10 @@ in-process ``PipelineAPI.plan()`` path share identical computation.
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import argparse
 
 from backlink_publisher._util.errors import emit_envelope_and_exit, emit_error
 from backlink_publisher._util.jsonl import read_jsonl, write_jsonl
@@ -19,7 +22,6 @@ from backlink_publisher._util.logger import plan_logger
 from backlink_publisher._util.url import canonicalize_url
 from backlink_publisher.config import load_config
 import backlink_publisher.publishing.adapters  # noqa: F401  populate registry before argparse
-from backlink_publisher.publishing.registry import registered_platforms
 
 from ... import config_echo
 from ...content import fetch as content_fetch
@@ -27,6 +29,7 @@ from ._banners import (  # noqa: F401
     _build_banner_runtime,
     _generate_banner_for_payload,
 )
+from ._cli_args import _build_parser
 
 # Re-export engine symbols for backward compat (tests + __init__.py import
 # _dispatch_row / _cell_gate_drop from here).
@@ -64,115 +67,11 @@ from ._templates import (  # noqa: F401
 )
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Generate backlink article payloads from seed URLs.
+def _read_input_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
+    """Validate input-source flags and read seed rows (bulk CSV/sitemap or JSONL).
 
-    This is the main entry point for the plan-backlinks CLI command.
-    It reads seed URLs from various input sources (JSONL, CSV, sitemap),
-    generates article plans, and outputs them as JSONL to stdout.
-
-    Args:
-        argv: Command-line arguments. If None, uses sys.argv[1:].
+    Applies the ``--max-rows`` truncation guard before returning.
     """
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        prog="plan-backlinks",
-        description="Generate backlink article payloads from seed URLs.",
-    )
-    parser.add_argument(
-        "--input", "-i",
-        type=argparse.FileType("r"),
-        default=None,
-        help="Input JSONL file (default: stdin)",
-    )
-    parser.add_argument(
-        "--from-csv",
-        default=None,
-        metavar="FILE",
-        help="Read target URLs from a CSV/text file (one URL per line). Use '-' for stdin.",
-    )
-    parser.add_argument(
-        "--from-sitemap",
-        default=None,
-        metavar="URL",
-        help="Fetch target URLs from a sitemap XML URL.",
-    )
-    parser.add_argument(
-        "--default-platform",
-        default="blogger",
-        choices=registered_platforms(),
-        help="Platform for --from-csv / --from-sitemap rows (default: blogger)",
-    )
-    parser.add_argument(
-        "--default-language",
-        default="zh-CN",
-        choices=["zh-CN", "en", "ru", "ko"],
-        help="Language for --from-csv / --from-sitemap rows (default: zh-CN)",
-    )
-    parser.add_argument(
-        "--default-url-mode",
-        default="A",
-        choices=["A", "B", "C"],
-        help="URL mode for --from-csv / --from-sitemap rows (default: A)",
-    )
-    parser.add_argument(
-        "--default-publish-mode",
-        default="draft",
-        choices=["draft", "publish"],
-        help="Publish mode for --from-csv / --from-sitemap rows (default: draft)",
-    )
-    parser.add_argument(
-        "--work-count",
-        type=int,
-        default=10,
-        metavar="N",
-        help=(
-            "Per-row article count for the work-themed dispatcher path "
-            "(default: 10). Ignored for legacy zh-short / long-form rows."
-        ),
-    )
-    parser.add_argument(
-        "--log-level",
-        default="WARN",
-        choices=["DEBUG", "INFO", "WARN", "ERROR"],
-        help="Log verbosity (default: WARN)",
-    )
-    parser.add_argument(
-        "--no-fetch-verify",
-        action="store_true",
-        default=False,
-        help=(
-            "Skip the plan-time URL content gate (default: enabled). Each row's "
-            "URLs are normally fetched via content_fetch.verify_url_has_content "
-            "and required to return HTTP 200 with a non-empty <title> or "
-            "og:title before being added to the article. Use this flag in "
-            "dev / replay / staging when target sites are intentionally offline. "
-            "Plan ref: docs/plans/2026-05-14-007-feat-url-content-fetch-gate-plan.md"
-        ),
-    )
-    parser.add_argument(
-        "--profile",
-        action="store_true",
-        default=False,
-        help="Enable cProfile profiling (saved to ~/.cache/backlink-publisher/profiles/)",
-    )
-    parser.add_argument(
-        "--max-rows",
-        type=int,
-        default=1000,
-        dest="max_rows",
-        help="Maximum seed rows to process; excess rows are truncated with a warning (default: 1000)",
-    )
-    args = parser.parse_args(argv)
-
-    # H1: set_log_level stays in the shell — never inside the engine.
-    from backlink_publisher._util.logger import set_log_level
-    set_log_level(args.log_level)
-
-    if args.no_fetch_verify:
-        plan_logger.recon("fetch_verify_disabled", reason="cli_flag")
-
     bulk_sources = [args.from_csv, args.from_sitemap]
     if sum(bool(x) for x in bulk_sources) > 1:
         emit_error("--from-csv and --from-sitemap are mutually exclusive", exit_code=2)
@@ -225,19 +124,16 @@ def main(argv: list[str] | None = None) -> None:
         rows = rows[:args.max_rows]
 
     plan_logger.info(f"read {len(rows)} seed rows")
+    return rows
 
-    cfg = load_config()
-    config_echo.emit_banner(cfg, "plan-backlinks")
 
-    # H2: reset fetch stats here (shell responsibility) so plan_rows sees
-    # clean per-run counters; the in-process PipelineAPI.plan() path does NOT
-    # reset — accepts cumulative stats (documented acceptable, audit surface 2).
-    content_fetch.reset_stats()
+def _snapshot_gsc_baseline(cfg: Any) -> None:
+    """Advisory GSC baseline snapshot: record keyword positions before building links.
 
-    # Advisory GSC baseline snapshot: record keyword positions before building links.
-    # Non-overlapping window (-60d to -30d) so a follow-up probe-ranking (recent 30d)
-    # gives a statistically valid before/after comparison. Silently skipped when GSC
-    # is not configured or any error occurs — never blocks plan generation.
+    Non-overlapping window (-60d to -30d) so a follow-up probe-ranking (recent 30d)
+    gives a statistically valid before/after comparison. Silently skipped when GSC
+    is not configured or any error occurs — never blocks plan generation.
+    """
     try:
         from backlink_publisher.cli.ops.probe_ranking import snapshot_baseline
         gsc_cfg = getattr(cfg, "gsc", None)
@@ -248,6 +144,38 @@ def main(argv: list[str] | None = None) -> None:
         _logging.getLogger("plan-backlinks").debug(
             "gsc baseline hook skipped: %s", exc, exc_info=True
         )
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Generate backlink article payloads from seed URLs.
+
+    This is the main entry point for the plan-backlinks CLI command.
+    It reads seed URLs from various input sources (JSONL, CSV, sitemap),
+    generates article plans, and outputs them as JSONL to stdout.
+
+    Args:
+        argv: Command-line arguments. If None, uses sys.argv[1:].
+    """
+    args = _build_parser().parse_args(argv)
+
+    # H1: set_log_level stays in the shell — never inside the engine.
+    from backlink_publisher._util.logger import set_log_level
+    set_log_level(args.log_level)
+
+    if args.no_fetch_verify:
+        plan_logger.recon("fetch_verify_disabled", reason="cli_flag")
+
+    rows = _read_input_rows(args)
+
+    cfg = load_config()
+    config_echo.emit_banner(cfg, "plan-backlinks")
+
+    # H2: reset fetch stats here (shell responsibility) so plan_rows sees
+    # clean per-run counters; the in-process PipelineAPI.plan() path does NOT
+    # reset — accepts cumulative stats (documented acceptable, audit surface 2).
+    content_fetch.reset_stats()
+
+    _snapshot_gsc_baseline(cfg)
 
     from backlink_publisher._util.profiling import profile_if_enabled
     with profile_if_enabled(args):
@@ -269,10 +197,15 @@ def main(argv: list[str] | None = None) -> None:
     # H3: write_jsonl to stdout stays in the shell — engine never touches sys.stdout.
     write_jsonl(outcome.outputs)
 
+    _emit_success_nudges(outcome.outputs)
+
+
+def _emit_success_nudges(outputs: list[dict[str, Any]]) -> None:
+    """Advisory recon nudges emitted after a successful plan run."""
     # Preflight nudge (Plan 2026-05-26-008 R3a): advisory on success path only.
     distinct_targets = {
         canonicalize_url(target.strip())
-        for row in outcome.outputs
+        for row in outputs
         if isinstance((target := row.get("target_url")), str) and target.strip()
     }
     if distinct_targets:
@@ -288,7 +221,7 @@ def main(argv: list[str] | None = None) -> None:
 
         planned_platforms = {
             p.strip()
-            for row in outcome.outputs
+            for row in outputs
             if isinstance((p := row.get("platform")), str) and p.strip()
         }
         degraded = sorted(p for p in planned_platforms if is_degraded(p))

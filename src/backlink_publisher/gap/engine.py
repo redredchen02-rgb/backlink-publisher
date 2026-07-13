@@ -92,6 +92,82 @@ def _verified_older_than(verified_at: object, days: int, now: datetime) -> bool:
     return (now - dt).days > days
 
 
+def _row_suppressed(
+    liveness: Any,
+    live_dofollow: int,
+    verified_at: object,
+    opts: GapOptions,
+    counts: SuppressionCounts,
+    now: datetime,
+) -> bool:
+    """Classify (R6/R9): EMIT / SUPPRESSED-with-reason / unknown_liveness.
+
+    Returns True when the row is suppressed (the reason is tallied in
+    ``counts``); False when the row proceeds to the deficit computation.
+    """
+    if liveness not in _KNOWN_LIVENESS:
+        counts.unknown_liveness += 1
+        return True
+    if liveness == "failed":
+        if not opts.include_failed:
+            counts.failed += 1
+            return True
+    elif liveness in ("stale", "unverified") and live_dofollow == 0:
+        # Deficit unverifiable: no live-dofollow evidence to trust.
+        if not opts.emit_stale:
+            if liveness == "stale":
+                counts.suppressed_stale += 1
+            else:
+                counts.suppressed_unverified += 1
+            return True
+    # Freshness floor: even an otherwise-eligible target is held if its
+    # liveness evidence is older than the operator's threshold.
+    if (
+        opts.stale_after_days is not None
+        and not opts.emit_stale
+        and _verified_older_than(verified_at, opts.stale_after_days, now)
+    ):
+        counts.suppressed_stale_floor += 1
+        return True
+    return False
+
+
+def _fan_out_target(
+    target: str,
+    deficit: int,
+    candidates_universe: list[str],
+    row: dict[str, Any],
+    opts: GapOptions,
+    seeds: list[dict],
+    counts: SuppressionCounts,
+) -> None:
+    """Channel-aware fan-out (R4): subtract the LIVE-DOFOLLOW platform set.
+
+    Appends one seed per distinct candidate platform (capped at ``deficit``)
+    to ``seeds``; tallies channel exhaustion in ``counts``.
+    """
+    already_live_df = set(row.get("live_dofollow_platforms") or [])
+    candidates = [p for p in candidates_universe if p not in already_live_df]
+    emitted = candidates[:deficit]  # one seed per distinct candidate, capped
+    if emitted:
+        main_domain = derive_main_domain(target)
+        for platform in emitted:
+            seeds.append({
+                "target_url": target,
+                "platform": platform,
+                "main_domain": main_domain,
+                "language": opts.language,
+                "url_mode": opts.url_mode,
+                "publish_mode": opts.publish_mode,
+            })
+    # Couldn't fully close the deficit under the current roster — name it so
+    # the operator knows the target maxes out below D (incl. the 0-candidate
+    # case). Distinct from a silent partial.
+    if deficit > len(candidates):
+        counts.channel_exhausted += 1
+        counts.channel_exhausted_targets.append(target)
+
+
 def plan_gap(
     rows: Any,
     opts: GapOptions,
@@ -131,29 +207,7 @@ def plan_gap(
         live_dofollow = _coerce_live_dofollow(row.get("live_dofollow"))
 
         # --- Classify (R6/R9): EMIT / SUPPRESSED-with-reason / unknown_liveness.
-        if liveness not in _KNOWN_LIVENESS:
-            counts.unknown_liveness += 1
-            continue
-        if liveness == "failed":
-            if not opts.include_failed:
-                counts.failed += 1
-                continue
-        elif liveness in ("stale", "unverified") and live_dofollow == 0:
-            # Deficit unverifiable: no live-dofollow evidence to trust.
-            if not opts.emit_stale:
-                if liveness == "stale":
-                    counts.suppressed_stale += 1
-                else:
-                    counts.suppressed_unverified += 1
-                continue
-        # Freshness floor: even an otherwise-eligible target is held if its
-        # liveness evidence is older than the operator's threshold.
-        if (
-            opts.stale_after_days is not None
-            and not opts.emit_stale
-            and _verified_older_than(verified_at, opts.stale_after_days, now)
-        ):
-            counts.suppressed_stale_floor += 1
+        if _row_suppressed(liveness, live_dofollow, verified_at, opts, counts, now):
             continue
 
         # --- Deficit (R3).
@@ -163,27 +217,8 @@ def plan_gap(
             counts.satisfied += 1
             continue
 
-        # --- Channel-aware fan-out (R4): subtract the LIVE-DOFOLLOW platform set.
-        already_live_df = set(row.get("live_dofollow_platforms") or [])
-        candidates = [p for p in candidates_universe if p not in already_live_df]
-        emitted = candidates[:deficit]  # one seed per distinct candidate, capped
-        if emitted:
-            main_domain = derive_main_domain(target)
-            for platform in emitted:
-                seeds.append({
-                    "target_url": target,
-                    "platform": platform,
-                    "main_domain": main_domain,
-                    "language": opts.language,
-                    "url_mode": opts.url_mode,
-                    "publish_mode": opts.publish_mode,
-                })
-        # Couldn't fully close the deficit under the current roster — name it so
-        # the operator knows the target maxes out below D (incl. the 0-candidate
-        # case). Distinct from a silent partial.
-        if deficit > len(candidates):
-            counts.channel_exhausted += 1
-            counts.channel_exhausted_targets.append(target)
+        # --- Channel-aware fan-out (R4).
+        _fan_out_target(target, deficit, candidates_universe, row, opts, seeds, counts)
 
     return seeds, counts, {"as_of": as_of}
 

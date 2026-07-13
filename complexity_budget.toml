@@ -101,9 +101,11 @@
 ceiling = 31
 rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1): MediumBraveAdapter.publish is CC 27 (D grade) — the AppleScript/Brave publish flow branches across tab-identity resolution, editor-ready waits, title/body fill, and the publish-menu click sequence, each with its own failure handling. Ceiling 31 = backstop(30)+1, the schema's minimum valid seed floor for a below-backstop function newly given its own tracked ceiling, providing 4 points of headroom over the measured CC 27."
 
-[functions."src/backlink_publisher/cli/_seal_init.py::_handle_init"]
-ceiling = 31
-rationale = "Newly-tracked during 2026-07-06 hardening audit (Unit B1): _handle_init is CC 27 (D grade) — the phase0-seal init subcommand handler branches across comment-URL parsing, routine vs manual verdict-ref construction, git-sha lookup, and post-push verification outcomes. Ceiling 31 = backstop(30)+1, the schema's minimum valid seed floor for a below-backstop function newly given its own tracked ceiling, providing 4 points of headroom over the measured CC 27."
+# _seal_init.py::_handle_init entry (ceiling 31, sweep Unit B1) removed by the D1
+# complexity refactor (2026-07-13): extracted _reject_unhealthy_worktrees (CC 6),
+# _reject_uncommitted_evidence (CC 3), _operator_confirms (CC 5), _write_seal_notes
+# (CC 7); _handle_init CC 27→14 — well under the CC-30 backstop, so per policy the
+# entry is removed rather than re-seeded (ceilings <= backstop are invalid).
 
 
 # Test-file SLOC budgets (enforced by test_no_complexity_regrowth.py).

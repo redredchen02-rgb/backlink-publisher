@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import stat
 import tomllib
-from typing import cast
+from typing import Any, cast
 
 from backlink_publisher._util.cache import _ttl_cache_get, _ttl_cache_set
 from backlink_publisher._util.errors import DependencyError
@@ -52,39 +52,21 @@ from .types import (
 log = logging.getLogger(__name__)
 
 
-def load_config(path: Path | None = None) -> Config:
-    """Load config from TOML file. Missing file → empty Config (not an error).
+def _parse_account_sections(
+    data: dict[str, Any],
+) -> tuple[
+    dict[str, str],
+    BloggerOAuthConfig | None,
+    MediumOAuthConfig | None,
+    Path,
+    dict[str, Any],
+]:
+    """Parse [blogger] / [medium] account sections.
 
-    Results are cached for 15 seconds (TTL) to avoid re-parsing TOML on every
-    HTTP request. Call ``_ttl_cache_delete(f"load_config:{path}")`` to force a fresh
-    read (e.g. after saving config via the WebUI).
+    Returns ``(blog_ids, blogger_oauth, medium_oauth, user_data_dir,
+    medium_section)``. Pops ``[blogger.oauth]`` out of the blogger section so
+    only main_domain → blog_id mappings remain for the blog_ids dict.
     """
-    # Check cache first (TTL-based, thread-safe).
-    # Key by resolved path so tests loading different files don't collide.
-    config_path = path or (_resolve_config_dir() / "config.toml")
-    cache_key = f"load_config:{config_path}"
-    cached = _ttl_cache_get(cache_key)
-    if cached is not None:
-        return cast(Config, cached)
-    if not config_path.exists():
-        # No config.toml, but a WebUI-saved llm-settings.json sidecar (or
-        # BACKLINK_LLM_* env) can still configure the provider. Same precedence
-        # as the full path: env > (no TOML here) > sidecar.
-        llm = _parse_llm_anchor_provider({}, config_path=config_path)
-        if llm is None:
-            llm = _llm_provider_from_sidecar(config_path.parent)
-        return Config(llm_anchor_provider=llm)
-
-    try:
-        with open(config_path, "rb") as f:
-            data = tomllib.load(f)
-    except Exception as exc:
-        raise DependencyError(
-            f"Failed to parse config file {config_path}: {exc}"
-        ) from exc
-
-    _warn_if_loose_config_permissions(config_path, data)
-
     blogger_section = data.get("blogger", {})
     oauth_section = blogger_section.pop("oauth", {})
     medium_section = data.get("medium", {})
@@ -117,55 +99,20 @@ def load_config(path: Path | None = None) -> Config:
     blog_ids = {
         k: str(v) for k, v in blogger_section.items() if isinstance(v, (str, int))
     }
+    return blog_ids, blogger_oauth, medium_oauth, user_data_dir, medium_section
 
-    targets_section = data.get("targets", {})
-    target_anchor_keywords = _parse_target_anchor_keywords(targets_section)
-    target_three_url = _parse_target_three_url(targets_section)
-    target_probe_queries = _parse_target_string_list_field(
-        targets_section, "probe_queries"
-    )
-    target_brand_aliases = _parse_target_string_list_field(
-        targets_section, "brand_aliases"
-    )
 
-    sites_section = data.get("sites", {})
-    site_url_categories = _parse_site_url_categories(sites_section)
-    target_anchor_pools_v2 = _parse_target_anchor_pools_v2(sites_section)
-
-    # Maintenance-mode INFO: same domain has both legacy [sites."x"] and the
-    # new three-URL [targets."x"] schema. Inform (not alarm) — both paths
-    # continue to work; the dispatcher will prefer the work-themed flow.
-    for domain_key in target_three_url:
-        if domain_key in site_url_categories or domain_key in target_anchor_pools_v2:
-            log.info(
-                "[sites.%r] is in maintenance mode; consider migrating to "
-                "[targets.%r] three-URL form",
-                domain_key,
-                domain_key,
-            )
-
-    anchor_proportions = _parse_anchor_proportions(data.get("anchor", {}))
-    platform_throttle = _parse_platform_throttle(data)
-
-    llm_anchor_provider = _parse_llm_anchor_provider(
-        data.get("llm", {}).get("anchor_provider", {}),
-        config_path=config_path,
-    )
-    # Fallback: when neither env vars nor the TOML section configured a provider
-    # (so the parser returned None), use the WebUI's ``llm-settings.json`` sidecar
-    # next to config.toml. This is what makes the WebUI "Pro Mode" toggle drive
-    # real publish runs. Precedence: env > TOML > sidecar (the parser already
-    # consumed env/TOML, so reaching here means both were empty).
-    if llm_anchor_provider is None:
-        llm_anchor_provider = _llm_provider_from_sidecar(config_path.parent)
-
-    geo_probe_provider = _parse_geo_probe_provider(
-        data.get("geo", {}).get("probe_provider", {}),
-        config_path=config_path,
-    )
-
-    anchor_alarm = _parse_anchor_alarm(data.get("anchor_alarm"))
-
+def _parse_channel_sections(
+    data: dict[str, Any],
+) -> tuple[
+    VelogConfig | None,
+    GhpagesConfig | None,
+    GitlabPagesConfig | None,
+    MastodonConfig | None,
+    ZennConfig | None,
+]:
+    """Parse the optional per-channel sections ([velog] / [ghpages] /
+    [gitlabpages] / [mastodon] / [zenn]). Absent section → None."""
     velog_section = data.get("velog")  # None when section absent
     velog: VelogConfig | None = None
     if velog_section is not None:
@@ -216,9 +163,13 @@ def load_config(path: Path | None = None) -> Config:
             username=str(zenn_section.get("username", "")),
             branch=str(zenn_section.get("branch", "main")),
         )
+    return velog, ghpages, gitlabpages, mastodon, zenn
 
-    image_gen = _parse_image_gen(data.get("image_gen"))
 
+def _parse_tracking_sections(
+    data: dict[str, Any],
+) -> tuple[ClickTrackConfig | None, GscConfig | None]:
+    """Parse the optional [click_track] / [gsc] tracking sections."""
     click_track_section = data.get("click_track")
     click_track: ClickTrackConfig | None = None
     if click_track_section is not None and isinstance(click_track_section, dict):
@@ -235,6 +186,99 @@ def load_config(path: Path | None = None) -> Config:
             property_url=gsc_section.get("property_url"),
             ranking_keywords=list(raw_keywords) if isinstance(raw_keywords, list) else [],
         )
+    return click_track, gsc
+
+
+def load_config(path: Path | None = None) -> Config:
+    """Load config from TOML file. Missing file → empty Config (not an error).
+
+    Results are cached for 15 seconds (TTL) to avoid re-parsing TOML on every
+    HTTP request. Call ``_ttl_cache_delete(f"load_config:{path}")`` to force a fresh
+    read (e.g. after saving config via the WebUI).
+    """
+    # Check cache first (TTL-based, thread-safe).
+    # Key by resolved path so tests loading different files don't collide.
+    config_path = path or (_resolve_config_dir() / "config.toml")
+    cache_key = f"load_config:{config_path}"
+    cached = _ttl_cache_get(cache_key)
+    if cached is not None:
+        return cast(Config, cached)
+    if not config_path.exists():
+        # No config.toml, but a WebUI-saved llm-settings.json sidecar (or
+        # BACKLINK_LLM_* env) can still configure the provider. Same precedence
+        # as the full path: env > (no TOML here) > sidecar.
+        llm = _parse_llm_anchor_provider({}, config_path=config_path)
+        if llm is None:
+            llm = _llm_provider_from_sidecar(config_path.parent)
+        return Config(llm_anchor_provider=llm)
+
+    try:
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+    except Exception as exc:
+        raise DependencyError(
+            f"Failed to parse config file {config_path}: {exc}"
+        ) from exc
+
+    _warn_if_loose_config_permissions(config_path, data)
+
+    blog_ids, blogger_oauth, medium_oauth, user_data_dir, medium_section = (
+        _parse_account_sections(data)
+    )
+
+    targets_section = data.get("targets", {})
+    target_anchor_keywords = _parse_target_anchor_keywords(targets_section)
+    target_three_url = _parse_target_three_url(targets_section)
+    target_probe_queries = _parse_target_string_list_field(
+        targets_section, "probe_queries"
+    )
+    target_brand_aliases = _parse_target_string_list_field(
+        targets_section, "brand_aliases"
+    )
+
+    sites_section = data.get("sites", {})
+    site_url_categories = _parse_site_url_categories(sites_section)
+    target_anchor_pools_v2 = _parse_target_anchor_pools_v2(sites_section)
+
+    # Maintenance-mode INFO: same domain has both legacy [sites."x"] and the
+    # new three-URL [targets."x"] schema. Inform (not alarm) — both paths
+    # continue to work; the dispatcher will prefer the work-themed flow.
+    for domain_key in target_three_url:
+        if domain_key in site_url_categories or domain_key in target_anchor_pools_v2:
+            log.info(
+                "[sites.%r] is in maintenance mode; consider migrating to "
+                "[targets.%r] three-URL form",
+                domain_key,
+                domain_key,
+            )
+
+    anchor_proportions = _parse_anchor_proportions(data.get("anchor", {}))
+    platform_throttle = _parse_platform_throttle(data)
+
+    llm_anchor_provider = _parse_llm_anchor_provider(
+        data.get("llm", {}).get("anchor_provider", {}),
+        config_path=config_path,
+    )
+    # Fallback: when neither env vars nor the TOML section configured a provider
+    # (so the parser returned None), use the WebUI's ``llm-settings.json`` sidecar
+    # next to config.toml. This is what makes the WebUI "Pro Mode" toggle drive
+    # real publish runs. Precedence: env > TOML > sidecar (the parser already
+    # consumed env/TOML, so reaching here means both were empty).
+    if llm_anchor_provider is None:
+        llm_anchor_provider = _llm_provider_from_sidecar(config_path.parent)
+
+    geo_probe_provider = _parse_geo_probe_provider(
+        data.get("geo", {}).get("probe_provider", {}),
+        config_path=config_path,
+    )
+
+    anchor_alarm = _parse_anchor_alarm(data.get("anchor_alarm"))
+
+    velog, ghpages, gitlabpages, mastodon, zenn = _parse_channel_sections(data)
+
+    image_gen = _parse_image_gen(data.get("image_gen"))
+
+    click_track, gsc = _parse_tracking_sections(data)
 
     cell_assignments = _parse_cell_assignments(data.get("cells"))
 

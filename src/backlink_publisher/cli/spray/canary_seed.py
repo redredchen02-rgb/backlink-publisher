@@ -144,7 +144,8 @@ def _map_verdict(anchor: dict) -> tuple[str, bool, str | None]:
     return "dofollow", False, None
 
 
-def main(argv: list[str] | None = None) -> None:
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the canary-seed argparse parser (pure declaration, no I/O)."""
     parser = argparse.ArgumentParser(
         prog="canary-seed",
         description=(
@@ -177,7 +178,133 @@ def main(argv: list[str] | None = None) -> None:
         metavar="LEVEL",
         help="Log verbosity: DEBUG|INFO|WARN|ERROR (default: WARN)",
     )
-    args = parser.parse_args(argv)
+    return parser
+
+
+def _validate_platform_eligible(platform: str) -> None:
+    """A1: validate platform is canary-eligible; raise ``UsageError`` if not.
+
+    Eligible = dofollow="uncertain" AND not retired. Retired platforms
+    (e.g. writeas, hashnode) keep a stale "uncertain" flag but must never
+    be canaried: they have no bound credentials, so publish raises and the
+    run reports a misleading `publish_failed` verdict. Exclude retired both
+    from eligibility and from the hint list — mirrors the
+    `visibility(name) != "retired"` filter in config/_toml_utils.py.
+    """
+    status = dofollow_status(platform)
+    eligible = sorted(
+        p for p in registered_platforms()
+        if dofollow_status(p) == "uncertain" and visibility(p) != "retired"
+    )
+    if status != "uncertain" or visibility(platform) == "retired":
+        raise UsageError(
+            f"canary-seed: platform {platform!r} is not in the "
+            f"canary-eligible dofollow='uncertain' cohort "
+            f"(status={status!r}, visibility={visibility(platform)!r}). "
+            f"Eligible platforms: {eligible}."
+        )
+
+
+def _publish_canary_stub(
+    payload: dict, config: Any, wait_after_publish: int
+) -> tuple[str, dict[str, Any] | None, str | None]:
+    """A2: publish the minimal stub post.
+
+    Returns ``(post_url, delete_credential, reason)`` — ``reason`` is
+    ``"publish_failed"`` (with the failure logged) when the adapter raised.
+    """
+    post_url = ""
+    delete_credential: dict[str, Any] | None = None
+    reason: str | None = None
+    try:
+        result = publish(payload, "auto", config)
+        _sleep(wait_after_publish)
+        post_url = result.published_url or result.draft_url
+        delete_credential = _extract_delete_credential(result)
+    except PipelineError as exc:
+        reason = "publish_failed"
+        canary_logger.warning("publish_failed", platform=payload["platform"], error=str(exc))
+    except Exception as exc:
+        reason = "publish_failed"
+        canary_logger.warning("publish_exception", platform=payload["platform"], error=repr(exc))
+    return post_url, delete_credential, reason
+
+
+def _inspect_published_post(
+    platform: str, post_url: str, target_url: str, reason: str | None
+) -> tuple[str, bool, str | None, list[str] | None]:
+    """A3: fetch the published post + inspect the target anchor.
+
+    Returns ``(verdict, needs_browser_check, reason, rel_tokens)``.
+    """
+    verdict = "ambiguous"
+    rel_tokens: list[str] | None = None
+    needs_browser_check = False
+
+    if not post_url:
+        if reason is None:
+            reason = "no_post_url_returned"
+    else:
+        # SSRF guard (fail-open for Track A)
+        blocked = _validate_post_url_ssrf(post_url)
+        if blocked:
+            reason = f"ssrf_blocked:{blocked}"
+            canary_logger.warning("post_url_ssrf_blocked", platform=platform, reason=blocked)
+        else:
+            try:
+                anchor = inspect_target_anchor(post_url, target_url)
+                verdict, needs_browser_check, reason = _map_verdict(anchor)
+                raw_rel = anchor.get("target_rel") or ""
+                rel_tokens = [t.strip() for t in raw_rel.split() if t.strip()] if raw_rel else []
+            except Exception as exc:
+                reason = "inspect_failed"
+                canary_logger.warning("inspect_failed", platform=platform, error=repr(exc))
+    return verdict, needs_browser_check, reason, rel_tokens
+
+
+def _emit_recon_and_hint(
+    platform: str,
+    verdict: str,
+    post_url: str,
+    rel_tokens: list[str] | None,
+    reason: str | None,
+    needs_browser_check: bool,
+    fetched_at: str,
+) -> None:
+    """Emit the stderr RECON summary + operator-facing guided edit checklist."""
+    canary_logger.recon(
+        "canary_seed_result",
+        platform=platform,
+        verdict=verdict,
+        post_url=post_url or "(none)",
+        needs_browser_check=needs_browser_check,
+        ssrf_guard_active=_SSRF_GUARD_ACTIVE,
+    )
+    if verdict == "ambiguous":
+        canary_logger.recon(
+            "canary_seed_ambiguous_note",
+            reason=reason,
+            hint="Inspect post manually or retry with a browser-capable tool.",
+        )
+
+    # Operator-facing guided edit checklist (Plan 2026-06-05-011) — stderr only,
+    # never mutates source (A5). stdout JSONL above is the unchanged contract.
+    # Wrapped so a formatter error can never suppress the verdict or the exit-0
+    # advisory contract (the JSONL is already on stdout by this point).
+    try:
+        print(
+            format_canary_hint(
+                platform, verdict, post_url, rel_tokens,
+                reason=reason, date=fetched_at[:10],
+            ),
+            file=sys.stderr,
+        )
+    except Exception as exc:
+        canary_logger.warning("flip_hint_failed", platform=platform, error=repr(exc))
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _build_parser().parse_args(argv)
 
     try:
         if args.log_level not in _LOG_LEVELS:
@@ -195,24 +322,7 @@ def main(argv: list[str] | None = None) -> None:
             )
 
         # A1: validate platform is canary-eligible.
-        # Eligible = dofollow="uncertain" AND not retired. Retired platforms
-        # (e.g. writeas, hashnode) keep a stale "uncertain" flag but must never
-        # be canaried: they have no bound credentials, so publish raises and the
-        # run reports a misleading `publish_failed` verdict. Exclude retired both
-        # from eligibility and from the hint list — mirrors the
-        # `visibility(name) != "retired"` filter in config/_toml_utils.py.
-        status = dofollow_status(args.platform)
-        eligible = sorted(
-            p for p in registered_platforms()
-            if dofollow_status(p) == "uncertain" and visibility(p) != "retired"
-        )
-        if status != "uncertain" or visibility(args.platform) == "retired":
-            raise UsageError(
-                f"canary-seed: platform {args.platform!r} is not in the "
-                f"canary-eligible dofollow='uncertain' cohort "
-                f"(status={status!r}, visibility={visibility(args.platform)!r}). "
-                f"Eligible platforms: {eligible}."
-            )
+        _validate_platform_eligible(args.platform)
 
         config = load_config()
 
@@ -236,44 +346,14 @@ def main(argv: list[str] | None = None) -> None:
         # A2: publish minimal stub
         payload = _build_stub_payload(args.platform, target_url)
         t0 = time.monotonic()
-        post_url = ""
-        verdict = "ambiguous"
-        reason: str | None = None
-        rel_tokens: list[str] | None = None
-        needs_browser_check = False
-        delete_credential: dict[str, Any] | None = None
-
-        try:
-            result = publish(payload, "auto", config)
-            _sleep(args.wait_after_publish)
-            post_url = result.published_url or result.draft_url
-            delete_credential = _extract_delete_credential(result)
-        except PipelineError as exc:
-            reason = "publish_failed"
-            canary_logger.warning("publish_failed", platform=args.platform, error=str(exc))
-        except Exception as exc:
-            reason = "publish_failed"
-            canary_logger.warning("publish_exception", platform=args.platform, error=repr(exc))
+        post_url, delete_credential, reason = _publish_canary_stub(
+            payload, config, args.wait_after_publish
+        )
 
         # A3: fetch + inspect anchor
-        if not post_url:
-            if reason is None:
-                reason = "no_post_url_returned"
-        else:
-            # SSRF guard (fail-open for Track A)
-            blocked = _validate_post_url_ssrf(post_url)
-            if blocked:
-                reason = f"ssrf_blocked:{blocked}"
-                canary_logger.warning("post_url_ssrf_blocked", platform=args.platform, reason=blocked)
-            else:
-                try:
-                    anchor = inspect_target_anchor(post_url, target_url)
-                    verdict, needs_browser_check, reason = _map_verdict(anchor)
-                    raw_rel = anchor.get("target_rel") or ""
-                    rel_tokens = [t.strip() for t in raw_rel.split() if t.strip()] if raw_rel else []
-                except Exception as exc:
-                    reason = "inspect_failed"
-                    canary_logger.warning("inspect_failed", platform=args.platform, error=repr(exc))
+        verdict, needs_browser_check, reason, rel_tokens = _inspect_published_post(
+            args.platform, post_url, target_url, reason
+        )
 
         duration_s = round(time.monotonic() - t0, 2)
         fetched_at = datetime.now(UTC).isoformat()
@@ -296,36 +376,11 @@ def main(argv: list[str] | None = None) -> None:
 
         print(json.dumps(receipt))
 
-        # RECON summary on stderr
-        canary_logger.recon(
-            "canary_seed_result",
-            platform=args.platform,
-            verdict=verdict,
-            post_url=post_url or "(none)",
-            needs_browser_check=needs_browser_check,
-            ssrf_guard_active=_SSRF_GUARD_ACTIVE,
+        # RECON summary + guided edit checklist on stderr
+        _emit_recon_and_hint(
+            args.platform, verdict, post_url, rel_tokens,
+            reason, needs_browser_check, fetched_at,
         )
-        if verdict == "ambiguous":
-            canary_logger.recon(
-                "canary_seed_ambiguous_note",
-                reason=reason,
-                hint="Inspect post manually or retry with a browser-capable tool.",
-            )
-
-        # Operator-facing guided edit checklist (Plan 2026-06-05-011) — stderr only,
-        # never mutates source (A5). stdout JSONL above is the unchanged contract.
-        # Wrapped so a formatter error can never suppress the verdict or the exit-0
-        # advisory contract (the JSONL is already on stdout by this point).
-        try:
-            print(
-                format_canary_hint(
-                    args.platform, verdict, post_url, rel_tokens,
-                    reason=reason, date=fetched_at[:10],
-                ),
-                file=sys.stderr,
-            )
-        except Exception as exc:
-            canary_logger.warning("flip_hint_failed", platform=args.platform, error=repr(exc))
 
     except PipelineError as exc:
         handle_error(exc)
