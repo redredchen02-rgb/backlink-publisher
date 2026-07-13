@@ -26,6 +26,7 @@ import { getJson } from '../api/client'
 import { useThemeStore } from '../stores/theme'
 import { useReportPanelStore } from '../stores/reportPanel'
 import ReportProblemPanel from '../components/ReportProblemPanel.vue'
+import Icon from '../components/Icon.vue'
 import { SIDENAV_DRAWER_KEY, useSidenavDrawer } from '../composables/useSidenavDrawer'
 
 const router = useRouter()
@@ -61,7 +62,7 @@ onMounted(() => {
       :aria-expanded="drawer.isOpen.value"
       @click="drawer.toggle()"
     >
-      ☰
+      <Icon name="list" class="topbar__icon" aria-hidden="true" />
     </button>
     <input
       class="topbar__search"
@@ -85,7 +86,7 @@ onMounted(() => {
         报告问题
       </button>
       <button type="button" class="topbar__theme" @click="theme.toggle()">
-        {{ theme.theme === 'dark' ? '🌙' : '☀️' }}
+        <Icon :name="theme.theme === 'dark' ? 'moon' : 'sun'" class="topbar__icon" aria-hidden="true" />
       </button>
     </div>
   </header>
@@ -156,6 +157,11 @@ onMounted(() => {
   background: none;
   color: var(--text-secondary);
   cursor: pointer;
+}
+.topbar__icon {
+  width: 1em;
+  height: 1em;
+  display: block;
 }
 .topbar__hamburger {
   display: none;
