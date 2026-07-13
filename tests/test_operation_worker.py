@@ -183,6 +183,77 @@ def test_single_flight_atomic_under_concurrent_start(fake_pipeline: None) -> Non
         sdk_api.PipelineAPI = original
 
 
+def _fake_api_with_rows(rows: list) -> _FakeAPI:
+    api = _FakeAPI()
+    api.publish = lambda *a, **k: _FakeResult(success=True, rows=rows)  # type: ignore[method-assign]
+    return api
+
+
+def _run_publish_op(monkeypatch: pytest.MonkeyPatch, rows: list) -> dict:
+    api = _fake_api_with_rows(rows)
+    monkeypatch.setattr(sdk_api, "PipelineAPI", lambda: api)
+    op_id = operation_store.create(
+        kind="publish", cfg={"plans": [{"a": 1}], "platform": "blogger"}
+    )
+    worker = ow.OperationWorker()
+    try:
+        worker.start(op_id, "publish", operation_store.get(op_id)["cfg"])
+        worker._running[op_id].result(timeout=5)
+    finally:
+        worker.shutdown()
+    return operation_store.get(op_id)
+
+
+def test_publish_op_all_failed_is_not_success(
+    fake_pipeline: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """False-green regression guard (finding [5]): a publish whose rows ALL fail
+    must be recorded as status='failed', never 'success'. Previously the worker
+    set status='success' unconditionally after computing the summary, so an
+    all-failed publish showed the operator a green op for zero published links."""
+    rows = [
+        {"status": "failed", "error": "gate drop", "target_url": "http://main", "platform": "blogger"},
+        {"status": "failed", "error": "429", "target_url": "http://main", "platform": "blogger"},
+    ]
+    op = _run_publish_op(monkeypatch, rows)
+    assert op["status"] == "failed"
+    assert op["result"]["state"] == "all_failed"
+    assert op["result"]["n_ok"] == 0
+    assert op["result"]["n_failed"] == 2
+    assert op["result"]["n_total"] == 2
+    assert (op["error"] or "") != ""  # failure surfaced
+
+
+def test_publish_op_partial_success_stays_success_with_honest_detail(
+    fake_pipeline: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rows = [
+        {"status": "published", "published_url": "http://x/a", "target_url": "http://main", "platform": "blogger"},
+        {"status": "failed", "error": "boom", "target_url": "http://main", "platform": "blogger"},
+    ]
+    op = _run_publish_op(monkeypatch, rows)
+    assert op["status"] == "success"
+    assert op["result"]["state"] == "partial_success"
+    assert op["result"]["n_ok"] == 1
+    assert op["result"]["n_failed"] == 1
+    assert op["result"]["n_total"] == 2
+
+
+def test_publish_op_all_success_envelope_has_n_total(
+    fake_pipeline: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Envelope parity (finding [5]): the operations result carries n_total too,
+    matching the /pipeline/publish surface so a shared renderer can consume both."""
+    rows = [
+        {"status": "published", "published_url": "http://x/a", "target_url": "http://main", "platform": "blogger"},
+    ]
+    op = _run_publish_op(monkeypatch, rows)
+    assert op["status"] == "success"
+    assert op["result"]["state"] == "all_success"
+    assert op["result"]["n_total"] == 1
+    assert op["result"]["n_failed"] == 0
+
+
 def test_cancel_pending_op(fake_pipeline: None) -> None:
     op_id = operation_store.create(kind="publish", cfg={"plans": [], "platform": "blogger"})
     worker = ow.OperationWorker()

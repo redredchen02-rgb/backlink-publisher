@@ -239,6 +239,7 @@ def pipeline_publish() -> Any:
         {
             "state": summary["state"],
             "n_ok": summary["n_ok"],
+            "n_failed": summary["n_failed"],  # finding [5]: envelope parity with /operations
             "n_total": len(publish_results),
             "failure_detail": summary["failure_detail"],
             "results": publish_results,
