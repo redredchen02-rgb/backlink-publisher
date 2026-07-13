@@ -112,19 +112,25 @@ def safe_post_json(
         stream=True,
         allow_redirects=False,
     )
-    if 300 <= resp.status_code < 400:
-        raise ValueError(
-            f"redirect_not_allowed: upstream returned {resp.status_code}; "
-            f"refusing to follow Location header"
-        )
-    ctype = resp.headers.get("Content-Type", "")
-    if "json" not in ctype.lower():
-        raise ValueError(f"bad_content_type: {ctype!r}")
-    body = b""
-    for chunk in resp.iter_content(chunk_size=8192):
-        body += chunk
-        if len(body) >= LLM_MAX_RESPONSE_BYTES:
+    # stream=True means the body is not auto-consumed; a response abandoned on an
+    # early-exit branch keeps its urllib3 connection out of the pool. Close on
+    # every path (success and each raise) so the connection is always released.
+    try:
+        if 300 <= resp.status_code < 400:
             raise ValueError(
-                f"response_too_large: exceeded {LLM_MAX_RESPONSE_BYTES} bytes"
+                f"redirect_not_allowed: upstream returned {resp.status_code}; "
+                f"refusing to follow Location header"
             )
-    return resp.status_code, json.loads(body)
+        ctype = resp.headers.get("Content-Type", "")
+        if "json" not in ctype.lower():
+            raise ValueError(f"bad_content_type: {ctype!r}")
+        body = b""
+        for chunk in resp.iter_content(chunk_size=8192):
+            body += chunk
+            if len(body) >= LLM_MAX_RESPONSE_BYTES:
+                raise ValueError(
+                    f"response_too_large: exceeded {LLM_MAX_RESPONSE_BYTES} bytes"
+                )
+        return resp.status_code, json.loads(body)
+    finally:
+        resp.close()
