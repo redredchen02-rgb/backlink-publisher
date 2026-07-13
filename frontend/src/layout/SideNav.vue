@@ -4,7 +4,7 @@
 // items are RouterLinks (in-SPA, active-state); legacy items are <a> that fully
 // navigate out of the SPA and are marked with '↪' so the operator knows.
 //
-// Plan 2026-07-01-001 U4: below the 1024px breakpoint this <nav> becomes an
+// Plan 2026-07-01-001 U4: below the 960px breakpoint this <nav> becomes an
 // off-canvas drawer (transform, not v-if — it must stay mounted so
 // useSidenavDrawer's drawerEl ref, focus trap, and Escape/overlay-close all
 // keep working). Above the breakpoint nothing here changes from today.
@@ -231,11 +231,11 @@ function showBadge(item: NavItem): boolean {
   border: 0;
 }
 
-/* Off-canvas drawer below 1024px — mirrors legacy global_nav.css's
-   @media (max-width: 1024px) .app-sidebar transform/box-shadow treatment.
+/* Off-canvas drawer below 960px — mirrors legacy global_nav.css's
+   @media (max-width: 960px) .app-sidebar transform/box-shadow treatment.
    Above this breakpoint the sidebar is entirely unaffected (existing
    always-visible column behaviour, zero regression). */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .sidenav {
     position: fixed;
     top: 0;

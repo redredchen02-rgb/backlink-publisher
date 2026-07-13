@@ -68,13 +68,13 @@ watch(
   padding: 1.25rem;
   outline: none;
 }
-/* Drawer backdrop — only ever shown below the 1024px breakpoint (SideNav.vue
+/* Drawer backdrop — only ever shown below the 960px breakpoint (SideNav.vue
    mirrors this breakpoint for the drawer transform); auto-close-on-resize in
    useSidenavDrawer guarantees isOpen can't be true above it. */
 .shell__overlay {
   display: none;
 }
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .shell__overlay--open {
     display: block;
     position: fixed;

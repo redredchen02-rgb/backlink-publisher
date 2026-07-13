@@ -8,7 +8,7 @@
 // manual POST path (see ReportProblemPanel.vue's module docstring).
 //
 // Plan 2026-07-01-001 U4: hamburger toggle for the sidenav drawer, visible
-// only below the 1024px breakpoint (CSS `display: none` above it — removes it
+// only below the 960px breakpoint (CSS `display: none` above it — removes it
 // from the tab order too, so wide-screen keyboard behaviour is unchanged).
 // Falls back to a standalone drawer instance when mounted without an
 // AppShell ancestor, matching SideNav.vue's fallback.
@@ -186,7 +186,7 @@ onMounted(() => {
   color: var(--text-primary);
   padding: 0.15rem 0.4rem;
 }
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .topbar__hamburger {
     display: inline-flex;
   }
