@@ -112,7 +112,11 @@ class BindJobRegistry:
                     cwd=_REPO_ROOT,
                     env=env,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    # Merge stderr into stdout: only stdout JSONL is drained, and
+                    # a separate unread stderr PIPE deadlocks the reader if the
+                    # child floods stderr past the OS pipe buffer before exiting.
+                    # _drain_stdout already skips non-JSON lines.
+                    stderr=subprocess.STDOUT,
                     text=True,
                     encoding="utf-8",
                     errors="replace",

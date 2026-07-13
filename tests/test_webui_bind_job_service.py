@@ -92,6 +92,28 @@ class TestRegistryStart:
         assert captured["errors"] == "replace"
         assert captured["env"]["PYTHONIOENCODING"] == "utf-8"
 
+    def test_start_merges_stderr_into_stdout_no_unread_pipe(self, registry):
+        # finding [35]: only stdout JSONL is drained. If stderr is a separate PIPE
+        # that nobody reads, a child that floods stderr past the OS pipe buffer
+        # blocks before closing stdout → the reader hangs forever. Merging stderr
+        # into stdout (subprocess.STDOUT) removes the unread pipe and the deadlock;
+        # non-JSON stderr lines are already skipped by _drain_stdout.
+        import subprocess
+
+        captured: dict[str, Any] = {}
+
+        def _factory(*_args: Any, **kwargs: Any) -> _FakeProc:
+            captured.update(kwargs)
+            return _FakeProc(_events_jsonl(
+                {"event": "channel.bind.start", "channel": "medium"},
+                {"event": "channel.bind.persisted", "channel": "medium"},
+            ))
+
+        registry._popen = _factory
+        registry.start("medium")
+
+        assert captured["stderr"] == subprocess.STDOUT
+
     def test_concurrent_bind_same_channel_rejected(self, registry):
         # Use a slow proc whose stdout never terminates within the test window
         # to keep status="running" while we attempt the second start.
