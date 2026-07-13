@@ -1,51 +1,77 @@
 <script setup lang="ts">
-// StatusBadge — unified status → colour/label mapping — Plan 2026-07-09 (U3).
-//
-// Replaces the scattered hand-written `badge bg-*` snippets across pages with
-// one component so every status reads consistently. Unknown statuses fall back
-// to a neutral badge instead of a missing class.
+import { computed } from 'vue'
+
+export type Tone = 'neutral' | 'primary' | 'success' | 'danger' | 'warning' | 'info' | 'dark'
 
 const props = defineProps<{
-  status: string | null | undefined
+  status?: string | null
   label?: string
+  /** Explicit tone override — for boolean/derived badges where no status string exists. */
+  tone?: Tone
 }>()
 
-interface BadgeStyle {
-  cls: string
-  text: string
-}
-
-const MAP: Record<string, BadgeStyle> = {
+const MAP: Record<string, { tone: Tone; text: string }> = {
   // operation statuses
-  pending: { cls: 'bg-secondary', text: '排队中' },
-  running: { cls: 'bg-primary', text: '进行中' },
-  success: { cls: 'bg-success', text: '成功' },
-  failed: { cls: 'bg-danger', text: '失败' },
-  canceled: { cls: 'bg-dark', text: '已取消' },
+  pending: { tone: 'neutral', text: '排队中' },
+  running: { tone: 'primary', text: '进行中' },
+  success: { tone: 'success', text: '成功' },
+  failed: { tone: 'danger', text: '失败' },
+  canceled: { tone: 'dark', text: '已取消' },
   // campaign / queue / batch statuses
-  completed: { cls: 'bg-success', text: '已完成' },
-  draft_review: { cls: 'bg-info', text: '待审核' },
-  processing: { cls: 'bg-primary', text: '处理中' },
-  idle: { cls: 'bg-light text-dark', text: '待处理' },
-  skipped: { cls: 'bg-warning', text: '已跳过' },
+  completed: { tone: 'success', text: '已完成' },
+  draft_review: { tone: 'info', text: '待审核' },
+  processing: { tone: 'primary', text: '处理中' },
+  idle: { tone: 'neutral', text: '待处理' },
+  skipped: { tone: 'warning', text: '已跳过' },
   // publish-history statuses
-  published: { cls: 'bg-success', text: '已发布' },
-  drafted: { cls: 'bg-info', text: '已草稿' },
-  verified: { cls: 'bg-success', text: '已验证' },
-  unverified: { cls: 'bg-warning', text: '未验证' },
+  published: { tone: 'success', text: '已发布' },
+  drafted: { tone: 'info', text: '已草稿' },
+  verified: { tone: 'success', text: '已验证' },
+  unverified: { tone: 'warning', text: '未验证' },
+  // pr-queue statuses (Phase A)
+  draft: { tone: 'info', text: '草稿' },
+  sent: { tone: 'primary', text: '已发送' },
+  won: { tone: 'success', text: '已赢得' },
+  lost: { tone: 'danger', text: '已失去' },
+  // error-report statuses (Phase A)
+  open: { tone: 'danger', text: '待处理' },
+  acknowledged: { tone: 'warning', text: '已确认' },
+  resolved: { tone: 'success', text: '已解决' },
+  // drafts/history statuses (Phase A)
+  scheduled: { tone: 'info', text: '已排程' },
+  deleted: { tone: 'dark', text: '已删除' },
 }
 
-const style = (): BadgeStyle => {
-  const key = (props.status || '').toLowerCase()
-  if (MAP[key]) return MAP[key]
-  return { cls: 'bg-light text-dark', text: props.label || props.status || '未知' }
-}
-
-const resolved = style()
+const resolved = computed<{ tone: Tone; text: string }>(() => {
+  const key = props.status?.toLowerCase()
+  const hit = key ? MAP[key] : undefined
+  if (props.tone) return { tone: props.tone, text: props.label ?? hit?.text ?? props.status ?? '未知' }
+  if (hit) return { tone: hit.tone, text: props.label ?? hit.text }
+  return { tone: 'neutral', text: props.label || props.status || '未知' }
+})
 </script>
 
 <template>
-  <span class="badge" :class="resolved.cls" data-testid="status-badge">{{
-    props.label || resolved.text
+  <span class="badge" :class="`badge--${resolved.tone}`" data-testid="status-badge">{{
+    resolved.text
   }}</span>
 </template>
+
+<style scoped>
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+}
+.badge--neutral { background: var(--surface-overlay); color: var(--text-secondary); }
+.badge--primary { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
+.badge--success { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.badge--danger  { background: color-mix(in srgb, var(--danger) 18%, transparent);  color: var(--danger); }
+.badge--warning { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+.badge--info    { background: color-mix(in srgb, var(--info, var(--primary)) 18%, transparent); color: var(--info, var(--primary)); }
+.badge--dark    { background: var(--surface-overlay); color: var(--text-primary); }
+</style>
