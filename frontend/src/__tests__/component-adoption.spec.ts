@@ -34,11 +34,7 @@ const TABLE_TOLERANCE = new Set<string>([])
 
 // Ratchet: files still hand-rolling status badges/pills (class="badge",
 // class="status" :data-status, or STATUS_COLORS-style class maps).
-const BADGE_TOLERANCE = new Set([
-  'Drafts/DraftsPage.vue',
-  'ErrorReports/ErrorReportDetailPage.vue',
-  'History/HistoryPage.vue',
-])
+const BADGE_TOLERANCE = new Set<string>([])
 
 describe('DataTable component adoption (Phase A ratchet)', () => {
   for (const rel of LIST_PAGES) {

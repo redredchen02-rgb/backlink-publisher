@@ -41,6 +41,7 @@ import {
   type DraftMutationResult,
 } from '../../api/drafts'
 import DataTable from '../../components/DataTable.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 import { useErrorToast } from '../../composables/useErrorToast'
 import { useNotificationsStore } from '../../stores/notifications'
 
@@ -190,7 +191,7 @@ const onBulkCancel = () => {
       <template #row="{ row }">
         <td class="col-target draft__target" :title="row.target_url">{{ row.target_url }}</td>
         <td class="muted">
-          {{ row.platform }} · <span class="status" :data-status="row.status">{{ row.status }}</span>
+          {{ row.platform }} · <StatusBadge :status="row.status" />
           <template v-if="row.scheduled_at"> · {{ row.scheduled_at }}</template>
         </td>
         <td>
@@ -245,11 +246,5 @@ const onBulkCancel = () => {
   align-items: center;
   gap: 0.4rem;
   flex-wrap: wrap;
-}
-.status[data-status='scheduled'] {
-  color: var(--primary);
-}
-.status[data-status='failed'] {
-  color: var(--danger);
 }
 </style>
