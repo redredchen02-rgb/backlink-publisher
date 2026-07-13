@@ -412,18 +412,8 @@ button.link {
   background: var(--warning-soft);
   color: var(--text);
 }
-.spinner {
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.publish-busy__copy {
+  font-size: var(--text-sm);
 }
 .result[data-state='all_success'] {
   border-color: var(--success);
