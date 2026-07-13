@@ -26,13 +26,13 @@ adds the full report object to that stdout line.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
 import os
+from pathlib import Path
 import shlex
 import subprocess
 import sys
-from datetime import datetime
-from pathlib import Path
 from typing import NoReturn
 
 from backlink_publisher._util.error_envelope import parse as parse_envelope
