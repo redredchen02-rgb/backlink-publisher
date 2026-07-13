@@ -94,7 +94,12 @@ def test_symlink_is_refused_not_followed(tmp_path, caplog):
     outside.write_text("victim")
     link = _cred("jianshu")
     link.parent.mkdir(parents=True, exist_ok=True)
-    link.symlink_to(outside)
+    try:
+        link.symlink_to(outside)
+    except OSError as exc:
+        # Windows requires admin or Developer Mode to create symlinks
+        # (WinError 1314: "A required privilege is not held by the client").
+        pytest.skip(f"symlink creation not permitted in this environment: {exc}")
     with caplog.at_level(logging.WARNING):
         purge_removed_channel_credentials()
     assert outside.exists(), "symlink target outside config_dir must survive"

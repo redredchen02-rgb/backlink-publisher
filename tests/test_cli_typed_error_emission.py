@@ -77,7 +77,7 @@ def _bare_nonzero_systemexits(source: str) -> list[int]:
 
 @pytest.mark.parametrize("path", _IN_SCOPE_CLI_FILES, ids=lambda p: p.name)
 def test_no_fatal_exit_bypasses_chokepoint(path):
-    offenders = _bare_nonzero_systemexits(path.read_text())
+    offenders = _bare_nonzero_systemexits(path.read_text(encoding="utf-8"))
     assert offenders == [], (
         f"{path.name} has bare `raise SystemExit(<nonzero>)` at lines {offenders}; "
         "route fatal exits through emit_error / emit_envelope_and_exit / handle_error "

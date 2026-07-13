@@ -11,6 +11,7 @@ import tracemalloc
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher._util.jsonl import atomic_write_jsonl, write_jsonl
 from backlink_publisher.persistence.safe_write import atomic_write, atomic_write_stream
 
@@ -33,7 +34,7 @@ def test_jsonl_byte_identical_to_legacy_stringio(tmp_path: Path):
 def test_jsonl_mode_0600(tmp_path: Path):
     target = tmp_path / "out.jsonl"
     atomic_write_jsonl(_rows(3), target)
-    assert (target.stat().st_mode & 0o777) == 0o600
+    assert_file_mode(target, 0o600)
 
 
 def test_jsonl_empty_rows(tmp_path: Path):
@@ -86,7 +87,7 @@ def test_atomic_write_still_works_via_wrapper(tmp_path: Path):
     target = tmp_path / "t.txt"
     atomic_write(target, "hello world")
     assert target.read_text(encoding="utf-8") == "hello world"
-    assert (target.stat().st_mode & 0o777) == 0o600
+    assert_file_mode(target, 0o600)
 
 
 def test_atomic_write_stream_writes_via_callback(tmp_path: Path):

@@ -16,10 +16,10 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 from pathlib import Path
-import stat
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher.canary import store
 
 
@@ -203,8 +203,7 @@ def test_config_dir_change_reresolves_store_path(tmp_path, monkeypatch):
 
 def test_health_file_is_0600():
     store.record_verdict("blogger", store.STATUS_LINK_ALIVE)
-    mode = stat.S_IMODE(_health_path().stat().st_mode)
-    assert mode == 0o600
+    assert_file_mode(_health_path(), 0o600)
 
 
 def test_failed_write_leaves_no_half_file(monkeypatch):
@@ -458,8 +457,7 @@ def test_publish_path_missing_key_loads_defaults_no_keyerror():
 
 def test_publish_path_file_is_0600():
     store.record_publish_path_verdict("blogger", store.STATUS_DRIFT_CONFIRMED)
-    mode = stat.S_IMODE(_health_path().stat().st_mode)
-    assert mode == 0o600
+    assert_file_mode(_health_path(), 0o600)
 
 
 def test_get_publish_path_health_corrupted_stream_returns_default():

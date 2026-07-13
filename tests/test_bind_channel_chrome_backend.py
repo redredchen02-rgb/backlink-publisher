@@ -8,6 +8,7 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 from pathlib import Path
+import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -65,7 +66,9 @@ class TestStaticHelpers:
 
 class TestRealChromeBrowserRunnerAvailable:
     def test_available_when_binary_and_websocket_present(self, monkeypatch):
-        monkeypatch.setenv("BACKLINK_PUBLISHER_REAL_CHROME_BIN", "/bin/ls")
+        # sys.executable (not a hardcoded "/bin/ls") -- a cross-platform
+        # sentinel path guaranteed to exist on both POSIX and Windows.
+        monkeypatch.setenv("BACKLINK_PUBLISHER_REAL_CHROME_BIN", sys.executable)
         assert RealChromeBrowserRunner.available() is True
 
     def test_not_available_without_binary(self, monkeypatch):

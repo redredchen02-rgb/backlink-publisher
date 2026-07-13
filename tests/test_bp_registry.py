@@ -18,7 +18,7 @@ _PYPROJECT = _REPO_ROOT / "pyproject.toml"
 
 
 def _pyproject_commands() -> set[str]:
-    data = tomllib.loads(_PYPROJECT.read_text())
+    data = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     scripts: dict[str, str] = data["project"]["scripts"]
     return set(scripts.keys()) - {"bp"}
 

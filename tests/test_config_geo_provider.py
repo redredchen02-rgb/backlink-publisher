@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import logging
+import sys
 
 import pytest
 
@@ -174,6 +175,10 @@ def test_llm_key_never_fills_geo_api_key(monkeypatch: pytest.MonkeyPatch) -> Non
 # ── Loose-permission warning fires for the GEO key (S4) ──────────────────────
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+)
 def test_loose_permission_warning_fires_for_geo_key(
     tmp_path, caplog: pytest.LogCaptureFixture,
 ) -> None:

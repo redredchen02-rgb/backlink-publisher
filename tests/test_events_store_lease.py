@@ -9,6 +9,7 @@ from __future__ import annotations
 
 __tier__ = "integration"
 import os
+import sys
 
 import pytest
 
@@ -110,6 +111,7 @@ def test_pid_alive_false_for_unused_pid():
     assert _pid_alive(-1) is False
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.fork() is POSIX-only")
 def test_pid_alive_false_for_dead_process():
     # Spawn a child, reap it, then probe the now-defunct PID.
     pid = os.fork()

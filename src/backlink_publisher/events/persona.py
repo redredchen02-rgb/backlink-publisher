@@ -121,7 +121,14 @@ def _ensure_salt(final_path: Path) -> bytes:
     tmp_path = final_path.with_name(f"{final_path.name}.tmp.{os.getpid()}")
     salt = os.urandom(_SALT_BYTES)
     try:
-        fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        # os.O_BINARY (Windows-only, 0 elsewhere): without it, the CRT's
+        # low-level os.write() silently translates \n (0x0A) bytes in the
+        # random salt to \r\n, corrupting the byte count and the salt itself.
+        fd = os.open(
+            tmp_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0),
+            0o600,
+        )
         try:
             # Loop to defend against POSIX short writes. 32 bytes to a
             # regular file is essentially never short, but treating the

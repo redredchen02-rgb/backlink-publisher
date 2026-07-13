@@ -17,10 +17,10 @@ import fcntl
 import json
 import os
 import re
-import stat
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher._util import secrets
 
 
@@ -34,10 +34,6 @@ def token_dir(tmp_path, monkeypatch):
     """
     monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     return tmp_path
-
-
-def _mode(path) -> int:
-    return stat.S_IMODE(os.stat(path).st_mode)
 
 
 # ── Component 1: path resolver re-reads the env var every call ──────────────
@@ -116,7 +112,7 @@ def test_load_loose_perms_warns_and_chmods(token_dir, caplog):
     with caplog.at_level("WARNING"):
         assert secrets.load_frw_token() == "sk-loose"
 
-    assert _mode(path) == 0o600
+    assert_file_mode(path, 0o600)
     assert any("loose_perms" in r.message or "loose" in r.message.lower()
                for r in caplog.records)
 
@@ -143,7 +139,7 @@ def test_write_bootstrap_creates_0600_file(token_dir):
     secrets.write_frw_token("sk-boot")
     path = secrets.frw_token_path()
     assert path.exists()
-    assert _mode(path) == 0o600
+    assert_file_mode(path, 0o600)
 
 
 def test_write_tightens_parent_dir_to_0700(token_dir):
@@ -151,7 +147,7 @@ def test_write_tightens_parent_dir_to_0700(token_dir):
     parent.mkdir(parents=True, exist_ok=True)
     os.chmod(parent, 0o755)
     secrets.write_frw_token("sk-parent")
-    assert _mode(parent) == 0o700
+    assert_file_mode(parent, 0o700)
 
 
 def test_write_leaves_no_tmp_sibling(token_dir):
@@ -174,7 +170,7 @@ def test_rotation_archives_old_key_and_writes_new(token_dir):
     archives = list(path.parent.glob("frw-token.json.orphaned-*"))
     assert len(archives) == 1
     assert json.loads(archives[0].read_text())["api_key"] == "sk-old"
-    assert _mode(archives[0]) == 0o600
+    assert_file_mode(archives[0], 0o600)
 
 
 def test_orphan_archive_suffix_is_microsecond_utc(token_dir):

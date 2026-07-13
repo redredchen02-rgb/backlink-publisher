@@ -110,7 +110,7 @@ def test_committed_openapi_spec_is_not_stale():
     """The committed spec must match the generator (CI runs the same check)."""
     from webui_app.api.v1.spec import spec_yaml
 
-    committed = (REPO_ROOT / "openapi" / "backlink-api.yaml").read_text()
+    committed = (REPO_ROOT / "openapi" / "backlink-api.yaml").read_text(encoding="utf-8")
     assert committed.strip() == spec_yaml().strip(), (
         "openapi/backlink-api.yaml is stale — run `python scripts/gen_openapi.py`."
     )

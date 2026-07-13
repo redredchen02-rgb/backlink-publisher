@@ -4,6 +4,7 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -55,6 +56,10 @@ class TestLoadToken:
     def test_returns_token(self, config_with_token):
         assert _load_token(config_with_token) == "mat_secret_xyz"
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_rejects_world_readable_token_file(self, config):
         """R10: a 0o644 token file must be refused."""
         config.token_path.return_value.write_text(json.dumps({"token": "x"}))

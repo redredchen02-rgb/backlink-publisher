@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher.config import Config
 import backlink_publisher.publishing.adapters  # noqa: F401 — trigger registration
 from backlink_publisher.publishing.adapters.livejournal_api import (
@@ -74,7 +75,7 @@ def test_saver_callback_writes_valid_0600_file(tmp_path, monkeypatch):
         "replace",
     )
     assert path.exists()
-    assert (os.stat(path).st_mode & 0o777) == 0o600
+    assert_file_mode(path, 0o600)
 
     data = json.loads(path.read_text())
     assert data["username"] == "testuser"
@@ -94,13 +95,12 @@ def test_saver_callback_rechmod_loose_inode(tmp_path, monkeypatch):
     cred_path.parent.mkdir(parents=True, exist_ok=True)
     cred_path.write_text('{"username":"old","hpassword":"old"}')
     os.chmod(cred_path, 0o644)
-    assert (os.stat(cred_path).st_mode & 0o777) == 0o644
+    assert_file_mode(cred_path, 0o644)
 
     saver = credential_saver("livejournal")
     saver("livejournal", cfg, {"username": "newuser", "password": "secret"}, "replace")
 
-    mode = os.stat(cred_path).st_mode & 0o777
-    assert mode == 0o600, f"expected 0600, got {oct(mode)}"
+    assert_file_mode(cred_path, 0o600)
 
 
 def test_saver_callback_raises_on_empty_credentials(tmp_path, monkeypatch):

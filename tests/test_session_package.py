@@ -9,6 +9,7 @@ __tier__ = "integration"
 import json
 import os
 from pathlib import Path
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -172,6 +173,10 @@ class TestProviderLoadVelog:
         with pytest.raises(DependencyError, match="velog cookies not found"):
             DefaultCredentialProvider().load("velog", mock_config, velog_descriptor)
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_load_bad_permissions(self, mock_config: MagicMock, velog_descriptor: SessionDescriptor) -> None:
         path = mock_config.config_dir / "velog-cookies.json"
         self._write_cookie_file(path)

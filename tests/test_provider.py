@@ -9,6 +9,7 @@ from __future__ import annotations
 __tier__ = "unit"
 import json
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -109,6 +110,10 @@ class TestVelogCookies:
             _load_velog_cookies(provider, cfg, velog_descriptor)
         assert "velog cookies" in str(exc.value).lower()
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_wrong_chmod(self, provider, tmp_path, velog_descriptor):
         """Non-0600 permissions → DependencyError."""
         cfg = MagicMock()
@@ -224,6 +229,10 @@ class TestSubstackCookies:
         assert "secretvalue" not in msg
         assert "Expecting" not in msg
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_wrong_chmod(self, provider, tmp_path, substack_descriptor):
         """Non-0600 permissions → DependencyError."""
         cfg = MagicMock()

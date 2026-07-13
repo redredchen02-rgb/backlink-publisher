@@ -361,8 +361,8 @@ class TestSecretLeakRegression:
         """
         import json as _json
         import os as _os
-        import stat as _stat
 
+        from _mode_assertions import assert_file_mode
         from webui_app.helpers.contexts import (
             _llm_settings_file,
             _load_llm_settings,
@@ -374,17 +374,13 @@ class TestSecretLeakRegression:
         path.write_text(_json.dumps({"api_key": "sk-legacy-0644"}),
                         encoding="utf-8")
         _os.chmod(path, 0o644)
-        assert _stat.S_IMODE(path.stat().st_mode) == 0o644
+        assert_file_mode(path, 0o644)
 
         settings = _load_llm_settings()
         # Behaviour otherwise identical: the api_key still loads.
         assert settings["api_key"] == "sk-legacy-0644"
         # ...but the file is now 0o600.
-        mode = _stat.S_IMODE(path.stat().st_mode)
-        assert mode == 0o600, (
-            f"llm-settings.json mode is {oct(mode)} — loader must auto-chmod "
-            "a pre-existing 0o644 file to 0o600 (O8)."
-        )
+        assert_file_mode(path, 0o600)
 
     # test_blogger_client_secret_not_rendered removed — legacy /settings Jinja
     # page retired in U8 (Plan 2026-06-18-002); the template that could leak the

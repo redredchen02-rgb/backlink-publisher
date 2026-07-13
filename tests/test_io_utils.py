@@ -5,11 +5,11 @@ __tier__ = "unit"
 import json
 import os
 from pathlib import Path
-import stat
 from unittest.mock import patch
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher._util.io import atomic_write_json
 
 
@@ -19,8 +19,7 @@ def test_atomic_write_creates_file_with_default_0600(tmp_path):
 
     assert target.exists()
     assert json.loads(target.read_text(encoding="utf-8")) == {"a": 1, "b": "二"}
-    if hasattr(target.stat(), "st_mode"):
-        assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    assert_file_mode(target, 0o600)
 
 
 def test_atomic_write_overwrites_existing_file(tmp_path):
@@ -38,16 +37,14 @@ def test_atomic_write_preserves_permissions_on_overwrite(tmp_path):
 
     atomic_write_json(target, {"v": 2})
 
-    if hasattr(target.stat(), "st_mode"):
-        assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    assert_file_mode(target, 0o600)
 
 
 def test_atomic_write_custom_mode(tmp_path):
     target = tmp_path / "out.json"
     atomic_write_json(target, {"v": 1}, mode=0o644)
 
-    if hasattr(target.stat(), "st_mode"):
-        assert stat.S_IMODE(target.stat().st_mode) == 0o644
+    assert_file_mode(target, 0o644)
 
 
 def test_atomic_write_uses_temp_then_replace(tmp_path):

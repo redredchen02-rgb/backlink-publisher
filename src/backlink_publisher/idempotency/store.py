@@ -265,7 +265,14 @@ class DedupStore:
         sp.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         token = _secrets.token_bytes(32)
         try:
-            fd = os.open(str(sp), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            # os.O_BINARY (Windows-only, 0 elsewhere): without it, the CRT's
+            # low-level os.write() silently translates \n (0x0A) bytes in the
+            # random token to \r\n, corrupting its byte count and value.
+            fd = os.open(
+                str(sp),
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0),
+                0o600,
+            )
         except FileExistsError:
             # Lost the create race: the winner is mid-write. Re-read with
             # exponential backoff until its bytes are visible rather than

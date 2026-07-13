@@ -76,7 +76,7 @@ def _canonicalise_for_sha(value: Any) -> Any:
     changes between releases.
     """
     if isinstance(value, Path):
-        return str(value)
+        return value.as_posix()
     if is_dataclass(value) and not isinstance(value, type):
         return {
             f.name: _canonicalise_for_sha(getattr(value, f.name))

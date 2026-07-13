@@ -54,8 +54,15 @@ def flock(fd: int | IO, operation: int) -> None:
         fd = fd.fileno()
 
     if operation & LOCK_UN:
-        # Unlock
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]  # Windows-only
+        # Unlock. POSIX flock(LOCK_UN) is a harmless no-op on an fd that was
+        # never locked (e.g. a caller's unconditional `finally: unlock()`
+        # after a failed non-blocking acquire) — msvcrt.locking(LK_UNLCK)
+        # instead raises PermissionError in that case, so swallow it to
+        # match POSIX semantics.
+        try:
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]  # Windows-only
+        except PermissionError:
+            pass
         return
 
     exclusive = operation & LOCK_EX
@@ -66,7 +73,11 @@ def flock(fd: int | IO, operation: int) -> None:
             try:
                 msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]  # Windows-only
             except OSError as e:
-                if e.winerror in (33,):  # type: ignore[attr-defined]  # Windows-only  # 33 = ERROR_LOCK_VIOLATION
+                # msvcrt.locking() reports contention as a bare PermissionError
+                # (errno.EACCES) on some Windows/CRT builds, not always an
+                # OSError carrying winerror == 33 (ERROR_LOCK_VIOLATION) — check
+                # both so callers relying on BlockingIOError/EAGAIN actually see it.
+                if e.errno == errno.EACCES or getattr(e, "winerror", None) == 33:
                     raise OSError(errno.EAGAIN, "Resource temporarily unavailable")
                 raise
         else:

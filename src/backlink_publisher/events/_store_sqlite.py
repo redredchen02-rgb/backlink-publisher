@@ -164,6 +164,12 @@ def _pid_alive(pid: int) -> bool:
     steal a lease from a live process. ``OSError`` from any other errno
     also resolves to alive to fail safe (don't take over on unknown
     state). PID 0 / negative is treated as not alive (sentinel).
+
+    On Windows, ``os.kill(pid, 0)`` has no ``ProcessLookupError`` equivalent:
+    a nonexistent PID raises a bare ``OSError`` with
+    ``winerror == 87`` (ERROR_INVALID_PARAMETER), which would otherwise fall
+    into the fail-safe "alive" branch and never let a dead-owner row be
+    reclaimed as stale.
     """
     if pid <= 0:
         return False
@@ -173,6 +179,8 @@ def _pid_alive(pid: int) -> bool:
         return False
     except PermissionError:
         return True
-    except OSError:
+    except OSError as e:
+        if getattr(e, "winerror", None) == 87:  # ERROR_INVALID_PARAMETER
+            return False
         return True
     return True

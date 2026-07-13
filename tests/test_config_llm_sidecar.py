@@ -16,6 +16,7 @@ import os
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher.config import load_config
 from backlink_publisher.config.parsers.llm import _llm_provider_from_sidecar
 from backlink_publisher.config.types import LLMProviderConfig
@@ -274,19 +275,15 @@ def test_load_config_bad_sidecar_does_not_break_load(tmp_path):
 # ── 006-U3: backend sidecar permission self-heal ────────────────────────────
 
 
-def _mode(path):
-    return os.stat(path).st_mode & 0o777
-
-
 def test_sidecar_loose_perms_self_heal_to_0600_on_read(tmp_path):
     path = _write_sidecar(tmp_path, _FULL_SETTINGS)
     os.chmod(path, 0o644)
-    assert _mode(path) == 0o644
+    assert_file_mode(path, 0o644)
     cfg = _llm_provider_from_sidecar(tmp_path)
     # Read still succeeds...
     assert cfg is not None
     # ...and the world-readable file was healed back to owner-only.
-    assert _mode(path) == 0o600
+    assert_file_mode(path, 0o600)
 
 
 def test_sidecar_already_0600_is_untouched_and_silent(tmp_path, caplog):
@@ -297,7 +294,7 @@ def test_sidecar_already_0600_is_untouched_and_silent(tmp_path, caplog):
     with caplog.at_level(logging.WARNING, logger="backlink_publisher.config.parsers.llm"):
         cfg = _llm_provider_from_sidecar(tmp_path)
     assert cfg is not None
-    assert _mode(path) == 0o600
+    assert_file_mode(path, 0o600)
     assert "auto-chmod" not in caplog.text
 
 

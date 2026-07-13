@@ -14,6 +14,7 @@ __tier__ = "integration"
 import json
 from pathlib import Path
 
+from _mode_assertions import assert_file_mode
 from webui_store.base import Store
 from webui_store.drafts import (
     _JSON_FILENAME,
@@ -310,7 +311,7 @@ class TestStartupMigration:
         store = _store(tmp_path)
         store.migrate_from_json(tmp_path)
         migrated = tmp_path / (_JSON_FILENAME + ".migrated")
-        assert (migrated.stat().st_mode & 0o777) == 0o600
+        assert_file_mode(migrated, 0o600)
 
     def test_idempotent_when_sentinel_exists(self, tmp_path):
         (tmp_path / _JSON_FILENAME).write_text(

@@ -14,11 +14,10 @@ from __future__ import annotations
 
 __tier__ = "unit"
 import json
-import os
-import stat
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from backlink_publisher.cli import frw_login
 
 
@@ -54,8 +53,7 @@ def test_main_writes_token_file(isolated_config_dir):
     target = isolated_config_dir / "frw-token.json"
     assert target.exists()
 
-    mode = stat.S_IMODE(os.stat(target).st_mode)
-    assert mode == 0o600
+    assert_file_mode(target, 0o600)
 
     data = json.loads(target.read_text())
     assert data == {"api_key": "sk_happy_path"}
@@ -123,5 +121,4 @@ def test_parent_directory_created_with_0700(tmp_path, monkeypatch):
     frw_login.main([], _input_provider=lambda prompt: "sk_nested")
 
     assert nested.exists()
-    parent_mode = stat.S_IMODE(os.stat(nested).st_mode)
-    assert parent_mode == 0o700
+    assert_file_mode(nested, 0o700)

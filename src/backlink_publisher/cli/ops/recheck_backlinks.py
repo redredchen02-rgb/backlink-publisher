@@ -207,10 +207,14 @@ def _probe_batch(candidates: list[dict]) -> list[dict]:
 
     from backlink_publisher.recheck.probe import recheck_link
 
-    deadline = time.monotonic() + _BATCH_BUDGET_S
+    # perf_counter (not monotonic): on some Windows builds monotonic() is
+    # GetTickCount64-backed with ~15.6ms resolution, coarse enough that a
+    # zero/near-zero budget can silently let several candidates through
+    # before the deadline check ever observes a strictly-later timestamp.
+    deadline = time.perf_counter() + _BATCH_BUDGET_S
     results: list[dict] = []
     for index, candidate in enumerate(candidates):
-        if time.monotonic() > deadline:
+        if time.perf_counter() > deadline:
             deferred = len(candidates) - index
             log.recon("recheck_budget_exhausted", probed=index, deferred=deferred)
             print(

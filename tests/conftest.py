@@ -282,6 +282,7 @@ _sandbox_home_dir = Path(tempfile.mkdtemp(prefix="bp-sandbox-home-"))
 
 # Snapshot every env var we are about to clobber (pop-or-reassign pattern).
 _prev_env_home = os.environ.get("HOME")
+_prev_env_userprofile = os.environ.get("USERPROFILE")
 _prev_env_config = os.environ.get("BACKLINK_PUBLISHER_CONFIG_DIR")
 _prev_env_cache = os.environ.get("BACKLINK_PUBLISHER_CACHE_DIR")
 _prev_env_sentinel = os.environ.get(SANDBOX_SENTINEL)
@@ -290,6 +291,11 @@ _prev_env_xdg_cache = os.environ.get("XDG_CACHE_HOME")
 
 # Redirect.
 os.environ["HOME"] = str(_sandbox_home_dir)
+if sys.platform == "win32":
+    # pathlib.Path.home() / os.path.expanduser("~") read USERPROFILE on
+    # Windows, not HOME — redirect it too or Path.home() still resolves to
+    # the operator's real profile dir during the test run.
+    os.environ["USERPROFILE"] = str(_sandbox_home_dir)
 # Sandbox sub-dirs for the two overrides — _isolate_user_dirs will later
 # replace these with its own mktemp dirs, but the sentinel and HOME must
 # be set from this earliest point so any module-level import that calls
@@ -319,6 +325,7 @@ def _restore_home_redirect() -> None:  # noqa: E302 (inside module body)
     """Restore HOME and related env vars; delete the sandbox tmpdir."""
     for key, prev in [
         ("HOME", _prev_env_home),
+        ("USERPROFILE", _prev_env_userprofile),
         ("BACKLINK_PUBLISHER_CONFIG_DIR", _prev_env_config),
         ("BACKLINK_PUBLISHER_CACHE_DIR", _prev_env_cache),
         (SANDBOX_SENTINEL, _prev_env_sentinel),
@@ -1356,4 +1363,35 @@ def _credential_tripwire():
             f"Fix: ensure the offending test uses the sandboxed _config_dir() "
             f"(via BACKLINK_PUBLISHER_CONFIG_DIR) rather than a hardcoded or "
             f"Path.home()-derived path."
+        )
+
+
+# ── Editable-install sanity check (Plan 2026-07-07-005 Unit 1) ───────────────
+#
+# The shared .venv's editable install of backlink-publisher can end up
+# pointing at a worktree that no longer exists (observed: it pointed at a
+# deleted `bp-main-reconcile` sibling worktree). pytest's own
+# `pythonpath = [".", "src"]` config masks this for in-process tests, so the
+# only symptom is ~20+ unrelated-looking `ModuleNotFoundError` failures in
+# tests that shell out to a fresh interpreter. Fail fast with one clear
+# message instead.
+_EXPECTED_PACKAGE_ROOT = Path(__file__).resolve().parent.parent / "src" / "backlink_publisher"
+
+
+def _editable_install_root(package_file: str) -> Path:
+    """Resolve the on-disk root a given ``backlink_publisher.__file__`` lives under."""
+    return Path(package_file).resolve().parent
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Session-start guard: the editable install must resolve inside this repo."""
+    import backlink_publisher
+
+    found_root = _editable_install_root(backlink_publisher.__file__)
+    if found_root != _EXPECTED_PACKAGE_ROOT:
+        pytest.exit(
+            f"editable install points outside this repo ({found_root}) — "
+            f"expected {_EXPECTED_PACKAGE_ROOT}. Run `pip install -e .` from "
+            f"backlink-publisher/ to repoint it.",
+            returncode=1,
         )

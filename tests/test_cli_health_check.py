@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import tempfile
 
 import pytest
@@ -111,6 +112,10 @@ class TestCredentialAudit:
             assert result["total"] == 1
             assert result["non_0600"] == 0
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_non_0600_detected(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             f = Path(td, "blogger-state.json")
@@ -120,6 +125,10 @@ class TestCredentialAudit:
             assert result["total"] == 1
             assert result["non_0600"] == 1
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="permission enforcement is a no-op on Windows by design — see _util/permissions.py",
+    )
     def test_fix_permissions(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             f = Path(td, "blogger-state.json")

@@ -54,11 +54,13 @@ def _db_stats(path: str | Path) -> dict[str, Any]:
     try:
         size_mb = round(p.stat().st_size / (1024 * 1024), 2)
         conn = sqlite3.connect(str(p))
-        row_count = conn.execute(
-            "SELECT COUNT(*) FROM events" if "events" in p.name
-            else "SELECT COUNT(*) FROM dedup"
-        ).fetchone()[0]
-        conn.close()
+        try:
+            row_count = conn.execute(
+                "SELECT COUNT(*) FROM events" if "events" in p.name
+                else "SELECT COUNT(*) FROM dedup"
+            ).fetchone()[0]
+        finally:
+            conn.close()
         return {"exists": True, "size_mb": size_mb, "rows": row_count, "error": None}
     except (sqlite3.Error, OSError) as exc:
         return {"exists": True, "size_mb": 0, "rows": 0, "error": str(exc)}
@@ -75,7 +77,14 @@ def _config_file_count(config_dir: str) -> int:
 def _credential_audit(
     config_dir: str, fix: bool = False
 ) -> dict[str, Any]:
-    """Scan credential files and report non-0600 permissions."""
+    """Scan credential files and report non-0600 permissions.
+
+    No-op on the mode check itself on Windows, where POSIX permission bits
+    aren't representable (see _util/permissions.py) -- os.stat().st_mode
+    there never reports 0o600 regardless of the file's real ACLs, so
+    without this guard every credential file would be misreported as
+    insecure on every Windows run.
+    """
     d = Path(config_dir)
     if not d.exists():
         return {"total": 0, "non_0600": 0, "files": []}
@@ -86,6 +95,8 @@ def _credential_audit(
         if not f.is_file() or not f.name.endswith(_CREDENTIAL_SUFFIXES):
             continue
         total += 1
+        if sys.platform == "win32":
+            continue
         try:
             mode = f.stat().st_mode & 0o777
             if mode != 0o600:

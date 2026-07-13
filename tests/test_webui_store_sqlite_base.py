@@ -19,6 +19,7 @@ import time
 
 import pytest
 
+from _mode_assertions import assert_file_mode
 from webui_store.base import Store
 from webui_store.sqlite_base import (
     _DB_FILENAME,
@@ -82,8 +83,7 @@ class TestWebUIDatabase:
         db = WebUIDatabase(tmp_path / "webui.db")
         with db.connect() as conn:
             conn.execute("CREATE TABLE IF NOT EXISTS t (x TEXT)")
-        stat = (tmp_path / "webui.db").stat()
-        assert oct(stat.st_mode & 0o777) == oct(0o600)
+        assert_file_mode(tmp_path / "webui.db", 0o600)
 
     def test_wal_sidecars_tightened_after_write(self, tmp_path):
         db = WebUIDatabase(tmp_path / "webui.db")
@@ -97,8 +97,7 @@ class TestWebUIDatabase:
         for suffix in ("-wal", "-shm"):
             side = tmp_path / ("webui.db" + suffix)
             if side.exists():
-                mode = side.stat().st_mode & 0o777
-                assert mode == 0o600, f"{side.name} perm {oct(mode)} != 0o600"
+                assert_file_mode(side, 0o600)
 
     def test_missing_db_created_on_first_access(self, tmp_path):
         deep = tmp_path / "sub" / "nested"
@@ -339,7 +338,7 @@ class TestBaseSqliteStoreTemplate:
         assert store.load() == [{"id": "x"}]
         migrated = tmp_path / "fake-rows.json.migrated"
         assert migrated.exists()
-        assert (migrated.stat().st_mode & 0o777) == 0o600
+        assert_file_mode(migrated, 0o600)
         assert (tmp_path / ".fake-rows-migrated-v1").exists()
 
     def test_migrate_corrupt_skips_no_sentinel(self, tmp_path):
