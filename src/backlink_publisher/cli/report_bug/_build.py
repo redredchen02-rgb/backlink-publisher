@@ -130,7 +130,7 @@ def _known_secret_values() -> frozenset[str]:
     long, non-path/url string values (whole-file opaque tokens, or JSON string
     leaves). Cached per process. Never raises.
     """
-    cache = getattr(_known_secret_values, "_cache", None)
+    cache: frozenset[str] | None = getattr(_known_secret_values, "_cache", None)
     if cache is not None:
         return cache
     secrets: set[str] = set()
@@ -224,7 +224,7 @@ def _safe(fn: Any, default: Any) -> Any:
 def _git_available() -> bool:
     """Cache whether ``git`` is installed, so we skip the spawn entirely when
     it isn't (avoids a slow/failing subprocess on bare machines)."""
-    cached = getattr(_git_available, "_cache", None)
+    cached: bool | None = getattr(_git_available, "_cache", None)
     if cached is not None:
         return cached
     try:
