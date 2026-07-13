@@ -19,8 +19,10 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 // __dir = .../backlink-publisher/frontend/src/__tests__
 const PAGES_DIR = resolve(__dir, '../pages')
 
+// EXEMPT: CampaignProgress — migrated to DataTable component (Task 7), which
+// provides .data-table/.data-table-wrap internally; those classes are not
+// visible in the page source and thus cannot satisfy source-text regex checks.
 const TARGET_PAGES = [
-  'CampaignProgress/CampaignProgressPage.vue',
   'EquityLedger/EquityLedgerPage.vue',
   'KeepAlive/KeepAlivePage.vue',
   'OptimizationStatus/OptimizationStatusPage.vue',
