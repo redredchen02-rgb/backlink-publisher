@@ -305,12 +305,18 @@ def list_history(
               ON e.id = (
                 SELECT e2.id FROM events e2
                 WHERE e2.article_id = a.article_id
+                  -- Display status derives from the latest PUBLISH event, not the
+                  -- latest event of any kind: a keep-alive link.rechecked shares the
+                  -- article_id and would otherwise become 'newest' and flip status to
+                  -- 'unknown' (audit finding [19]). Recheck verdicts are joined
+                  -- separately via _latest_verdicts for the dofollow badge.
+                  AND e2.kind IN (?, ?, ?)
                 ORDER BY e2.id DESC LIMIT 1
               )
             WHERE {article_filter}
             ORDER BY a.published_at_utc DESC
             LIMIT ?
-        """, (*article_params, limit)).fetchall()
+        """, (KIND_CONFIRMED, KIND_UNVERIFIED, KIND_FAILED, *article_params, limit)).fetchall()
         verdict_map = _latest_verdicts(conn)
 
     for row in rows:
@@ -393,9 +399,12 @@ def get_history_item(
              AND e.id = (
                SELECT MAX(e2.id) FROM events e2
                WHERE e2.article_id = a.article_id
+                 -- Latest PUBLISH event only; a link.rechecked must not hijack the
+                 -- displayed status to 'unknown' (audit finding [19]).
+                 AND e2.kind IN (?, ?, ?)
              )
             WHERE a.article_id = ? AND a.deleted_at IS NULL
-        """, (aid,)).fetchone()
+        """, (KIND_CONFIRMED, KIND_UNVERIFIED, KIND_FAILED, aid)).fetchone()
         verdict_map = _latest_verdicts(conn) if row is not None else None
 
     if row is None:

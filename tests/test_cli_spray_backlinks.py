@@ -167,6 +167,50 @@ def test_burst_aborts_when_audit_fails(tmp_path, monkeypatch):
     assert exc.value.code == 2
 
 
+def test_burst_all_publishes_fail_exits_2_not_0(tmp_path, monkeypatch):
+    """Audit passes but every shot fails to dispatch -> exit 2 (PartialFailure),
+    NOT exit 0 with success-looking stdout (audit finding [04]).
+
+    On the buggy code _run_burst hard-returns seed_failed=False/err_msg=None, so
+    seed_errors_list stays empty and main() falls through to exit 0 (returns
+    normally, raising no SystemExit) -- a 100%-publish-failure run indistinguishable
+    from full success to any exit-code-keyed wrapper.
+    """
+    _mock_llm(monkeypatch)
+    from backlink_publisher.cli.spray_backlinks._dispatch import DispatchSummary
+    # dispatch_burst reports EVERY shot failed (e.g. all creds expired / net down).
+    monkeypatch.setattr(
+        spray_core, "dispatch_burst",
+        lambda *a, **kw: DispatchSummary(failed=[("p0", "boom"), ("p1", "boom")]),
+    )
+    p0, p1 = _two_registered()
+    seed_path = _write_seed(tmp_path, _seed(p0))
+    with pytest.raises(SystemExit) as exc:
+        spray_backlinks.main([
+            "--input", seed_path, "--platforms", f"{p0},{p1}",
+            "--no-fetch-verify", "--dispatch", "burst",
+        ])
+    assert exc.value.code == 2
+
+
+def test_burst_partial_publish_failure_exits_2(tmp_path, monkeypatch):
+    """A seed with a mix of succeeded + failed shots is a PartialFailure -> exit 2."""
+    _mock_llm(monkeypatch)
+    from backlink_publisher.cli.spray_backlinks._dispatch import DispatchSummary
+    monkeypatch.setattr(
+        spray_core, "dispatch_burst",
+        lambda *a, **kw: DispatchSummary(succeeded=["p0"], failed=[("p1", "boom")]),
+    )
+    p0, p1 = _two_registered()
+    seed_path = _write_seed(tmp_path, _seed(p0))
+    with pytest.raises(SystemExit) as exc:
+        spray_backlinks.main([
+            "--input", seed_path, "--platforms", f"{p0},{p1}",
+            "--no-fetch-verify", "--dispatch", "burst",
+        ])
+    assert exc.value.code == 2
+
+
 def test_all_platforms_gated_out_exits_2(tmp_path, monkeypatch):
     # Every platform canary-degraded + no --force -> all soft-dropped -> exit 2.
     import backlink_publisher.canary.store as canary_store

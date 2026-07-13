@@ -11,7 +11,7 @@ from backlink_publisher.http import post as http_post
 from backlink_publisher.publishing.content_negotiation import extract_publish_html
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 HASHNODE_GQL_API = "https://gql.hashnode.com/"
@@ -121,6 +121,8 @@ class HashnodeGraphQLAdapter(Publisher):
                     "Hashnode PAT rejected (HTTP 401) — regenerate at "
                     "https://hashnode.com/settings/developer"
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code not in (200,):
                 raise ExternalServiceError(
                     f"Hashnode GraphQL returned HTTP {resp.status_code}: {resp.text[:200]}"
@@ -150,15 +152,13 @@ class HashnodeGraphQLAdapter(Publisher):
         try:
             published_url = retry_transient_call(
                 execute,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc)
-                        for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="hashnode",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"Hashnode rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (DependencyError, ExternalServiceError):
             raise
         # debt: hashnode-graphql-publish-boilerplate-accepted

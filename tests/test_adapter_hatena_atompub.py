@@ -91,6 +91,35 @@ def test_publish_returns_published_url(config_with_creds):
     assert b"<app:draft>no</app:draft>" in kwargs["data"]
 
 
+def _rate_limited_resp():
+    resp = MagicMock()
+    resp.status_code = 429
+    resp.text = "rate limited"
+    return resp
+
+
+def test_publish_retries_on_429_then_succeeds(config_with_creds):
+    """A 429 (pre-create rate-limit) must trigger backoff+retry, not hard-fail.
+
+    Audit finding [06]: the adapter raised ExternalServiceError for 429, which
+    retry_transient_call short-circuits BEFORE consulting is_retryable — so the
+    documented 'retry ONLY a 429' never fired. The fix raises TransientError(429)
+    so backoff runs, converting an exhausted TransientError back to
+    ExternalServiceError at the call site.
+    """
+    with patch("backlink_publisher.publishing.adapters.retry.time.sleep") as sleep, \
+         patch(_POST, side_effect=[_rate_limited_resp(), _created_resp()]) as post:
+        result = HatenaAtomPubAdapter().publish(
+            _payload(), "publish", config_with_creds
+        )
+    assert result.status == "published"
+    assert (
+        result.published_url == "https://alice.hatenablog.com/entry/2026/05/29/120000"
+    )
+    assert post.call_count == 2, "429 must be retried once (backoff), not hard-failed"
+    assert sleep.call_count == 1, "a backoff sleep must run between the two attempts"
+
+
 def test_draft_mode_reports_drafted(config_with_creds):
     with patch(_POST, return_value=_created_resp()) as post:
         result = HatenaAtomPubAdapter().publish(_payload(), "draft", config_with_creds)

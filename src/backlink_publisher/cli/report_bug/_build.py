@@ -251,11 +251,16 @@ def build_env_snapshot() -> dict[str, Any]:
         pkg_version = "unknown (editable/untagged install)"
 
     env_names = sorted(os.environ.keys())
-    blp_vars = {
-        k: os.environ.get(k)
+    # Audit finding [05]: NAMES ONLY. BACKLINK_/BLP_ env vars routinely hold
+    # secrets (BACKLINK_LLM_API_KEY, BACKLINK_PROXY with inline creds, ...), and
+    # _redact_in_place cannot mask them — it matches exact sensitive keys, not
+    # full prefixed names. The report is advertised as safe-to-share and
+    # config_echo surfaces these as names/set/unset only. Emit names, not values.
+    blp_var_names = [
+        k
         for k in env_names
         if k.startswith("BLP_") or k.startswith("BACKLINK_")
-    }
+    ]
 
     git_branch = "unknown"
     git_sha = "unknown"
@@ -287,7 +292,7 @@ def build_env_snapshot() -> dict[str, Any]:
         "git_branch": git_branch,
         "git_sha": git_sha,
         "env_var_count": len(env_names),
-        "backlink_env_vars": blp_vars,
+        "backlink_env_vars": blp_var_names,
         "env_var_names": env_names,
     }
 
@@ -569,11 +574,11 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- config_dir: `{env.get('config_dir')}`", f"- cache_dir: `{env.get('cache_dir')}`",
                 f"- git: `{env.get('git_branch')}` @ `{env.get('git_sha')}`",
                 f"- env_var_count: `{env.get('env_var_count')}`"]
-    blp = env.get("backlink_env_vars") or {}
+    blp = env.get("backlink_env_vars") or []
     if blp:
-        env_lines.append("- backlink env vars:")
-        for k, v in blp.items():
-            env_lines.append(f"    - `{k}={v}`")
+        env_lines.append("- backlink env vars (names only):")
+        for k in blp:
+            env_lines.append(f"    - `{k}`")
     lines.append(_md_section("環境 (Environment)", "\n".join(env_lines) + "\n"))
 
     # Config snapshot

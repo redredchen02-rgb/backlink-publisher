@@ -49,6 +49,41 @@ def _sample_input() -> ReportInput:
     )
 
 
+# ── env-var value leak (audit finding [05]) ──────────────────────────────────
+
+
+class TestBacklinkEnvVarValuesNotLeaked:
+    def test_values_never_leak_names_kept(self, monkeypatch) -> None:
+        """BACKLINK_/BLP_ env vars are emitted as NAMES ONLY; their values
+        (frequently API keys / proxy creds) must appear nowhere in the
+        safe-to-share report, since _redact_in_place cannot mask full prefixed
+        names. The names themselves stay (useful: which config vars are set)."""
+        secret = "sk-leaktest-DO-NOT-SHARE-9f9f9f"
+        monkeypatch.setenv("BACKLINK_LLM_API_KEY", secret)
+        monkeypatch.setenv("BLP_PROXY", "http://leakuser:leakpass@proxy.example")
+
+        report = build_report(_sample_input(), redact=True)
+        env = report["environment"]
+
+        # NAMES survive (membership works for both list and dict shapes).
+        assert "BACKLINK_LLM_API_KEY" in env["backlink_env_vars"]
+        assert "BLP_PROXY" in env["backlink_env_vars"]
+
+        # VALUES must appear NOWHERE — structured report or rendered markdown.
+        blob = json.dumps(report) + "\n" + render_markdown(report)
+        assert secret not in blob, "BACKLINK_ env-var value leaked into report"
+        assert "leakuser:leakpass" not in blob, "BLP_ env-var value leaked"
+
+    def test_values_absent_even_with_no_redact(self, monkeypatch) -> None:
+        """--no-redact only opts out of free-text scrubbing; env-var VALUES were
+        never meant to be captured at all, so they stay out regardless."""
+        secret = "sk-noredact-leaktest-1234abcd"
+        monkeypatch.setenv("BACKLINK_LLM_API_KEY", secret)
+        report = build_report(_sample_input(), redact=False)
+        blob = json.dumps(report) + "\n" + render_markdown(report)
+        assert secret not in blob
+
+
 # ── assembly ─────────────────────────────────────────────────────────────────
 
 

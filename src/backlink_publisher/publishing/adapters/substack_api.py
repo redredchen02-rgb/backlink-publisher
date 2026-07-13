@@ -11,7 +11,7 @@ from backlink_publisher.publishing.content_negotiation import extract_publish_ht
 from backlink_publisher.publishing.registry import get_platform_throttle_seconds, Publisher
 from backlink_publisher.publishing.session import DefaultCredentialProvider, SessionManager
 
-from .base import AdapterResult
+from .base import AdapterResult, TransientError
 from .retry import retry_transient_call, RETRYABLE_HTTP_STATUSES
 
 _HTTP_TIMEOUT_S = 30
@@ -112,6 +112,8 @@ class SubstackAPIAdapter(Publisher):
                     f"Substack API rejected (HTTP {resp.status_code}) — "
                     "cookies expired. Re-export cookies from substack.com."
                 )
+            if resp.status_code in RETRYABLE_HTTP_STATUSES:
+                raise TransientError(resp.status_code)
             if resp.status_code not in (200, 201):
                 raise ExternalServiceError(
                     f"Substack API returned HTTP {resp.status_code}: {resp.text[:200]}"
@@ -137,15 +139,13 @@ class SubstackAPIAdapter(Publisher):
         try:
             published_url = retry_transient_call(
                 execute,
-                is_retryable=lambda exc: (
-                    isinstance(exc, ExternalServiceError)
-                    and any(
-                        f"HTTP {code}" in str(exc)
-                        for code in RETRYABLE_HTTP_STATUSES
-                    )
-                ),
+                is_retryable=lambda exc: isinstance(exc, TransientError),
                 adapter="substack",
             )
+        except TransientError as exc:
+            raise ExternalServiceError(
+                f"Substack rate-limited (HTTP {exc.status_code})"
+            ) from exc
         except (DependencyError, ExternalServiceError):
             raise
         # debt: substack-api-publish-boilerplate-accepted
