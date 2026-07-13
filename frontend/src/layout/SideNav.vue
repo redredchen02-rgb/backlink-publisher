@@ -14,18 +14,27 @@
 // when mounted without an AppShell ancestor (e.g. SideNav.spec.ts), so
 // existing tests are unaffected.
 import { inject, onMounted, ref } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
 import {
   GROUP_LABELS,
   GROUP_ORDER,
   isMigrated,
   itemsByGroup,
 } from './navItems'
+import { monitorSummary } from '../api/monitor'
+import Icon from '../components/Icon.vue'
 import { SIDENAV_DRAWER_KEY, useSidenavDrawer } from '../composables/useSidenavDrawer'
 
 const drawer = inject(SIDENAV_DRAWER_KEY, () => useSidenavDrawer(), true)
 const navEl = ref<HTMLElement | null>(null)
 onMounted(() => {
   drawer.drawerEl.value = navEl.value
+})
+
+const anomaly = useQuery({
+  queryKey: ['monitor-summary-anomaly'],
+  queryFn: monitorSummary,
+  refetchInterval: 60_000,
 })
 
 // Fix (code review, Plan 2026-07-01-001 U4 follow-up): clicking a nav link
@@ -63,7 +72,15 @@ function onNavClick() {
             exact-active-class="is-active"
             aria-current-value="page"
           >
+            <Icon v-if="item.icon" :name="item.icon" class="sidenav__icon" aria-hidden="true" />
             {{ item.label }}
+            <span
+              v-if="item.icon === 'grid-1x2-fill' && anomaly.data.value?.anomaly_count"
+              class="sidenav__badge"
+              :title="`${anomaly.data.value.anomaly_count} 个异常`"
+            >
+              {{ anomaly.data.value.anomaly_count }}
+            </span>
           </RouterLink>
           <a
             v-else
@@ -107,7 +124,9 @@ function onNavClick() {
   padding: 0;
 }
 .sidenav__link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: var(--control-pad-y) var(--control-pad-x);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -129,6 +148,21 @@ function onNavClick() {
 }
 .sidenav__legacy-mark {
   opacity: 0.7;
+}
+.sidenav__icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+.sidenav__badge {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-weight: var(--font-weight-semibold);
 }
 
 /* Off-canvas drawer below 1024px — mirrors legacy global_nav.css's
