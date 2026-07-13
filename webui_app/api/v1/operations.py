@@ -89,6 +89,9 @@ def create_operation() -> Any:
     try:
         worker.start(op_id, kind, cfg)
     except Exception as exc:  # noqa: BLE001 — AlreadyRunningError etc.
+        current_app.logger.warning(
+            "operation %s (%s) failed to start: %s", op_id, kind, exc
+        )
         operation_store.update_fields(op_id, status="failed", error=str(exc))
         raise ApiProblem(
             409, "Operation not started",

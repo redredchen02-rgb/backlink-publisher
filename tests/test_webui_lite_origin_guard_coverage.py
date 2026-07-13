@@ -143,7 +143,7 @@ def test_guarded_route_allows_loopback_origin(client, rule, method, form_data):
 # count is kept as an informational inventory of inline-guard adoption, not a
 # documented hole — the runtime protection is asserted unconditionally there.
 
-_CSRF_ONLY_SNAPSHOT_COUNT = 104  # routes with CSRF but no inline Origin guard as of 2026-07-07
+_CSRF_ONLY_SNAPSHOT_COUNT = 109  # as of 2026-07-13: +5 /api/v1 routes (operations create/cancel, onboarding dismiss/reset, error-reports/export-bundle) — all covered by _global_origin_guard + _global_csrf_guard like the rest of api_v1; inline-guard adoption unchanged
 # +1 (100->101): W4 history/undelete (merged via integration/w4-w5-w10-w13-reintegrate-u5)
 # +3 (101->104): Plan 2026-07-02-001 U6 — POST /api/v1/health/actions/pause,
 # POST /api/v1/health/actions/reverify, POST /api/v1/health/actions/circuit-reset.

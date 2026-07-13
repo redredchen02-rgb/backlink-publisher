@@ -30,7 +30,6 @@ def app(tmp_path, monkeypatch):
     a = create_app(start_scheduler=False)
     a.config["TESTING"] = True
     a.config["PROPAGATE_EXCEPTIONS"] = False
-    a.config["SESSION_COOKIE_SECURE"] = False
     yield a
 
     error_report_store.reset()

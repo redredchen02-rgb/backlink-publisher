@@ -78,8 +78,8 @@ ceiling = 380
 rationale = "Dedup operations: URL normalization, content hash comparison, duplicate detection across platform runs. SLOC 350. Ceiling 380 = round_up_to_10(350+30) per policy."
 
 [files."webui_app/api/v1/schemas.py"]
-ceiling = 680
-rationale = "OpenAPI request/response schemas: typed payload models for pipeline, settings, channel bind, OAuth, LLM config endpoints. Pure declarative schemas aligned with spec.py. SLOC 474. Ceiling 500 = round_up_to_10(474+30) per policy. Plan 2026-07-02-001 U6 (2026-07-06): health-dashboard schemas +52 SLOC (merged 526). Plan 2026-07-06-004 Unit 2: MonitorCardItemSchema +29 SLOC; U5/W4 merge: HistoryItemSchema deleted_at + deleted/skipped fields +25 SLOC. Combined 582. Ceiling 620 re-baselined 2026-07-09: concurrent-branch endpoint merges (incl. onboarding) grew the file to 643 SLOC, exceeding 620; ceiling 680 = round_up_to_10(643+30) per ratchet policy, headroom 37."
+ceiling = 640
+rationale = "OpenAPI request/response schemas: typed payload models for pipeline, settings, channel bind, OAuth, LLM config endpoints. Pure declarative schemas aligned with spec.py. SLOC 474. Ceiling 500 = round_up_to_10(474+30) per policy. Plan 2026-07-02-001 U6 (2026-07-06): health-dashboard schemas +52 SLOC (merged 526). Plan 2026-07-06-004 Unit 2: MonitorCardItemSchema +29 SLOC; U5/W4 merge: HistoryItemSchema deleted_at + deleted/skipped fields +25 SLOC. Combined 582. Ceiling 620 re-baselined 2026-07-09: concurrent-branch endpoint merges (incl. onboarding) grew the file to 643 SLOC, exceeding 620; ceiling 680 = round_up_to_10(643+30) per ratchet policy, headroom 37. Re-tightened 2026-07-13 after the concurrent branches actually merged: measured SLOC=603 (some pre-counted endpoint schemas landed smaller), ceiling 640 = round_up_to_10(603+30)."
 
 [files."webui_app/routes/sites.py"]
 ceiling = 410
@@ -257,8 +257,8 @@ ceiling = 810
 rationale = "Plan 2026-06-16-003 (2026-06-16): added indexation_status() and ranking_trend() query functions (+85 SLOC). Also registers this file explicitly since webui_app/ is not auto-scanned. SLOC after change: 330. Ceiling 370 = round_up_to_10(330+30) per policy. (re-seeded 2026-07-06 post-reconcile-merge: SLOC=774, ceiling 810 = round_up_to_10(774+30))"
 
 [files."webui_app/api/v1/spec.py"]
-ceiling = 1790
-rationale = "OpenAPI 3.1 contract spec.py. Grows per migrated endpoint group. Plan 2026-07-02-001 U6 adds health-dashboard endpoints (+~70 SLOC to merged 1507). Ceiling 1650 = round_up_to_10(1507+70+30) per policy. Concurrent-branch merge: U6 + U5 pagination + U4 Unit 2 MonitorCardItemSchema + W4 soft-delete. Re-seeded 2026-07-07: actual SLOC=1652 after further concurrent merges, ceiling 1690. Re-baselined 2026-07-09: further concurrent-branch endpoint merges (incl. onboarding) pushed actual SLOC to 1753, exceeding 1690; ceiling 1790 = round_up_to_10(1753+30) per ratchet policy, headroom 37."
+ceiling = 1690
+rationale = "OpenAPI 3.1 contract spec.py. Grows per migrated endpoint group. Plan 2026-07-02-001 U6 adds health-dashboard endpoints (+~70 SLOC to merged 1507). Ceiling 1650 = round_up_to_10(1507+70+30) per policy. Concurrent-branch merge: U6 + U5 pagination + U4 Unit 2 MonitorCardItemSchema + W4 soft-delete. Re-seeded 2026-07-07: actual SLOC=1652 after further concurrent merges, ceiling 1690. Re-baselined 2026-07-09: further concurrent-branch endpoint merges (incl. onboarding) pushed actual SLOC to 1753, exceeding 1690; ceiling 1790 = round_up_to_10(1753+30) per ratchet policy, headroom 37. Re-tightened 2026-07-13 after the concurrent branches actually merged: measured SLOC=1652, ceiling 1690 = round_up_to_10(1652+30)."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Plan 2026-07-06-002 Unit B1: hidden-debt hardening sweep — SLOC budget
@@ -326,12 +326,12 @@ rationale = "Plan 2026-07-09-001 (onboarding wizard): transport-neutral Onboardi
 # Plan 2026-07-09-001 (error/bug-report system): capture any failure into a
 # self-contained, secret-redacted bundle for handing to a coding agent.
 [files."src/backlink_publisher/cli/report_bug/_build.py"]
-ceiling = 380
-rationale = "Plan 2026-07-09-001 (error/bug-report system): core assembly of the coding-agent-ready diagnostic bundle — environment/config/health/recent-runs snapshots, typed-error section, free-text + structured redaction, error-class self-diagnosis, and Markdown/JSON rendering. Reused by both the bp-report-bug CLI and the WebUI export-bundle endpoint. Measured SLOC=349. Ceiling 380 = round_up_to_10(349+30) per ratchet policy."
+ceiling = 520
+rationale = "Plan 2026-07-09-001 (error/bug-report system): core assembly of the coding-agent-ready diagnostic bundle — environment/config/health/recent-runs snapshots, typed-error section, free-text + structured redaction, error-class self-diagnosis, and Markdown/JSON rendering. Reused by both the bp-report-bug CLI and the WebUI export-bundle endpoint. Measured SLOC=349. Ceiling 380 = round_up_to_10(349+30) per ratchet policy. Re-measured 2026-07-13 at merge time: the branch's ce-code-review fix round (P1 security/correctness) plus render_markdown remediation-hint expansion grew the file to SLOC=486 before it ever landed; ceiling 520 = round_up_to_10(486+30)."
 
 [files."src/backlink_publisher/cli/report_bug/main.py"]
-ceiling = 170
-rationale = "Plan 2026-07-09-001 (error/bug-report system): bp-report-bug CLI entrypoint — --wrap subprocess capture (stdout passthrough, stderr buffered), --stderr-file / stdin capture, interactive describe prompt, and report write (0600) with JSONL stdout plus human stderr summary. Measured SLOC=134. Ceiling 170 = round_up_to_10(134+30) per ratchet policy."
+ceiling = 260
+rationale = "Plan 2026-07-09-001 (error/bug-report system): bp-report-bug CLI entrypoint — --wrap subprocess capture (stdout passthrough, stderr buffered), --stderr-file / stdin capture, interactive describe prompt, and report write (0600) with JSONL stdout plus human stderr summary. Measured SLOC=134. Ceiling 170 = round_up_to_10(134+30) per ratchet policy. Re-measured 2026-07-13 at merge time: --wrap run-id extraction, exit-code passthrough and the code-review fix round grew the entrypoint to SLOC=223 before it ever landed; ceiling 260 = round_up_to_10(223+30)."
 
 [files."webui_app/api/v1/error_report_bundle.py"]
 ceiling = 120

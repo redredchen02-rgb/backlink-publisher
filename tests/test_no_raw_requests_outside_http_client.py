@@ -40,40 +40,20 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #
 # Format: "relative/path.py:<lineno>" -> "reason"
 ALLOWLIST: dict[str, str] = {
-    # --- LLM proxy paths: stream=True + allow_redirects=False semantics that
-    #     http_client's raise_for_status/retry contract would break. These guard
-    #     operator API keys against redirect exfiltration; the bespoke redirect
-    #     handling is the load-bearing behaviour, not a convenience.
-    "src/backlink_publisher/llm/http_guard.py:103": (
-        "LLM outbound guard: needs stream=True + allow_redirects=False to refuse "
-        "redirects before any body is read; http_client follows redirects and "
-        "raises on non-2xx, both incompatible with the redirect-rejection gate."
-    ),
     # Note: chrome_backend.py uses self._requests (a Chrome DevTools session
     # object), NOT the top-level requests module, so the gate's regex never
     # matches it — no allowlist entry needed.
     # --- http_probe / http_client themselves: they ARE the SSRF-safe layer.
     #     (http_probe migrated to a module-level requests.Session — its former
     #     raw requests.get sites at :82/:102 no longer exist, entries removed.)
-    # --- Form-POST publish path: structurally cannot use the shared http_client,
-    #     because that client retries POSTs (would duplicate a non-idempotent live
-    #     backlink) and retries 503 (which IS the anti-bot challenge signal this
-    #     path must observe). SSRF — the one thing http_client would add — is
-    #     enforced inline via _guard_ssrf(). Not a migration backlog item.
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:124": (
-        "Form-GET whose 503/403 status IS the anti-bot challenge signal "
-        "(detect_challenge). http_client's urllib3 Retry has 503 in its "
-        "status_forcelist, so it would retry then mask the 503 as an opaque "
-        "error — the challenge would never be observed. SSRF is enforced inline "
-        "via _guard_ssrf(); raw requests is required for challenge visibility."
-    ),
-    "src/backlink_publisher/publishing/adapters/http_form_post.py:189": (
-        "Create-exactly-once form POST (non-idempotent; a retry risks a "
-        "DUPLICATE live backlink — P2 fix). http_client retries POSTs on "
-        "429/5xx + connection errors, which would violate that contract. SSRF "
-        "is enforced inline via _guard_ssrf(); raw requests is required to keep "
-        "the single-attempt + 503-challenge semantics."
-    ),
+    # --- llm/http_guard.py migrated to a module-level requests.Session
+    #     (LLM session reuse); its former raw requests.post site at :103 no
+    #     longer exists, entry removed. The stream=True + allow_redirects=False
+    #     redirect-rejection semantics live on unchanged via the session.
+    # --- http_form_post.py migrated to a per-host requests.Session pool (C3);
+    #     its former raw sites at :124/:189 no longer exist, entries removed.
+    #     The single-attempt / 503-challenge-visibility semantics live on
+    #     unchanged via the pooled session (no urllib3 Retry mounted).
     # --- LLM diagnostics _safe_get_json: stream=True + allow_redirects=False
     #     redirect-rejection gate, same structural rationale as http_guard.py:103.
     #     The redirect-bearing header would leak the api_key; http_client follows
