@@ -35,7 +35,6 @@ const TABLE_TOLERANCE = new Set([
   'EquityLedger/EquityLedgerPage.vue',
   'ErrorReports/ErrorReportsPage.vue',
   'KeepAlive/KeepAlivePage.vue',
-  'Operations/OperationsPage.vue',
   'OptimizationStatus/OptimizationStatusPage.vue',
   'PrQueue/PrQueuePage.vue',
   'Schedule/SchedulePage.vue',

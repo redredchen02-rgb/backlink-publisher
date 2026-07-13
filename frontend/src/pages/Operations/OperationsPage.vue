@@ -10,7 +10,7 @@ import { listOperations, type OperationList } from '../../api/operations'
 import { usePolledQuery } from '../../composables/usePolledQuery'
 import { useOperationsStore } from '../../stores/operations'
 import StatusBadge from '../../components/StatusBadge.vue'
-import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
 
 const router = useRouter()
 const opsStore = useOperationsStore()
@@ -22,14 +22,9 @@ const query = usePolledQuery<OperationList>({
   isTerminal: () => false, // dashboard: keep polling while mounted
 })
 
-const list = computed(() => query.data.value?.operations ?? [])
-
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (query.isPending.value && !query.data.value) return 'loading'
-  if (query.data.value) return 'ready'
-  if (query.isError.value) return 'error'
-  return 'empty'
-})
+const list = computed(() =>
+  (query.data.value?.operations ?? []).map((o) => ({ ...o, id: o.op_id })),
+)
 
 // Keep the sidenav badge in sync with how many ops are in flight.
 const activeCount = computed(
@@ -56,61 +51,55 @@ function openDetail(opId: string): void {
       <span class="text-muted small">进行中：{{ activeCount }}</span>
     </header>
 
-    <StateBlock
-      :state="blockState"
-      :error="query.error.value"
+    <DataTable
+      :items="list"
+      :loading="query.isPending.value"
+      :error="query.isError.value ? query.error.value : undefined"
       empty-text="还没有任务。"
+      caption="后台任务列表"
+      row-keyboard-nav
+      row-click-activate
       @retry="query.refetch()"
+      @row-activate="(op) => openDetail(op.op_id)"
     >
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-          <thead>
-            <tr>
-              <th>状态</th>
-              <th>类型</th>
-              <th>当前阶段</th>
-              <th>进度</th>
-              <th>创建时间</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="op in list"
-              :key="op.op_id"
-              class="op-row"
-              tabindex="0"
-              role="button"
-              @click="openDetail(op.op_id)"
-              @keyup.enter="openDetail(op.op_id)"
-            >
-              <td><StatusBadge :status="op.status" /></td>
-              <td>{{ kindLabel[op.kind] || op.kind }}</td>
-              <td>{{ op.stage || '—' }}</td>
-              <td style="min-width: 140px">
-                <div class="progress" style="height: 14px">
-                  <div
-                    class="progress-bar"
-                    :class="{ 'progress-bar-striped progress-bar-animated': op.running }"
-                    :style="{ width: Math.round(op.progress_pct) + '%' }"
-                  />
-                </div>
-              </td>
-              <td class="text-muted small">{{ op.created_at }}</td>
-              <td><span class="btn btn-sm btn-link">详情 →</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </StateBlock>
+      <template #head>
+        <th>状态</th>
+        <th>类型</th>
+        <th>当前阶段</th>
+        <th>进度</th>
+        <th>创建时间</th>
+        <th><span class="sr-only">操作</span></th>
+      </template>
+      <template #row="{ row: op }">
+        <td><StatusBadge :status="op.status" /></td>
+        <td>{{ kindLabel[op.kind] || op.kind }}</td>
+        <td>{{ op.stage || '—' }}</td>
+        <td style="min-width: 140px">
+          <div class="progress" style="height: 14px">
+            <div
+              class="progress-bar"
+              :class="{ 'progress-bar-striped progress-bar-animated': op.running }"
+              :style="{ width: Math.round(op.progress_pct) + '%' }"
+            />
+          </div>
+        </td>
+        <td class="col-date">{{ op.created_at }}</td>
+        <td><RouterLink :to="`/operations/${op.op_id}`" @click.stop>详情 →</RouterLink></td>
+      </template>
+    </DataTable>
   </section>
 </template>
 
 <style scoped>
-.op-row {
-  cursor: pointer;
-}
-.op-row:focus-visible {
-  outline: 2px solid var(--primary);
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>
