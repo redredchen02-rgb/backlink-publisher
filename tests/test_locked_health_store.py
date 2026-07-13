@@ -106,7 +106,7 @@ def _worker(config_dir: str, platform: str, value: int, result_queue):
     result_queue.put(value)
 
 
-def test_concurrent_writes_no_lost_update(tmp_path):
+def test_concurrent_writes_no_lost_update(tmp_path, monkeypatch):
     """Two processes writing different platforms do not corrupt each other."""
     result_queue = multiprocessing.Queue()
     p1 = multiprocessing.Process(
@@ -124,8 +124,11 @@ def test_concurrent_writes_no_lost_update(tmp_path):
     assert p1.exitcode == 0
     assert p2.exitcode == 0
 
-    # Read back both values — neither should be lost.
-    os.environ["BACKLINK_PUBLISHER_CONFIG_DIR"] = str(tmp_path)
+    # Read back both values — neither should be lost. monkeypatch (not bare
+    # os.environ) so the session-scoped config-dir fixture isn't poisoned —
+    # see docs/solutions/test-failures/del-os-environ-poisons-session-scoped-
+    # config-dir-fixture-2026-05-27.md.
+    monkeypatch.setenv("BACKLINK_PUBLISHER_CONFIG_DIR", str(tmp_path))
     from backlink_publisher.config import load_config
     cfg = load_config()
     assert locked_store.get("medium", cfg)["consecutive_failures"] == 10

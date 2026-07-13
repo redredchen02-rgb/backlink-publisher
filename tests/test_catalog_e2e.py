@@ -53,6 +53,14 @@ def _mock_submit_resp(url: str = "https://test.example.com/posts/abc123") -> Mag
     return resp
 
 
+def _mock_session(post_resp: MagicMock) -> MagicMock:
+    """Fake per-host session — http_form_post posts via _session_for_host(url).post
+    (per-host requests.Session pool, C3), not module-level requests.post."""
+    sess = MagicMock()
+    sess.post.return_value = post_resp
+    return sess
+
+
 class TestConfigDrivenAdapterE2E:
     """End-to-end dispatch through ConfigDrivenAdapter.publish()."""
 
@@ -80,8 +88,8 @@ class TestConfigDrivenAdapterE2E:
         mock_resp = _mock_submit_resp(expected_url)
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
-            return_value=mock_resp,
+            "backlink_publisher.publishing.adapters.http_form_post._session_for_host",
+            return_value=_mock_session(mock_resp),
         ), patch(
             "backlink_publisher.publishing.adapters.http_form_post.verify_link_attributes",
             return_value={"dofollow": True},
@@ -104,8 +112,8 @@ class TestConfigDrivenAdapterE2E:
         mock_resp = _mock_submit_resp(expected_url)
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
-            return_value=mock_resp,
+            "backlink_publisher.publishing.adapters.http_form_post._session_for_host",
+            return_value=_mock_session(mock_resp),
         ):
             result = adapter.publish(payload, mode="draft", config=_mock_config())
 
@@ -124,8 +132,8 @@ class TestConfigDrivenAdapterE2E:
         mock_resp.headers = {}
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
-            return_value=mock_resp,
+            "backlink_publisher.publishing.adapters.http_form_post._session_for_host",
+            return_value=_mock_session(mock_resp),
         ):
             with pytest.raises(ExternalServiceError):
                 adapter.publish(payload, mode="live", config=_mock_config())
@@ -165,8 +173,8 @@ class TestConfigDrivenAdapterE2E:
         mock_resp.json.return_value = {"data": {"url": "https://test.example.com/posts/json1"}}
 
         with patch(
-            "backlink_publisher.publishing.adapters.http_form_post.requests.post",
-            return_value=mock_resp,
+            "backlink_publisher.publishing.adapters.http_form_post._session_for_host",
+            return_value=_mock_session(mock_resp),
         ), patch(
             "backlink_publisher.publishing.adapters.http_form_post.verify_link_attributes",
             return_value={},
