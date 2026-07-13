@@ -190,7 +190,7 @@ watch(
   flex: 0 0 1.75rem;
   height: 1.75rem;
   border-radius: 50%;
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   display: inline-flex;
   align-items: center;
