@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # -- flock guard (prevent overlapping runs) ---------------------------------
     lock_path = Path(cfg.config_dir) / "probe-index.lock"
-    lock_fh = open(lock_path, "w")
+    lock_fh = open(lock_path, "w", encoding="utf-8")
     try:
         fcntl.flock(lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:

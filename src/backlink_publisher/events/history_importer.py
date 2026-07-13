@@ -31,7 +31,7 @@ def _has_migrated() -> bool:
 
 def _mark_migrated() -> None:
     from datetime import datetime, UTC
-    _sentinel_path().write_text(datetime.now(UTC).isoformat())
+    _sentinel_path().write_text(datetime.now(UTC).isoformat(), encoding="utf-8")
 
 
 def import_history_to_events() -> None:

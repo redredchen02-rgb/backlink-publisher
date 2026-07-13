@@ -44,7 +44,7 @@ def _compute_asset_version(static_folder: str | None) -> str:
     # Check persisted stamp first
     try:
         if version_file.exists():
-            return version_file.read_text().strip() or "0"
+            return version_file.read_text(encoding="utf-8").strip() or "0"
     except OSError:
         pass
 
@@ -56,14 +56,14 @@ def _compute_asset_version(static_folder: str | None) -> str:
         import subprocess as _sp
         result = _sp.run(
             ["git", "rev-parse", "--short=12", "HEAD"],
-            capture_output=True, text=True, timeout=2.0,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=2.0,
             cwd=os.path.dirname(static_folder) if static_folder else None,
         )
         if result.returncode == 0:
             ver = result.stdout.strip()
             if ver:
                 version_file.parent.mkdir(parents=True, exist_ok=True)
-                version_file.write_text(ver)
+                version_file.write_text(ver, encoding="utf-8")
                 return ver
     except (OSError, _sp.TimeoutExpired):
         pass
@@ -79,7 +79,7 @@ def _compute_asset_version(static_folder: str | None) -> str:
                     continue
         ver = format(latest, "x") or "0"
         version_file.parent.mkdir(parents=True, exist_ok=True)
-        version_file.write_text(ver)
+        version_file.write_text(ver, encoding="utf-8")
         return ver
     except OSError:
         return "0"

@@ -95,7 +95,7 @@ def _scrape_publish_history() -> list[str]:
         from backlink_publisher.config.loader import _config_dir
         hist = _config_dir() / "publish-history.json"
         if hist.exists():
-            data = json.loads(hist.read_text())
+            data = json.loads(hist.read_text(encoding="utf-8"))
             if isinstance(data, list):
                 lines.append(_gauge("bp_publish_history_entries_total", len(data)))
     except Exception:

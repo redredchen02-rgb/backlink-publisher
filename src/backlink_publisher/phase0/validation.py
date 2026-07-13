@@ -142,7 +142,7 @@ def find_main_worktree_root(start: Path | None = None) -> Path:
     try:
         out = subprocess.run(
             ["git", "worktree", "list", "--porcelain"],
-            cwd=cwd, capture_output=True, text=True, check=True,
+            cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
         ).stdout
     except (subprocess.CalledProcessError, FileNotFoundError):
         out = ""
@@ -156,7 +156,7 @@ def find_main_worktree_root(start: Path | None = None) -> Path:
     try:
         common = subprocess.run(
             ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            cwd=cwd, capture_output=True, text=True, check=True,
+            cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
         ).stdout.strip()
         if common:
             return Path(common).parent.resolve()
@@ -414,7 +414,7 @@ def _run_gh(*args: str, timeout: float = 30.0) -> dict:
     """
     cmd = ["gh", "api", *args]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     except FileNotFoundError as exc:
         raise GhNotInstalledError(
             "`gh` CLI not found on PATH; install from https://cli.github.com/"

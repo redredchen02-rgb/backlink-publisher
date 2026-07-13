@@ -141,7 +141,7 @@ def _get_velog_status() -> dict:
             }
 
         try:
-            raw = json.loads(cookies_path.read_text())
+            raw = json.loads(cookies_path.read_text(encoding="utf-8"))
             cookie_list = raw.get('cookies', [])
             if not cookie_list:
                 return {

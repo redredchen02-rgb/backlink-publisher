@@ -156,7 +156,7 @@ def _read_all_seal_notes(repo_root: Path) -> list[tuple[str, dict]]:
     """Return [(object_sha, body_dict)] for every note in the phase0-seal namespace."""
     proc = subprocess.run(
         ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "list"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if proc.returncode != 0 or not proc.stdout.strip():
         return []
@@ -168,7 +168,7 @@ def _read_all_seal_notes(repo_root: Path) -> list[tuple[str, dict]]:
         _blob_sha, obj_sha = parts
         show = subprocess.run(
             ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "show", obj_sha],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         if show.returncode != 0:
             continue
@@ -329,7 +329,7 @@ def _handle_reseal(args: argparse.Namespace) -> int:
         if old_sha == new_sha:
             proc = subprocess.run(
                 ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-f", "-m", new_body_str, new_sha],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
             if proc.returncode != 0:
                 print(f"phase0-seal reseal: failed to overwrite note at {new_sha}: {proc.stderr.strip()}", file=sys.stderr)
@@ -337,21 +337,21 @@ def _handle_reseal(args: argparse.Namespace) -> int:
         else:
             proc = subprocess.run(
                 ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-m", new_body_str, new_sha],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
             if proc.returncode != 0:
                 print(f"phase0-seal reseal: failed to add note at {new_sha}: {proc.stderr.strip()}", file=sys.stderr)
                 return EXIT_MISUSE
             rm = subprocess.run(
                 ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "remove", old_sha],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
             if rm.returncode != 0:
                 print(f"phase0-seal reseal: failed to remove old note at {old_sha}: {rm.stderr.strip()}", file=sys.stderr)
                 return EXIT_MISUSE
     push = subprocess.run(
         ["git", "-C", str(repo_root), "push", "origin", f"{_NOTES_REF}:{_NOTES_REF}"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if push.returncode != 0:
         print(f"phase0-seal reseal: push failed: {push.stderr.strip()}", file=sys.stderr)
@@ -383,7 +383,7 @@ def _read_seal_note_at(repo_root: Path, obj_sha: str) -> dict | None:
     """
     proc = subprocess.run(
         ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "show", obj_sha],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if proc.returncode != 0 or not proc.stdout.strip():
         return None

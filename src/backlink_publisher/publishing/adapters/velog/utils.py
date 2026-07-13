@@ -66,7 +66,7 @@ def _save_null_artifact(
         old_umask = os.umask(0o077)
         try:
             tmp = artifact_path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(payload, indent=2))
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
             os.chmod(tmp, 0o600)
             os.replace(tmp, artifact_path)
             os.chmod(artifact_path, 0o600)
@@ -107,7 +107,7 @@ def _write_count(count_path: Path, count: int, last_publish_at: float) -> None:
     tmp = count_path.with_suffix(".tmp")
     old_umask = os.umask(0o077)
     try:
-        tmp.write_text(json.dumps(payload))
+        tmp.write_text(json.dumps(payload), encoding="utf-8")
         os.chmod(tmp, 0o600)
         os.replace(tmp, count_path)
         os.chmod(count_path, 0o600)

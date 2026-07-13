@@ -439,7 +439,7 @@ def purge_removed_channel_credentials() -> None:
             )
 
     try:
-        sentinel.write_text(_now_iso())
+        sentinel.write_text(_now_iso(), encoding="utf-8")
     except OSError as exc:  # pragma: no cover — startup must not crash
         log.warning("purge_removed_channel_credentials: sentinel write failed: %s", exc)
 

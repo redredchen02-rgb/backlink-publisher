@@ -142,7 +142,7 @@ def _handle_init(args: argparse.Namespace) -> int:
     # Push notes ref to origin
     push_proc = subprocess.run(
         ["git", "-C", str(repo_root), "push", "origin", f"{_NOTES_REF}:{_NOTES_REF}"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if push_proc.returncode != 0:
         print(
@@ -214,7 +214,7 @@ def _reject_uncommitted_evidence(entries: list[WorktreeEntry], rel: str) -> int 
     for e in entries:
         check = subprocess.run(
             ["git", "-C", str(e.path), "ls-files", "--error-unmatch", rel],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         if check.returncode != 0:
             print(
@@ -252,7 +252,7 @@ def _write_seal_notes(repo_root: Path, bodies: dict[str, str]) -> int | None:
     for sha, body_str in bodies.items():
         proc = subprocess.run(
             ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_REF}", "add", "-m", body_str, sha],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         if proc.returncode != 0:
             stderr = (proc.stderr or "").lower()
@@ -359,7 +359,7 @@ def _build_manual_verdict_ref(evidence_log: str | None, repo_root: Path) -> dict
     # Verify it is committed in the repo (at main repo HEAD).
     check = subprocess.run(
         ["git", "-C", str(repo_resolved), "ls-files", "--error-unmatch", str(rel)],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if check.returncode != 0:
         raise _InitError(
@@ -384,13 +384,13 @@ def _build_manual_verdict_ref(evidence_log: str | None, repo_root: Path) -> dict
 def _get_main_sha(repo_root: Path) -> str:
     proc = subprocess.run(
         ["git", "-C", str(repo_root), "rev-parse", "origin/main"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if proc.returncode != 0:
         # Fallback to local main
         proc = subprocess.run(
             ["git", "-C", str(repo_root), "rev-parse", "main"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
     sha = (proc.stdout or "").strip()
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
@@ -413,7 +413,7 @@ def _post_push_verify(repo_root: Path, expected_bodies: dict[str, str]) -> None:
         fetch = subprocess.run(
             ["git", "-C", str(repo_root), "fetch", "origin",
              f"{_NOTES_REF}:{_NOTES_VERIFY_REF}"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         if fetch.returncode != 0:
             raise _NotesPushDidNotLand(
@@ -425,7 +425,7 @@ def _post_push_verify(repo_root: Path, expected_bodies: dict[str, str]) -> None:
         for sha, expected in expected_bodies.items():
             show = subprocess.run(
                 ["git", "-C", str(repo_root), "notes", f"--ref={_NOTES_VERIFY_REF}", "show", sha],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
             if show.returncode != 0:
                 raise _NotesPushDidNotLand(
@@ -443,5 +443,5 @@ def _post_push_verify(repo_root: Path, expected_bodies: dict[str, str]) -> None:
         # Always clean up the temp ref, even on failure (best-effort).
         subprocess.run(
             ["git", "-C", str(repo_root), "update-ref", "-d", _NOTES_VERIFY_REF],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
