@@ -89,7 +89,7 @@ function emitPatch(): void {
 }
 .review-row__summary {
   cursor: pointer;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   user-select: none;
   list-style: none;
 }

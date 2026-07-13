@@ -388,7 +388,7 @@ const genClass = computed(() => (genResult.value?.status === 'ok' ? 'ok' : 'bad'
 }
 .grp legend,
 .grp > summary {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--text-lg);
   padding: 0 0.4rem;
 }

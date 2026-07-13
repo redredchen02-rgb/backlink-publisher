@@ -30,7 +30,7 @@
     background: var(--surface-overlay);
     border: 1px solid var(--glass-border);
     border-left: 3px solid var(--info);
-    border-radius: var(--radius);
+    border-radius: var(--radius-xl);
     box-shadow: var(--shadow-glass);
     color: var(--text-primary);
     pointer-events: auto;
@@ -54,8 +54,8 @@
 .ui-toast--info    .ui-toast__icon { color: var(--info); }
 
 .ui-toast__body { flex: 1; min-width: 0; }
-.ui-toast__title { font-weight: 600; font-size: 0.9rem; margin-bottom: 2px; }
-.ui-toast__message { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; word-break: break-word; }
+.ui-toast__title { font-weight: var(--font-weight-semibold); font-size: var(--text-lg); margin-bottom: 2px; }
+.ui-toast__message { font-size: var(--text-base); color: var(--text-secondary); line-height: 1.4; word-break: break-word; }
 
 .ui-toast__close {
     display: flex;
@@ -111,17 +111,17 @@
 }
 .ui-empty__icon { font-size: 2.2rem; color: var(--text-secondary); opacity: 0.7; }
 .ui-error__icon { font-size: 2.2rem; color: var(--danger); }
-.ui-empty__title, .ui-error__title { font-weight: 600; font-size: 1rem; color: var(--text-primary); }
-.ui-empty__message, .ui-error__message { font-size: 0.875rem; color: var(--text-secondary); max-width: 36ch; }
+.ui-empty__title, .ui-error__title { font-weight: var(--font-weight-semibold); font-size: 1rem; color: var(--text-primary); }
+.ui-empty__message, .ui-error__message { font-size: var(--text-base); color: var(--text-secondary); max-width: 36ch; }
 
 .ui-empty__action, .ui-error__retry {
     margin-top: 8px;
     padding: 8px 18px;
-    border-radius: var(--radius);
+    border-radius: var(--radius-xl);
     border: 1px solid var(--glass-border);
     background: var(--glass-bg);
     color: var(--text-primary);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
@@ -129,7 +129,7 @@
     background: rgba(255, 255, 255, 0.08);
     border-color: var(--primary);
 }
-.ui-error__retry { border-color: rgba(248, 113, 113, 0.4); }
+.ui-error__retry { border-color: var(--danger-soft); }
 .ui-error__retry:hover { border-color: var(--danger); }
 
 /* ── Note box (settings help / callout panels) ───────────────────────────────
@@ -149,8 +149,8 @@
 .note-box--info    { background: var(--info-soft);    border-color: rgba(56, 189, 248, 0.35); }
 
 .note-box__title {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-bold);
     margin-bottom: 8px;
     color: var(--text-primary);
 }
@@ -159,7 +159,7 @@
 .note-box--info    .note-box__title { color: var(--info-text); }
 
 .note-box__body {
-    font-size: 12px;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     margin-bottom: 8px;
     line-height: 1.5;
@@ -183,21 +183,21 @@
 .btn-app-primary {
     background: var(--primary);
     border-color: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 .btn-app-primary:hover,
 .btn-app-primary:focus {
     background: var(--primary-dark);
     border-color: var(--primary-dark);
-    color: #fff;
+    color: var(--on-primary);
 }
 .btn-app-warning {
     background: var(--warning);
     border-color: var(--warning);
-    color: var(--dark);
+    color: var(--on-warning);
 }
 .btn-app-warning:hover,
 .btn-app-warning:focus {
     filter: brightness(1.06);
-    color: var(--dark);
+    color: var(--on-warning);
 }

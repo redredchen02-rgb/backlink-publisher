@@ -111,13 +111,13 @@ onMounted(load)
   box-shadow: var(--shadow-glass);
 }
 .surv-headline {
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
   color: var(--text-secondary);
   margin: 0 0 0.5rem;
 }
 .surv-number {
   font-size: 4rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1;
   margin-bottom: 0.25rem;
 }
@@ -137,7 +137,7 @@ onMounted(load)
   flex-wrap: wrap;
   padding-top: 0.75rem;
   border-top: 1px solid rgba(255,255,255,0.10);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 .surv-meta div {
   display: flex;
@@ -146,7 +146,7 @@ onMounted(load)
 }
 .surv-meta dt { color: var(--text-secondary); }
 .surv-meta dd {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   margin: 0;
   font-size: 1.1rem;
 }
@@ -158,7 +158,7 @@ onMounted(load)
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   background: rgba(245,158,11,0.18);
   color: #fcd34d;
   border: 1.5px solid rgba(245,158,11,0.45);

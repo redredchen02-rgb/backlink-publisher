@@ -148,7 +148,7 @@ function showBadge(item: NavItem): boolean {
   overflow-y: auto;
 }
 .sidenav__brand {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   padding: 0.25rem 0.5rem 0.75rem;
   color: var(--text-primary);
   text-decoration: none;

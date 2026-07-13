@@ -627,7 +627,7 @@ async function confirmPurge(): Promise<void> {
 .row-report-link {
   color: var(--danger);
   text-decoration: underline;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 .history__head {
@@ -712,7 +712,7 @@ async function confirmPurge(): Promise<void> {
   align-items: center;
   color: var(--primary);
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-family: ui-monospace, monospace;
   max-width: 30rem;
   overflow: hidden;

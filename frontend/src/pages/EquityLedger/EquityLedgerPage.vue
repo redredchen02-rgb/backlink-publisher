@@ -150,8 +150,8 @@ onMounted(load)
                 </span>
               </td>
               <td class="col-num">{{ (row.relevance_score ?? 0).toFixed(2) }}</td>
-              <td class="col-date text-muted" style="font-size: 0.8rem">{{ row.first_seen ?? '—' }}</td>
-              <td class="col-date text-muted" style="font-size: 0.8rem">{{ row.last_checked ?? '—' }}</td>
+              <td class="col-date text-muted" style="font-size: var(--text-sm)">{{ row.first_seen ?? '—' }}</td>
+              <td class="col-date text-muted" style="font-size: var(--text-sm)">{{ row.last_checked ?? '—' }}</td>
             </tr>
           </tbody>
         </table>
@@ -181,6 +181,6 @@ onMounted(load)
   gap: 0.5rem;
 }
 .equity__stats {
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
 }
 </style>

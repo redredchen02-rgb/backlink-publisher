@@ -147,7 +147,7 @@ async function onSubmit(): Promise<void> {
   border-bottom: 1px solid var(--border);
 }
 .report-panel__title {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--text-base);
 }
 .report-panel__close {

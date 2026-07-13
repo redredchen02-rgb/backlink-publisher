@@ -75,7 +75,7 @@ function jumpTo(id: string): void {
 }
 .snav__count {
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--success);
 }
 .snav__label {

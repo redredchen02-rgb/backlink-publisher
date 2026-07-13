@@ -218,9 +218,9 @@ onMounted(load)
 .pr-queue__summary-cell {
   max-width: 320px;
   white-space: normal;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 .pr-queue__deadline-cell {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 </style>
