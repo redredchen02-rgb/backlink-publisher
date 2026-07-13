@@ -175,10 +175,17 @@ def _extract_platform_drift(canary_data: dict[str, Any]) -> dict[str, Any]:
     """
     platforms: dict[str, Any] = {}
     for platform, entry in canary_data.items():
+        # "_publish_path" is the forward-path sentinel (a nested structure), not
+        # a platform record — never treat it as one (audit [09]).
+        if platform == "_publish_path":
+            continue
         if not isinstance(entry, dict):
             continue
-        drift = 1 if entry.get("forward_path_drift") else 0
-        platforms[platform] = {"drift_count": drift}
+        # canary/store.py evergreen records carry status/quarantined, NOT a
+        # (never-written) forward_path_drift key; derive drift from the real
+        # persisted schema so Rule 1 can actually trip (audit [09]).
+        drifted = entry.get("status") == "drift-confirmed" or entry.get("quarantined")
+        platforms[platform] = {"drift_count": 1 if drifted else 0}
     return {"platforms": platforms, "status": "collected"}
 
 

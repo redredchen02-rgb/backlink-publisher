@@ -97,6 +97,17 @@ def evaluate_rules(
 # ---------------------------------------------------------------------------
 
 
+def _suppressed_by_canary_drift(entry: dict[str, Any]) -> bool:
+    """True if canary_drift is what last adjusted this platform's weight.
+
+    The write path records the acting rule in ``adjustments[-1]["rule"]`` (there is
+    no top-level ``entry["rule"]``), so the ownership check must read the most
+    recent adjustment (audit [10]).
+    """
+    adjustments = entry.get("adjustments") or []
+    return bool(adjustments) and adjustments[-1].get("rule") == RULE_CANARY_DRIFT
+
+
 def _rule_canary_drift(
     state_data: dict[str, Any],
     config: dict[str, Any],
@@ -124,8 +135,11 @@ def _rule_canary_drift(
         base_weight = _get_base_weight(weights, platform, 1.0)
 
         if drift_count == 0:
-            # No drift — restore base weight if currently suppressed
-            if current_weight < base_weight:
+            # No drift — restore base weight ONLY if canary_drift is what
+            # suppressed it. Restoring a platform another rule (survival/
+            # aggregated) intentionally penalized would fight that rule — match
+            # the cooldown branch's ownership guard below (audit [10]).
+            if current_weight < base_weight and _suppressed_by_canary_drift(entry):
                 results.append(
                     _make_result(
                         platform, RULE_CANARY_DRIFT,
@@ -511,6 +525,17 @@ def apply_results(state: Any, results: list[RuleResult]) -> int:
     applied = [r for r in results if r.applied]
     if not applied:
         return 0
+
+    # Multiple rules can apply to the SAME platform in one cycle; the batch
+    # update_many_weights is last-write-wins (in list order), so a restore could
+    # silently override a survival/aggregated penalty. Reduce to the single
+    # strongest adjustment (lowest resulting weight) per platform (audit [11]).
+    strongest: dict[str, RuleResult] = {}
+    for r in applied:
+        current = strongest.get(r.platform)
+        if current is None or r.new_weight < current.new_weight:
+            strongest[r.platform] = r
+    applied = list(strongest.values())
 
     if hasattr(state, "update_many_weights"):
         updates = [
