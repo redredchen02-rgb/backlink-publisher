@@ -20,12 +20,11 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 const PAGES_DIR = resolve(__dir, '../pages')
 
 // EXEMPT: CampaignProgress & EquityLedger — migrated to DataTable component (Task 7 & 8),
-// and PrQueue (Task 9) — same reason: DataTable provides .data-table/.data-table-wrap
-// internally; those classes are not visible in the page source and thus cannot
-// satisfy source-text regex checks.
+// PrQueue (Task 9), and OptimizationStatus (Task 11) — same reason: DataTable
+// provides .data-table/.data-table-wrap internally; those classes are not
+// visible in the page source and thus cannot satisfy source-text regex checks.
 const TARGET_PAGES = [
   'KeepAlive/KeepAlivePage.vue',
-  'OptimizationStatus/OptimizationStatusPage.vue',
 ]
 
 const sources = TARGET_PAGES.map((rel) => ({
@@ -55,7 +54,7 @@ function hasDataTableClassOnTableTag(text: string): boolean {
 }
 
 describe('.data-table adoption guard', () => {
-  it('each of the 3 remaining target pages references both .data-table and .data-table-wrap', () => {
+  it('each remaining target page references both .data-table and .data-table-wrap', () => {
     const missing: string[] = []
 
     for (const { rel, text } of sources) {
@@ -68,7 +67,7 @@ describe('.data-table adoption guard', () => {
     expect(missing, `\n${missing.join('\n')}`).toEqual([])
   })
 
-  it('none of the 3 remaining target pages still use the Bootstrap table class combo', () => {
+  it('none of the remaining target pages still use the Bootstrap table class combo', () => {
     const violations: string[] = []
     const BOOTSTRAP_TABLE_COMBO = 'table table-sm table-hover align-middle mb-0'
 

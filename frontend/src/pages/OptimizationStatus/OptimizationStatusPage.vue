@@ -1,8 +1,10 @@
 <script setup lang="ts">
-// Optimization status — Plan P13 B2 (SPA migration).
+// Optimization status — Plan P13 B2 (SPA migration). DataTable/StatusBadge
+// adoption — Task 11.
 import { computed, onMounted, ref } from 'vue'
 import { fetchPlatforms, setWeight, unlockWeight, type PlatformWeight } from '../../api/optimizationStatus'
-import StateBlock from '../../components/StateBlock.vue'
+import DataTable from '../../components/DataTable.vue'
+import StatusBadge from '../../components/StatusBadge.vue'
 
 const platforms = ref<PlatformWeight[]>([])
 const allPlatforms = ref<string[]>([])
@@ -14,11 +16,7 @@ const editingWeight = ref<string | null>(null)
 const weightInput = ref('')
 const setting = ref(false)
 
-const blockState = computed<'loading' | 'empty' | 'error' | 'ready'>(() => {
-  if (loading.value) return 'loading'
-  if (error.value) return 'error'
-  return 'ready'
-})
+const rows = computed(() => platforms.value.map((p) => ({ ...p, id: p.platform })))
 
 const load = async () => {
   loading.value = true
@@ -113,100 +111,95 @@ onMounted(load)
       <button type="button" class="btn-close" aria-label="关闭" @click="message = ''" />
     </div>
 
-    <StateBlock
-      :state="blockState"
+    <DataTable
+      :items="rows"
+      :loading="loading"
       :error="error"
       empty-text="暂无优化数据。"
-      @retry="load"
+      caption="优化权重"
+      @retry="load()"
     >
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>平台</th>
-              <th>权重</th>
-              <th>基准</th>
-              <th>Delta%</th>
-              <th>调整</th>
-              <th>存活</th>
-              <th>总计</th>
-              <th>漂移</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in platforms" :key="p.platform">
-              <td>
-                <span class="fw-semibold">{{ p.platform }}</span>
-                <span v-if="p.locked" class="badge bg-warning ms-1" title="已锁定">🔒</span>
-              </td>
-              <td class="col-num">
-                <template v-if="editingWeight === p.platform">
-                  <input
-                    v-model="weightInput"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    class="form-control form-control-sm d-inline-block"
-                    style="width: 80px"
-                    :disabled="setting"
-                  />
-                  <button
-                    class="btn btn-sm btn-success ms-1"
-                    @click="saveWeight(p.platform)"
-                    :disabled="setting"
-                  >保存</button>
-                  <button
-                    class="btn btn-sm btn-outline-secondary ms-1"
-                    @click="cancelEdit"
-                    :disabled="setting"
-                  >取消</button>
-                </template>
-                <template v-else>
-                  {{ p.weight.toFixed(2) }}
-                </template>
-              </td>
-              <td class="col-num">{{ (p.base ?? 0).toFixed(2) }}</td>
-              <td class="col-num" :class="(p.delta_pct ?? 0) >= 0 ? 'text-success' : 'text-danger'">
-                {{ (p.delta_pct ?? 0).toFixed(1) }}%
-              </td>
-              <td class="col-num">{{ p.adjustments ?? 0 }}</td>
-              <td class="col-num">{{ p.alive ?? '—' }}</td>
-              <td class="col-num">{{ p.total ?? '—' }}</td>
-              <td class="col-num">{{ (p.drift ?? 0).toFixed(2) }}</td>
-              <td>
-                <div class="btn-group btn-group-sm">
-                  <button
-                    class="btn btn-outline-primary"
-                    @click="startEdit(p.platform)"
-                    :disabled="editingWeight !== null"
-                    title="设置权重"
-                  >设置</button>
-                  <button
-                    v-if="p.locked"
-                    class="btn btn-outline-warning"
-                    @click="doUnlock(p.platform)"
-                    :disabled="setting"
-                    title="解锁"
-                  >解锁</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <template #head>
+        <th>平台</th>
+        <th>权重</th>
+        <th>基准</th>
+        <th>Delta%</th>
+        <th>调整</th>
+        <th>存活</th>
+        <th>总计</th>
+        <th>漂移</th>
+        <th>操作</th>
+      </template>
+      <template #row="{ row: p }">
+        <td>
+          <span class="fw-semibold">{{ p.platform }}</span>
+          <StatusBadge v-if="p.locked" tone="warning" label="🔒 已锁定" />
+        </td>
+        <td class="col-num">
+          <template v-if="editingWeight === p.platform">
+            <input
+              v-model="weightInput"
+              type="number"
+              step="0.01"
+              min="0"
+              class="form-control form-control-sm d-inline-block"
+              style="width: 80px"
+              :disabled="setting"
+            />
+            <button
+              class="btn btn-sm btn-success ms-1"
+              @click="saveWeight(p.platform)"
+              :disabled="setting"
+            >保存</button>
+            <button
+              class="btn btn-sm btn-outline-secondary ms-1"
+              @click="cancelEdit"
+              :disabled="setting"
+            >取消</button>
+          </template>
+          <template v-else>
+            {{ p.weight.toFixed(2) }}
+          </template>
+        </td>
+        <td class="col-num">{{ (p.base ?? 0).toFixed(2) }}</td>
+        <td class="col-num" :class="(p.delta_pct ?? 0) >= 0 ? 'text-success' : 'text-danger'">
+          {{ (p.delta_pct ?? 0).toFixed(1) }}%
+        </td>
+        <td class="col-num">{{ p.adjustments ?? 0 }}</td>
+        <td class="col-num">{{ p.alive ?? '—' }}</td>
+        <td class="col-num">{{ p.total ?? '—' }}</td>
+        <td class="col-num">{{ (p.drift ?? 0).toFixed(2) }}</td>
+        <td>
+          <div class="btn-group btn-group-sm">
+            <button
+              class="btn btn-outline-primary"
+              @click="startEdit(p.platform)"
+              :disabled="editingWeight !== null"
+              title="设置权重"
+            >设置</button>
+            <button
+              v-if="p.locked"
+              class="btn btn-outline-warning"
+              @click="doUnlock(p.platform)"
+              :disabled="setting"
+              title="解锁"
+            >解锁</button>
+          </div>
+        </td>
+      </template>
+    </DataTable>
 
-      <details class="opt-status__all mt-3">
-        <summary class="text-muted" style="cursor:pointer">所有已知平台 ({{ allPlatforms.length }})</summary>
-        <div class="d-flex flex-wrap gap-1 mt-2">
-          <span
-            v-for="pl in allPlatforms"
-            :key="pl"
-            :class="['badge', platforms.some(p => p.platform === pl) ? 'bg-success' : 'bg-secondary']"
-          >{{ pl }}</span>
-        </div>
-      </details>
-    </StateBlock>
+    <details class="opt-status__all mt-3">
+      <summary class="text-muted" style="cursor:pointer">所有已知平台 ({{ allPlatforms.length }})</summary>
+      <div class="d-flex flex-wrap gap-1 mt-2">
+        <StatusBadge
+          v-for="pl in allPlatforms"
+          :key="pl"
+          :tone="platforms.some((p) => p.platform === pl) ? 'success' : 'neutral'"
+          :label="pl"
+        />
+      </div>
+    </details>
   </section>
 </template>
 

@@ -32,7 +32,6 @@ const LIST_PAGES = [
 // Ratchet: pages still hand-rolling <table>. Page tasks delete their entry.
 const TABLE_TOLERANCE = new Set([
   'KeepAlive/KeepAlivePage.vue',
-  'OptimizationStatus/OptimizationStatusPage.vue',
   'Sites/SitesPage.vue',
 ])
 
@@ -43,7 +42,6 @@ const BADGE_TOLERANCE = new Set([
   'ErrorReports/ErrorReportDetailPage.vue',
   'History/HistoryPage.vue',
   'KeepAlive/KeepAlivePage.vue',
-  'OptimizationStatus/OptimizationStatusPage.vue',
 ])
 
 describe('DataTable component adoption (Phase A ratchet)', () => {
