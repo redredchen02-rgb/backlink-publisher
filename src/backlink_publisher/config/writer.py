@@ -24,6 +24,8 @@ from .types import (
     ImageGenConfig,
     MastodonConfig,
     ThreeUrlConfig,
+    VelogConfig,
+    ZennConfig,
 )
 
 log = logging.getLogger(__name__)
@@ -74,6 +76,38 @@ def _emit_image_gen_section(lines: list[str], cfg: ImageGenConfig | None) -> Non
     lines.append(f"strict = {'true' if cfg.strict else 'false'}")
     lines.append(f"auto_disable_threshold = {cfg.auto_disable_threshold}")
     lines.append(f"use_image_gen = {'true' if cfg.use_image_gen else 'false'}")
+    lines.append("")
+
+
+def _emit_velog_section(lines: list[str], cfg: VelogConfig | None) -> None:
+    """Round-trip the ``[velog]`` section.
+
+    velog is a registered non-retired platform, so its root is in
+    ``_save_config_known_roots()`` and ``_preserve_unknown_sections`` will NOT
+    carry it verbatim — save_config MUST re-emit it or the operator-supplied
+    ``cookies_path`` is silently dropped on every write (audit finding [00]).
+    """
+    if cfg is None:
+        return
+    lines.append("[velog]")
+    lines.append(f"cookies_path = {_toml_str(str(cfg.cookies_path))}")
+    lines.append("")
+
+
+def _emit_zenn_section(lines: list[str], cfg: ZennConfig | None) -> None:
+    """Round-trip the ``[zenn]`` section.
+
+    Same rationale as ``_emit_velog_section``: zenn is a registered non-retired
+    platform in the managed-roots set, so save_config must re-emit its
+    operator-configured ``github_repo`` / ``username`` / ``branch`` (the GitHub
+    PAT itself stays in ``zenn-token.json``, never in config.toml).
+    """
+    if cfg is None:
+        return
+    lines.append("[zenn]")
+    lines.append(f"github_repo = {_toml_str(cfg.github_repo)}")
+    lines.append(f"username    = {_toml_str(cfg.username)}")
+    lines.append(f"branch      = {_toml_str(cfg.branch)}")
     lines.append("")
 
 
@@ -223,6 +257,12 @@ def save_config(
     _emit_gitlabpages_section(lines, gitlabpages_cfg)
     _emit_mastodon_section(lines, mastodon_cfg)
     _emit_image_gen_section(lines, image_gen_cfg)
+    # velog/zenn are registered platforms (hence in _save_config_known_roots),
+    # so the preserve pass would drop them — re-emit from on-disk state to
+    # round-trip operator config verbatim (audit finding [00]). No override
+    # kwarg exists, so the on-disk `existing` value is the source of truth.
+    _emit_velog_section(lines, existing.velog)
+    _emit_zenn_section(lines, existing.zenn)
 
     known_subsections: set[tuple[str, str]] = set()
     if client_id or client_secret:
