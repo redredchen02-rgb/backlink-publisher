@@ -7,8 +7,9 @@ import json
 import logging
 import os
 from pathlib import Path
-import stat
 from typing import Any, cast
+
+from backlink_publisher.persistence.safe_write import atomic_write
 
 #: All token-FILE-backed credential platforms, in scan order. Single source of
 #: truth for both the run-start baseline snapshot and the per-row drift re-check.
@@ -80,17 +81,21 @@ def _load_token(path: Path | None, default_filename: str) -> dict[str, Any] | No
 def _save_token(data: dict[str, Any], path: Path | None, default_filename: str) -> None:
     token_path = path or (_resolve_config_dir() / default_filename)
     token_path.parent.mkdir(parents=True, exist_ok=True)
+    # Tighten the credential dir before writing (mirror secrets.write_frw_token):
+    # a world-readable parent would expose the token regardless of file mode.
+    try:
+        if (os.stat(token_path.parent).st_mode & 0o777) != 0o700:
+            os.chmod(token_path.parent, 0o700)
+    except OSError:
+        pass
 
     existing = _load_token(token_path, default_filename)
     current_rev = existing.get("token_rev", 0) if existing else 0
     payload = {**data, "token_rev": current_rev + 1}
 
-    with open(token_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f)
-    try:
-        os.chmod(token_path, stat.S_IRUSR | stat.S_IWUSR)
-    except OSError:
-        pass
+    # atomic_write: mkstemp (0o600) -> write -> os.replace. No world-readable
+    # TOCTOU window and no truncate-in-place corruption on crash (audit [23]).
+    atomic_write(token_path, json.dumps(payload), mode=0o600)
 
 
 def load_blogger_token(path: Path | None = None) -> dict[str, Any] | None:
