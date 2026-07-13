@@ -17,6 +17,13 @@ spec: docs/brainstorms/2026-07-13-002-v060-produce-output-finish-line-design.md
 
 **Tech Stack:** Python ≥3.11, argparse CLIs (`[project.scripts]`), Flask blueprints (redirects), pytest (network autouse-blocked, `PYTHONHASHSEED=0`), radon complexity budgets, ruff + mypy.
 
+## Execution Status (2026-07-13, branch `feat/v060-finish-line`)
+
+- **F1 backlink-doctor** ✅ shipped (`9719cf50`) · **F2 canary-flip** ✅ shipped (`dd90fb3f`) · **F3 catalog activation** ✅ shipped (`bdea847c`) · **S1 staged seal** ✅ (`0ff74228`) · **S2 roadmap** ✅ (`708bddb5`) · bp-registry fix (`5a7c86d5`).
+- **B1 U4 redirects** ⏸ DEFERRED — wide test blast radius (shared `conftest._fetch_csrf` + `test_r6_dofollow_badge` in the active fleet zone) + gated U9 payoff. Migration recipe in the roadmap (`docs/plans/2026-07-13-005-...`).
+- **B2 E2E expansion** ⏸ DEFERRED — Playwright/chromium/built-SPA lane not verifiable in this worktree. Recipe in the roadmap.
+- Verification: 2386-test targeted sweep green (adapter/registry/publishing/spray/canary/bp/webui-boot/config), ruff + mypy clean on changed source. Full suite → CI (per repo guidance).
+
 ## Global Constraints
 
 - Edit only worktree `bp-v060-finish`; **never** `git add -A` — stage files by explicit name (shared-directory hazard). Rebase onto latest `origin/main` before any merge.
