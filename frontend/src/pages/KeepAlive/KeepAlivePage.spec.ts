@@ -166,8 +166,8 @@ describe('KeepAlivePage — republish state machine through the shared ConfirmDi
   }
 
   it('walks idle→selecting→confirming→publishing→result with unchanged semantics', async () => {
-    vi.mocked(api.getRepublishToken).mockResolvedValue({ ok: true, token: 'tok-1' } as never)
-    vi.mocked(api.executeRepublish).mockResolvedValue({ ok: true, job_id: 'job-9' } as never)
+    vi.mocked(api.getRepublishToken).mockResolvedValue({ confirm_token: 'nonce-1', targets: ['example.com/a'], seeds: [{ target_url: 'example.com/a', platform: 'blogger' }] })
+    vi.mocked(api.executeRepublish).mockResolvedValue({ status: 'started', job_id: 'job-9' })
     vi.mocked(api.pollRepublish).mockResolvedValue({ status: 'completed' } as never)
 
     const w = await mountWithSelectedGap()
@@ -191,9 +191,8 @@ describe('KeepAlivePage — republish state machine through the shared ConfirmDi
     // S4 → S5: confirm executes the republish with the token and closes the dialog
     await confirmBtn.trigger('click')
     await flushPromises()
-    expect(api.executeRepublish).toHaveBeenCalledWith('tok-1', [
-      JSON.stringify({ target_url: 'example.com/a', platform: 'blogger' }),
-    ])
+    // Backend contract: POST the sticky target_url list + the confirm nonce.
+    expect(api.executeRepublish).toHaveBeenCalledWith(['example.com/a'], 'nonce-1')
     expect(w.find('[role="dialog"]').exists()).toBe(false)
 
     // S5 → S6/S7: poll completed → result banner
@@ -201,7 +200,7 @@ describe('KeepAlivePage — republish state machine through the shared ConfirmDi
   })
 
   it('cancelling the confirm dialog returns to gap selection without publishing', async () => {
-    vi.mocked(api.getRepublishToken).mockResolvedValue({ ok: true, token: 'tok-1' } as never)
+    vi.mocked(api.getRepublishToken).mockResolvedValue({ confirm_token: 'nonce-1', targets: ['example.com/a'], seeds: [{ target_url: 'example.com/a', platform: 'blogger' }] })
 
     const w = await mountWithSelectedGap()
     const openBtn = w.findAll('button').find((b) => b.text().startsWith('重新发布 ('))!
@@ -219,8 +218,8 @@ describe('KeepAlivePage — republish state machine through the shared ConfirmDi
   })
 
   it('a failed executeRepublish surfaces via flashMessage and returns to idle (pre-W3 semantics)', async () => {
-    vi.mocked(api.getRepublishToken).mockResolvedValue({ ok: true, token: 'tok-1' } as never)
-    vi.mocked(api.executeRepublish).mockResolvedValue({ ok: false, message: '发布通道不可用' } as never)
+    vi.mocked(api.getRepublishToken).mockResolvedValue({ confirm_token: 'nonce-1', targets: ['example.com/a'], seeds: [{ target_url: 'example.com/a', platform: 'blogger' }] })
+    vi.mocked(api.executeRepublish).mockResolvedValue({ status: 'error', error: '发布通道不可用' })
 
     const w = await mountWithSelectedGap()
     await w.findAll('button').find((b) => b.text().startsWith('重新发布 ('))!.trigger('click')
@@ -346,12 +345,12 @@ describe('KeepAlivePage — republish polling (Plan 2026-07-02-001 U5)', () => {
 
   it('confirming republish polls, then shows the result state once completed', async () => {
     vi.mocked(api.fetchSummary).mockResolvedValue(WITH_GAP)
-    // getRepublishToken's declared RepublishResult type omits `token`, but the
-    // real response (and the component's own call-site cast) includes it.
-    vi.mocked(api.getRepublishToken).mockResolvedValue(
-      { ok: true, token: 'tok-1' } as Awaited<ReturnType<typeof api.getRepublishToken>> & { token: string },
-    )
-    vi.mocked(api.executeRepublish).mockResolvedValue({ ok: true, job_id: 'job-2' })
+    vi.mocked(api.getRepublishToken).mockResolvedValue({
+      confirm_token: 'nonce-2',
+      targets: ['https://example.com/b'],
+      seeds: [{ target_url: 'https://example.com/b', platform: 'medium' }],
+    })
+    vi.mocked(api.executeRepublish).mockResolvedValue({ status: 'started', job_id: 'job-2' })
     vi.mocked(api.pollRepublish)
       .mockResolvedValueOnce({ status: 'running', message: '发布中' })
       .mockResolvedValueOnce({ status: 'completed', message: '完成' })
