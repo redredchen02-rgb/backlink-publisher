@@ -26,6 +26,7 @@ from .channel_status import channel_status_store
 from .drafts import DraftsSqliteStore, DraftsStore
 from .error_reports import error_report_store
 from .history import HistoryStore
+from .operation_store import operation_store
 from .profiles import ProfilesSqliteStore
 from .publish_defaults import PublishDefaultsSqliteStore
 from .queue_store import QueueSqliteStore
@@ -155,5 +156,6 @@ __all__ = [
     "publish_defaults_store",
     "verify_health_store",
     "error_report_store",
+    "operation_store",
     "_refresh_paths",
 ]
