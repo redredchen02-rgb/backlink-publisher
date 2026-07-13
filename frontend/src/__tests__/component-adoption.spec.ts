@@ -37,7 +37,6 @@ const TABLE_TOLERANCE = new Set([
   'KeepAlive/KeepAlivePage.vue',
   'OptimizationStatus/OptimizationStatusPage.vue',
   'PrQueue/PrQueuePage.vue',
-  'Schedule/SchedulePage.vue',
   'Sites/SitesPage.vue',
 ])
 
