@@ -57,8 +57,8 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-weight: 700;
-    font-size: 1.05rem;
+    font-weight: var(--font-weight-bold);
+    font-size: var(--text-xl);
     letter-spacing: -0.02em;
     color: var(--text-primary);
     text-decoration: none;
@@ -98,7 +98,7 @@
 .app-sidebar__group-label {
     padding: 8px 12px 4px;
     font-size: 0.68rem;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-secondary);
@@ -113,12 +113,12 @@
     border-radius: 8px;
     color: var(--text-secondary);
     text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
     border-left: 2px solid transparent;
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-.app-sidebar__item i { font-size: 1.05rem; width: 20px; text-align: center; flex-shrink: 0; }
+.app-sidebar__item i { font-size: var(--text-xl); width: 20px; text-align: center; flex-shrink: 0; }
 
 .app-sidebar__item:hover {
     background: rgba(255, 255, 255, 0.04);
@@ -129,7 +129,7 @@
     background: rgba(56, 189, 248, 0.10);
     color: var(--text-primary);
     border-left-color: var(--accent-cyan);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 .app-sidebar__item-label { flex: 1; min-width: 0; }
@@ -141,12 +141,12 @@
     padding: 0 5px;
     font-family: var(--font-mono);
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     line-height: 18px;
     text-align: center;
     border-radius: 9px;
     background: var(--danger);
-    color: #fff;
+    color: var(--on-danger);
 }
 .app-sidebar__badge:empty,
 .app-sidebar__badge[hidden] { display: none; }
@@ -183,7 +183,7 @@
 .app-topbar__hamburger:hover { background: rgba(255, 255, 255, 0.08); }
 
 .app-topbar__brand {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     font-size: 0.95rem;
     color: var(--text-primary);
     text-decoration: none;
@@ -231,7 +231,7 @@
     gap: 4px;
     padding: 5px 12px;
     font-size: 0.78rem;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     border-radius: 999px;
     text-decoration: none;
     white-space: nowrap;
@@ -244,8 +244,8 @@
     background: var(--glass-bg);
     border-color: var(--border);
 }
-.global-nav__pro--pending { color: #0b0f17; background: var(--warning); }
-.global-nav__pro--healthy { color: #0b0f17; background: var(--success); }
+.global-nav__pro--pending { color: var(--on-warning); background: var(--warning); }
+.global-nav__pro--healthy { color: var(--on-success); background: var(--success); }
 
 /* Ghost button — used in page-level navbars on index/settings. */
 .nav-btn-ghost {
@@ -306,11 +306,11 @@ html.theme-transition *::after {
     top: -48px;
     left: 0;
     background: var(--primary);
-    color: #0b0f17;
+    color: var(--on-primary);
     padding: 8px 16px;
     z-index: 10000;
     text-decoration: none;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     transition: top 0.2s ease;
 }
 .skip-nav:focus { top: 0; }
@@ -347,7 +347,7 @@ html.theme-transition *::after {
     margin: 0 16px;
     background: var(--surface-overlay);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-xl);
     box-shadow: var(--shadow-glass);
     overflow: hidden;
 }

@@ -325,7 +325,7 @@ function applyProfile(p: Profile): void {
 }
 .steps__on {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .config,
 .card {

@@ -26,8 +26,6 @@
     --warning-soft: rgba(245, 158, 11, 0.16);
     --success-soft: rgba(16, 185, 129, 0.16);
     --info-soft:    rgba(56, 189, 248, 0.16);
-    --violet-soft:  rgba(139, 92, 246, 0.16);
-
     /* Status TEXT — light pastel foregrounds for use ON the *-soft backgrounds
      * (status pills, badges, tier chips). Paired so consumers stop hardcoding
      * the pastel hex. Values taken from the existing console pastels. */
@@ -35,7 +33,6 @@
     --info-text:    #93c5fd;
     --warning-text: #fde68a;
     --danger-text:  #fca5a5;
-    --violet-text:  #c4b5fd;
 
     /* Surfaces — layered console panels (NEW; consumed by global overrides + shell) */
     --surface-base:    #0b0f17;    /* app background floor */
@@ -82,7 +79,6 @@
     --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
 
     /* Elevation — flatter, darker shadows for console depth */
-    --shadow-sm:          0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-brand:       0 8px 24px -8px rgba(0, 0, 0, 0.6);
     --shadow-brand-hover: 0 12px 28px -8px rgba(0, 0, 0, 0.7);
     --shadow-glass:       0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -90,16 +86,11 @@
     /* Focus ring — console cyan; alpha 0.8 for ≥3:1 contrast on surface-base */
     --focus-ring: 0 0 0 3px rgba(34, 211, 238, 0.8);
 
-    /* Spacing / radius — tighter, more rectilinear console feel */
-    --radius: 10px;    /* legacy alias → see --radius-xl below */
-    --space: 20px;     /* legacy alias → see --space-5 below */
-
     /* ── Spacing scale — 4px base ──────────────────────────────────────────── */
     --space-1: 0.25rem;  /* 4px */
     --space-2: 0.5rem;   /* 8px */
     --space-3: 0.75rem;  /* 12px */
     --space-4: 1rem;     /* 16px */
-    --space-5: 1.25rem;  /* 20px = --space */
     --space-6: 1.5rem;   /* 24px */
 
     /* ── Control density ────────────────────────────────────────────────────── */
@@ -144,6 +135,21 @@
      * Text rendered ON a --primary (#38bdf8) surface. Near-black, ≥4.5:1 vs
      * #38bdf8. Replaces hardcoded #0d1117 in .primary button rules (Unit 6). */
     --on-primary: #0d1117;
+
+    /* ── On-status text (Phase 1.1b) ───────────────────────────────────────
+     * Foreground tokens for text/icon rendered ON status background colors.
+     * --on-danger: white on #f87171 (≥4.5:1)
+     * --on-warning / --on-success: near-black on amber/green (≥4.5:1)
+     * Replaces hardcoded #fff / #0d1117 in badge and button rules. */
+    --on-danger:  #ffffff;
+    --on-warning: #0d1117;
+    --on-success: #0d1117;
+
+    /* ── Muted text (Phase 1.1a) ───────────────────────────────────────────
+     * Semantic alias for --text-secondary. Fixes 6 consumers that were
+     * referencing an undefined --muted token, which resolved to `initial`
+     * (black) on the dark theme — invisible text bug. */
+    --muted: var(--text-secondary);
 
     color-scheme: dark;
 }
@@ -243,6 +249,16 @@ body {
    * must flip to a light colour to stay ≥4.5:1. */
   --on-primary: #ffffff;
 
+  /* On-status text — light theme: the dark theme's white on danger is fine
+   * (still ≥4.5:1), but near-black on warning/success must flip to white
+   * against the lighter light-theme amber/green. */
+  --on-danger:  #ffffff;
+  --on-warning: #ffffff;
+  --on-success: #ffffff;
+
+  /* Muted text — light theme: inherits --text-secondary by default, no
+   * override needed here (the dark-theme value works on light surfaces too). */
+
   /* Status TEXT — dark theme's pastel foregrounds (e.g. --danger-text:
    * #fca5a5) are meant for dark *-soft chip backgrounds and read as
    * near-invisible on the pale tints those same *-soft tokens produce over
@@ -253,13 +269,11 @@ body {
   --info-text:    #0369a1;  /* sky-700 (matches --primary; --info shares --primary's hue) */
   --warning-text: #92400e;  /* amber-800 — ~6.3:1 on --warning-soft-over-white */
   --danger-text:  #991b1b;  /* red-800 — ~6.7:1 on --danger-soft-over-white */
-  --violet-text:  #5b21b6;  /* violet-800 — ~7.4:1 on --violet-soft-over-white */
 
   /* Elevation — dark theme's shadows are near-black at high alpha (0.4-0.7),
    * tuned for depth against a near-black floor. The same alpha over a white
    * floor reads as a harsh, oversized drop-shadow; light-theme shadows use
    * the conventional lower-alpha treatment. */
-  --shadow-sm:          0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-brand:       0 8px 24px -8px rgba(0, 0, 0, 0.18);
   --shadow-brand-hover: 0 12px 28px -8px rgba(0, 0, 0, 0.22);
   --shadow-glass:       0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -281,25 +295,25 @@ code, kbd, samp, .font-mono {
 /* Global dark-glass overrides — apply to all pages that use base.html. */
 
 /* btn-outline-secondary: replace Bootstrap's light-mode gray with glass-dark style */
-.btn-outline-secondary {
-    border-color: rgba(255, 255, 255, 0.22) !important;
-    color: rgba(255, 255, 255, 0.70) !important;
-    background: rgba(255, 255, 255, 0.06) !important;
+html:not([data-theme="light"]) .btn-outline-secondary {
+    border-color: rgba(255, 255, 255, 0.22);
+    color: rgba(255, 255, 255, 0.70);
+    background: rgba(255, 255, 255, 0.06);
 }
-.btn-outline-secondary:hover,
-.btn-outline-secondary:focus {
-    background: rgba(255, 255, 255, 0.14) !important;
-    border-color: rgba(255, 255, 255, 0.40) !important;
-    color: #fff !important;
+html:not([data-theme="light"]) .btn-outline-secondary:hover,
+html:not([data-theme="light"]) .btn-outline-secondary:focus {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.40);
+    color: #fff;
 }
 
 /* alert-warning: muted amber console panel instead of Bootstrap's bright yellow */
-.alert-warning {
-    background: var(--warning-soft) !important;
-    border-color: rgba(245, 158, 11, 0.35) !important;
-    color: #fcd34d !important;
+html:not([data-theme="light"]) .alert-warning {
+    background: var(--warning-soft);
+    border-color: rgba(245, 158, 11, 0.35);
+    color: #fcd34d;
 }
-.alert-warning strong { color: inherit !important; }
+html:not([data-theme="light"]) .alert-warning strong { color: inherit; }
 .alert-warning code {
     background: rgba(255, 255, 255, 0.12);
     color: inherit;
@@ -308,12 +322,12 @@ code, kbd, samp, .font-mono {
 }
 
 /* alert-danger: muted red console panel */
-.alert-danger {
-    background: var(--danger-soft) !important;
-    border-color: rgba(239, 68, 68, 0.35) !important;
-    color: #fca5a5 !important;
+html:not([data-theme="light"]) .alert-danger {
+    background: var(--danger-soft);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
 }
-.alert-danger strong { color: inherit !important; }
+html:not([data-theme="light"]) .alert-danger strong { color: inherit; }
 .alert-danger code {
     background: rgba(255, 255, 255, 0.12);
     color: inherit;
@@ -332,21 +346,21 @@ code, kbd, samp, .font-mono {
  * ties. Applies to both the SPA (5 pages) and legacy Jinja pages — legacy
  * never had a light-theme version of these three classes before this. */
 [data-theme="light"] .btn-outline-secondary {
-    border-color: rgba(0, 0, 0, 0.22) !important;
-    color: rgba(0, 0, 0, 0.65) !important;
-    background: rgba(0, 0, 0, 0.03) !important;
+    border-color: rgba(0, 0, 0, 0.22);
+    color: rgba(0, 0, 0, 0.65);
+    background: rgba(0, 0, 0, 0.03);
 }
 [data-theme="light"] .btn-outline-secondary:hover,
 [data-theme="light"] .btn-outline-secondary:focus {
-    background: rgba(0, 0, 0, 0.08) !important;
-    border-color: rgba(0, 0, 0, 0.45) !important;
-    color: #000 !important;
+    background: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.45);
+    color: #000;
 }
 
 [data-theme="light"] .alert-warning {
-    background: var(--warning-soft) !important;
-    border-color: rgba(245, 158, 11, 0.45) !important;
-    color: var(--warning-text) !important;
+    background: var(--warning-soft);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: var(--warning-text);
 }
 [data-theme="light"] .alert-warning code {
     background: rgba(0, 0, 0, 0.08);
@@ -354,9 +368,9 @@ code, kbd, samp, .font-mono {
 }
 
 [data-theme="light"] .alert-danger {
-    background: var(--danger-soft) !important;
-    border-color: rgba(239, 68, 68, 0.45) !important;
-    color: var(--danger-text) !important;
+    background: var(--danger-soft);
+    border-color: rgba(239, 68, 68, 0.45);
+    color: var(--danger-text);
 }
 [data-theme="light"] .alert-danger code {
     background: rgba(0, 0, 0, 0.08);

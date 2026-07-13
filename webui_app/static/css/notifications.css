@@ -32,7 +32,7 @@
     background: var(--danger);
     color: white;
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     line-height: 18px;
     text-align: center;
     border-radius: 9px;
@@ -73,7 +73,7 @@
 }
 
 .notification-panel__title {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     font-size: 1rem;
 }
 
@@ -87,11 +87,10 @@
     background: none;
     border: none;
     border-radius: 6px;
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     color: var(--primary);
     cursor: pointer;
 }
-
 .notification-panel__btn:hover {
     background: rgba(79, 70, 229, 0.1);
 }
@@ -141,19 +140,19 @@
 }
 
 .notification-item__title {
-    font-weight: 500;
-    font-size: 0.9rem;
+    font-weight: var(--font-weight-medium);
+    font-size: var(--text-lg);
     margin-bottom: 2px;
 }
 
 .notification-item__message {
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     color: var(--muted);
     line-height: 1.4;
 }
 
 .notification-item__time {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--muted);
     margin-top: 4px;
 }

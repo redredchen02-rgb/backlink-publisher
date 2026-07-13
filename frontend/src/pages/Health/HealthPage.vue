@@ -413,12 +413,12 @@ const secondaryPanels = computed(() => {
   min-width: 10rem;
 }
 .stat__label {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 .stat__value {
   font-size: 1.4rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .stat__value.warn {
   color: var(--danger);
@@ -438,7 +438,7 @@ const secondaryPanels = computed(() => {
   }
 }
 .degraded-tag {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--danger);
   font-weight: 400;
 }
@@ -462,7 +462,7 @@ const secondaryPanels = computed(() => {
 }
 .health__more summary {
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 0.75rem;
 }
 .health__more .health__section {

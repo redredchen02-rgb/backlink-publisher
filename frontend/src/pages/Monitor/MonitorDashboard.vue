@@ -575,18 +575,18 @@ function pollKeepaliveJob(jobId: string): void {
 }
 .anomaly {
   color: var(--warning);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .ok {
   color: var(--success);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 /* R11/R18: degraded must read as "can't confirm everything is fine", never
    as plain muted gray next to a green checkmark (which under-communicates
    the distinction). Distinct icon + warning color, not `.muted`. */
 .degraded-note {
   color: var(--warning);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 /* Never-run guidance card (Plan 2026-07-06-005 W15 / D13). Deliberately NOT
    `.card`/`data-severity` styled — a dashed border (vs. the solid
@@ -611,7 +611,7 @@ function pollKeepaliveJob(jobId: string): void {
   border-radius: var(--radius-md);
   padding: 0.1rem 0.5rem;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--primary);
 }
 .guidance-card__icon {
@@ -624,14 +624,14 @@ function pollKeepaliveJob(jobId: string): void {
 }
 .guidance-card__title {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .guidance-card__detail {
   margin: 0.15rem 0 0;
 }
 .guidance-card__action {
   flex: 0 0 auto;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--primary);
   white-space: nowrap;
 }
@@ -703,7 +703,7 @@ function pollKeepaliveJob(jobId: string): void {
   background: var(--success);
 }
 .card__title {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .card__headline {
   margin: 0;
@@ -761,7 +761,7 @@ function pollKeepaliveJob(jobId: string): void {
   align-items: baseline;
 }
 .card-item__headline {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 .card-item__status {
   font-size: var(--text-sm);

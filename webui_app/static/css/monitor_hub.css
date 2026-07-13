@@ -11,8 +11,8 @@
     margin-bottom: 20px;
     flex-wrap: wrap;
 }
-.hub__title { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 0; }
-.hub__subtitle { font-size: 0.875rem; color: var(--text-secondary); margin: 4px 0 0; }
+.hub__title { font-size: 1.4rem; font-weight: var(--font-weight-bold); color: var(--text-primary); margin: 0; }
+.hub__subtitle { font-size: var(--text-base); color: var(--text-secondary); margin: 4px 0 0; }
 
 .hub__refresh {
     display: inline-flex;
@@ -23,7 +23,7 @@
     border: 1px solid var(--border);
     background: var(--glass-bg);
     color: var(--text-primary);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
@@ -40,7 +40,7 @@
     flex-direction: column;
     gap: 8px;
     padding: 16px 18px;
-    border-radius: var(--radius);
+    border-radius: var(--radius-xl);
     background: var(--surface-raised);
     border: 1px solid var(--border);
     border-left: 3px solid var(--border);
@@ -58,25 +58,25 @@
 .hub-card--info { border-left-color: var(--info); opacity: 0.92; }
 
 .hub-card__head { display: flex; align-items: center; gap: 8px; }
-.hub-card__icon { font-size: 1.05rem; }
+.hub-card__icon { font-size: var(--text-xl); }
 .hub-card--danger .hub-card__icon { color: var(--danger); }
 .hub-card--warning .hub-card__icon { color: var(--warning); }
 .hub-card--ok .hub-card__icon { color: var(--success); }
 .hub-card--info .hub-card__icon { color: var(--info); }
-.hub-card__title { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+.hub-card__title { font-weight: var(--font-weight-semibold); font-size: var(--text-lg); color: var(--text-primary); }
 
 .hub-card__headline {
-    font-size: 1.05rem;
-    font-weight: 600;
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
 }
 .hub-card--danger .hub-card__headline { font-size: 1.25rem; }
-.hub-card__detail { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); }
+.hub-card__detail { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); }
 
 .hub-card__footer { display: flex; gap: 14px; margin-top: 4px; }
 .hub-card__deeplink, .hub-card__action {
     font-size: 0.82rem;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     text-decoration: none;
 }
 .hub-card__deeplink { color: var(--text-secondary); }
