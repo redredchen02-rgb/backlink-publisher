@@ -159,10 +159,13 @@ def test_write_frw_token_orphan_archive_has_microseconds(isolated_config_dir):
     orphans = sorted(isolated_config_dir.glob("frw-token.json.orphaned-*"))
     assert len(orphans) == 2
 
-    # Suffix must contain microseconds — i.e. ``_<digits>Z`` segment.
+    # Suffix must contain microseconds — i.e. a ``_<digits>Z`` segment,
+    # followed by a random disambiguator (the wall clock alone is not a
+    # reliable enough distinguisher on Windows — see
+    # secrets._archive_orphan_token's docstring).
     for path in orphans:
         suffix = path.name.split(".orphaned-")[-1]
-        assert "_" in suffix and suffix.endswith("Z"), (
+        assert "_" in suffix and "Z-" in suffix, (
             f"orphan suffix {suffix!r} missing μs segment"
         )
 

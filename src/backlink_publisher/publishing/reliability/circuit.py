@@ -40,6 +40,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import random
 import time
 from typing import Any, cast, TYPE_CHECKING
 
@@ -103,7 +104,13 @@ def _acquire_lock(lock_path: Path) -> int:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return fd
         except BlockingIOError:
-            time.sleep(_LOCK_POLL_INTERVAL)
+            # Jittered backoff: two contending processes polling at the exact
+            # same fixed interval can repeatedly wake and re-contend in
+            # lockstep, which under real OS scheduling load has been observed
+            # to stretch a handful of lock acquisitions out to the 60 s
+            # timeout even though the lock itself is always released
+            # promptly. Randomizing the sleep desynchronizes retries.
+            time.sleep(_LOCK_POLL_INTERVAL * random.uniform(0.5, 1.5))
 
     os.close(fd)
     raise ExternalServiceError(

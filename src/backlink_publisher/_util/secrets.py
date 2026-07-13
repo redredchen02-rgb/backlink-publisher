@@ -235,17 +235,23 @@ def _token_lock(token_path: Path) -> Iterator[None]:
 
 
 def _archive_orphan_token(token_path: Path) -> Path | None:
-    """Move ``token_path`` to ``<path>.orphaned-<UTC iso μs>``.
+    """Move ``token_path`` to ``<path>.orphaned-<UTC iso μs>-<random>``.
 
-    Microsecond precision in the suffix is load-bearing: two concurrent
-    rotations within the same second would otherwise pick identical
-    archive paths, and the second ``os.replace`` would silently
-    overwrite the first archive — losing the orphaned api_key.
+    Distinctness in the suffix is load-bearing: two concurrent rotations
+    would otherwise pick identical archive paths, and the second
+    ``os.replace`` would silently overwrite the first archive — losing the
+    orphaned api_key. Microsecond precision alone is not sufficient: the
+    underlying wall-clock's actual update resolution can be coarser than
+    the ``%f`` field suggests (observed on Windows), so a short random
+    suffix is appended as the real disambiguator.
     """
     if not token_path.exists():
         return None
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
-    archive = token_path.with_suffix(token_path.suffix + f".orphaned-{stamp}")
+    disambiguator = os.urandom(3).hex()
+    archive = token_path.with_suffix(
+        token_path.suffix + f".orphaned-{stamp}-{disambiguator}"
+    )
     os.replace(token_path, archive)
     os.chmod(archive, 0o600)
     return archive
