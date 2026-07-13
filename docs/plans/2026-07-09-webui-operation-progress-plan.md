@@ -5,9 +5,25 @@ status: active
 date: 2026-07-09
 origin: user request — analyze codebase, iterate UX, make interface usable, surface operation progress
 deepened: 2026-07-09
-claims: {}
-# claims paths deferred until the feature branch merges — plan-check validates
-# claimed paths against origin/main, and this work is still on feat/operation-progress.
+claims:
+  # Restored 2026-07-13 after feat/operation-progress merged to origin/main.
+  # Backend + components + tests only — router/nav/PublishWorkbench wiring is
+  # still open (see plan body), so those files are not claimed yet. The
+  # original claim of webui_app/routes/operations.py was drift: the endpoint
+  # landed at webui_app/api/v1/operations.py.
+  paths:
+    - webui_store/operation_store.py
+    - webui_app/services/operation_worker.py
+    - webui_app/api/v1/operations.py
+    - frontend/src/api/operations.ts
+    - frontend/src/composables/useOperation.ts
+    - frontend/src/stores/operations.ts
+    - frontend/src/components/OperationProgress.vue
+    - frontend/src/components/StatusBadge.vue
+    - frontend/src/pages/Operations/OperationsPage.vue
+    - tests/test_webui_operations_routes.py
+    - tests/test_operation_store.py
+    - tests/test_operation_worker.py
 ---
 
 # opt: Operation-progress visibility + UI usability

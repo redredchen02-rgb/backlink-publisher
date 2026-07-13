@@ -5,10 +5,21 @@ status: active
 date: 2026-07-09
 origin: user request — 當使用者遇到問題時，能一鍵把錯誤現場抓出來，打包成可直接交給 coding agent 修復的報表
 deepened: 2026-07-09
-claims: {}
-# claims paths deferred until the feature branch merges — plan-check validates
-# claimed paths against origin/main (schema also rejects the previous `summary` key;
-# only `paths`/`shas` are allowed). Work is on feat/error-bug-report.
+claims:
+  # Restored 2026-07-13 after feat/error-bug-report merged to origin/main
+  # (schema note: only paths/shas keys are allowed — the original summary key
+  # was rejected by plan-check). Not claimed because still open: the
+  # bp-report-bug pyproject entrypoint and the WebUI 匯出診斷包 button
+  # (webui_app/static/js/ui/error-report-entry.js was never created).
+  paths:
+    - src/backlink_publisher/cli/report_bug/__init__.py
+    - src/backlink_publisher/cli/report_bug/_build.py
+    - src/backlink_publisher/cli/report_bug/main.py
+    - webui_app/api/v1/error_report_bundle.py
+    - webui_app/api/v1/__init__.py
+    - tests/test_report_bug_build.py
+    - tests/test_report_bug_cli.py
+    - tests/test_webui_api_v1_error_report_bundle.py
 ---
 
 # Plan: Error / Bug-Report System (2026-07-09-002)
