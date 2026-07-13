@@ -29,7 +29,10 @@ dynamic panels) keeps the `.data-table` CSS convention with sr-only captions.
   (usually via DataTable).
 - User-action outcomes (submit/save/publish success or failure) → toast via
   `useErrorToast` or an inline `role="alert"` element next to the control.
-- Never hand-roll spinners; StateBlock owns loading treatment.
+- New code must not hand-roll spinners; StateBlock owns loading treatment.
+  Known legacy remnants (unstyled since the Bootstrap CDN removal, pending
+  cleanup): `spinner-border` elements in CampaignProgressPage.vue (~line 130,
+  recheck action) and KeepAlivePage.vue (~line 444). Do not copy them.
 
 ## Breakpoint
 
@@ -46,7 +49,21 @@ would change sidebar collapse behaviour in the 960-1024px range and break
 legacy parity. This is temporary until Phase B retires the legacy shell, at
 which point `src/layout/*` can be reconciled with the 960px convention.
 
-## Copy
+## Copy & styling
 
-UI copy is Simplified Chinese (zh-CN). No Bootstrap classes — style with
-tokens from `webui_app/static/css/tokens.css` via `var(--…)`.
+UI copy is Simplified Chinese (zh-CN).
+
+Do not introduce NEW Bootstrap utility classes — style with tokens from
+`webui_app/static/css/tokens.css` via `var(--…)`. Reality check (2026-07-13):
+~20 pages still carry Bootstrap-derived classes (`btn*`, `alert*`, `card`,
+`progress*`, `d-flex`, `spinner-border`, …) left over from before the CDN
+removal; only the badge-context `bg-*` classes are guard-enforced
+(component-adoption.spec.ts). Since no local CSS defines the rest, many of
+those remnants render unstyled today — treat them as cleanup targets
+(candidate for Phase B), never as a pattern to copy.
+
+## Guards are fully ratcheted
+
+Both tolerance sets in `component-adoption.spec.ts` are EMPTY and
+`data-table-adoption.spec.ts` is a tombstone. New pages must comply from day
+one; adding tolerance entries back is not allowed.
