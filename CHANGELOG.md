@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`backlink-doctor` preflight CLI (F1):** read-only command that classifies the adapter registry and prints the shortest path to a first real dofollow backlink — surfacing that `rentry`/`telegraph` need no credentials at all, the high-value channels still needing setup, and the anonymous `uncertain` platforms ready for canary promotion — plus best-effort local-config gaps. stdout JSON, stderr guidance, exit 0. Addresses the zero-real-telemetry gap (the tool had never produced a real backlink on the operator machine).
+- **`canary-flip` promotion automation — completes U11 flip-or-kill (F2):** turns a confirmed `canary-seed` verdict (`verdict="dofollow"`) into a ready-to-apply promotion: flips `register(..., dofollow=True)`, drops the now-unneeded `rationale=`/`referral_value=` kwargs, removes the multi-line `_R[...]` rationale entry, and marks the `docs/discovery/canary-pending.md` row `flipped`. Rule **A5**-respecting: default emits a reviewable unified diff + `.patch` for `git apply`; `--apply` edits the working tree only (never commits). Every generated source is `ast.parse`-validated (refuses rather than corrupts). Collapses ~6 manual editing steps into one command.
+- **Catalog low-code channel activation (F3):** `publishing/adapters/__init__.py` `_lazy_init` now loads operator-authored catalog YAMLs from `<config_dir>/catalog` in production (previously only tests passed `user_config_dir`), giving the low-code channel a real runtime use-path and making `verify-dofollow`'s YAML write-back effective. Hand-written adapters still win slug collisions; guarded against the test-sandbox fail-closed resolver.
+
 ### Fixed
 
 - **Test collection errors (R12 Phase A):** 16 test files with `__tier__` assigned before `from __future__ import annotations` — reordered to comply with PEP 236, unblocking 366 tests. 3 additional test files had broken import paths from the U8 CLI reorganization (`keepalive_status`, `plan_check_helpers`, `report_anchors`, `cli_health_check`, `state_backup`) — updated to `cli.ops`, `cli.plan`, `cli.admin` subdirectories. Full suite now collects **11,962 tests with 0 errors**.
