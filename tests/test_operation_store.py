@@ -55,6 +55,36 @@ def test_update_rejects_bad_status(tmp_path: Path) -> None:
     assert store.get(op_id)["status"] == "pending"
 
 
+def test_canceled_is_terminal_late_worker_write_cannot_resurrect(tmp_path: Path) -> None:
+    # finding [37]: cancel() sets status="canceled", but the still-running worker
+    # thread later writes status="success"/"failed", clobbering the terminal
+    # cancel. 'canceled' must be a terminal sink: subsequent writes are no-ops.
+    store = _store(tmp_path)
+    op_id = store.create(kind="publish", cfg={})
+    store.update_fields(op_id, status="running", progress_pct=50)
+    assert store.update_fields(op_id, status="canceled")
+
+    # The abandoned worker completes and tries to record a terminal success.
+    store.update_fields(
+        op_id, status="success", progress_pct=100, result={"n_ok": 1}
+    )
+
+    op = store.get(op_id)
+    assert op["status"] == "canceled"
+    assert op.get("result") in (None, {})  # the success payload never landed
+
+
+def test_canceled_op_ignores_progress_and_stage_writes(tmp_path: Path) -> None:
+    # Once canceled, even non-status stage/progress bumps from the worker are frozen.
+    store = _store(tmp_path)
+    op_id = store.create(kind="publish", cfg={})
+    store.update_fields(op_id, status="canceled", stage="", progress_pct=30)
+    store.update_fields(op_id, stage="发布", progress_pct=75, detail="正在发布…")
+    op = store.get(op_id)
+    assert op["status"] == "canceled"
+    assert op["progress_pct"] == 30
+
+
 def test_list_and_active(tmp_path: Path) -> None:
     store = _store(tmp_path)
     a = store.create(kind="publish", cfg={"n": 1})

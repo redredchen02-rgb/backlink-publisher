@@ -218,6 +218,30 @@ class TestProbeTimeout:
             result = medium_liveness_check(timeout_s=0.1)
         assert result == LivenessResult.NEEDS_RECHECK
 
+    def test_probe_timeout_returns_promptly_not_blocked_on_shutdown(self, monkeypatch):
+        # finding [36]: with `with ThreadPoolExecutor(...) as pool`, a TimeoutError
+        # propagating out of the block triggers __exit__ -> shutdown(wait=True),
+        # which JOINS the still-running probe — so control is NOT returned within
+        # timeout_s, defeating the "render without blocking" contract. Assert the
+        # wall-clock is bounded near the budget, not the (much longer) probe time.
+        _mark_bound_with_last_verified(seconds_ago=600)
+        monkeypatch.setattr(_svc, "MEDIUM_LIVENESS_ACTIVE_PROBE_ENABLED", True)
+
+        def _slow_probe(storage_state):
+            time.sleep(3.0)  # far exceeds the 0.2s budget
+            return LivenessResult.LOGGED_IN
+
+        with patch("webui_app.services.medium_liveness_service._active_probe", _slow_probe):
+            start = time.monotonic()
+            result = medium_liveness_check(timeout_s=0.2)
+            elapsed = time.monotonic() - start
+
+        assert result == LivenessResult.NEEDS_RECHECK
+        assert elapsed < 1.5, (
+            f"medium_liveness_check returned after {elapsed:.2f}s — blocked on "
+            f"executor shutdown(wait=True) instead of returning at the 0.2s budget"
+        )
+
 
 # ─── Atomic-write race retry ───
 

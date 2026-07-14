@@ -345,7 +345,9 @@ def _build_manual_verdict_ref(evidence_log: str | None, repo_root: Path) -> dict
                 EXIT_WORKTREE,
             ) from exc
     full = (repo_resolved / rel).resolve()
-    if not str(full).startswith(str(repo_resolved)):
+    # Directory containment, NOT string-prefix: str.startswith("/x/repo") also
+    # matches a sibling like "/x/repo-evil/…", letting a path escape the repo.
+    if not full.is_relative_to(repo_resolved):
         raise _InitError(
             f"--evidence-log {evidence_log!r} resolves outside the repo ({full})",
             EXIT_WORKTREE,

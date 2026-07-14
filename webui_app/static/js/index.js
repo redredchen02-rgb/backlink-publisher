@@ -104,6 +104,14 @@ function _initLoadingOverlay() {
     if (s) s.textContent = msg.sub;
     if (overlay) overlay.style.display = 'flex';
     form.querySelectorAll('[type="submit"]').forEach((btn) => { btn.disabled = true; });
+    // Per-button submit spinner (replaces the removed inline onclick, audit [41]).
+    // Runs in the submit handler — the submission is already in flight, so
+    // disabling/rewriting the submitter here does not cancel it.
+    const submitter = e.submitter;
+    if (submitter && submitter.hasAttribute('data-submit-spinner')) {
+      submitter.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1"></span>处理中…';
+    }
   });
 }
 

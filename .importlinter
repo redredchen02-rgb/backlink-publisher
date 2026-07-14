@@ -5,14 +5,14 @@ root_packages =
 # Contract: domain packages must not import from cli/.
 #
 # Known remaining violations (ignored via ignore_imports, tracked for future fix):
-#   1. publishing.adapters.instant_web → cli._bind.chrome_backend
+#   1. publishing.adapters.instant_web -> cli._bind.chrome_backend
 #      Fix: move chrome_backend to publishing/browser_publish/ (deep architectural change)
-#   2. sdk.api → cli._report_engine
+#   2. sdk.api -> cli._report_engine
 #      Fix: SDK is intentionally an in-process CLI caller; extract report_engine to domain layer
 #
 # Fixed in plan 2026-06-24-002 U7:
-#   - _util.errors → cli._bind.channels: fixed by moving CHANNELS to _util.channels
-#   - publishing.browser_publish.dispatcher → cli._bind.channels: same fix
+#   - _util.errors -> cli._bind.channels: fixed by moving CHANNELS to _util.channels
+#   - publishing.browser_publish.dispatcher -> cli._bind.channels: same fix
 [importlinter:contract:no-domain-to-cli]
 name = Domain packages must not import from cli/
 type = forbidden
@@ -33,8 +33,67 @@ source_modules =
     backlink_publisher.idempotency
     backlink_publisher.schedule
     backlink_publisher.checkpoint
+    backlink_publisher._compat
+    backlink_publisher._dispatch_router
+    backlink_publisher.audit
+    backlink_publisher.channel_discovery
+    backlink_publisher.click_track
+    backlink_publisher.comment_outreach
+    backlink_publisher.gates
+    backlink_publisher.geo
+    backlink_publisher.gsc
+    backlink_publisher.health
+    backlink_publisher.llm
+    backlink_publisher.optimization
+    backlink_publisher.persistence
+    backlink_publisher.phase0
+    backlink_publisher.pr_outreach
+    backlink_publisher.referral
+    backlink_publisher.scorecard
 forbidden_modules =
     backlink_publisher.cli
 ignore_imports =
     backlink_publisher.publishing.adapters.instant_web -> backlink_publisher.cli._bind.chrome_backend
     backlink_publisher.sdk.** -> backlink_publisher.cli.**
+
+# Contract: _util (the lowest layer) must not import from cli or any domain package.
+# Ported from pyproject.toml, which import-linter never reads (the ini reader wins
+# over the toml reader, so the pyproject copy was dead/unenforced config -- audit [03]).
+[importlinter:contract:no-util-to-domain]
+name = _util must not import from domain or cli
+type = forbidden
+source_modules =
+    backlink_publisher._util
+forbidden_modules =
+    backlink_publisher.cli
+    backlink_publisher.publishing
+    backlink_publisher.keepalive
+    backlink_publisher.events
+    backlink_publisher._validate_engine
+    backlink_publisher.config
+    backlink_publisher.content
+    backlink_publisher.linkcheck
+    backlink_publisher.gap
+    backlink_publisher.recheck
+    backlink_publisher.referral
+    backlink_publisher.health
+    backlink_publisher.canary
+    backlink_publisher.ledger
+    backlink_publisher.idempotency
+    backlink_publisher.optimization
+    backlink_publisher.scorecard
+    backlink_publisher._dispatch_router
+    backlink_publisher.gates
+    backlink_publisher.schedule
+    backlink_publisher.audit
+    backlink_publisher.geo
+    backlink_publisher.click_track
+    backlink_publisher.llm
+    backlink_publisher.gsc
+    backlink_publisher.anchor
+ignore_imports =
+    # Deliberate lazy import: _util.paths._config_dir() defers to
+    # config._config_dir so a test monkeypatch on the config package intercepts
+    # even when called from config/loader.py (see the paths.py docstring). This
+    # is the single remaining _util -> config edge and is intentional.
+    backlink_publisher._util.paths -> backlink_publisher.config

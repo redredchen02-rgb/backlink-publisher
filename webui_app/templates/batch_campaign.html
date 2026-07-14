@@ -118,10 +118,10 @@
             <h5><i class="bi bi-file-earmark-text me-1"></i>模式</h5>
             <div class="mode-tabs" role="group">
                 <button type="button" class="mode-tab {% if form.get('mode', 'draft') == 'draft' %}active{% endif %}"
-                        data-mode="draft" onclick="setMode('draft')"
+                        data-mode="draft"
                         aria-label="草稿模式：先审稿再发布">草稿模式</button>
                 <button type="button" class="mode-tab {% if form.get('mode', 'draft') == 'publish' %}active{% endif %}"
-                        data-mode="publish" onclick="setMode('publish')"
+                        data-mode="publish"
                         aria-label="直接发布：跳过审稿直接上线">直接发布</button>
             </div>
             <input type="hidden" name="mode" id="mode-input" value="{{ form.get('mode', 'draft') }}">
@@ -166,12 +166,5 @@
 </div>
 {% endblock %}
 {% block page_data %}
-<script>
-function setMode(m) {
-    document.querySelectorAll('.mode-tab').forEach(function(t) {
-        t.classList.toggle('active', t.dataset.mode === m);
-    });
-    document.getElementById('mode-input').value = m;
-}
-</script>
+<script type="module" src="{{ url_for('static', filename='js/batch_campaign.js', v=asset_version) }}"></script>
 {% endblock %}

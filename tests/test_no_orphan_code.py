@@ -32,8 +32,6 @@ ALLOWLIST: set[str] = {
     # New opt-in modules (2026-06-05 optimization gaps)
     "_util/http_client.py",
     "_util/structlog_config.py",
-    # Opt-in throttle module (2026-06-10)
-    "publishing/_throttle.py",
     # U8 CLI shims (2026-06-26) — backward-compat re-exports from subdirs
     "cli/keepalive_run.py",
     "cli/keepalive_status.py",

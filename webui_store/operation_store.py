@@ -265,6 +265,12 @@ class OperationSqliteStore(BaseSqliteStore):
                         op = {}
                     if not isinstance(op, dict):
                         op = {}
+                    # 'canceled' is a terminal sink: cancel() cannot stop an
+                    # already-running worker thread, so its late status="success"
+                    # /"failed" write (and any stage/progress bump) must not
+                    # resurrect a canceled op. Freeze the record (audit [37]).
+                    if op.get("status") == "canceled":
+                        return True
                     op.update(updates)
                     conn.execute(
                         "UPDATE operations SET kind = ?, status = ?, stage = ?, "
