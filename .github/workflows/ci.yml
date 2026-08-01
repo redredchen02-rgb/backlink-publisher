@@ -48,7 +48,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache .venv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: venv-cache
         with:
           path: .venv
@@ -185,7 +185,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache .venv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: venv-cache-integration
         with:
           path: .venv
@@ -241,7 +241,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache .venv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: venv-cache-e2e
         with:
           path: .venv
