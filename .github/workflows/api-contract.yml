@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0  # need the base ref for oasdiff
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: python -m pip install -e ".[dev]"
