@@ -36,7 +36,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Cache .venv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: venv-cache-e2e-sep
         with:
           path: .venv
@@ -46,7 +46,7 @@ jobs:
         if: steps.venv-cache-e2e-sep.outputs.cache-hit != 'true'
         run: python -m pip install -e ".[dev,browser]"
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
